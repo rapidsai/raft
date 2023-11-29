@@ -40,6 +40,9 @@
 
 #include <cassert>
 #include <memory>
+#include <rmm/cuda_device.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -106,9 +109,14 @@ class FaissGpu : public ANN<T> {
     RAFT_CUDA_TRY(cudaEventCreate(&sync_, cudaEventDisableTiming));
     faiss_default_stream_ = gpu_resource_.getDefaultStream(device_);
     raft::resource::set_cuda_stream(handle_, faiss_default_stream_);
+    current_mr_ = rmm::mr::get_per_device_resource(rmm::cuda_device_id{device_});
   }
 
-  virtual ~FaissGpu() noexcept { RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(sync_)); }
+  virtual ~FaissGpu() noexcept
+  {
+    rmm::mr::set_per_device_resource(rmm::cuda_device_id{device_}, current_mr_);
+    RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(sync_));
+  }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
 
@@ -160,6 +168,7 @@ class FaissGpu : public ANN<T> {
   const T* dataset_;
   raft::device_resources handle_;
   float refine_ratio_ = 1.0;
+  rmm::mr::device_memory_resource* current_mr_{nullptr};
 };
 
 template <typename T>
@@ -296,6 +305,9 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     int M;
     bool useFloat16;
     bool usePrecomputed;
+    bool interleavedLayout;
+    bool use_raft;
+    int bitsPerCode;
   };
 
   FaissGpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
@@ -303,16 +315,25 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     faiss::gpu::GpuIndexIVFPQConfig config;
     config.useFloat16LookupTables = param.useFloat16;
     config.usePrecomputedTables   = param.usePrecomputed;
+    config.use_raft               = param.use_raft;
+    config.interleavedLayout      = param.interleavedLayout;
     config.device                 = this->device_;
 
-    this->index_ =
-      std::make_unique<faiss::gpu::GpuIndexIVFPQ>(&(this->gpu_resource_),
-                                                  dim,
-                                                  param.nlist,
-                                                  param.M,
-                                                  8,  // FAISS only supports bitsPerCode=8
-                                                  this->metric_type_,
-                                                  config);
+    if (config.use_raft) {
+      rmm::mr::cuda_memory_resource cuda_mr;
+      // Construct a resource that uses a coalescing best-fit pool allocator
+      rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{
+        &cuda_mr, pow(2, 30), pow(2, 31)};
+      rmm::mr::set_per_device_resource(rmm::cuda_device_id{this->device_}, &pool_mr);
+    }
+
+    this->index_ = std::make_unique<faiss::gpu::GpuIndexIVFPQ>(&(this->gpu_resource_),
+                                                               dim,
+                                                               param.nlist,
+                                                               param.M,
+                                                               param.bitsPerCode,
+                                                               this->metric_type_,
+                                                               config);
   }
 
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override

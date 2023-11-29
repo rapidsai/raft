@@ -61,6 +61,21 @@ void parse_build_param(const nlohmann::json& conf,
   } else {
     param.useFloat16 = false;
   }
+  if (conf.contains("use_raft")) {
+    param.use_raft = conf.at("use_raft");
+  } else {
+    param.use_raft = false;
+  }
+  if (conf.contains("bitsPerCode")) {
+    param.bitsPerCode = conf.at("bitsPerCode");
+  } else {
+    param.bitsPerCode = 8;
+  }
+  if (conf.contains("interleavedLayout")) {
+    param.interleavedLayout = conf.at("interleavedLayout");
+  } else {
+    param.interleavedLayout = false;
+  }
 }
 
 template <typename T>

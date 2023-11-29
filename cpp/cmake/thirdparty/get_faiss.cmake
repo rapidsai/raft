@@ -50,6 +50,7 @@ function(find_and_configure_faiss)
                 EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
                 OPTIONS
                 "FAISS_ENABLE_GPU ${PKG_ENABLE_GPU}"
+                "FAISS_ENABLE_RAFT ON"
                 "FAISS_ENABLE_PYTHON OFF"
                 "FAISS_OPT_LEVEL ${RAFT_FAISS_OPT_LEVEL}"
                 "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
@@ -90,14 +91,14 @@ endfunction()
 if(NOT RAFT_FAISS_GIT_TAG)
     # TODO: Remove this once faiss supports FAISS_USE_CUDA_TOOLKIT_STATIC
     # (https://github.com/facebookresearch/faiss/pull/2446)
-    set(RAFT_FAISS_GIT_TAG fea/statically-link-ctk)
+    set(RAFT_FAISS_GIT_TAG raft_integration)
     # set(RAFT_FAISS_GIT_TAG bde7c0027191f29c9dadafe4f6e68ca0ee31fb30)
 endif()
 
 if(NOT RAFT_FAISS_GIT_REPOSITORY)
     # TODO: Remove this once faiss supports FAISS_USE_CUDA_TOOLKIT_STATIC
     # (https://github.com/facebookresearch/faiss/pull/2446)
-    set(RAFT_FAISS_GIT_REPOSITORY https://github.com/cjnolet/faiss.git)
+    set(RAFT_FAISS_GIT_REPOSITORY https://github.com/tarang-jain/faiss.git)
     # set(RAFT_FAISS_GIT_REPOSITORY https://github.com/facebookresearch/faiss.git)
 endif()
 

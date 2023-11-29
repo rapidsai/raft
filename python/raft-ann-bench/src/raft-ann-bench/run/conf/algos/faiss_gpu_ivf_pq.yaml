@@ -7,6 +7,21 @@ groups:
       ratio: [10, 25]
       usePrecomputed: [False]
       useFloat16: [False]
+      use_raft: [False]
+      bitsPerCode: [8]
+    search:
+      nprobe: [1, 5, 10, 50, 100, 200]
+      refine_ratio: [1]
+  raft_enabled:
+    build:
+      nlist: [1024, 2048, 4096, 8192]
+      M: [8, 16]
+      ratio: [10, 25]
+      usePrecomputed: [False]
+      useFloat16: [True, False]
+      bitsPerCode: [8]
+      interleavedLayout: [True]
+      use_raft: [True]
     search:
       nprobe: [1, 5, 10, 50, 100, 200]
       refine_ratio: [1]
