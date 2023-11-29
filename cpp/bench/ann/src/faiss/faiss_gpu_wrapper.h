@@ -273,9 +273,9 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
   FaissGpuIVFFlat(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
   {
     faiss::gpu::GpuIndexIVFFlatConfig config;
-    config.device = this->device_;
+    config.device   = this->device_;
     config.use_raft = param.use_raft;
-    this->index_  = std::make_unique<faiss::gpu::GpuIndexIVFFlat>(
+    this->index_    = std::make_unique<faiss::gpu::GpuIndexIVFFlat>(
       &(this->gpu_resource_), dim, param.nlist, this->metric_type_, config);
   }
 
