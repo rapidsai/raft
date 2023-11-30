@@ -296,11 +296,10 @@ struct device_resources_manager {
       auto scoped_device = device_setter(device_id);
       // Build the device_resources object for this thread out of shared
       // components
-      thread_resources[device_id] =
-        raft::device_resources{component_iter->get_stream(),
-                               component_iter->get_pool(),
-                               component_iter->get_workspace_memory_resource(),
-                               component_iter->get_workspace_allocation_limit()};
+      thread_resources[device_id].emplace(component_iter->get_stream(),
+                                          component_iter->get_pool(),
+                                          component_iter->get_workspace_memory_resource(),
+                                          component_iter->get_workspace_allocation_limit());
     }
 
     return thread_resources[device_id].value();
