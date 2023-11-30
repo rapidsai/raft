@@ -89,10 +89,10 @@ raft::device_resources res;
 int n_rows = 10000;
 int n_cols = 10000;
 
-auto dataset = raft::make_device_matrix<float, int>(res, n_rows, n_cols);
-auto labels = raft::make_device_vector<float, int>(res, n_rows);
+auto dataset = raft::make_device_matrix<float, int64_t>(res, n_rows, n_cols);
+auto labels = raft::make_device_vector<int64_t, int64_t>(res, n_rows);
 
-raft::make_blobs(res, dataset.view(), labels.view());
+raft::random::make_blobs(res, dataset.view(), labels.view());
 ```
 
 That's it. We've now generated a random 10kx10k matrix with points that cleanly separate into Gaussian clusters, along with a vector of cluster labels for each of the data points. Notice the `cuh` extension in the header file include for `make_blobs`. This signifies to us that this file contains CUDA device functions like kernel code so the CUDA compiler, `nvcc` is needed in order to compile any code that uses it. Generally, any source files that include headers with a `cuh` extension use the `.cu` extension instead of `.cpp`. The rule here is that `cpp` source files contain code which can be compiled with a C++ compiler like `g++` while `cu` files require the CUDA compiler.
@@ -125,14 +125,14 @@ auto search = raft::make_const_mdspan(dataset.view());
 
 // Indices and Distances are of dimensions (n, k)
 // where n is number of rows in the search matrix
-auto reference_indices = raft::make_device_matrix<int, int>(search.extent(0), k); // stores index of neighbors
-auto reference_distances = raft::make_device_matrix<float, int>(search.extent(0), k); // stores distance to neighbors
+auto reference_indices = raft::make_device_matrix<int, int64_t>(res, search.extent(0), k); // stores index of neighbors
+auto reference_distances = raft::make_device_matrix<float, int64_t>(res, search.extent(0), k); // stores distance to neighbors
 
 raft::neighbors::brute_force::search(res,
                                      bfknn_index,
                                      search,
-                                     raft::make_const_mdspan(indices.view()),
-                                     raft::make_const_mdspan(distances.view()));
+                                     reference_indices.view(),
+                                     reference_distances.view());
 ```
 
 We have established several things here by building a flat index. Now we know the exact 64 neighbors of all points in the matrix, and this algorithm can be generally useful in several ways:
@@ -152,9 +152,9 @@ Next we'll train an ANN index. We'll use our graph-based CAGRA algorithm for thi
 raft::device_resources res;
 
 // use default index parameters
-cagra::index_params index_params;
+raft::neighbors::cagra::index_params index_params;
 
-auto index = cagra::build<float, uint32_t>(res, index_params, dataset);
+auto index = raft::neighbors::cagra::build<float, uint32_t>(res, index_params, raft::make_const_mdspan(dataset.view()));
 ```
 
 ### Query the CAGRA index
@@ -167,10 +167,10 @@ auto indices = raft::make_device_matrix<uint32_t>(res, n_rows, k);
 auto distances = raft::make_device_matrix<float>(res, n_rows, k);
 
 // use default search parameters
-cagra::search_params search_params;
+raft::neighbors::cagra::search_params search_params;
 
 // search K nearest neighbors
-cagra::search<float, uint32_t>(
+raft::neighbors::cagra::search<float, uint32_t>(
 res, search_params, index, search, indices.view(), distances.view());
 ```
 
@@ -197,8 +197,8 @@ raft::stats::neighborhood_recall(res,
                                  raft::make_const_mdspan(indices.view()),
                                  raft::make_const_mdspan(reference_indices.view()),
                                  recall_value.view(),
-                                 raft::make_const_mdspan(distances),
-                                 raft::make_const_mdspan(reference_distances));
+                                 raft::make_const_mdspan(distances.view()),
+                                 raft::make_const_mdspan(reference_distances.view()));
 
 res.sync_stream();
 ```
