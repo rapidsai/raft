@@ -35,6 +35,9 @@ namespace raft::neighbors::brute_force {
  * @{
  */
 
+using ann::index_params;
+using ann::search_params;
+
 /**
  * @brief Brute Force index.
  *

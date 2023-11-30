@@ -116,8 +116,24 @@ extern template void search<float, int>(
   raft::device_matrix_view<int, int64_t, row_major> neighbors,
   raft::device_matrix_view<float, int64_t, row_major> distances);
 
+extern template void search<float, int>(
+  raft::resources const& res,
+  search_params const& params,
+  const raft::neighbors::brute_force::index<float>& idx,
+  raft::device_matrix_view<const float, int64_t, row_major> queries,
+  raft::device_matrix_view<int, int64_t, row_major> neighbors,
+  raft::device_matrix_view<float, int64_t, row_major> distances);
+
 extern template void search<float, int64_t>(
   raft::resources const& res,
+  const raft::neighbors::brute_force::index<float>& idx,
+  raft::device_matrix_view<const float, int64_t, row_major> queries,
+  raft::device_matrix_view<int64_t, int64_t, row_major> neighbors,
+  raft::device_matrix_view<float, int64_t, row_major> distances);
+
+extern template void search<float, int64_t>(
+  raft::resources const& res,
+  search_params const& params,
   const raft::neighbors::brute_force::index<float>& idx,
   raft::device_matrix_view<const float, int64_t, row_major> queries,
   raft::device_matrix_view<int64_t, int64_t, row_major> neighbors,
@@ -128,6 +144,47 @@ extern template raft::neighbors::brute_force::index<float> build<float>(
   raft::device_matrix_view<const float, int64_t, row_major> dataset,
   raft::distance::DistanceType metric,
   float metric_arg);
+
+extern template raft::neighbors::brute_force::index<float> build<float>(
+  raft::resources const& res,
+  index_params const& params,
+  raft::device_matrix_view<const float, int64_t, row_major> dataset)
+}  // namespace raft::neighbors::brute_force
+
+#define instantiate_raft_neighbors_brute_force_fused_l2_knn(            \
+  value_t, idx_t, idx_layout, query_layout)                             \
+  extern template void raft::neighbors::brute_force::fused_l2_knn(      \
+    raft::resources const& handle,                                      \
+    raft::device_matrix_view<const value_t, idx_t, idx_layout> index,   \
+    raft::device_matrix_view<const value_t, idx_t, query_layout> query, \
+    raft::device_matrix_view<idx_t, idx_t, row_major> out_inds,         \
+    raft::device_matrix_view<value_t, idx_t, row_major> out_dists,      \
+    raft::distance::DistanceType metric);
+
+instantiate_raft_neighbors_brute_force_fused_l2_knn(float,
+                                                    int64_t,
+                                                    raft::row_major,
+                                                    raft::row_major)
+
+#undef instantiate_raft_neighbors_brute_force_fused_l2_knn
+
+  extern template void search<float, int64_t>(
+    raft::resources const& res,
+    const raft::neighbors::brute_force::index<float>& idx,
+    raft::device_matrix_view<const float, int64_t, row_major> queries,
+    raft::device_matrix_view<int64_t, int64_t, row_major> neighbors,
+    raft::device_matrix_view<float, int64_t, row_major> distances);
+
+extern template raft::neighbors::brute_force::index<float> build<float>(
+  raft::resources const& res,
+  raft::device_matrix_view<const float, int64_t, row_major> dataset,
+  raft::distance::DistanceType metric,
+  float metric_arg);
+
+extern template raft::neighbors::brute_force::index<float> build<float>(
+  raft::resources const& res,
+  index_params const& params,
+  raft::device_matrix_view<const float, int64_t, row_major> dataset)
 }  // namespace raft::neighbors::brute_force
 
 #define instantiate_raft_neighbors_brute_force_fused_l2_knn(            \

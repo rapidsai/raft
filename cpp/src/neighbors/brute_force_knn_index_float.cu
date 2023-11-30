@@ -25,8 +25,24 @@ template void raft::neighbors::brute_force::search<float, int>(
   raft::device_matrix_view<int, int64_t, row_major> neighbors,
   raft::device_matrix_view<float, int64_t, row_major> distances);
 
+template void raft::neighbors::brute_force::search<float, int>(
+  raft::resources const& res,
+  raft::neighbors::brute_force::search_params const& params,
+  const raft::neighbors::brute_force::index<float>& idx,
+  raft::device_matrix_view<const float, int64_t, row_major> queries,
+  raft::device_matrix_view<int, int64_t, row_major> neighbors,
+  raft::device_matrix_view<float, int64_t, row_major> distances);
+
 template void raft::neighbors::brute_force::search<float, int64_t>(
   raft::resources const& res,
+  const raft::neighbors::brute_force::index<float>& idx,
+  raft::device_matrix_view<const float, int64_t, row_major> queries,
+  raft::device_matrix_view<int64_t, int64_t, row_major> neighbors,
+  raft::device_matrix_view<float, int64_t, row_major> distances);
+
+template void raft::neighbors::brute_force::search<float, int64_t>(
+  raft::resources const& res,
+  raft::neighbors::brute_force::search_params const& params,
   const raft::neighbors::brute_force::index<float>& idx,
   raft::device_matrix_view<const float, int64_t, row_major> queries,
   raft::device_matrix_view<int64_t, int64_t, row_major> neighbors,
@@ -37,3 +53,8 @@ template raft::neighbors::brute_force::index<float> raft::neighbors::brute_force
   raft::device_matrix_view<const float, int64_t, row_major> dataset,
   raft::distance::DistanceType metric,
   float metric_arg);
+
+template raft::neighbors::brute_force::index<float> raft::neighbors::brute_force::build<float>(
+  raft::resources const& res,
+  raft::neighbors::brute_force::index_params const& params,
+  raft::device_matrix_view<const float, int64_t, row_major> dataset);
