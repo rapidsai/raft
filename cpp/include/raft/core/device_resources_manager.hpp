@@ -265,7 +265,7 @@ struct device_resources_manager {
   // all host threads.
   auto const& get_device_resources_(int device_id)
   {
-    thread_local thread_resources = std::vector<std::optional<raft::device_resources>>([]() {
+    thread_local auto thread_resources = std::vector<std::optional<raft::device_resources>>([]() {
       auto result = 0;
       RAFT_CUDA_TRY(cudaGetDeviceCount(&result));
       RAFT_EXPECTS(result != 0, "No CUDA devices found");
