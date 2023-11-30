@@ -1151,6 +1151,12 @@ void radix_topk_one_block(const T* in,
  *
  * Note, the output is NOT sorted within the groups of `k` selected elements.
  *
+ * Reference:
+ * Jingrong Zhang, Akira Naruse, Xipeng Li, and Yong Wang. 2023. Parallel Top-K Algorithms on GPU:
+ * A Comprehensive Study and New Methods. In The International Conference for High Performance
+ * Computing, Networking, Storage and Analysis (SC ’23), November 12–17, 2023, Denver, CO, USA.
+ * ACM, New York, NY, USA. https://doi.org/10.1145/3581784.3607062
+ *
  * @tparam T
  *   the type of the keys (what is being compared).
  * @tparam IdxT
