@@ -243,7 +243,7 @@ struct default_buffer_container_policy {
  * @code{.cpp}
  * template <typename mdspan_type>
  * void foo_device(raft::resources const& res, mdspan_type data) {
- *   auto buf = raft::mdbuffer<float, raft::vector_extent<int>, raft::row_major>{res,
+ *   auto buf = raft::mdbuffer<float, raft::matrix_extent<int>, raft::row_major>{res,
  * raft::mdbuffer{data}, raft::memory_type::device};
  *   // Data in buf is now guaranteed to be accessible from device, and
  *   // represented by floats in row-major order.
