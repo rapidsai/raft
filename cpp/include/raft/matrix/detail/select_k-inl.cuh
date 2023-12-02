@@ -25,7 +25,6 @@
 #include <raft/matrix/init.cuh>
 
 #include <raft/core/resource/thrust_policy.hpp>
-#include <raft/neighbors/detail/selection_faiss.cuh>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <thrust/scan.h>
