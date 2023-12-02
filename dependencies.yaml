@@ -461,13 +461,13 @@ dependencies:
           - matrix: {cuda: "12.2"}
             packages: &run_raft_dask_packages_cu12
               - &pylibraft_cu12 pylibraft-cu12==24.2.*
-              - &ucx_py_cu12 ucx-py-cu12==0.35.*
+              - &ucx_py_cu12 ucx-py-cu12==0.36.*
           - {matrix: {cuda: "12.1"}, packages: *run_raft_dask_packages_cu12}
           - {matrix: {cuda: "12.0"}, packages: *run_raft_dask_packages_cu12}
           - matrix: {cuda: "11.8"}
             packages: &run_raft_dask_packages_cu11
               - &pylibraft_cu11 pylibraft-cu11==24.2.*
-              - &ucx_py_cu11 ucx-py-cu11==0.35.*
+              - &ucx_py_cu11 ucx-py-cu11==0.36.*
           - {matrix: {cuda: "11.5"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.4"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.2"}, packages: *run_raft_dask_packages_cu11}

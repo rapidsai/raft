@@ -174,7 +174,7 @@ raft::neighbors::cagra::search<float, uint32_t>(
 res, search_params, index, search, indices.view(), distances.view());
 ```
 
-## Step 7: Evaluate neighborhood quality
+## Step 5: Evaluate neighborhood quality
 
 In step 3 we built a flat index and queried for exact neighbors while in step 4 we build an ANN index and queried for approximate neighbors. How do you quickly figure out the quality of our approximate neighbors and whether it's in an acceptable range based on your needs? Just compute the `neighborhood_recall` which gives a single value in the range [0, 1]. Closer the value to 1, higher the quality of the approximation.
 
@@ -340,4 +340,37 @@ The below example specifies the total number of bytes that RAFT can use for temp
 
 std::shared_ptr<rmm::mr::managed_memory_resource> managed_resource;
 raft::device_resource res(managed_resource, std::make_optional<std::size_t>(3 * 1024^3));
+```
+
+### Filtering
+
+As of RAFT 23.10, support for pre-filtering of neighbors has been added to ANN index. This search feature can enable multiple use-cases, such as filtering a vector based on it's attributes (hybrid searches), the removal of vectors already added to the index, or the control of access in searches for security purposes.
+The filtering is available through the `search_with_filtering()` function of the ANN index, and is done by applying a predicate function on the GPU, which usually have the signature `(uint32_t query_ix, uint32_t sample_ix) -> bool`.
+
+One of the most commonly used mechanism for filtering is the bitset: the bitset is a data structure that allows to test the presence of a value in a set through a fast lookup, and is implemented as a bit array so that every element contains a `0` or a `1` (respectively `false` and `true` in boolean logic). RAFT provides a `raft::core::bitset` class that can be used to create and manipulate bitsets on the GPU, and a `raft::core::bitset_view` class that can be used to pass bitsets to filtering functions.
+
+The following example demonstrates how to use the filtering API:
+
+```c++
+#include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/sample_filter.cuh>
+
+using namespace raft::neighbors;
+// use default index parameters
+cagra::index_params index_params;
+// create and fill the index from a [N, D] dataset
+auto index = cagra::build(res, index_params, dataset);
+// use default search parameters
+cagra::search_params search_params;
+
+// create a bitset to filter the search
+auto removed_indices = raft::make_device_vector<IdxT>(res, n_removed_indices);
+raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
+  res, removed_indices.view(), dataset.extent(0));
+
+// search K nearest neighbours according to a bitset filter
+auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
+auto distances = raft::make_device_matrix<float>(res, n_queries, k);
+cagra::search_with_filtering(res, search_params, index, queries, neighbors, distances,
+  filtering::bitset_filter(removed_indices_bitset.view()));
 ```
