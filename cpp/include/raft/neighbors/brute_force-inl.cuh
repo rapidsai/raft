@@ -284,6 +284,44 @@ void fused_l2_knn(raft::resources const& handle,
 /**
  * @brief Build the index from the dataset for efficient search.
  *
+ * This function builds a brute force index for the given dataset. This lets you re-use
+ * precalculated norms for the dataset, leading to a speedup over calling
+ * raft::neighbors::brute_force::knn repeatedly.
+ *
+ * Example usage:
+ * @code{.cpp}
+ * #include <raft/neighbors/brute_force.cuh>
+ * #include <raft/core/device_mdarray.hpp>
+ * #include <raft/random/make_blobs.cuh>
+ *
+ * // create a random dataset
+ * int n_rows = 10000;
+ * int n_cols = 10000;
+ *
+ * raft::device_resources res;
+ * auto dataset = raft::make_device_matrix<float, int64_t>(res, n_rows, n_cols);
+ * auto labels = raft::make_device_vector<int64_t, int64_t>(res, n_rows);
+ *
+ * raft::random::make_blobs(res, dataset.view(), labels.view());
+ *
+ * // create a brute_force knn index from the dataset
+ * auto index = raft::neighbors::brute_force::build(res,
+ *                                                  raft::make_const_mdspan(dataset.view()));
+ *
+ * // Use the constructed index to search for the nearest 128 neighbors
+ * int k = 128;
+ * auto search = raft::make_const_mdspan(dataset.view());
+ *
+ * auto indices= raft::make_device_matrix<int, int64_t>(res, search.extent(0), k);
+ * auto distances = raft::make_device_matrix<float, int64_t>(res, search.extent(0), k);
+ *
+ * raft::neighbors::brute_force::search(res,
+ *                                      index,
+ *                                      search,
+ *                                      indices.view(),
+ *                                      distances.view());
+ * @endcode
+ *
  * @tparam T data element type
  *
  * @param[in] res
@@ -329,6 +367,8 @@ index<T> build(raft::resources const& res,
 
 /**
  * @brief Brute Force search using the constructed index.
+ *
+ * See raft::neighbors::brute_force::build for a usage example
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
