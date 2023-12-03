@@ -16,7 +16,13 @@
 
 #pragma once
 
+#include <raft/core/resources.hpp>
+#include <raft/core/serialize.hpp>
+#include <raft/neighbors/brute_force_types.hpp>
+
 namespace raft::neighbors::brute_force {
+
+auto static constexpr serialization_version = 0;
 
 /**
  * \defgroup brute_force_serialize Brute Force Serialize
@@ -94,11 +100,11 @@ void serialize(raft::resources const& handle, std::ostream& os, const index<T>& 
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::resources const& handle,
-               const std::string& filename,
-               const index<T, IdxT>& index)
+void serialize(raft::resources const& handle, const std::string& filename, const index<T>& index)
 {
-  detail::serialize(handle, filename, index);
+  auto os = std::ofstream{filename, std::ios::out | std::ios::binary};
+  RAFT_EXPECTS(os, "Cannot open file %s", filename.c_str());
+  serialize(handle, os, index);
 }
 
 /**
@@ -129,8 +135,8 @@ void serialize(raft::resources const& handle,
 template <typename T>
 auto deserialize(raft::resources const& handle, std::istream& is)
 {
-  char dtype_string[4];
-  is.read(dtype_string, 4);
+  auto dtype_string = std::array<char, 4>{};
+  is.read(dtype_string.data(), 4);
 
   auto ver = deserialize_scalar<int>(handle, is);
   if (ver != serialization_version) {
@@ -187,7 +193,7 @@ auto deserialize(raft::resources const& handle, std::istream& is)
 template <typename T>
 auto deserialize(raft::resources const& handle, const std::string& filename)
 {
-  std::ifstream is(filename, std::ios::in | std::ios::binary);
+  auto is = std::ifstream{filename, std::ios::in | std::ios::binary};
   RAFT_EXPECTS(is, "Cannot open file %s", filename.c_str());
 
   return deserialize<T>(handle, is);
