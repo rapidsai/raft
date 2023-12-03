@@ -56,10 +56,10 @@ struct index : ann::index {
   }
 
   /** Total length of the index (number of vectors). */
-  [[nodiscard]] constexpr inline int64_t size() const noexcept { return dataset_view_.extent(0); }
+  [[nodiscard]] constexpr inline auto size() const noexcept { return dataset_view_.extent(0); }
 
   /** Dimensionality of the data. */
-  [[nodiscard]] constexpr inline uint32_t dim() const noexcept { return dataset_view_.extent(1); }
+  [[nodiscard]] constexpr inline auto dim() const noexcept { return dataset_view_.extent(1); }
 
   /** Dataset [size, dim] */
   [[nodiscard]] inline auto dataset() const noexcept
