@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/copy.cuh>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -303,6 +304,18 @@ index<T> build(raft::resources const& res,
   // certain distance metrics can benefit by pre-calculating the norms for the index dataset
   // which lets us avoid calculating these at query time
   std::optional<device_vector<T, int64_t>> norms;
+  // TODO(wphicks): Replace once mdbuffer is available
+  auto dataset_storage = std::optional<device_matrix<T, int64_t>>{};
+  auto dataset_view    = [&res, &dataset_storage, dataset]() {
+    if constexpr (std::is_same_v<decltype(dataset),
+                                 raft::device_matrix_view<const T, int64_t, row_major>>) {
+      return dataset;
+    } else {
+      dataset_storage = make_device_matrix<T, int64_t>(res, dataset.extent(0), dataset.extent(1));
+      raft::copy(res, dataset_storage->view(), dataset);
+      return raft::make_const_mdspan(dataset_storage->view());
+    }
+  }();
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded ||
       metric == raft::distance::DistanceType::CosineExpanded) {
@@ -310,14 +323,14 @@ index<T> build(raft::resources const& res,
     // cosine needs the l2norm, where as l2 distances needs the squared norm
     if (metric == raft::distance::DistanceType::CosineExpanded) {
       raft::linalg::norm(res,
-                         dataset,
+                         dataset_view,
                          norms->view(),
                          raft::linalg::NormType::L2Norm,
                          raft::linalg::Apply::ALONG_ROWS,
                          raft::sqrt_op{});
     } else {
       raft::linalg::norm(res,
-                         dataset,
+                         dataset_view,
                          norms->view(),
                          raft::linalg::NormType::L2Norm,
                          raft::linalg::Apply::ALONG_ROWS);

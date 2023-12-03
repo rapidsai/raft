@@ -119,34 +119,25 @@ class AnnBruteForceTest : public ::testing::TestWithParam<AnnBruteForceInputs<Id
       rmm::device_uvector<T> distances_bruteforce_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_bruteforce_dev(queries_size, stream_);
       {
-        brute_force::index_params index_params;
-        brute_force::search_params search_params;
+        brute_force::index_params index_params{};
+        brute_force::search_params search_params{};
         index_params.metric     = ps.metric;
         index_params.metric_arg = 0;
 
-        brute_force::index<DataT> idx(handle_, index_params, ps.dim);
-        brute_force::index<DataT> index_2(handle_, index_params, ps.dim);
-
-        if (!ps.host_dataset) {
-          auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
-            (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
-          idx = brute_force::build(handle_, index_params, database_view);
-          rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
-          thrust::sequence(resource::get_thrust_policy(handle_),
-                           thrust::device_pointer_cast(vector_indices.data()),
-                           thrust::device_pointer_cast(vector_indices.data() + ps.num_db_vecs));
-          resource::sync_stream(handle_);
-
-        } else {
-          auto host_database = raft::make_host_matrix<DataT, IdxT>(ps.num_db_vecs, ps.dim);
-          raft::copy(
-            host_database.data_handle(), database.data(), ps.num_db_vecs * ps.dim, stream_);
-          idx = brute_force::build(
-            handle_, index_params, raft::make_const_mdspan(host_database.view()));
-
-          auto vector_indices = raft::make_host_vector<IdxT>(handle_, ps.num_db_vecs);
-          std::iota(vector_indices.data_handle(), vector_indices.data_handle() + ps.num_db_vecs, 0);
-        }
+        auto device_dataset = std::optional<raft::device_matrix<DataT, IdxT>>{};
+        auto idx            = [this, &index_params]() {
+          if (ps.host_dataset) {
+            auto host_database = raft::make_host_matrix<DataT, IdxT>(ps.num_db_vecs, ps.dim);
+            raft::copy(
+              host_database.data_handle(), database.data(), ps.num_db_vecs * ps.dim, stream_);
+            return brute_force::build(
+              handle_, index_params, raft::make_const_mdspan(host_database.view()));
+          } else {
+            auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
+              (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
+            return brute_force::build(handle_, index_params, database_view);
+          }
+        }();
 
         auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
           search_queries.data(), ps.num_queries, ps.dim);
@@ -154,10 +145,11 @@ class AnnBruteForceTest : public ::testing::TestWithParam<AnnBruteForceInputs<Id
           indices_bruteforce_dev.data(), ps.num_queries, ps.k);
         auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
           distances_bruteforce_dev.data(), ps.num_queries, ps.k);
-        brute_force::serialize(handle_, "brute_force_index", index_2);
+        brute_force::serialize(handle_, std::string{"brute_force_index"}, idx);
 
-        auto index_loaded = brute_force::deserialize<DataT, IdxT>(handle_, "brute_force_index");
-        ASSERT_EQ(index_2.size(), index_loaded.size());
+        auto index_loaded =
+          brute_force::deserialize<DataT>(handle_, std::string{"brute_force_index"});
+        ASSERT_EQ(idx.size(), index_loaded.size());
 
         brute_force::search(handle_,
                             search_params,

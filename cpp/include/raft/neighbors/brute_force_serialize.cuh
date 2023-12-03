@@ -46,7 +46,6 @@ auto static constexpr serialization_version = 0;
  * @endcode
  *
  * @tparam T data element type
- * @tparam IdxT type of the indices
  *
  * @param[in] handle the raft handle
  * @param[in] os output stream
@@ -92,14 +91,13 @@ void serialize(raft::resources const& handle, std::ostream& os, const index<T>& 
  * @endcode
  *
  * @tparam T data element type
- * @tparam IdxT type of the indices
  *
  * @param[in] handle the raft handle
  * @param[in] filename the file name for saving the index
  * @param[in] index brute force index
  *
  */
-template <typename T, typename IdxT>
+template <typename T>
 void serialize(raft::resources const& handle, const std::string& filename, const index<T>& index)
 {
   auto os = std::ofstream{filename, std::ios::out | std::ios::binary};
@@ -120,17 +118,15 @@ void serialize(raft::resources const& handle, const std::string& filename, const
  * // create an input stream
  * std::istream is(std::cin.rdbuf());
  * using T    = float; // data element type
- * using IdxT = int; // type of the index
- * auto index = raft::deserialize<T, IdxT>(handle, is);
+ * auto index = raft::deserialize<T>(handle, is);
  * @endcode
  *
  * @tparam T data element type
- * @tparam IdxT type of the indices
  *
  * @param[in] handle the raft handle
  * @param[in] is input stream
  *
- * @return raft::neighbors::brute_force::index<T, IdxT>
+ * @return raft::neighbors::brute_force::index<T>
  */
 template <typename T>
 auto deserialize(raft::resources const& handle, std::istream& is)
@@ -151,15 +147,22 @@ auto deserialize(raft::resources const& handle, std::istream& is)
   deserialize_mdspan(handle, is, dataset_storage.view());
 
   auto has_norms     = deserialize_scalar<bool>(handle, is);
-  auto norms_storage = has_norms ? std::optional{raft::make_host_vector<T>(rows)}
-                                 : std::optional<raft::host_vector<T>>{};
-  if (has_norms) { deserialize_mdspan(handle, is, norms_storage->view()); }
-  auto result =
-    build(handle,
-          dataset_storage.view(),
-          norms_storage ? norms_storage->view() : std::optional<raft::host_vector_view<T>>{},
-          metric,
-          metric_arg);
+  auto norms_storage = has_norms ? std::optional{raft::make_host_vector<T, std::int64_t>(rows)}
+                                 : std::optional<raft::host_vector<T, std::int64_t>>{};
+  // TODO(wphicks): Use mdbuffer here when available
+  auto norms_storage_dev =
+    has_norms ? std::optional{raft::make_device_vector<T, std::int64_t>(handle, rows)}
+              : std::optional<raft::device_vector<T, std::int64_t>>{};
+  if (has_norms) {
+    deserialize_mdspan(handle, is, norms_storage->view());
+    raft::copy(handle, norms_storage_dev->view(), norms_storage->view());
+  }
+
+  auto result = index(handle,
+                      raft::make_const_mdspan(dataset_storage.view()),
+                      std::move(norms_storage_dev),
+                      metric,
+                      metric_arg);
   resource::sync_stream(handle);
 
   return result;
@@ -178,17 +181,15 @@ auto deserialize(raft::resources const& handle, std::istream& is)
  * // create a string with a filepath
  * std::string filename("/path/to/index");
  * using T    = float; // data element type
- * using IdxT = int; // type of the index
- * auto index = raft::deserialize<T, IdxT>(handle, filename);
+ * auto index = raft::deserialize<T>(handle, filename);
  * @endcode
  *
  * @tparam T data element type
- * @tparam IdxT type of the indices
  *
  * @param[in] handle the raft handle
  * @param[in] filename the name of the file that stores the index
  *
- * @return raft::neighbors::brute_force::index<T, IdxT>
+ * @return raft::neighbors::brute_force::index<T>
  */
 template <typename T>
 auto deserialize(raft::resources const& handle, const std::string& filename)

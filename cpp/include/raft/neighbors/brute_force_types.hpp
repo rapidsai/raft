@@ -19,6 +19,7 @@
 #include "ann_types.hpp"
 #include <raft/core/resource/cuda_stream.hpp>
 
+#include <raft/core/copy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -130,6 +131,22 @@ struct index : ann::index {
   {
   }
 
+  template <typename data_accessor>
+  index(raft::resources const& res,
+        index_params const& params,
+        mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+        std::optional<raft::device_vector<T, int64_t>>&& norms = std::nullopt)
+    : ann::index(),
+      metric_(params.metric),
+      dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
+      norms_(std::move(norms)),
+      metric_arg_(params.metric_arg)
+  {
+    if (norms_) { norms_view_ = make_const_mdspan(norms_.value().view()); }
+    update_dataset(res, dataset);
+    resource::sync_stream(res);
+  }
+
  private:
   /**
    * Replace the dataset with a new dataset.
@@ -148,11 +165,8 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::host_matrix_view<const T, int64_t, row_major> dataset)
   {
-    dataset_ = make_device_matrix<T, int64_t>(dataset.extents(0), dataset.extents(1));
-    raft::copy(dataset_.data_handle(),
-               dataset.data_handle(),
-               dataset.size(),
-               resource::get_cuda_stream(res));
+    dataset_ = make_device_matrix<T, int64_t>(res, dataset.extent(0), dataset.extent(1));
+    raft::copy(res, dataset_.view(), dataset);
     dataset_view_ = make_const_mdspan(dataset_.view());
   }
 
