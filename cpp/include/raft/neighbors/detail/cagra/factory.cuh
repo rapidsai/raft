@@ -60,12 +60,6 @@ class factory {
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
         break;
-      case 1024:
-        switch (plan.team_size) {
-          case 32: return dispatch_kernel<1024, 32>(res, plan); break;
-          default: THROW("Incorrect team size %lu", plan.team_size);
-        }
-        break;
       default: THROW("Incorrect dataset_block_dim (%lu)\n", plan.dataset_block_dim);
     }
     return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>>();
