@@ -89,10 +89,10 @@ raft::device_resources res;
 int n_rows = 10000;
 int n_cols = 10000;
 
-auto dataset = raft::make_device_matrix<float, int>(res, n_rows, n_cols);
-auto labels = raft::make_device_vector<float, int>(res, n_rows);
+auto dataset = raft::make_device_matrix<float, int64_t>(res, n_rows, n_cols);
+auto labels = raft::make_device_vector<int64_t, int64_t>(res, n_rows);
 
-raft::make_blobs(res, dataset.view(), labels.view());
+raft::random::make_blobs(res, dataset.view(), labels.view());
 ```
 
 That's it. We've now generated a random 10kx10k matrix with points that cleanly separate into Gaussian clusters, along with a vector of cluster labels for each of the data points. Notice the `cuh` extension in the header file include for `make_blobs`. This signifies to us that this file contains CUDA device functions like kernel code so the CUDA compiler, `nvcc` is needed in order to compile any code that uses it. Generally, any source files that include headers with a `cuh` extension use the `.cu` extension instead of `.cpp`. The rule here is that `cpp` source files contain code which can be compiled with a C++ compiler like `g++` while `cu` files require the CUDA compiler.
@@ -125,14 +125,14 @@ auto search = raft::make_const_mdspan(dataset.view());
 
 // Indices and Distances are of dimensions (n, k)
 // where n is number of rows in the search matrix
-auto reference_indices = raft::make_device_matrix<int, int>(search.extent(0), k); // stores index of neighbors
-auto reference_distances = raft::make_device_matrix<float, int>(search.extent(0), k); // stores distance to neighbors
+auto reference_indices = raft::make_device_matrix<int, int64_t>(res, search.extent(0), k); // stores index of neighbors
+auto reference_distances = raft::make_device_matrix<float, int64_t>(res, search.extent(0), k); // stores distance to neighbors
 
 raft::neighbors::brute_force::search(res,
                                      bfknn_index,
                                      search,
-                                     raft::make_const_mdspan(indices.view()),
-                                     raft::make_const_mdspan(distances.view()));
+                                     reference_indices.view(),
+                                     reference_distances.view());
 ```
 
 We have established several things here by building a flat index. Now we know the exact 64 neighbors of all points in the matrix, and this algorithm can be generally useful in several ways:
@@ -152,9 +152,9 @@ Next we'll train an ANN index. We'll use our graph-based CAGRA algorithm for thi
 raft::device_resources res;
 
 // use default index parameters
-cagra::index_params index_params;
+raft::neighbors::cagra::index_params index_params;
 
-auto index = cagra::build<float, uint32_t>(res, index_params, dataset);
+auto index = raft::neighbors::cagra::build<float, uint32_t>(res, index_params, raft::make_const_mdspan(dataset.view()));
 ```
 
 ### Query the CAGRA index
@@ -167,14 +167,14 @@ auto indices = raft::make_device_matrix<uint32_t>(res, n_rows, k);
 auto distances = raft::make_device_matrix<float>(res, n_rows, k);
 
 // use default search parameters
-cagra::search_params search_params;
+raft::neighbors::cagra::search_params search_params;
 
 // search K nearest neighbors
-cagra::search<float, uint32_t>(
+raft::neighbors::cagra::search<float, uint32_t>(
 res, search_params, index, search, indices.view(), distances.view());
 ```
 
-## Step 7: Evaluate neighborhood quality
+## Step 5: Evaluate neighborhood quality
 
 In step 3 we built a flat index and queried for exact neighbors while in step 4 we build an ANN index and queried for approximate neighbors. How do you quickly figure out the quality of our approximate neighbors and whether it's in an acceptable range based on your needs? Just compute the `neighborhood_recall` which gives a single value in the range [0, 1]. Closer the value to 1, higher the quality of the approximation.
 
@@ -197,8 +197,8 @@ raft::stats::neighborhood_recall(res,
                                  raft::make_const_mdspan(indices.view()),
                                  raft::make_const_mdspan(reference_indices.view()),
                                  recall_value.view(),
-                                 raft::make_const_mdspan(distances),
-                                 raft::make_const_mdspan(reference_distances));
+                                 raft::make_const_mdspan(distances.view()),
+                                 raft::make_const_mdspan(reference_distances.view()));
 
 res.sync_stream();
 ```
@@ -340,4 +340,37 @@ The below example specifies the total number of bytes that RAFT can use for temp
 
 std::shared_ptr<rmm::mr::managed_memory_resource> managed_resource;
 raft::device_resource res(managed_resource, std::make_optional<std::size_t>(3 * 1024^3));
+```
+
+### Filtering
+
+As of RAFT 23.10, support for pre-filtering of neighbors has been added to ANN index. This search feature can enable multiple use-cases, such as filtering a vector based on it's attributes (hybrid searches), the removal of vectors already added to the index, or the control of access in searches for security purposes.
+The filtering is available through the `search_with_filtering()` function of the ANN index, and is done by applying a predicate function on the GPU, which usually have the signature `(uint32_t query_ix, uint32_t sample_ix) -> bool`.
+
+One of the most commonly used mechanism for filtering is the bitset: the bitset is a data structure that allows to test the presence of a value in a set through a fast lookup, and is implemented as a bit array so that every element contains a `0` or a `1` (respectively `false` and `true` in boolean logic). RAFT provides a `raft::core::bitset` class that can be used to create and manipulate bitsets on the GPU, and a `raft::core::bitset_view` class that can be used to pass bitsets to filtering functions.
+
+The following example demonstrates how to use the filtering API:
+
+```c++
+#include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/sample_filter.cuh>
+
+using namespace raft::neighbors;
+// use default index parameters
+cagra::index_params index_params;
+// create and fill the index from a [N, D] dataset
+auto index = cagra::build(res, index_params, dataset);
+// use default search parameters
+cagra::search_params search_params;
+
+// create a bitset to filter the search
+auto removed_indices = raft::make_device_vector<IdxT>(res, n_removed_indices);
+raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
+  res, removed_indices.view(), dataset.extent(0));
+
+// search K nearest neighbours according to a bitset filter
+auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
+auto distances = raft::make_device_matrix<float>(res, n_queries, k);
+cagra::search_with_filtering(res, search_params, index, queries, neighbors, distances,
+  filtering::bitset_filter(removed_indices_bitset.view()));
 ```
