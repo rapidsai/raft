@@ -42,7 +42,7 @@ auto static constexpr serialization_version = 0;
  * // create an output stream
  * std::ostream os(std::cout.rdbuf());
  * // create an index with `auto index = brute_force::build(...);`
- * raft::serialize(handle, os, index);
+ * raft::neighbors::brute_force::serialize(handle, os, index);
  * @endcode
  *
  * @tparam T data element type
