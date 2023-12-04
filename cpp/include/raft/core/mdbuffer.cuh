@@ -305,6 +305,35 @@ struct default_buffer_container_policy {
  * }
  * @endcode
  *
+ * For convenience, runtime memory-type dispatching can also be performed
+ * without explicit use of `mdbuffer` using `raft::memory_type_dispatcher`, as
+ * described in @ref memory_type_dispatcher. Please see the full documentation
+ * of that function template for more extensive discussion of the many ways it
+ * can be used. To illustrate its connection to `mdbuffer`, however, consider
+ * the following example, which performs a similar task to the above
+ * `std::visit` call:
+ *
+ * @code{.cpp}
+ * void foo_device(raft::resources const& res, raft::device_matrix_view<float> data) {
+ *   // Implement foo solely for device data
+ * };
+ *
+ * // Call foo with data of any memory type:
+ * template <typename mdspan_type>
+ * void foo(raft::resources const& res, mdspan_type data) {
+ *   raft::memory_type_dispatcher(res,
+ *     [&res](raft::device_matrix_view<float> dev_data) {foo_device(res, dev_data);},
+ *     data
+ *   );
+ * }
+ * @endcode
+ *
+ * Here, the `memory_type_dispatcher` implicitly constructs an `mdbuffer` from
+ * the input and performs any necessary conversions before passing the input to
+ * `foo_device`. While `mdbuffer` does not require the use of
+ * `memory_type_dispatcher`, there are many common use cases in which explicit
+ * invocations of `mdbuffer` can be elided with `memory_type_dispatcher`.
+ *
  * @tparam ElementType element type stored in the buffer
  * @tparam Extents specifies the number of dimensions and their sizes
  * @tparam LayoutPolicy specifies how data should be laid out in memory
