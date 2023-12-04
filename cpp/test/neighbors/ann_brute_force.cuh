@@ -95,85 +95,79 @@ class AnnBruteForceTest : public ::testing::TestWithParam<AnnBruteForceInputs<Id
     std::vector<T> distances_bruteforce(queries_size);
     std::vector<T> distances_naive(queries_size);
 
-    {
-      rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
-      rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naive_knn<T, DataT, IdxT>(handle_,
-                                distances_naive_dev.data(),
-                                indices_naive_dev.data(),
-                                search_queries.data(),
-                                database.data(),
-                                ps.num_queries,
-                                ps.num_db_vecs,
-                                ps.dim,
-                                ps.k,
-                                ps.metric);
-      update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
-      update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
-      resource::sync_stream(handle_);
-    }
+    rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
+    rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
+    naive_knn<T, DataT, IdxT>(handle_,
+                              distances_naive_dev.data(),
+                              indices_naive_dev.data(),
+                              search_queries.data(),
+                              database.data(),
+                              ps.num_queries,
+                              ps.num_db_vecs,
+                              ps.dim,
+                              ps.k,
+                              ps.metric);
+    update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
+    update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
+    resource::sync_stream(handle_);
 
     {
       // Require exact result for brute force
       rmm::device_uvector<T> distances_bruteforce_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_bruteforce_dev(queries_size, stream_);
-      {
-        brute_force::index_params index_params{};
-        brute_force::search_params search_params{};
-        index_params.metric     = ps.metric;
-        index_params.metric_arg = 0;
+      brute_force::index_params index_params{};
+      brute_force::search_params search_params{};
+      index_params.metric     = ps.metric;
+      index_params.metric_arg = 0;
 
-        auto device_dataset = std::optional<raft::device_matrix<DataT, IdxT>>{};
-        auto idx            = [this, &index_params]() {
-          if (ps.host_dataset) {
-            auto host_database = raft::make_host_matrix<DataT, IdxT>(ps.num_db_vecs, ps.dim);
-            raft::copy(
-              host_database.data_handle(), database.data(), ps.num_db_vecs * ps.dim, stream_);
-            return brute_force::build(
-              handle_, index_params, raft::make_const_mdspan(host_database.view()));
-          } else {
-            auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
-              (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
-            return brute_force::build(handle_, index_params, database_view);
-          }
-        }();
+      auto device_dataset = std::optional<raft::device_matrix<DataT, IdxT>>{};
+      auto idx            = [this, &index_params]() {
+        if (ps.host_dataset) {
+          auto host_database = raft::make_host_matrix<DataT, IdxT>(ps.num_db_vecs, ps.dim);
+          raft::copy(
+            host_database.data_handle(), database.data(), ps.num_db_vecs * ps.dim, stream_);
+          return brute_force::build(
+            handle_, index_params, raft::make_const_mdspan(host_database.view()));
+        } else {
+          auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
+            (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
+          return brute_force::build(handle_, index_params, database_view);
+        }
+      }();
 
-        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
-          search_queries.data(), ps.num_queries, ps.dim);
-        auto indices_out_view = raft::make_device_matrix_view<IdxT, IdxT>(
-          indices_bruteforce_dev.data(), ps.num_queries, ps.k);
-        auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
-          distances_bruteforce_dev.data(), ps.num_queries, ps.k);
-        brute_force::serialize(handle_, std::string{"brute_force_index"}, idx);
+      auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
+        search_queries.data(), ps.num_queries, ps.dim);
+      auto indices_out_view = raft::make_device_matrix_view<IdxT, IdxT>(
+        indices_bruteforce_dev.data(), ps.num_queries, ps.k);
+      auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
+        distances_bruteforce_dev.data(), ps.num_queries, ps.k);
+      brute_force::serialize(handle_, std::string{"brute_force_index"}, idx);
 
-        auto index_loaded =
-          brute_force::deserialize<DataT>(handle_, std::string{"brute_force_index"});
-        ASSERT_EQ(idx.size(), index_loaded.size());
+      auto index_loaded =
+        brute_force::deserialize<DataT>(handle_, std::string{"brute_force_index"});
+      ASSERT_EQ(idx.size(), index_loaded.size());
 
-        brute_force::search(handle_,
-                            search_params,
-                            index_loaded,
-                            search_queries_view,
-                            indices_out_view,
-                            dists_out_view);
+      brute_force::search(handle_,
+                          search_params,
+                          index_loaded,
+                          search_queries_view,
+                          indices_out_view,
+                          dists_out_view);
 
-        update_host(
-          distances_bruteforce.data(), distances_bruteforce_dev.data(), queries_size, stream_);
-        update_host(
-          indices_bruteforce.data(), indices_bruteforce_dev.data(), queries_size, stream_);
-        resource::sync_stream(handle_);
-      }
+      update_host(
+        distances_bruteforce.data(), distances_bruteforce_dev.data(), queries_size, stream_);
+      update_host(indices_bruteforce.data(), indices_bruteforce_dev.data(), queries_size, stream_);
+      resource::sync_stream(handle_);
 
-      ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(
-          indices_naive.data_handle(),
-          indices_bruteforce.data_handle(),
-          distances_naive.data_handle(),
-          distances_bruteforce.data_handle(),
-          ps.num_queries,
-          ps.k,
-          0.001f,
-          stream_,
-          true));
+      ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(indices_naive_dev.data(),
+                                                         indices_bruteforce_dev.data(),
+                                                         distances_naive_dev.data(),
+                                                         distances_bruteforce_dev.data(),
+                                                         ps.num_queries,
+                                                         ps.k,
+                                                         0.001f,
+                                                         stream_,
+                                                         true));
     }
   }
 
