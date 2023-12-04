@@ -82,13 +82,14 @@ void serialize(raft::resources const& handle, std::ostream& os, const index<T>& 
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/brute_force_serialize.cuh>
  *
  * raft::resources handle;
  *
  * // create a string with a filepath
  * std::string filename("/path/to/index");
  * // create an index with `auto index = brute_force::build(...);`
- * raft::serialize(handle, filename, index);
+ * raft::neighbors::brute_force::serialize(handle, filename, index);
  * @endcode
  *
  * @tparam T data element type
@@ -113,13 +114,14 @@ void serialize(raft::resources const& handle, const std::string& filename, const
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/brute_force_serialize.cuh>
  *
  * raft::resources handle;
  *
  * // create an input stream
  * std::istream is(std::cin.rdbuf());
  * using T    = float; // data element type
- * auto index = raft::deserialize<T>(handle, is);
+ * auto index = raft::neighbors::brute_force::deserialize<T>(handle, is);
  * @endcode
  *
  * @tparam T data element type
@@ -176,13 +178,14 @@ auto deserialize(raft::resources const& handle, std::istream& is)
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/brute_force_serialize.cuh>
  *
  * raft::resources handle;
  *
  * // create a string with a filepath
  * std::string filename("/path/to/index");
  * using T    = float; // data element type
- * auto index = raft::deserialize<T>(handle, filename);
+ * auto index = raft::neighbors::brute_force::deserialize<T>(handle, filename);
  * @endcode
  *
  * @tparam T data element type
