@@ -17,6 +17,7 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+#include "knn_utils.cuh"
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan.hpp>
@@ -114,8 +115,6 @@ class AnnBruteForceTest : public ::testing::TestWithParam<AnnBruteForceInputs<Id
 
     {
       // Require exact result for brute force
-      auto min_recall = double{1};
-
       rmm::device_uvector<T> distances_bruteforce_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_bruteforce_dev(queries_size, stream_);
       {
@@ -165,14 +164,16 @@ class AnnBruteForceTest : public ::testing::TestWithParam<AnnBruteForceInputs<Id
         resource::sync_stream(handle_);
       }
 
-      ASSERT_TRUE(eval_neighbours(indices_naive,
-                                  indices_bruteforce,
-                                  distances_naive,
-                                  distances_bruteforce,
-                                  ps.num_queries,
-                                  ps.k,
-                                  0.001,
-                                  min_recall));
+      ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(
+          indices_naive.data_handle(),
+          indices_bruteforce.data_handle(),
+          distances_naive.data_handle(),
+          distances_bruteforce.data_handle(),
+          ps.num_queries,
+          ps.k,
+          0.001f,
+          stream_,
+          true));
     }
   }
 
