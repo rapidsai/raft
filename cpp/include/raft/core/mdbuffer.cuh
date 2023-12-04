@@ -88,42 +88,53 @@ struct default_buffer_container_policy {
   using element_type = ElementType;
   using value_type   = std::remove_cv_t<element_type>;
 
-  using container_policy_variant =
-    std::variant<host_device_accessor<std::variant_alternative_t<0, ContainerPolicyVariant>, static_cast<memory_type>(0)>, host_device_accessor<std::variant_alternative_t<1, ContainerPolicyVariant>, static_cast<memory_type>(1)>, host_device_accessor<std::variant_alternative_t<2, ContainerPolicyVariant>, static_cast<memory_type>(2)>, host_device_accessor<std::variant_alternative_t<3, ContainerPolicyVariant>, static_cast<memory_type>(3)>, >;
-  template <raft::memory_type MemType>
-  using container_policy = alternate_from_mem_type<MemType, container_policy_variant>;
-
  private:
   template <std::size_t index>
-  using container_policy_at_index = std::variant_alternative_t<index, ContainerPolicyVariant>;
+  using raw_container_policy_at_index = std::variant_alternative_t<index, ContainerPolicyVariant>;
 
  public:
+  using container_policy_variant =
+    std::variant<host_device_accessor<std::variant_alternative_t<0, ContainerPolicyVariant>,
+                                      static_cast<memory_type>(0)>,
+                 host_device_accessor<std::variant_alternative_t<1, ContainerPolicyVariant>,
+                                      static_cast<memory_type>(1)>,
+                 host_device_accessor<std::variant_alternative_t<2, ContainerPolicyVariant>,
+                                      static_cast<memory_type>(2)>,
+                 host_device_accessor<std::variant_alternative_t<3, ContainerPolicyVariant>,
+                                      static_cast<memory_type>(3)>>;
+  template <raft::memory_type MemType>
+  using container_policy = alternate_from_mem_type<MemType, container_policy_variant>;
   using container_type_variant =
-    std::variant<typename container_policy_at_index<0>::container_type,
-                 typename container_policy_at_index<1>::container_type,
-                 typename container_policy_at_index<2>::container_type,
-                 typename container_policy_at_index<3>::container_type>;
+    std::variant<typename raw_container_policy_at_index<0>::container_type,
+                 typename raw_container_policy_at_index<1>::container_type,
+                 typename raw_container_policy_at_index<2>::container_type,
+                 typename raw_container_policy_at_index<3>::container_type>;
 
   template <raft::memory_type MemType>
   using container_type = alternate_from_mem_type<MemType, container_type_variant>;
 
   using accessor_policy_variant =
-    std::variant<host_device_accessor<typename container_policy_at_index<0>::accessor_policy,
+    std::variant<host_device_accessor<typename raw_container_policy_at_index<0>::accessor_policy,
                                       static_cast<memory_type>(0)>,
-                 host_device_accessor<typename container_policy_at_index<1>::accessor_policy,
+                 host_device_accessor<typename raw_container_policy_at_index<1>::accessor_policy,
                                       static_cast<memory_type>(1)>,
-                 host_device_accessor<typename container_policy_at_index<2>::accessor_policy,
+                 host_device_accessor<typename raw_container_policy_at_index<2>::accessor_policy,
                                       static_cast<memory_type>(2)>,
-                 host_device_accessor<typename container_policy_at_index<3>::accessor_policy,
+                 host_device_accessor<typename raw_container_policy_at_index<3>::accessor_policy,
                                       static_cast<memory_type>(3)>>;
 
   template <raft::memory_type MemType>
   using accessor_policy = alternate_from_mem_type<MemType, accessor_policy_variant>;
 
-  using const_accessor_policy_variant =
-    std::
-      variant<host_device_accessor<typename container_policy_at_index<0>::const_accessor_policy, static_cast<memory_type>(0)>, host_device_accessor<typename container_policy_at_index<1>::const_accessor_policy, static_cast<memory_type>(1)>, host_device_accessor<typename container_policy_at_index<2>::const_accessor_policy, static_cast<memory_type>(2)>, host_device_accessor<typename container_policy_at_index<3>::const_accessor_policy, static_cast<memory_type>(3)>, >;
-
+  using const_accessor_policy_variant = std::variant<
+    host_device_accessor<typename raw_container_policy_at_index<0>::const_accessor_policy,
+                         static_cast<memory_type>(0)>,
+    host_device_accessor<typename raw_container_policy_at_index<1>::const_accessor_policy,
+                         static_cast<memory_type>(1)>,
+    host_device_accessor<typename raw_container_policy_at_index<2>::const_accessor_policy,
+                         static_cast<memory_type>(2)>,
+    host_device_accessor<typename raw_container_policy_at_index<3>::const_accessor_policy,
+                         static_cast<memory_type>(3)>>;
   template <raft::memory_type MemType>
   using const_accessor_policy = alternate_from_mem_type<MemType, accessor_policy_variant>;
 
@@ -381,6 +392,10 @@ struct mdbuffer {
   container_policy_type cp_{};
   storage_type_variant data_{};
 
+  // This template is used to determine whether or not is possible to copy from
+  // the mdspan returned by the view method of a FromT type mdbuffer with
+  // memory type indicated by FromIndex to the mdspan returned by this mdbuffer
+  // at ToIndex
   template <typename FromT, std::size_t FromIndex, std::size_t ToIndex>
   auto static constexpr is_copyable_combination()
   {
@@ -389,28 +404,35 @@ struct mdbuffer {
       std::variant_alternative_t<FromIndex, decltype(std::declval<FromT>().view())>>;
   }
 
-  template <std::size_t FromIndex, typename FromT, std::size_t... Is>
-  auto static constexpr get_copyable_combinations(std::index_sequence<Is...>)
+  // Using an index_sequence to iterate over the possible memory types of this
+  // mdbuffer, we construct an array of bools to determine whether or not the
+  // mdspan returned by the view method of a FromT type mdbuffer with memory
+  // type indicated by FromIndex can be copied to the mdspan returned by this
+  // mdbuffer's view method at each memory type
+  template <std::size_t FromIndex, typename FromT, std::size_t... ToIs>
+  auto static constexpr get_to_copyable_combinations(std::index_sequence<ToIs...>)
   {
-    return std::array{is_copyable_combination<FromT, FromIndex, Is>()...};
+    return std::array{is_copyable_combination<FromT, FromIndex, ToIs>()...};
   }
 
-  // Note: bool is a placeholder parameter to allow the underlying templated
-  // calls to be composed together correctly across all of the combinations.
-  // Without it, we cannot construct a fold expression that correctly
-  // distinguishes betwe the from and to indexes
-  template <typename FromT, std::size_t... Is>
-  auto static constexpr get_copyable_combinations(bool, std::index_sequence<Is...>)
+  // Using an index_sequence to iterate over the possible memory types of the
+  // FromT type mdbuffer, we construct an array of arrays indicating whether it
+  // is possible to copy from any mdspan that can be returned from the FromT
+  // mdbuffer to any mdspan that can be returned from this mdbuffer
+  template <typename FromT, std::size_t... FromIs>
+  auto static constexpr get_from_copyable_combinations(std::index_sequence<FromIs...>)
   {
-    return std::array{get_copyable_combinations<Is, FromT>(
+    return std::array{get_to_copyable_combinations<FromIs, FromT>(
       std::make_index_sequence<std::variant_size_v<owning_type_variant>>())...};
   }
 
+  // Get an array of arrays indicating whether or not it is possible to copy
+  // from any given memory type of a FromT mdbuffer to any memory type of this
+  // mdbuffer
   template <typename FromT>
   auto static constexpr get_copyable_combinations()
   {
-    return get_copyable_combinations<FromT>(
-      true,
+    return get_from_copyable_combinations<FromT>(
       std::make_index_sequence<std::variant_size_v<decltype(std::declval<FromT>().view())>>());
   }
 
