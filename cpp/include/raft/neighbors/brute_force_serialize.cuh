@@ -36,6 +36,7 @@ auto static constexpr serialization_version = 0;
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/brute_force_serialize.cuh>
  *
  * raft::resources handle;
  *
