@@ -90,10 +90,6 @@ class AnnBruteForceTest : public ::testing::TestWithParam<AnnBruteForceInputs<Id
   void testBruteForce()
   {
     size_t queries_size = ps.num_queries * ps.k;
-    std::vector<IdxT> indices_bruteforce(queries_size);
-    std::vector<IdxT> indices_naive(queries_size);
-    std::vector<T> distances_bruteforce(queries_size);
-    std::vector<T> distances_naive(queries_size);
 
     rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
     rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
@@ -107,8 +103,6 @@ class AnnBruteForceTest : public ::testing::TestWithParam<AnnBruteForceInputs<Id
                               ps.dim,
                               ps.k,
                               ps.metric);
-    update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
-    update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
     resource::sync_stream(handle_);
 
     {
@@ -154,9 +148,6 @@ class AnnBruteForceTest : public ::testing::TestWithParam<AnnBruteForceInputs<Id
                           indices_out_view,
                           dists_out_view);
 
-      update_host(
-        distances_bruteforce.data(), distances_bruteforce_dev.data(), queries_size, stream_);
-      update_host(indices_bruteforce.data(), indices_bruteforce_dev.data(), queries_size, stream_);
       resource::sync_stream(handle_);
 
       ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(indices_naive_dev.data(),
