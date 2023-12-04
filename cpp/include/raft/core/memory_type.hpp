@@ -86,14 +86,8 @@ auto memory_type_from_pointer(T* ptr)
 {
   auto result = memory_type::host;
 #ifndef RAFT_DISABLE_CUDA
-  auto* void_ptr = static_cast<void*>(nullptr);
-  if constexpr (std::is_const_v<T>) {
-    void_ptr = const_cast<void*>(static_cast<void const*>(ptr));
-  } else {
-    void_ptr = static_cast<void*>(ptr);
-  }
   auto attrs = cudaPointerAttributes{};
-  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attrs, void_ptr));
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attrs, ptr));
   switch (attrs.type) {
     case cudaMemoryTypeDevice: result = memory_type::device; break;
     case cudaMemoryTypeHost: result = memory_type::host; break;
