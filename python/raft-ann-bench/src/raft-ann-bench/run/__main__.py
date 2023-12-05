@@ -154,7 +154,6 @@ def run_build_and_search(
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
-        print("ALGO: %s" % algo)
         temp_conf_filename = f"{conf_filename}_{algo}_{uuid.uuid1()}.json"
         with open(temp_conf_filename, "w") as f:
             temp_conf = dict()
