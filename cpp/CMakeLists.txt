@@ -177,8 +177,8 @@ include(cmake/modules/ConfigureCUDA.cmake)
 rapids_cpm_init()
 
 if(NOT BUILD_CPU_ONLY)
-  # thrust before rmm/cuco so we get the right version of thrust/cub
-  include(cmake/thirdparty/get_thrust.cmake)
+  # CCCL before rmm/cuco so we get the right version of CCCL
+  include(cmake/thirdparty/get_cccl.cmake)
   include(cmake/thirdparty/get_rmm.cmake)
   include(cmake/thirdparty/get_cutlass.cmake)
 
@@ -206,7 +206,7 @@ target_include_directories(
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
+  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass CCCL::Thrust)
 endif()
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -632,8 +632,8 @@ string(
   APPEND
   code_string
   [=[
-if(NOT TARGET raft::Thrust)
-  thrust_create_target(raft::Thrust FROM_OPTIONS)
+if(NOT TARGET CCCL::Thrust)
+  thrust_create_target(CCCL::Thrust FROM_OPTIONS)
 endif()
 ]=]
 )
