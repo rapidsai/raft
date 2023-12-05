@@ -147,7 +147,6 @@ struct index : ann::index {
     resource::sync_stream(res);
   }
 
- private:
   /**
    * Replace the dataset with a new dataset.
    */
@@ -170,6 +169,7 @@ struct index : ann::index {
     dataset_view_ = make_const_mdspan(dataset_.view());
   }
 
+ private:
   raft::distance::DistanceType metric_;
   raft::device_matrix<T, int64_t, row_major> dataset_;
   std::optional<raft::device_vector<T, int64_t>> norms_;

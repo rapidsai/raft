@@ -153,9 +153,12 @@ auto deserialize(raft::resources const& handle, std::istream& is)
   auto metric     = deserialize_scalar<raft::distance::DistanceType>(handle, is);
   auto metric_arg = deserialize_scalar<T>(handle, is);
 
-  auto dataset_storage = raft::make_host_matrix<T>(rows, dim);
+  auto dataset_storage = raft::make_host_matrix<T>(std::int64_t{}, std::int64_t{});
   auto include_dataset = deserialize_scalar<bool>(handle, is);
-  if (include_dataset) { deserialize_mdspan(handle, is, dataset_storage.view()); }
+  if (include_dataset) {
+    dataset_storage = raft::make_host_matrix<T>(rows, dim);
+    deserialize_mdspan(handle, is, dataset_storage.view());
+  }
 
   auto has_norms     = deserialize_scalar<bool>(handle, is);
   auto norms_storage = has_norms ? std::optional{raft::make_host_vector<T, std::int64_t>(rows)}

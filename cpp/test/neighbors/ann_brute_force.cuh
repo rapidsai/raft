@@ -159,6 +159,29 @@ class AnnBruteForceTest : public ::testing::TestWithParam<AnnBruteForceInputs<Id
                                                          0.001f,
                                                          stream_,
                                                          true));
+      brute_force::serialize(handle_, std::string{"brute_force_index"}, idx, false);
+      index_loaded = brute_force::deserialize<DataT>(handle_, std::string{"brute_force_index"});
+      index_loaded.update_dataset(handle_, idx.dataset());
+      ASSERT_EQ(idx.size(), index_loaded.size());
+
+      brute_force::search(handle_,
+                          search_params,
+                          index_loaded,
+                          search_queries_view,
+                          indices_out_view,
+                          dists_out_view);
+
+      resource::sync_stream(handle_);
+
+      ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(indices_naive_dev.data(),
+                                                         indices_bruteforce_dev.data(),
+                                                         distances_naive_dev.data(),
+                                                         distances_bruteforce_dev.data(),
+                                                         ps.num_queries,
+                                                         ps.k,
+                                                         0.001f,
+                                                         stream_,
+                                                         true));
     }
   }
 
