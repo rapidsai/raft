@@ -14,6 +14,8 @@
 # Use this variable to update RAPIDS and RAFT versions
 set(RAPIDS_VERSION "24.02")
 
+set(rapids-cmake-repo bdice/rapids-cmake)
+set(rapids-cmake-branch cuco-cccl-2.2.0)
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake)
     file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-${RAPIDS_VERSION}/RAPIDS.cmake
             ${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake)
