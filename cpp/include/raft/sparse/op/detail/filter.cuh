@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,17 +44,17 @@ namespace op {
 namespace detail {
 
 template <int TPB_X, typename T>
-__global__ void coo_remove_scalar_kernel(const int* rows,
-                                         const int* cols,
-                                         const T* vals,
-                                         int nnz,
-                                         int* crows,
-                                         int* ccols,
-                                         T* cvals,
-                                         int* ex_scan,
-                                         int* cur_ex_scan,
-                                         int m,
-                                         T scalar)
+RAFT_KERNEL coo_remove_scalar_kernel(const int* rows,
+                                     const int* cols,
+                                     const T* vals,
+                                     int nnz,
+                                     int* crows,
+                                     int* ccols,
+                                     T* cvals,
+                                     int* ex_scan,
+                                     int* cur_ex_scan,
+                                     int m,
+                                     T scalar)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 

@@ -16,6 +16,7 @@
 import argparse
 import os
 import subprocess
+import sys
 from urllib.request import urlretrieve
 
 
@@ -36,12 +37,13 @@ def convert_hdf5_to_fbin(path, normalize):
     ann_bench_scripts_path = os.path.join(scripts_path, "hdf5_to_fbin.py")
     print(f"calling script {ann_bench_scripts_path}")
     if normalize and "angular" in path:
-        p = subprocess.Popen(
-            ["python", ann_bench_scripts_path, "-n", "%s" % path]
+        subprocess.run(
+            ["python", ann_bench_scripts_path, "-n", "%s" % path], check=True
         )
     else:
-        p = subprocess.Popen(["python", ann_bench_scripts_path, "%s" % path])
-    p.wait()
+        subprocess.run(
+            ["python", ann_bench_scripts_path, "%s" % path], check=True
+        )
 
 
 def move(name, ann_bench_data_path):
@@ -100,6 +102,10 @@ def main():
         help="normalize cosine distance to inner product",
         action="store_true",
     )
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
     args = parser.parse_args()
 
     download(args.dataset, args.normalize, args.dataset_path)

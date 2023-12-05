@@ -40,7 +40,7 @@ template <typename Policy,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-__global__ void __launch_bounds__(Policy::ThreadsPerBlock)
+RAFT_KERNEL __launch_bounds__(Policy::ThreadsPerBlock)
   coalescedReductionThinKernel(OutType* dots,
                                const InType* data,
                                IdxType D,
@@ -137,15 +137,15 @@ template <int TPB,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-__global__ void __launch_bounds__(TPB) coalescedReductionMediumKernel(OutType* dots,
-                                                                      const InType* data,
-                                                                      IdxType D,
-                                                                      IdxType N,
-                                                                      OutType init,
-                                                                      MainLambda main_op,
-                                                                      ReduceLambda reduce_op,
-                                                                      FinalLambda final_op,
-                                                                      bool inplace = false)
+RAFT_KERNEL __launch_bounds__(TPB) coalescedReductionMediumKernel(OutType* dots,
+                                                                  const InType* data,
+                                                                  IdxType D,
+                                                                  IdxType N,
+                                                                  OutType init,
+                                                                  MainLambda main_op,
+                                                                  ReduceLambda reduce_op,
+                                                                  FinalLambda final_op,
+                                                                  bool inplace = false)
 {
   typedef cub::BlockReduce<OutType, TPB, cub::BLOCK_REDUCE_RAKING> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
@@ -225,7 +225,7 @@ template <typename Policy,
           typename IdxType,
           typename MainLambda,
           typename ReduceLambda>
-__global__ void __launch_bounds__(Policy::ThreadsPerBlock)
+RAFT_KERNEL __launch_bounds__(Policy::ThreadsPerBlock)
   coalescedReductionThickKernel(OutType* buffer,
                                 const InType* data,
                                 IdxType D,

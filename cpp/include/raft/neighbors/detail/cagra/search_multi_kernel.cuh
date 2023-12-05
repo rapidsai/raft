@@ -45,13 +45,13 @@ namespace raft::neighbors::cagra::detail {
 namespace multi_kernel_search {
 
 template <class T>
-__global__ void set_value_kernel(T* const dev_ptr, const T val)
+RAFT_KERNEL set_value_kernel(T* const dev_ptr, const T val)
 {
   *dev_ptr = val;
 }
 
 template <class T>
-__global__ void set_value_kernel(T* const dev_ptr, const T val, const std::size_t count)
+RAFT_KERNEL set_value_kernel(T* const dev_ptr, const T val, const std::size_t count)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= count) { return; }
@@ -73,7 +73,7 @@ void set_value(T* const dev_ptr, const T val, const std::size_t count, cudaStrea
 }
 
 template <class T>
-__global__ void get_value_kernel(T* const host_ptr, const T* const dev_ptr)
+RAFT_KERNEL get_value_kernel(T* const host_ptr, const T* const dev_ptr)
 {
   *host_ptr = *dev_ptr;
 }
@@ -90,22 +90,21 @@ template <unsigned TEAM_SIZE,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T>
-__global__ void random_pickup_kernel(
-  const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
-  const std::size_t dataset_dim,
-  const std::size_t dataset_size,
-  const std::size_t dataset_ld,
-  const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
-  const std::size_t num_pickup,
-  const unsigned num_distilation,
-  const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
-  const uint32_t num_seeds,
-  INDEX_T* const result_indices_ptr,       // [num_queries, ldr]
-  DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
-  const std::uint32_t ldr,                 // (*) ldr >= num_pickup
-  INDEX_T* const visited_hashmap_ptr,      // [num_queries, 1 << bitlen]
-  const std::uint32_t hash_bitlen)
+RAFT_KERNEL random_pickup_kernel(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
+                                 const std::size_t dataset_dim,
+                                 const std::size_t dataset_size,
+                                 const std::size_t dataset_ld,
+                                 const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
+                                 const std::size_t num_pickup,
+                                 const unsigned num_distilation,
+                                 const uint64_t rand_xor_mask,
+                                 const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
+                                 const uint32_t num_seeds,
+                                 INDEX_T* const result_indices_ptr,       // [num_queries, ldr]
+                                 DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
+                                 const std::uint32_t ldr,                 // (*) ldr >= num_pickup
+                                 INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
+                                 const std::uint32_t hash_bitlen)
 {
   const auto ldb               = hashmap::get_size(hash_bitlen);
   const auto global_team_index = (blockIdx.x * blockDim.x + threadIdx.x) / TEAM_SIZE;
@@ -204,7 +203,7 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
 }
 
 template <class INDEX_T>
-__global__ void pickup_next_parents_kernel(
+RAFT_KERNEL pickup_next_parents_kernel(
   INDEX_T* const parent_candidates_ptr,        // [num_queries, lds]
   const std::size_t lds,                       // (*) lds >= parent_candidates_size
   const std::uint32_t parent_candidates_size,  //
@@ -254,7 +253,7 @@ __global__ void pickup_next_parents_kernel(
     if ((num_new_parents > 0) && (threadIdx.x == 0)) { *terminate_flag = 0; }
   } else if (small_hash_bitlen) {
     // reset small-hash
-    hashmap::init<32>(visited_hashmap_ptr + (ldb * query_id), hash_bitlen);
+    hashmap::init(visited_hashmap_ptr + (ldb * query_id), hash_bitlen, 32);
   }
 
   if (small_hash_bitlen) {
@@ -309,7 +308,7 @@ template <unsigned TEAM_SIZE,
           class INDEX_T,
           class DISTANCE_T,
           class SAMPLE_FILTER_T>
-__global__ void compute_distance_to_child_nodes_kernel(
+RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   const INDEX_T* const parent_node_list,  // [num_queries, search_width]
   INDEX_T* const parent_candidates_ptr,   // [num_queries, search_width]
   DISTANCE_T* const parent_distance_ptr,  // [num_queries, search_width]
@@ -440,10 +439,10 @@ void compute_distance_to_child_nodes(
 }
 
 template <class INDEX_T>
-__global__ void remove_parent_bit_kernel(const std::uint32_t num_queries,
-                                         const std::uint32_t num_topk,
-                                         INDEX_T* const topk_indices_ptr,  // [ld, num_queries]
-                                         const std::uint32_t ld)
+RAFT_KERNEL remove_parent_bit_kernel(const std::uint32_t num_queries,
+                                     const std::uint32_t num_topk,
+                                     INDEX_T* const topk_indices_ptr,  // [ld, num_queries]
+                                     const std::uint32_t ld)
 {
   constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
 
@@ -470,21 +469,23 @@ void remove_parent_bit(const std::uint32_t num_queries,
 
 // This function called after the `remove_parent_bit` function
 template <class INDEX_T, class DISTANCE_T, class SAMPLE_FILTER_T>
-__global__ void apply_filter_kernel(INDEX_T* const result_indices_ptr,
-                                    DISTANCE_T* const result_distances_ptr,
-                                    const std::size_t lds,
-                                    const std::uint32_t result_buffer_size,
-                                    const std::uint32_t num_queries,
-                                    const INDEX_T query_id_offset,
-                                    SAMPLE_FILTER_T sample_filter)
+RAFT_KERNEL apply_filter_kernel(INDEX_T* const result_indices_ptr,
+                                DISTANCE_T* const result_distances_ptr,
+                                const std::size_t lds,
+                                const std::uint32_t result_buffer_size,
+                                const std::uint32_t num_queries,
+                                const INDEX_T query_id_offset,
+                                SAMPLE_FILTER_T sample_filter)
 {
-  const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+  const auto tid                     = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= result_buffer_size * num_queries) { return; }
   const auto i     = tid % result_buffer_size;
   const auto j     = tid / result_buffer_size;
   const auto index = i + j * lds;
 
-  if (!sample_filter(query_id_offset + j, result_indices_ptr[index])) {
+  if (result_indices_ptr[index] != ~index_msb_1_mask &&
+      !sample_filter(query_id_offset + j, result_indices_ptr[index])) {
     result_indices_ptr[index]   = utils::get_max_value<INDEX_T>();
     result_distances_ptr[index] = utils::get_max_value<DISTANCE_T>();
   }
@@ -513,12 +514,12 @@ void apply_filter(INDEX_T* const result_indices_ptr,
 }
 
 template <class T>
-__global__ void batched_memcpy_kernel(T* const dst,  // [batch_size, ld_dst]
-                                      const uint64_t ld_dst,
-                                      const T* const src,  // [batch_size, ld_src]
-                                      const uint64_t ld_src,
-                                      const uint64_t count,
-                                      const uint64_t batch_size)
+RAFT_KERNEL batched_memcpy_kernel(T* const dst,  // [batch_size, ld_dst]
+                                  const uint64_t ld_dst,
+                                  const T* const src,  // [batch_size, ld_src]
+                                  const uint64_t ld_src,
+                                  const uint64_t count,
+                                  const uint64_t batch_size)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= count * batch_size) { return; }
@@ -545,11 +546,11 @@ void batched_memcpy(T* const dst,  // [batch_size, ld_dst]
 }
 
 template <class T>
-__global__ void set_value_batch_kernel(T* const dev_ptr,
-                                       const std::size_t ld,
-                                       const T val,
-                                       const std::size_t count,
-                                       const std::size_t batch_size)
+RAFT_KERNEL set_value_batch_kernel(T* const dev_ptr,
+                                   const std::size_t ld,
+                                   const T val,
+                                   const std::size_t count,
+                                   const std::size_t batch_size)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= count * batch_size) { return; }
@@ -788,12 +789,15 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
     auto result_indices_ptr   = result_indices.data() + (iter & 0x1) * result_buffer_size;
     auto result_distances_ptr = result_distances.data() + (iter & 0x1) * result_buffer_size;
 
-    // Remove parent bit in search results
-    remove_parent_bit(
-      num_queries, itopk_size, result_indices_ptr, result_buffer_allocation_size, stream);
+    if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                                raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+      // Remove parent bit in search results
+      remove_parent_bit(num_queries,
+                        result_buffer_size,
+                        result_indices.data() + (iter & 0x1) * itopk_size,
+                        result_buffer_allocation_size,
+                        stream);
 
-    if (!std::is_same<SAMPLE_FILTER_T,
-                      raft::neighbors::filtering::none_cagra_sample_filter>::value) {
       apply_filter<INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(
         result_indices.data() + (iter & 0x1) * itopk_size,
         result_distances.data() + (iter & 0x1) * itopk_size,
@@ -821,6 +825,10 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
                        true,
                        topk_hint.data(),
                        stream);
+    } else {
+      // Remove parent bit in search results
+      remove_parent_bit(
+        num_queries, itopk_size, result_indices_ptr, result_buffer_allocation_size, stream);
     }
 
     // Copy results from working buffer to final buffer

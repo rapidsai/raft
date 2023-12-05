@@ -24,6 +24,7 @@
 #include <limits>
 #include <queue>
 
+#include <random>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
@@ -362,28 +363,28 @@ class GNND {
   GnndGraph<Index_t> graph_;
   std::atomic<int64_t> update_counter_;
 
-  Index_t nrow_;
-  const int ndim_;
+  size_t nrow_;
+  size_t ndim_;
 
-  raft::device_matrix<__half, Index_t, raft::row_major> d_data_;
-  raft::device_vector<DistData_t, Index_t> l2_norms_;
+  raft::device_matrix<__half, size_t, raft::row_major> d_data_;
+  raft::device_vector<DistData_t, size_t> l2_norms_;
 
-  raft::device_matrix<ID_t, Index_t, raft::row_major> graph_buffer_;
-  raft::device_matrix<DistData_t, Index_t, raft::row_major> dists_buffer_;
+  raft::device_matrix<ID_t, size_t, raft::row_major> graph_buffer_;
+  raft::device_matrix<DistData_t, size_t, raft::row_major> dists_buffer_;
 
   // TODO: Investigate using RMM/RAFT types https://github.com/rapidsai/raft/issues/1827
   thrust::host_vector<ID_t, pinned_memory_allocator<ID_t>> graph_host_buffer_;
   thrust::host_vector<DistData_t, pinned_memory_allocator<DistData_t>> dists_host_buffer_;
 
-  raft::device_vector<int, Index_t> d_locks_;
+  raft::device_vector<int, size_t> d_locks_;
 
   thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_rev_graph_new_;
   thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_graph_old_;
   thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_rev_graph_old_;
   // int2.x is the number of forward edges, int2.y is the number of reverse edges
 
-  raft::device_vector<int2, Index_t> d_list_sizes_new_;
-  raft::device_vector<int2, Index_t> d_list_sizes_old_;
+  raft::device_vector<int2, size_t> d_list_sizes_new_;
+  raft::device_vector<int2, size_t> d_list_sizes_old_;
 };
 
 constexpr int TILE_ROW_WIDTH = 64;
@@ -448,11 +449,11 @@ __device__ __forceinline__ void load_vec(Data_t* vec_buffer,
 // TODO: Replace with RAFT utilities https://github.com/rapidsai/raft/issues/1827
 /** Calculate L2 norm, and cast data to __half */
 template <typename Data_t>
-__global__ void preprocess_data_kernel(const Data_t* input_data,
-                                       __half* output_data,
-                                       int dim,
-                                       DistData_t* l2_norms,
-                                       size_t list_offset = 0)
+RAFT_KERNEL preprocess_data_kernel(const Data_t* input_data,
+                                   __half* output_data,
+                                   int dim,
+                                   DistData_t* l2_norms,
+                                   size_t list_offset = 0)
 {
   extern __shared__ char buffer[];
   __shared__ float l2_norm;
@@ -493,10 +494,10 @@ __global__ void preprocess_data_kernel(const Data_t* input_data,
 }
 
 template <typename Index_t>
-__global__ void add_rev_edges_kernel(const Index_t* graph,
-                                     Index_t* rev_graph,
-                                     int num_samples,
-                                     int2* list_sizes)
+RAFT_KERNEL add_rev_edges_kernel(const Index_t* graph,
+                                 Index_t* rev_graph,
+                                 int num_samples,
+                                 int2* list_sizes)
 {
   size_t list_id = blockIdx.x;
   int2 list_size = list_sizes[list_id];
@@ -688,7 +689,7 @@ __device__ __forceinline__ void remove_duplicates(
 // For architectures 750 and 860, the values for MAX_RESIDENT_THREAD_PER_SM
 // is 1024 and 1536 respectively, which means the bounds don't work anymore
 template <typename Index_t, typename ID_t = InternalID_t<Index_t>>
-__global__ void
+RAFT_KERNEL
 #ifdef __CUDA_ARCH__
 #if (__CUDA_ARCH__) == 750 || (__CUDA_ARCH__) == 860
 __launch_bounds__(BLOCK_SIZE)
@@ -980,9 +981,9 @@ GnndGraph<Index_t>::GnndGraph(const size_t nrow,
     num_samples(num_samples),
     bloom_filter(nrow, internal_node_degree / segment_size, 3),
     h_dists{raft::make_host_matrix<DistData_t, size_t, raft::row_major>(nrow, node_degree)},
-    h_graph_new{nrow * num_samples},
-    h_list_sizes_new{nrow},
-    h_graph_old{nrow * num_samples},
+    h_graph_new(nrow * num_samples),
+    h_list_sizes_new(nrow),
+    h_graph_old(nrow * num_samples),
     h_list_sizes_old{nrow}
 {
   // node_degree must be a multiple of segment_size;
@@ -1025,7 +1026,8 @@ void GnndGraph<Index_t>::init_random_graph()
     // segment_x stores neighbors which id % num_segments == x
     std::vector<Index_t> rand_seq(nrow / num_segments);
     std::iota(rand_seq.begin(), rand_seq.end(), 0);
-    std::random_shuffle(rand_seq.begin(), rand_seq.end());
+    auto gen = std::default_random_engine{seg_idx};
+    std::shuffle(rand_seq.begin(), rand_seq.end(), gen);
 
 #pragma omp parallel for
     for (size_t i = 0; i < nrow; i++) {
@@ -1143,21 +1145,21 @@ GNND<Data_t, Index_t>::GNND(raft::resources const& res, const BuildConfig& build
            NUM_SAMPLES),
     nrow_(build_config.max_dataset_size),
     ndim_(build_config.dataset_dim),
-    d_data_{raft::make_device_matrix<__half, Index_t, raft::row_major>(
+    d_data_{raft::make_device_matrix<__half, size_t, raft::row_major>(
       res, nrow_, build_config.dataset_dim)},
-    l2_norms_{raft::make_device_vector<DistData_t, Index_t>(res, nrow_)},
+    l2_norms_{raft::make_device_vector<DistData_t, size_t>(res, nrow_)},
     graph_buffer_{
-      raft::make_device_matrix<ID_t, Index_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
+      raft::make_device_matrix<ID_t, size_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
     dists_buffer_{
-      raft::make_device_matrix<DistData_t, Index_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
-    graph_host_buffer_{static_cast<size_t>(nrow_ * DEGREE_ON_DEVICE)},
-    dists_host_buffer_{static_cast<size_t>(nrow_ * DEGREE_ON_DEVICE)},
-    d_locks_{raft::make_device_vector<int, Index_t>(res, nrow_)},
-    h_rev_graph_new_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
-    h_graph_old_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
-    h_rev_graph_old_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
-    d_list_sizes_new_{raft::make_device_vector<int2, Index_t>(res, nrow_)},
-    d_list_sizes_old_{raft::make_device_vector<int2, Index_t>(res, nrow_)}
+      raft::make_device_matrix<DistData_t, size_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
+    graph_host_buffer_(nrow_ * DEGREE_ON_DEVICE),
+    dists_host_buffer_(nrow_ * DEGREE_ON_DEVICE),
+    d_locks_{raft::make_device_vector<int, size_t>(res, nrow_)},
+    h_rev_graph_new_(nrow_ * NUM_SAMPLES),
+    h_graph_old_(nrow_ * NUM_SAMPLES),
+    h_rev_graph_old_(nrow_ * NUM_SAMPLES),
+    d_list_sizes_new_{raft::make_device_vector<int2, size_t>(res, nrow_)},
+    d_list_sizes_old_{raft::make_device_vector<int2, size_t>(res, nrow_)}
 {
   static_assert(NUM_SAMPLES <= 32);
 
@@ -1278,8 +1280,7 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
 
     std::thread update_and_sample_thread(update_and_sample, it);
 
-    std::cout << "# GNND iteraton: " << it + 1 << "/" << build_config_.max_iterations << "\r";
-    std::fflush(stdout);
+    RAFT_LOG_DEBUG("# GNND iteraton: %lu / %lu", it + 1, build_config_.max_iterations);
 
     // Reuse dists_buffer_ to save GPU memory. graph_buffer_ cannot be reused, because it
     // contains some information for local_join.
@@ -1343,8 +1344,8 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
   for (size_t i = 0; i < (size_t)nrow_; i++) {
     for (size_t j = 0; j < build_config_.node_degree; j++) {
       size_t idx = i * graph_.node_degree + j;
-      Index_t id = graph_.h_graph[idx].id();
-      if (id < nrow_) {
+      int id     = graph_.h_graph[idx].id();
+      if (id < static_cast<int>(nrow_)) {
         graph_shrink_buffer[i * build_config_.node_degree + j] = id;
       } else {
         graph_shrink_buffer[i * build_config_.node_degree + j] =

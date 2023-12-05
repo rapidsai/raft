@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ float accuracy_score(const math_t* predictions,
 }
 
 template <typename T>
-__global__ void reg_metrics_kernel(
+RAFT_KERNEL reg_metrics_kernel(
   const T* predictions, const T* ref_predictions, int n, double* abs_diffs, double* tmp_sums)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ template <typename Policy,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-__global__ void __launch_bounds__(Policy::ThreadsPerBlock)
+RAFT_KERNEL __launch_bounds__(Policy::ThreadsPerBlock)
   coalesced_normalize_thin_kernel(Type* out,
                                   const Type* in,
                                   IdxType D,
@@ -92,15 +92,15 @@ template <int TPB,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-__global__ void __launch_bounds__(TPB) coalesced_normalize_medium_kernel(Type* out,
-                                                                         const Type* in,
-                                                                         IdxType D,
-                                                                         IdxType N,
-                                                                         Type init,
-                                                                         MainLambda main_op,
-                                                                         ReduceLambda reduce_op,
-                                                                         FinalLambda fin_op,
-                                                                         Type eps)
+RAFT_KERNEL __launch_bounds__(TPB) coalesced_normalize_medium_kernel(Type* out,
+                                                                     const Type* in,
+                                                                     IdxType D,
+                                                                     IdxType N,
+                                                                     Type init,
+                                                                     MainLambda main_op,
+                                                                     ReduceLambda reduce_op,
+                                                                     FinalLambda fin_op,
+                                                                     Type eps)
 {
   typedef cub::BlockReduce<Type, TPB, cub::BLOCK_REDUCE_RAKING> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;

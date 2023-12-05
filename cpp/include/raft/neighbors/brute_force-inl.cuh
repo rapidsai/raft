@@ -19,6 +19,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/brute_force_types.hpp>
 #include <raft/neighbors/detail/knn_brute_force.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 
@@ -33,13 +34,13 @@ namespace raft::neighbors::brute_force {
  * @brief Performs a k-select across several (contiguous) row-partitioned index/distance
  * matrices formatted like the following:
  *
- * part1row1: k0, k1, k2, k3
- * part1row2: k0, k1, k2, k3
- * part1row3: k0, k1, k2, k3
- * part2row1: k0, k1, k2, k3
- * part2row2: k0, k1, k2, k3
- * part2row3: k0, k1, k2, k3
- * etc...
+ *     part1row1: k0, k1, k2, k3
+ *     part1row2: k0, k1, k2, k3
+ *     part1row3: k0, k1, k2, k3
+ *     part2row1: k0, k1, k2, k3
+ *     part2row2: k0, k1, k2, k3
+ *     part2row3: k0, k1, k2, k3
+ *     etc...
  *
  * The example above shows what an aggregated index/distance matrix
  * would look like with two partitions when n_samples=3 and k=4.
@@ -58,7 +59,7 @@ namespace raft::neighbors::brute_force {
  *  #include <raft/neighbors/brute_force.cuh>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  compute multiple knn graphs and aggregate row-wise
  *  (see detailed description above)
@@ -125,7 +126,7 @@ inline void knn_merge_parts(
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::knn(handle, index, search, indices, distances, metric);
@@ -218,7 +219,7 @@ void knn(raft::resources const& handle,
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::fused_l2_knn(handle, index, search, indices, distances, metric);
@@ -280,6 +281,114 @@ void fused_l2_knn(raft::resources const& handle,
                                          metric);
 }
 
-/** @} */  // end group brute_force_knn
+/**
+ * @brief Build the index from the dataset for efficient search.
+ *
+ * This function builds a brute force index for the given dataset. This lets you re-use
+ * precalculated norms for the dataset, leading to a speedup over calling
+ * raft::neighbors::brute_force::knn repeatedly.
+ *
+ * Example usage:
+ * @code{.cpp}
+ * #include <raft/neighbors/brute_force.cuh>
+ * #include <raft/core/device_mdarray.hpp>
+ * #include <raft/random/make_blobs.cuh>
+ *
+ * // create a random dataset
+ * int n_rows = 10000;
+ * int n_cols = 10000;
+ *
+ * raft::device_resources res;
+ * auto dataset = raft::make_device_matrix<float, int64_t>(res, n_rows, n_cols);
+ * auto labels = raft::make_device_vector<int64_t, int64_t>(res, n_rows);
+ *
+ * raft::random::make_blobs(res, dataset.view(), labels.view());
+ *
+ * // create a brute_force knn index from the dataset
+ * auto index = raft::neighbors::brute_force::build(res,
+ *                                                  raft::make_const_mdspan(dataset.view()));
+ *
+ * // Use the constructed index to search for the nearest 128 neighbors
+ * int k = 128;
+ * auto search = raft::make_const_mdspan(dataset.view());
+ *
+ * auto indices= raft::make_device_matrix<int, int64_t>(res, search.extent(0), k);
+ * auto distances = raft::make_device_matrix<float, int64_t>(res, search.extent(0), k);
+ *
+ * raft::neighbors::brute_force::search(res,
+ *                                      index,
+ *                                      search,
+ *                                      indices.view(),
+ *                                      distances.view());
+ * @endcode
+ *
+ * @tparam T data element type
+ *
+ * @param[in] res
+ * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
+ * @param[in] metric: distance metric to use. Euclidean (L2) is used by default
+ * @param[in] metric_arg: the value of `p` for Minkowski (l-p) distances. This
+ *           is ignored if the metric_type is not Minkowski.
+ *
+ * @return the constructed brute force index
+ */
+template <typename T, typename Accessor>
+index<T> build(raft::resources const& res,
+               mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
+               raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
+               T metric_arg                        = 0.0)
+{
+  // certain distance metrics can benefit by pre-calculating the norms for the index dataset
+  // which lets us avoid calculating these at query time
+  std::optional<device_vector<T, int64_t>> norms;
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded ||
+      metric == raft::distance::DistanceType::CosineExpanded) {
+    norms = make_device_vector<T, int64_t>(res, dataset.extent(0));
+    // cosine needs the l2norm, where as l2 distances needs the squared norm
+    if (metric == raft::distance::DistanceType::CosineExpanded) {
+      raft::linalg::norm(res,
+                         dataset,
+                         norms->view(),
+                         raft::linalg::NormType::L2Norm,
+                         raft::linalg::Apply::ALONG_ROWS,
+                         raft::sqrt_op{});
+    } else {
+      raft::linalg::norm(res,
+                         dataset,
+                         norms->view(),
+                         raft::linalg::NormType::L2Norm,
+                         raft::linalg::Apply::ALONG_ROWS);
+    }
+  }
 
+  return index<T>(res, dataset, std::move(norms), metric, metric_arg);
+}
+
+/**
+ * @brief Brute Force search using the constructed index.
+ *
+ * See raft::neighbors::brute_force::build for a usage example
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] res raft resources
+ * @param[in] idx brute force index
+ * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
+ * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
+ * [n_queries, k]
+ * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
+ * k]
+ */
+template <typename T, typename IdxT>
+void search(raft::resources const& res,
+            const index<T>& idx,
+            raft::device_matrix_view<const T, int64_t, row_major> queries,
+            raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
+            raft::device_matrix_view<T, int64_t, row_major> distances)
+{
+  raft::neighbors::detail::brute_force_search<T, IdxT>(res, idx, queries, neighbors, distances);
+}
+/** @} */  // end group brute_force_knn
 }  // namespace raft::neighbors::brute_force

@@ -16,3 +16,15 @@ namespace *raft::stats*
     :project: RAFT
     :members:
     :content-only:
+
+Neighborhood Recall
+-------------------
+
+``#include <raft/stats/neighborhood_recall.cuh>``
+
+namespace *raft::stats*
+
+.. doxygengroup:: stats_neighborhood_recall
+    :project: RAFT
+    :members:
+    :content-only:

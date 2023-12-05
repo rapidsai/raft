@@ -32,6 +32,7 @@ function(ConfigureBench)
     PRIVATE raft::raft
             raft_internal
             $<$<BOOL:${ConfigureBench_LIB}>:raft::compiled>
+            ${RAFT_CTK_MATH_DEPENDENCIES}
             benchmark::benchmark
             Threads::Threads
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
@@ -74,10 +75,13 @@ endfunction()
 
 if(BUILD_PRIMS_BENCH)
   ConfigureBench(
+    NAME CORE_BENCH PATH bench/prims/core/bitset.cu bench/prims/core/copy.cu bench/prims/main.cpp
+  )
+
+  ConfigureBench(
     NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
     bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
-  ConfigureBench(NAME CORE_BENCH PATH bench/prims/core/bitset.cu bench/prims/main.cpp)
 
   ConfigureBench(
     NAME TUNE_DISTANCE PATH bench/prims/distance/tune_pairwise/kernel.cu
@@ -143,10 +147,12 @@ if(BUILD_PRIMS_BENCH)
     bench/prims/neighbors/knn/brute_force_float_int64_t.cu
     bench/prims/neighbors/knn/brute_force_float_uint32_t.cu
     bench/prims/neighbors/knn/cagra_float_uint32_t.cu
+    bench/prims/neighbors/knn/ivf_flat_filter_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_int8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_float_int64_t.cu
+    bench/prims/neighbors/knn/ivf_pq_filter_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_int8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_uint8_t_int64_t.cu
     bench/prims/neighbors/refine_float_int64_t.cu

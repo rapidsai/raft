@@ -45,3 +45,19 @@ Commonly used datasets can be downloaded from two websites:
     popd
     ```
     Besides ground truth files for the whole billion-scale datasets, this site also provides ground truth files for the first 10M or 100M vectors of the base sets. This mean we can use these billion-scale datasets as million-scale datasets. To facilitate this, an optional parameter `subset_size` for dataset can be used. See the next step for further explanation.
+
+## Generate ground truth
+
+If you have a dataset, but no corresponding ground truth file, then you can generate ground trunth using the `generate_groundtruth` utility. Example usage:
+
+```bash
+# With existing query file
+python -m raft-ann-bench.generate_groundtruth --dataset /dataset/base.fbin --output=groundtruth_dir --queries=/dataset/query.public.10K.fbin
+
+# With randomly generated queries
+python -m raft-ann-bench.generate_groundtruth --dataset /dataset/base.fbin --output=groundtruth_dir --queries=random --n_queries=10000
+
+# Using only a subset of the dataset. Define queries by randomly
+# selecting vectors from the (subset of the) dataset.
+python -m raft-ann-bench.generate_groundtruth --dataset /dataset/base.fbin --nrows=2000000 --output=groundtruth_dir --queries=random-choice --n_queries=10000
+```
