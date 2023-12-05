@@ -154,6 +154,7 @@ def run_build_and_search(
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
+        print("ALGO: %s" % algo)
         temp_conf_filename = f"{conf_filename}_{algo}_{uuid.uuid1()}.json"
         with open(temp_conf_filename, "w") as f:
             temp_conf = dict()
@@ -574,8 +575,8 @@ def main():
                         index["search_params"].append(search_dict)
                 executables_to_run[executable]["index"].append(index)
 
-            if len(index["search_params"]) == 0:
-                print("No search parameters were added to configuration")
+                if len(index["search_params"]) == 0:
+                    print("No search parameters were added to configuration")
 
     run_build_and_search(
         conf_file,
