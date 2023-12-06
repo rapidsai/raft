@@ -2,7 +2,7 @@
 
 # Usage:
 #   conda build . -c conda-forge -c nvidia -c rapidsai
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set py_version = environ['CONDA_PY'] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
@@ -16,7 +16,7 @@ package:
   script: build.sh
 
 source:
-  git_url: ../../..
+  path: ../../..
 
 build:
   script_env:
@@ -70,11 +70,6 @@ requirements:
     {% endif %}
     - glog {{ glog_version }}
     - nlohmann_json {{ nlohmann_json_version }}
-    # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet
-    {% if cuda_major == "11" %}
-    - faiss-proc=*=cuda
-    - libfaiss {{ faiss_version }}
-    {% endif %}
     - h5py {{ h5py_version }}
     - benchmark
     - matplotlib
@@ -92,11 +87,6 @@ requirements:
     - cudatoolkit
     {% endif %}
     - glog {{ glog_version }}
-    # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet
-    {% if cuda_major == "11" %}
-    - faiss-proc=*=cuda
-    - libfaiss {{ faiss_version }}
-    {% endif %}
     - h5py {{ h5py_version }}
     - benchmark
     - glog {{ glog_version }}

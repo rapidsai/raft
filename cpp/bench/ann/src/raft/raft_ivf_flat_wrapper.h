@@ -23,7 +23,6 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
@@ -53,18 +52,14 @@ class RaftIvfFlatGpu : public ANN<T> {
   using BuildParam = raft::neighbors::ivf_flat::index_params;
 
   RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param)
-    : ANN<T>(metric, dim),
-      index_params_(param),
-      dimension_(dim),
-      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
+    : ANN<T>(metric, dim), index_params_(param), dimension_(dim)
   {
     index_params_.metric                         = parse_metric_type(metric);
     index_params_.conservative_memory_allocation = true;
-    rmm::mr::set_current_device_resource(&mr_);
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
-  ~RaftIvfFlatGpu() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
+  ~RaftIvfFlatGpu() noexcept {}
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -91,8 +86,6 @@ class RaftIvfFlatGpu : public ANN<T> {
   void load(const std::string&) override;
 
  private:
-  // `mr_` must go first to make sure it dies last
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
   raft::device_resources handle_;
   BuildParam index_params_;
   raft::neighbors::ivf_flat::search_params search_params_;
@@ -135,10 +128,9 @@ template <typename T, typename IdxT>
 void RaftIvfFlatGpu<T, IdxT>::search(
   const T* queries, int batch_size, int k, size_t* neighbors, float* distances, cudaStream_t) const
 {
-  rmm::mr::device_memory_resource* mr_ptr = &const_cast<RaftIvfFlatGpu*>(this)->mr_;
   static_assert(sizeof(size_t) == sizeof(IdxT), "IdxT is incompatible with size_t");
   raft::neighbors::ivf_flat::search(
-    handle_, search_params_, *index_, queries, batch_size, k, (IdxT*)neighbors, distances, mr_ptr);
+    handle_, search_params_, *index_, queries, batch_size, k, (IdxT*)neighbors, distances);
   resource::sync_stream(handle_);
   return;
 }

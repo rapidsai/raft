@@ -74,15 +74,15 @@ DI void store_ids(
 }
 
 template <typename IdxT, typename ProbT>
-__global__ void rmat_gen_kernel(IdxT* out,
-                                IdxT* out_src,
-                                IdxT* out_dst,
-                                const ProbT* theta,
-                                IdxT r_scale,
-                                IdxT c_scale,
-                                IdxT n_edges,
-                                IdxT max_scale,
-                                raft::random::RngState r)
+RAFT_KERNEL rmat_gen_kernel(IdxT* out,
+                            IdxT* out_src,
+                            IdxT* out_dst,
+                            const ProbT* theta,
+                            IdxT r_scale,
+                            IdxT c_scale,
+                            IdxT n_edges,
+                            IdxT max_scale,
+                            raft::random::RngState r)
 {
   IdxT idx = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
   extern __shared__ ProbT s_theta[];
@@ -134,17 +134,17 @@ void rmat_rectangular_gen_caller(IdxT* out,
 }
 
 template <typename IdxT, typename ProbT>
-__global__ void rmat_gen_kernel(IdxT* out,
-                                IdxT* out_src,
-                                IdxT* out_dst,
-                                ProbT a,
-                                ProbT b,
-                                ProbT c,
-                                IdxT r_scale,
-                                IdxT c_scale,
-                                IdxT n_edges,
-                                IdxT max_scale,
-                                raft::random::RngState r)
+RAFT_KERNEL rmat_gen_kernel(IdxT* out,
+                            IdxT* out_src,
+                            IdxT* out_dst,
+                            ProbT a,
+                            ProbT b,
+                            ProbT c,
+                            IdxT r_scale,
+                            IdxT c_scale,
+                            IdxT n_edges,
+                            IdxT max_scale,
+                            raft::random::RngState r)
 {
   IdxT idx = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
   IdxT src_id{0}, dst_id{0};

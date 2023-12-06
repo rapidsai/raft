@@ -29,13 +29,13 @@
 namespace raft::neighbors {
 
 template <typename EvalT, typename DataT, typename IdxT>
-__global__ void naive_distance_kernel(EvalT* dist,
-                                      const DataT* x,
-                                      const DataT* y,
-                                      IdxT m,
-                                      IdxT n,
-                                      IdxT k,
-                                      raft::distance::DistanceType metric)
+RAFT_KERNEL naive_distance_kernel(EvalT* dist,
+                                  const DataT* x,
+                                  const DataT* y,
+                                  IdxT m,
+                                  IdxT n,
+                                  IdxT k,
+                                  raft::distance::DistanceType metric)
 {
   IdxT midx = IdxT(threadIdx.x) + IdxT(blockIdx.x) * IdxT(blockDim.x);
   if (midx >= m) return;

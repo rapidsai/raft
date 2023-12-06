@@ -35,7 +35,7 @@ namespace detail {
  * @param n: Number of samples
  * @param work: Number of elements to consider
  */
-__global__ void build_lookup_table(int* lookup_table, const int* X_ind, int n, int work)
+RAFT_KERNEL build_lookup_table(int* lookup_table, const int* X_ind, int n, int work)
 {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
@@ -58,12 +58,12 @@ __global__ void build_lookup_table(int* lookup_table, const int* X_ind, int n, i
  * @param work: Batch to consider (to do it at once use n * n_neighbors)
  */
 template <typename knn_index_t>
-__global__ void compute_rank(double* rank,
-                             const int* lookup_table,
-                             const knn_index_t* emb_ind,
-                             int n,
-                             int n_neighbors,
-                             int work)
+RAFT_KERNEL compute_rank(double* rank,
+                         const int* lookup_table,
+                         const knn_index_t* emb_ind,
+                         int n,
+                         int n_neighbors,
+                         int work)
 {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;

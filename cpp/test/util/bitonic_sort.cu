@@ -48,7 +48,7 @@ auto operator<<(std::ostream& os, const test_spec& ss) -> std::ostream&
 }
 
 template <int Capacity, typename T>
-__global__ void bitonic_kernel(T* arr, bool ascending, int warp_width, int n_inputs)
+RAFT_KERNEL bitonic_kernel(T* arr, bool ascending, int warp_width, int n_inputs)
 {
   const int tid          = blockDim.x * blockIdx.x + threadIdx.x;
   const int subwarp_id   = tid / warp_width;
@@ -109,6 +109,7 @@ class BitonicTest : public testing::TestWithParam<test_spec> {  // NOLINT
   std::vector<T> in;     // NOLINT
   std::vector<T> out;    // NOLINT
   std::vector<T> ref;    // NOLINT
+  raft::resources handle_;
 
   void segmented_sort(std::vector<T>& vec, int k, bool ascending)  // NOLINT
   {
@@ -128,14 +129,14 @@ class BitonicTest : public testing::TestWithParam<test_spec> {  // NOLINT
     }
   }
 
-  void fill_random(rmm::device_uvector<T>& arr, rmm::cuda_stream_view stream)
+  void fill_random(rmm::device_uvector<T>& arr)
   {
-    raft::random::Rng rng(42);
+    raft::random::RngState rng(42);
     if constexpr (std::is_floating_point_v<T>) {
-      return rng.normal(arr.data(), arr.size(), T(10), T(100), stream);
+      return raft::random::normal(handle_, rng, arr.data(), arr.size(), T(10), T(100));
     }
     if constexpr (std::is_integral_v<T>) {
-      return rng.normalInt(arr.data(), arr.size(), T(10), T(100), stream);
+      return raft::random::normalInt(handle_, rng, arr.data(), arr.size(), T(10), T(100));
     }
   }
 
@@ -146,11 +147,11 @@ class BitonicTest : public testing::TestWithParam<test_spec> {  // NOLINT
       out(spec.len()),
       ref(spec.len())
   {
-    auto stream = rmm::cuda_stream_default;
+    auto stream = resource::get_cuda_stream(handle_);
 
     // generate input
     rmm::device_uvector<T> arr_d(spec.len(), stream);
-    fill_random(arr_d, stream);
+    fill_random(arr_d);
     update_host(in.data(), arr_d.data(), arr_d.size(), stream);
 
     // calculate the results

@@ -43,9 +43,8 @@ sed_runner 's/'"pylibraft_version .*)"'/'"pylibraft_version ${NEXT_FULL_TAG})"'/
 sed_runner 's/'"raft_dask_version .*)"'/'"raft_dask_version ${NEXT_FULL_TAG})"'/g' python/raft-dask/CMakeLists.txt
 sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_SHORT_TAG}\/RAPIDS.cmake"'/g' fetch_rapids.cmake
 
-# Python __init__.py updates
-sed_runner "s/__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/pylibraft/pylibraft/__init__.py
-sed_runner "s/__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/raft-dask/raft_dask/__init__.py
+# Centralized version file update
+echo "${NEXT_FULL_TAG}" > VERSION
 
 # Wheel testing script
 sed_runner "s/branch-.*/branch-${NEXT_SHORT_TAG}/g" ci/test_wheel_raft_dask.sh
@@ -57,7 +56,12 @@ sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.
 DEPENDENCIES=(
   dask-cuda
   pylibraft
+  pylibraft-cu11
+  pylibraft-cu12
   rmm
+  rmm-cu11
+  rmm-cu12
+  rapids-dask-dependency
   # ucx-py is handled separately below
 )
 for FILE in dependencies.yaml conda/environments/*.yaml; do
@@ -76,21 +80,20 @@ done
 
 sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCX_PY_VERSION}\"/}" conda/recipes/raft-dask/conda_build_config.yaml
 
-# Wheel builds install dask-cuda from source, update its branch
 for FILE in .github/workflows/*.yaml; do
-  sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" ${FILE};
-done
-
-for FILE in .github/workflows/*.yaml; do
-  sed_runner "/shared-action-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
+  sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
 done
 sed_runner "s/RAPIDS_VERSION_NUMBER=\".*/RAPIDS_VERSION_NUMBER=\"${NEXT_SHORT_TAG}\"/g" ci/build_docs.sh
 
 sed_runner "/^PROJECT_NUMBER/ s|\".*\"|\"${NEXT_SHORT_TAG}\"|g" cpp/doxygen/Doxyfile
 
 sed_runner "/^set(RAFT_VERSION/ s|\".*\"|\"${NEXT_SHORT_TAG}\"|g" docs/source/build.md
-sed_runner "/GIT_TAG.*branch-/ s|branch-.*|branch-${NEXT_SHORT_TAG}|g" docs/source/build.md
+sed_runner "s|branch-[0-9][0-9].[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" docs/source/build.md
 sed_runner "/rapidsai\/raft/ s|branch-[0-9][0-9].[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" docs/source/developer_guide.md
+
+sed_runner "s|:[0-9][0-9].[0-9][0-9]|:${NEXT_SHORT_TAG}|g" docs/source/raft_ann_benchmarks.md
+
+sed_runner "s|branch-[0-9][0-9].[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" README.md
 
 # .devcontainer files
 find .devcontainer/ -type f -name devcontainer.json -print0 | while IFS= read -r -d '' filename; do

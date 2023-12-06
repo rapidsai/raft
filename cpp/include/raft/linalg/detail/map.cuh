@@ -65,7 +65,7 @@ __device__ __forceinline__ void map_kernel_mainloop(
 }
 
 template <int R, bool PassOffset, typename OutT, typename IdxT, typename Func, typename... InTs>
-__global__ void map_kernel(OutT* out_ptr, IdxT len, Func f, const InTs*... in_ptrs)
+RAFT_KERNEL map_kernel(OutT* out_ptr, IdxT len, Func f, const InTs*... in_ptrs)
 {
   const IdxT tid = blockIdx.x * blockDim.x + threadIdx.x;
   if constexpr (R <= 1) {

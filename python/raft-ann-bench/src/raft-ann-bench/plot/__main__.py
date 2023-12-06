@@ -22,6 +22,7 @@
 import argparse
 import itertools
 import os
+import sys
 from collections import OrderedDict
 
 import matplotlib as mpl
@@ -305,7 +306,7 @@ def create_plot_build(
     fig = ax.get_figure()
     print(f"writing build output to {fn_out}")
     plt.title("Build Time for Highest QPS")
-    plt.suptitle(f"{dataset} k={k} batch_size={batch_size}")
+    plt.suptitle(f"{dataset}")
     plt.ylabel("Build Time (s)")
     fig.savefig(fn_out)
 
@@ -345,23 +346,68 @@ def load_lines(results_path, result_files, method, index_key):
 
 
 def load_all_results(
-    dataset_path, algorithms, k, batch_size, method, index_key
+    dataset_path,
+    algorithms,
+    groups,
+    algo_groups,
+    k,
+    batch_size,
+    method,
+    index_key,
 ):
     results_path = os.path.join(dataset_path, "result", method)
     result_files = os.listdir(results_path)
     result_files = [
-        result_filename
-        for result_filename in result_files
-        if f"{k}-{batch_size}" in result_filename
+        result_file for result_file in result_files if ".csv" in result_file
     ]
-    if len(algorithms) > 0:
+    if method == "search":
         result_files = [
             result_filename
             for result_filename in result_files
-            if result_filename.split("-")[0] in algorithms
+            if f"{k}-{batch_size}" in result_filename
+        ]
+        algo_group_files = [
+            result_filename.split("-")[0] for result_filename in result_files
+        ]
+    else:
+        algo_group_files = [
+            result_filename for result_filename in result_files
         ]
 
-    results = load_lines(results_path, result_files, method, index_key)
+    for i in range(len(algo_group_files)):
+        algo_group = algo_group_files[i].replace(".csv", "").split("_")
+        algo_group_files[i] = ("_".join(algo_group[:-1]), algo_group[-1])
+    algo_group_files = list(zip(*algo_group_files))
+
+    if len(algorithms) > 0:
+        final_results = [
+            result_files[i]
+            for i in range(len(result_files))
+            if (algo_group_files[0][i] in algorithms)
+            and (algo_group_files[1][i] in groups)
+        ]
+    else:
+        final_results = [
+            result_files[i]
+            for i in range(len(result_files))
+            if (algo_group_files[1][i] in groups)
+        ]
+
+    if len(algo_groups) > 0:
+        split_algo_groups = [
+            algo_group.split(".") for algo_group in algo_groups
+        ]
+        split_algo_groups = list(zip(*split_algo_groups))
+        final_algo_groups = [
+            result_files[i]
+            for i in range(len(result_files))
+            if (algo_group_files[0][i] in split_algo_groups[0])
+            and (algo_group_files[1][i] in split_algo_groups[1])
+        ]
+        final_results = final_results + final_algo_groups
+        final_results = set(final_results)
+
+    results = load_lines(results_path, final_results, method, index_key)
 
     return results
 
@@ -377,7 +423,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "--dataset", help="dataset to download", default="glove-100-inner"
+        "--dataset", help="dataset to plot", default="glove-100-inner"
     )
     parser.add_argument(
         "--dataset-path",
@@ -392,8 +438,20 @@ def main():
     parser.add_argument(
         "--algorithms",
         help="plot only comma separated list of named \
-                              algorithms",
+              algorithms. If parameters `groups` and `algo-groups \
+              are both undefined, then group `base` is plot by default",
         default=None,
+    )
+    parser.add_argument(
+        "--groups",
+        help="plot only comma separated groups of parameters",
+        default="base",
+    )
+    parser.add_argument(
+        "--algo-groups",
+        "--algo-groups",
+        help='add comma separated <algorithm>.<group> to plot. \
+              Example usage: "--algo-groups=raft_cagra.large,hnswlib.large"',
     )
     parser.add_argument(
         "-k",
@@ -429,12 +487,20 @@ def main():
         action="store_true",
     )
 
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
     args = parser.parse_args()
 
     if args.algorithms:
         algorithms = args.algorithms.split(",")
     else:
         algorithms = []
+    groups = args.groups.split(",")
+    if args.algo_groups:
+        algo_groups = args.algo_groups.split(",")
+    else:
+        algo_groups = []
     k = args.count
     batch_size = args.batch_size
     if not args.build and not args.search:
@@ -450,12 +516,14 @@ def main():
     )
     build_output_filepath = os.path.join(
         args.output_filepath,
-        f"build-{args.dataset}-k{k}-batch_size{batch_size}.png",
+        f"build-{args.dataset}.png",
     )
 
     search_results = load_all_results(
         os.path.join(args.dataset_path, args.dataset),
         algorithms,
+        groups,
+        algo_groups,
         k,
         batch_size,
         "search",
@@ -478,6 +546,8 @@ def main():
         build_results = load_all_results(
             os.path.join(args.dataset_path, args.dataset),
             algorithms,
+            groups,
+            algo_groups,
             k,
             batch_size,
             "build",

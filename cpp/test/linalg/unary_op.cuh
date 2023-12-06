@@ -24,7 +24,7 @@ namespace raft {
 namespace linalg {
 
 template <typename InType, typename OutType, typename IdxType>
-__global__ void naiveScaleKernel(OutType* out, const InType* in, InType scalar, IdxType len)
+RAFT_KERNEL naiveScaleKernel(OutType* out, const InType* in, InType scalar, IdxType len)
 {
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
   if (idx < len) {

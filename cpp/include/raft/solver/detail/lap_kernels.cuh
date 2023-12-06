@@ -159,7 +159,7 @@ __device__ void __augment(vertex_t* d_row_assignments,
 //  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
 //          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
-__global__ void kernel_rowReduction(
+RAFT_KERNEL kernel_rowReduction(
   weight_t const* d_costs, weight_t* d_row_duals, int SP, vertex_t N, weight_t infinity)
 {
   int spid     = blockIdx.y * blockDim.y + threadIdx.y;
@@ -181,12 +181,12 @@ __global__ void kernel_rowReduction(
 //  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
 //          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
-__global__ void kernel_columnReduction(weight_t const* d_costs,
-                                       weight_t const* d_row_duals,
-                                       weight_t* d_col_duals,
-                                       int SP,
-                                       vertex_t N,
-                                       weight_t infinity)
+RAFT_KERNEL kernel_columnReduction(weight_t const* d_costs,
+                                   weight_t const* d_row_duals,
+                                   weight_t* d_col_duals,
+                                   int SP,
+                                   vertex_t N,
+                                   weight_t infinity)
 {
   int spid  = blockIdx.y * blockDim.y + threadIdx.y;
   int colid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -209,16 +209,16 @@ __global__ void kernel_columnReduction(weight_t const* d_costs,
 
 // Kernel for calculating initial assignments.
 template <typename vertex_t, typename weight_t>
-__global__ void kernel_computeInitialAssignments(weight_t const* d_costs,
-                                                 weight_t const* d_row_duals,
-                                                 weight_t const* d_col_duals,
-                                                 vertex_t* d_row_assignments,
-                                                 vertex_t* d_col_assignments,
-                                                 int* d_row_lock,
-                                                 int* d_col_lock,
-                                                 int SP,
-                                                 vertex_t N,
-                                                 weight_t epsilon)
+RAFT_KERNEL kernel_computeInitialAssignments(weight_t const* d_costs,
+                                             weight_t const* d_row_duals,
+                                             weight_t const* d_col_duals,
+                                             vertex_t* d_row_assignments,
+                                             vertex_t* d_col_assignments,
+                                             int* d_row_lock,
+                                             int* d_col_lock,
+                                             int SP,
+                                             vertex_t N,
+                                             weight_t epsilon)
 {
   int spid  = blockIdx.y * blockDim.y + threadIdx.y;
   int colid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -249,7 +249,7 @@ __global__ void kernel_computeInitialAssignments(weight_t const* d_costs,
 
 // Kernel for populating the cover arrays and initializing alternating tree.
 template <typename vertex_t>
-__global__ void kernel_computeRowCovers(
+RAFT_KERNEL kernel_computeRowCovers(
   vertex_t* d_row_assignments, int* d_row_covers, int* d_row_visited, int SP, vertex_t N)
 {
   int spid  = blockIdx.y * blockDim.y + threadIdx.y;
@@ -268,7 +268,7 @@ __global__ void kernel_computeRowCovers(
 
 // Kernel for populating the predicate matrix for edges in row major format.
 template <typename vertex_t>
-__global__ void kernel_rowPredicateConstructionCSR(
+RAFT_KERNEL kernel_rowPredicateConstructionCSR(
   bool* d_predicates, vertex_t* d_addresses, int* d_row_visited, int SP, vertex_t N)
 {
   int spid  = blockIdx.y * blockDim.y + threadIdx.y;
@@ -289,13 +289,13 @@ __global__ void kernel_rowPredicateConstructionCSR(
 
 // Kernel for scattering the edges based on the scatter addresses.
 template <typename vertex_t>
-__global__ void kernel_rowScatterCSR(bool const* d_predicates,
-                                     vertex_t const* d_addresses,
-                                     vertex_t* d_neighbors,
-                                     vertex_t* d_ptrs,
-                                     vertex_t M,
-                                     int SP,
-                                     vertex_t N)
+RAFT_KERNEL kernel_rowScatterCSR(bool const* d_predicates,
+                                 vertex_t const* d_addresses,
+                                 vertex_t* d_neighbors,
+                                 vertex_t* d_ptrs,
+                                 vertex_t M,
+                                 int SP,
+                                 vertex_t N)
 {
   int spid  = blockIdx.y * blockDim.y + threadIdx.y;
   int rowid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -316,16 +316,16 @@ __global__ void kernel_rowScatterCSR(bool const* d_predicates,
 
 // Kernel for finding the minimum zero cover.
 template <typename vertex_t, typename weight_t>
-__global__ void kernel_coverAndExpand(bool* d_flag,
-                                      vertex_t const* d_ptrs,
-                                      vertex_t const* d_neighbors,
-                                      weight_t const* d_elements,
-                                      Vertices<vertex_t, weight_t> d_vertices,
-                                      VertexData<vertex_t> d_row_data,
-                                      VertexData<vertex_t> d_col_data,
-                                      int SP,
-                                      vertex_t N,
-                                      weight_t epsilon)
+RAFT_KERNEL kernel_coverAndExpand(bool* d_flag,
+                                  vertex_t const* d_ptrs,
+                                  vertex_t const* d_neighbors,
+                                  weight_t const* d_elements,
+                                  Vertices<vertex_t, weight_t> d_vertices,
+                                  VertexData<vertex_t> d_row_data,
+                                  VertexData<vertex_t> d_col_data,
+                                  int SP,
+                                  vertex_t N,
+                                  weight_t epsilon)
 {
   int spid  = blockIdx.y * blockDim.y + threadIdx.y;
   int colid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -362,10 +362,10 @@ __global__ void kernel_coverAndExpand(bool* d_flag,
 
 // Kernel for constructing the predicates for reverse pass or augmentation candidates.
 template <typename vertex_t>
-__global__ void kernel_augmentPredicateConstruction(bool* d_predicates,
-                                                    vertex_t* d_addresses,
-                                                    int* d_visited,
-                                                    int size)
+RAFT_KERNEL kernel_augmentPredicateConstruction(bool* d_predicates,
+                                                vertex_t* d_addresses,
+                                                int* d_visited,
+                                                int size)
 {
   int id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -383,10 +383,10 @@ __global__ void kernel_augmentPredicateConstruction(bool* d_predicates,
 
 // Kernel for scattering the vertices based on the scatter addresses.
 template <typename vertex_t>
-__global__ void kernel_augmentScatter(vertex_t* d_elements,
-                                      bool const* d_predicates,
-                                      vertex_t const* d_addresses,
-                                      std::size_t size)
+RAFT_KERNEL kernel_augmentScatter(vertex_t* d_elements,
+                                  bool const* d_predicates,
+                                  vertex_t const* d_addresses,
+                                  std::size_t size)
 {
   int id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -397,10 +397,10 @@ __global__ void kernel_augmentScatter(vertex_t* d_elements,
 
 // Kernel for executing the reverse pass of the maximum matching algorithm.
 template <typename vertex_t>
-__global__ void kernel_reverseTraversal(vertex_t* d_elements,
-                                        VertexData<vertex_t> d_row_data,
-                                        VertexData<vertex_t> d_col_data,
-                                        int size)
+RAFT_KERNEL kernel_reverseTraversal(vertex_t* d_elements,
+                                    VertexData<vertex_t> d_row_data,
+                                    VertexData<vertex_t> d_col_data,
+                                    int size)
 {
   int id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -416,13 +416,13 @@ __global__ void kernel_reverseTraversal(vertex_t* d_elements,
 
 // Kernel for executing the augmentation pass of the maximum matching algorithm.
 template <typename vertex_t>
-__global__ void kernel_augmentation(vertex_t* d_row_assignments,
-                                    vertex_t* d_col_assignments,
-                                    vertex_t const* d_row_elements,
-                                    VertexData<vertex_t> d_row_data,
-                                    VertexData<vertex_t> d_col_data,
-                                    vertex_t N,
-                                    vertex_t size)
+RAFT_KERNEL kernel_augmentation(vertex_t* d_row_assignments,
+                                vertex_t* d_col_assignments,
+                                vertex_t const* d_row_elements,
+                                VertexData<vertex_t> d_row_data,
+                                VertexData<vertex_t> d_col_data,
+                                vertex_t N,
+                                vertex_t size)
 {
   int id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -440,12 +440,12 @@ __global__ void kernel_augmentation(vertex_t* d_row_assignments,
 //  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
 //          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
-__global__ void kernel_dualUpdate_1(weight_t* d_sp_min,
-                                    weight_t const* d_col_slacks,
-                                    int const* d_col_covers,
-                                    int SP,
-                                    vertex_t N,
-                                    weight_t infinity)
+RAFT_KERNEL kernel_dualUpdate_1(weight_t* d_sp_min,
+                                weight_t const* d_col_slacks,
+                                int const* d_col_covers,
+                                int SP,
+                                vertex_t N,
+                                weight_t infinity)
 {
   int spid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -468,18 +468,18 @@ __global__ void kernel_dualUpdate_1(weight_t* d_sp_min,
 //  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
 //          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
-__global__ void kernel_dualUpdate_2(weight_t const* d_sp_min,
-                                    weight_t* d_row_duals,
-                                    weight_t* d_col_duals,
-                                    weight_t* d_col_slacks,
-                                    int const* d_row_covers,
-                                    int const* d_col_covers,
-                                    int* d_row_visited,
-                                    vertex_t* d_col_parents,
-                                    int SP,
-                                    vertex_t N,
-                                    weight_t infinity,
-                                    weight_t epsilon)
+RAFT_KERNEL kernel_dualUpdate_2(weight_t const* d_sp_min,
+                                weight_t* d_row_duals,
+                                weight_t* d_col_duals,
+                                weight_t* d_col_slacks,
+                                int const* d_row_covers,
+                                int const* d_col_covers,
+                                int* d_row_visited,
+                                vertex_t* d_col_parents,
+                                int SP,
+                                vertex_t N,
+                                weight_t infinity,
+                                weight_t epsilon)
 {
   int spid = blockIdx.y * blockDim.y + threadIdx.y;
   int id   = blockIdx.x * blockDim.x + threadIdx.x;
@@ -512,11 +512,11 @@ __global__ void kernel_dualUpdate_2(weight_t const* d_sp_min,
 
 // Kernel for calculating optimal objective function value using dual variables.
 template <typename vertex_t, typename weight_t>
-__global__ void kernel_calcObjValDual(weight_t* d_obj_val_dual,
-                                      weight_t const* d_row_duals,
-                                      weight_t const* d_col_duals,
-                                      int SP,
-                                      vertex_t N)
+RAFT_KERNEL kernel_calcObjValDual(weight_t* d_obj_val_dual,
+                                  weight_t const* d_row_duals,
+                                  weight_t const* d_col_duals,
+                                  int SP,
+                                  vertex_t N)
 {
   int spid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -532,11 +532,11 @@ __global__ void kernel_calcObjValDual(weight_t* d_obj_val_dual,
 
 // Kernel for calculating optimal objective function value using dual variables.
 template <typename vertex_t, typename weight_t>
-__global__ void kernel_calcObjValPrimal(weight_t* d_obj_val_primal,
-                                        weight_t const* d_costs,
-                                        vertex_t const* d_row_assignments,
-                                        int SP,
-                                        vertex_t N)
+RAFT_KERNEL kernel_calcObjValPrimal(weight_t* d_obj_val_primal,
+                                    weight_t const* d_costs,
+                                    vertex_t const* d_row_assignments,
+                                    int SP,
+                                    vertex_t N)
 {
   int spid = blockIdx.x * blockDim.x + threadIdx.x;
 

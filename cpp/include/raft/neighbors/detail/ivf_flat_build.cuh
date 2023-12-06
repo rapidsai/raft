@@ -112,15 +112,15 @@ auto clone(const raft::resources& res, const index<T, IdxT>& source) -> index<T,
  *
  */
 template <typename T, typename IdxT, typename LabelT, bool gather_src = false>
-__global__ void build_index_kernel(const LabelT* labels,
-                                   const T* source_vecs,
-                                   const IdxT* source_ixs,
-                                   T** list_data_ptrs,
-                                   IdxT** list_index_ptrs,
-                                   uint32_t* list_sizes_ptr,
-                                   IdxT n_rows,
-                                   uint32_t dim,
-                                   uint32_t veclen)
+RAFT_KERNEL build_index_kernel(const LabelT* labels,
+                               const T* source_vecs,
+                               const IdxT* source_ixs,
+                               T** list_data_ptrs,
+                               IdxT** list_index_ptrs,
+                               uint32_t* list_sizes_ptr,
+                               IdxT n_rows,
+                               uint32_t dim,
+                               uint32_t veclen)
 {
   const IdxT i = IdxT(blockDim.x) * IdxT(blockIdx.x) + threadIdx.x;
   if (i >= n_rows) { return; }
@@ -310,6 +310,7 @@ inline auto build(raft::resources const& handle,
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "unsupported data type");
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
+  RAFT_EXPECTS(n_rows >= params.n_lists, "number of rows can't be less than n_lists");
 
   index<T, IdxT> index(handle, params, dim);
   utils::memzero(index.list_sizes().data_handle(), index.list_sizes().size(), stream);
@@ -419,13 +420,12 @@ inline void fill_refinement_index(raft::resources const& handle,
 }
 
 template <typename T>
-__global__ void pack_interleaved_list_kernel(
-  const T* codes,
-  T* list_data,
-  uint32_t n_rows,
-  uint32_t dim,
-  uint32_t veclen,
-  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+RAFT_KERNEL pack_interleaved_list_kernel(const T* codes,
+                                         T* list_data,
+                                         uint32_t n_rows,
+                                         uint32_t dim,
+                                         uint32_t veclen,
+                                         std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
   uint32_t tid          = blockIdx.x * blockDim.x + threadIdx.x;
   const uint32_t dst_ix = std::holds_alternative<uint32_t>(offset_or_indices)
@@ -435,7 +435,7 @@ __global__ void pack_interleaved_list_kernel(
 }
 
 template <typename T>
-__global__ void unpack_interleaved_list_kernel(
+RAFT_KERNEL unpack_interleaved_list_kernel(
   const T* list_data,
   T* codes,
   uint32_t n_rows,

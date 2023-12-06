@@ -375,7 +375,8 @@ void extend(raft::resources const& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices
  * @tparam IvfSampleFilterT Device filter function, with the signature
- *         `(uint32_t query_ix, uint32 cluster_ix, uint32_t sample_ix) -> bool`
+ *         `(uint32_t query_ix, uint32 cluster_ix, uint32_t sample_ix) -> bool` or
+ *         `(uint32_t query_ix, uint32 sample_ix) -> bool`
  *
  * @param[in] handle
  * @param[in] params configure the search
@@ -504,7 +505,8 @@ void search(raft::resources const& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices
  * @tparam IvfSampleFilterT Device filter function, with the signature
- *         `(uint32_t query_ix, uint32 cluster_ix, uint32_t sample_ix) -> bool`
+ *         `(uint32_t query_ix, uint32 cluster_ix, uint32_t sample_ix) -> bool` or
+ *         `(uint32_t query_ix, uint32 sample_ix) -> bool`
  *
  * @param[in] handle
  * @param[in] params configure the search

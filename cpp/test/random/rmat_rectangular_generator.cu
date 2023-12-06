@@ -44,7 +44,7 @@ struct RmatInputs {
 };
 
 template <typename OutT, typename InT>
-__global__ void normalize_kernel(
+RAFT_KERNEL normalize_kernel(
   OutT* theta, const InT* in_vals, size_t max_scale, size_t r_scale, size_t c_scale)
 {
   size_t idx = threadIdx.x;
@@ -67,7 +67,7 @@ __global__ void normalize_kernel(
 
 // handle rectangular cases correctly
 template <typename OutT>
-__global__ void handle_rect_kernel(OutT* theta, size_t max_scale, size_t r_scale, size_t c_scale)
+RAFT_KERNEL handle_rect_kernel(OutT* theta, size_t max_scale, size_t r_scale, size_t c_scale)
 {
   size_t idx = threadIdx.x;
   if (idx < max_scale) {
@@ -97,7 +97,7 @@ __global__ void handle_rect_kernel(OutT* theta, size_t max_scale, size_t r_scale
 // for a single probability distribution across depths, just replicate the theta's!
 // this will keep the test code simpler
 template <typename OutT>
-__global__ void theta_kernel(OutT* theta, size_t max_scale, size_t r_scale, size_t c_scale)
+RAFT_KERNEL theta_kernel(OutT* theta, size_t max_scale, size_t r_scale, size_t c_scale)
 {
   size_t idx = threadIdx.x;
   if (idx != 0 && idx < max_scale) {
@@ -148,7 +148,7 @@ void normalize(OutT* theta,
   }
 }
 
-__global__ void compute_hist(
+RAFT_KERNEL compute_hist(
   int* hist, const size_t* out, size_t len, size_t max_scale, size_t r_scale, size_t c_scale)
 {
   size_t idx = (threadIdx.x + blockIdx.x * blockDim.x) * 2;
@@ -178,7 +178,7 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
       max_scale{std::max(params.r_scale, params.c_scale)}
   {
     theta.resize(4 * max_scale, stream);
-    uniform<float>(state, theta.data(), theta.size(), 0.0f, 1.0f, stream);
+    uniform<float>(handle, state, theta.data(), theta.size(), 0.0f, 1.0f);
     normalize<float, float>(theta.data(),
                             theta.data(),
                             max_scale,
@@ -271,7 +271,7 @@ class RmatGenMdspanTest : public ::testing::TestWithParam<RmatInputs> {
       max_scale{std::max(params.r_scale, params.c_scale)}
   {
     theta.resize(4 * max_scale, stream);
-    uniform<float>(state, theta.data(), theta.size(), 0.0f, 1.0f, stream);
+    uniform<float>(handle, state, theta.data(), theta.size(), 0.0f, 1.0f);
     normalize<float, float>(theta.data(),
                             theta.data(),
                             max_scale,

@@ -20,16 +20,16 @@
       "build_param": {"M":12, "efConstruction":500, "numThreads":32},
       "file": "deep-100M/hnswlib/M12",
       "search_params": [
-        {"ef":10, "numThreads":1},
-        {"ef":20, "numThreads":1},
-        {"ef":40, "numThreads":1},
-        {"ef":60, "numThreads":1},
-        {"ef":80, "numThreads":1},
-        {"ef":120, "numThreads":1},
-        {"ef":200, "numThreads":1},
-        {"ef":400, "numThreads":1},
-        {"ef":600, "numThreads":1},
-        {"ef":800, "numThreads":1}
+        {"ef":10},
+        {"ef":20},
+        {"ef":40},
+        {"ef":60},
+        {"ef":80},
+        {"ef":120},
+        {"ef":200},
+        {"ef":400},
+        {"ef":600},
+        {"ef":800}
       ]
     },
     {
@@ -38,16 +38,16 @@
       "build_param": {"M":16, "efConstruction":500, "numThreads":32},
       "file": "deep-100M/hnswlib/M16",
       "search_params": [
-        {"ef":10, "numThreads":1},
-        {"ef":20, "numThreads":1},
-        {"ef":40, "numThreads":1},
-        {"ef":60, "numThreads":1},
-        {"ef":80, "numThreads":1},
-        {"ef":120, "numThreads":1},
-        {"ef":200, "numThreads":1},
-        {"ef":400, "numThreads":1},
-        {"ef":600, "numThreads":1},
-        {"ef":800, "numThreads":1}
+        {"ef":10},
+        {"ef":20},
+        {"ef":40},
+        {"ef":60},
+        {"ef":80},
+        {"ef":120},
+        {"ef":200},
+        {"ef":400},
+        {"ef":600},
+        {"ef":800}
       ]
     },
     {
@@ -56,16 +56,16 @@
       "build_param": {"M":24, "efConstruction":500, "numThreads":32},
       "file": "deep-100M/hnswlib/M24",
       "search_params": [
-        {"ef":10, "numThreads":1},
-        {"ef":20, "numThreads":1},
-        {"ef":40, "numThreads":1},
-        {"ef":60, "numThreads":1},
-        {"ef":80, "numThreads":1},
-        {"ef":120, "numThreads":1},
-        {"ef":200, "numThreads":1},
-        {"ef":400, "numThreads":1},
-        {"ef":600, "numThreads":1},
-        {"ef":800, "numThreads":1}
+        {"ef":10},
+        {"ef":20},
+        {"ef":40},
+        {"ef":60},
+        {"ef":80},
+        {"ef":120},
+        {"ef":200},
+        {"ef":400},
+        {"ef":600},
+        {"ef":800}
       ]
     },
     {
@@ -74,23 +74,23 @@
       "build_param": {"M":36, "efConstruction":500, "numThreads":32},
       "file": "deep-100M/hnswlib/M36",
       "search_params": [
-        {"ef":10, "numThreads":1},
-        {"ef":20, "numThreads":1},
-        {"ef":40, "numThreads":1},
-        {"ef":60, "numThreads":1},
-        {"ef":80, "numThreads":1},
-        {"ef":120, "numThreads":1},
-        {"ef":200, "numThreads":1},
-        {"ef":400, "numThreads":1},
-        {"ef":600, "numThreads":1},
-        {"ef":800, "numThreads":1}
+        {"ef":10},
+        {"ef":20},
+        {"ef":40},
+        {"ef":60},
+        {"ef":80},
+        {"ef":120},
+        {"ef":200},
+        {"ef":400},
+        {"ef":600},
+        {"ef":800}
       ]
     },
     {
-      "name": "faiss_ivf_flat.nlist50K",
+      "name": "faiss_gpu_ivf_flat.nlist50K",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {"nlist":50000},
-      "file": "deep-100M/faiss_ivf_flat/nlist50K",
+      "file": "deep-100M/faiss_gpu_ivf_flat/nlist50K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -103,10 +103,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_flat.nlist100K",
+      "name": "faiss_gpu_ivf_flat.nlist100K",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {"nlist":100000},
-      "file": "deep-100M/faiss_ivf_flat/nlist100K",
+      "file": "deep-100M/faiss_gpu_ivf_flat/nlist100K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -119,10 +119,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_flat.nlist200K",
+      "name": "faiss_gpu_ivf_flat.nlist200K",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {"nlist":200000},
-      "file": "deep-100M/faiss_ivf_flat/nlist200K",
+      "file": "deep-100M/faiss_gpu_ivf_flat/nlist200K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -135,10 +135,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_pq.M48-nlist16K",
+      "name": "faiss_gpu_ivf_pq.M48-nlist16K",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {"nlist":16384, "M":48},
-      "file": "deep-100M/faiss_ivf_pq/M48-nlist16K",
+      "file": "deep-100M/faiss_gpu_ivf_pq/M48-nlist16K",
       "search_params": [
         {"nprobe":10},
         {"nprobe":20},
@@ -151,10 +151,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_pq.M48-nlist50K",
+      "name": "faiss_gpu_ivf_pq.M48-nlist50K",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {"nlist":50000, "M":48},
-      "file": "deep-100M/faiss_ivf_pq/M48-nlist50K",
+      "file": "deep-100M/faiss_gpu_ivf_pq/M48-nlist50K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -167,10 +167,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_pq.M48-nlist100K",
+      "name": "faiss_gpu_ivf_pq.M48-nlist100K",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {"nlist":100000, "M":48},
-      "file": "deep-100M/faiss_ivf_pq/M48-nlist100K",
+      "file": "deep-100M/faiss_gpu_ivf_pq/M48-nlist100K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -183,10 +183,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_pq.M48-nlist200K",
+      "name": "faiss_gpu_ivf_pq.M48-nlist200K",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {"nlist":200000, "M":48},
-      "file": "deep-100M/faiss_ivf_pq/M48-nlist200K",
+      "file": "deep-100M/faiss_gpu_ivf_pq/M48-nlist200K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
