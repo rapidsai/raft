@@ -65,7 +65,7 @@ Documentation = "https://docs.rapids.ai/api/raft/stable/"
 license-files = ["LICENSE"]
 
 [tool.setuptools.dynamic]
-version = {file = "pylibraft/VERSION"}
+version = "23.12.00"
 
 [tool.isort]
 line_length = 79
