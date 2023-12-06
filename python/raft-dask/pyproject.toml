@@ -63,7 +63,7 @@ Documentation = "https://docs.rapids.ai/api/raft/stable/"
 license-files = ["LICENSE"]
 
 [tool.setuptools.dynamic]
-version = "23.12.00"
+version = {file = "raft_dask/VERSION"}
 
 [tool.isort]
 line_length = 79
