@@ -212,8 +212,8 @@ CSV files `<dataset-path/<dataset>/result/search/*.csv`.
 The usage of this script is:
 ```bash
 usage:  [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS]
-        [-k COUNT] [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--mode {throughput,latency}] [--time-unit {s,ms,us}]
-        [--raw]
+        [-k COUNT] [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--x-start X_START] [--mode {throughput,latency}]
+        [--time-unit {s,ms,us}] [--raw]
 
 options:
   -h, --help            show this help message and exit
@@ -237,6 +237,7 @@ options:
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
   --y-scale {linear,log,symlog,logit}
                         Scale to use when drawing the Y-axis (default: linear)
+  --x-start X_START     Recall values to start the x-axis from (default: 0.8)
   --mode {throughput,latency}
                         search mode whose Pareto frontier is used on the y-axis (default: throughput)
   --time-unit {s,ms,us}
