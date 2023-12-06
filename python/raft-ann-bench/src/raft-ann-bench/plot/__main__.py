@@ -132,6 +132,8 @@ def create_plot_search(
         points = np.array(all_data[algo], dtype=object)
         xs = points[:, 2]
         ys = points[:, 3]
+        if algo == "faiss_gpu_ivf_pq":
+            print(xs)
         min_x = min([min_x] + [x for x in xs if x > 0])
         max_x = max([max_x] + [x for x in xs if x < 1])
         color, faded, linestyle, marker = linestyles[algo]
@@ -205,7 +207,6 @@ def create_plot_search(
     # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines["bottom"]._adjust_location()
 
-    print(f"writing search output to {fn_out}")
     plt.savefig(fn_out, bbox_inches="tight")
     plt.close()
 

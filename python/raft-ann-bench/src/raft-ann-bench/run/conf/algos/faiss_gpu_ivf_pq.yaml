@@ -1,40 +1,55 @@
 name: faiss_gpu_ivf_pq
+constraints:
+  build: raft-ann-bench.constraints.faiss_gpu_ivf_pq_build_constraints
+  search: raft-ann-bench.constraints.faiss_gpu_ivf_pq_search_constraints
 groups:
   base:
     build:
       nlist: [1024, 2048, 4096, 8192]
-      M: [4, 8, 16]
-      ratio: [10, 25]
-      usePrecomputed: [False]
-      useFloat16: [False]
-      use_raft: [False]
-      bitsPerCode: [8]
-    search:
-      nprobe: [1, 5, 10, 50, 100, 200]
-      refine_ratio: [1]
-  raft_disabled_million_scale:
-    build:
-      nlist: [4096]
-      M: [4, 8, 16]
-      ratio: [1]
+      M: [64, 32, 16, 8]
+      ratio: [10]
       usePrecomputed: [False, True]
       useFloat16: [False, True]
-      bitsPerCode: [8]
       use_raft: [False]
+      bitsPerCode: [8]
     search:
       nprobe: [1, 5, 10, 50, 100, 200]
-      k: [10, 100]
-      refine_ratio: [1]
-  raft_enabled_million_scale:
+      refine_ratio: [1, 2, 4]
+  baseraft:
     build:
-      nlist: [4096]
-      M: [16]
-      ratio: [1]
+      nlist: [1024, 2048, 4096, 8192]
+      M: [64, 32, 16, 8]
+      ratio: [10]
       usePrecomputed: [False]
       useFloat16: [False, True]
-      bitsPerCode: [8]
       use_raft: [True]
+      bitsPerCode: [8, 6, 5, 4]
     search:
       nprobe: [1, 5, 10, 50, 100, 200]
-      k: [10, 100]
-      refine_ratio: [1]
+      refine_ratio: [1, 2, 4]
+  # raftdisabled:
+  #   build:
+  #     nlist: [4096]
+  #     M: [4, 8, 16]
+  #     ratio: [1]
+  #     usePrecomputed: [False, True]
+  #     useFloat16: [False, True]
+  #     bitsPerCode: [8]
+  #     use_raft: [False]
+  #   search:
+  #     nprobe: [1, 5, 10, 50, 100, 200]
+  #     k: [10, 100]
+  #     refine_ratio: [1]
+  # raftenabled:
+  #   build:
+  #     nlist: [4096]
+  #     M: [4, 8, 16]
+  #     ratio: [1]
+  #     usePrecomputed: [False]
+  #     useFloat16: [False, True]
+  #     bitsPerCode: [8]
+  #     use_raft: [True]
+  #   search:
+  #     nprobe: [1, 5, 10, 50, 100, 200]
+  #     k: [10, 100]
+  #     refine_ratio: [1]

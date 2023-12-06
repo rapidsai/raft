@@ -118,6 +118,7 @@ def create_pointset(data, xn, yn):
 
     y_idx = 3 if yn == "throughput" else 4
     data.sort(key=lambda t: (rev_y * t[y_idx], rev_x * t[2]))
+    print(data["recall"])
 
     lines = []
     last_x = xm["worst"]

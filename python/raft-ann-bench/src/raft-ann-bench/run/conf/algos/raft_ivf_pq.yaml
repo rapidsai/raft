@@ -6,24 +6,24 @@ groups:
   base:
     build:
       nlist: [1024, 2048, 4096, 8192]
-      pq_dim: [64, 32]
+      pq_dim: [64, 32, 16, 8]
       pq_bits: [8, 6, 5, 4]
-      ratio: [10, 25]
+      ratio: [10]
       niter: [25]
     search:
       nprobe: [1, 5, 10, 50, 100, 200]
       internalDistanceDtype: ["float"]
-      smemLutDtype: ["float", "fp8", "half"]
-      refine_ratio: [1, 2, 4]
-  cmp_faiss_million_scale:
-    build:
-      nlist: [4096]
-      pq_dim: [32, 16, 8]
-      pq_bits: [8]
-      ratio: [1]
-      niter: [25]
-    search:
-      nprobe: [1, 5, 10, 50, 100, 200]
-      k: [10, 100]
       smemLutDtype: ["float", "half"]
-      refine_ratio: [1]
+      refine_ratio: [1, 2, 4]
+  # large:
+  #   build:
+  #     nlist: [32768, 65536, 131072]
+  #     pq_dim: [64, 32, 16]
+  #     pq_bits: [8, 6, 5, 4]
+  #     ratio: [10, 25]
+  #     niter: [25]
+  #   search:
+  #     nprobe: [1, 5, 10, 50, 100, 200]
+  #     internalDistanceDtype: ["float"]
+  #     smemLutDtype: ["float", "fp8", "half"]
+  #     refine_ratio: [1, 2, 4]

@@ -17,6 +17,8 @@
 #define FAISS_WRAPPER_H_
 
 #include "../common/ann_types.hpp"
+#include "raft/core/device_mdarray.hpp"
+#include "raft/core/logger-macros.hpp"
 
 #include <raft/core/logger.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -160,6 +162,7 @@ class FaissGpu : public ANN<T> {
   cudaStream_t faiss_default_stream_{nullptr};
   double training_sample_fraction_;
   std::unique_ptr<faiss::SearchParameters> search_params_;
+  std::unique_ptr<faiss::IndexRefineSearchParameters> refine_search_params_{nullptr};
   const T* dataset_;
   raft::device_resources handle_;
   float refine_ratio_ = 1.0;
@@ -208,16 +211,13 @@ void FaissGpu<T>::search(const T* queries,
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
 
-  if (this->refine_ratio_ > 1.0) {
-    // TODO: FAISS changed their search APIs to accept the search parameters as a struct object
-    // but their refine API doesn't allow the struct to be passed in. Once this is fixed, we
-    // need to re-enable refinement below
-    // index_refine_->search(batch_size, queries, k, distances,
-    // reinterpret_cast<faiss::idx_t*>(neighbors), this->search_params_.get()); Related FAISS issue:
-    // https://github.com/facebookresearch/faiss/issues/3118
-    throw std::runtime_error(
-      "FAISS doesn't support refinement in their new APIs so this feature is disabled in the "
-      "benchmarks for the time being.");
+  if (refine_ratio_ > 1.0) {
+    index_refine_->search(batch_size,
+                          queries,
+                          k,
+                          distances,
+                          reinterpret_cast<faiss::idx_t*>(neighbors),
+                          this->refine_search_params_.get());
   } else {
     index_->search(batch_size,
                    queries,
@@ -226,7 +226,7 @@ void FaissGpu<T>::search(const T* queries,
                    reinterpret_cast<faiss::idx_t*>(neighbors),
                    this->search_params_.get());
   }
-  stream_wait(stream);
+  // stream_wait(stream);
 }
 
 template <typename T>
@@ -315,11 +315,10 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     config.interleavedLayout      = param.use_raft;
     config.device                 = this->device_;
 
-    int subQuantizers = dim / param.M;
-    this->index_      = std::make_unique<faiss::gpu::GpuIndexIVFPQ>(&(this->gpu_resource_),
+    this->index_ = std::make_unique<faiss::gpu::GpuIndexIVFPQ>(&(this->gpu_resource_),
                                                                dim,
                                                                param.nlist,
-                                                               subQuantizers,
+                                                               param.M,
                                                                param.bitsPerCode,
                                                                this->metric_type_,
                                                                config);
@@ -340,6 +339,10 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
       this->index_refine_ =
         std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), this->dataset_);
       this->index_refine_.get()->k_factor = search_param.refine_ratio;
+      faiss::IndexRefineSearchParameters faiss_refine_search_params;
+      faiss_refine_search_params.k_factor          = this->index_refine_.get()->k_factor;
+      faiss_refine_search_params.base_index_params = this->search_params_.get();
+      this->refine_search_params_ = std::make_unique<faiss::IndexRefineSearchParameters>(faiss_refine_search_params);
     }
   }
 
@@ -395,6 +398,10 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
       this->index_refine_ =
         std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), this->dataset_);
       this->index_refine_.get()->k_factor = search_param.refine_ratio;
+      faiss::IndexRefineSearchParameters faiss_refine_search_params;
+      faiss_refine_search_params.k_factor          = this->index_refine_.get()->k_factor;
+      faiss_refine_search_params.base_index_params = this->search_params_.get();
+      this->refine_search_params_ = std::make_unique<faiss::IndexRefineSearchParameters>(faiss_refine_search_params);
     }
   }
 
