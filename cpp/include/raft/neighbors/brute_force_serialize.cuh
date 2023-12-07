@@ -51,6 +51,8 @@ auto static constexpr serialization_version = 0;
  * @param[in] handle the raft handle
  * @param[in] os output stream
  * @param[in] index brute force index
+ * @param[in] include_dataset whether to include the dataset in the serialized
+ * output
  *
  */
 template <typename T>
@@ -101,6 +103,8 @@ void serialize(raft::resources const& handle,
  * @param[in] handle the raft handle
  * @param[in] filename the file name for saving the index
  * @param[in] index brute force index
+ * @param[in] include_dataset whether to include the dataset in the serialized
+ * output
  *
  */
 template <typename T>
