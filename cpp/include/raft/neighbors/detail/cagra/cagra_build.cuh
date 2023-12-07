@@ -124,10 +124,6 @@ void build_knn_graph(raft::resources const& res,
   bool first                    = true;
   const auto start_clock        = std::chrono::system_clock::now();
 
-  rmm::mr::device_memory_resource* device_memory = nullptr;
-  auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-  if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq using pool memory resource"); }
-
   raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(
     dataset.data_handle(),
     dataset.extent(0),

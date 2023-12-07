@@ -233,12 +233,6 @@ inline void search(raft::resources const& handle,
                        raft::div_rounding_up_safe<uint64_t>(
                          kExpectedWsSize, 16ull * uint64_t{n_probes} * k + 4ull * index.dim()));
 
-  auto pool_guard = raft::get_pool_memory_resource(mr, max_queries * n_probes * k * 16);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("ivf_flat::search: using pool memory resource with initial size %zu bytes",
-                   n_queries * n_probes * k * 16ull);
-  }
-
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
 
