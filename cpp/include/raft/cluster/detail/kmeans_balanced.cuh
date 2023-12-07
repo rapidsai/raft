@@ -44,11 +44,11 @@
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/integer_utils.hpp>
 
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_vector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
-#include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <thrust/gather.h>
@@ -970,16 +970,9 @@ void build_hierarchical(const raft::resources& handle,
   IdxT n_mesoclusters = std::min(n_clusters, static_cast<IdxT>(std::sqrt(n_clusters) + 0.5));
   RAFT_LOG_DEBUG("build_hierarchical: n_mesoclusters: %u", n_mesoclusters);
 
-  rmm::mr::managed_memory_resource managed_memory;
   rmm::mr::device_memory_resource* device_memory = resource::get_workspace_resource(handle);
   auto [max_minibatch_size, mem_per_row] =
     calc_minibatch_size<MathT>(n_clusters, n_rows, dim, params.metric, std::is_same_v<T, MathT>);
-  auto pool_guard =
-    raft::get_pool_memory_resource(device_memory, mem_per_row * size_t(max_minibatch_size));
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("build_hierarchical: using pool memory resource with initial size %zu bytes",
-                   mem_per_row * size_t(max_minibatch_size));
-  }
 
   // Precompute the L2 norm of the dataset if relevant.
   const MathT* dataset_norm = nullptr;
@@ -1006,8 +999,8 @@ void build_hierarchical(const raft::resources& handle,
     CounterT;
 
   // build coarse clusters (mesoclusters)
-  rmm::device_uvector<LabelT> mesocluster_labels_buf(n_rows, stream, &managed_memory);
-  rmm::device_uvector<CounterT> mesocluster_sizes_buf(n_mesoclusters, stream, &managed_memory);
+  rmm::device_uvector<LabelT> mesocluster_labels_buf(n_rows, stream, device_memory);
+  rmm::device_uvector<CounterT> mesocluster_sizes_buf(n_mesoclusters, stream, device_memory);
   {
     rmm::device_uvector<MathT> mesocluster_centers_buf(n_mesoclusters * dim, stream, device_memory);
     build_clusters(handle,
@@ -1063,7 +1056,7 @@ void build_hierarchical(const raft::resources& handle,
                                              fine_clusters_nums_max,
                                              cluster_centers,
                                              mapping_op,
-                                             &managed_memory,
+                                             device_memory,
                                              device_memory);
   RAFT_EXPECTS(n_clusters_done == n_clusters, "Didn't process all clusters.");
 
