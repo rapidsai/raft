@@ -21,11 +21,13 @@
 #include <raft/core/kvp.hpp>                             // raft::KeyValuePair
 #include <raft/core/operators.hpp>                       // raft::identity_op
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>  // ops::l2_exp_distance_op
+                                                         // raft::distance::detail::ops::get_clamp_precision
 #include <raft/distance/detail/fused_distance_nn/cutlass_base.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
 #include <raft/linalg/contractions.cuh>                     // Policy
 #include <raft/util/arch.cuh>                               // raft::util::arch::SM_*
 #include <raft/util/cuda_utils.cuh>                         // raft::ceildiv, raft::shfl
+#include <raft/core/math.hpp>                               // raft::sqrt
 
 namespace raft {
 namespace distance {
@@ -377,6 +379,91 @@ void fusedL2NNImpl(OutT* min,
     kernel<<<grid, blk, shmemSize, stream>>>(
       min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, distance_op, fin_op);
     RAFT_CUDA_TRY(cudaGetLastError());
+  }
+}
+
+template <bool sqrt, typename DataT, typename IdxT, typename LabelT>
+RAFT_KERNEL fusedL2NNKernelSmallInput(const DataT* dataset,
+                                      const DataT* centers,
+                                      const DataT* dataset_norm,
+                                      const DataT* centers_norm, 
+                                      IdxT n_rows,
+                                      IdxT n_clusters,
+                                      IdxT dim,
+                                      LabelT* labels)
+{
+  extern __shared__ char smem[];
+  DataT *centers_shared = reinterpret_cast<DataT*>(smem);
+  DataT *dataset_shared = centers_shared + n_clusters * dim; 
+  int starting_row = blockDim.x * blockIdx.x; 
+  int curr_row = blockDim.x * blockIdx.x + threadIdx.x; 
+
+  int shmem_loading_idx = threadIdx.x; 
+  while (shmem_loading_idx < n_clusters * dim) {
+    centers_shared[shmem_loading_idx] = centers[shmem_loading_idx];
+    shmem_loading_idx += blockDim.x; 
+  }
+
+  shmem_loading_idx = threadIdx.x; 
+  while (shmem_loading_idx < blockDim.x * dim) {
+    if (starting_row * dim + shmem_loading_idx < n_rows * dim)
+      dataset_shared[shmem_loading_idx] = dataset[starting_row * dim + shmem_loading_idx];
+    shmem_loading_idx += blockDim.x; 
+  }
+
+  __syncthreads(); 
+
+  if (curr_row < n_rows) {
+    DataT min_distance = std::numeric_limits<DataT>::max(); 
+    IdxT location = 0; 
+    #pragma unroll 16
+    for (int curr_n = 0; curr_n < n_clusters; curr_n++) {
+      DataT curr_distance = dataset_norm[curr_row] + centers_norm[curr_n]; 
+      #pragma unroll 2
+      for (int curr_k = 0; curr_k < dim; curr_k++) {
+        curr_distance -= 2 * dataset_shared[threadIdx.x * dim + curr_k] * centers_shared[curr_n * dim + curr_k]; 
+        /**
+        * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product (accVal)
+        * can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal instead.
+        */
+        curr_distance = curr_distance * !((curr_distance * curr_distance < raft::distance::detail::ops::get_clamp_precision<DataT>()) * (dataset_norm[curr_row] == centers_norm[curr_n]));
+        if (sqrt) {
+          curr_distance = raft::sqrt(curr_distance * (curr_distance > 0)); 
+        } 
+      }
+      if (curr_distance < min_distance) {
+        min_distance = curr_distance;
+        location = curr_n; 
+      }
+    }
+    labels[curr_row] = location; 
+  }
+}
+
+template <typename DataT, typename LabelT, typename IdxT>
+void fusedL2NNMinReduceCustomKernelImpl(LabelT* label,
+                                        const DataT* x,
+                                        const DataT* y,
+                                        const DataT* xn,
+                                        const DataT* yn,
+                                        IdxT m,
+                                        IdxT n,
+                                        IdxT k,
+                                        bool sqrt,
+                                        cudaStream_t stream)
+{
+  constexpr int block_size = 256; 
+  dim3 threads_per_block(block_size, 1, 1); 
+  dim3 num_blocks(ceil(1.0 * m / block_size), 1, 1); 
+  int shmem_size = sizeof(DataT) * k * (n + block_size); 
+  if (sqrt) {
+    fusedL2NNKernelSmallInput<true><<<num_blocks, threads_per_block, shmem_size, stream>>>(
+      x, y, xn, yn, m, n, k, label
+    );
+  } else {
+    fusedL2NNKernelSmallInput<false><<<num_blocks, threads_per_block, shmem_size, stream>>>(
+      x, y, xn, yn, m, n, k, label
+    );
   }
 }
 

@@ -98,43 +98,59 @@ inline std::enable_if_t<std::is_floating_point_v<MathT>> predict_core(
   switch (params.metric) {
     case raft::distance::DistanceType::L2Expanded:
     case raft::distance::DistanceType::L2SqrtExpanded: {
-      auto workspace = raft::make_device_mdarray<char, IdxT>(
-        handle, mr, make_extents<IdxT>((sizeof(int)) * n_rows));
-
-      auto minClusterAndDistance = raft::make_device_mdarray<raft::KeyValuePair<IdxT, MathT>, IdxT>(
-        handle, mr, make_extents<IdxT>(n_rows));
-      raft::KeyValuePair<IdxT, MathT> initial_value(0, std::numeric_limits<MathT>::max());
-      thrust::fill(resource::get_thrust_policy(handle),
-                   minClusterAndDistance.data_handle(),
-                   minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
-                   initial_value);
-
       auto centroidsNorm =
         raft::make_device_mdarray<MathT, IdxT>(handle, mr, make_extents<IdxT>(n_clusters));
       raft::linalg::rowNorm<MathT, IdxT>(
         centroidsNorm.data_handle(), centers, dim, n_clusters, raft::linalg::L2Norm, true, stream);
+      // Use custom fusedL2NN kernel if both n_cluster and dim are relatively small. 
+      bool use_custom_fusedL2NN_kernel = n_clusters * dim <= 256; 
+      // TODO: unify the output types of fusedL2NNMinReduceCustomKernel and fusedL2NNMinReduce 
+      if (use_custom_fusedL2NN_kernel) {
+        raft::distance::fusedL2NNMinReduceCustomKernel<MathT, LabelT, IdxT>(
+          labels,
+          dataset,
+          centers,
+          dataset_norm,
+          centroidsNorm.data_handle(),
+          n_rows,
+          n_clusters,
+          dim,
+          (params.metric == raft::distance::DistanceType::L2Expanded) ? false : true,
+          stream);
+      } else {
+        auto workspace = raft::make_device_mdarray<char, IdxT>(
+          handle, mr, make_extents<IdxT>((sizeof(int)) * n_rows));
 
-      raft::distance::fusedL2NNMinReduce<MathT, raft::KeyValuePair<IdxT, MathT>, IdxT>(
-        minClusterAndDistance.data_handle(),
-        dataset,
-        centers,
-        dataset_norm,
-        centroidsNorm.data_handle(),
-        n_rows,
-        n_clusters,
-        dim,
-        (void*)workspace.data_handle(),
-        (params.metric == raft::distance::DistanceType::L2Expanded) ? false : true,
-        false,
-        stream);
+        auto minClusterAndDistance = raft::make_device_mdarray<raft::KeyValuePair<IdxT, MathT>, IdxT>(
+          handle, mr, make_extents<IdxT>(n_rows));
+        raft::KeyValuePair<IdxT, MathT> initial_value(0, std::numeric_limits<MathT>::max());
+        thrust::fill(resource::get_thrust_policy(handle),
+                    minClusterAndDistance.data_handle(),
+                    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
+                    initial_value);
 
-      // todo(lsugy): use KVP + iterator in caller.
-      // Copy keys to output labels
-      thrust::transform(resource::get_thrust_policy(handle),
-                        minClusterAndDistance.data_handle(),
-                        minClusterAndDistance.data_handle() + n_rows,
-                        labels,
-                        raft::compose_op<raft::cast_op<LabelT>, raft::key_op>());
+        raft::distance::fusedL2NNMinReduce<MathT, raft::KeyValuePair<IdxT, MathT>, IdxT>(
+          minClusterAndDistance.data_handle(),
+          dataset,
+          centers,
+          dataset_norm,
+          centroidsNorm.data_handle(),
+          n_rows,
+          n_clusters,
+          dim,
+          (void*)workspace.data_handle(),
+          (params.metric == raft::distance::DistanceType::L2Expanded) ? false : true,
+          false,
+          stream);
+
+        // todo(lsugy): use KVP + iterator in caller.
+        // Copy keys to output labels
+        thrust::transform(resource::get_thrust_policy(handle),
+                          minClusterAndDistance.data_handle(),
+                          minClusterAndDistance.data_handle() + n_rows,
+                          labels,
+                          raft::compose_op<raft::cast_op<LabelT>, raft::key_op>());
+      }
       break;
     }
     case raft::distance::DistanceType::InnerProduct: {

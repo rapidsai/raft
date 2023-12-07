@@ -198,6 +198,44 @@ void fusedL2NNMinReduce(OutT* min,
     min, x, y, xn, yn, m, n, k, workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
 }
 
+/**
+ * @brief Wrapper around custom fusedL2NN kernel with minimum reduction operators.
+ * This custom kernel is designed to optimize cases with small inputs.
+ *
+ * Like fusedL2NN this wrapper covers the most common case (minimum).
+ *
+ * @tparam DataT     data type
+ * @tparam LabelT    label type to store 1-NN indices 
+ * @tparam IdxT      indexing arithmetic type
+ * @param[out] label         will contain the output label (Length = `m`)
+ *                           (on device)
+ * @param[in]  x             first matrix. Row major. Dim = `m x k`.
+ *                           (on device).
+ * @param[in]  y             second matrix. Row major. Dim = `n x k`.
+ *                           (on device).
+ * @param[in]  xn            L2 squared norm of `x`. Length = `m`. (on device).
+ * @param[in]  yn            L2 squared norm of `y`. Length = `n`. (on device)
+ * @param[in]  m             gemm m
+ * @param[in]  n             gemm n
+ * @param[in]  k             gemm k
+ * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
+ * @param[in]  stream        cuda stream
+ */
+template <typename DataT, typename LabelT, typename IdxT>
+void fusedL2NNMinReduceCustomKernel(LabelT* label,
+                                    const DataT* x,
+                                    const DataT* y,
+                                    const DataT* xn,
+                                    const DataT* yn,
+                                    IdxT m,
+                                    IdxT n,
+                                    IdxT k,
+                                    bool sqrt,
+                                    cudaStream_t stream)
+{
+  detail::fusedL2NNMinReduceCustomKernelImpl(label, x, y, xn, yn, m, n, k, sqrt, stream);
+}
+
 /** @} */
 
 }  // namespace distance

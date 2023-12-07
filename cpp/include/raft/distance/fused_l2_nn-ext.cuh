@@ -41,6 +41,18 @@ void fusedL2NNMinReduce(OutT* min,
                         bool initOutBuffer,
                         cudaStream_t stream) RAFT_EXPLICIT;
 
+template <typename DataT, typename LabelT, typename IdxT>
+void fusedL2NNMinReduceCustomKernel(LabelT* label,
+                                    const DataT* x,
+                                    const DataT* y,
+                                    const DataT* xn,
+                                    const DataT* yn,
+                                    IdxT m,
+                                    IdxT n,
+                                    IdxT k,
+                                    bool sqrt,
+                                    cudaStream_t stream) RAFT_EXPLICIT;
+
 }  // namespace distance
 }  // namespace raft
 
@@ -80,3 +92,22 @@ instantiate_raft_distance_fusedL2NNMinReduce(float,
 #undef COMMA
 
 #undef instantiate_raft_distance_fusedL2NNMinReduce
+
+#define instantiate_raft_distance_fusedL2NNMinReduceCustomKernel(DataT, LabelT, IdxT)                           \
+  extern template void raft::distance::fusedL2NNMinReduceCustomKernel<DataT, LabelT, IdxT>(LabelT* label,       \
+                                                                                            const DataT* x,     \
+                                                                                            const DataT* y,     \
+                                                                                            const DataT* xn,    \
+                                                                                            const DataT* yn,    \
+                                                                                            IdxT m,             \
+                                                                                            IdxT n,             \
+                                                                                            IdxT k,             \
+                                                                                            bool sqrt,          \
+                                                                                            cudaStream_t stream)
+
+instantiate_raft_distance_fusedL2NNMinReduceCustomKernel(float, uint32_t, int);
+instantiate_raft_distance_fusedL2NNMinReduceCustomKernel(float, uint32_t, int64_t);
+instantiate_raft_distance_fusedL2NNMinReduceCustomKernel(double, uint32_t, int);
+instantiate_raft_distance_fusedL2NNMinReduceCustomKernel(double, uint32_t, int64_t);
+
+#undef instantiate_raft_distance_fusedL2NNMinReduceCustomKernel
