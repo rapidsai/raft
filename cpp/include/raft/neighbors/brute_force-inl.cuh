@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/copy.cuh>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -341,6 +342,18 @@ index<T> build(raft::resources const& res,
   // certain distance metrics can benefit by pre-calculating the norms for the index dataset
   // which lets us avoid calculating these at query time
   std::optional<device_vector<T, int64_t>> norms;
+  // TODO(wphicks): Replace once mdbuffer is available
+  auto dataset_storage = std::optional<device_matrix<T, int64_t>>{};
+  auto dataset_view    = [&res, &dataset_storage, dataset]() {
+    if constexpr (std::is_same_v<decltype(dataset),
+                                 raft::device_matrix_view<const T, int64_t, row_major>>) {
+      return dataset;
+    } else {
+      dataset_storage = make_device_matrix<T, int64_t>(res, dataset.extent(0), dataset.extent(1));
+      raft::copy(res, dataset_storage->view(), dataset);
+      return raft::make_const_mdspan(dataset_storage->view());
+    }
+  }();
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded ||
       metric == raft::distance::DistanceType::CosineExpanded) {
@@ -348,14 +361,14 @@ index<T> build(raft::resources const& res,
     // cosine needs the l2norm, where as l2 distances needs the squared norm
     if (metric == raft::distance::DistanceType::CosineExpanded) {
       raft::linalg::norm(res,
-                         dataset,
+                         dataset_view,
                          norms->view(),
                          raft::linalg::NormType::L2Norm,
                          raft::linalg::Apply::ALONG_ROWS,
                          raft::sqrt_op{});
     } else {
       raft::linalg::norm(res,
-                         dataset,
+                         dataset_view,
                          norms->view(),
                          raft::linalg::NormType::L2Norm,
                          raft::linalg::Apply::ALONG_ROWS);
@@ -363,6 +376,25 @@ index<T> build(raft::resources const& res,
   }
 
   return index<T>(res, dataset, std::move(norms), metric, metric_arg);
+}
+
+/**
+ * @brief Build the index from the dataset for efficient search.
+ *
+ * @tparam T data element type
+ *
+ * @param[in] res
+ * @param[in] params configure the index building
+ * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
+ *
+ * @return the constructed brute force index
+ */
+template <typename T, typename Accessor>
+index<T> build(raft::resources const& res,
+               index_params const& params,
+               mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
+{
+  return build<T, Accessor>(res, dataset, params.metric, float(params.metric_arg));
 }
 
 /**
@@ -390,5 +422,32 @@ void search(raft::resources const& res,
 {
   raft::neighbors::detail::brute_force_search<T, IdxT>(res, idx, queries, neighbors, distances);
 }
+
+/**
+ * @brief Brute Force search using the constructed index.
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] res raft resources
+ * @param[in] params configure the search
+ * @param[in] idx brute force index
+ * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
+ * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
+ * [n_queries, k]
+ * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
+ * k]
+ */
+template <typename T, typename IdxT>
+void search(raft::resources const& res,
+            search_params const& params,
+            const index<T>& idx,
+            raft::device_matrix_view<const T, int64_t, row_major> queries,
+            raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
+            raft::device_matrix_view<T, int64_t, row_major> distances)
+{
+  raft::neighbors::detail::brute_force_search<T, IdxT>(res, idx, queries, neighbors, distances);
+}
+
 /** @} */  // end group brute_force_knn
 }  // namespace raft::neighbors::brute_force
