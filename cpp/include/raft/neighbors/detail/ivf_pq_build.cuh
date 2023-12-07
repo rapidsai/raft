@@ -1835,7 +1835,7 @@ auto build(raft::resources const& handle,
       handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
 
     // Trainset labels are needed for training PQ codebooks
-    rmm::device_uvector<uint32_t> labels(n_rows_train, stream, big_memory_resource);
+    rmm::device_uvector<uint32_t> labels(n_rows_train, stream, device_memory);
     auto centers_const_view = raft::make_device_matrix_view<const float, IdxT>(
       cluster_centers, index.n_lists(), index.dim());
     auto labels_view = raft::make_device_vector_view<uint32_t, IdxT>(labels.data(), n_rows_train);

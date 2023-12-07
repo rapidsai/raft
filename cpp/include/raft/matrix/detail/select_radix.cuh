@@ -843,9 +843,7 @@ void radix_topk(const T* in,
   }
   const IdxT buf_len = calc_buf_len<T>(len);
 
-  size_t req_aux = max_chunk_size * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
   size_t req_buf = max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
-  size_t mem_req = req_aux + req_buf + 256 * 6;  // might need extra memory for alignment
 
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
   rmm::device_uvector<IdxT> histograms(max_chunk_size * num_buckets, stream, mr);
