@@ -124,6 +124,8 @@ void build_knn_graph(raft::resources const& res,
   bool first                    = true;
   const auto start_clock        = std::chrono::system_clock::now();
 
+  rmm::mr::device_memory_resource* device_memory = raft::resource::get_workspace_resource(res);
+
   raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(
     dataset.data_handle(),
     dataset.extent(0),
