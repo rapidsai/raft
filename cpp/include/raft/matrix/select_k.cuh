@@ -22,6 +22,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/matrix/select_k_types.hpp>
 
 #include <optional>
 
@@ -76,6 +77,8 @@ namespace raft::matrix {
  *   whether to select k smallest (true) or largest (false) keys.
  * @param[in] sorted
  *   whether to make sure selected pairs are sorted by value
+ * @param[in] algo
+ *   the selection algorithm to use
  */
 template <typename T, typename IdxT>
 void select_k(raft::resources const& handle,
@@ -84,7 +87,8 @@ void select_k(raft::resources const& handle,
               raft::device_matrix_view<T, int64_t, row_major> out_val,
               raft::device_matrix_view<IdxT, int64_t, row_major> out_idx,
               bool select_min,
-              bool sorted = false)
+              bool sorted     = false,
+              SelectAlgo algo = SelectAlgo::kAuto)
 {
   RAFT_EXPECTS(out_val.extent(1) <= int64_t(std::numeric_limits<int>::max()),
                "output k must fit the int type.");
@@ -109,7 +113,8 @@ void select_k(raft::resources const& handle,
                                    out_idx.data_handle(),
                                    select_min,
                                    nullptr,
-                                   sorted);
+                                   sorted,
+                                   algo);
 }
 
 /** @} */  // end of group select_k

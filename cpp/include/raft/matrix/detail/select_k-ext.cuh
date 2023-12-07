@@ -19,6 +19,7 @@
 #include <cstdint>      // uint32_t
 #include <cuda_fp16.h>  // __half
 #include <raft/core/device_resources.hpp>
+#include <raft/matrix/select_k_types.hpp>
 #include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>                  // rmm:cuda_stream_view
 #include <rmm/mr/device/device_memory_resource.hpp>  // rmm::mr::device_memory_resource
@@ -38,7 +39,8 @@ void select_k(raft::resources const& handle,
               IdxT* out_idx,
               bool select_min,
               rmm::mr::device_memory_resource* mr = nullptr,
-              bool sorted                         = false) RAFT_EXPLICIT;
+              bool sorted                         = false,
+              SelectAlgo algo                     = SelectAlgo::kAuto) RAFT_EXPLICIT;
 }  // namespace raft::matrix::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -54,7 +56,8 @@ void select_k(raft::resources const& handle,
                                                       IdxT* out_idx,                       \
                                                       bool select_min,                     \
                                                       rmm::mr::device_memory_resource* mr, \
-                                                      bool sorted)
+                                                      bool sorted,                         \
+                                                      raft::matrix::SelectAlgo algo)
 instantiate_raft_matrix_detail_select_k(__half, uint32_t);
 instantiate_raft_matrix_detail_select_k(__half, int64_t);
 instantiate_raft_matrix_detail_select_k(float, int64_t);

@@ -28,7 +28,8 @@
                                                IdxT* out_idx,                       \
                                                bool select_min,                     \
                                                rmm::mr::device_memory_resource* mr, \
-                                               bool sorted)
+                                               bool sorted,                         \
+                                               raft::matrix::SelectAlgo algo)
 
 instantiate_raft_matrix_detail_select_k(double, uint32_t);
 

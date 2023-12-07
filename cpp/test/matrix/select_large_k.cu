@@ -25,12 +25,12 @@ auto inputs_random_largek = testing::Values(select::params{100, 100000, 1000, tr
                                             select::params{100, 100000, 1237, true});
 
 using ReferencedRandomFloatSizeT =
-  SelectK<float, int64_t, with_ref<select::Algo::kRadix8bits>::params_random>;
+  SelectK<float, int64_t, with_ref<SelectAlgo::kRadix8bits>::params_random>;
 TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(SelectK,                       // NOLINT
                         ReferencedRandomFloatSizeT,
                         testing::Combine(inputs_random_largek,
-                                         testing::Values(select::Algo::kRadix11bits,
-                                                         select::Algo::kRadix11bitsExtraPass)));
+                                         testing::Values(SelectAlgo::kRadix11bits,
+                                                         SelectAlgo::kRadix11bitsExtraPass)));
 
 }  // namespace raft::matrix
