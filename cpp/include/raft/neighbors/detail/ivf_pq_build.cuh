@@ -401,8 +401,11 @@ void train_per_subset(raft::resources const& handle,
   auto device_memory = resource::get_workspace_resource(handle);
 
   rmm::device_uvector<float> pq_centers_tmp(index.pq_centers().size(), stream, device_memory);
-  rmm::device_uvector<float> sub_trainset(n_rows * size_t(index.pq_len()), stream, device_memory);
-  rmm::device_uvector<uint32_t> sub_labels(n_rows, stream, device_memory);
+  // Subsampling the train set for codebook generation. Using similar subsampling strategy as train_per_cluster
+  size_t big_enough     = 256ul * std::max<size_t>(index.pq_book_size(), index.pq_dim());
+  auto pq_n_rows        = uint32_t(std::min(big_enough, n_rows));
+  rmm::device_uvector<float> sub_trainset(pq_n_rows * size_t(index.pq_len()), stream, device_memory);
+  rmm::device_uvector<uint32_t> sub_labels(pq_n_rows, stream, device_memory);
 
   rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
 
@@ -413,7 +416,7 @@ void train_per_subset(raft::resources const& handle,
     // Get the rotated cluster centers for each training vector.
     // This will be subtracted from the input vectors afterwards.
     utils::copy_selected<float, float, size_t, uint32_t>(
-      n_rows,
+      pq_n_rows,
       index.pq_len(),
       index.centers_rot().data_handle() + index.pq_len() * j,
       labels,
@@ -429,7 +432,7 @@ void train_per_subset(raft::resources const& handle,
                  true,
                  false,
                  index.pq_len(),
-                 n_rows,
+                 pq_n_rows,
                  index.dim(),
                  &alpha,
                  index.rotation_matrix().data_handle() + index.dim() * index.pq_len() * j,
@@ -443,12 +446,12 @@ void train_per_subset(raft::resources const& handle,
 
     // train PQ codebook for this subspace
     auto sub_trainset_view =
-      raft::make_device_matrix_view<const float, IdxT>(sub_trainset.data(), n_rows, index.pq_len());
+      raft::make_device_matrix_view<const float, IdxT>(sub_trainset.data(), pq_n_rows, index.pq_len());
     auto centers_tmp_view = raft::make_device_matrix_view<float, IdxT>(
       pq_centers_tmp.data() + index.pq_book_size() * index.pq_len() * j,
       index.pq_book_size(),
       index.pq_len());
-    auto sub_labels_view = raft::make_device_vector_view<uint32_t, IdxT>(sub_labels.data(), n_rows);
+    auto sub_labels_view = raft::make_device_vector_view<uint32_t, IdxT>(sub_labels.data(), pq_n_rows);
     auto cluster_sizes_view =
       raft::make_device_vector_view<uint32_t, IdxT>(pq_cluster_sizes.data(), index.pq_book_size());
     raft::cluster::kmeans_balanced_params kmeans_params;
