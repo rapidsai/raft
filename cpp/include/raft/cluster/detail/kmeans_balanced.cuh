@@ -49,6 +49,7 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_vector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <thrust/gather.h>
@@ -970,6 +971,8 @@ void build_hierarchical(const raft::resources& handle,
   IdxT n_mesoclusters = std::min(n_clusters, static_cast<IdxT>(std::sqrt(n_clusters) + 0.5));
   RAFT_LOG_DEBUG("build_hierarchical: n_mesoclusters: %u", n_mesoclusters);
 
+  // TODO: Remove the explicit managed memory- we shouldn't be creating this on the user's behalf.
+  rmm::mr::managed_memory_resource managed_memory;
   rmm::mr::device_memory_resource* device_memory = resource::get_workspace_resource(handle);
   auto [max_minibatch_size, mem_per_row] =
     calc_minibatch_size<MathT>(n_clusters, n_rows, dim, params.metric, std::is_same_v<T, MathT>);
@@ -999,8 +1002,8 @@ void build_hierarchical(const raft::resources& handle,
     CounterT;
 
   // build coarse clusters (mesoclusters)
-  rmm::device_uvector<LabelT> mesocluster_labels_buf(n_rows, stream, device_memory);
-  rmm::device_uvector<CounterT> mesocluster_sizes_buf(n_mesoclusters, stream, device_memory);
+  rmm::device_uvector<LabelT> mesocluster_labels_buf(n_rows, stream, &managed_memory);
+  rmm::device_uvector<CounterT> mesocluster_sizes_buf(n_mesoclusters, stream, &managed_memory);
   {
     rmm::device_uvector<MathT> mesocluster_centers_buf(n_mesoclusters * dim, stream, device_memory);
     build_clusters(handle,
@@ -1013,7 +1016,7 @@ void build_hierarchical(const raft::resources& handle,
                    mesocluster_labels_buf.data(),
                    mesocluster_sizes_buf.data(),
                    mapping_op,
-                   device_memory,
+                   &managed_memory,
                    dataset_norm);
   }
 
