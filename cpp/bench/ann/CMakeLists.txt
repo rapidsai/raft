@@ -30,6 +30,7 @@ option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ "Include faiss' cpu ivf pq algorithm 
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB "Include raft's CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_SINGLE_EXE
@@ -54,6 +55,7 @@ if(BUILD_CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB OFF)
   set(RAFT_ANN_BENCH_USE_GGNN OFF)
 else()
   # Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
@@ -88,6 +90,7 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
    OR RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE
    OR RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
    OR RAFT_ANN_BENCH_USE_RAFT_CAGRA
+   OR RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB
 )
   set(RAFT_ANN_BENCH_USE_RAFT ON)
 endif()
@@ -95,7 +98,7 @@ endif()
 # ##################################################################################################
 # * Fetch requirements -------------------------------------------------------------
 
-if(RAFT_ANN_BENCH_USE_HNSWLIB)
+if(RAFT_ANN_BENCH_USE_HNSWLIB OR RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
   include(cmake/thirdparty/get_hnswlib.cmake)
 endif()
 
@@ -247,6 +250,21 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra.cu>
     LINKS
     raft::compiled
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+  ConfigureAnnBench(
+    NAME
+    RAFT_CAGRA_HNSWLIB
+    PATH
+    bench/ann/src/raft/raft_cagra_hnswlib.cu
+    INCLUDES
+    ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib
+    LINKS
+    raft::compiled
+    CXXFLAGS
+    "${HNSW_CXX_FLAGS}"
   )
 endif()
 

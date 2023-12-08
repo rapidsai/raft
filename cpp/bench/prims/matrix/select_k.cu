@@ -284,9 +284,6 @@ const static size_t MAX_MEMORY = 16 * 1024 * 1024 * 1024ULL;
         SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpDistributed, input)     \
         SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpDistributedShm, input)  \
       }                                                                        \
-      if (input.k <= raft::neighbors::detail::kFaissMaxK<IdxT, KeyT>()) {      \
-        SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kFaissBlockSelect, input)    \
-      }                                                                        \
     }                                                                          \
   }
 

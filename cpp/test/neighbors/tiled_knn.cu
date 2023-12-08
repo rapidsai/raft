@@ -27,7 +27,6 @@
 #include <raft/matrix/init.cuh>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/detail/knn_brute_force.cuh>  // raft::neighbors::detail::brute_force_knn_impl
-#include <raft/neighbors/detail/selection_faiss.cuh>  // raft::neighbors::detail::select_k
 
 #include <rmm/device_buffer.hpp>
 
@@ -38,6 +37,7 @@
 #include <vector>
 
 namespace raft::neighbors::brute_force {
+
 struct TiledKNNInputs {
   int num_queries;
   int num_db_vecs;
@@ -127,15 +127,14 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
       temp_dist = temp_row_major_dist.data();
     }
 
-    raft::neighbors::detail::select_k<int, T>(temp_dist,
-                                              nullptr,
-                                              num_queries,
-                                              num_db_vecs,
-                                              ref_distances_.data(),
-                                              ref_indices_.data(),
-                                              raft::distance::is_min_close(metric),
-                                              k_,
-                                              stream_);
+    matrix::select_k<T, int>(
+      handle_,
+      raft::make_device_matrix_view<const T, int64_t>(temp_dist, num_queries, num_db_vecs),
+      std::nullopt,
+      raft::make_device_matrix_view(ref_distances_.data(), params_.num_queries, params_.k),
+      raft::make_device_matrix_view(ref_indices_.data(), params_.num_queries, params_.k),
+      raft::distance::is_min_close(metric),
+      true);
 
     if ((params_.row_tiles == 0) && (params_.col_tiles == 0)) {
       std::vector<T*> input{database.data()};
@@ -190,11 +189,13 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                                                metric,
                                                metric_arg);
 
+      auto query_view = raft::make_device_matrix_view<const T, int64_t>(
+        search_queries.data(), params_.num_queries, params_.dim);
+
       raft::neighbors::brute_force::search<T, int>(
         handle_,
         idx,
-        raft::make_device_matrix_view<const T, int64_t>(
-          search_queries.data(), params_.num_queries, params_.dim),
+        query_view,
         raft::make_device_matrix_view<int, int64_t>(
           raft_indices_.data(), params_.num_queries, params_.k),
         raft::make_device_matrix_view<T, int64_t>(
@@ -209,6 +210,73 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                                                          float(0.001),
                                                          stream_,
                                                          true));
+      // also test out the batch api. First get new reference results (all k, up to a certain
+      // max size)
+      auto all_size      = std::min(params_.num_db_vecs, 1024);
+      auto all_indices   = raft::make_device_matrix<int, int64_t>(handle_, num_queries, all_size);
+      auto all_distances = raft::make_device_matrix<T, int64_t>(handle_, num_queries, all_size);
+      raft::neighbors::brute_force::search<T, int>(
+        handle_, idx, query_view, all_indices.view(), all_distances.view());
+
+      int64_t offset = 0;
+      auto query     = make_batch_k_query<T, int>(handle_, idx, query_view, k_);
+      for (auto batch : *query) {
+        auto batch_size = batch.batch_size();
+        auto indices    = raft::make_device_matrix<int, int64_t>(handle_, num_queries, batch_size);
+        auto distances  = raft::make_device_matrix<T, int64_t>(handle_, num_queries, batch_size);
+
+        matrix::slice_coordinates<int64_t> coords{0, offset, num_queries, offset + batch_size};
+
+        matrix::slice(handle_, raft::make_const_mdspan(all_indices.view()), indices.view(), coords);
+        matrix::slice(
+          handle_, raft::make_const_mdspan(all_distances.view()), distances.view(), coords);
+
+        ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(indices.data_handle(),
+                                                           batch.indices().data_handle(),
+                                                           distances.data_handle(),
+                                                           batch.distances().data_handle(),
+                                                           num_queries,
+                                                           batch_size,
+                                                           float(0.001),
+                                                           stream_,
+                                                           true));
+
+        offset += batch_size;
+        if (offset + batch_size > all_size) break;
+      }
+
+      // also test out with variable batch sizes
+      offset             = 0;
+      int64_t batch_size = k_;
+      query              = make_batch_k_query<T, int>(handle_, idx, query_view, batch_size);
+      for (auto it = query->begin(); it != query->end(); it.advance(batch_size)) {
+        // batch_size could be less than requested (in the case of final batch). handle.
+        ASSERT_TRUE(it->indices().extent(1) <= batch_size);
+        batch_size = it->indices().extent(1);
+
+        auto indices   = raft::make_device_matrix<int, int64_t>(handle_, num_queries, batch_size);
+        auto distances = raft::make_device_matrix<T, int64_t>(handle_, num_queries, batch_size);
+
+        matrix::slice_coordinates<int64_t> coords{0, offset, num_queries, offset + batch_size};
+        matrix::slice(handle_, raft::make_const_mdspan(all_indices.view()), indices.view(), coords);
+        matrix::slice(
+          handle_, raft::make_const_mdspan(all_distances.view()), distances.view(), coords);
+
+        ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(indices.data_handle(),
+                                                           it->indices().data_handle(),
+                                                           distances.data_handle(),
+                                                           it->distances().data_handle(),
+                                                           num_queries,
+                                                           batch_size,
+                                                           float(0.001),
+                                                           stream_,
+                                                           true));
+
+        offset += batch_size;
+        if (offset + batch_size > all_size) break;
+
+        batch_size += 2;
+      }
     }
   }
 

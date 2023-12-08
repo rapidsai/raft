@@ -24,7 +24,6 @@
 #include <raft/neighbors/detail/cagra/topk_for_cagra/topk.h>
 #include <raft/neighbors/detail/cagra/topk_for_cagra/topk_core.cuh>
 #include <raft/neighbors/detail/cagra/utils.hpp>
-#include <raft/neighbors/detail/selection_faiss.cuh>
 
 namespace raft::matrix::select {
 
@@ -62,7 +61,6 @@ enum class Algo {
   kWarpFiltered,
   kWarpDistributed,
   kWarpDistributedShm,
-  kFaissBlockSelect,
   kCagra
 };
 
@@ -78,7 +76,6 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
     case Algo::kWarpFiltered: return os << "kWarpFiltered";
     case Algo::kWarpDistributed: return os << "kWarpDistributed";
     case Algo::kWarpDistributedShm: return os << "kWarpDistributedShm";
-    case Algo::kFaissBlockSelect: return os << "kFaissBlockSelect";
     case Algo::kCagra: return os << "kCagra";
     default: return os << "unknown enum value";
   }
@@ -172,9 +169,6 @@ void select_k_impl(const resources& handle,
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(
           in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
-    case Algo::kFaissBlockSelect:
-      return neighbors::detail::select_k(
-        in, in_idx, batch_size, len, out, out_idx, select_min, k, stream);
     case Algo::kCagra: {
       // TODO: afaict cagra top-k only works on floats
       if constexpr (std::is_same_v<T, float>) {

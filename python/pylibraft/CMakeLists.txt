@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../../fetch_rapids.cmake)
 
-set(pylibraft_version 23.12.00)
+set(pylibraft_version 24.02.00)
 
 # We always need CUDA for pylibraft because the raft dependency brings in a header-only cuco
 # dependency that enables CUDA unconditionally.
@@ -36,8 +36,6 @@ project(
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
        ON
 )
-
-option(RAFT_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
@@ -60,16 +58,9 @@ if(NOT raft_FOUND)
   set(BUILD_PRIMS_BENCH OFF)
   set(BUILD_ANN_BENCH OFF)
   set(RAFT_COMPILE_LIBRARY ON)
+  set(CUDA_STATIC_RUNTIME ON)
 
-  set(_exclude_from_all "")
-  if(RAFT_BUILD_WHEELS)
-    # Statically link dependencies if building wheels
-    set(CUDA_STATIC_RUNTIME ON)
-    # Don't install the raft C++ targets into wheels
-    set(_exclude_from_all EXCLUDE_FROM_ALL)
-  endif()
-
-  add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
+  add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
 
   # When building the C++ libraries from source we must copy libraft.so alongside the
   # pairwise_distance and random Cython libraries TODO: when we have a single 'compiled' raft

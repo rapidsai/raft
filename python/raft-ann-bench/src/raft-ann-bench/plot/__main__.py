@@ -22,6 +22,7 @@
 import argparse
 import itertools
 import os
+import sys
 from collections import OrderedDict
 
 import matplotlib as mpl
@@ -37,9 +38,13 @@ metrics = {
         "worst": float("-inf"),
         "lim": [0.0, 1.03],
     },
-    "qps": {
+    "throughput": {
         "description": "Queries per second (1/s)",
         "worst": float("-inf"),
+    },
+    "latency": {
+        "description": "Search Latency (s)",
+        "worst": float("inf"),
     },
 }
 
@@ -97,53 +102,20 @@ def create_linestyles(unique_algorithms):
     )
 
 
-def get_up_down(metric):
-    if metric["worst"] == float("inf"):
-        return "down"
-    return "up"
-
-
-def get_left_right(metric):
-    if metric["worst"] == float("inf"):
-        return "left"
-    return "right"
-
-
-def create_pointset(data, xn, yn):
-    xm, ym = (metrics[xn], metrics[yn])
-    rev_y = -1 if ym["worst"] < 0 else 1
-    rev_x = -1 if xm["worst"] < 0 else 1
-    data.sort(key=lambda t: (rev_y * t[-1], rev_x * t[-2]))
-
-    axs, ays, als, aidxs = [], [], [], []
-    # Generate Pareto frontier
-    xs, ys, ls, idxs = [], [], [], []
-    last_x = xm["worst"]
-    comparator = (
-        (lambda xv, lx: xv > lx) if last_x < 0 else (lambda xv, lx: xv < lx)
-    )
-    for algo_name, index_name, xv, yv in data:
-        if not xv or not yv:
-            continue
-        axs.append(xv)
-        ays.append(yv)
-        als.append(algo_name)
-        aidxs.append(algo_name)
-        if comparator(xv, last_x):
-            last_x = xv
-            xs.append(xv)
-            ys.append(yv)
-            ls.append(algo_name)
-            idxs.append(index_name)
-    return xs, ys, ls, idxs, axs, ays, als, aidxs
-
-
 def create_plot_search(
-    all_data, raw, x_scale, y_scale, fn_out, linestyles, dataset, k, batch_size
+    all_data,
+    x_scale,
+    y_scale,
+    fn_out,
+    linestyles,
+    dataset,
+    k,
+    batch_size,
+    mode,
+    time_unit,
 ):
     xn = "k-nn"
-    yn = "qps"
-    xm, ym = (metrics[xn], metrics[yn])
+    xm, ym = (metrics[xn], metrics[mode])
     # Now generate each plot
     handles = []
     labels = []
@@ -151,17 +123,15 @@ def create_plot_search(
 
     # Sorting by mean y-value helps aligning plots with labels
     def mean_y(algo):
-        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(
-            all_data[algo], xn, yn
-        )
-        return -np.log(np.array(ys)).mean()
+        points = np.array(all_data[algo], dtype=object)
+        return -np.log(np.array(points[:, 3], dtype=np.float32)).mean()
 
     # Find range for logit x-scale
     min_x, max_x = 1, 0
     for algo in sorted(all_data.keys(), key=mean_y):
-        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(
-            all_data[algo], xn, yn
-        )
+        points = np.array(all_data[algo], dtype=object)
+        xs = points[:, 2]
+        ys = points[:, 3]
         min_x = min([min_x] + [x for x in xs if x > 0])
         max_x = max([max_x] + [x for x in xs if x < 1])
         color, faded, linestyle, marker = linestyles[algo]
@@ -177,23 +147,15 @@ def create_plot_search(
             marker=marker,
         )
         handles.append(handle)
-        if raw:
-            (handle2,) = plt.plot(
-                axs,
-                ays,
-                "-",
-                label=algo,
-                color=faded,
-                ms=5,
-                mew=2,
-                lw=2,
-                marker=marker,
-            )
+
         labels.append(algo)
 
     ax = plt.gca()
-    ax.set_ylabel(ym["description"])
-    ax.set_xlabel(xm["description"])
+    y_description = ym["description"]
+    if mode == "latency":
+        y_description = y_description.replace("(s)", f"({time_unit})")
+    ax.set_ylabel(y_description)
+    ax.set_xlabel("Recall")
     # Custom scales of the type --x-scale a3
     if x_scale[0] == "a":
         alpha = float(x_scale[1:])
@@ -249,10 +211,8 @@ def create_plot_search(
 
 
 def create_plot_build(
-    build_results, search_results, linestyles, fn_out, dataset, k, batch_size
+    build_results, search_results, linestyles, fn_out, dataset
 ):
-    xn = "k-nn"
-    yn = "qps"
 
     qps_85 = [-1] * len(linestyles)
     bt_85 = [0] * len(linestyles)
@@ -270,16 +230,17 @@ def create_plot_build(
     colors = OrderedDict()
 
     # Sorting by mean y-value helps aligning plots with labels
+
     def mean_y(algo):
-        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(
-            search_results[algo], xn, yn
-        )
-        return -np.log(np.array(ys)).mean()
+        points = np.array(search_results[algo], dtype=object)
+        return -np.log(np.array(points[:, 3], dtype=np.float32)).mean()
 
     for pos, algo in enumerate(sorted(search_results.keys(), key=mean_y)):
-        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(
-            search_results[algo], xn, yn
-        )
+        points = np.array(search_results[algo], dtype=object)
+        xs = points[:, 2]
+        ys = points[:, 3]
+        ls = points[:, 0]
+        idxs = points[:, 1]
         # x is recall, y is qps, ls is algo_name, idxs is index_name
         for i in range(len(xs)):
             if xs[i] >= 0.85 and xs[i] < 0.9 and ys[i] > qps_85[pos]:
@@ -310,11 +271,11 @@ def create_plot_build(
     fig.savefig(fn_out)
 
 
-def load_lines(results_path, result_files, method, index_key):
+def load_lines(results_path, result_files, method, index_key, mode, time_unit):
     results = dict()
 
     for result_filename in result_files:
-        if result_filename.endswith(".csv"):
+        try:
             with open(os.path.join(results_path, result_filename), "r") as f:
                 lines = f.readlines()
                 lines = lines[:-1] if lines[-1] == "\n" else lines
@@ -322,7 +283,8 @@ def load_lines(results_path, result_files, method, index_key):
                 if method == "build":
                     key_idx = [2]
                 elif method == "search":
-                    key_idx = [2, 3]
+                    y_idx = 3 if mode == "throughput" else 4
+                    key_idx = [2, y_idx]
 
                 for line in lines[1:]:
                     split_lines = line.split(",")
@@ -339,7 +301,22 @@ def load_lines(results_path, result_files, method, index_key):
                     to_add = [algo_name, index_name]
                     for key_i in key_idx:
                         to_add.append(float(split_lines[key_i]))
+                    if (
+                        mode == "latency"
+                        and time_unit != "s"
+                        and method == "search"
+                    ):
+                        to_add[-1] = (
+                            to_add[-1] * (10**3)
+                            if time_unit == "ms"
+                            else to_add[-1] * (10**6)
+                        )
                     results[dict_key].append(to_add)
+        except Exception:
+            print(
+                f"An error occurred processing file {result_filename}. "
+                "Skipping..."
+            )
 
     return results
 
@@ -353,12 +330,31 @@ def load_all_results(
     batch_size,
     method,
     index_key,
+    raw,
+    mode,
+    time_unit,
 ):
     results_path = os.path.join(dataset_path, "result", method)
     result_files = os.listdir(results_path)
-    result_files = [
-        result_file for result_file in result_files if ".csv" in result_file
-    ]
+    if method == "build":
+        result_files = [
+            result_file
+            for result_file in result_files
+            if ".csv" in result_file
+        ]
+    elif method == "search":
+        if raw:
+            suffix = "_raw"
+        else:
+            suffix = f"_{mode}"
+        result_files = [
+            result_file
+            for result_file in result_files
+            if f"{suffix}.csv" in result_file
+        ]
+    if len(result_files) == 0:
+        raise FileNotFoundError(f"No CSV result files found in {results_path}")
+
     if method == "search":
         result_files = [
             result_filename
@@ -406,7 +402,9 @@ def load_all_results(
         final_results = final_results + final_algo_groups
         final_results = set(final_results)
 
-    results = load_lines(results_path, final_results, method, index_key)
+    results = load_lines(
+        results_path, final_results, method, index_key, mode, time_unit
+    )
 
     return results
 
@@ -481,11 +479,26 @@ def main():
         default="linear",
     )
     parser.add_argument(
+        "--mode",
+        help="search mode whose Pareto frontier is used on the y-axis",
+        choices=["throughput", "latency"],
+        default="throughput",
+    )
+    parser.add_argument(
+        "--time-unit",
+        help="time unit to plot when mode is latency",
+        choices=["s", "ms", "us"],
+        default="ms",
+    )
+    parser.add_argument(
         "--raw",
-        help="Show raw results (not just Pareto frontier) in faded colours",
+        help="Show raw results (not just Pareto frontier) of mode arg",
         action="store_true",
     )
 
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
     args = parser.parse_args()
 
     if args.algorithms:
@@ -524,12 +537,14 @@ def main():
         batch_size,
         "search",
         "algo",
+        args.raw,
+        args.mode,
+        args.time_unit,
     )
     linestyles = create_linestyles(sorted(search_results.keys()))
     if search:
         create_plot_search(
             search_results,
-            args.raw,
             args.x_scale,
             args.y_scale,
             search_output_filepath,
@@ -537,6 +552,8 @@ def main():
             args.dataset,
             k,
             batch_size,
+            args.mode,
+            args.time_unit,
         )
     if build:
         build_results = load_all_results(
@@ -548,6 +565,9 @@ def main():
             batch_size,
             "build",
             "index",
+            args.raw,
+            args.mode,
+            args.time_unit,
         )
         create_plot_build(
             build_results,
@@ -555,8 +575,6 @@ def main():
             linestyles,
             build_output_filepath,
             args.dataset,
-            k,
-            batch_size,
         )
 
 

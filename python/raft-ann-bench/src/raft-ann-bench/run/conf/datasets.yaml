@@ -107,12 +107,12 @@
 
 - name: wiki_all_1M
   dims: 768
-  base_file: wiki_all_1M/base.1MM.fbin
+  base_file: wiki_all_1M/base.1M.fbin
   query_file: wiki_all_1M/queries.fbin
   groundtruth_neighbors_file: wiki_all_1M/groundtruth.1M.neighbors.ibin
   distance: euclidean
 
-- name: wiki_all_10M,
+- name: wiki_all_10M
   dims: 768
   base_file: wiki_all_10M/base.10M.fbin
   query_file: wiki_all_10M/queries.fbin
