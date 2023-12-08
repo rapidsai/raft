@@ -49,6 +49,7 @@
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
 
 #include <thrust/extrema.h>
 #include <thrust/scan.h>
@@ -1755,6 +1756,7 @@ auto build(raft::resources const& handle,
     size_t n_rows_train = n_rows / trainset_ratio;
 
     auto* device_memory = resource::get_workspace_resource(handle);
+    rmm::mr::managed_memory_resource managed_memory_upstream;
 
     // Besides just sampling, we transform the input dataset into floats to make it easier
     // to use gemm operations from cublas.
@@ -1856,7 +1858,7 @@ auto build(raft::resources const& handle,
                          trainset.data(),
                          labels.data(),
                          params.kmeans_n_iters,
-                         device_memory);
+                         &managed_memory_upstream);
         break;
       case codebook_gen::PER_CLUSTER:
         train_per_cluster(handle,
@@ -1865,7 +1867,7 @@ auto build(raft::resources const& handle,
                           trainset.data(),
                           labels.data(),
                           params.kmeans_n_iters,
-                          device_memory);
+                          &managed_memory_upstream);
         break;
       default: RAFT_FAIL("Unreachable code");
     }
