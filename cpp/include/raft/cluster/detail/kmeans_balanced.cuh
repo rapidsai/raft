@@ -1063,7 +1063,7 @@ void build_hierarchical(const raft::resources& handle,
                                              device_memory);
   RAFT_EXPECTS(n_clusters_done == n_clusters, "Didn't process all clusters.");
 
-  rmm::device_uvector<CounterT> cluster_sizes(n_clusters, stream, device_memory);
+  rmm::device_uvector<CounterT> cluster_sizes(n_clusters, stream, &managed_memory);
   rmm::device_uvector<LabelT> labels(n_rows, stream, device_memory);
 
   // Fine-tuning k-means for all clusters
