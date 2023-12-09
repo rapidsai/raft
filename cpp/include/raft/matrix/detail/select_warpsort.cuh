@@ -988,6 +988,8 @@ void select_k_(int num_of_block,
                rmm::cuda_stream_view stream,
                rmm::mr::device_memory_resource* mr = nullptr)
 {
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+
   rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream, mr);
   rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream, mr);
 

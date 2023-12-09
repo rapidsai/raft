@@ -835,6 +835,8 @@ void radix_topk(const T* in,
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+
   auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, false);
