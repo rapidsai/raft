@@ -42,10 +42,23 @@ inline raft::distance::DistanceType parse_metric_type(raft::bench::ann::Metric m
   }
 }
 
+/**
+ * This struct is used by multiple raft benchmark wrappers. It serves as a thread-safe keeper of
+ * shared and private GPU resources (see below).
+ *
+ * - Accessing the same `configured_raft_resources` from concurrent threads is not safe.
+ * - Accessing the copies of `configured_raft_resources` from concurrent threads is safe.
+ * - There must be at most one "original" `configured_raft_resources` at any time, but as many
+ *   copies of it as needed (modifies the program static state).
+ */
 class configured_raft_resources {
  public:
-  explicit configured_raft_resources(
-    const std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> mr)
+  using device_mr_t = rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>;
+  /**
+   * This constructor has the shared state passed unmodified but creates the local state anew.
+   * It's used by the copy constructor.
+   */
+  explicit configured_raft_resources(const std::shared_ptr<device_mr_t>& mr)
     : mr_{mr},
       sync_{[]() {
               auto* ev = new cudaEvent_t;
@@ -60,16 +73,24 @@ class configured_raft_resources {
   {
   }
 
+  /** Default constructor creates all resources anew. */
   configured_raft_resources()
     : configured_raft_resources{
         {[]() {
-           auto* mr = new rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>{
-             rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull};
+           auto* mr =
+             new device_mr_t{rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull};
            rmm::mr::set_current_device_resource(mr);
            return mr;
          }(),
-         [](rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>* mr) {
-           if (rmm::mr::get_current_device_resource()->is_equal(*mr)) {
+         [](device_mr_t* mr) {
+           if (mr == nullptr) { return; }
+           auto* cur_mr = dynamic_cast<device_mr_t*>(rmm::mr::get_current_device_resource());
+           if (cur_mr != nullptr && (*cur_mr) == (*mr)) {
+             // Normally, we'd always want to set the rmm resource back to the upstream of the pool
+             // here. However, we expect some implementations may be buggy and mess up the rmm
+             // resource, especially during development. This extra check here adds a little bit of
+             // resilience: let the program crash/fail somewhere else rather than in the destructor
+             // of the shared pointer.
              rmm::mr::set_current_device_resource(mr->get_upstream());
            }
            delete mr;
@@ -104,8 +125,18 @@ class configured_raft_resources {
   cudaEvent_t get_sync_event() const { return *sync_; }
 
  private:
-  std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> mr_;
+  /**
+   * This pool is set as the RMM current device, hence its shared among all users of RMM resources.
+   * Its lifetime must be longer than that of any other cuda resources. It's not exposed and not
+   * used by anyone directly.
+   */
+  std::shared_ptr<device_mr_t> mr_;
+  /** Each benchmark wrapper must have its own copy of the synchronization event. */
   std::unique_ptr<cudaEvent_t, std::function<void(cudaEvent_t*)>> sync_;
+  /**
+   * Until we make the use of copies of raft::resources thread-safe, each benchmark wrapper must
+   * have its own copy of it.
+   */
   raft::device_resources res_;
 };
 
