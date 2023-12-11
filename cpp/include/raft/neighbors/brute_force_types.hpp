@@ -19,6 +19,7 @@
 #include "ann_types.hpp"
 #include <raft/core/resource/cuda_stream.hpp>
 
+#include <raft/core/copy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -34,6 +35,9 @@ namespace raft::neighbors::brute_force {
  * @addtogroup brute_force_knn
  * @{
  */
+
+using ann::index_params;
+using ann::search_params;
 
 /**
  * @brief Brute Force index.
@@ -52,10 +56,10 @@ struct index : ann::index {
   }
 
   /** Total length of the index (number of vectors). */
-  [[nodiscard]] constexpr inline int64_t size() const noexcept { return dataset_view_.extent(0); }
+  [[nodiscard]] constexpr inline auto size() const noexcept { return dataset_view_.extent(0); }
 
   /** Dimensionality of the data. */
-  [[nodiscard]] constexpr inline uint32_t dim() const noexcept { return dataset_view_.extent(1); }
+  [[nodiscard]] constexpr inline auto dim() const noexcept { return dataset_view_.extent(1); }
 
   /** Dataset [size, dim] */
   [[nodiscard]] inline auto dataset() const noexcept
@@ -127,7 +131,22 @@ struct index : ann::index {
   {
   }
 
- private:
+  template <typename data_accessor>
+  index(raft::resources const& res,
+        index_params const& params,
+        mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+        std::optional<raft::device_vector<T, int64_t>>&& norms = std::nullopt)
+    : ann::index(),
+      metric_(params.metric),
+      dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
+      norms_(std::move(norms)),
+      metric_arg_(params.metric_arg)
+  {
+    if (norms_) { norms_view_ = make_const_mdspan(norms_.value().view()); }
+    update_dataset(res, dataset);
+    resource::sync_stream(res);
+  }
+
   /**
    * Replace the dataset with a new dataset.
    */
@@ -145,14 +164,12 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::host_matrix_view<const T, int64_t, row_major> dataset)
   {
-    dataset_ = make_device_matrix<T, int64_t>(dataset.extents(0), dataset.extents(1));
-    raft::copy(dataset_.data_handle(),
-               dataset.data_handle(),
-               dataset.size(),
-               resource::get_cuda_stream(res));
+    dataset_ = make_device_matrix<T, int64_t>(res, dataset.extent(0), dataset.extent(1));
+    raft::copy(res, dataset_.view(), dataset);
     dataset_view_ = make_const_mdspan(dataset_.view());
   }
 
+ private:
   raft::distance::DistanceType metric_;
   raft::device_matrix<T, int64_t, row_major> dataset_;
   std::optional<raft::device_vector<T, int64_t>> norms_;
