@@ -24,7 +24,6 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/core/resource/detail/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
@@ -110,7 +109,6 @@ void search_main(raft::resources const& res,
                  raft::device_matrix_view<DistanceT, int64_t, row_major> distances,
                  CagraSampleFilterT sample_filter = CagraSampleFilterT())
 {
-  resource::detail::warn_non_pool_workspace(res, "raft::neighbors::cagra::search");
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.dataset().extent(0)),
                  static_cast<size_t>(index.dataset().extent(1)));

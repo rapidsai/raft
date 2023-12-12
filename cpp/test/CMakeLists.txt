@@ -190,7 +190,6 @@ if(BUILD_TESTS)
     test/ext_headers/raft_core_logger.cpp
     test/ext_headers/raft_neighbors_refine.cu
     test/ext_headers/raft_neighbors_detail_ivf_flat_search.cu
-    test/ext_headers/raft_neighbors_detail_selection_faiss.cu
     test/ext_headers/raft_linalg_detail_coalesced_reduction.cu
     test/ext_headers/raft_spatial_knn_detail_ball_cover_registers.cu
     test/ext_headers/raft_neighbors_detail_ivf_flat_interleaved_scan.cu
@@ -352,6 +351,11 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
+    NAME NEIGHBORS_ANN_BRUTE_FORCE_TEST PATH test/neighbors/ann_brute_force/test_float.cu LIB
+    EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT 100
+  )
+
+  ConfigureTest(
     NAME
     NEIGHBORS_ANN_CAGRA_TEST
     PATH
@@ -410,11 +414,6 @@ if(BUILD_TESTS)
     1
     PERCENT
     100
-  )
-
-  ConfigureTest(
-    NAME NEIGHBORS_SELECTION_TEST PATH test/neighbors/selection.cu LIB EXPLICIT_INSTANTIATE_ONLY
-    GPUS 1 PERCENT 50
   )
 
   ConfigureTest(

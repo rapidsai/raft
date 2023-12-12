@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,15 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <gtest/gtest.h>
 
-namespace raft::neighbors::detail {
+#include "../ann_brute_force.cuh"
 
-// This function is used in cpp/test/neighbors/select.cu. We want to make it
-// available through both the selection_faiss-inl.cuh and
-// selection_faiss-ext.cuh headers.
-template <typename payload_t, typename key_t>
-constexpr int kFaissMaxK()
-{
-  if (sizeof(key_t) >= 8) { return sizeof(payload_t) >= 8 ? 512 : 1024; }
-  return 2048;
-}
+namespace raft::neighbors::brute_force {
 
-}  // namespace raft::neighbors::detail
+using AnnBruteForceTest_float = AnnBruteForceTest<float, float, std::int64_t>;
+TEST_P(AnnBruteForceTest_float, AnnBruteForce) { this->testBruteForce(); }
+
+INSTANTIATE_TEST_CASE_P(AnnBruteForceTest, AnnBruteForceTest_float, ::testing::ValuesIn(inputs));
+
+}  // namespace raft::neighbors::brute_force

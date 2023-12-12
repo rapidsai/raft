@@ -27,7 +27,6 @@
 #include <raft/matrix/init.cuh>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/detail/knn_brute_force.cuh>  // raft::neighbors::detail::brute_force_knn_impl
-#include <raft/neighbors/detail/selection_faiss.cuh>  // raft::neighbors::detail::select_k
 
 #include <rmm/device_buffer.hpp>
 
@@ -128,15 +127,14 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
       temp_dist = temp_row_major_dist.data();
     }
 
-    raft::neighbors::detail::select_k<int, T>(temp_dist,
-                                              nullptr,
-                                              num_queries,
-                                              num_db_vecs,
-                                              ref_distances_.data(),
-                                              ref_indices_.data(),
-                                              raft::distance::is_min_close(metric),
-                                              k_,
-                                              stream_);
+    matrix::select_k<T, int>(
+      handle_,
+      raft::make_device_matrix_view<const T, int64_t>(temp_dist, num_queries, num_db_vecs),
+      std::nullopt,
+      raft::make_device_matrix_view(ref_distances_.data(), params_.num_queries, params_.k),
+      raft::make_device_matrix_view(ref_indices_.data(), params_.num_queries, params_.k),
+      raft::distance::is_min_close(metric),
+      true);
 
     if ((params_.row_tiles == 0) && (params_.col_tiles == 0)) {
       std::vector<T*> input{database.data()};

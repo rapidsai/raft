@@ -68,7 +68,9 @@ def read_file(dataset, dataset_path, method):
     dir = os.path.join(dataset_path, dataset, "result", method)
     for file in os.listdir(dir):
         if file.endswith(".json"):
-            with open(os.path.join(dir, file), "r") as f:
+            with open(
+                os.path.join(dir, file), "r", encoding="ISO-8859-1"
+            ) as f:
                 try:
                     data = json.load(f)
                     df = pd.DataFrame(data["benchmarks"])

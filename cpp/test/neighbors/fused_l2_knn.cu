@@ -83,15 +83,14 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
       raft::make_device_matrix_view<T, int32_t>(temp_distances.data(), num_queries, num_db_vecs),
       metric);
 
-    spatial::knn::select_k<int64_t, T>(temp_distances.data(),
-                                       nullptr,
-                                       num_queries,
-                                       num_db_vecs,
-                                       ref_distances_.data(),
-                                       ref_indices_.data(),
-                                       true,
-                                       k_,
-                                       stream_);
+    matrix::select_k<T, int64_t>(
+      handle_,
+      make_device_matrix_view<const T, int64_t>(temp_distances.data(), num_queries, num_db_vecs),
+      std::nullopt,
+      make_device_matrix_view<T, int64_t>(ref_distances_.data(), num_queries, k_),
+      make_device_matrix_view<int64_t, int64_t>(ref_indices_.data(), num_queries, k_),
+      true,
+      true);
 
     auto index_view =
       raft::make_device_matrix_view<const T, int64_t>(database.data(), num_db_vecs, dim);

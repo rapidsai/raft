@@ -574,8 +574,8 @@ def main():
                         index["search_params"].append(search_dict)
                 executables_to_run[executable]["index"].append(index)
 
-            if len(index["search_params"]) == 0:
-                print("No search parameters were added to configuration")
+                if len(index["search_params"]) == 0:
+                    print("No search parameters were added to configuration")
 
     run_build_and_search(
         conf_file,
