@@ -27,6 +27,7 @@ dependencies:
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
+- libucxx==0.36.*
 - matplotlib
 - nccl>=2.9.9
 - ninja
