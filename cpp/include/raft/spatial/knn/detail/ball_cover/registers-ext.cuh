@@ -129,30 +129,32 @@ void rbc_eps_pass(raft::resources const& handle,
     float weight,                                                                            \
     Mvalue_int* dists_counter)
 
-#define instantiate_raft_spatial_knn_detail_rbc_eps_pass(                                          \
-  Mvalue_idx, Mvalue_t, Mvalue_int, Mdist_func)                                                    \
-  extern template void raft::spatial::knn::detail::rbc_eps_pass<Mvalue_idx, Mvalue_t, Mvalue_int>( \
-    raft::resources const& handle,                                                                 \
-    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                                 \
-    const Mvalue_t* query,                                                                         \
-    const Mvalue_int n_query_rows,                                                                 \
-    Mvalue_t eps,                                                                                  \
-    const Mvalue_t* R_dists,                                                                       \
-    Mdist_func<Mvalue_t, Mvalue_int>& dfunc,                                                       \
-    bool* adj,                                                                                     \
-    Mvalue_idx* vd);                                                                               \
-                                                                                                   \
-  extern template void raft::spatial::knn::detail::rbc_eps_pass<Mvalue_idx, Mvalue_t, Mvalue_int>( \
-    raft::resources const& handle,                                                                 \
-    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                                 \
-    const Mvalue_t* query,                                                                         \
-    const Mvalue_int n_query_rows,                                                                 \
-    Mvalue_t eps,                                                                                  \
-    Mvalue_int* max_k,                                                                             \
-    const Mvalue_t* R_dists,                                                                       \
-    Mdist_func<Mvalue_t, Mvalue_int>& dfunc,                                                       \
-    Mvalue_idx* adj_ia,                                                                            \
-    Mvalue_idx* adj_ja,                                                                            \
+#define instantiate_raft_spatial_knn_detail_rbc_eps_pass(                                  \
+  Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdist_func)                               \
+  extern template void                                                                     \
+  raft::spatial::knn::detail::rbc_eps_pass<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>( \
+    raft::resources const& handle,                                                         \
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>& index,            \
+    const Mvalue_t* query,                                                                 \
+    const Mvalue_int n_query_rows,                                                         \
+    Mvalue_t eps,                                                                          \
+    const Mvalue_t* R_dists,                                                               \
+    Mdist_func<Mvalue_t, Mvalue_int>& dfunc,                                               \
+    bool* adj,                                                                             \
+    Mvalue_idx* vd);                                                                       \
+                                                                                           \
+  extern template void                                                                     \
+  raft::spatial::knn::detail::rbc_eps_pass<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>( \
+    raft::resources const& handle,                                                         \
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>& index,            \
+    const Mvalue_t* query,                                                                 \
+    const Mvalue_int n_query_rows,                                                         \
+    Mvalue_t eps,                                                                          \
+    Mvalue_int* max_k,                                                                     \
+    const Mvalue_t* R_dists,                                                               \
+    Mdist_func<Mvalue_t, Mvalue_int>& dfunc,                                               \
+    Mvalue_idx* adj_ia,                                                                    \
+    Mvalue_idx* adj_ja,                                                                    \
     Mvalue_idx* vd);
 
 instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(
@@ -181,26 +183,20 @@ instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(
 instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(
   std::int64_t, float, std::uint32_t, 3, raft::spatial::knn::detail::DistFunc);
 
-instantiate_raft_spatial_knn_detail_rbc_eps_pass(std::int64_t,
-                                                 float,
-                                                 std::uint32_t,
-                                                 raft::spatial::knn::detail::EuclideanFunc);
-instantiate_raft_spatial_knn_detail_rbc_eps_pass(std::int64_t,
-                                                 float,
-                                                 std::int64_t,
-                                                 raft::spatial::knn::detail::EuclideanFunc);
-instantiate_raft_spatial_knn_detail_rbc_eps_pass(std::int64_t,
-                                                 double,
-                                                 std::int64_t,
-                                                 raft::spatial::knn::detail::EuclideanFunc);
-instantiate_raft_spatial_knn_detail_rbc_eps_pass(std::int32_t,
-                                                 float,
-                                                 std::int32_t,
-                                                 raft::spatial::knn::detail::EuclideanFunc);
-instantiate_raft_spatial_knn_detail_rbc_eps_pass(std::int32_t,
-                                                 double,
-                                                 std::int32_t,
-                                                 raft::spatial::knn::detail::EuclideanFunc);
+instantiate_raft_spatial_knn_detail_rbc_eps_pass(
+  std::int64_t, float, std::uint32_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
+instantiate_raft_spatial_knn_detail_rbc_eps_pass(
+  std::int64_t, float, std::int64_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
+instantiate_raft_spatial_knn_detail_rbc_eps_pass(
+  std::int64_t, double, std::int64_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
+instantiate_raft_spatial_knn_detail_rbc_eps_pass(
+  std::int32_t, float, std::int32_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
+instantiate_raft_spatial_knn_detail_rbc_eps_pass(
+  std::int32_t, double, std::int32_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
+instantiate_raft_spatial_knn_detail_rbc_eps_pass(
+  std::int64_t, float, std::int64_t, std::int64_t, raft::spatial::knn::detail::EuclideanFunc);
+instantiate_raft_spatial_knn_detail_rbc_eps_pass(
+  std::int64_t, double, std::int32_t, std::int64_t, raft::spatial::knn::detail::EuclideanFunc);
 
 #undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two
 #undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one

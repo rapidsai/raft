@@ -420,6 +420,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/neighbors/cagra_build.cu
     src/raft_runtime/neighbors/cagra_search.cu
     src/raft_runtime/neighbors/cagra_serialize.cu
+    src/raft_runtime/neighbors/eps_neighborhood.cu
     src/raft_runtime/neighbors/ivf_flat_build.cu
     src/raft_runtime/neighbors/ivf_flat_search.cu
     src/raft_runtime/neighbors/ivf_flat_serialize.cu

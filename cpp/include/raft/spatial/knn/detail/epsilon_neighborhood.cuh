@@ -95,13 +95,10 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     IdxT startx = blockIdx.x * P::Mblk + this->accrowid;
     IdxT starty = blockIdx.y * P::Nblk + this->acccolid;
     auto lid    = raft::laneId();
-    IdxT sums[P::AccColsPerTh];
-#pragma unroll
-    for (int j = 0; j < P::AccColsPerTh; ++j) {
-      sums[j] = 0;
-    }
+    IdxT sums[P::AccRowsPerTh];
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
+      sums[i]  = 0;
       auto xid = startx + i * P::AccThRows;
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
@@ -110,7 +107,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
         ///@todo: fix uncoalesced writes using shared mem
         if (xid < this->m && yid < this->n) {
           adj[xid * this->n + yid] = is_neigh;
-          sums[j] += is_neigh;
+          sums[i] += is_neigh;
         }
       }
     }
@@ -137,27 +134,34 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     }
   }
 
-  DI void updateVertexDegree(IdxT (&sums)[P::AccColsPerTh])
+  DI void updateVertexDegree(IdxT (&sums)[P::AccRowsPerTh])
   {
     __syncthreads();  // so that we can safely reuse smem
-    int gid       = threadIdx.x / P::AccThCols;
-    int lid       = threadIdx.x % P::AccThCols;
-    auto cidx     = IdxT(blockIdx.y) * P::Nblk + lid;
+    int gid       = this->accrowid;
+    int lid       = this->acccolid;
+    auto cidx     = IdxT(blockIdx.x) * P::Mblk + gid;
     IdxT totalSum = 0;
     // update the individual vertex degrees
 #pragma unroll
-    for (int i = 0; i < P::AccColsPerTh; ++i) {
-      sums[i]  = batchedBlockReduce<IdxT, P::AccThCols>(sums[i], smem);
-      auto cid = cidx + i * P::AccThCols;
-      if (gid == 0 && cid < this->n) {
+    for (int i = 0; i < P::AccRowsPerTh; ++i) {
+      // P::AccThCols neighboring threads need to reduce
+      // -> we have P::Nblk/P::AccThCols individual reductions
+      auto cid = cidx + i * P::AccThRows;
+      if (cid < this->m) {
+        totalSum += sums[i];
+        atomicUpdate(cid, sums[i]);
+      }
+
+      /*sums[i]  = batchedBlockReduce<IdxT, P::AccThCols>(sums[i], smem);
+      if (lid == 0 && cid < this->m) {
         atomicUpdate(cid, sums[i]);
         totalSum += sums[i];
       }
-      __syncthreads();  // for safe smem reuse
+      __syncthreads();  // for safe smem reuse*/
     }
     // update the total edge count
     totalSum = raft::blockReduce<IdxT>(totalSum, smem);
-    if (threadIdx.x == 0) { atomicUpdate(this->n, totalSum); }
+    if (threadIdx.x == 0) { atomicUpdate(this->m, totalSum); }
   }
 
   DI void atomicUpdate(IdxT addrId, IdxT val)
@@ -228,6 +232,8 @@ void epsUnexpL2SqNeighborhood(bool* adj,
                               DataT eps,
                               cudaStream_t stream)
 {
+  if (vd != nullptr) { RAFT_CUDA_TRY(cudaMemsetAsync(vd, 0, (m + 1) * sizeof(IdxT), stream)); }
+
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
     epsUnexpL2SqNeighImpl<DataT, IdxT, 16 / sizeof(DataT)>(adj, vd, x, y, m, n, k, eps, stream);

@@ -65,9 +65,12 @@ namespace detail {
  * @param handle
  * @param index
  */
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t>
 void sample_landmarks(raft::resources const& handle,
-                      BallCoverIndex<value_idx, value_t, value_int>& index)
+                      BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index)
 {
   rmm::device_uvector<value_idx> R_1nn_cols2(index.n_landmarks, resource::get_cuda_stream(handle));
   rmm::device_uvector<value_t> R_1nn_ones(index.m, resource::get_cuda_stream(handle));
@@ -123,12 +126,15 @@ void sample_landmarks(raft::resources const& handle,
  * @param k
  * @param index
  */
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t>
 void construct_landmark_1nn(raft::resources const& handle,
                             const value_idx* R_knn_inds_ptr,
                             const value_t* R_knn_dists_ptr,
                             value_int k,
-                            BallCoverIndex<value_idx, value_t, value_int>& index)
+                            BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index)
 {
   rmm::device_uvector<value_idx> R_1nn_inds(index.m, resource::get_cuda_stream(handle));
 
@@ -178,9 +184,12 @@ void construct_landmark_1nn(raft::resources const& handle,
  * @param R_knn_inds
  * @param R_knn_dists
  */
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t>
 void k_closest_landmarks(raft::resources const& handle,
-                         const BallCoverIndex<value_idx, value_t, value_int>& index,
+                         const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                          const value_t* query_pts,
                          value_int n_query_pts,
                          value_int k,
@@ -206,9 +215,12 @@ void k_closest_landmarks(raft::resources const& handle,
  * @param handle
  * @param index
  */
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t>
 void compute_landmark_radii(raft::resources const& handle,
-                            BallCoverIndex<value_idx, value_t, value_int>& index)
+                            BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index)
 {
   auto entries = thrust::make_counting_iterator<value_idx>(0);
 
@@ -236,10 +248,11 @@ void compute_landmark_radii(raft::resources const& handle,
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t,
           typename dist_func>
 void perform_rbc_query(raft::resources const& handle,
-                       const BallCoverIndex<value_idx, value_t, value_int>& index,
+                       const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                        const value_t* query,
                        value_int n_query_pts,
                        std::uint32_t k,
@@ -337,17 +350,19 @@ void perform_rbc_query(raft::resources const& handle,
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t,
           typename dist_func>
-void perform_rbc_eps_nn_query(raft::resources const& handle,
-                              const BallCoverIndex<value_idx, value_t, value_int>& index,
-                              const value_t* query,
-                              value_int n_query_pts,
-                              value_t eps,
-                              const value_t* landmark_dists,
-                              dist_func dfunc,
-                              bool* adj,
-                              value_idx* vd)
+void perform_rbc_eps_nn_query(
+  raft::resources const& handle,
+  const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
+  const value_t* query,
+  value_int n_query_pts,
+  value_t eps,
+  const value_t* landmark_dists,
+  dist_func dfunc,
+  bool* adj,
+  value_idx* vd)
 {
   // initialize output
   RAFT_CUDA_TRY(cudaMemsetAsync(
@@ -363,19 +378,21 @@ void perform_rbc_eps_nn_query(raft::resources const& handle,
 
 template <typename value_idx,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t,
           typename dist_func>
-void perform_rbc_eps_nn_query(raft::resources const& handle,
-                              const BallCoverIndex<value_idx, value_t, value_int>& index,
-                              const value_t* query,
-                              value_int n_query_pts,
-                              value_t eps,
-                              value_int* max_k,
-                              const value_t* landmark_dists,
-                              dist_func dfunc,
-                              value_idx* adj_ia,
-                              value_idx* adj_ja,
-                              value_idx* vd)
+void perform_rbc_eps_nn_query(
+  raft::resources const& handle,
+  const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
+  const value_t* query,
+  value_int n_query_pts,
+  value_t eps,
+  value_int* max_k,
+  const value_t* landmark_dists,
+  dist_func dfunc,
+  value_idx* adj_ia,
+  value_idx* adj_ja,
+  value_idx* vd)
 {
   rbc_eps_pass<value_idx, value_t, value_int>(
     handle, index, query, n_query_pts, eps, max_k, landmark_dists, dfunc, adj_ia, adj_ja, vd);
@@ -396,10 +413,11 @@ void perform_rbc_eps_nn_query(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t,
           typename distance_func>
 void rbc_build_index(raft::resources const& handle,
-                     BallCoverIndex<value_idx, value_t, value_int>& index,
+                     BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                      distance_func dfunc)
 {
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
@@ -454,10 +472,11 @@ void rbc_build_index(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t,
           typename distance_func>
 void rbc_all_knn_query(raft::resources const& handle,
-                       BallCoverIndex<value_idx, value_t, value_int>& index,
+                       BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                        value_int k,
                        value_idx* inds,
                        value_t* dists,
@@ -527,10 +546,11 @@ void rbc_all_knn_query(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t,
           typename distance_func>
 void rbc_knn_query(raft::resources const& handle,
-                   const BallCoverIndex<value_idx, value_t, value_int>& index,
+                   const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                    value_int k,
                    const value_t* query,
                    value_int n_query_pts,
@@ -597,9 +617,12 @@ void rbc_knn_query(raft::resources const& handle,
                     perform_post_filtering);
 }
 
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t>
 void compute_landmark_dists(raft::resources const& handle,
-                            const BallCoverIndex<value_idx, value_t, value_int>& index,
+                            const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                             const value_t* query_pts,
                             value_int n_query_pts,
                             value_t* R_dists)
@@ -625,10 +648,11 @@ void compute_landmark_dists(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t,
           typename distance_func>
 void rbc_eps_nn_query(raft::resources const& handle,
-                      const BallCoverIndex<value_idx, value_t, value_int>& index,
+                      const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                       const value_t eps,
                       const value_t* query,
                       value_int n_query_pts,
@@ -654,10 +678,11 @@ void rbc_eps_nn_query(raft::resources const& handle,
 
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::uint32_t,
+          typename matrix_idx = std::uint32_t,
           typename distance_func>
 void rbc_eps_nn_query(raft::resources const& handle,
-                      const BallCoverIndex<value_idx, value_t, value_int>& index,
+                      const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                       const value_t eps,
                       value_int* max_k,
                       const value_t* query,

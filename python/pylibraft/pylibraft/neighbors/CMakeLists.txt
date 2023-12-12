@@ -13,7 +13,7 @@
 # =============================================================================
 
 # Set the list of Cython files to build
-set(cython_sources common.pyx refine.pyx brute_force.pyx)
+set(cython_sources common.pyx refine.pyx brute_force.pyx eps_neighborhood.pyx)
 set(linked_libraries raft::raft raft::compiled)
 
 # Build all of the Cython targets
