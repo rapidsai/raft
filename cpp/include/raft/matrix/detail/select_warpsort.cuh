@@ -988,9 +988,7 @@ void select_k_(int num_of_block,
                rmm::cuda_stream_view stream,
                rmm::mr::device_memory_resource* mr = nullptr)
 {
-  auto pool_guard = raft::get_pool_memory_resource(
-    mr, num_of_block * k * batch_size * 2 * std::max(sizeof(T), sizeof(IdxT)));
-  if (pool_guard) { RAFT_LOG_DEBUG("warpsort::select_k: using pool memory resource"); }
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
 
   rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream, mr);
   rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream, mr);
