@@ -226,7 +226,7 @@ void FaissGpu<T>::search(const T* queries,
                    reinterpret_cast<faiss::idx_t*>(neighbors),
                    this->search_params_.get());
   }
-  // stream_wait(stream);
+  stream_wait(stream);
 }
 
 template <typename T>

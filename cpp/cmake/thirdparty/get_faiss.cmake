@@ -91,7 +91,7 @@ endfunction()
 if(NOT RAFT_FAISS_GIT_TAG)
     # TODO: Remove this once faiss supports FAISS_USE_CUDA_TOOLKIT_STATIC
     # (https://github.com/facebookresearch/faiss/pull/2446)
-    set(RAFT_FAISS_GIT_TAG a145998dace08d81922ce6ad551ddc2bd8eace31)
+    set(RAFT_FAISS_GIT_TAG rmm-pool-alloc)
     # set(RAFT_FAISS_GIT_TAG fea/statically-link-ctk)
     # set(RAFT_FAISS_GIT_TAG bde7c0027191f29c9dadafe4f6e68ca0ee31fb30)
 endif()
