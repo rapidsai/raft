@@ -19,4 +19,6 @@ if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; the
     python ./ci/wheel_smoke_test_raft_dask.py
 else
     python -m pytest ./python/raft-dask/raft_dask/test
+    python -m pytest ./python/raft-dask/raft_dask/test --run_ucx
+    # python -m pytest ./python/raft-dask/raft_dask/test --run_ucxx  # UCXX wheels not available yet
 fi
