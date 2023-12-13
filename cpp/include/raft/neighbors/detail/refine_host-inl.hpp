@@ -47,7 +47,7 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
   // For efficiency, each thread should read a certain amount of array elements.
   // The number of threads for distance computation is determined taking this into account.
   constexpr int n_elements = 512;
-  size_t max_n_threads = ((n_queries * orig_k * dim) + n_elements - 1) / n_elements;
+  auto max_n_threads = raft::div_rounding_up_safe<size_t>(n_queries * orig_k * dim, n_elements);
   auto suggested_n_threads_for_distance = std::min(size_t(suggested_n_threads), max_n_threads);
 
   // The max number of threads for topk computation is the number of queries.
