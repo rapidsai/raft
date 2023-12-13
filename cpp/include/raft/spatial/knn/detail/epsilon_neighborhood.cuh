@@ -147,17 +147,12 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
       // P::AccThCols neighboring threads need to reduce
       // -> we have P::Nblk/P::AccThCols individual reductions
       auto cid = cidx + i * P::AccThRows;
-      if (cid < this->m) {
-        totalSum += sums[i];
-        atomicUpdate(cid, sums[i]);
-      }
-
-      /*sums[i]  = batchedBlockReduce<IdxT, P::AccThCols>(sums[i], smem);
+      sums[i]  = raft::logicalWarpReduce<P::AccThCols>(sums[i], raft::add_op());
       if (lid == 0 && cid < this->m) {
         atomicUpdate(cid, sums[i]);
         totalSum += sums[i];
       }
-      __syncthreads();  // for safe smem reuse*/
+      __syncthreads();  // for safe smem reuse
     }
     // update the total edge count
     totalSum = raft::blockReduce<IdxT>(totalSum, smem);

@@ -553,7 +553,7 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_index,
 {
   const value_t* x_ptr = X + (n_cols * blockIdx.x);
 
-  __shared__ int column_index_smem;
+  __shared__ unsigned long long int column_index_smem;
 
   bool pass2 = adj_ja != nullptr;
 
@@ -584,7 +584,7 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_index,
 
       const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
       if (dfunc(x_ptr, y_ptr, n_cols) <= eps) {
-        int row_pos = atomicAdd(&column_index_smem, 1);
+        auto row_pos = atomicAdd(&column_index_smem, 1);
         if (pass2) adj_ja[row_pos] = cur_candidate_ind;
       }
     }
@@ -595,14 +595,14 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_index,
 
       const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
       if (dfunc(x_ptr, y_ptr, n_cols) <= eps) {
-        int row_pos = atomicAdd(&column_index_smem, 1);
+        auto row_pos = atomicAdd(&column_index_smem, 1);
         if (pass2) adj_ja[row_pos] = cur_candidate_ind;
       }
     }
   }
 
   __syncthreads();
-  if (threadIdx.x == 0 && !pass2) { adj_ia[blockIdx.x] = column_index_smem; }
+  if (threadIdx.x == 0 && !pass2) { adj_ia[blockIdx.x] = (value_idx)column_index_smem; }
 }
 
 template <typename value_idx = std::int64_t,
@@ -1119,8 +1119,11 @@ void rbc_eps_pass(raft::resources const& handle,
           vd_ptr,
           nullptr);
 
-      thrust::exclusive_scan(
-        resource::get_thrust_policy(handle), vd_ptr, vd_ptr + n_query_rows + 1, adj_ia, 0);
+      thrust::exclusive_scan(resource::get_thrust_policy(handle),
+                             vd_ptr,
+                             vd_ptr + n_query_rows + 1,
+                             adj_ia,
+                             (value_idx)0);
 
     } else {
       // pass 2 -> fill in adj_ja
@@ -1183,7 +1186,7 @@ void rbc_eps_pass(raft::resources const& handle,
     }
 
     thrust::exclusive_scan(
-      resource::get_thrust_policy(handle), vd_ptr, vd_ptr + n_query_rows + 1, adj_ia, 0);
+      resource::get_thrust_policy(handle), vd_ptr, vd_ptr + n_query_rows + 1, adj_ia, (value_idx)0);
 
     block_rbc_kernel_eps_max_k_copy<value_idx, 32, value_int>
       <<<n_query_rows, 32, 0, resource::get_cuda_stream(handle)>>>(

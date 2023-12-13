@@ -86,7 +86,7 @@ cdef class RbcIndexFloat(RbcIndex):
 @auto_convert_output
 def build_rbc_index(dataset, handle=None):
     """
-    Builds an random ball cover index from dataset.
+    Builds a random ball cover index from dataset using the L2-norm.
 
     Parameters
     ----------
@@ -100,7 +100,7 @@ def build_rbc_index(dataset, handle=None):
 
     Examples
     --------
-    see 'eps_neighbors_l2_rbc'
+    see 'eps_neighbors_sparse'
 
     """
     if handle is None:
@@ -131,9 +131,9 @@ def build_rbc_index(dataset, handle=None):
 
 @auto_sync_handle
 @auto_convert_output
-def eps_neighbors_l2(dataset, queries, eps, method="brute", handle=None):
+def eps_neighbors(dataset, queries, eps, method="brute", handle=None):
     """
-    Perform a brute-force epsilon neighborhood search.
+    Perform an epsilon neighborhood search using the L2-norm.
 
     Parameters
     ----------
@@ -158,7 +158,7 @@ def eps_neighbors_l2(dataset, queries, eps, method="brute", handle=None):
     --------
     >>> import cupy as cp
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors.eps_neighborhood import eps_neighbors_l2sq
+    >>> from pylibraft.neighbors.eps_neighborhood import eps_neighbors
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
@@ -167,7 +167,7 @@ def eps_neighbors_l2(dataset, queries, eps, method="brute", handle=None):
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> eps = 0.1
-    >>> adj, vd = eps_neighbors_l2sq(dataset, queries, eps)
+    >>> adj, vd = eps_neighbors(dataset, queries, eps)
     >>> adj = cp.asarray(adj)
     >>> vd = cp.asarray(vd)
     >>> # pylibraft functions are often asynchronous so the
@@ -228,9 +228,10 @@ def eps_neighbors_l2(dataset, queries, eps, method="brute", handle=None):
 
 @auto_sync_handle
 @auto_convert_output
-def eps_neighbors_l2_rbc(RbcIndex rbc_index, queries, eps, handle=None):
+def eps_neighbors_sparse(RbcIndex rbc_index, queries, eps, handle=None):
     """
-    Perform an epsilon neighborhood search with random ball cover (rbc).
+    Perform an epsilon neighborhood search with random ball cover (rbc)
+    using the L2-norm.
 
     Parameters
     ----------
@@ -256,7 +257,7 @@ def eps_neighbors_l2_rbc(RbcIndex rbc_index, queries, eps, handle=None):
     --------
     >>> import cupy as cp
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors.eps_neighborhood import eps_neighbors_l2sq_rbc
+    >>> from pylibraft.neighbors.eps_neighborhood import eps_neighbors_sparse
     >>> from pylibraft.neighbors.eps_neighborhood import build_rbc_index
     >>> n_samples = 50000
     >>> n_features = 50
@@ -267,7 +268,7 @@ def eps_neighbors_l2_rbc(RbcIndex rbc_index, queries, eps, handle=None):
     ...                                   dtype=cp.float32)
     >>> eps = 0.1
     >>> rbc_index = build_rbc_index(dataset, handle=handle)
-    >>> adj_ia, adj_ja, vd = eps_neighbors_l2_rbc(rbc_index, queries, eps)
+    >>> adj_ia, adj_ja, vd = eps_neighbors_sparse(rbc_index, queries, eps)
     >>> adj_ia = cp.asarray(adj_ia)
     >>> adj_ja = cp.asarray(adj_ja)
     >>> vd = cp.asarray(vd)
@@ -287,7 +288,7 @@ def eps_neighbors_l2_rbc(RbcIndex rbc_index, queries, eps, handle=None):
 
     n_queries = queries_cai.shape[0]
 
-    adj_ia = device_ndarray.empty((n_queries +1, ), dtype='int64')
+    adj_ia = device_ndarray.empty((n_queries + 1, ), dtype='int64')
     vd = device_ndarray.empty((n_queries + 1, ), dtype='int64')
     adj_ia_cai = cai_wrapper(adj_ia)
     vd_cai = cai_wrapper(vd)
@@ -317,7 +318,6 @@ def eps_neighbors_l2_rbc(RbcIndex rbc_index, queries, eps, handle=None):
 
     handle.sync()
     n_nnz = adj_ia.copy_to_host()[n_queries]
-
     adj_ja = device_ndarray.empty((n_nnz, ), dtype='int64')
     adj_ja_cai = cai_wrapper(adj_ja)
     adj_ja_vector_view = make_device_vector_view(
