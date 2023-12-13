@@ -23,8 +23,6 @@
 #include <algorithm>
 #include <omp.h>
 
-#include <stdio.h>  // for debug
-
 namespace raft::neighbors::detail {
 
 template <typename DC, typename IdxT, typename DataT, typename DistanceT, typename ExtentsT>
@@ -44,7 +42,6 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "neighbors::refine_host(%zu, %zu -> %zu)", n_queries, orig_k, refined_k);
 
-#if 1
   auto suggested_n_threads = std::max(1, std::min(omp_get_num_procs(), omp_get_max_threads()));
 
   // For efficiency, each thread should read a certain amount of array elements.
@@ -55,9 +52,6 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
 
   // The max number of threads for topk computation is the number of queries.
   auto suggested_n_threads_for_topk = std::min(size_t(suggested_n_threads), n_queries);
-
-  fprintf( stderr, "# suggested_n_threads, distance:%lu, topk:%lu\r",
-           suggested_n_threads_for_distance, suggested_n_threads_for_topk );
 
   std::vector<std::vector<std::tuple<DistanceT, IdxT>>>
       refined_pairs(n_queries, std::vector<std::tuple<DistanceT, IdxT>>(orig_k));
@@ -89,41 +83,6 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
       }
     }
   }
-#else
-  auto suggested_n_threads = std::max(1, std::min(omp_get_num_procs(), omp_get_max_threads()));
-  if (size_t(suggested_n_threads) > n_queries) { suggested_n_threads = n_queries; }
-
-#pragma omp parallel num_threads(suggested_n_threads)
-  {
-    std::vector<std::tuple<DistanceT, IdxT>> refined_pairs(orig_k);
-    for (size_t i = omp_get_thread_num(); i < n_queries; i += omp_get_num_threads()) {
-      // Compute the refined distance using original dataset vectors
-      const DataT* query = queries.data_handle() + dim * i;
-      for (size_t j = 0; j < orig_k; j++) {
-        IdxT id            = neighbor_candidates(i, j);
-        DistanceT distance = 0.0;
-        if (static_cast<size_t>(id) >= n_rows) {
-          distance = std::numeric_limits<DistanceT>::max();
-        } else {
-          const DataT* row = dataset.data_handle() + dim * id;
-          for (size_t k = 0; k < dim; k++) {
-            distance += DC::template eval<DistanceT>(query[k], row[k]);
-          }
-        }
-        refined_pairs[j] = std::make_tuple(distance, id);
-      }
-      // Sort the query neighbors by their refined distances
-      std::sort(refined_pairs.begin(), refined_pairs.end());
-      // Store first refined_k neighbors
-      for (size_t j = 0; j < refined_k; j++) {
-        indices(i, j) = std::get<1>(refined_pairs[j]);
-        if (distances.data_handle() != nullptr) {
-          distances(i, j) = DC::template postprocess(std::get<0>(refined_pairs[j]));
-        }
-      }
-    }
-  }
-#endif
 }
 
 struct distance_comp_l2 {
