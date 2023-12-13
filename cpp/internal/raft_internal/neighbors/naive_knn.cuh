@@ -29,13 +29,13 @@
 namespace raft::neighbors {
 
 template <typename EvalT, typename DataT, typename IdxT>
-__global__ void naive_distance_kernel(EvalT* dist,
-                                      const DataT* x,
-                                      const DataT* y,
-                                      IdxT m,
-                                      IdxT n,
-                                      IdxT k,
-                                      raft::distance::DistanceType metric)
+RAFT_KERNEL naive_distance_kernel(EvalT* dist,
+                                  const DataT* x,
+                                  const DataT* y,
+                                  IdxT m,
+                                  IdxT n,
+                                  IdxT k,
+                                  raft::distance::DistanceType metric)
 {
   IdxT midx = IdxT(threadIdx.x) + IdxT(blockIdx.x) * IdxT(blockDim.x);
   if (midx >= m) return;
@@ -90,8 +90,7 @@ void naive_knn(raft::resources const& handle,
                uint32_t k,
                raft::distance::DistanceType type)
 {
-  rmm::mr::device_memory_resource* mr = nullptr;
-  auto pool_guard                     = raft::get_pool_memory_resource(mr, 1024 * 1024);
+  rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource();
 
   auto stream = raft::resource::get_cuda_stream(handle);
   dim3 block_dim(16, 32, 1);

@@ -331,7 +331,7 @@ void matrixVectorBinarySub(Type* data,
 
 // Computes an argmin/argmax column-wise in a DxN matrix
 template <typename RedOp, int TPB, typename T, typename OutT, typename IdxT>
-__global__ void argReduceKernel(const T* d_in, IdxT D, IdxT N, OutT* out)
+RAFT_KERNEL argReduceKernel(const T* d_in, IdxT D, IdxT N, OutT* out)
 {
   typedef cub::
     BlockReduce<cub::KeyValuePair<IdxT, T>, TPB, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
@@ -396,7 +396,7 @@ void argmax(const math_t* in, idx_t D, idx_t N, out_t* out, cudaStream_t stream)
 // Computes the argmax(abs(d_in)) column-wise in a DxN matrix followed by
 // flipping the sign if the |max| value for each column is negative.
 template <typename T, int TPB>
-__global__ void signFlipKernel(T* d_in, int D, int N)
+RAFT_KERNEL signFlipKernel(T* d_in, int D, int N)
 {
   typedef cub::BlockReduce<cub::KeyValuePair<int, T>, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;

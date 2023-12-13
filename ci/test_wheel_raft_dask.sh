@@ -11,9 +11,6 @@ RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels
 RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-pylibraft-dep
 python -m pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl
 
-# Always install latest dask for testing
-python -m pip install git+https://github.com/dask/dask.git@2023.7.1 git+https://github.com/dask/distributed.git@2023.7.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.08
-
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/raft_dask*.whl)[test]
 

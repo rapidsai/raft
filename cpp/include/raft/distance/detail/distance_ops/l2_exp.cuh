@@ -16,9 +16,26 @@
 
 #pragma once
 
+#include <raft/core/math.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>  // DI
 
 namespace raft::distance::detail::ops {
+
+/**
+ * Reserve 1 digit of precision from each floating-point type
+ * for round-off error tolerance.
+ * @tparam DataT
+ */
+template <typename DataT>
+__device__ constexpr DataT get_clamp_precision()
+{
+  switch (sizeof(DataT)) {
+    case 2: return 1e-3;
+    case 4: return 1e-6;
+    case 8: return 1e-15;
+    default: return 0;
+  }
+}
 
 // Epilogue operator for CUTLASS based kernel
 template <typename DataT, typename AccT>
@@ -27,14 +44,16 @@ struct l2_exp_cutlass_op {
 
   __device__ l2_exp_cutlass_op() noexcept : sqrt(false) {}
   __device__ l2_exp_cutlass_op(bool isSqrt) noexcept : sqrt(isSqrt) {}
-  __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
+  inline __device__ AccT operator()(DataT aNorm, DataT bNorm, DataT accVal) const noexcept
   {
     AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
-    // outVal could be negative due to numerical instability, especially when
-    // calculating self distance.
-    // clamp to 0 to avoid potential NaN in sqrt
-    outVal = outVal * (outVal > DataT(0.0));
-    return sqrt ? raft::sqrt(outVal) : outVal;
+
+    /**
+     * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product (accVal)
+     * can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal instead.
+     */
+    outVal = outVal * !((outVal * outVal < get_clamp_precision<DataT>()) * (aNorm == bNorm));
+    return sqrt ? raft::sqrt(outVal * (outVal > 0)) : outVal;
   }
 
   __device__ AccT operator()(DataT aData) const noexcept { return aData; }
@@ -85,10 +104,16 @@ struct l2_exp_distance_op {
     for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < Policy::AccColsPerTh; ++j) {
-        DataT val = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
-        // val could be negative due to numerical instability, especially when
-        // calculating self distance. Clamp to 0 to avoid potential NaN in sqrt
-        acc[i][j] = val * (val > DataT(0.0));
+        DataT accVal = acc[i][j];
+        DataT val    = regxn[i] + regyn[j] - (DataT)2.0 * accVal;
+
+        /**
+         * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product
+         * (accVal) can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal
+         * instead.
+         */
+        acc[i][j] =
+          val * (val > 0) * !((val * val < get_clamp_precision<DataT>()) * (regxn[i] == regyn[j]));
       }
     }
     if (sqrt) {

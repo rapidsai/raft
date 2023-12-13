@@ -362,9 +362,9 @@ class Cache {
   int GetSize() const { return cached_keys.size(); }
 
  protected:
-  int n_vec;            //!< Number of elements in a cached vector
-  float cache_size;     //!< in MiB
-  int n_cache_sets;     //!< number of cache sets
+  int n_vec;         //!< Number of elements in a cached vector
+  float cache_size;  //!< in MiB
+  int n_cache_sets;  //!< number of cache sets
 
   const int TPB = 256;  //!< threads per block for kernel launch
   int n_iter    = 0;    //!< Counter for time stamping cache operation

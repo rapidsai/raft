@@ -53,12 +53,12 @@ DI value_t compute_haversine(value_t x1, value_t y1, value_t x2, value_t y2)
  * @param[in] k number of closest neighbors to return
  */
 template <typename value_idx, typename value_t, int warp_q = 1024, int thread_q = 8, int tpb = 128>
-__global__ void haversine_knn_kernel(value_idx* out_inds,
-                                     value_t* out_dists,
-                                     const value_t* index,
-                                     const value_t* query,
-                                     size_t n_index_rows,
-                                     int k)
+RAFT_KERNEL haversine_knn_kernel(value_idx* out_inds,
+                                 value_t* out_dists,
+                                 const value_t* index,
+                                 const value_t* query,
+                                 size_t n_index_rows,
+                                 int k)
 {
   constexpr int kNumWarps = tpb / WarpSize;
 

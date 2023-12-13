@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ namespace detail {
 
 ///@todo: ColsPerBlk has been tested only for 32!
 template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
-__global__ void meanKernelRowMajor(Type* mu, const Type* data, IdxType D, IdxType N)
+RAFT_KERNEL meanKernelRowMajor(Type* mu, const Type* data, IdxType D, IdxType N)
 {
   const int RowsPerBlkPerIter = TPB / ColsPerBlk;
   IdxType thisColId           = threadIdx.x % ColsPerBlk;
@@ -47,7 +47,7 @@ __global__ void meanKernelRowMajor(Type* mu, const Type* data, IdxType D, IdxTyp
 }
 
 template <typename Type, typename IdxType, int TPB>
-__global__ void meanKernelColMajor(Type* mu, const Type* data, IdxType D, IdxType N)
+RAFT_KERNEL meanKernelColMajor(Type* mu, const Type* data, IdxType D, IdxType N)
 {
   typedef cub::BlockReduce<Type, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;

@@ -52,6 +52,7 @@ def run_cagra_build_search_test(
     metric="euclidean",
     intermediate_graph_degree=128,
     graph_degree=64,
+    build_algo="ivf_pq",
     array_type="device",
     compare=True,
     inplace=True,
@@ -67,6 +68,7 @@ def run_cagra_build_search_test(
         metric=metric,
         intermediate_graph_degree=intermediate_graph_degree,
         graph_degree=graph_degree,
+        build_algo=build_algo,
     )
 
     if array_type == "device":
@@ -139,13 +141,17 @@ def run_cagra_build_search_test(
 @pytest.mark.parametrize("inplace", [True, False])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
 @pytest.mark.parametrize("array_type", ["device", "host"])
-def test_cagra_dataset_dtype_host_device(dtype, array_type, inplace):
+@pytest.mark.parametrize("build_algo", ["ivf_pq", "nn_descent"])
+def test_cagra_dataset_dtype_host_device(
+    dtype, array_type, inplace, build_algo
+):
     # Note that inner_product tests use normalized input which we cannot
     # represent in int8, therefore we test only sqeuclidean metric here.
     run_cagra_build_search_test(
         dtype=dtype,
         inplace=inplace,
         array_type=array_type,
+        build_algo=build_algo,
     )
 
 
@@ -158,6 +164,7 @@ def test_cagra_dataset_dtype_host_device(dtype, array_type, inplace):
             "add_data_on_build": True,
             "k": 1,
             "metric": "euclidean",
+            "build_algo": "ivf_pq",
         },
         {
             "intermediate_graph_degree": 32,
@@ -165,6 +172,7 @@ def test_cagra_dataset_dtype_host_device(dtype, array_type, inplace):
             "add_data_on_build": False,
             "k": 5,
             "metric": "sqeuclidean",
+            "build_algo": "ivf_pq",
         },
         {
             "intermediate_graph_degree": 128,
@@ -172,6 +180,7 @@ def test_cagra_dataset_dtype_host_device(dtype, array_type, inplace):
             "add_data_on_build": True,
             "k": 10,
             "metric": "inner_product",
+            "build_algo": "nn_descent",
         },
     ],
 )
@@ -184,6 +193,7 @@ def test_cagra_index_params(params):
         graph_degree=params["graph_degree"],
         intermediate_graph_degree=params["intermediate_graph_degree"],
         compare=False,
+        build_algo=params["build_algo"],
     )
 
 
@@ -241,7 +251,7 @@ def test_cagra_index_params(params):
             "search_width": 4,
             "min_iterations": 0,
             "thread_block_size": 0,
-            "hashmap_mode": "small",
+            "hashmap_mode": "auto",
             "hashmap_min_bitlen": 0,
             "hashmap_max_fill_rate": 0.5,
             "num_random_samplings": 1,
@@ -255,7 +265,8 @@ def test_cagra_search_params(params):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.ubyte])
-def test_save_load(dtype):
+@pytest.mark.parametrize("include_dataset", [True, False])
+def test_save_load(dtype, include_dataset):
     n_rows = 10000
     n_cols = 50
     n_queries = 1000
@@ -268,8 +279,13 @@ def test_save_load(dtype):
 
     assert index.trained
     filename = "my_index.bin"
-    cagra.save(filename, index)
+    cagra.save(filename, index, include_dataset=include_dataset)
     loaded_index = cagra.load(filename)
+
+    # if we didn't save the dataset with the index, we need to update the
+    # index with an already loaded copy
+    if not include_dataset:
+        loaded_index.update_dataset(dataset)
 
     queries = generate_data((n_queries, n_cols), dtype)
 

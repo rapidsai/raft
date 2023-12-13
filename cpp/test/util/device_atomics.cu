@@ -29,7 +29,7 @@
 
 namespace raft {
 
-__global__ void test_atomic_inc_warp_kernel(int* counter, int* out_array)
+RAFT_KERNEL test_atomic_inc_warp_kernel(int* counter, int* out_array)
 {
   int global_tid                    = blockDim.x * blockIdx.x + threadIdx.x;
   out_array[atomicIncWarp(counter)] = global_tid;

@@ -83,7 +83,7 @@ void ternary_op(
 
 /** @} */  // end of group ternary_op
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif

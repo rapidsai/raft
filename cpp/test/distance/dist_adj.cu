@@ -30,14 +30,14 @@ namespace raft {
 namespace distance {
 
 template <typename DataType>
-__global__ void naiveDistanceAdjKernel(uint8_t* dist,
-                                       const DataType* x,
-                                       const DataType* y,
-                                       int m,
-                                       int n,
-                                       int k,
-                                       DataType eps,
-                                       bool isRowMajor)
+RAFT_KERNEL naiveDistanceAdjKernel(uint8_t* dist,
+                                   const DataType* x,
+                                   const DataType* y,
+                                   int m,
+                                   int n,
+                                   int k,
+                                   DataType eps,
+                                   bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;

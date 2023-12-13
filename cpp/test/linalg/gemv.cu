@@ -35,13 +35,13 @@ struct GemvInputs {
 
 // Reference GEMV implementation.
 template <typename T>
-__global__ void naiveGemv(T* y,
-                          const T* A,
-                          const T* x,
-                          const int n_rows,
-                          const int n_cols,
-                          const int lda,
-                          const bool trans_a)
+RAFT_KERNEL naiveGemv(T* y,
+                      const T* A,
+                      const T* x,
+                      const int n_rows,
+                      const int n_cols,
+                      const int lda,
+                      const bool trans_a)
 {
   int istart = blockIdx.x * blockDim.x + threadIdx.x;
   int istep  = blockDim.x * gridDim.x;

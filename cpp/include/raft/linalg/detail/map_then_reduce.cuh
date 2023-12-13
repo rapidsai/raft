@@ -52,13 +52,13 @@ template <typename InType,
           typename ReduceLambda,
           int TPB,
           typename... Args>
-__global__ void mapThenReduceKernel(OutType* out,
-                                    IdxType len,
-                                    OutType neutral,
-                                    MapOp map,
-                                    ReduceLambda op,
-                                    const InType* in,
-                                    Args... args)
+RAFT_KERNEL mapThenReduceKernel(OutType* out,
+                                IdxType len,
+                                OutType neutral,
+                                MapOp map,
+                                ReduceLambda op,
+                                const InType* in,
+                                Args... args)
 {
   OutType acc = neutral;
   auto idx    = (threadIdx.x + (blockIdx.x * blockDim.x));

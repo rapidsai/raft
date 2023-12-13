@@ -39,10 +39,12 @@ enum resource_type {
   SUB_COMMUNICATOR,        // raft sub communicator
   DEVICE_PROPERTIES,       // cuda device properties
   DEVICE_ID,               // cuda device id
+  STREAM_VIEW,             // view of a cuda stream or a placeholder in
+                           // CUDA-free builds
   THRUST_POLICY,           // thrust execution policy
   WORKSPACE_RESOURCE,      // rmm device memory resource
 
-  LAST_KEY                 // reserved for the last key
+  LAST_KEY  // reserved for the last key
 };
 
 /**

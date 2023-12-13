@@ -27,6 +27,11 @@ CAGRA
 
 .. autofunction:: pylibraft.neighbors.cagra.search
 
+Serializer Methods
+------------------
+.. autofunction:: pylibraft.neighbors.cagra.save
+
+.. autofunction:: pylibraft.neighbors.cagra.load
 
 IVF-Flat
 ########
@@ -43,6 +48,12 @@ IVF-Flat
 
 .. autofunction:: pylibraft.neighbors.ivf_flat.search
 
+Serializer Methods
+------------------
+
+.. autofunction:: pylibraft.neighbors.ivf_flat.save
+
+.. autofunction:: pylibraft.neighbors.ivf_flat.load
 
 IVF-PQ
 ######
@@ -59,8 +70,14 @@ IVF-PQ
 
 .. autofunction:: pylibraft.neighbors.ivf_pq.search
 
+Serializer Methods
+------------------
+
+.. autofunction:: pylibraft.neighbors.ivf_pq.save
+
+.. autofunction:: pylibraft.neighbors.ivf_pq.load
 
 Candidate Refinement
-####################
+--------------------
 
 .. autofunction:: pylibraft.neighbors.refine

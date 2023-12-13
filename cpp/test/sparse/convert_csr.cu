@@ -90,7 +90,7 @@ INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR, ::testing::ValuesI
 /******************************** adj graph ********************************/
 
 template <typename index_t>
-__global__ void init_adj_kernel(bool* adj, index_t num_rows, index_t num_cols, index_t divisor)
+RAFT_KERNEL init_adj_kernel(bool* adj, index_t num_rows, index_t num_cols, index_t divisor)
 {
   index_t r = blockDim.y * blockIdx.y + threadIdx.y;
   index_t c = blockDim.x * blockIdx.x + threadIdx.x;

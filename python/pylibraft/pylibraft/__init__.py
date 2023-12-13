@@ -13,4 +13,4 @@
 # limitations under the License.
 #
 
-__version__ = "23.08.00"
+from pylibraft._version import __git_commit__, __version__

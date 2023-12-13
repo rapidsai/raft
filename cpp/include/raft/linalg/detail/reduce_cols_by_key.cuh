@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ namespace detail {
 ///@todo: specialize this to support shared-mem based atomics
 
 template <typename T, typename KeyIteratorT, typename IdxType>
-__global__ void reduce_cols_by_key_direct_kernel(
+RAFT_KERNEL reduce_cols_by_key_direct_kernel(
   const T* data, const KeyIteratorT keys, T* out, IdxType nrows, IdxType ncols, IdxType nkeys)
 {
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
@@ -44,7 +44,7 @@ __global__ void reduce_cols_by_key_direct_kernel(
 }
 
 template <typename T, typename KeyIteratorT, typename IdxType>
-__global__ void reduce_cols_by_key_cached_kernel(
+RAFT_KERNEL reduce_cols_by_key_cached_kernel(
   const T* data, const KeyIteratorT keys, T* out, IdxType nrows, IdxType ncols, IdxType nkeys)
 {
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;

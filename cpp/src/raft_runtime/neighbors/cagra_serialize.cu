@@ -27,9 +27,10 @@ namespace raft::runtime::neighbors::cagra {
 #define RAFT_INST_CAGRA_SERIALIZE(DTYPE)                                             \
   void serialize_file(raft::resources const& handle,                                 \
                       const std::string& filename,                                   \
-                      const raft::neighbors::cagra::index<DTYPE, uint32_t>& index)   \
+                      const raft::neighbors::cagra::index<DTYPE, uint32_t>& index,   \
+                      bool include_dataset)                                          \
   {                                                                                  \
-    raft::neighbors::cagra::serialize(handle, filename, index);                      \
+    raft::neighbors::cagra::serialize(handle, filename, index, include_dataset);     \
   };                                                                                 \
                                                                                      \
   void deserialize_file(raft::resources const& handle,                               \
@@ -41,10 +42,11 @@ namespace raft::runtime::neighbors::cagra {
   };                                                                                 \
   void serialize(raft::resources const& handle,                                      \
                  std::string& str,                                                   \
-                 const raft::neighbors::cagra::index<DTYPE, uint32_t>& index)        \
+                 const raft::neighbors::cagra::index<DTYPE, uint32_t>& index,        \
+                 bool include_dataset)                                               \
   {                                                                                  \
     std::stringstream os;                                                            \
-    raft::neighbors::cagra::serialize(handle, os, index);                            \
+    raft::neighbors::cagra::serialize(handle, os, index, include_dataset);           \
     str = os.str();                                                                  \
   }                                                                                  \
                                                                                      \

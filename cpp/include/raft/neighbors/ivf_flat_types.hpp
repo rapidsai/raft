@@ -39,7 +39,7 @@
 
 namespace raft::neighbors::ivf_flat {
 /**
- * @ingroup ivf_flat
+ * @addtogroup ivf_flat
  * @{
  */
 

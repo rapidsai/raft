@@ -84,7 +84,7 @@ __device__ __inline__ unsigned int get_lowest_peer(unsigned int peer_group)
 }
 
 template <typename value_idx>
-__global__ void iota_fill_block_kernel(value_idx* indices, value_idx ncols)
+RAFT_KERNEL iota_fill_block_kernel(value_idx* indices, value_idx ncols)
 {
   int row = blockIdx.x;
   int tid = threadIdx.x;
