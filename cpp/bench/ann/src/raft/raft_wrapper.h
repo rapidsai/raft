@@ -27,6 +27,7 @@
 #include <type_traits>
 
 #include "../common/ann_types.hpp"
+#include "raft_ann_bench_utils.h"
 
 namespace raft_temp {
 
@@ -74,10 +75,12 @@ class RaftGpu : public ANN<T> {
   void set_search_dataset(const T* dataset, size_t nrow) override;
   void save(const std::string& file) const override;
   void load(const std::string&) override;
+  std::unique_ptr<ANN<T>> copy() override;
 
  protected:
-  raft::device_resources handle_;
-  std::optional<raft::neighbors::brute_force::index<T>> index_;
+  // handle_ must go first to make sure it dies last and all memory allocated in pool
+  configured_raft_resources handle_{};
+  std::shared_ptr<raft::neighbors::brute_force::index<T>> index_;
   raft::distance::DistanceType metric_type_;
   int device_;
   const T* dataset_;
@@ -86,19 +89,19 @@ class RaftGpu : public ANN<T> {
 
 template <typename T>
 RaftGpu<T>::RaftGpu(Metric metric, int dim)
-  : ANN<T>(metric, dim),
-    metric_type_(raft_temp::parse_metric_type(metric)),
-    handle_(cudaStreamPerThread)
+  : ANN<T>(metric, dim), metric_type_(raft_temp::parse_metric_type(metric))
 {
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
 
 template <typename T>
-void RaftGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t)
+void RaftGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
   auto dataset_view = raft::make_host_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
-  index_.emplace(raft::neighbors::brute_force::build(handle_, dataset_view));
-  return;
+  index_            = std::make_shared<raft::neighbors::brute_force::index<T>>(
+    std::move(raft::neighbors::brute_force::build(handle_, dataset_view)));
+
+  handle_.stream_wait(stream);
 }
 
 template <typename T>
@@ -123,7 +126,8 @@ void RaftGpu<T>::save(const std::string& file) const
 template <typename T>
 void RaftGpu<T>::load(const std::string& file)
 {
-  index_ = raft::neighbors::brute_force::deserialize<T>(handle_, file);
+  index_ = std::make_shared<raft::neighbors::brute_force::index<T>>(
+    std::move(raft::neighbors::brute_force::deserialize<T>(handle_, file)));
 }
 
 template <typename T>
@@ -143,7 +147,13 @@ void RaftGpu<T>::search(const T* queries,
   raft::neighbors::brute_force::search<T, size_t>(
     handle_, *index_, queries_view, neighbors_view, distances_view);
 
-  handle_.sync_stream();
+  handle_.stream_wait(stream);
+}
+
+template <typename T>
+std::unique_ptr<ANN<T>> RaftGpu<T>::copy()
+{
+  return std::make_unique<RaftGpu<T>>(*this);  // use copy constructor
 }
 
 }  // namespace raft::bench::ann
