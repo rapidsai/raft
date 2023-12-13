@@ -35,6 +35,7 @@ inline raft::distance::DistanceType parse_metric_type(raft::bench::ann::Metric m
   switch (metric) {
     case raft::bench::ann::Metric::kInnerProduct: return raft::distance::DistanceType::InnerProduct;
     case raft::bench::ann::Metric::kEuclidean: return raft::distance::DistanceType::L2Expanded;
+    default: throw std::runtime_error("raft supports only metric type of inner product and L2");
   }
 }
 }  // namespace raft_temp
