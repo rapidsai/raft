@@ -52,7 +52,6 @@ class Ggnn : public ANN<T> {
   };
 
   Ggnn(Metric metric, int dim, const BuildParam& param);
-  ~Ggnn() { delete impl_; }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) override
   {
@@ -72,6 +71,7 @@ class Ggnn : public ANN<T> {
 
   void save(const std::string& file) const override { impl_->save(file); }
   void load(const std::string& file) override { impl_->load(file); }
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<Ggnn<T>>(*this); };
 
   AlgoProperty get_preference() const override { return impl_->get_preference(); }
 
@@ -81,7 +81,7 @@ class Ggnn : public ANN<T> {
   };
 
  private:
-  ANN<T>* impl_;
+  std::shared_ptr<ANN<T>> impl_;
 };
 
 template <typename T>
@@ -90,23 +90,23 @@ Ggnn<T>::Ggnn(Metric metric, int dim, const BuildParam& param) : ANN<T>(metric, 
   // ggnn/src/sift1m.cu
   if (metric == Metric::kEuclidean && dim == 128 && param.k_build == 24 && param.k == 10 &&
       param.segment_size == 32) {
-    impl_ = new GgnnImpl<T, Euclidean, 128, 24, 10, 32>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Euclidean, 128, 24, 10, 32>>(metric, dim, param);
   }
   // ggnn/src/deep1b_multi_gpu.cu, and adapt it deep1B
   else if (metric == Metric::kEuclidean && dim == 96 && param.k_build == 24 && param.k == 10 &&
            param.segment_size == 32) {
-    impl_ = new GgnnImpl<T, Euclidean, 96, 24, 10, 32>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Euclidean, 96, 24, 10, 32>>(metric, dim, param);
   } else if (metric == Metric::kInnerProduct && dim == 96 && param.k_build == 24 && param.k == 10 &&
              param.segment_size == 32) {
-    impl_ = new GgnnImpl<T, Cosine, 96, 24, 10, 32>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Cosine, 96, 24, 10, 32>>(metric, dim, param);
   } else if (metric == Metric::kInnerProduct && dim == 96 && param.k_build == 96 && param.k == 10 &&
              param.segment_size == 64) {
-    impl_ = new GgnnImpl<T, Cosine, 96, 96, 10, 64>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Cosine, 96, 96, 10, 64>>(metric, dim, param);
   }
   // ggnn/src/glove200.cu, adapt it to glove100
   else if (metric == Metric::kInnerProduct && dim == 100 && param.k_build == 96 && param.k == 10 &&
            param.segment_size == 64) {
-    impl_ = new GgnnImpl<T, Cosine, 100, 96, 10, 64>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Cosine, 100, 96, 10, 64>>(metric, dim, param);
   } else {
     throw std::runtime_error(
       "ggnn: not supported combination of metric, dim and build param; "
@@ -133,6 +133,10 @@ class GgnnImpl : public ANN<T> {
 
   void save(const std::string& file) const override;
   void load(const std::string& file) override;
+  std::unique_ptr<ANN<T>> copy() override
+  {
+    return std::make_unique<GgnnImpl<T, measure, D, KBuild, KQuery, S>>(*this);
+  };
 
   AlgoProperty get_preference() const override
   {
@@ -159,7 +163,7 @@ class GgnnImpl : public ANN<T> {
                                           KBuild / 2 /* KF */,
                                           KQuery,
                                           S>;
-  std::unique_ptr<GGNNGPUInstance> ggnn_;
+  std::shared_ptr<GGNNGPUInstance> ggnn_;
   typename Ggnn<T>::BuildParam build_param_;
   typename Ggnn<T>::SearchParam search_param_;
 };
@@ -189,7 +193,7 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
 {
   int device;
   RAFT_CUDA_TRY(cudaGetDevice(&device));
-  ggnn_ = std::make_unique<GGNNGPUInstance>(
+  ggnn_ = std::make_shared<GGNNGPUInstance>(
     device, nrow, build_param_.num_layers, true, build_param_.tau);
 
   ggnn_->set_base_data(dataset);
