@@ -361,7 +361,8 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
 
   target_link_libraries(
     ANN_BENCH
-    PRIVATE nlohmann_json::nlohmann_json
+    PRIVATE raft::raft
+            nlohmann_json::nlohmann_json
             benchmark_static
             dl
             -static-libgcc
