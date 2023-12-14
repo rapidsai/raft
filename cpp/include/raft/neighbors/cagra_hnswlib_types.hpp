@@ -26,9 +26,15 @@
 
 namespace raft::neighbors::cagra_hnswlib {
 
+/**
+ * @defgroup cagra_hnswlib Build CAGRA index and search with hnswlib
+ * @{
+ */
+
 struct search_params : ann::search_params {
   int ef;               // size of the candidate list
-  int num_threads = 1;  // number of host threads to use for concurrent searches
+  int num_threads = 0;  // number of host threads to use for concurrent searches. Value of 0
+                        // automatically maximizes parallelism
 };
 
 template <typename T>
@@ -58,5 +64,7 @@ struct index : ann::index {
   int dim_;
   raft::distance::DistanceType metric_;
 };
+
+/**@}*/
 
 }  // namespace raft::neighbors::cagra_hnswlib

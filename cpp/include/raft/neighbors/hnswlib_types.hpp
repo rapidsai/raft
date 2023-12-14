@@ -28,6 +28,11 @@
 
 namespace raft::neighbors::cagra_hnswlib {
 
+/**
+ * @addtogroup cagra_hnswlib Build CAGRA index and search with hnswlib
+ * @{
+ */
+
 template <typename T>
 struct hnsw_dist_t {
   using type = void;
@@ -90,5 +95,7 @@ struct hnswlib_index : index<T> {
   std::unique_ptr<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>> appr_alg_;
   std::unique_ptr<hnswlib::SpaceInterface<typename hnsw_dist_t<T>::type>> space_;
 };
+
+/**@}*/
 
 }  // namespace raft::neighbors::cagra_hnswlib

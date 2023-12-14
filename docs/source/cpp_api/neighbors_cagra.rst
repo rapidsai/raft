@@ -29,3 +29,14 @@ namespace *raft::neighbors::cagra*
     :project: RAFT
     :members:
     :content-only:
+
+CAGRA index build and hnswlib search
+------------------------------------
+``#include <raft/neighbors/cagra_hnswlib.hpp>``
+
+namespace *raft::neighbors::cagra_hnswlib*
+
+.. doxygengroup:: cagra_hnswlib
+    :project: RAFT
+    :members:
+    :content-only:

@@ -26,6 +26,11 @@
 namespace raft::neighbors::cagra_hnswlib {
 
 /**
+ * @addtogroup cagra_hnswlib Build CAGRA index and search with hnswlib
+ * @{
+ */
+
+/**
  * @brief Search hnswlib base layer only index constructed from a CAGRA index
  *
  * @tparam T data element type
@@ -84,5 +89,7 @@ void search(raft::resources const& res,
 
   detail::search(res, params, idx, queries, neighbors, distances);
 }
+
+/**@}*/
 
 }  // namespace raft::neighbors::cagra_hnswlib
