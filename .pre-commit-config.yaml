@@ -81,12 +81,12 @@ repos:
                 verbose: true
                 require_serial: true
                 exclude: .*/thirdparty/.*
-              # - id: copyright-check
-              #   name: copyright-check
-              #   entry: python ./ci/checks/copyright.py --git-modified-only --update-current-year
-              #   language: python
-              #   pass_filenames: false
-              #   additional_dependencies: [gitpython]
+              - id: copyright-check
+                name: copyright-check
+                entry: python ./ci/checks/copyright.py --git-modified-only --update-current-year
+                language: python
+                pass_filenames: false
+                additional_dependencies: [gitpython]
               - id: include-check
                 name: include-check
                 entry: python ./cpp/scripts/include_checker.py cpp/bench cpp/include cpp/test
