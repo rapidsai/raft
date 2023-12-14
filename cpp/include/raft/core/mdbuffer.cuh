@@ -937,19 +937,6 @@ struct mdbuffer {
   [[nodiscard]] auto view() const { return view<memory_type_constant<>>(); }
 };
 
-/*template <typename OtherElementType, typename OtherExtents, typename
-OtherLayoutPolicy, typename OtherAccessorPolicy>
-mdbuffer(mdspan<OtherElementType, OtherExtents, OtherLayoutPolicy,
-    OtherAccessorPolicy> other) -> mdbuffer<OtherElementType,
-  OtherExtents, OtherLayoutPolicy, default_buffer_container_policy<OtherElementType>>;
-
-template <typename OtherElementType, typename OtherExtents, typename
-OtherLayoutPolicy, typename OtherAccessorPolicy>
-mdbuffer(mdspan<OtherElementType, OtherExtents, OtherLayoutPolicy,
-    OtherAccessorPolicy> other) -> mdbuffer<OtherElementType const,
-  OtherExtents, OtherLayoutPolicy, default_buffer_container_policy<OtherElementType
-  const>>; */
-
 /**
  * @\brief Template checks and helpers to determine if type T is an mdbuffer
  *         or a derived type
