@@ -27,6 +27,7 @@ function(find_and_configure_hnswlib)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps )
 
         message("SOURCE ${CMAKE_CURRENT_SOURCE_DIR}")
+        message("WORKING DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}")
         execute_process (
                 COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/hnswlib.patch
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src
