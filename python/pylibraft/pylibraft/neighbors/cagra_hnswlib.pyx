@@ -24,6 +24,7 @@ from libcpp cimport bool
 from libcpp.string cimport string
 
 cimport pylibraft.neighbors.cagra.cpp.c_cagra as c_cagra
+from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.neighbors.cagra.cagra cimport (
     Index,
     IndexFloat,
@@ -63,13 +64,8 @@ cdef class CagraHnswlibIndex:
 cdef class CagraHnswlibIndexFloat(CagraHnswlibIndex):
     cdef c_cagra_hnswlib.index[float] * index
 
-    def __cinit__(self, filepath, dim, metric):
-        cdef string c_filepath = filepath.encode('utf-8')
-
-        self.index = new c_cagra_hnswlib.index[float](
-            c_filepath,
-            <int> dim,
-            _get_metric(metric))
+    def __cinit__(self):
+        pass
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
@@ -93,13 +89,8 @@ cdef class CagraHnswlibIndexFloat(CagraHnswlibIndex):
 cdef class CagraHnswlibIndexInt8(CagraHnswlibIndex):
     cdef c_cagra_hnswlib.index[int8_t] * index
 
-    def __cinit__(self, filepath, dim, metric):
-        cdef string c_filepath = filepath.encode('utf-8')
-
-        self.index = new c_cagra_hnswlib.index[int8_t](
-            c_filepath,
-            <int> dim,
-            _get_metric(metric))
+    def __cinit__(self):
+        pass
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
@@ -123,13 +114,8 @@ cdef class CagraHnswlibIndexInt8(CagraHnswlibIndex):
 cdef class CagraHnswlibIndexUint8(CagraHnswlibIndex):
     cdef c_cagra_hnswlib.index[uint8_t] * index
 
-    def __cinit__(self, filepath, dim, metric):
-        cdef string c_filepath = filepath.encode('utf-8')
-
-        self.index = new c_cagra_hnswlib.index[uint8_t](
-            c_filepath,
-            <int> dim,
-            _get_metric(metric))
+    def __cinit__(self):
+        pass
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
@@ -224,7 +210,7 @@ def save(filename, Index index, handle=None):
             "Index dtype %s not supported" % index.active_index_type)
 
 
-def load(filename, dim, dtype, metric="sqeuclidean"):
+def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
     """
     Loads base layer only hnswlib index from file, which was originally
     saved as a built CAGRA index.
@@ -247,6 +233,7 @@ def load(filename, dim, dtype, metric="sqeuclidean"):
               operation, i.e.: distance(a,b) = \\sum_i (a_i - b_i)^2,
             - inner product distance is defined as
               distance(a, b) = \\sum_i a_i * b_i.
+    {handle_docstring}
 
     Returns
     -------
@@ -258,23 +245,36 @@ def load(filename, dim, dtype, metric="sqeuclidean"):
     >>> dim = 50 # Assuming training dataset has 50 dimensions
     >>> index = cagra_hnswlib.load("my_index.bin", dim, "sqeuclidean")
     """
+    if handle is None:
+        handle = DeviceResources()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
+
     cdef string c_filename = filename.encode('utf-8')
     cdef CagraHnswlibIndexFloat idx_float
     cdef CagraHnswlibIndexInt8 idx_int8
     cdef CagraHnswlibIndexUint8 idx_uint8
 
+    cdef DistanceType c_metric = _get_metric(metric)
+
     if dtype == np.float32:
-        idx_float = CagraHnswlibIndexFloat(filename, dim, metric)
+        idx_float = CagraHnswlibIndexFloat()
+        c_cagra_hnswlib.deserialize_file(
+            deref(handle_), c_filename, idx_float.index, <int> dim, c_metric)
         idx_float.trained = True
         idx_float.active_index_type = 'float32'
         return idx_float
     elif dtype == np.byte:
-        idx_int8 = CagraHnswlibIndexInt8(filename, dim, metric)
+        idx_int8 = CagraHnswlibIndexInt8(dim, metric)
+        c_cagra_hnswlib.deserialize_file(
+            deref(handle_), c_filename, idx_int8.index, <int> dim, c_metric)
         idx_int8.trained = True
         idx_int8.active_index_type = 'byte'
         return idx_int8
     elif dtype == np.ubyte:
-        idx_uint8 = CagraHnswlibIndexUint8(filename, dim, metric)
+        idx_uint8 = CagraHnswlibIndexUint8(dim, metric)
+        c_cagra_hnswlib.deserialize_file(
+            deref(handle_), c_filename, idx_uint8.index, <int> dim, c_metric)
         idx_uint8.trained = True
         idx_uint8.active_index_type = 'ubyte'
         return idx_uint8

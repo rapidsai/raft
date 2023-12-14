@@ -16,21 +16,25 @@
 
 #pragma once
 
-#include <raft/neighbors/cagra_hnswlib.hpp>
+#include <raft/core/host_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_hnswlib_types.hpp>
 
 namespace raft::runtime::neighbors::cagra_hnswlib {
 
-#define RAFT_INST_CAGRA_HNSWLIB_FUNCS(T)                                                          \
-  void search(raft::resources const& handle,                                                      \
-              raft::neighbors::cagra_hnswlib::search_params const& params,                        \
-              raft::neighbors::cagra_hnswlib::index<T> const& index,                              \
-              raft::host_matrix_view<const T, int64_t, row_major> queries,                        \
-              raft::host_matrix_view<uint64_t, int64_t, row_major> neighbors,                     \
-              raft::host_matrix_view<float, int64_t, row_major> distances)                        \
-  {                                                                                               \
-    raft::neighbors::cagra_hnswlib::search(handle, params, index, queries, neighbors, distances); \
-  }
+#define RAFT_INST_CAGRA_HNSWLIB_FUNCS(T)                                      \
+  void search(raft::resources const& handle,                                  \
+              raft::neighbors::cagra_hnswlib::search_params const& params,    \
+              raft::neighbors::cagra_hnswlib::index<T> const& index,          \
+              raft::host_matrix_view<const T, int64_t, row_major> queries,    \
+              raft::host_matrix_view<uint64_t, int64_t, row_major> neighbors, \
+              raft::host_matrix_view<float, int64_t, row_major> distances);   \
+                                                                              \
+  void deserialize_file(raft::resources const& handle,                        \
+                        const std::string& filename,                          \
+                        raft::neighbors::cagra_hnswlib::index<T>*& index,     \
+                        int dim,                                              \
+                        raft::distance::DistanceType metric);
 
 RAFT_INST_CAGRA_HNSWLIB_FUNCS(float);
 RAFT_INST_CAGRA_HNSWLIB_FUNCS(int8_t);

@@ -207,12 +207,12 @@ add_library(raft::raft ALIAS raft)
 
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
-  # "$<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib>"
+  "$<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib>"
 )
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust "$<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:hnswlib>")
+  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
 endif()
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -424,6 +424,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/matrix/select_k_float_int64_t.cu
     src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
     src/raft_runtime/neighbors/cagra_build.cu
+    src/raft_runtime/neighbors/cagra_hnswlib.cpp
     src/raft_runtime/neighbors/cagra_search.cu
     src/raft_runtime/neighbors/cagra_serialize.cu
     src/raft_runtime/neighbors/ivf_flat_build.cu

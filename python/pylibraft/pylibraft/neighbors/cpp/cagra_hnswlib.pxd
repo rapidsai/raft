@@ -42,7 +42,7 @@ cdef extern from "raft/neighbors/cagra_hnswlib_types.hpp" \
         int num_threads
 
     cdef cppclass index[T](ann_index):
-        index(string filepath, int dim, DistanceType metric)
+        index(int dim, DistanceType metric)
 
         int dim()
         DistanceType metric()
@@ -73,3 +73,21 @@ cdef extern from "raft_runtime/neighbors/cagra_hnswlib.hpp" \
         host_matrix_view[uint8_t, int64_t, row_major] queries,
         host_matrix_view[uint64_t, int64_t, row_major] neighbors,
         host_matrix_view[float, int64_t, row_major] distances) except +
+
+    cdef void deserialize_file(const device_resources& handle,
+                               const string& filename,
+                               index[float]*& index,
+                               int dim,
+                               DistanceType metric) except +
+
+    cdef void deserialize_file(const device_resources& handle,
+                               const string& filename,
+                               index[int8_t]*& index,
+                               int dim,
+                               DistanceType metric) except +
+
+    cdef void deserialize_file(const device_resources& handle,
+                               const string& filename,
+                               index[uint8_t]*& index,
+                               int dim,
+                               DistanceType metric) except +

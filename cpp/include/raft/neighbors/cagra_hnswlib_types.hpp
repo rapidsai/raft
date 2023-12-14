@@ -21,31 +21,10 @@
 #include <raft/distance/distance_types.hpp>
 
 #include <cstdint>
-#include <hnswlib.h>
 #include <sys/types.h>
 #include <type_traits>
 
 namespace raft::neighbors::cagra_hnswlib {
-
-template <typename T>
-struct hnsw_dist_t {
-  using type = void;
-};
-
-template <>
-struct hnsw_dist_t<float> {
-  using type = float;
-};
-
-template <>
-struct hnsw_dist_t<std::uint8_t> {
-  using type = int;
-};
-
-template <>
-struct hnsw_dist_t<std::int8_t> {
-  using type = int;
-};
 
 struct search_params : ann::search_params {
   int ef;               // size of the candidate list
@@ -56,42 +35,20 @@ template <typename T>
 struct index : ann::index {
  public:
   /**
-   * @brief load a base-layer-only hnswlib index originally saved from a built CAGRA index
+   * @brief load a base-layer-only hnswlib index originally saved from a built CAGRA index.
+   *  This is a virtual class and it cannot be used directly. To create an index, construct
+   *  an instance of `raft::neighbors::cagra_hnswlib::hnswlib_index` from the header
+   *  `raft/neighbores/hnswlib_types.hpp`
    *
-   * @param[in] filepath path to the index
    * @param[in] dim dimensions of the training dataset
    * @param[in] metric distance metric to search. Supported metrics ("L2Expanded", "InnerProduct")
    */
-  index(std::string filepath, int dim, raft::distance::DistanceType metric)
-    : dim_{dim}, metric_{metric}
-  {
-    if constexpr (std::is_same_v<T, float>) {
-      if (metric == raft::distance::L2Expanded) {
-        space_ = std::make_unique<hnswlib::L2Space>(dim_);
-      } else if (metric == raft::distance::InnerProduct) {
-        space_ = std::make_unique<hnswlib::InnerProductSpace>(dim_);
-      }
-    } else if constexpr (std::is_same_v<T, std::int8_t> or std::is_same_v<T, std::uint8_t>) {
-      if (metric == raft::distance::L2Expanded) {
-        space_ = std::make_unique<hnswlib::L2SpaceI>(dim_);
-      }
-    }
-
-    RAFT_EXPECTS(space_ != nullptr, "Unsupported metric type was used");
-
-    appr_alg_ = std::make_unique<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(
-      space_.get(), filepath);
-
-    appr_alg_->base_layer_only = true;
-  }
+  index(int dim, raft::distance::DistanceType metric) : dim_{dim}, metric_{metric} {}
 
   /**
-  @brief Get hnswlib index
+  @brief Get underlying index
   */
-  auto get_index() const -> hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type> const*
-  {
-    return appr_alg_.get();
-  }
+  virtual auto get_index() const -> void const* = 0;
 
   auto dim() const -> int const { return dim_; }
 
@@ -100,9 +57,6 @@ struct index : ann::index {
  private:
   int dim_;
   raft::distance::DistanceType metric_;
-
-  std::unique_ptr<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>> appr_alg_;
-  std::unique_ptr<hnswlib::SpaceInterface<typename hnsw_dist_t<T>::type>> space_;
 };
 
 }  // namespace raft::neighbors::cagra_hnswlib
