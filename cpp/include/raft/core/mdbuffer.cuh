@@ -61,6 +61,15 @@ inline auto constexpr variant_index_from_memory_type(raft::memory_type mem_type)
 }
 
 /**
+ * @brief Retrieve the memory type associated with a canonical index
+ */
+inline auto constexpr memory_type_from_variant_index(
+  std::underlying_type_t<raft::memory_type> index)
+{
+  return static_cast<raft::memory_type>(index);
+}
+
+/**
  * @brief Retrieve a type from a variant based on a given memory type.
  */
 template <raft::memory_type MemType, typename Variant>
@@ -68,15 +77,30 @@ using alternate_from_mem_type =
   std::variant_alternative_t<variant_index_from_memory_type(MemType) % std::variant_size_v<Variant>,
                              Variant>;
 
+namespace detail {
+template <typename T, raft::memory_type MemType>
+using memory_type_to_default_policy = std::conditional_t<
+  MemType == raft::memory_type::host,
+  host_vector_policy<T>,
+  std::conditional_t<
+    MemType == raft::memory_type::device,
+    device_uvector_policy<T>,
+    std::conditional_t<
+      MemType == raft::memory_type::managed,
+      managed_uvector_policy<T>,
+      std::conditional_t<MemType == raft::memory_type::pinned, pinned_vector_policy<T>, void>>>>;
+}  // namespace detail
+
 /**
  * @brief A variant of container policies for each memory type which can be
  * used to build the default container policy for a buffer.
  */
 template <typename T>
-using default_container_policy_variant = std::variant<host_vector_policy<T>,
-                                                      device_uvector_policy<T>,
-                                                      managed_uvector_policy<T>,
-                                                      pinned_vector_policy<T>>;
+using default_container_policy_variant =
+  std::variant<detail::memory_type_to_default_policy<T, memory_type_from_variant_index(0)>,
+               detail::memory_type_to_default_policy<T, memory_type_from_variant_index(1)>,
+               detail::memory_type_to_default_policy<T, memory_type_from_variant_index(2)>,
+               detail::memory_type_to_default_policy<T, memory_type_from_variant_index(3)>>;
 
 /**
  * @brief A template used to translate a variant of underlying mdarray
