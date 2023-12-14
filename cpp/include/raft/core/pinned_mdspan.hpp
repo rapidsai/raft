@@ -137,7 +137,7 @@ using pinned_aligned_matrix_view =
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_right_padded<ElementType>>
-auto make_pinned_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
+auto constexpr make_pinned_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
 {
   using data_handle_type =
     typename std::experimental::aligned_accessor<ElementType,
@@ -162,7 +162,7 @@ auto make_pinned_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexTy
  * @param[in] ptr to pinned memory to wrap
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_pinned_scalar_view(ElementType* ptr)
+auto constexpr make_pinned_scalar_view(ElementType* ptr)
 {
   scalar_extent<IndexType> extents;
   return pinned_scalar_view<ElementType, IndexType>{ptr, extents};
@@ -182,7 +182,7 @@ auto make_pinned_scalar_view(ElementType* ptr)
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_pinned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
+auto constexpr make_pinned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
 {
   matrix_extent<IndexType> extents{n_rows, n_cols};
   return pinned_matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
@@ -202,10 +202,10 @@ auto make_pinned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_col
  * @param[in] stride leading dimension / stride of data
  */
 template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
-auto make_pinned_strided_matrix_view(ElementType* ptr,
-                                     IndexType n_rows,
-                                     IndexType n_cols,
-                                     IndexType stride)
+auto constexpr make_pinned_strided_matrix_view(ElementType* ptr,
+                                               IndexType n_rows,
+                                               IndexType n_cols,
+                                               IndexType stride)
 {
   constexpr auto is_row_major = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
   IndexType stride0           = is_row_major ? (stride > 0 ? stride : n_cols) : 1;
@@ -228,7 +228,7 @@ auto make_pinned_strided_matrix_view(ElementType* ptr,
  * @return raft::pinned_vector_view
  */
 template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
-auto make_pinned_vector_view(ElementType* ptr, IndexType n)
+auto constexpr make_pinned_vector_view(ElementType* ptr, IndexType n)
 {
   return pinned_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, n};
 }
@@ -243,7 +243,7 @@ auto make_pinned_vector_view(ElementType* ptr, IndexType n)
  * @return raft::pinned_vector_view
  */
 template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
-auto make_pinned_vector_view(
+auto constexpr make_pinned_vector_view(
   ElementType* ptr,
   const typename LayoutPolicy::template mapping<vector_extent<IndexType>>& mapping)
 {
@@ -263,7 +263,7 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
-auto make_pinned_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
+auto constexpr make_pinned_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
   return make_mdspan<ElementType, IndexType, LayoutPolicy, true, true>(ptr, exts);
 }
