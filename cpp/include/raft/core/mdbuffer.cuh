@@ -83,7 +83,8 @@ using default_container_policy_variant = std::variant<host_vector_policy<T>,
  * container policies into a container policy that can be used by an mdbuffer.
  */
 template <typename ElementType,
-          typename ContainerPolicyVariant = default_container_policy_variant<ElementType>>
+          typename ContainerPolicyVariant =
+            default_container_policy_variant<std::remove_cv_t<ElementType>>>
 struct default_buffer_container_policy {
   using element_type = ElementType;
   using value_type   = std::remove_cv_t<element_type>;
@@ -372,7 +373,7 @@ struct mdbuffer {
   using container_type = typename container_policy_type::template container_type<MemType>;
 
   template <memory_type MemType>
-  using owning_type = mdarray<element_type,
+  using owning_type = mdarray<value_type,
                               extents_type,
                               layout_type,
                               typename container_policy_type::template container_policy<MemType>>;
@@ -386,7 +387,9 @@ struct mdbuffer {
                                            owning_type<static_cast<memory_type>(3)>>;
 
   template <memory_type MemType>
-  using view_type = typename owning_type<MemType>::view_type;
+  using view_type = std::conditional_t<std::is_const_v<element_type>,
+                                       typename owning_type<MemType>::const_view_type,
+                                       typename owning_type<MemType>::view_type>;
 
   using view_type_variant = std::variant<view_type<static_cast<memory_type>(0)>,
                                          view_type<static_cast<memory_type>(1)>,
@@ -565,6 +568,22 @@ struct mdbuffer {
     typename OtherAccessorPolicy,
     std::enable_if_t<is_type_in_variant_v<OtherAccessorPolicy, accessor_policy_variant>>* = nullptr>
   mdbuffer(mdspan<ElementType, Extents, LayoutPolicy, OtherAccessorPolicy> other) : data_{other}
+  {
+  }
+
+  /**
+   * @brief Construct an mdbuffer of const elements wrapping an existing mdspan
+   * with non-const elements. The resulting mdbuffer will be non-owning and match the memory type,
+   * layout, and element type of the mdspan.
+   */
+  template <
+    typename OtherElementType,
+    typename OtherAccessorPolicy,
+    std::enable_if_t<!std::is_same_v<OtherElementType, ElementType> &&
+                     std::is_same_v<OtherElementType const, ElementType> &&
+                     is_type_in_variant_v<OtherAccessorPolicy, accessor_policy_variant>>* = nullptr>
+  mdbuffer(mdspan<OtherElementType, Extents, LayoutPolicy, OtherAccessorPolicy> other)
+    : data_{raft::make_const_mdspan(other)}
   {
   }
 
@@ -801,7 +820,11 @@ struct mdbuffer {
   {
     if constexpr (MemTypeConstant::value.has_value()) {
       if (is_owning()) {
-        return std::get<owning_type<MemTypeConstant::value.value()>>(data_).view();
+        if constexpr (std::is_const_v<element_type>) {
+          return std::as_const(std::get<owning_type<MemTypeConstant::value.value()>>(data_)).view();
+        } else {
+          return std::get<owning_type<MemTypeConstant::value.value()>>(data_).view();
+        }
       } else {
         return std::get<view_type<MemTypeConstant::value.value()>>(data_);
       }
@@ -811,7 +834,11 @@ struct mdbuffer {
           if constexpr (is_mdspan_v<std::remove_reference_t<decltype(inner)>>) {
             return view_type_variant{inner};
           } else {
-            return view_type_variant{inner.view()};
+            if constexpr (std::is_const_v<element_type>) {
+              return view_type_variant{std::as_const(inner).view()};
+            } else {
+              return view_type_variant{inner.view()};
+            }
           }
         },
         data_);
@@ -885,6 +912,19 @@ struct mdbuffer {
    */
   [[nodiscard]] auto view() const { return view<memory_type_constant<>>(); }
 };
+
+/*template <typename OtherElementType, typename OtherExtents, typename
+OtherLayoutPolicy, typename OtherAccessorPolicy>
+mdbuffer(mdspan<OtherElementType, OtherExtents, OtherLayoutPolicy,
+    OtherAccessorPolicy> other) -> mdbuffer<OtherElementType,
+  OtherExtents, OtherLayoutPolicy, default_buffer_container_policy<OtherElementType>>;
+
+template <typename OtherElementType, typename OtherExtents, typename
+OtherLayoutPolicy, typename OtherAccessorPolicy>
+mdbuffer(mdspan<OtherElementType, OtherExtents, OtherLayoutPolicy,
+    OtherAccessorPolicy> other) -> mdbuffer<OtherElementType const,
+  OtherExtents, OtherLayoutPolicy, default_buffer_container_policy<OtherElementType
+  const>>; */
 
 /**
  * @\brief Template checks and helpers to determine if type T is an mdbuffer

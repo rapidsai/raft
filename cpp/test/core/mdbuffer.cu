@@ -311,6 +311,20 @@ TEST(MDBuffer, ImplicitMdspanConversion)
   test_function(data_device);
   test_function(data_managed);
   test_function(data_pinned);
+  test_function(data_host.view());
+  test_function(data_device.view());
+  test_function(data_managed.view());
+  test_function(data_pinned.view());
+
+  auto test_const_function = [shared_extents](mdbuffer<int const, extents_type>&& buf) {
+    std::visit([shared_extents](auto view) { EXPECT_EQ(view.extents(), shared_extents); },
+               buf.view());
+  };
+
+  test_const_function(data_host.view());
+  test_const_function(data_device.view());
+  test_const_function(data_managed.view());
+  test_const_function(data_pinned.view());
 }
 
 }  // namespace raft
