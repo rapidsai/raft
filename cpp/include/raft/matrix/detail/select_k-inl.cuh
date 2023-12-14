@@ -25,7 +25,6 @@
 #include <raft/matrix/init.cuh>
 
 #include <raft/core/resource/thrust_policy.hpp>
-#include <raft/neighbors/detail/selection_faiss.cuh>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <thrust/scan.h>
@@ -245,6 +244,7 @@ void select_k(raft::resources const& handle,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "matrix::select_k(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
 
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
   auto stream = raft::resource::get_cuda_stream(handle);
   auto algo   = choose_select_k_algorithm(batch_size, len, k);
 

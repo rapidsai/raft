@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.12")
-set(RAFT_VERSION "23.12.00")
+set(RAPIDS_VERSION "24.02")
+set(RAFT_VERSION "24.02.00")
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -372,16 +372,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/refine_host_float_float.cpp
     src/neighbors/detail/refine_host_int8_t_float.cpp
     src/neighbors/detail/refine_host_uint8_t_float.cpp
-    src/neighbors/detail/selection_faiss_int32_t_float.cu
-    src/neighbors/detail/selection_faiss_int_double.cu
-    src/neighbors/detail/selection_faiss_long_float.cu
-    src/neighbors/detail/selection_faiss_size_t_double.cu
-    src/neighbors/detail/selection_faiss_size_t_float.cu
-    src/neighbors/detail/selection_faiss_uint32_t_float.cu
-    src/neighbors/detail/selection_faiss_int64_t_double.cu
-    src/neighbors/detail/selection_faiss_int64_t_half.cu
-    src/neighbors/detail/selection_faiss_uint32_t_double.cu
-    src/neighbors/detail/selection_faiss_uint32_t_half.cu
     src/neighbors/ivf_flat_build_float_int64_t.cu
     src/neighbors/ivf_flat_build_int8_t_int64_t.cu
     src/neighbors/ivf_flat_build_uint8_t_int64_t.cu

@@ -54,7 +54,6 @@ ext_headers = [
     "raft/core/logger-ext.hpp",
     "raft/neighbors/refine-ext.cuh",
     "raft/neighbors/detail/ivf_flat_search-ext.cuh",
-    "raft/neighbors/detail/selection_faiss-ext.cuh",
     "raft/linalg/detail/coalesced_reduction-ext.cuh",
     "raft/spatial/knn/detail/ball_cover/registers-ext.cuh",
     "raft/neighbors/detail/ivf_flat_interleaved_scan-ext.cuh",
