@@ -45,7 +45,7 @@ namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {
 
 template <unsigned TEAM_SIZE,
-          unsigned MAX_DATASET_DIM,
+          unsigned DATASET_BLOCK_DIM,
           typename DATA_T,
           typename INDEX_T,
           typename DISTANCE_T,
@@ -66,7 +66,6 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILT
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_random_samplings;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::rand_xor_mask;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_dim;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dim;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::graph_degree;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::topk;
@@ -119,7 +118,9 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILT
     // constexpr unsigned max_result_buffer_size = 256;
     RAFT_EXPECTS(result_buffer_size_32 <= 256, "Result buffer size cannot exceed 256");
 
-    smem_size = sizeof(float) * max_dim +
+    const auto query_smem_buffer_length =
+      raft::ceildiv<uint32_t>(dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
+    smem_size = sizeof(float) * query_smem_buffer_length +
                 (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
                 sizeof(uint32_t) * search_width + sizeof(uint32_t);
     RAFT_LOG_DEBUG("# smem_size: %u", smem_size);
@@ -204,7 +205,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILT
   {
     cudaStream_t stream = resource::get_cuda_stream(res);
 
-    select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>(
+    select_and_run<TEAM_SIZE, DATASET_BLOCK_DIM, DATA_T, INDEX_T, DISTANCE_T>(
       dataset,
       graph,
       intermediate_indices.data(),

@@ -64,7 +64,6 @@ files:
     includes:
       - build
       - build_pylibraft
-      - build_wheels
   py_run_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -89,7 +88,6 @@ files:
       table: build-system
     includes:
       - build
-      - build_wheels
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -133,12 +131,15 @@ dependencies:
           - &cmake_ver cmake>=3.26.4
           - cython>=3.0.0
           - ninja
-          - scikit-build>=0.13.1
       - output_types: [conda]
         packages:
           - c-compiler
           - cxx-compiler
           - nccl>=2.9.9
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: conda
         matrices:
@@ -183,6 +184,7 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for rmm-cu{11,12}.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -408,6 +410,7 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -455,19 +458,20 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix: {cuda: "12.2"}
             packages: &run_raft_dask_packages_cu12
               - &pylibraft_cu12 pylibraft-cu12==24.2.*
-              - &ucx_py_cu12 ucx-py-cu12==0.35.*
+              - &ucx_py_cu12 ucx-py-cu12==0.36.*
           - {matrix: {cuda: "12.1"}, packages: *run_raft_dask_packages_cu12}
           - {matrix: {cuda: "12.0"}, packages: *run_raft_dask_packages_cu12}
           - matrix: {cuda: "11.8"}
             packages: &run_raft_dask_packages_cu11
               - &pylibraft_cu11 pylibraft-cu11==24.2.*
-              - &ucx_py_cu11 ucx-py-cu11==0.35.*
+              - &ucx_py_cu11 ucx-py-cu11==0.36.*
           - {matrix: {cuda: "11.5"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.4"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.2"}, packages: *run_raft_dask_packages_cu11}
