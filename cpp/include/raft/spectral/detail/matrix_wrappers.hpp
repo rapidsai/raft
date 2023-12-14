@@ -30,6 +30,8 @@
 #include <thrust/reduce.h>
 #include <thrust/system/cuda/execution_policy.h>
 
+#include <cuda/functional>
+
 #include <algorithm>
 
 // =========================================================
@@ -107,15 +109,16 @@ class vector_t {
 
   value_type nrm1() const
   {
-    return thrust::reduce(thrust_policy,
-                          buffer_.data(),
-                          buffer_.data() + buffer_.size(),
-                          value_type{0},
-                          [] __device__(auto left, auto right) {
-                            auto abs_left  = left > 0 ? left : -left;
-                            auto abs_right = right > 0 ? right : -right;
-                            return abs_left + abs_right;
-                          });
+    return thrust::reduce(
+      thrust_policy,
+      buffer_.data(),
+      buffer_.data() + buffer_.size(),
+      value_type{0},
+      cuda::proclaim_return_type<value_type>([] __device__(auto left, auto right) {
+        auto abs_left  = left > 0 ? left : -left;
+        auto abs_right = right > 0 ? right : -right;
+        return abs_left + abs_right;
+      }));
   }
 
   void fill(value_type value)

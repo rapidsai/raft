@@ -64,7 +64,6 @@ files:
     includes:
       - build
       - build_pylibraft
-      - build_wheels
   py_run_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -89,7 +88,6 @@ files:
       table: build-system
     includes:
       - build
-      - build_wheels
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -133,12 +131,15 @@ dependencies:
           - &cmake_ver cmake>=3.26.4
           - cython>=3.0.0
           - ninja
-          - scikit-build>=0.13.1
       - output_types: [conda]
         packages:
           - c-compiler
           - cxx-compiler
           - nccl>=2.9.9
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: conda
         matrices:
@@ -183,6 +184,7 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for rmm-cu{11,12}.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -408,6 +410,7 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -455,6 +458,7 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
         matrices:
