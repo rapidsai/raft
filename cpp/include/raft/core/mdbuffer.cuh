@@ -79,16 +79,26 @@ using alternate_from_mem_type =
 
 namespace detail {
 template <typename T, raft::memory_type MemType>
-using memory_type_to_default_policy = std::conditional_t<
-  MemType == raft::memory_type::host,
-  host_vector_policy<T>,
-  std::conditional_t<
-    MemType == raft::memory_type::device,
-    device_uvector_policy<T>,
-    std::conditional_t<
-      MemType == raft::memory_type::managed,
-      managed_uvector_policy<T>,
-      std::conditional_t<MemType == raft::memory_type::pinned, pinned_vector_policy<T>, void>>>>;
+struct memory_type_to_default_policy {};
+template <typename T>
+struct memory_type_to_default_policy<T, raft::memory_type::host> {
+    using type = typename raft::host_vector_policy<T>;
+};
+template <typename T>
+struct memory_type_to_default_policy<T, raft::memory_type::device> {
+    using type = typename raft::device_uvector_policy<T>;
+};
+template <typename T>
+struct memory_type_to_default_policy<T, raft::memory_type::managed> {
+    using type = typename raft::managed_uvector_policy<T>;
+};
+template <typename T>
+struct memory_type_to_default_policy<T, raft::memory_type::pinned> {
+    using type = typename raft::pinned_vector_policy<T>;
+};
+
+template <typename T, raft::memory_type MemType>
+using memory_type_to_default_policy_t = typename memory_type_to_default_policy<T, MemType>::type;
 }  // namespace detail
 
 /**
