@@ -39,6 +39,6 @@ dependencies:
 - pandas
 - pyyaml
 - rmm==24.2.*
-- scikit-build>=0.13.1
+- scikit-build-core>=0.7.0
 - sysroot_linux-aarch64==2.17
 name: bench_ann_cuda-118_arch-aarch64
