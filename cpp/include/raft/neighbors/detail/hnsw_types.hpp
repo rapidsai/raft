@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "cagra_hnswlib_types.hpp"
+#include "../hnsw_types.hpp"
 #include <memory>
 #include <raft/core/error.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -26,7 +26,7 @@
 #include <sys/types.h>
 #include <type_traits>
 
-namespace raft::neighbors::cagra_hnswlib {
+namespace raft::neighbors::hnsw::detail {
 
 /**
  * @addtogroup cagra_hnswlib Build CAGRA index and search with hnswlib
@@ -54,7 +54,7 @@ struct hnsw_dist_t<std::int8_t> {
 };
 
 template <typename T>
-struct hnswlib_index : index<T> {
+struct index_impl : index<T> {
  public:
   /**
    * @brief load a base-layer-only hnswlib index originally saved from a built CAGRA index
@@ -63,7 +63,7 @@ struct hnswlib_index : index<T> {
    * @param[in] dim dimensions of the training dataset
    * @param[in] metric distance metric to search. Supported metrics ("L2Expanded", "InnerProduct")
    */
-  hnswlib_index(std::string filepath, int dim, raft::distance::DistanceType metric)
+  index_impl(std::string filepath, int dim, raft::distance::DistanceType metric)
     : index<T>{dim, metric}
   {
     if constexpr (std::is_same_v<T, float>) {
@@ -74,7 +74,7 @@ struct hnswlib_index : index<T> {
       }
     } else if constexpr (std::is_same_v<T, std::int8_t> or std::is_same_v<T, std::uint8_t>) {
       if (metric == raft::distance::L2Expanded) {
-        space_ = std::make_unique<hnswlib::L2SpaceI>(dim);
+        space_ = std::make_unique<hnswlib::L2SpaceI<T>>(dim);
       }
     }
 
@@ -98,4 +98,4 @@ struct hnswlib_index : index<T> {
 
 /**@}*/
 
-}  // namespace raft::neighbors::cagra_hnswlib
+}  // namespace raft::neighbors::hnsw::detail

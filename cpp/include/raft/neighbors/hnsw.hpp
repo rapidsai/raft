@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include "cagra_hnswlib_types.hpp"
-#include "detail/cagra_hnswlib.hpp"
+#include "detail/hnsw.hpp"
+#include "hnsw.hpp"
 
 #include <cstddef>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft::neighbors::cagra_hnswlib {
+namespace raft::neighbors::hnsw {
 
 /**
- * @addtogroup cagra_hnswlib Build CAGRA index and search with hnswlib
+ * @addtogroup hnsw Build CAGRA index and search with hnswlib
  * @{
  */
 
@@ -55,19 +55,22 @@ namespace raft::neighbors::cagra_hnswlib {
  *   auto index = cagra::build(res, index_params, dataset);
  *
  *   // Save CAGRA index as base layer only hnswlib index
- *   cagra::serialize_to_hnswlib(res, "my_index.bin", index);
+ *   hnsw::serialize(res, "my_index.bin", index);
  *
  *   // Load CAGRA index as base layer only hnswlib index
- *   cagra_hnswlib::index(D, "my_index.bin", raft::distance::L2Expanded);
+ *   raft::neighbors::hnsw::index* hnsw_index;
+ *   hnsw::deserialize(D, "my_index.bin", hnsw_index, D,raft::distance::L2Expanded);
  *
  *   // Search K nearest neighbors as an hnswlib index
  *   // using host threads for concurrency
- *   cagra_hnswlib::search_params search_params;
+ *   h::seanswrch_params search_params;
  *   search_params.ef = 50 // ef >= K;
  *   search_params.num_threads = 10;
  *   auto neighbors = raft::make_host_matrix<uint32_t>(res, n_queries, k);
  *   auto distances = raft::make_host_matrix<float>(res, n_queries, k);
- *   cagra_hnswlib::search(res, search_params, index, queries, neighbors, distances);
+ *   hnsw::search(res, search_params, *index, queries, neighbors, distances);
+ *   // de-allocate hnsw_index
+ *   delete hnsw_index;
  * @endcode
  */
 template <typename T>
@@ -92,4 +95,4 @@ void search(raft::resources const& res,
 
 /**@}*/
 
-}  // namespace raft::neighbors::cagra_hnswlib
+}  // namespace raft::neighbors::hnsw

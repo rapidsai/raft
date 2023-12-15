@@ -24,10 +24,10 @@
 #include <sys/types.h>
 #include <type_traits>
 
-namespace raft::neighbors::cagra_hnswlib {
+namespace raft::neighbors::hnsw {
 
 /**
- * @defgroup cagra_hnswlib Build CAGRA index and search with hnswlib
+ * @defgroup hnsw Build CAGRA index and search with hnswlib
  * @{
  */
 
@@ -67,4 +67,4 @@ struct index : ann::index {
 
 /**@}*/
 
-}  // namespace raft::neighbors::cagra_hnswlib
+}  // namespace raft::neighbors::hnsw

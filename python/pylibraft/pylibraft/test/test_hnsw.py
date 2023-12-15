@@ -18,11 +18,11 @@ import pytest
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 
-from pylibraft.neighbors import cagra, cagra_hnswlib
+from pylibraft.neighbors import cagra, hnsw
 from pylibraft.test.ann_utils import calc_recall, generate_data
 
 
-def run_cagra_hnswlib_build_search_test(
+def run_hnsw_build_search_test(
     n_rows=10000,
     n_cols=10,
     n_queries=100,
@@ -48,20 +48,16 @@ def run_cagra_hnswlib_build_search_test(
     assert index.trained
 
     filename = "my_index.bin"
-    cagra_hnswlib.save(filename, index)
+    hnsw.save(filename, index)
 
-    index_hnswlib = cagra_hnswlib.load(
-        filename, n_cols, dataset.dtype, metric=metric
-    )
+    hnsw_index = hnsw.load(filename, n_cols, dataset.dtype, metric=metric)
 
     queries = generate_data((n_queries, n_cols), dtype)
     out_idx = np.zeros((n_queries, k), dtype=np.uint32)
 
-    search_params = cagra_hnswlib.SearchParams(**search_params)
+    search_params = hnsw.SearchParams(**search_params)
 
-    out_dist, out_idx = cagra_hnswlib.search(
-        search_params, index_hnswlib, queries, k
-    )
+    out_dist, out_idx = hnsw.search(search_params, hnsw_index, queries, k)
 
     # Calculate reference values with sklearn
     nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=metric)
@@ -77,9 +73,9 @@ def run_cagra_hnswlib_build_search_test(
 @pytest.mark.parametrize("k", [10, 20])
 @pytest.mark.parametrize("ef", [30, 40])
 @pytest.mark.parametrize("num_threads", [2, 4])
-def test_cagra_hnswlib(dtype, k, ef, num_threads):
+def test_hnsw(dtype, k, ef, num_threads):
     # Note that inner_product tests use normalized input which we cannot
     # represent in int8, therefore we test only sqeuclidean metric here.
-    run_cagra_hnswlib_build_search_test(
+    run_hnsw_build_search_test(
         dtype=dtype, k=k, search_params={"ef": ef, "num_threads": num_threads}
     )

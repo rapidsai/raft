@@ -38,7 +38,7 @@ from pylibraft.common.handle cimport device_resources
 
 from pylibraft.common import DeviceResources, ai_wrapper, auto_convert_output
 
-cimport pylibraft.neighbors.cpp.cagra_hnswlib as c_cagra_hnswlib
+cimport pylibraft.neighbors.cpp.hnsw as c_hnsw
 
 from pylibraft.neighbors.common import _check_input_array, _get_metric
 
@@ -53,7 +53,7 @@ from pylibraft.neighbors.common cimport _get_metric_string
 import numpy as np
 
 
-cdef class CagraHnswlibIndex:
+cdef class HnswIndex:
     cdef readonly bool trained
     cdef str active_index_type
 
@@ -61,8 +61,8 @@ cdef class CagraHnswlibIndex:
         self.trained = False
         self.active_index_type = None
 
-cdef class CagraHnswlibIndexFloat(CagraHnswlibIndex):
-    cdef c_cagra_hnswlib.index[float] * index
+cdef class HnswIndexFloat(HnswIndex):
+    cdef c_hnsw.index[float] * index
 
     def __cinit__(self):
         pass
@@ -72,7 +72,7 @@ cdef class CagraHnswlibIndexFloat(CagraHnswlibIndex):
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in ["dim"]]
         attr_str = [m_str] + attr_str
-        return "Index(type=CAGRA_hnswlib, " + (", ".join(attr_str)) + ")"
+        return "Index(type=hnsw, " + (", ".join(attr_str)) + ")"
 
     @property
     def dim(self):
@@ -86,8 +86,8 @@ cdef class CagraHnswlibIndexFloat(CagraHnswlibIndex):
         if self.index is not NULL:
             del self.index
 
-cdef class CagraHnswlibIndexInt8(CagraHnswlibIndex):
-    cdef c_cagra_hnswlib.index[int8_t] * index
+cdef class HnswIndexInt8(HnswIndex):
+    cdef c_hnsw.index[int8_t] * index
 
     def __cinit__(self):
         pass
@@ -97,7 +97,7 @@ cdef class CagraHnswlibIndexInt8(CagraHnswlibIndex):
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in ["dim"]]
         attr_str = [m_str] + attr_str
-        return "Index(type=CAGRA_hnswlib, " + (", ".join(attr_str)) + ")"
+        return "Index(type=hnsw, " + (", ".join(attr_str)) + ")"
 
     @property
     def dim(self):
@@ -111,8 +111,8 @@ cdef class CagraHnswlibIndexInt8(CagraHnswlibIndex):
         if self.index is not NULL:
             del self.index
 
-cdef class CagraHnswlibIndexUint8(CagraHnswlibIndex):
-    cdef c_cagra_hnswlib.index[uint8_t] * index
+cdef class HnswIndexUint8(HnswIndex):
+    cdef c_hnsw.index[uint8_t] * index
 
     def __cinit__(self):
         pass
@@ -122,7 +122,7 @@ cdef class CagraHnswlibIndexUint8(CagraHnswlibIndex):
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in ["dim"]]
         attr_str = [m_str] + attr_str
-        return "Index(type=CAGRA_hnswlib, " + (", ".join(attr_str)) + ")"
+        return "Index(type=hnsw, " + (", ".join(attr_str)) + ")"
 
     @property
     def dim(self):
@@ -158,7 +158,7 @@ def save(filename, Index index, handle=None):
     >>> import cupy as cp
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import cagra
-    >>> from pylibraft.neighbors import cagra_hnswlib
+    >>> from pylibraft.neighbors import hnsw
     >>> n_samples = 50000
     >>> n_features = 50
     >>> dataset = cp.random.random_sample((n_samples, n_features),
@@ -167,7 +167,7 @@ def save(filename, Index index, handle=None):
     >>> handle = DeviceResources()
     >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
     >>> # Serialize the CAGRA index to hnswlib base layer only index format
-    >>> cagra_hnswlib.save("my_index.bin", index, handle=handle)
+    >>> hnsw.save("my_index.bin", index, handle=handle)
     """
     if not index.trained:
         raise ValueError("Index need to be built before saving it.")
@@ -191,19 +191,19 @@ def save(filename, Index index, handle=None):
         idx_float = index
         c_index_float = \
             <c_cagra.index[float, uint32_t] *><size_t> idx_float.index
-        c_cagra.serialize_to_hnswlib_file(
+        c_hnsw.serialize_to_file(
             deref(handle_), c_filename, deref(c_index_float))
     elif index.active_index_type == "byte":
         idx_int8 = index
         c_index_int8 = \
             <c_cagra.index[int8_t, uint32_t] *><size_t> idx_int8.index
-        c_cagra.serialize_to_hnswlib_file(
+        c_hnsw.serialize_to_file(
             deref(handle_), c_filename, deref(c_index_int8))
     elif index.active_index_type == "ubyte":
         idx_uint8 = index
         c_index_uint8 = \
             <c_cagra.index[uint8_t, uint32_t] *><size_t> idx_uint8.index
-        c_cagra.serialize_to_hnswlib_file(
+        c_hnsw.serialize_to_file(
             deref(handle_), c_filename, deref(c_index_uint8))
     else:
         raise ValueError(
@@ -237,13 +237,13 @@ def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
 
     Returns
     -------
-    index : CagraHnswlibIndex
+    index : HnswIndex
 
     Examples
     --------
-    >>> from pylibraft.neighbors import cagra_hnswlib
+    >>> from pylibraft.neighbors import hnsw
     >>> dim = 50 # Assuming training dataset has 50 dimensions
-    >>> index = cagra_hnswlib.load("my_index.bin", dim, "sqeuclidean")
+    >>> index = hnsw.load("my_index.bin", dim, "sqeuclidean")
     """
     if handle is None:
         handle = DeviceResources()
@@ -251,29 +251,29 @@ def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
         <device_resources*><size_t>handle.getHandle()
 
     cdef string c_filename = filename.encode('utf-8')
-    cdef CagraHnswlibIndexFloat idx_float
-    cdef CagraHnswlibIndexInt8 idx_int8
-    cdef CagraHnswlibIndexUint8 idx_uint8
+    cdef HnswIndexFloat idx_float
+    cdef HnswIndexInt8 idx_int8
+    cdef HnswIndexUint8 idx_uint8
 
     cdef DistanceType c_metric = _get_metric(metric)
 
     if dtype == np.float32:
-        idx_float = CagraHnswlibIndexFloat()
-        c_cagra_hnswlib.deserialize_file(
+        idx_float = HnswIndexFloat()
+        c_hnsw.deserialize_file(
             deref(handle_), c_filename, idx_float.index, <int> dim, c_metric)
         idx_float.trained = True
         idx_float.active_index_type = 'float32'
         return idx_float
     elif dtype == np.byte:
-        idx_int8 = CagraHnswlibIndexInt8(dim, metric)
-        c_cagra_hnswlib.deserialize_file(
+        idx_int8 = HnswIndexInt8(dim, metric)
+        c_hnsw.deserialize_file(
             deref(handle_), c_filename, idx_int8.index, <int> dim, c_metric)
         idx_int8.trained = True
         idx_int8.active_index_type = 'byte'
         return idx_int8
     elif dtype == np.ubyte:
-        idx_uint8 = CagraHnswlibIndexUint8(dim, metric)
-        c_cagra_hnswlib.deserialize_file(
+        idx_uint8 = HnswIndexUint8(dim, metric)
+        c_hnsw.deserialize_file(
             deref(handle_), c_filename, idx_uint8.index, <int> dim, c_metric)
         idx_uint8.trained = True
         idx_uint8.active_index_type = 'ubyte'
@@ -295,7 +295,7 @@ cdef class SearchParams:
         Number of host threads to use to search the hnswlib index
         and increase concurrency
     """
-    cdef c_cagra_hnswlib.search_params params
+    cdef c_hnsw.search_params params
 
     def __init__(self, ef=200, num_threads=1):
         self.params.ef = ef
@@ -305,7 +305,7 @@ cdef class SearchParams:
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in [
                         "ef", "num_threads"]]
-        return "SearchParams(type=CAGRA_hnswlib, " + (
+        return "SearchParams(type=hnsw, " + (
             ", ".join(attr_str)) + ")"
 
     @property
@@ -320,7 +320,7 @@ cdef class SearchParams:
 @auto_sync_handle
 @auto_convert_output
 def search(SearchParams search_params,
-           CagraHnswlibIndex index,
+           HnswIndex index,
            queries,
            k,
            neighbors=None,
@@ -332,7 +332,7 @@ def search(SearchParams search_params,
     Parameters
     ----------
     search_params : SearchParams
-    index : CagraHnswlibIndex
+    index : HnswIndex
         Trained CAGRA index saved as base layer only hnswlib index.
     queries : array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
@@ -352,7 +352,7 @@ def search(SearchParams search_params,
     >>> import numpy as np
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import cagra
-    >>> from pylibraft.neighbors import cagra_hnswlib
+    >>> from pylibraft.neighbors import hnsw
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
@@ -363,21 +363,21 @@ def search(SearchParams search_params,
     >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
     >>>
     >>> Save CAGRA built index as base layer only hnswlib index
-    >>> cagra_hnswlib.save("my_index.bin", index)
+    >>> hnsw.save("my_index.bin", index)
     >>>
     >>> Load saved base layer only hnswlib index
-    >>> index_hnswlib.load("my_index.bin", n_features, dataset.dtype)
+    >>> hnsw_index = hnsw.load("my_index.bin", n_features, dataset.dtype)
     >>>
     >>> # Search hnswlib using the loaded index
     >>> queries = np.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> k = 10
-    >>> search_params = cagra_hnswlib.SearchParams(
+    >>> search_params = hnsw.SearchParams(
     ...     ef=20,
     ...     num_threads=5
     ... )
-    >>> distances, neighbors = cagra_hnswlib.search(search_params, index,
-    ...                                             queries, k, handle=handle)
+    >>> distances, neighbors = hnsw.search(search_params, hnsw_index,
+    ...                                    queries, k, handle=handle)
     """
 
     if not index.trained:
@@ -410,35 +410,35 @@ def search(SearchParams search_params,
     _check_input_array(distances_ai, [np.dtype('float32')],
                        exp_rows=n_queries, exp_cols=k)
 
-    cdef c_cagra_hnswlib.search_params params = search_params.params
-    cdef CagraHnswlibIndexFloat idx_float
-    cdef CagraHnswlibIndexInt8 idx_int8
-    cdef CagraHnswlibIndexUint8 idx_uint8
+    cdef c_hnsw.search_params params = search_params.params
+    cdef HnswIndexFloat idx_float
+    cdef HnswIndexInt8 idx_int8
+    cdef HnswIndexUint8 idx_uint8
 
     if queries_dt == np.float32:
         idx_float = index
-        c_cagra_hnswlib.search(deref(handle_),
-                               params,
-                               deref(idx_float.index),
-                               get_hmv_float(queries_ai, check_shape=True),
-                               get_hmv_uint64(neighbors_ai, check_shape=True),
-                               get_hmv_float(distances_ai, check_shape=True))
+        c_hnsw.search(deref(handle_),
+                      params,
+                      deref(idx_float.index),
+                      get_hmv_float(queries_ai, check_shape=True),
+                      get_hmv_uint64(neighbors_ai, check_shape=True),
+                      get_hmv_float(distances_ai, check_shape=True))
     elif queries_dt == np.byte:
         idx_int8 = index
-        c_cagra_hnswlib.search(deref(handle_),
-                               params,
-                               deref(idx_int8.index),
-                               get_hmv_int8(queries_ai, check_shape=True),
-                               get_hmv_uint64(neighbors_ai, check_shape=True),
-                               get_hmv_float(distances_ai, check_shape=True))
+        c_hnsw.search(deref(handle_),
+                      params,
+                      deref(idx_int8.index),
+                      get_hmv_int8(queries_ai, check_shape=True),
+                      get_hmv_uint64(neighbors_ai, check_shape=True),
+                      get_hmv_float(distances_ai, check_shape=True))
     elif queries_dt == np.ubyte:
         idx_uint8 = index
-        c_cagra_hnswlib.search(deref(handle_),
-                               params,
-                               deref(idx_uint8.index),
-                               get_hmv_uint8(queries_ai, check_shape=True),
-                               get_hmv_uint64(neighbors_ai, check_shape=True),
-                               get_hmv_float(distances_ai, check_shape=True))
+        c_hnsw.search(deref(handle_),
+                      params,
+                      deref(idx_uint8.index),
+                      get_hmv_uint8(queries_ai, check_shape=True),
+                      get_hmv_uint64(neighbors_ai, check_shape=True),
+                      get_hmv_float(distances_ai, check_shape=True))
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)
 

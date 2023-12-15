@@ -30,6 +30,7 @@
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/neighbors/detail/cagra/cagra_build.cuh>
+#include <raft/neighbors/hnsw_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -246,7 +247,7 @@ void RaftCagra<T, IdxT>::save(const std::string& file) const
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::save_to_hnswlib(const std::string& file) const
 {
-  raft::neighbors::cagra::serialize_to_hnswlib<T, IdxT>(handle_, file, *index_);
+  raft::neighbors::hnsw::serialize<T, IdxT>(handle_, file, *index_);
 }
 
 template <typename T, typename IdxT>

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../hnswlib_types.hpp"
+#include "hnsw_types.hpp"
 
 #include <cstdint>
 #include <raft/core/host_mdspan.hpp>
@@ -26,7 +26,7 @@
 
 #include <hnswlib.h>
 
-namespace raft::neighbors::cagra_hnswlib::detail {
+namespace raft::neighbors::hnsw::detail {
 
 template <typename T>
 void get_search_knn_results(hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type> const* idx,
@@ -79,4 +79,4 @@ void search(raft::resources const& res,
   }
 }
 
-}  // namespace raft::neighbors::cagra_hnswlib::detail
+}  // namespace raft::neighbors::hnsw::detail

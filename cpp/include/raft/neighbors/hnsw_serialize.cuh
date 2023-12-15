@@ -16,17 +16,21 @@
 
 #pragma once
 
-#include "detail/cagra/cagra_serialize.cuh"
+#include "detail/hnsw_serialize.cuh"
+#include "hnsw_types.hpp"
+#include <raft/distance/distance_types.hpp>
 
-namespace raft::neighbors::cagra {
+#include <raft/core/resources.hpp>
+
+namespace raft::neighbors::hnsw {
 
 /**
- * \defgroup cagra_serialize CAGRA Serialize
+ * @addtogroup hnsw Build CAGRA index and search with hnswlib
  * @{
  */
 
 /**
- * Write the index to an output stream
+ * Write the CAGRA built index as a base layer HNSW index to an output stream
  *
  * Experimental, both the API and the serialization format are subject to change.
  *
@@ -47,20 +51,18 @@ namespace raft::neighbors::cagra {
  * @param[in] handle the raft handle
  * @param[in] os output stream
  * @param[in] index CAGRA index
- * @param[in] include_dataset Whether or not to write out the dataset to the file.
  *
  */
 template <typename T, typename IdxT>
 void serialize(raft::resources const& handle,
                std::ostream& os,
-               const index<T, IdxT>& index,
-               bool include_dataset = true)
+               const raft::neighbors::cagra::index<T, IdxT>& index)
 {
-  detail::serialize(handle, os, index, include_dataset);
+  detail::serialize<T, IdxT>(handle, os, index);
 }
 
 /**
- * Save the index to file.
+ * Save a CAGRA build index in hnswlib base-layer-only serialized format
  *
  * Experimental, both the API and the serialization format are subject to change.
  *
@@ -81,51 +83,21 @@ void serialize(raft::resources const& handle,
  * @param[in] handle the raft handle
  * @param[in] filename the file name for saving the index
  * @param[in] index CAGRA index
- * @param[in] include_dataset Whether or not to write out the dataset to the file.
  *
  */
 template <typename T, typename IdxT>
 void serialize(raft::resources const& handle,
                const std::string& filename,
-               const index<T, IdxT>& index,
-               bool include_dataset = true)
+               const raft::neighbors::cagra::index<T, IdxT>& index)
 {
-  detail::serialize(handle, filename, index, include_dataset);
+  detail::serialize<T, IdxT>(handle, filename, index);
 }
 
 /**
- * Load index from input stream
+ * Load an hnswlib index which was serialized from a CAGRA index
  *
- * Experimental, both the API and the serialization format are subject to change.
- *
- * @code{.cpp}
- * #include <raft/core/resources.hpp>
- *
- * raft::resources handle;
- *
- * // create an input stream
- * std::istream is(std::cin.rdbuf());
- * using T    = float; // data element type
- * using IdxT = int; // type of the index
- * auto index = raft::deserialize<T, IdxT>(handle, is);
- * @endcode
- *
- * @tparam T data element type
- * @tparam IdxT type of the indices
- *
- * @param[in] handle the raft handle
- * @param[in] is input stream
- *
- * @return raft::neighbors::experimental::cagra::index<T, IdxT>
- */
-template <typename T, typename IdxT>
-index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
-{
-  return detail::deserialize<T, IdxT>(handle, is);
-}
-
-/**
- * Load index from file.
+ * NOTE: This function allocates the index on the heap, and it is
+ * the user's responsibility to de-allocate the index
  *
  * Experimental, both the API and the serialization format are subject to change.
  *
@@ -136,32 +108,33 @@ index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
  *
  * // create a string with a filepath
  * std::string filename("/path/to/index");
- * using T    = float; // data element type
- * using IdxT = int; // type of the index
- * auto index = raft::deserialize<T, IdxT>(handle, filename);
+ * // create an an unallocated pointer
+ * raft::neighbors::hnsw* index;
+ * raft::deserialize(handle, filename, index);
+ * // use the index, then delete when done
+ * delete index;
  * @endcode
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
  *
  * @param[in] handle the raft handle
- * @param[in] filename the name of the file that stores the index
+ * @param[in] filename the file name for saving the index
+ * @param[out] index CAGRA index
+ * @param[in] dim dimensionality of the index
+ * @param[in] metric metric used to build the index
  *
- * @return raft::neighbors::experimental::cagra::index<T, IdxT>
  */
-template <typename T, typename IdxT>
-index<T, IdxT> deserialize(raft::resources const& handle, const std::string& filename)
+template <typename T>
+void deserialize(raft::resources const& handle,
+                 const std::string& filename,
+                 index<T>*& index,
+                 int dim,
+                 raft::distance::DistanceType metric)
 {
-  return detail::deserialize<T, IdxT>(handle, filename);
+  detail::deserialize<T>(handle, filename, index, dim, metric);
 }
 
 /**@}*/
 
-}  // namespace raft::neighbors::cagra
-
-// TODO: Remove deprecated experimental namespace in 23.12 release
-namespace raft::neighbors::experimental::cagra {
-using raft::neighbors::cagra::deserialize;
-using raft::neighbors::cagra::serialize;
-
-}  // namespace raft::neighbors::experimental::cagra
+}  // namespace raft::neighbors::hnsw

@@ -18,7 +18,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from libc.stdint cimport int8_t, int64_t, uint8_t, uint64_t
+from libc.stdint cimport int8_t, int64_t, uint8_t, uint32_t, uint64_t
 from libcpp.string cimport string
 
 from pylibraft.common.cpp.mdspan cimport (
@@ -28,14 +28,15 @@ from pylibraft.common.cpp.mdspan cimport (
 )
 from pylibraft.common.handle cimport device_resources
 from pylibraft.distance.distance_type cimport DistanceType
+from pylibraft.neighbors.cagra.cpp.c_cagra cimport index as cagra_index
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     ann_index,
     ann_search_params,
 )
 
 
-cdef extern from "raft/neighbors/cagra_hnswlib_types.hpp" \
-        namespace "raft::neighbors::cagra_hnswlib" nogil:
+cdef extern from "raft/neighbors/hnsw.hpp" \
+        namespace "raft::neighbors::hnsw" nogil:
 
     cpdef cppclass search_params(ann_search_params):
         int ef
@@ -48,8 +49,8 @@ cdef extern from "raft/neighbors/cagra_hnswlib_types.hpp" \
         DistanceType metric()
 
 
-cdef extern from "raft_runtime/neighbors/cagra_hnswlib.hpp" \
-        namespace "raft::runtime::neighbors::cagra_hnswlib" nogil:
+cdef extern from "raft_runtime/neighbors/hnsw.hpp" \
+        namespace "raft::runtime::neighbors::hnsw" nogil:
     cdef void search(
         const device_resources& handle,
         const search_params& params,
@@ -73,6 +74,36 @@ cdef extern from "raft_runtime/neighbors/cagra_hnswlib.hpp" \
         host_matrix_view[uint8_t, int64_t, row_major] queries,
         host_matrix_view[uint64_t, int64_t, row_major] neighbors,
         host_matrix_view[float, int64_t, row_major] distances) except +
+
+    cdef void serialize(
+        const device_resources& handle,
+        string& str,
+        const cagra_index[float, uint32_t]& index) except +
+
+    cdef void serialize(
+        const device_resources& handle,
+        string& str,
+        const cagra_index[uint8_t, uint32_t]& index) except +
+
+    cdef void serialize(
+        const device_resources& handle,
+        string& str,
+        const cagra_index[int8_t, uint32_t]& index) except +
+
+    cdef void serialize_to_file(
+        const device_resources& handle,
+        const string& filename,
+        const cagra_index[float, uint32_t]& index) except +
+
+    cdef void serialize_to_file(
+        const device_resources& handle,
+        const string& filename,
+        const cagra_index[uint8_t, uint32_t]& index) except +
+
+    cdef void serialize_to_file(
+        const device_resources& handle,
+        const string& filename,
+        const cagra_index[int8_t, uint32_t]& index) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,

@@ -414,9 +414,9 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/matrix/select_k_float_int64_t.cu
     src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
     src/raft_runtime/neighbors/cagra_build.cu
-    src/raft_runtime/neighbors/cagra_hnswlib.cpp
     src/raft_runtime/neighbors/cagra_search.cu
     src/raft_runtime/neighbors/cagra_serialize.cu
+    src/raft_runtime/neighbors/hnsw.cu
     src/raft_runtime/neighbors/ivf_flat_build.cu
     src/raft_runtime/neighbors/ivf_flat_search.cu
     src/raft_runtime/neighbors/ivf_flat_serialize.cu
