@@ -44,8 +44,8 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
 
   auto suggested_n_threads = std::max(1, std::min(omp_get_num_procs(), omp_get_max_threads()));
 
-  // If the number of queries is small, separete the distance calculation and
-  // the top-k calculation into separete loops, and apply finer-grained thread
+  // If the number of queries is small, separate the distance calculation and
+  // the top-k calculation into separate loops, and apply finer-grained thread
   // parallelism to the distance calculation loop.
   if (n_queries < size_t(suggested_n_threads)) {
     std::vector<std::vector<std::tuple<DistanceT, IdxT>>> refined_pairs(
