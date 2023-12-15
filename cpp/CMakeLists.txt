@@ -57,6 +57,8 @@ option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
 option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
+option(BUILD_C_LIBRARY "Build raft C API library" OFF)
+option(BUILD_C_TESTS "Build raft C API tests" OFF)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -72,6 +74,7 @@ set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
 if((BUILD_TESTS
     OR BUILD_PRIMS_BENCH
     OR BUILD_ANN_BENCH
+    OR BUILD_C_LIBRARY
    )
    AND NOT BUILD_CPU_ONLY
 )
@@ -81,9 +84,19 @@ option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
+if (NOT RAFT_COMPILE_LIBRARY)
+  set(BUILD_C_LIBRARY OFF)
+endif()
+
+if (NOT BUILD_C_LIBRARY)
+  set(BUILD_C_TESTS OFF)
+endif()
+
 if(BUILD_CPU_ONLY)
   set(BUILD_SHARED_LIBS OFF)
   set(BUILD_TESTS OFF)
+  set(BUILD_C_LIBRARY OFF)
+  set(BUILD_C_TESTS OFF)
 endif()
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
@@ -100,6 +113,8 @@ message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_PRIMS_BENCH}")
 message(VERBOSE "RAFT: Building ANN benchmarks: ${BUILD_ANN_BENCH}")
 message(VERBOSE "RAFT: Build CPU only components: ${BUILD_CPU_ONLY}")
+message(VERBOSE "RAFT: Build raft C library: ${BUILD_C_LIBRARY}")
+message(VERBOSE "RAFT: Build raft C tests: ${BUILD_C_TESTS}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
@@ -538,6 +553,35 @@ rapids_export_package(INSTALL NCCL raft-distributed-exports)
 target_link_libraries(raft_distributed INTERFACE ucx::ucp NCCL::NCCL)
 
 # ##################################################################################################
+# * raft_c -------------------------------------------------------------------------------
+if (BUILD_C_LIBRARY)
+  add_library(
+    raft_c OBJECT
+    src/core/c_api.cpp
+  )
+
+  add_library(raft::c_api ALIAS raft_c)
+
+  set_target_properties(
+    raft_c
+    PROPERTIES CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED ON
+               POSITION_INDEPENDENT_CODE ON
+    EXPORT_NAME c_api
+  )
+
+  target_compile_options(
+    raft_c PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+  )
+
+  target_link_libraries(raft_c PUBLIC raft::compiled)
+
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(raft_c PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+endif()
+
+
+# ##################################################################################################
 # * install targets-----------------------------------------------------------
 rapids_cmake_install_lib_dir(lib_dir)
 include(GNUInstallDirs)
@@ -574,6 +618,15 @@ if(TARGET raft_lib)
     DIRECTORY include/raft_runtime
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     COMPONENT compiled
+  )
+endif()
+
+if(BUILD_C_LIBRARY)
+  install(
+    TARGETS raft_c
+    DESTINATION ${lib_dir}
+    COMPONENT c_api
+    EXPORT raft-c-exports
   )
 endif()
 
@@ -653,6 +706,11 @@ if(TARGET raft_lib)
   list(APPEND raft_components compiled compiled-static)
   list(APPEND raft_export_sets raft-compiled-lib-exports raft-compiled-static-lib-exports)
 endif()
+if(TARGET raft_c)
+  list(APPEND raft_components c_api)
+  list(APPEND raft_export_sets raft-c-exports)
+  set(RAFT_C_TARGET c_api)
+endif()
 
 string(
   APPEND
@@ -683,7 +741,7 @@ rapids_export(
   EXPORT_SET raft-exports
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
-  GLOBAL_TARGETS raft compiled distributed
+  GLOBAL_TARGETS raft compiled distributed ${RAFT_C_TARGET}
   NAMESPACE raft::
   DOCUMENTATION doc_string
   FINAL_CODE_BLOCK code_string
@@ -696,7 +754,7 @@ rapids_export(
   EXPORT_SET raft-exports
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
-  GLOBAL_TARGETS raft compiled distributed
+  GLOBAL_TARGETS raft compiled distributed ${RAFT_C_TARGET}
   DOCUMENTATION doc_string
   NAMESPACE raft::
   FINAL_CODE_BLOCK code_string
@@ -712,7 +770,7 @@ endif()
 # ##################################################################################################
 # * build test executable ----------------------------------------------------
 
-if(BUILD_TESTS)
+if(BUILD_TESTS OR BUILD_C_TESTS)
   include(test/CMakeLists.txt)
 endif()
 

@@ -463,9 +463,19 @@ if(BUILD_TESTS)
     test/util/pow2_utils.cu
     test/util/reduction.cu
   )
+
+  # ##################################################################################################
+  # Install tests ####################################################################################
+  # ##################################################################################################
+  rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/gtests/libraft)
+
 endif()
 
-# ##################################################################################################
-# Install tests ####################################################################################
-# ##################################################################################################
-rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/gtests/libraft)
+if(BUILD_C_TESTS)
+  enable_language(C)
+
+  add_executable(raft_c_test test/core/c_api.c)
+
+  target_link_libraries(raft_c_test PUBLIC raft::c_api)
+
+endif()
