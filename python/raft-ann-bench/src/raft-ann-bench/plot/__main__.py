@@ -226,11 +226,9 @@ def create_plot_search(
 
 
 def create_plot_build(
-    build_results, search_results, linestyles, fn_out, dataset
+    build_results, search_results, linestyles, fn_out, dataset, k, batch_size
 ):
     bt_80 = [0] * len(linestyles)
-
-    bt_85 = [0] * len(linestyles)
 
     bt_90 = [0] * len(linestyles)
 
@@ -254,14 +252,11 @@ def create_plot_build(
         ls = points[:, 0]
         idxs = points[:, 1]
 
-        len_80, len_85, len_90, len_95, len_99 = 0, 0, 0, 0, 0
+        len_80, len_90, len_95, len_99 = 0, 0, 0, 0
         for i in range(len(xs)):
-            if xs[i] >= 0.80 and xs[i] < 0.85:
+            if xs[i] >= 0.80 and xs[i] < 0.90:
                 bt_80[pos] = bt_80[pos] + build_results[(ls[i], idxs[i])][0][2]
                 len_80 = len_80 + 1
-            elif xs[i] >= 0.85 and xs[i] < 0.9:
-                bt_85[pos] = bt_85[pos] + build_results[(ls[i], idxs[i])][0][2]
-                len_85 = len_85 + 1
             elif xs[i] >= 0.9 and xs[i] < 0.95:
                 bt_90[pos] = bt_90[pos] + build_results[(ls[i], idxs[i])][0][2]
                 len_90 = len_90 + 1
@@ -273,8 +268,6 @@ def create_plot_build(
                 len_99 = len_99 + 1
         if len_80 > 0:
             bt_80[pos] = bt_80[pos] / len_80
-        if len_85 > 0:
-            bt_85[pos] = bt_85[pos] / len_85
         if len_90 > 0:
             bt_90[pos] = bt_90[pos] / len_90
         if len_95 > 0:
@@ -283,7 +276,6 @@ def create_plot_build(
             bt_99[pos] = bt_99[pos] / len_99
         data[algo] = [
             bt_80[pos],
-            bt_85[pos],
             bt_90[pos],
             bt_95[pos],
             bt_99[pos],
@@ -292,7 +284,6 @@ def create_plot_build(
 
     index = [
         "@80% Recall",
-        "@85% Recall",
         "@90% Recall",
         "@95% Recall",
         "@99% Recall",
@@ -305,7 +296,8 @@ def create_plot_build(
     ax = df.plot.bar(rot=0, color=colors)
     fig = ax.get_figure()
     print(f"writing build output to {fn_out}")
-    plt.title("Average Build Time for Recall Range")
+    plt.title("Average Build Time within Recall Range "
+              f"for k={k} batch_size={batch_size}")
     plt.suptitle(f"{dataset}")
     plt.ylabel("Build Time (s)")
     fig.savefig(fn_out)
@@ -569,7 +561,7 @@ def main():
     )
     build_output_filepath = os.path.join(
         args.output_filepath,
-        f"build-{args.dataset}.png",
+        f"build-{args.dataset}-k{k}-batch_size{batch_size}.png",
     )
 
     search_results = load_all_results(
@@ -620,6 +612,8 @@ def main():
             linestyles,
             build_output_filepath,
             args.dataset,
+            k,
+            batch_size
         )
 
 
