@@ -82,19 +82,19 @@ template <typename T, raft::memory_type MemType>
 struct memory_type_to_default_policy {};
 template <typename T>
 struct memory_type_to_default_policy<T, raft::memory_type::host> {
-    using type = typename raft::host_vector_policy<T>;
+  using type = typename raft::host_vector_policy<T>;
 };
 template <typename T>
 struct memory_type_to_default_policy<T, raft::memory_type::device> {
-    using type = typename raft::device_uvector_policy<T>;
+  using type = typename raft::device_uvector_policy<T>;
 };
 template <typename T>
 struct memory_type_to_default_policy<T, raft::memory_type::managed> {
-    using type = typename raft::managed_uvector_policy<T>;
+  using type = typename raft::managed_uvector_policy<T>;
 };
 template <typename T>
 struct memory_type_to_default_policy<T, raft::memory_type::pinned> {
-    using type = typename raft::pinned_vector_policy<T>;
+  using type = typename raft::pinned_vector_policy<T>;
 };
 
 template <typename T, raft::memory_type MemType>
@@ -107,10 +107,10 @@ using memory_type_to_default_policy_t = typename memory_type_to_default_policy<T
  */
 template <typename T>
 using default_container_policy_variant =
-  std::variant<detail::memory_type_to_default_policy<T, memory_type_from_variant_index(0)>,
-               detail::memory_type_to_default_policy<T, memory_type_from_variant_index(1)>,
-               detail::memory_type_to_default_policy<T, memory_type_from_variant_index(2)>,
-               detail::memory_type_to_default_policy<T, memory_type_from_variant_index(3)>>;
+  std::variant<detail::memory_type_to_default_policy_t<T, memory_type_from_variant_index(0)>,
+               detail::memory_type_to_default_policy_t<T, memory_type_from_variant_index(1)>,
+               detail::memory_type_to_default_policy_t<T, memory_type_from_variant_index(2)>,
+               detail::memory_type_to_default_policy_t<T, memory_type_from_variant_index(3)>>;
 
 /**
  * @brief A template used to translate a variant of underlying mdarray
