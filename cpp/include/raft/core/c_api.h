@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuda_runtime.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -29,6 +30,8 @@ typedef enum raftError_t { RAFT_ERROR, RAFT_SUCCESS } raftError_t;
 raftError_t raftCreateResources(raftResources_t* res);
 
 raftError_t raftDestroyResources(raftResources_t res);
+
+raftError_t raftSetStream(raftResources_t res, cudaStream_t stream);
 
 #ifdef __cplusplus
 }

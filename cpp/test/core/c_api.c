@@ -15,14 +15,23 @@
  */
 
 #include <raft/core/c_api.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 int main()
 {
+  // Create resources
   raftResources_t res;
   raftError_t create_error = raftCreateResources(&res);
   if (create_error == RAFT_ERROR) { exit(EXIT_FAILURE); }
 
+  // Set CUDA stream
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+  raftError_t stream_error = raftSetStream(res, stream);
+  if (stream_error == RAFT_ERROR) { exit(EXIT_FAILURE); }
+
+  // Destroy resources
   raftError_t destroy_error = raftDestroyResources(res);
   if (destroy_error == RAFT_ERROR) { exit(EXIT_FAILURE); }
 

@@ -17,7 +17,9 @@
 #include <cstdint>
 #include <memory>
 #include <raft/core/c_api.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <rmm/cuda_stream_view.hpp>
 
 extern "C" raftError_t raftCreateResources(raftResources_t* res)
 {
@@ -38,6 +40,19 @@ extern "C" raftError_t raftDestroyResources(raftResources_t res)
   try {
     auto res_ptr = reinterpret_cast<raft::resources*>(res);
     delete res_ptr;
+    status = RAFT_SUCCESS;
+  } catch (...) {
+    status = RAFT_ERROR;
+  }
+  return status;
+}
+
+extern "C" raftError_t raftSetStream(raftResources_t res, cudaStream_t stream)
+{
+  raftError_t status;
+  try {
+    auto res_ptr = reinterpret_cast<raft::resources*>(res);
+    raft::resource::set_cuda_stream(*res_ptr, static_cast<rmm::cuda_stream_view>(stream));
     status = RAFT_SUCCESS;
   } catch (...) {
     status = RAFT_ERROR;
