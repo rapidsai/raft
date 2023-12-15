@@ -91,6 +91,8 @@ template <typename T>
 RaftGpu<T>::RaftGpu(Metric metric, int dim)
   : ANN<T>(metric, dim), metric_type_(raft_temp::parse_metric_type(metric))
 {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                "raft bfknn only supports float/double");
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
 
