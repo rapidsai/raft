@@ -556,7 +556,7 @@ target_link_libraries(raft_distributed INTERFACE ucx::ucp NCCL::NCCL)
 # * raft_c -------------------------------------------------------------------------------
 if (BUILD_C_LIBRARY)
   add_library(
-    raft_c OBJECT
+    raft_c SHARED
     src/core/c_api.cpp
   )
 
