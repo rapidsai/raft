@@ -25,7 +25,7 @@
 namespace raft::neighbors::hnsw {
 
 /**
- * @addtogroup hnsw Build CAGRA index and search with hnswlib
+ * @defgroup hnsw_serialize HNSW Serialize
  * @{
  */
 
@@ -116,7 +116,6 @@ void serialize(raft::resources const& handle,
  * @endcode
  *
  * @tparam T data element type
- * @tparam IdxT type of the indices
  *
  * @param[in] handle the raft handle
  * @param[in] filename the file name for saving the index

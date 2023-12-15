@@ -59,7 +59,7 @@ namespace raft::neighbors::hnsw {
  *
  *   // Load CAGRA index as base layer only hnswlib index
  *   raft::neighbors::hnsw::index* hnsw_index;
- *   hnsw::deserialize(D, "my_index.bin", hnsw_index, D,raft::distance::L2Expanded);
+ *   hnsw::deserialize(res, "my_index.bin", hnsw_index, D,raft::distance::L2Expanded);
  *
  *   // Search K nearest neighbors as an hnswlib index
  *   // using host threads for concurrency
