@@ -369,6 +369,13 @@ struct default_buffer_container_policy {
  * `memory_type_dispatcher`, there are many common use cases in which explicit
  * invocations of `mdbuffer` can be elided with `memory_type_dispatcher`.
  *
+ * Finally, we should note that `mdbuffer` should almost never be passed as a
+ * const reference. To indicate const-ness of the underlying data, the
+ * `mdbuffer` should be constructed with a const memory type, but the mdbuffer
+ * itself should generally be passed as an rvalue reference in function
+ * arguments. Using an `mdbuffer` that is itself `const` is not strictly
+ * incorrect, but it indicates a likely misuse of the type.
+ *
  * @tparam ElementType element type stored in the buffer
  * @tparam Extents specifies the number of dimensions and their sizes
  * @tparam LayoutPolicy specifies how data should be laid out in memory
@@ -731,10 +738,14 @@ struct mdbuffer {
    *
    * Unlike when constructing from an rvalue, the new mdbuffer will take a
    * non-owning view whenever possible, since it is assumed that the caller
-   * will manage the lifetime of the lvalue input.
+   * will manage the lifetime of the lvalue input. Note that the mdbuffer
+   * passed here must itself be non-const in order to allow this constructor to
+   * provide an equivalent view of the underlying data. To indicate const-ness
+   * of the underlying data, mdbuffers should be constructed with a const
+   * ElementType.
    */
   mdbuffer(raft::resources const& res,
-           mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>& other,
+           mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>& other, /* NOLINT */
            std::optional<memory_type> specified_mem_type = std::nullopt)
     : data_{[&res, &other, specified_mem_type, this]() {
         auto mem_type       = specified_mem_type.value_or(other.mem_type());
