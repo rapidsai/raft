@@ -296,8 +296,10 @@ def create_plot_build(
     ax = df.plot.bar(rot=0, color=colors)
     fig = ax.get_figure()
     print(f"writing build output to {fn_out}")
-    plt.title("Average Build Time within Recall Range "
-              f"for k={k} batch_size={batch_size}")
+    plt.title(
+        "Average Build Time within Recall Range "
+        f"for k={k} batch_size={batch_size}"
+    )
     plt.suptitle(f"{dataset}")
     plt.ylabel("Build Time (s)")
     fig.savefig(fn_out)
@@ -613,7 +615,7 @@ def main():
             build_output_filepath,
             args.dataset,
             k,
-            batch_size
+            batch_size,
         )
 
 
