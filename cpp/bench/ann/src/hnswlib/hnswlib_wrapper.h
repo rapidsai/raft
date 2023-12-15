@@ -210,7 +210,7 @@ void HnswLib<T>::load(const std::string& path_to_index)
       space_ = std::make_shared<hnswlib::L2Space>(dim_);
     }
   } else if constexpr (std::is_same_v<T, uint8_t>) {
-    space_ = std::make_shared<hnswlib::L2SpaceI>(dim_);
+    space_ = std::make_shared<hnswlib::L2SpaceI<T>>(dim_);
   }
 
   appr_alg_ = std::make_shared<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(
