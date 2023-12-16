@@ -41,7 +41,7 @@ class factory {
     uint32_t topk)
   {
     search_plan_impl_base plan(params, dim, graph_degree, topk);
-    switch (plan.max_dim) {
+    switch (plan.dataset_block_dim) {
       case 128:
         switch (plan.team_size) {
           case 8: return dispatch_kernel<128, 8>(res, plan); break;
@@ -60,36 +60,30 @@ class factory {
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
         break;
-      case 1024:
-        switch (plan.team_size) {
-          case 32: return dispatch_kernel<1024, 32>(res, plan); break;
-          default: THROW("Incorrect team size %lu", plan.team_size);
-        }
-        break;
-      default: RAFT_LOG_DEBUG("Incorrect max_dim (%lu)\n", plan.max_dim);
+      default: THROW("Incorrect dataset_block_dim (%lu)\n", plan.dataset_block_dim);
     }
     return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>>();
   }
 
  private:
-  template <unsigned MAX_DATASET_DIM, unsigned TEAM_SIZE>
+  template <unsigned DATASET_BLOCK_DIM, unsigned TEAM_SIZE>
   static std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>> dispatch_kernel(
     raft::resources const& res, search_plan_impl_base& plan)
   {
     if (plan.algo == search_algo::SINGLE_CTA) {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>>(
         new single_cta_search::
-          search<TEAM_SIZE, MAX_DATASET_DIM, T, IdxT, DistanceT, CagraSampleFilterT>(
+          search<TEAM_SIZE, DATASET_BLOCK_DIM, T, IdxT, DistanceT, CagraSampleFilterT>(
             res, plan, plan.dim, plan.graph_degree, plan.topk));
     } else if (plan.algo == search_algo::MULTI_CTA) {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>>(
         new multi_cta_search::
-          search<TEAM_SIZE, MAX_DATASET_DIM, T, IdxT, DistanceT, CagraSampleFilterT>(
+          search<TEAM_SIZE, DATASET_BLOCK_DIM, T, IdxT, DistanceT, CagraSampleFilterT>(
             res, plan, plan.dim, plan.graph_degree, plan.topk));
     } else {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>>(
         new multi_kernel_search::
-          search<TEAM_SIZE, MAX_DATASET_DIM, T, IdxT, DistanceT, CagraSampleFilterT>(
+          search<TEAM_SIZE, DATASET_BLOCK_DIM, T, IdxT, DistanceT, CagraSampleFilterT>(
             res, plan, plan.dim, plan.graph_degree, plan.topk));
     }
   }

@@ -243,6 +243,8 @@ void select_k(raft::resources const& handle,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "matrix::select_k(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
 
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+
   if (algo == SelectAlgo::kAuto) { algo = choose_select_k_algorithm(batch_size, len, k); }
 
   auto stream = raft::resource::get_cuda_stream(handle);
