@@ -41,7 +41,7 @@ groups:
       refine_ratio: [1, 2, 4]
   largeraft:
     build:
-      nlist: [8192, 16384, 32768, 65536]
+      nlist: [16384]
       M: [64, 32, 16, 8]
       ratio: [4]
       usePrecomputed: [False]
