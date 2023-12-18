@@ -562,6 +562,7 @@ if (BUILD_C_LIBRARY)
   add_library(
     raft_c SHARED
     src/core/c_api.cpp
+    src/neighbors/cagra_c.cpp
   )
 
   add_library(raft::c_api ALIAS raft_c)

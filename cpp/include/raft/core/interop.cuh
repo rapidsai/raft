@@ -29,26 +29,6 @@
 
 namespace raft::core {
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-// Context object to own memory allocated by RMM for DLManagedTensor
-struct dltensor_context {
-  rmm::device_buffer buffer;
-
-  static void deleter(DLManagedTensor* arg)
-  {
-    auto context = static_cast<dltensor_context*>(arg->manager_ctx);
-    delete context;
-    delete arg;
-  }
-};
-
-#ifdef __cplusplus
-}
-#endif
-
 template <typename AccessorType>
 DLDevice accessor_type_to_DLDevice()
 {
@@ -75,7 +55,7 @@ DLDataType data_type_to_DLDataType()
   }
 }
 
-template <typename MdspanType, typename = raft::is_input_device_mdspan_t<MdspanType>>
+template <typename MdspanType, typename = raft::is_mdspan_t<MdspanType>>
 MdspanType from_dlpack(DLManagedTensor* managed_tensor)
 {
   auto tensor = managed_tensor->dl_tensor;
@@ -90,11 +70,12 @@ MdspanType from_dlpack(DLManagedTensor* managed_tensor)
 
   auto to_device = accessor_type_to_DLDevice<typename MdspanType::accessor_type>();
   if (to_device.device_type == kDLCUDA) {
-    RAFT_EXPECTS(
-      tensor.device.device_type == kDLCUDAManaged || tensor.device.device_type == kDLCUDA,
-      "device_type mismatch between return mdspan and DLTensor");
+    RAFT_EXPECTS(tensor.device.device_type == kDLCUDAManaged ||
+                   tensor.device.device_type == kDLCUDAHost || tensor.device.device_type == kDLCUDA,
+                 "device_type mismatch between return mdspan and DLTensor");
   } else if (to_device.device_type == kDLCPU) {
-    RAFT_EXPECTS(tensor.device.device_type == kDLCUDAManaged || tensor.device.device_type == kDLCPU,
+    RAFT_EXPECTS(tensor.device.device_type == kDLCUDAManaged ||
+                   tensor.device.device_type == kDLCUDAHost || tensor.device.device_type == kDLCPU,
                  "device_type mismatch between return mdspan and DLTensor");
   }
 
