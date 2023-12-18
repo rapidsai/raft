@@ -33,19 +33,21 @@ Serializer Methods
 
 .. autofunction:: pylibraft.neighbors.cagra.load
 
-CAGRA hnswlib
-#############
+HNSW
+####
 
-.. autoclass:: pylibraft.neighbors.cagra_hnswlib.SearchParams
+.. autoclass:: pylibraft.neighbors.hnsw.SearchParams
     :members:
 
-.. autofunction:: pylibraft.neighbors.cagra_hnswlib.search
+.. autofunction:: pylibraft.neighbors.hnsw.from_cagra
+
+.. autofunction:: pylibraft.neighbors.hnsw.search
 
 Serializer Methods
 ------------------
-.. autofunction:: pylibraft.neighbors.cagra_hnswlib.save
+.. autofunction:: pylibraft.neighbors.hnsw.save
 
-.. autofunction:: pylibraft.neighbors.cagra_hnswlib.load
+.. autofunction:: pylibraft.neighbors.hnsw.load
 
 IVF-Flat
 ########

@@ -107,7 +107,7 @@ std::unique_ptr<index<uint8_t>> from_cagra(
  *
  *   // Search K nearest neighbors as an hnswlib index
  *   // using host threads for concurrency
- *   h::seanswrch_params search_params;
+ *   hnsw::search_params search_params;
  *   search_params.ef = 50 // ef >= K;
  *   search_params.num_threads = 10;
  *   auto neighbors = raft::make_host_matrix<uint32_t>(res, n_queries, k);

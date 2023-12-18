@@ -42,9 +42,9 @@ struct index : ann::index {
  public:
   /**
    * @brief load a base-layer-only hnswlib index originally saved from a built CAGRA index.
-   *  This is a virtual class and it cannot be used directly. To create an index, construct
-   *  an instance of `raft::neighbors::cagra_hnswlib::hnswlib_index` from the header
-   *  `raft/neighbores/hnswlib_types.hpp`
+   *  This is a virtual class and it cannot be used directly. To create an index, use the factory
+   *  function `raft::neighbors::hnsw::from_cagra` from the header
+   *  `raft/neighbors/hnsw.hpp`
    *
    * @param[in] dim dimensions of the training dataset
    * @param[in] metric distance metric to search. Supported metrics ("L2Expanded", "InnerProduct")
