@@ -16,7 +16,7 @@
 
 #include <filesystem>
 #include <raft/neighbors/hnsw.hpp>
-#include <raft/neighbors/hnsw_serialize.cuh>
+#include <raft/neighbors/hnsw_serialize.hpp>
 
 #include <raft_runtime/neighbors/cagra.hpp>
 #include <raft_runtime/neighbors/hnsw.hpp>

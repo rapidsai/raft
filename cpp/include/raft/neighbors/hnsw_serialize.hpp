@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/hnsw_serialize.cuh"
+#include "detail/hnsw_serialize.hpp"
 #include "hnsw_types.hpp"
 #include <raft/distance/distance_types.hpp>
 

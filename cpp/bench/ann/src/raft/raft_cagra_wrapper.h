@@ -30,7 +30,6 @@
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/neighbors/detail/cagra/cagra_build.cuh>
-#include <raft/neighbors/hnsw_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/util/cudart_utils.hpp>
