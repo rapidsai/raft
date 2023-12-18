@@ -632,16 +632,6 @@ string(
   APPEND
   code_string
   [=[
-if(NOT TARGET CCCL::Thrust)
-  thrust_create_target(CCCL::Thrust FROM_OPTIONS)
-endif()
-]=]
-)
-
-string(
-  APPEND
-  code_string
-  [=[
 if(compiled IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
