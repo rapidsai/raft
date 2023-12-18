@@ -21,7 +21,7 @@ rapids_test_init()
 
 function(ConfigureTest)
 
-  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY NOCUDA)
+  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY NOCUDA C_LIB)
   set(oneValueArgs NAME GPUS PERCENT)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -49,6 +49,7 @@ function(ConfigureTest)
     PRIVATE raft
             raft_internal
             $<$<BOOL:${_RAFT_TEST_LIB}>:raft::compiled>
+            $<$<BOOL:${_RAFT_TEST_C_LIB}>:raft::c_api>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
@@ -472,10 +473,17 @@ if(BUILD_TESTS)
 endif()
 
 if(BUILD_C_TESTS)
-  enable_language(C)
+ConfigureTest(
+  NAME
+  INTEROP_TEST
+  PATH
+  test/core/interop.cu
+  C_LIB
+)
 
-  add_executable(raft_c_test test/core/c_api.c)
+enable_language(C)
 
-  target_link_libraries(raft_c_test PUBLIC raft::c_api)
+add_executable(raft_c_test test/core/c_api.c)
 
+target_link_libraries(raft_c_test PUBLIC raft::c_api)
 endif()

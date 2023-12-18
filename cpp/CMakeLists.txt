@@ -201,7 +201,11 @@ if(NOT BUILD_CPU_ONLY)
   rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
 endif()
 
-if(BUILD_TESTS)
+if(BUILD_C_LIBRARY)
+  include(cmake/thirdparty/get_dlpack.cmake)
+endif()
+
+if(BUILD_TESTS OR BUILD_C_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
@@ -574,6 +578,12 @@ if (BUILD_C_LIBRARY)
     raft_c PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
   )
 
+  target_include_directories(
+    raft_c
+    PUBLIC "$<BUILD_INTERFACE:${DLPACK_INCLUDE_DIR}>"
+    INTERFACE "$<INSTALL_INTERFACE:include>"
+  )
+
   target_link_libraries(raft_c PUBLIC raft::compiled)
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
@@ -763,7 +773,7 @@ rapids_export(
 # ##################################################################################################
 # * shared test/bench headers ------------------------------------------------
 
-if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
+if(BUILD_TESTS OR BUILD_PRIMS_BENCH OR BUILD_C_TESTS)
   include(internal/CMakeLists.txt)
 endif()
 

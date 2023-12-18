@@ -36,6 +36,6 @@ function(find_and_configure_dlpack VERSION)
   endif()
 endfunction()
 
-set(RAFT_MIN_VERSION_dlpack 0.5)
+set(RAFT_MIN_VERSION_dlpack 0.8)
 
 find_and_configure_dlpack(${RAFT_MIN_VERSION_dlpack})
