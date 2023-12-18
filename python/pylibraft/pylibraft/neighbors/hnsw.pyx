@@ -51,6 +51,8 @@ from pylibraft.common.mdspan cimport (
 )
 from pylibraft.neighbors.common cimport _get_metric_string
 
+import os
+
 import numpy as np
 
 
@@ -129,7 +131,7 @@ cdef class HnswIndexUint8(HnswIndex):
 @auto_sync_handle
 def save(filename, Index index, handle=None):
     """
-    Saves the CAGRA index as an hnswlib base layer only index to a file.
+    Saves the CAGRA index as an hnswlib base-layer-only index to a file.
 
     Saving / loading the index is experimental. The serialization format is
     subject to change.
@@ -199,9 +201,10 @@ def save(filename, Index index, handle=None):
             "Index dtype %s not supported" % index.active_index_type)
 
 
+@auto_sync_handle
 def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
     """
-    Loads base layer only hnswlib index from file, which was originally
+    Loads base-layer-only hnswlib index from file, which was originally
     saved as a built CAGRA index.
 
     Saving / loading the index is experimental. The serialization format is
@@ -271,6 +274,48 @@ def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
         raise ValueError("Dataset dtype %s not supported" % dtype)
 
 
+@auto_sync_handle
+def from_cagra(Index index, handle=None):
+    """
+    Returns an hnswlib base-layer-only index from a CAGRA index.
+
+    NOTE: This method uses the filesystem to write the CAGRA index in
+          `/tmp/cagra_index.bin` before reading it as an hnswlib index,
+          then deleting the temporary file.
+
+    Saving / loading the index is experimental. The serialization format is
+    subject to change.
+
+    Parameters
+    ----------
+    index : Index
+        Trained CAGRA index.
+    {handle_docstring}
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import cagra
+    >>> from pylibraft.neighbors import hnsw
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> # Build index
+    >>> handle = DeviceResources()
+    >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
+    >>> # Serialize the CAGRA index to hnswlib base layer only index format
+    >>> hnsw_index = hnsw.from_cagra(index, handle=handle)
+    """
+    filename = "/tmp/cagra_index.bin"
+    save(filename, index, handle=handle)
+    hnsw_index = load(filename, index.dim, np.dtype(index.active_index_type),
+                      _get_metric_string(index.metric), handle=handle)
+    os.remove(filename)
+    return hnsw_index
+
+
 cdef class SearchParams:
     """
     Hnswlib search parameters
@@ -322,7 +367,7 @@ def search(SearchParams search_params,
     ----------
     search_params : SearchParams
     index : HnswIndex
-        Trained CAGRA index saved as base layer only hnswlib index.
+        Trained CAGRA index saved as base-layer-only hnswlib index.
     queries : array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
     k : int
@@ -351,11 +396,8 @@ def search(SearchParams search_params,
     >>> handle = DeviceResources()
     >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
     >>>
-    >>> Save CAGRA built index as base layer only hnswlib index
-    >>> hnsw.save("my_index.bin", index)
-    >>>
-    >>> Load saved base layer only hnswlib index
-    >>> hnsw_index = hnsw.load("my_index.bin", n_features, dataset.dtype)
+    >>> Load saved base-layer-only hnswlib index from CAGRA index
+    >>> hnsw_index = hnsw.from_cagra(index, handle=handle)
     >>>
     >>> # Search hnswlib using the loaded index
     >>> queries = np.random.random_sample((n_queries, n_features),

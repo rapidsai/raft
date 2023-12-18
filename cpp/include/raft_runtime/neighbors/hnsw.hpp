@@ -23,7 +23,9 @@
 
 namespace raft::runtime::neighbors::hnsw {
 
-#define RAFT_INST_HNSW_FUNCS(T)                                               \
+#define RAFT_INST_HNSW_FUNCS(T, IdxT)                                         \
+  std::unique_ptr<raft::neighbors::hnsw::index<T>> from_cagra(                \
+    raft::resources const& res, raft::neighbors::cagra::index<T, IdxT>);      \
   void search(raft::resources const& handle,                                  \
               raft::neighbors::hnsw::search_params const& params,             \
               raft::neighbors::hnsw::index<T> const& index,                   \
@@ -43,8 +45,8 @@ namespace raft::runtime::neighbors::hnsw {
     int dim,                                                                  \
     raft::distance::DistanceType metric);
 
-RAFT_INST_HNSW_FUNCS(float);
-RAFT_INST_HNSW_FUNCS(int8_t);
-RAFT_INST_HNSW_FUNCS(uint8_t);
+RAFT_INST_HNSW_FUNCS(float, uint32_t);
+RAFT_INST_HNSW_FUNCS(int8_t, uint32_t);
+RAFT_INST_HNSW_FUNCS(uint8_t, uint32_t);
 
 }  // namespace raft::runtime::neighbors::hnsw

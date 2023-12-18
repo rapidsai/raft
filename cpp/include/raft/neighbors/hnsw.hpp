@@ -20,8 +20,11 @@
 #include "hnsw.hpp"
 
 #include <cstddef>
+
+#include <cstdint>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/neighbors/cagra_types.hpp>
 
 namespace raft::neighbors::hnsw {
 
@@ -31,7 +34,48 @@ namespace raft::neighbors::hnsw {
  */
 
 /**
- * @brief Search hnswlib base layer only index constructed from a CAGRA index
+ * @brief Construct an hnswlib base-layer-only index from a CAGRA index
+ * NOTE: 1. This method uses the filesystem to write the CAGRA index in `/tmp/cagra_index.bin`
+ * before reading it as an hnswlib index, then deleting the temporary file.
+ *       2. This function is only offered as a compiled symbol in `libraft.so`
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] res raft resources
+ * @param[in] cagra_index cagra index
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   // Build a CAGRA index
+ *   using namespace raft::neighbors;
+ *   // use default index parameters
+ *   cagra::index_params index_params;
+ *   // create and fill the index from a [N, D] dataset
+ *   auto index = cagra::build(res, index_params, dataset);
+ *
+ *   // Load CAGRA index as base-layer-only hnswlib index
+ *   auto hnsw_index = hnsw::from_cagra(res, index);
+ * @endcode
+ */
+template <typename T, typename IdxT>
+std::unique_ptr<index<T>> from_cagra(raft::resources const& res,
+                                     raft::neighbors::cagra::index<T, IdxT> cagra_index);
+
+template <>
+std::unique_ptr<index<float>> from_cagra(
+  raft::resources const& res, raft::neighbors::cagra::index<float, uint32_t> cagra_index);
+
+template <>
+std::unique_ptr<index<int8_t>> from_cagra(
+  raft::resources const& res, raft::neighbors::cagra::index<int8_t, uint32_t> cagra_index);
+
+template <>
+std::unique_ptr<index<uint8_t>> from_cagra(
+  raft::resources const& res, raft::neighbors::cagra::index<uint8_t, uint32_t> cagra_index);
+
+/**
+ * @brief Search hnswlib base-layer-only index constructed from a CAGRA index
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices

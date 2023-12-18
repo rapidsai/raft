@@ -47,10 +47,7 @@ def run_hnsw_build_search_test(
 
     assert index.trained
 
-    filename = "my_index.bin"
-    hnsw.save(filename, index)
-
-    hnsw_index = hnsw.load(filename, n_cols, dataset.dtype, metric=metric)
+    hnsw_index = hnsw.from_cagra(index)
 
     queries = generate_data((n_queries, n_cols), dtype)
     out_idx = np.zeros((n_queries, k), dtype=np.uint32)
