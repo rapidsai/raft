@@ -65,7 +65,6 @@ def run_hnsw_build_search_test(
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
     recall = calc_recall(out_idx, skl_idx)
-    print(recall)
     assert recall > 0.95
 
 

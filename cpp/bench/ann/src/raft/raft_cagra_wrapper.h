@@ -247,7 +247,7 @@ void RaftCagra<T, IdxT>::save(const std::string& file) const
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::save_to_hnswlib(const std::string& file) const
 {
-  raft::neighbors::hnsw::serialize<T, IdxT>(handle_, file, *index_);
+  raft::neighbors::cagra::serialize_to_hnswlib<T, IdxT>(handle_, file, *index_);
 }
 
 template <typename T, typename IdxT>

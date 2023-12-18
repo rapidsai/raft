@@ -28,7 +28,6 @@ from pylibraft.common.cpp.mdspan cimport (
 )
 from pylibraft.common.handle cimport device_resources
 from pylibraft.distance.distance_type cimport DistanceType
-from pylibraft.neighbors.cagra.cpp.c_cagra cimport index as cagra_index
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     ann_index,
     ann_search_params,
@@ -74,36 +73,6 @@ cdef extern from "raft_runtime/neighbors/hnsw.hpp" \
         host_matrix_view[uint8_t, int64_t, row_major] queries,
         host_matrix_view[uint64_t, int64_t, row_major] neighbors,
         host_matrix_view[float, int64_t, row_major] distances) except +
-
-    cdef void serialize(
-        const device_resources& handle,
-        string& str,
-        const cagra_index[float, uint32_t]& index) except +
-
-    cdef void serialize(
-        const device_resources& handle,
-        string& str,
-        const cagra_index[uint8_t, uint32_t]& index) except +
-
-    cdef void serialize(
-        const device_resources& handle,
-        string& str,
-        const cagra_index[int8_t, uint32_t]& index) except +
-
-    cdef void serialize_to_file(
-        const device_resources& handle,
-        const string& filename,
-        const cagra_index[float, uint32_t]& index) except +
-
-    cdef void serialize_to_file(
-        const device_resources& handle,
-        const string& filename,
-        const cagra_index[uint8_t, uint32_t]& index) except +
-
-    cdef void serialize_to_file(
-        const device_resources& handle,
-        const string& filename,
-        const cagra_index[int8_t, uint32_t]& index) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,

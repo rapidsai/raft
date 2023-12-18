@@ -23,23 +23,17 @@
 
 namespace raft::runtime::neighbors::hnsw {
 
-#define RAFT_INST_HNSW_FUNCS(T, IdxT)                                          \
-  void search(raft::resources const& handle,                                   \
-              raft::neighbors::hnsw::search_params const& params,              \
-              raft::neighbors::hnsw::index<T> const& index,                    \
-              raft::host_matrix_view<const T, int64_t, row_major> queries,     \
-              raft::host_matrix_view<uint64_t, int64_t, row_major> neighbors,  \
-              raft::host_matrix_view<float, int64_t, row_major> distances);    \
-  void serialize(raft::resources const& handle,                                \
-                 std::string& str,                                             \
-                 const raft::neighbors::cagra::index<T, IdxT>& index);         \
-  void serialize_to_file(raft::resources const& handle,                        \
-                         const std::string& filename,                          \
-                         const raft::neighbors::cagra::index<T, IdxT>& index); \
-  void deserialize_file(raft::resources const& handle,                         \
-                        const std::string& filename,                           \
-                        raft::neighbors::hnsw::index<T>*& index,               \
-                        int dim,                                               \
+#define RAFT_INST_HNSW_FUNCS(T, IdxT)                                         \
+  void search(raft::resources const& handle,                                  \
+              raft::neighbors::hnsw::search_params const& params,             \
+              raft::neighbors::hnsw::index<T> const& index,                   \
+              raft::host_matrix_view<const T, int64_t, row_major> queries,    \
+              raft::host_matrix_view<uint64_t, int64_t, row_major> neighbors, \
+              raft::host_matrix_view<float, int64_t, row_major> distances);   \
+  void deserialize_file(raft::resources const& handle,                        \
+                        const std::string& filename,                          \
+                        raft::neighbors::hnsw::index<T>*& index,              \
+                        int dim,                                              \
                         raft::distance::DistanceType metric);
 
 RAFT_INST_HNSW_FUNCS(float, uint32_t);

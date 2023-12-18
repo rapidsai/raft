@@ -416,7 +416,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/neighbors/cagra_build.cu
     src/raft_runtime/neighbors/cagra_search.cu
     src/raft_runtime/neighbors/cagra_serialize.cu
-    src/raft_runtime/neighbors/hnsw.cu
+    src/raft_runtime/neighbors/hnsw.cpp
     src/raft_runtime/neighbors/ivf_flat_build.cu
     src/raft_runtime/neighbors/ivf_flat_search.cu
     src/raft_runtime/neighbors/ivf_flat_serialize.cu

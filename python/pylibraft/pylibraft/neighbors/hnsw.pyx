@@ -191,19 +191,19 @@ def save(filename, Index index, handle=None):
         idx_float = index
         c_index_float = \
             <c_cagra.index[float, uint32_t] *><size_t> idx_float.index
-        c_hnsw.serialize_to_file(
+        c_cagra.serialize_to_hnswlib_file(
             deref(handle_), c_filename, deref(c_index_float))
     elif index.active_index_type == "byte":
         idx_int8 = index
         c_index_int8 = \
             <c_cagra.index[int8_t, uint32_t] *><size_t> idx_int8.index
-        c_hnsw.serialize_to_file(
+        c_cagra.serialize_to_hnswlib_file(
             deref(handle_), c_filename, deref(c_index_int8))
     elif index.active_index_type == "ubyte":
         idx_uint8 = index
         c_index_uint8 = \
             <c_cagra.index[uint8_t, uint32_t] *><size_t> idx_uint8.index
-        c_hnsw.serialize_to_file(
+        c_cagra.serialize_to_hnswlib_file(
             deref(handle_), c_filename, deref(c_index_uint8))
     else:
         raise ValueError(

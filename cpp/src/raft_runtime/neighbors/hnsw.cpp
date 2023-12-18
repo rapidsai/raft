@@ -32,20 +32,6 @@ namespace raft::runtime::neighbors::hnsw {
     raft::neighbors::hnsw::search<T>(handle, params, index, queries, neighbors, distances); \
   }                                                                                         \
                                                                                             \
-  void serialize_to_file(raft::resources const& handle,                                     \
-                         const std::string& filename,                                       \
-                         const raft::neighbors::cagra::index<T, uint32_t>& index)           \
-  {                                                                                         \
-    raft::neighbors::hnsw::serialize(handle, filename, index);                              \
-  };                                                                                        \
-  void serialize(raft::resources const& handle,                                             \
-                 std::string& str,                                                          \
-                 const raft::neighbors::cagra::index<T, uint32_t>& index)                   \
-  {                                                                                         \
-    std::stringstream os;                                                                   \
-    raft::neighbors::hnsw::serialize(handle, os, index);                                    \
-    str = os.str();                                                                         \
-  }                                                                                         \
   void deserialize_file(raft::resources const& handle,                                      \
                         const std::string& filename,                                        \
                         raft::neighbors::hnsw::index<T>*& index,                            \
