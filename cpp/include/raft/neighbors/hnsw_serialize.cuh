@@ -32,9 +32,6 @@ namespace raft::neighbors::hnsw {
 /**
  * Load an hnswlib index which was serialized from a CAGRA index
  *
- * NOTE: This function allocates the index on the heap, and it is
- * the user's responsibility to de-allocate the index
- *
  * Experimental, both the API and the serialization format are subject to change.
  *
  * @code{.cpp}
@@ -45,29 +42,28 @@ namespace raft::neighbors::hnsw {
  * // create a string with a filepath
  * std::string filename("/path/to/index");
  * // create an an unallocated pointer
- * raft::neighbors::hnsw* index;
- * raft::deserialize(handle, filename, index);
- * // use the index, then delete when done
- * delete index;
+ * int dim = 10;
+ * raft::distance::DistanceType = raft::distance::L2Expanded
+ * auto index = raft::deserialize(handle, filename, dim, metric);
  * @endcode
  *
  * @tparam T data element type
  *
  * @param[in] handle the raft handle
  * @param[in] filename the file name for saving the index
- * @param[out] index CAGRA index
  * @param[in] dim dimensionality of the index
  * @param[in] metric metric used to build the index
  *
+ * @return std::unique_ptr<index<T>>
+ *
  */
 template <typename T>
-void deserialize(raft::resources const& handle,
-                 const std::string& filename,
-                 index<T>*& index,
-                 int dim,
-                 raft::distance::DistanceType metric)
+std::unique_ptr<index<T>> deserialize(raft::resources const& handle,
+                                      const std::string& filename,
+                                      int dim,
+                                      raft::distance::DistanceType metric)
 {
-  detail::deserialize<T>(handle, filename, index, dim, metric);
+  return detail::deserialize<T>(handle, filename, dim, metric);
 }
 
 /**@}*/

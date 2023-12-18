@@ -23,21 +23,28 @@
 
 namespace raft::runtime::neighbors::hnsw {
 
-#define RAFT_INST_HNSW_FUNCS(T, IdxT)                                         \
+#define RAFT_INST_HNSW_FUNCS(T)                                               \
   void search(raft::resources const& handle,                                  \
               raft::neighbors::hnsw::search_params const& params,             \
               raft::neighbors::hnsw::index<T> const& index,                   \
               raft::host_matrix_view<const T, int64_t, row_major> queries,    \
               raft::host_matrix_view<uint64_t, int64_t, row_major> neighbors, \
               raft::host_matrix_view<float, int64_t, row_major> distances);   \
-  void deserialize_file(raft::resources const& handle,                        \
-                        const std::string& filename,                          \
-                        raft::neighbors::hnsw::index<T>*& index,              \
-                        int dim,                                              \
-                        raft::distance::DistanceType metric);
+  template <typename DType>                                                   \
+  std::unique_ptr<raft::neighbors::hnsw::index<DType>> deserialize_file(      \
+    raft::resources const& handle,                                            \
+    const std::string& filename,                                              \
+    int dim,                                                                  \
+    raft::distance::DistanceType metric);                                     \
+  template <>                                                                 \
+  std::unique_ptr<raft::neighbors::hnsw::index<T>> deserialize_file(          \
+    raft::resources const& handle,                                            \
+    const std::string& filename,                                              \
+    int dim,                                                                  \
+    raft::distance::DistanceType metric);
 
-RAFT_INST_HNSW_FUNCS(float, uint32_t);
-RAFT_INST_HNSW_FUNCS(int8_t, uint32_t);
-RAFT_INST_HNSW_FUNCS(uint8_t, uint32_t);
+RAFT_INST_HNSW_FUNCS(float);
+RAFT_INST_HNSW_FUNCS(int8_t);
+RAFT_INST_HNSW_FUNCS(uint8_t);
 
 }  // namespace raft::runtime::neighbors::hnsw

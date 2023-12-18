@@ -32,19 +32,20 @@ namespace raft::runtime::neighbors::hnsw {
     raft::neighbors::hnsw::search<T>(handle, params, index, queries, neighbors, distances); \
   }                                                                                         \
                                                                                             \
-  void deserialize_file(raft::resources const& handle,                                      \
-                        const std::string& filename,                                        \
-                        raft::neighbors::hnsw::index<T>*& index,                            \
-                        int dim,                                                            \
-                        raft::distance::DistanceType metric)                                \
+  template <>                                                                               \
+  std::unique_ptr<raft::neighbors::hnsw::index<T>> deserialize_file(                        \
+    raft::resources const& handle,                                                          \
+    const std::string& filename,                                                            \
+    int dim,                                                                                \
+    raft::distance::DistanceType metric)                                                    \
   {                                                                                         \
-    raft::neighbors::hnsw::deserialize(handle, filename, index, dim, metric);               \
+    return raft::neighbors::hnsw::deserialize<T>(handle, filename, dim, metric);            \
   }
 
 RAFT_INST_HNSW(float);
 RAFT_INST_HNSW(int8_t);
 RAFT_INST_HNSW(uint8_t);
 
-#undef RAFT_INST_CAGRA_HNSWLIB
+#undef RAFT_INST_HNSW
 
 }  // namespace raft::runtime::neighbors::hnsw

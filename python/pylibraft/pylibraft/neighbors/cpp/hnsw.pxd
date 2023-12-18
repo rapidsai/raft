@@ -19,6 +19,7 @@
 # cython: language_level = 3
 
 from libc.stdint cimport int8_t, int64_t, uint8_t, uint32_t, uint64_t
+from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 
 from pylibraft.common.cpp.mdspan cimport (
@@ -74,20 +75,20 @@ cdef extern from "raft_runtime/neighbors/hnsw.hpp" \
         host_matrix_view[uint64_t, int64_t, row_major] neighbors,
         host_matrix_view[float, int64_t, row_major] distances) except +
 
-    cdef void deserialize_file(const device_resources& handle,
-                               const string& filename,
-                               index[float]*& index,
-                               int dim,
-                               DistanceType metric) except +
+    cdef unique_ptr[index[float]] deserialize_file[float](
+        const device_resources& handle,
+        const string& filename,
+        int dim,
+        DistanceType metric) except +
 
-    cdef void deserialize_file(const device_resources& handle,
-                               const string& filename,
-                               index[int8_t]*& index,
-                               int dim,
-                               DistanceType metric) except +
+    cdef unique_ptr[index[int8_t]] deserialize_file[int8_t](
+        const device_resources& handle,
+        const string& filename,
+        int dim,
+        DistanceType metric) except +
 
-    cdef void deserialize_file(const device_resources& handle,
-                               const string& filename,
-                               index[uint8_t]*& index,
-                               int dim,
-                               DistanceType metric) except +
+    cdef unique_ptr[index[uint8_t]] deserialize_file[uint8_t](
+        const device_resources& handle,
+        const string& filename,
+        int dim,
+        DistanceType metric) except +

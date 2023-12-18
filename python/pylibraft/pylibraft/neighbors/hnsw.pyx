@@ -21,6 +21,7 @@
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int8_t, uint8_t, uint32_t
 from libcpp cimport bool
+from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 
 cimport pylibraft.neighbors.cagra.cpp.c_cagra as c_cagra
@@ -62,13 +63,13 @@ cdef class HnswIndex:
         self.active_index_type = None
 
 cdef class HnswIndexFloat(HnswIndex):
-    cdef c_hnsw.index[float] * index
+    cdef unique_ptr[c_hnsw.index[float]] index
 
     def __cinit__(self):
         pass
 
     def __repr__(self):
-        m_str = "metric=" + _get_metric_string(self.index.metric())
+        m_str = "metric=" + _get_metric_string(self.metric)
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in ["dim"]]
         attr_str = [m_str] + attr_str
@@ -76,24 +77,20 @@ cdef class HnswIndexFloat(HnswIndex):
 
     @property
     def dim(self):
-        return self.index[0].dim()
+        return self.index.get()[0].dim()
 
     @property
     def metric(self):
-        return self.index[0].metric()
-
-    def __dealloc__(self):
-        if self.index is not NULL:
-            del self.index
+        return self.index.get()[0].metric()
 
 cdef class HnswIndexInt8(HnswIndex):
-    cdef c_hnsw.index[int8_t] * index
+    cdef unique_ptr[c_hnsw.index[int8_t]] index
 
     def __cinit__(self):
         pass
 
     def __repr__(self):
-        m_str = "metric=" + _get_metric_string(self.index.metric())
+        m_str = "metric=" + _get_metric_string(self.metric)
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in ["dim"]]
         attr_str = [m_str] + attr_str
@@ -101,24 +98,20 @@ cdef class HnswIndexInt8(HnswIndex):
 
     @property
     def dim(self):
-        return self.index[0].dim()
+        return self.index.get()[0].dim()
 
     @property
     def metric(self):
-        return self.index[0].metric()
-
-    def __dealloc__(self):
-        if self.index is not NULL:
-            del self.index
+        return self.index.get()[0].metric()
 
 cdef class HnswIndexUint8(HnswIndex):
-    cdef c_hnsw.index[uint8_t] * index
+    cdef unique_ptr[c_hnsw.index[uint8_t]] index
 
     def __cinit__(self):
         pass
 
     def __repr__(self):
-        m_str = "metric=" + _get_metric_string(self.index.metric())
+        m_str = "metric=" + _get_metric_string(self.metric)
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in ["dim"]]
         attr_str = [m_str] + attr_str
@@ -126,15 +119,11 @@ cdef class HnswIndexUint8(HnswIndex):
 
     @property
     def dim(self):
-        return self.index[0].dim()
+        return self.index.get()[0].dim()
 
     @property
     def metric(self):
-        return self.index[0].metric()
-
-    def __dealloc__(self):
-        if self.index is not NULL:
-            del self.index
+        return self.index.get()[0].metric()
 
 
 @auto_sync_handle
@@ -259,22 +248,22 @@ def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
 
     if dtype == np.float32:
         idx_float = HnswIndexFloat()
-        c_hnsw.deserialize_file(
-            deref(handle_), c_filename, idx_float.index, <int> dim, c_metric)
+        idx_float.index = c_hnsw.deserialize_file[float](
+            deref(handle_), c_filename, <int> dim, c_metric)
         idx_float.trained = True
         idx_float.active_index_type = 'float32'
         return idx_float
     elif dtype == np.byte:
         idx_int8 = HnswIndexInt8(dim, metric)
-        c_hnsw.deserialize_file(
-            deref(handle_), c_filename, idx_int8.index, <int> dim, c_metric)
+        idx_int8.index = c_hnsw.deserialize_file[int8_t](
+            deref(handle_), c_filename, <int> dim, c_metric)
         idx_int8.trained = True
         idx_int8.active_index_type = 'byte'
         return idx_int8
     elif dtype == np.ubyte:
         idx_uint8 = HnswIndexUint8(dim, metric)
-        c_hnsw.deserialize_file(
-            deref(handle_), c_filename, idx_uint8.index, <int> dim, c_metric)
+        idx_uint8.index = c_hnsw.deserialize_file[uint8_t](
+            deref(handle_), c_filename, <int> dim, c_metric)
         idx_uint8.trained = True
         idx_uint8.active_index_type = 'ubyte'
         return idx_uint8

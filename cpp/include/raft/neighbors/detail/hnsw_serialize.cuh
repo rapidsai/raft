@@ -35,14 +35,12 @@
 namespace raft::neighbors::hnsw::detail {
 
 template <typename T>
-void deserialize(raft::resources const& handle,
-                 const std::string& filename,
-                 index<T>*& index,
-                 int dim,
-                 raft::distance::DistanceType metric)
+std::unique_ptr<index<T>> deserialize(raft::resources const& handle,
+                                      const std::string& filename,
+                                      int dim,
+                                      raft::distance::DistanceType metric)
 {
-  index = new index_impl<T>(filename, dim, metric);
-  RAFT_EXPECTS(index, "Could not set index pointer");
+  return std::unique_ptr<index<T>>(new index_impl<T>(filename, dim, metric));
 }
 
 }  // namespace raft::neighbors::hnsw::detail
