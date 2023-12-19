@@ -465,25 +465,35 @@ if(BUILD_TESTS)
     test/util/reduction.cu
   )
 
-  # ##################################################################################################
-  # Install tests ####################################################################################
-  # ##################################################################################################
-  rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/gtests/libraft)
-
 endif()
 
 if(BUILD_C_TESTS)
-ConfigureTest(
-  NAME
-  INTEROP_TEST
-  PATH
-  test/core/interop.cu
-  C_LIB
-)
+  ConfigureTest(
+    NAME
+    INTEROP_TEST
+    PATH
+    test/core/interop.cu
+    C_LIB
+  )
 
-enable_language(C)
+  ConfigureTest(
+    NAME
+    CAGRA_C_TEST
+    PATH
+    test/neighbors/ann_cagra_c.cu
+    C_LIB
+  )
+endif()
 
-add_executable(raft_c_test test/core/c_api.c)
+# ##################################################################################################
+# Install tests ####################################################################################
+# ##################################################################################################
+rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/gtests/libraft)
 
-target_link_libraries(raft_c_test PUBLIC raft::c_api)
+if(BUILD_C_TESTS)
+  enable_language(C)
+
+  add_executable(raft_c_test test/core/c_api.c)
+
+  target_link_libraries(raft_c_test PUBLIC raft::c_api)
 endif()

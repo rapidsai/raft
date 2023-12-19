@@ -1382,7 +1382,7 @@ void build(raft::resources const& res,
   if (intermediate_degree >= static_cast<size_t>(dataset.extent(0))) {
     RAFT_LOG_WARN(
       "Intermediate graph degree cannot be larger than dataset size, reducing it to %lu",
-      dataset.extent(0));
+      dataset.extent(0) - 1);
     intermediate_degree = dataset.extent(0) - 1;
   }
   if (intermediate_degree < graph_degree) {
