@@ -27,20 +27,7 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft_runtime/neighbors/cagra.hpp>
 
-extern "C" void cagraDestroyIndex(cagraIndex index)
-{
-  if (index.dtype.code == kDLFloat) {
-    auto index_ptr = reinterpret_cast<raft::neighbors::cagra::index<float, uint32_t>*>(index.addr);
-    delete index_ptr;
-  } else if (index.dtype.code == kDLInt) {
-    auto index_ptr = reinterpret_cast<raft::neighbors::cagra::index<int8_t, uint32_t>*>(index.addr);
-    delete index_ptr;
-  } else if (index.dtype.code == kDLUInt) {
-    auto index_ptr =
-      reinterpret_cast<raft::neighbors::cagra::index<uint8_t, uint32_t>*>(index.addr);
-    delete index_ptr;
-  }
-}
+namespace {
 
 template <typename T>
 void* _build(raftResources_t res, cagraIndexParams params, DLManagedTensor* dataset_tensor)
@@ -67,30 +54,6 @@ void* _build(raftResources_t res, cagraIndexParams params, DLManagedTensor* data
     raft::runtime::neighbors::cagra::build_host(*res_ptr, build_params, mds, *index);
   }
 
-  return index;
-}
-
-extern "C" cagraIndex cagraBuild(raftResources_t res,
-                                 cagraIndexParams params,
-                                 DLManagedTensor* dataset_tensor)
-{
-  auto dataset = dataset_tensor->dl_tensor;
-
-  cagraIndex index;
-  if (dataset.dtype.code == kDLFloat && dataset.dtype.bits == 32) {
-    index.addr       = reinterpret_cast<uintptr_t>(_build<float>(res, params, dataset_tensor));
-    index.dtype.code = kDLFloat;
-  } else if (dataset.dtype.code == kDLInt && dataset.dtype.bits == 8) {
-    index.addr       = reinterpret_cast<uintptr_t>(_build<int8_t>(res, params, dataset_tensor));
-    index.dtype.code = kDLInt;
-  } else if (dataset.dtype.code == kDLUInt && dataset.dtype.bits == 8) {
-    index.addr       = reinterpret_cast<uintptr_t>(_build<uint8_t>(res, params, dataset_tensor));
-    index.dtype.code = kDLUInt;
-  } else {
-    RAFT_FAIL("Unsupported dataset DLtensor dtype: %d and bits: %d",
-              dataset.dtype.code,
-              dataset.dtype.bits);
-  }
   return index;
 }
 
@@ -128,6 +91,47 @@ void _search(raftResources_t res,
   auto distances_mds          = raft::core::from_dlpack<distances_mdspan_type>(distances_tensor);
   raft::runtime::neighbors::cagra::search(
     *res_ptr, search_params, *index_ptr, queries_mds, neighbors_mds, distances_mds);
+}
+
+}  // namespace
+
+extern "C" void cagraDestroyIndex(cagraIndex index)
+{
+  if (index.dtype.code == kDLFloat) {
+    auto index_ptr = reinterpret_cast<raft::neighbors::cagra::index<float, uint32_t>*>(index.addr);
+    delete index_ptr;
+  } else if (index.dtype.code == kDLInt) {
+    auto index_ptr = reinterpret_cast<raft::neighbors::cagra::index<int8_t, uint32_t>*>(index.addr);
+    delete index_ptr;
+  } else if (index.dtype.code == kDLUInt) {
+    auto index_ptr =
+      reinterpret_cast<raft::neighbors::cagra::index<uint8_t, uint32_t>*>(index.addr);
+    delete index_ptr;
+  }
+}
+
+extern "C" cagraIndex cagraBuild(raftResources_t res,
+                                 cagraIndexParams params,
+                                 DLManagedTensor* dataset_tensor)
+{
+  auto dataset = dataset_tensor->dl_tensor;
+
+  cagraIndex index;
+  if (dataset.dtype.code == kDLFloat && dataset.dtype.bits == 32) {
+    index.addr       = reinterpret_cast<uintptr_t>(_build<float>(res, params, dataset_tensor));
+    index.dtype.code = kDLFloat;
+  } else if (dataset.dtype.code == kDLInt && dataset.dtype.bits == 8) {
+    index.addr       = reinterpret_cast<uintptr_t>(_build<int8_t>(res, params, dataset_tensor));
+    index.dtype.code = kDLInt;
+  } else if (dataset.dtype.code == kDLUInt && dataset.dtype.bits == 8) {
+    index.addr       = reinterpret_cast<uintptr_t>(_build<uint8_t>(res, params, dataset_tensor));
+    index.dtype.code = kDLUInt;
+  } else {
+    RAFT_FAIL("Unsupported dataset DLtensor dtype: %d and bits: %d",
+              dataset.dtype.code,
+              dataset.dtype.bits);
+  }
+  return index;
 }
 
 extern "C" void cagraSearch(raftResources_t res,
