@@ -22,12 +22,12 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 
-#include <raft/core/interop.cuh>
+#include <raft/core/interop.hpp>
 #include <raft/neighbors/cagra.h>
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft_runtime/neighbors/cagra.hpp>
 
-extern "C" void cagraIndexDestroy(cagraIndex index)
+extern "C" void cagraDestroyIndex(cagraIndex index)
 {
   if (index.dtype.code == kDLFloat) {
     auto index_ptr = reinterpret_cast<raft::neighbors::cagra::index<float, uint32_t>*>(index.addr);

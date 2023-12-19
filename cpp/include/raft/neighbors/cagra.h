@@ -19,10 +19,19 @@
 #include <dlpack/dlpack.h>
 #include <raft/core/c_api.h>
 
+/**
+ * @defgroup cagra_c C API for CUDA ANN Graph-based nearest neighbor search
+ * @{
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/**
+ * @brief Enum to denote which ANN algorithm is used to build CAGRA graph
+ *
+ */
 enum cagraGraphBuildAlgo {
   /* Use IVF-PQ to build all-neighbors knn graph */
   IVF_PQ,
@@ -30,6 +39,10 @@ enum cagraGraphBuildAlgo {
   NN_DESCENT
 };
 
+/**
+ * @brief Supplemental parameters to build CAGRA Index
+ *
+ */
 struct cagraIndexParams {
   /** Degree of input graph for pruning. */
   size_t intermediate_graph_degree = 128;
@@ -41,6 +54,10 @@ struct cagraIndexParams {
   size_t nn_descent_niter = 20;
 };
 
+/**
+ * @brief Enum to denote algorithm used to search CAGRA Index
+ *
+ */
 enum cagraSearchAlgo {
   /** For large batch sizes. */
   SINGLE_CTA,
@@ -50,8 +67,16 @@ enum cagraSearchAlgo {
   AUTO
 };
 
+/**
+ * @brief Enum to denote Hash Mode used while searching CAGRA index
+ *
+ */
 enum cagraHashMode { HASH, SMALL, AUTO_HASH };
 
+/**
+ * @brief Supplemental parameters to search CAGRA index
+ *
+ */
 typedef struct {
   /** Maximum number of queries to search at the same time (batch size). Auto select when 0.*/
   size_t max_queries = 0;
@@ -102,10 +127,86 @@ typedef struct {
 
 } cagraIndex;
 
-void cagraIndexDestroy(cagraIndex index);
+/**
+ * @brief De-allocate CAGRA index
+ *
+ * @param[in] index cagraIndex which has been returned by function `cagraBuild`
+ */
+void cagraDestroyIndex(cagraIndex index);
 
+/**
+ * @brief Build a CAGRA index with a `DLManagedTensor` which has underlying
+ *        `DLDeviceType` equal to `kDLCUDA`, `kDLCUDAHost`, `kDLCUDAManaged`,
+ *        or `kDLCPU`. Also, acceptable underlying types are:
+ *        1. `kDLDataType.code == kDLFloat` and `kDLDataType.bits = 32`
+ *        2. `kDLDataType.code == kDLInt` and `kDLDataType.bits = 8`
+ *        3. `kDLDataType.code == kDLUInt` and `kDLDataType.bits = 8`
+ *
+ * @code {.c}
+ * #include <raft/core/c_api.h>
+ * #include <raft/neighbors/cagra.h>
+ *
+ * // Create raftResources_t
+ * raftResources_t res;
+ * raftResourcesCreate(&res);
+ *
+ * // Assume a populated `DLManagedTensor` type here
+ * DLManagedTensor dataset;
+ *
+ * // Build the CAGRA Index
+ * cagraIndex index = cagraBuild(res, params, &dataset);
+ *
+ * // de-allocate `index` and `res`
+ * cagraDestroyIndex(index);
+ * raftDestroyResources(res);
+ * @endcode
+ *
+ * @param[in] res raftResources_t opaque C handle
+ * @param[in] params cagraIndexParams used to build CAGRA index
+ * @param[in] dataset DLManagedTensor* training dataset
+ * @return cagraIndex
+ */
 cagraIndex cagraBuild(raftResources_t res, cagraIndexParams params, DLManagedTensor* dataset);
 
+/**
+ * @brief Build a CAGRA index with a `DLManagedTensor` which has underlying
+ *        `DLDeviceType` equal to `kDLCUDA`, `kDLCUDAHost`, `kDLCUDAManaged`.
+ *        It is also important to note that the CAGRA Index must have been built
+ *        with the same type of `queries`, such that `index.dtype.code ==
+ * queries.dl_tensor.dtype.code` Types for input are:
+ *        1. `queries`: kDLDataType.code == kDLFloat` and `kDLDataType.bits = 32`
+ *        2. `neighbors`: `kDLDataType.code == kDLUInt` and `kDLDataType.bits = 32`
+ *        3. `distances`: `kDLDataType.code == kDLFloat` and `kDLDataType.bits = 32`
+ *
+ * @code {.c}
+ * #include <raft/core/c_api.h>
+ * #include <raft/neighbors/cagra.h>
+ *
+ * // Create raftResources_t
+ * raftResources_t res;
+ * raftResourcesCreate(&res);
+ *
+ * // Assume a populated `DLManagedTensor` type here
+ * DLManagedTensor dataset;
+ * DLManagedTensor queries;
+ * DLManagedTensor neighbors;
+ *
+ * // Search the `index` built using `cagraBuild`
+ * cagraSearchParams params;
+ * cagraSearch(res, params, index, queries, neighbors, distances);
+ *
+ * // de-allocate `index` and `res`
+ * cagraDestroyIndex(index);
+ * raftDestroyResources(res);
+ * @endcode
+ *
+ * @param[in] res raftResources_t opaque C handle
+ * @param[in] params cagraSearchParams used to search CAGRA index
+ * @param[in] index cagraIndex which has been returned by `cagraBuild`
+ * @param[in] queries DLManagedTensor* queries dataset to search
+ * @param[out] neighbors DLManagedTensor* output `k` neighbors for queries
+ * @param[out] distances DLManagedTensor* output `k` distances for queries
+ */
 void cagraSearch(raftResources_t res,
                  cagraSearchParams params,
                  cagraIndex index,
@@ -116,3 +217,7 @@ void cagraSearch(raftResources_t res,
 #ifdef __cplusplus
 }
 #endif
+
+/**
+ * @}
+ */

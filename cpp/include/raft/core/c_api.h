@@ -16,23 +16,59 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
 #include <stdint.h>
+
+#include <cuda_runtime.h>
+
+/**
+ * @defgroup c_api C API Core Types and Functions
+ * @{
+ */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/**
+ * @brief An opaque C handle for C++ type `raft::resources`
+ *
+ */
 typedef uintptr_t raftResources_t;
 
+/**
+ * @brief An enum denoting return values for function calls
+ *
+ */
 typedef enum raftError_t { RAFT_ERROR, RAFT_SUCCESS } raftError_t;
 
+/**
+ * @brief Create an Initialized opaque C handle for C++ type `raft::resources`
+ *
+ * @param[in] res raftResources_t opaque C handle
+ * @return raftError_t
+ */
 raftError_t raftCreateResources(raftResources_t* res);
 
+/**
+ * @brief Destroy and de-allocate opaque C handle for C++ type `raft::resources`
+ *
+ * @param[in] res raftResources_t opaque C handle
+ * @return raftError_t
+ */
 raftError_t raftDestroyResources(raftResources_t res);
 
+/**
+ * @brief Set cudaStream_t on raftResources_t to queue CUDA kernels on APIs
+ *        that accept a raftResources_t handle
+ *
+ * @param[in] res raftResources_t opaque C handle
+ * @param[in] stream cudaStream_t stream to queue CUDA kernels
+ * @return raftError_t
+ */
 raftError_t raftSetStream(raftResources_t res, cudaStream_t stream);
 
 #ifdef __cplusplus
 }
 #endif
+
+/** @} */

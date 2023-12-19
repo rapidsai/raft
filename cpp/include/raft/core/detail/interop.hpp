@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include "device_mdspan.hpp"
-#include "host_mdspan.hpp"
-#include "host_span.hpp"
+#include "../device_mdspan.hpp"
+#include "../host_mdspan.hpp"
 
 #include <raft/core/error.hpp>
 #include <raft/core/mdspan_types.hpp>
@@ -27,7 +26,7 @@
 #include <rmm/device_buffer.hpp>
 #include <sys/types.h>
 
-namespace raft::core {
+namespace raft::core::detail {
 
 template <typename AccessorType>
 DLDevice accessor_type_to_DLDevice()
@@ -104,4 +103,4 @@ MdspanType from_dlpack(DLManagedTensor* managed_tensor)
   return MdspanType{reinterpret_cast<typename MdspanType::data_handle_type>(tensor.data), exts};
 }
 
-}  // namespace raft::core
+}  // namespace raft::core::detail

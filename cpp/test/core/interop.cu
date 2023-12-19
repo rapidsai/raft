@@ -20,7 +20,7 @@
 #include <raft/core/resources.hpp>
 
 #include <raft/core/host_mdarray.hpp>
-#include <raft/core/interop.cuh>
+#include <raft/core/interop.hpp>
 
 #include <gtest/gtest.h>
 #include <sys/types.h>

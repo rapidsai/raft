@@ -117,4 +117,8 @@ TEST(CagraC, BuildSearch)
   cudaFree(queries_d);
   cudaFree(neighbors_d);
   cudaFree(distances_d);
+
+  // de-allocate index and res
+  cagraDestroyIndex(index);
+  raftDestroyResources(res);
 }
