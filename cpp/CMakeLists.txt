@@ -206,7 +206,7 @@ target_include_directories(
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass CCCL::Thrust)
+  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass CCCL::CCCL)
 endif()
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
