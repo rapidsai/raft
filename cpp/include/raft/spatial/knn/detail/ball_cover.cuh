@@ -370,7 +370,7 @@ void perform_rbc_eps_nn_query(
 
   resource::sync_stream(handle);
 
-  rbc_eps_pass<value_idx, value_t, value_int>(
+  rbc_eps_pass<value_idx, value_t, value_int, matrix_idx>(
     handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj, vd);
 
   resource::sync_stream(handle);
@@ -394,7 +394,7 @@ void perform_rbc_eps_nn_query(
   value_idx* adj_ja,
   value_idx* vd)
 {
-  rbc_eps_pass<value_idx, value_t, value_int>(
+  rbc_eps_pass<value_idx, value_t, value_int, matrix_idx>(
     handle, index, query, n_query_pts, eps, max_k, landmark_dists, dfunc, adj_ia, adj_ja, vd);
 
   resource::sync_stream(handle);

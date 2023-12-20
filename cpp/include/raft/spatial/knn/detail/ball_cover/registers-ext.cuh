@@ -184,15 +184,9 @@ instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(
   std::int64_t, float, std::uint32_t, 3, raft::spatial::knn::detail::DistFunc);
 
 instantiate_raft_spatial_knn_detail_rbc_eps_pass(
-  std::int64_t, float, std::uint32_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
+  std::int32_t, float, std::int32_t, std::int32_t, raft::spatial::knn::detail::EuclideanFunc);
 instantiate_raft_spatial_knn_detail_rbc_eps_pass(
-  std::int64_t, float, std::int64_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
-instantiate_raft_spatial_knn_detail_rbc_eps_pass(
-  std::int64_t, double, std::int64_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
-instantiate_raft_spatial_knn_detail_rbc_eps_pass(
-  std::int32_t, float, std::int32_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
-instantiate_raft_spatial_knn_detail_rbc_eps_pass(
-  std::int32_t, double, std::int32_t, std::uint32_t, raft::spatial::knn::detail::EuclideanFunc);
+  std::int32_t, double, std::int32_t, std::int32_t, raft::spatial::knn::detail::EuclideanFunc);
 instantiate_raft_spatial_knn_detail_rbc_eps_pass(
   std::int64_t, float, std::int64_t, std::int64_t, raft::spatial::knn::detail::EuclideanFunc);
 instantiate_raft_spatial_knn_detail_rbc_eps_pass(

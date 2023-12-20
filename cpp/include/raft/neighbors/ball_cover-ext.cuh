@@ -166,11 +166,9 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
     float weight);
 
 instantiate_raft_neighbors_ball_cover(int64_t, float, uint32_t, uint32_t);
-instantiate_raft_neighbors_ball_cover(int64_t, float, int64_t, uint32_t);
-instantiate_raft_neighbors_ball_cover(int64_t, double, int64_t, uint32_t);
-instantiate_raft_neighbors_ball_cover(int32_t, float, int32_t, uint32_t);
-instantiate_raft_neighbors_ball_cover(int32_t, double, int32_t, uint32_t);
 
+instantiate_raft_neighbors_ball_cover(int32_t, float, int32_t, int32_t);
+instantiate_raft_neighbors_ball_cover(int32_t, double, int32_t, int32_t);
 instantiate_raft_neighbors_ball_cover(int64_t, float, int64_t, int64_t);
 instantiate_raft_neighbors_ball_cover(int64_t, double, int64_t, int64_t);
 
