@@ -22,6 +22,7 @@
 #include <cmath>
 #include <memory>
 #include <raft/core/logger.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include <stdexcept>
 #include <string>
@@ -47,8 +48,10 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
   if constexpr (std::is_same_v<T, float>) {
-#ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
-    if (algo == "raft_bfknn") { ann = std::make_unique<raft::bench::ann::RaftGpu<T>>(metric, dim); }
+#ifdef RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE
+    if (algo == "raft_brute_force") {
+      ann = std::make_unique<raft::bench::ann::RaftGpu<T>>(metric, dim);
+    }
 #endif
   }
 
@@ -85,7 +88,7 @@ template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-#ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
+#ifdef RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE
   if (algo == "raft_brute_force") {
     auto param = std::make_unique<typename raft::bench::ann::ANN<T>::AnnSearchParam>();
     return param;
@@ -126,15 +129,5 @@ REGISTER_ALGO_INSTANCE(std::uint8_t);
 
 #ifdef ANN_BENCH_BUILD_MAIN
 #include "../common/benchmark.hpp"
-int main(int argc, char** argv)
-{
-  rmm::mr::cuda_memory_resource cuda_mr;
-  // Construct a resource that uses a coalescing best-fit pool allocator
-  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr};
-  rmm::mr::set_current_device_resource(
-    &pool_mr);  // Updates the current device resource pointer to `pool_mr`
-  rmm::mr::device_memory_resource* mr =
-    rmm::mr::get_current_device_resource();  // Points to `pool_mr`
-  return raft::bench::ann::run_main(argc, argv);
-}
+int main(int argc, char** argv) { return raft::bench::ann::run_main(argc, argv); }
 #endif

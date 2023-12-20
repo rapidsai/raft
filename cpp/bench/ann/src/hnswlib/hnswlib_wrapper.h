@@ -82,6 +82,7 @@ class HnswLib : public ANN<T> {
 
   void save(const std::string& path_to_index) const override;
   void load(const std::string& path_to_index) override;
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<HnswLib<T>>(*this); };
 
   AlgoProperty get_preference() const override
   {
@@ -96,15 +97,15 @@ class HnswLib : public ANN<T> {
  private:
   void get_search_knn_results_(const T* query, int k, size_t* indices, float* distances) const;
 
-  std::unique_ptr<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>> appr_alg_;
-  std::unique_ptr<hnswlib::SpaceInterface<typename hnsw_dist_t<T>::type>> space_;
+  std::shared_ptr<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>> appr_alg_;
+  std::shared_ptr<hnswlib::SpaceInterface<typename hnsw_dist_t<T>::type>> space_;
 
   using ANN<T>::metric_;
   using ANN<T>::dim_;
   int ef_construction_;
   int m_;
   int num_threads_;
-  std::unique_ptr<FixedThreadPool> thread_pool_;
+  std::shared_ptr<FixedThreadPool> thread_pool_;
   Objective metric_objective_;
 };
 
@@ -129,18 +130,18 @@ void HnswLib<T>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
   if constexpr (std::is_same_v<T, float>) {
     if (metric_ == Metric::kInnerProduct) {
-      space_ = std::make_unique<hnswlib::InnerProductSpace>(dim_);
+      space_ = std::make_shared<hnswlib::InnerProductSpace>(dim_);
     } else {
-      space_ = std::make_unique<hnswlib::L2Space>(dim_);
+      space_ = std::make_shared<hnswlib::L2Space>(dim_);
     }
   } else if constexpr (std::is_same_v<T, uint8_t>) {
-    space_ = std::make_unique<hnswlib::L2SpaceI>(dim_);
+    space_ = std::make_shared<hnswlib::L2SpaceI>(dim_);
   }
 
-  appr_alg_ = std::make_unique<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(
+  appr_alg_ = std::make_shared<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(
     space_.get(), nrow, m_, ef_construction_);
 
-  thread_pool_                  = std::make_unique<FixedThreadPool>(num_threads_);
+  thread_pool_                  = std::make_shared<FixedThreadPool>(num_threads_);
   const size_t items_per_thread = nrow / (num_threads_ + 1);
 
   thread_pool_->submit(
@@ -168,7 +169,7 @@ void HnswLib<T>::set_search_param(const AnnSearchParam& param_)
 
   // Create a pool if multiple query threads have been set and the pool hasn't been created already
   bool create_pool = (metric_objective_ == Objective::LATENCY && num_threads_ > 1 && !thread_pool_);
-  if (create_pool) { thread_pool_ = std::make_unique<FixedThreadPool>(num_threads_); }
+  if (create_pool) { thread_pool_ = std::make_shared<FixedThreadPool>(num_threads_); }
 }
 
 template <typename T>
@@ -199,15 +200,15 @@ void HnswLib<T>::load(const std::string& path_to_index)
 {
   if constexpr (std::is_same_v<T, float>) {
     if (metric_ == Metric::kInnerProduct) {
-      space_ = std::make_unique<hnswlib::InnerProductSpace>(dim_);
+      space_ = std::make_shared<hnswlib::InnerProductSpace>(dim_);
     } else {
-      space_ = std::make_unique<hnswlib::L2Space>(dim_);
+      space_ = std::make_shared<hnswlib::L2Space>(dim_);
     }
   } else if constexpr (std::is_same_v<T, uint8_t>) {
-    space_ = std::make_unique<hnswlib::L2SpaceI>(dim_);
+    space_ = std::make_shared<hnswlib::L2SpaceI>(dim_);
   }
 
-  appr_alg_ = std::make_unique<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(
+  appr_alg_ = std::make_shared<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(
     space_.get(), path_to_index);
 }
 

@@ -50,7 +50,7 @@ requirements:
     - libraft-headers {{ version }}
     - python x.x
     - rmm ={{ minor_version }}
-    - scikit-build >=0.13.1
+    - scikit-build-core >=0.7.0
     - setuptools
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
