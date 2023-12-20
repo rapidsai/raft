@@ -1,0 +1,5 @@
+name: faiss_cpu_flat
+groups:
+  base:
+    build:
+    search:
