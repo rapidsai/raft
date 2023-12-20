@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <type_traits>
 
 namespace raft::matrix {
 
@@ -23,31 +24,34 @@ namespace raft::matrix {
  * @{
  */
 
-enum class SelectAlgo {
-  kAuto,
-  kRadix8bits,
-  kRadix11bits,
-  kRadix11bitsExtraPass,
-  kWarpAuto,
-  kWarpImmediate,
-  kWarpFiltered,
-  kWarpDistributed,
-  kWarpDistributedShm,
+enum class SelectAlgo : uint8_t {
+  kAuto                 = 0,
+  kRadix8bits           = 1,
+  kRadix11bits          = 2,
+  kRadix11bitsExtraPass = 3,
+  kWarpAuto             = 4,
+  kWarpImmediate        = 5,
+  kWarpFiltered         = 6,
+  kWarpDistributed      = 7,
+  kWarpDistributedShm   = 8,
 };
 
 inline auto operator<<(std::ostream& os, const SelectAlgo& algo) -> std::ostream&
 {
+  auto underlying_value = static_cast<std::underlying_type<SelectAlgo>::type>(algo);
+
   switch (algo) {
-    case SelectAlgo::kAuto: return os << "kAuto";
-    case SelectAlgo::kRadix8bits: return os << "kRadix8bits";
-    case SelectAlgo::kRadix11bits: return os << "kRadix11bits";
-    case SelectAlgo::kRadix11bitsExtraPass: return os << "kRadix11bitsExtraPass";
-    case SelectAlgo::kWarpAuto: return os << "kWarpAuto";
-    case SelectAlgo::kWarpImmediate: return os << "kWarpImmediate";
-    case SelectAlgo::kWarpFiltered: return os << "kWarpFiltered";
-    case SelectAlgo::kWarpDistributed: return os << "kWarpDistributed";
-    case SelectAlgo::kWarpDistributedShm: return os << "kWarpDistributedShm";
-    default: return os << "unknown enum value";
+    case SelectAlgo::kAuto: return os << "kAuto=" << underlying_value;
+    case SelectAlgo::kRadix8bits: return os << "kRadix8bits=" << underlying_value;
+    case SelectAlgo::kRadix11bits: return os << "kRadix11bits=" << underlying_value;
+    case SelectAlgo::kRadix11bitsExtraPass:
+      return os << "kRadix11bitsExtraPass=" << underlying_value;
+    case SelectAlgo::kWarpAuto: return os << "kWarpAuto=" << underlying_value;
+    case SelectAlgo::kWarpImmediate: return os << "kWarpImmediate=" << underlying_value;
+    case SelectAlgo::kWarpFiltered: return os << "kWarpFiltered=" << underlying_value;
+    case SelectAlgo::kWarpDistributed: return os << "kWarpDistributed=" << underlying_value;
+    case SelectAlgo::kWarpDistributedShm: return os << "kWarpDistributedShm=" << underlying_value;
+    default: throw std::invalid_argument("invalid value for SelectAlgo");
   }
 }
 
