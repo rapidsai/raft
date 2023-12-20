@@ -17,33 +17,33 @@
 
 #include <cassert>
 #include <memory>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
-#include <raft/spatial/knn/detail/fused_l2_knn.cuh>
+#include <raft/neighbors/brute_force.cuh>
+#include <raft/neighbors/brute_force_serialize.cuh>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 
 #include "../common/ann_types.hpp"
+#include "raft_ann_bench_utils.h"
 
 namespace raft_temp {
 
 inline raft::distance::DistanceType parse_metric_type(raft::bench::ann::Metric metric)
 {
-  if (metric == raft::bench::ann::Metric::kInnerProduct) {
-    return raft::distance::DistanceType::InnerProduct;
-  } else if (metric == raft::bench::ann::Metric::kEuclidean) {
-    return raft::distance::DistanceType::L2Expanded;
-  } else {
-    throw std::runtime_error("raft supports only metric type of inner product and L2");
+  switch (metric) {
+    case raft::bench::ann::Metric::kInnerProduct: return raft::distance::DistanceType::InnerProduct;
+    case raft::bench::ann::Metric::kEuclidean: return raft::distance::DistanceType::L2Expanded;
+    default: throw std::runtime_error("raft supports only metric type of inner product and L2");
   }
 }
-
 }  // namespace raft_temp
 
 namespace raft::bench::ann {
 
-// brute force fused L2 KNN - RAFT
+// brute force KNN - RAFT
 template <typename T>
 class RaftGpu : public ANN<T> {
  public:
@@ -74,9 +74,13 @@ class RaftGpu : public ANN<T> {
   }
   void set_search_dataset(const T* dataset, size_t nrow) override;
   void save(const std::string& file) const override;
-  void load(const std::string&) override { return; };
+  void load(const std::string&) override;
+  std::unique_ptr<ANN<T>> copy() override;
 
  protected:
+  // handle_ must go first to make sure it dies last and all memory allocated in pool
+  configured_raft_resources handle_{};
+  std::shared_ptr<raft::neighbors::brute_force::index<T>> index_;
   raft::distance::DistanceType metric_type_;
   int device_;
   const T* dataset_;
@@ -87,16 +91,19 @@ template <typename T>
 RaftGpu<T>::RaftGpu(Metric metric, int dim)
   : ANN<T>(metric, dim), metric_type_(raft_temp::parse_metric_type(metric))
 {
-  static_assert(std::is_same_v<T, float>, "raft support only float type");
-  assert(metric_type_ == raft::distance::DistanceType::L2Expanded);
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                "raft bfknn only supports float/double");
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
 
 template <typename T>
-void RaftGpu<T>::build(const T*, size_t, cudaStream_t)
+void RaftGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
-  // as this is brute force algo so no index building required
-  return;
+  auto dataset_view = raft::make_host_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
+  index_            = std::make_shared<raft::neighbors::brute_force::index<T>>(
+    std::move(raft::neighbors::brute_force::build(handle_, dataset_view)));
+
+  handle_.stream_wait(stream);
 }
 
 template <typename T>
@@ -115,15 +122,14 @@ void RaftGpu<T>::set_search_dataset(const T* dataset, size_t nrow)
 template <typename T>
 void RaftGpu<T>::save(const std::string& file) const
 {
-  // create a empty index file as no index to store.
-  std::fstream fp;
-  fp.open(file.c_str(), std::ios::out);
-  if (!fp) {
-    printf("Error in creating file!!!\n");
-    ;
-    return;
-  }
-  fp.close();
+  raft::neighbors::brute_force::serialize<T>(handle_, file, *index_);
+}
+
+template <typename T>
+void RaftGpu<T>::load(const std::string& file)
+{
+  index_ = std::make_shared<raft::neighbors::brute_force::index<T>>(
+    std::move(raft::neighbors::brute_force::deserialize<T>(handle_, file)));
 }
 
 template <typename T>
@@ -134,20 +140,22 @@ void RaftGpu<T>::search(const T* queries,
                         float* distances,
                         cudaStream_t stream) const
 {
-  // TODO: Integrate new `raft::brute_force::index` (from
-  // https://github.com/rapidsai/raft/pull/1817)
-  raft::spatial::knn::detail::fusedL2Knn(this->dim_,
-                                         reinterpret_cast<int64_t*>(neighbors),
-                                         distances,
-                                         dataset_,
-                                         queries,
-                                         nrow_,
-                                         static_cast<size_t>(batch_size),
-                                         k,
-                                         true,
-                                         true,
-                                         stream,
-                                         metric_type_);
+  auto queries_view =
+    raft::make_device_matrix_view<const T, int64_t>(queries, batch_size, this->dim_);
+
+  auto neighbors_view = raft::make_device_matrix_view<size_t, int64_t>(neighbors, batch_size, k);
+  auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, batch_size, k);
+
+  raft::neighbors::brute_force::search<T, size_t>(
+    handle_, *index_, queries_view, neighbors_view, distances_view);
+
+  handle_.stream_wait(stream);
+}
+
+template <typename T>
+std::unique_ptr<ANN<T>> RaftGpu<T>::copy()
+{
+  return std::make_unique<RaftGpu<T>>(*this);  // use copy constructor
 }
 
 }  // namespace raft::bench::ann

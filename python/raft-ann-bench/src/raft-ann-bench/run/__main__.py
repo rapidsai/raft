@@ -498,8 +498,8 @@ def main():
             )
             if executable not in executables_to_run:
                 executables_to_run[executable] = {"index": []}
-            build_params = algos_conf[algo]["groups"][group]["build"]
-            search_params = algos_conf[algo]["groups"][group]["search"]
+            build_params = algos_conf[algo]["groups"][group]["build"] or {}
+            search_params = algos_conf[algo]["groups"][group]["search"] or {}
 
             param_names = []
             param_lists = []

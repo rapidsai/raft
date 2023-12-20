@@ -143,7 +143,7 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
     parse_search_param<T>(conf, *param);
     return param;
   } else if (algo == "faiss_cpu_flat") {
-    auto param = std::make_unique<typename raft::bench::ann::ANN<T>::AnnSearchParam>();
+    auto param = std::make_unique<typename raft::bench::ann::FaissCpu<T>::SearchParam>();
     return param;
   }
   // else

@@ -22,6 +22,7 @@
 #include <cmath>
 #include <memory>
 #include <raft/core/logger.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include <stdexcept>
 #include <string>
@@ -47,8 +48,10 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
   if constexpr (std::is_same_v<T, float>) {
-#ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
-    if (algo == "raft_bfknn") { ann = std::make_unique<raft::bench::ann::RaftGpu<T>>(metric, dim); }
+#ifdef RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE
+    if (algo == "raft_brute_force") {
+      ann = std::make_unique<raft::bench::ann::RaftGpu<T>>(metric, dim);
+    }
 #endif
   }
 
@@ -85,7 +88,7 @@ template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-#ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
+#ifdef RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE
   if (algo == "raft_brute_force") {
     auto param = std::make_unique<typename raft::bench::ann::ANN<T>::AnnSearchParam>();
     return param;

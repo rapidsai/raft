@@ -20,7 +20,7 @@
 #include <nlohmann/json.hpp>
 
 #undef WARP_SIZE
-#ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
+#ifdef RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE
 #include "raft_wrapper.h"
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
