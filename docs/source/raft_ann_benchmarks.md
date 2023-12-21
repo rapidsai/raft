@@ -171,8 +171,8 @@ options:
 
 `algo-groups`: this parameter is helpful to append any specific algorithm+group combination to run the benchmark for in addition to all the arguments from `algorithms` and `groups`. It is of the format `<algorithm>.<group>`, or for example, `raft_cagra.large`
 
-For every algorithm run by this script, it outputs an index build statistics JSON file in `<dataset-path/<dataset>/result/build/<algo_{group}-{k}-{batch_size}.json>`
-and an index search statistics JSON file in `<dataset-path/<dataset>/result/search/<algo_{group}-{k}-{batch_size}.json>`. NOTE: The filenams will not have "_{group}" if `group = "base"`.
+For every algorithm run by this script, it outputs an index build statistics JSON file in `<dataset-path/<dataset>/result/build/<{algo},{group}.json>`
+and an index search statistics JSON file in `<dataset-path/<dataset>/result/search/<{algo},{group},k{k},bs{batch_size}.json>`. NOTE: The filenames will not have ",{group}" if `group = "base"`.
 
 `dataset-path` :
 1. data is read from `<dataset-path>/<dataset>`
@@ -198,8 +198,8 @@ options:
   --dataset-path DATASET_PATH
                         path to dataset folder (default: ${RAPIDS_DATASET_ROOT_DIR})
 ```
-Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<algo_group.csv>`
-and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo_group-k{k}-batch_size{batch_size}_{suffix}.csv>`, where suffix has three values:
+Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<{algo},{group}.csv>`
+and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<{algo},{group},k{k},bs{batch_size},{suffix}.csv>`, where suffix has three values:
 1. `raw`: All search results are exported
 2. `throughput`: Pareto frontier of throughput results is exported
 3. `latency`: Pareto frontier of latency results is exported
@@ -212,8 +212,8 @@ CSV files `<dataset-path/<dataset>/result/search/*.csv`.
 The usage of this script is:
 ```bash
 usage:  [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS]
-        [-k COUNT] [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--mode {throughput,latency}] [--time-unit {s,ms,us}]
-        [--raw]
+        [-k COUNT] [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--x-start X_START] [--mode {throughput,latency}]
+        [--time-unit {s,ms,us}] [--raw]
 
 options:
   -h, --help            show this help message and exit
@@ -237,6 +237,7 @@ options:
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
   --y-scale {linear,log,symlog,logit}
                         Scale to use when drawing the Y-axis (default: linear)
+  --x-start X_START     Recall values to start the x-axis from (default: 0.8)
   --mode {throughput,latency}
                         search mode whose Pareto frontier is used on the y-axis (default: throughput)
   --time-unit {s,ms,us}
