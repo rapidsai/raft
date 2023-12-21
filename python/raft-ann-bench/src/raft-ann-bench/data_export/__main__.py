@@ -74,7 +74,9 @@ def read_file(dataset, dataset_path, method):
                 try:
                     data = json.load(f)
                     df = pd.DataFrame(data["benchmarks"])
-                    yield os.path.join(dir, file), file.split("-")[0], df
+                    filename_split = file.split(",")
+                    algo_name = (filename_split[0], filename_split[1])
+                    yield os.path.join(dir, file), algo_name, df
                 except Exception as e:
                     print(
                         "An error occurred processing file %s (%s). "
@@ -85,7 +87,10 @@ def read_file(dataset, dataset_path, method):
 def convert_json_to_csv_build(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "build"):
         try:
-            algo_name = algo_name.replace("_base", "")
+            if "base" in algo_name[1]:
+                algo_name = algo_name[0]
+            else:
+                algo_name = "_".join(algo_name)
             df["name"] = df["name"].str.split("/").str[0]
             write = pd.DataFrame(
                 {
@@ -97,12 +102,7 @@ def convert_json_to_csv_build(dataset, dataset_path):
             for name in df:
                 if name not in skip_build_cols:
                     write[name] = df[name]
-            filepath = os.path.normpath(file).split(os.sep)
-            filename = filepath[-1].split("-")[0] + ".csv"
-            write.to_csv(
-                os.path.join(f"{os.sep}".join(filepath[:-1]), filename),
-                index=False,
-            )
+            write.to_csv(file.replace(".json", ".csv"), index=False)
         except Exception as e:
             print(
                 "An error occurred processing file %s (%s). Skipping..."
@@ -140,9 +140,17 @@ def convert_json_to_csv_search(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "search"):
         try:
             build_file = os.path.join(
-                dataset_path, dataset, "result", "build", f"{algo_name}.csv"
+                dataset_path,
+                dataset,
+                "result",
+                "build",
+                f"{','.join(algo_name)}.csv",
             )
-            algo_name = algo_name.replace("_base", "")
+            print(build_file)
+            if "base" in algo_name[1]:
+                algo_name = algo_name[0]
+            else:
+                algo_name = "_".join(algo_name)
             df["name"] = df["name"].str.split("/").str[0]
             try:
                 write = pd.DataFrame(
@@ -201,13 +209,13 @@ def convert_json_to_csv_search(dataset, dataset_path):
                     "appended in the Search CSV"
                 )
 
-            write.to_csv(file.replace(".json", "_raw.csv"), index=False)
+            write.to_csv(file.replace(".json", ",raw.csv"), index=False)
             throughput = get_frontier(write, "throughput")
             throughput.to_csv(
-                file.replace(".json", "_throughput.csv"), index=False
+                file.replace(".json", ",throughput.csv"), index=False
             )
             latency = get_frontier(write, "latency")
-            latency.to_csv(file.replace(".json", "_latency.csv"), index=False)
+            latency.to_csv(file.replace(".json", ",latency.csv"), index=False)
         except Exception as e:
             print(
                 "An error occurred processing file %s (%s). Skipping..."
