@@ -61,7 +61,7 @@ void print_results(raft::device_resources const& dev_resources,
   // We need to sync the stream before accessing the data.
   raft::resource::sync_stream(dev_resources, stream);
 
-  for (int query_id = 0; query_id < 2; query_id++) {
+  for (int query_id = 0; query_id < neighbors.extent(0); query_id++) {
     std::cout << "Query " << query_id << " neighbor indices: ";
     raft::print_host_vector("", &neighbors_host(query_id, 0), topk, std::cout);
     std::cout << "Query " << query_id << " neighbor distances: ";
