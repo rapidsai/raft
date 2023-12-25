@@ -76,6 +76,11 @@ void parse_build_param(const nlohmann::json& conf,
   } else {
     param.bitsPerCode = 8;
   }
+  if (conf.contains("raft_refinement")) {
+    param.raft_refinement = conf.at("raft_refinement");
+  } else {
+    param.raft_refinement = false;
+  }
 }
 
 template <typename T>

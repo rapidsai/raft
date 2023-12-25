@@ -193,6 +193,7 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
       RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), resource::get_cuda_stream(handle_)));
       RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), stream));
       RAFT_CUDA_TRY(cudaEventSynchronize(handle_.get_sync_event()));
+      // auto refinement_start = std::chrono::high_resolution_clock::now();
       raft::runtime::neighbors::refine(handle_,
                                        dataset_v,
                                        queries_host.view(),
@@ -203,6 +204,12 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
 
       raft::copy(neighbors, (size_t*)neighbors_host.data_handle(), neighbors_host.size(), stream);
       raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
+
+      // auto refinement_end = std::chrono::high_resolution_clock::now();
+
+      // auto refinement_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+      //       refinement_end - refinement_start);
+      // RAFT_LOG_INFO("raft_refinement_duration %ld\n", refinement_duration.count());
     }
   } else {
     auto queries_v =
