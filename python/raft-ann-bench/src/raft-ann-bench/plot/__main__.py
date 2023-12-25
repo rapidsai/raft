@@ -62,6 +62,19 @@ def positive_int(input_str: str) -> int:
     return i
 
 
+def positive_float(input_str: str) -> float:
+    try:
+        i = float(input_str)
+        if i < 0.0:
+            raise ValueError
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"{input_str} is not a positive float"
+        )
+
+    return i
+
+
 def generate_n_colors(n):
     vs = np.linspace(0.3, 0.9, 7)
     colors = [(0.9, 0.4, 0.4, 1.0)]
@@ -113,9 +126,11 @@ def create_plot_search(
     batch_size,
     mode,
     time_unit,
+    x_start,
 ):
     xn = "k-nn"
     xm, ym = (metrics[xn], metrics[mode])
+    xm["lim"][0] = x_start
     # Now generate each plot
     handles = []
     labels = []
@@ -210,20 +225,15 @@ def create_plot_search(
 
 
 def create_plot_build(
-    build_results, search_results, linestyles, fn_out, dataset
+    build_results, search_results, linestyles, fn_out, dataset, k, batch_size
 ):
+    bt_80 = [0] * len(linestyles)
 
-    qps_85 = [-1] * len(linestyles)
-    bt_85 = [0] * len(linestyles)
-    i_85 = [-1] * len(linestyles)
-
-    qps_90 = [-1] * len(linestyles)
     bt_90 = [0] * len(linestyles)
-    i_90 = [-1] * len(linestyles)
 
-    qps_95 = [-1] * len(linestyles)
     bt_95 = [0] * len(linestyles)
-    i_95 = [-1] * len(linestyles)
+
+    bt_99 = [0] * len(linestyles)
 
     data = OrderedDict()
     colors = OrderedDict()
@@ -236,35 +246,59 @@ def create_plot_build(
 
     for pos, algo in enumerate(sorted(search_results.keys(), key=mean_y)):
         points = np.array(search_results[algo], dtype=object)
+        # x is recall, ls is algo_name, idxs is index_name
         xs = points[:, 2]
-        ys = points[:, 3]
         ls = points[:, 0]
         idxs = points[:, 1]
-        # x is recall, y is qps, ls is algo_name, idxs is index_name
+
+        len_80, len_90, len_95, len_99 = 0, 0, 0, 0
         for i in range(len(xs)):
-            if xs[i] >= 0.85 and xs[i] < 0.9 and ys[i] > qps_85[pos]:
-                qps_85[pos] = ys[i]
-                bt_85[pos] = build_results[(ls[i], idxs[i])][0][2]
-                i_85[pos] = idxs[i]
-            elif xs[i] >= 0.9 and xs[i] < 0.95 and ys[i] > qps_90[pos]:
-                qps_90[pos] = ys[i]
-                bt_90[pos] = build_results[(ls[i], idxs[i])][0][2]
-                i_90[pos] = idxs[i]
-            elif xs[i] >= 0.95 and ys[i] > qps_95[pos]:
-                qps_95[pos] = ys[i]
-                bt_95[pos] = build_results[(ls[i], idxs[i])][0][2]
-                i_95[pos] = idxs[i]
-        data[algo] = [bt_85[pos], bt_90[pos], bt_95[pos]]
+            if xs[i] >= 0.80 and xs[i] < 0.90:
+                bt_80[pos] = bt_80[pos] + build_results[(ls[i], idxs[i])][0][2]
+                len_80 = len_80 + 1
+            elif xs[i] >= 0.9 and xs[i] < 0.95:
+                bt_90[pos] = bt_90[pos] + build_results[(ls[i], idxs[i])][0][2]
+                len_90 = len_90 + 1
+            elif xs[i] >= 0.95 and xs[i] < 0.99:
+                bt_95[pos] = bt_95[pos] + build_results[(ls[i], idxs[i])][0][2]
+                len_95 = len_95 + 1
+            elif xs[i] >= 0.99:
+                bt_99[pos] = bt_99[pos] + build_results[(ls[i], idxs[i])][0][2]
+                len_99 = len_99 + 1
+        if len_80 > 0:
+            bt_80[pos] = bt_80[pos] / len_80
+        if len_90 > 0:
+            bt_90[pos] = bt_90[pos] / len_90
+        if len_95 > 0:
+            bt_95[pos] = bt_95[pos] / len_95
+        if len_99 > 0:
+            bt_99[pos] = bt_99[pos] / len_99
+        data[algo] = [
+            bt_80[pos],
+            bt_90[pos],
+            bt_95[pos],
+            bt_99[pos],
+        ]
         colors[algo] = linestyles[algo][0]
 
-    index = ["@85% Recall", "@90% Recall", "@95% Recall"]
+    index = [
+        "@80% Recall",
+        "@90% Recall",
+        "@95% Recall",
+        "@99% Recall",
+    ]
 
     df = pd.DataFrame(data, index=index)
+    df.replace(0.0, np.nan, inplace=True)
+    df = df.dropna(how="all")
     plt.figure(figsize=(12, 9))
     ax = df.plot.bar(rot=0, color=colors)
     fig = ax.get_figure()
     print(f"writing build output to {fn_out}")
-    plt.title("Build Time for Highest QPS")
+    plt.title(
+        "Average Build Time within Recall Range "
+        f"for k={k} batch_size={batch_size}"
+    )
     plt.suptitle(f"{dataset}")
     plt.ylabel("Build Time (s)")
     fig.savefig(fn_out)
@@ -343,9 +377,9 @@ def load_all_results(
         ]
     elif method == "search":
         if raw:
-            suffix = "_raw"
+            suffix = ",raw"
         else:
-            suffix = f"_{mode}"
+            suffix = f",{mode}"
         result_files = [
             result_file
             for result_file in result_files
@@ -355,22 +389,20 @@ def load_all_results(
         raise FileNotFoundError(f"No CSV result files found in {results_path}")
 
     if method == "search":
-        result_files = [
-            result_filename
-            for result_filename in result_files
-            if f"{k}-{batch_size}" in result_filename
-        ]
-        algo_group_files = [
-            result_filename.split("-")[0] for result_filename in result_files
-        ]
-    else:
-        algo_group_files = [
-            result_filename for result_filename in result_files
-        ]
+        filter_k_bs = []
+        for result_filename in result_files:
+            filename_split = result_filename.split(",")
+            if (
+                int(filename_split[-3][1:]) == k
+                and int(filename_split[-2][2:]) == batch_size
+            ):
+                filter_k_bs.append(result_filename)
+        result_files = filter_k_bs
 
-    for i in range(len(algo_group_files)):
-        algo_group = algo_group_files[i].replace(".csv", "").split("_")
-        algo_group_files[i] = ("_".join(algo_group[:-1]), algo_group[-1])
+    algo_group_files = [
+        result_filename.replace(".csv", "").split(",")[:2]
+        for result_filename in result_files
+    ]
     algo_group_files = list(zip(*algo_group_files))
 
     if len(algorithms) > 0:
@@ -478,6 +510,12 @@ def main():
         default="linear",
     )
     parser.add_argument(
+        "--x-start",
+        help="Recall values to start the x-axis from",
+        default=0.8,
+        type=positive_float,
+    )
+    parser.add_argument(
         "--mode",
         help="search mode whose Pareto frontier is used on the y-axis",
         choices=["throughput", "latency"],
@@ -524,7 +562,7 @@ def main():
     )
     build_output_filepath = os.path.join(
         args.output_filepath,
-        f"build-{args.dataset}.png",
+        f"build-{args.dataset}-k{k}-batch_size{batch_size}.png",
     )
 
     search_results = load_all_results(
@@ -553,6 +591,7 @@ def main():
             batch_size,
             args.mode,
             args.time_unit,
+            args.x_start,
         )
     if build:
         build_results = load_all_results(
@@ -574,6 +613,8 @@ def main():
             linestyles,
             build_output_filepath,
             args.dataset,
+            k,
+            batch_size,
         )
 
 

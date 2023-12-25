@@ -193,7 +193,6 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
       RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), resource::get_cuda_stream(handle_)));
       RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), stream));
       RAFT_CUDA_TRY(cudaEventSynchronize(handle_.get_sync_event()));
-      // auto refinement_start = std::chrono::high_resolution_clock::now();
       raft::runtime::neighbors::refine(handle_,
                                        dataset_v,
                                        queries_host.view(),
