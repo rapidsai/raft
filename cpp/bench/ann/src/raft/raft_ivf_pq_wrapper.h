@@ -203,6 +203,12 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
 
       raft::copy(neighbors, (size_t*)neighbors_host.data_handle(), neighbors_host.size(), stream);
       raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
+
+      // auto refinement_end = std::chrono::high_resolution_clock::now();
+
+      // auto refinement_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+      //       refinement_end - refinement_start);
+      // RAFT_LOG_INFO("raft_refinement_duration %ld\n", refinement_duration.count());
     }
   } else {
     auto queries_v =
