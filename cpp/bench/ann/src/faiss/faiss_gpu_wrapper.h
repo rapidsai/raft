@@ -17,7 +17,10 @@
 #define FAISS_WRAPPER_H_
 
 #include "../common/ann_types.hpp"
+#include "faiss/MetricType.h"
 #include "raft/core/device_mdarray.hpp"
+#include "raft/core/host_mdarray.hpp"
+#include "raft/core/host_mdspan.hpp"
 #include "raft/core/logger-macros.hpp"
 
 #include <raft/core/logger.hpp>
@@ -42,6 +45,7 @@
 #include <rmm/cuda_device.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+#include <raft_runtime/neighbors/refine.hpp>
 
 #include <cassert>
 #include <memory>
@@ -85,6 +89,19 @@ class OmpSingleThreadScope {
 
 namespace raft::bench::ann {
 
+struct copyable_event {
+  copyable_event() { RAFT_CUDA_TRY(cudaEventCreate(&value_, cudaEventDisableTiming)); }
+  ~copyable_event() { RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(value_)); }
+  copyable_event(copyable_event&&)            = default;
+  copyable_event& operator=(copyable_event&&) = default;
+  copyable_event(const copyable_event& res) : copyable_event{} {}
+  copyable_event& operator=(const copyable_event& other) = delete;
+  operator cudaEvent_t() const noexcept { return value_; }
+
+ private:
+  cudaEvent_t value_{nullptr};
+};
+
 template <typename T>
 class FaissGpu : public ANN<T> {
  public:
@@ -92,6 +109,7 @@ class FaissGpu : public ANN<T> {
   struct SearchParam : public AnnSearchParam {
     int nprobe;
     float refine_ratio = 1.0;
+    bool raft_refinement = false;
     auto needs_dataset() const -> bool override { return refine_ratio > 1.0f; }
   };
 
@@ -102,18 +120,14 @@ class FaissGpu : public ANN<T> {
 
   FaissGpu(Metric metric, int dim, const BuildParam& param)
     : ANN<T>(metric, dim),
+      gpu_resource_{std::make_shared<faiss::gpu::StandardGpuResources>()},
       metric_type_(parse_metric_type(metric)),
       nlist_{param.nlist},
       training_sample_fraction_{1.0 / double(param.ratio)}
   {
     static_assert(std::is_same_v<T, float>, "faiss support only float type");
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
-    RAFT_CUDA_TRY(cudaEventCreate(&sync_, cudaEventDisableTiming));
-    faiss_default_stream_ = gpu_resource_.getDefaultStream(device_);
-    raft::resource::set_cuda_stream(handle_, faiss_default_stream_);
   }
-
-  virtual ~FaissGpu() noexcept { RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(sync_)); }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
 
@@ -139,6 +153,8 @@ class FaissGpu : public ANN<T> {
     return property;
   }
 
+  auto metric_faiss_to_raft(faiss::MetricType metric) const -> raft::bench::ann::Metric;
+
  protected:
   template <typename GpuIndex, typename CpuIndex>
   void save_(const std::string& file) const;
@@ -148,25 +164,52 @@ class FaissGpu : public ANN<T> {
 
   void stream_wait(cudaStream_t stream) const
   {
-    RAFT_CUDA_TRY(cudaEventRecord(sync_, faiss_default_stream_));
+    RAFT_CUDA_TRY(cudaEventRecord(sync_, gpu_resource_->getDefaultStream(device_)));
     RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_));
   }
 
-  mutable faiss::gpu::StandardGpuResources gpu_resource_;
-  std::unique_ptr<faiss::gpu::GpuIndex> index_;
-  std::unique_ptr<faiss::IndexRefineFlat> index_refine_{nullptr};
+  /** [NOTE Multithreading]
+   *
+   * `gpu_resource_` is a shared resource:
+   *   1. It uses a shared_ptr under the hood, so the copies of it refer to the same
+   *      resource implementation instance
+   *   2. GpuIndex is probably keeping a reference to it, as it's passed to the constructor
+   *
+   * To avoid copying the index (database) in each thread, we make both the index and
+   * the gpu_resource shared.
+   * This means faiss GPU streams are possibly shared among the CPU threads;
+   * the throughput search mode may be inaccurate.
+   *
+   * WARNING: we haven't investigated whether faiss::gpu::GpuIndex or
+   * faiss::gpu::StandardGpuResources are thread-safe.
+   *
+   */
+  mutable std::shared_ptr<faiss::gpu::StandardGpuResources> gpu_resource_;
+  std::shared_ptr<faiss::gpu::GpuIndex> index_;
+  std::shared_ptr<faiss::IndexRefineFlat> index_refine_{nullptr};
   faiss::MetricType metric_type_;
   int nlist_;
   int device_;
-  cudaEvent_t sync_{nullptr};
-  cudaStream_t faiss_default_stream_{nullptr};
+  copyable_event sync_{};
   double training_sample_fraction_;
-  std::unique_ptr<faiss::SearchParameters> search_params_;
-  std::unique_ptr<faiss::IndexRefineSearchParameters> refine_search_params_{nullptr};
+  std::shared_ptr<faiss::SearchParameters> search_params_;
+  std::shared_ptr<faiss::IndexRefineSearchParameters> refine_search_params_{nullptr};
   const T* dataset_;
-  raft::device_resources handle_;
-  float refine_ratio_ = 1.0;
+  float refine_ratio_   = 1.0;
+  bool raft_refinement_ = false;
 };
+
+template <typename T>
+auto FaissGpu<T>::metric_faiss_to_raft(faiss::MetricType metric) const -> raft::bench::ann::Metric {
+  switch (metric) {
+    case faiss::MetricType::METRIC_L2:
+     return raft::bench::ann::Metric::kEuclidean;
+    case faiss::MetricType::METRIC_INNER_PRODUCT:
+     return raft::bench::ann::Metric::kInnerProduct;
+    default:
+      throw "Unsupported metric";
+  }
+}
 
 template <typename T>
 void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
@@ -208,16 +251,45 @@ void FaissGpu<T>::search(const T* queries,
                          float* distances,
                          cudaStream_t stream) const
 {
+  using IdxT = faiss::idx_t;
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
 
   if (refine_ratio_ > 1.0) {
-    index_refine_->search(batch_size,
-                          queries,
-                          k,
-                          distances,
-                          reinterpret_cast<faiss::idx_t*>(neighbors),
-                          this->refine_search_params_.get());
+    if (raft_refinement_) {
+      uint32_t k0        = static_cast<uint32_t>(refine_ratio_ * k);
+      auto distances_tmp = raft::make_host_matrix<float, IdxT>(batch_size, k0);
+      auto candidates    = raft::make_host_matrix<IdxT, IdxT>(batch_size, k0);
+      index_->search(batch_size,
+                     queries,
+                     k,
+                     distances_tmp.data_handle(),
+                     candidates.data_handle(),
+                     this->search_params_.get());
+      auto queries_v    = raft::make_host_matrix_view<const T, IdxT>(queries, batch_size, index_->d);
+
+      auto dataset_v = raft::make_host_matrix_view<const T, faiss::idx_t>(
+        this->dataset_, index_->ntotal, index_->d);
+      
+      auto neighbors_v = raft::make_host_matrix_view<IdxT, IdxT>(reinterpret_cast<IdxT*>(neighbors), batch_size, k);
+      auto distances_v = raft::make_host_matrix_view<float, IdxT>(distances, batch_size, k);      
+
+      // auto refinement_start = std::chrono::high_resolution_clock::now();
+      raft::runtime::neighbors::refine(gpu_resource_->getRaftHandle(device_),
+                                       dataset_v,
+                                       queries_v,
+                                       candidates.view(),
+                                       neighbors_v,
+                                       distances_v,
+                                       metric_faiss_to_raft(index_->metric_type));
+    } else {
+      index_refine_->search(batch_size,
+                            queries,
+                            k,
+                            distances,
+                            reinterpret_cast<faiss::idx_t*>(neighbors),
+                            this->refine_search_params_.get());
+    }
   } else {
     index_->search(batch_size,
                    queries,
@@ -269,8 +341,8 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
     faiss::gpu::GpuIndexIVFFlatConfig config;
     config.device   = this->device_;
     config.use_raft = param.use_raft;
-    this->index_    = std::make_unique<faiss::gpu::GpuIndexIVFFlat>(
-      &(this->gpu_resource_), dim, param.nlist, this->metric_type_, config);
+    this->index_    = std::make_shared<faiss::gpu::GpuIndexIVFFlat>(
+      this->gpu_resource_.get(), dim, param.nlist, this->metric_type_, config);
   }
 
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
@@ -281,8 +353,9 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
 
     faiss::IVFSearchParameters faiss_search_params;
     faiss_search_params.nprobe = nprobe;
-    this->search_params_       = std::make_unique<faiss::IVFSearchParameters>(faiss_search_params);
+    this->search_params_       = std::make_shared<faiss::IVFSearchParameters>(faiss_search_params);
     this->refine_ratio_        = search_param.refine_ratio;
+    this->raft_refinement_     = search_param.raft_refinement;
   }
 
   void save(const std::string& file) const override
@@ -293,6 +366,7 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
   {
     this->template load_<faiss::gpu::GpuIndexIVFFlat, faiss::IndexIVFFlat>(file);
   }
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<FaissGpuIVFFlat<T>>(*this); };
 };
 
 template <typename T>
@@ -304,6 +378,7 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     bool usePrecomputed;
     bool use_raft;
     int bitsPerCode;
+    bool raft_refinement;
   };
 
   FaissGpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
@@ -315,13 +390,14 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     config.interleavedLayout      = param.use_raft;
     config.device                 = this->device_;
 
-    this->index_ = std::make_unique<faiss::gpu::GpuIndexIVFPQ>(&(this->gpu_resource_),
-                                                               dim,
-                                                               param.nlist,
-                                                               param.M,
-                                                               param.bitsPerCode,
-                                                               this->metric_type_,
-                                                               config);
+    this->index_ =
+      std::make_shared<faiss::gpu::GpuIndexIVFPQ>(this->gpu_resource_.get(),
+                                                  dim,
+                                                  param.nlist,
+                                                  param.M,
+                                                  8,  // FAISS only supports bitsPerCode=8
+                                                  this->metric_type_,
+                                                  config);
   }
 
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
@@ -333,16 +409,17 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     faiss::IVFPQSearchParameters faiss_search_params;
     faiss_search_params.nprobe = nprobe;
 
-    this->search_params_ = std::make_unique<faiss::IVFPQSearchParameters>(faiss_search_params);
+    this->search_params_ = std::make_shared<faiss::IVFPQSearchParameters>(faiss_search_params);
 
     if (search_param.refine_ratio > 1.0) {
       this->index_refine_ =
-        std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), this->dataset_);
+        std::make_shared<faiss::IndexRefineFlat>(this->index_.get(), this->dataset_);
       this->index_refine_.get()->k_factor = search_param.refine_ratio;
       faiss::IndexRefineSearchParameters faiss_refine_search_params;
       faiss_refine_search_params.k_factor          = this->index_refine_.get()->k_factor;
       faiss_refine_search_params.base_index_params = this->search_params_.get();
-      this->refine_search_params_ = std::make_unique<faiss::IndexRefineSearchParameters>(faiss_refine_search_params);
+      this->refine_search_params_ =
+        std::make_unique<faiss::IndexRefineSearchParameters>(faiss_refine_search_params);
     }
   }
 
@@ -354,6 +431,7 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
   {
     this->template load_<faiss::gpu::GpuIndexIVFPQ, faiss::IndexIVFPQ>(file);
   }
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<FaissGpuIVFPQ<T>>(*this); };
 };
 
 // TODO: Enable this in cmake
@@ -379,8 +457,8 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
 
     faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
     config.device = this->device_;
-    this->index_  = std::make_unique<faiss::gpu::GpuIndexIVFScalarQuantizer>(
-      &(this->gpu_resource_), dim, param.nlist, qtype, this->metric_type_, true, config);
+    this->index_  = std::make_shared<faiss::gpu::GpuIndexIVFScalarQuantizer>(
+      this->gpu_resource_.get(), dim, param.nlist, qtype, this->metric_type_, true, config);
   }
 
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
@@ -392,16 +470,17 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
     faiss::IVFSearchParameters faiss_search_params;
     faiss_search_params.nprobe = nprobe;
 
-    this->search_params_ = std::make_unique<faiss::IVFSearchParameters>(faiss_search_params);
+    this->search_params_ = std::make_shared<faiss::IVFSearchParameters>(faiss_search_params);
     this->refine_ratio_  = search_param.refine_ratio;
     if (search_param.refine_ratio > 1.0) {
       this->index_refine_ =
-        std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), this->dataset_);
+        std::make_shared<faiss::IndexRefineFlat>(this->index_.get(), this->dataset_);
       this->index_refine_.get()->k_factor = search_param.refine_ratio;
       faiss::IndexRefineSearchParameters faiss_refine_search_params;
       faiss_refine_search_params.k_factor          = this->index_refine_.get()->k_factor;
       faiss_refine_search_params.base_index_params = this->search_params_.get();
-      this->refine_search_params_ = std::make_unique<faiss::IndexRefineSearchParameters>(faiss_refine_search_params);
+      this->refine_search_params_ =
+        std::make_unique<faiss::IndexRefineSearchParameters>(faiss_refine_search_params);
     }
   }
 
@@ -415,6 +494,7 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
     this->template load_<faiss::gpu::GpuIndexIVFScalarQuantizer, faiss::IndexIVFScalarQuantizer>(
       file);
   }
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<FaissGpuIVFSQ<T>>(*this); };
 };
 
 template <typename T>
@@ -425,8 +505,8 @@ class FaissGpuFlat : public FaissGpu<T> {
   {
     faiss::gpu::GpuIndexFlatConfig config;
     config.device = this->device_;
-    this->index_  = std::make_unique<faiss::gpu::GpuIndexFlat>(
-      &(this->gpu_resource_), dim, this->metric_type_, config);
+    this->index_  = std::make_shared<faiss::gpu::GpuIndexFlat>(
+      this->gpu_resource_.get(), dim, this->metric_type_, config);
   }
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
   {
@@ -434,7 +514,7 @@ class FaissGpuFlat : public FaissGpu<T> {
     int nprobe        = search_param.nprobe;
     assert(nprobe <= nlist_);
 
-    this->search_params_ = std::make_unique<faiss::SearchParameters>();
+    this->search_params_ = std::make_shared<faiss::SearchParameters>();
   }
 
   void save(const std::string& file) const override
@@ -445,6 +525,7 @@ class FaissGpuFlat : public FaissGpu<T> {
   {
     this->template load_<faiss::gpu::GpuIndexFlat, faiss::IndexFlat>(file);
   }
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<FaissGpuFlat<T>>(*this); };
 };
 
 }  // namespace raft::bench::ann
