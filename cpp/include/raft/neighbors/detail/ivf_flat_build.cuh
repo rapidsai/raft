@@ -122,7 +122,8 @@ RAFT_KERNEL build_index_kernel(const LabelT* labels,
                                IdxT n_rows,
                                uint32_t dim,
                                uint32_t veclen,
-                               IdxT batch_offset = 0)
+                               IdxT batch_offset = 0,
+                               const T* source_vecs_norms = nullptr)
 {
   const IdxT i = IdxT(blockDim.x) * IdxT(blockIdx.x) + threadIdx.x;
   if (i >= n_rows) { return; }
@@ -134,6 +135,7 @@ RAFT_KERNEL build_index_kernel(const LabelT* labels,
 
   // Record the source vector id in the index
   list_index[inlist_id] = source_ixs == nullptr ? i + batch_offset : source_ixs[i];
+  const auto vec_norm    = source_vecs_norms == nullptr ? 1 : source_vecs_norms[i];
 
   // The data is written in interleaved groups of `index::kGroupSize` vectors
   using interleaved_group = Pow2<kIndexGroupSize>;
@@ -153,7 +155,7 @@ RAFT_KERNEL build_index_kernel(const LabelT* labels,
   // NB: such `veclen` is selected, that `dim % veclen == 0`
   for (uint32_t l = 0; l < dim; l += veclen) {
     for (uint32_t j = 0; j < veclen; j++) {
-      list_data[l * kIndexGroupSize + ingroup_id + j] = source_vecs[l + j];
+      list_data[l * kIndexGroupSize + ingroup_id + j] = source_vecs[l + j] * vec_norm;
     }
   }
 }
@@ -182,7 +184,7 @@ void extend(raft::resources const& handle,
 
   auto new_labels = raft::make_device_vector<LabelT, IdxT>(handle, n_rows);
   raft::cluster::kmeans_balanced_params kmeans_params;
-  kmeans_params.metric = index->metric();
+  kmeans_params.metric = index->metric() != raft::distance::DistanceType::CosineExpanded ? index->metric() : raft::distance::DistanceType::InnerProduct;
   auto orig_centroids_view =
     raft::make_device_matrix_view<const float, IdxT>(index->centers().data_handle(), n_lists, dim);
   // Calculate the batch size for the input data if it's not accessible directly from the device
@@ -198,16 +200,23 @@ void extend(raft::resources const& handle,
                                             resource::get_workspace_resource(handle));
 
   for (const auto& batch : vec_batches) {
+    auto batch_vectors_norms = raft::make_device_vector<T, IdxT>(handle, batch.size());
     auto batch_data_view =
       raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), index->dim());
     auto batch_labels_view = raft::make_device_vector_view<LabelT, IdxT>(
       new_labels.data_handle() + batch.offset(), batch.size());
+    // Normalize if necessary (Cosine)
+    if (index.metric() == raft::distance::DistanceType::CosineExpanded)
+    {
+      raft::linalg::norm(handle, batch_data_view, batch_vectors_norms, raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
+    }
     raft::cluster::kmeans_balanced::predict(handle,
                                             kmeans_params,
                                             batch_data_view,
                                             orig_centroids_view,
                                             batch_labels_view,
-                                            utils::mapping<float>{});
+                                            utils::mapping<float>{},
+                                            std::make_optional(raft::make_const_mdspan(batch_vectors_norms)));
   }
 
   auto* list_sizes_ptr    = index->list_sizes().data_handle();
@@ -226,13 +235,20 @@ void extend(raft::resources const& handle,
         raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), index->dim());
       auto batch_labels_view = raft::make_device_vector_view<const LabelT, IdxT>(
         new_labels.data_handle() + batch.offset(), batch.size());
+      auto batch_vectors_norms = raft::make_device_vector<T, IdxT>(handle, batch.size());
+      // Normalize if necessary (Cosine)
+      if (index.metric() == raft::distance::DistanceType::CosineExpanded)
+      {
+        raft::linalg::norm(handle, batch_data_view, batch_vectors_norms, raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
+      }
       raft::cluster::kmeans_balanced::helpers::calc_centers_and_sizes(handle,
                                                                       batch_data_view,
                                                                       batch_labels_view,
                                                                       centroids_view,
                                                                       list_sizes_view,
                                                                       false,
-                                                                      utils::mapping<float>{});
+                                                                      utils::mapping<float>{},
+                                                                      std::make_optional(raft::make_const_mdspan(batch_vectors_norms))); // TODO FIX BATCH
     }
   } else {
     raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
@@ -276,6 +292,12 @@ void extend(raft::resources const& handle,
   for (const auto& batch : vec_batches) {
     auto batch_data_view =
       raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), index->dim());
+    auto batch_vectors_norms = raft::make_device_vector<T, IdxT>(handle, batch.size());
+    // Normalize if necessary (Cosine)
+    if (index.metric() == raft::distance::DistanceType::CosineExpanded)
+    {
+      raft::linalg::norm(handle, batch_data_view, batch_vectors_norms, raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
+    }
     // Kernel to insert the new vectors
     const dim3 block_dim(256);
     const dim3 grid_dim(raft::ceildiv<IdxT>(batch.size(), block_dim.x));
@@ -289,7 +311,8 @@ void extend(raft::resources const& handle,
                                            batch.size(),
                                            dim,
                                            index->veclen(),
-                                           batch.offset());
+                                           batch.offset(),
+                                           batch_vectors_norms.data_handle());
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     if (batch.offset() > next_report_offset) {
@@ -383,7 +406,16 @@ inline auto build(raft::resources const& handle,
       index.centers().data_handle(), index.n_lists(), index.dim());
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = params.kmeans_n_iters;
-    kmeans_params.metric  = index.metric();
+    kmeans_params.metric  = index.metric() != raft::distance::DistanceType::CosineExpanded ? index.metric() : raft::distance::DistanceType::InnerProduct;
+
+    // Normalize if necessary (Cosine)
+    if (index.metric() == raft::distance::DistanceType::CosineExpanded)
+    {
+      raft::linalg::row_normalize(handle, 
+        trainset_const_view,
+        raft::make_device_matrix_view<T, IdxT>(trainset.data(), n_rows_train, index.dim()),
+        raft::linalg::NormType::L2Norm);
+    }
     raft::cluster::kmeans_balanced::fit(
       handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
   }
