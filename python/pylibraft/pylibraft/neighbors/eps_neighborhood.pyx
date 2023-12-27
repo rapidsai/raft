@@ -159,6 +159,7 @@ def eps_neighbors(dataset, queries, eps, method="brute", handle=None):
     >>> import cupy as cp
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors.eps_neighborhood import eps_neighbors
+    >>> handle = DeviceResources()
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
@@ -167,7 +168,7 @@ def eps_neighbors(dataset, queries, eps, method="brute", handle=None):
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> eps = 0.1
-    >>> adj, vd = eps_neighbors(dataset, queries, eps)
+    >>> adj, vd = eps_neighbors(dataset, queries, eps, handle=handle)
     >>> adj = cp.asarray(adj)
     >>> vd = cp.asarray(vd)
     >>> # pylibraft functions are often asynchronous so the
@@ -267,7 +268,8 @@ def eps_neighbors_sparse(RbcIndex rbc_index, queries, eps, handle=None):
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> eps = 0.1
-    >>> rbc_index = build_rbc_index(dataset, handle=handle)
+    >>> handle = DeviceResources()
+    >>> rbc_index = build_rbc_index(dataset)
     >>> adj_ia, adj_ja, vd = eps_neighbors_sparse(rbc_index, queries, eps)
     >>> adj_ia = cp.asarray(adj_ia)
     >>> adj_ja = cp.asarray(adj_ja)
