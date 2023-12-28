@@ -487,6 +487,30 @@ struct index : ann::index {
     return centers_rot_.view();
   }
 
+  /** fetch size of a particular IVF list in bytes using the list extents.
+   * Usage example:
+   * @code{.cpp}
+   *   raft::resources res;
+   *   // use default index params
+   *   ivf_pq::index_params index_params;
+   *   // extend the IVF lists while building the index
+   *   index_params.add_data_on_build = true;
+   *   // create and fill the index from a [N, D] dataset
+   *   auto index = raft::neighbors::ivf_pq::build<int64_t>(res, index_params, dataset, N, D);
+   *   // Fetch the size of the fourth list
+   *   uint32_t size = index.get_list_size_in_bytes(3);
+   * @endcode
+   *
+   * @param[in] label list ID
+   */
+  inline auto get_list_size_in_bytes(uint32_t label) -> uint32_t
+  {
+    RAFT_EXPECTS(label < this->n_lists(),
+                 "Expected label to be less than number of lists in the index");
+    auto list_data = this->lists()[label]->data;
+    return list_data.size();
+  }
+
  private:
   raft::distance::DistanceType metric_;
   codebook_gen codebook_kind_;

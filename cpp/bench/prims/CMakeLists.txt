@@ -147,10 +147,12 @@ if(BUILD_PRIMS_BENCH)
     bench/prims/neighbors/knn/brute_force_float_int64_t.cu
     bench/prims/neighbors/knn/brute_force_float_uint32_t.cu
     bench/prims/neighbors/knn/cagra_float_uint32_t.cu
+    bench/prims/neighbors/knn/ivf_flat_filter_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_int8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_float_int64_t.cu
+    bench/prims/neighbors/knn/ivf_pq_filter_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_int8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_uint8_t_int64_t.cu
     bench/prims/neighbors/refine_float_int64_t.cu

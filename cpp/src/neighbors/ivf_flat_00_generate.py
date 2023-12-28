@@ -41,63 +41,88 @@ header = """/*
 """
 
 types = dict(
-    float_int64_t= ("float", "int64_t"),
+    float_int64_t=("float", "int64_t"),
     int8_t_int64_t=("int8_t", "int64_t"),
     uint8_t_int64_t=("uint8_t", "int64_t"),
 )
 
 build_macro = """
 #define instantiate_raft_neighbors_ivf_flat_build(T, IdxT)        \\
-  template auto raft::neighbors::ivf_flat::build<T, IdxT>( \\
-    raft::resources const& handle,                         \\
+  template auto raft::neighbors::ivf_flat::build<T, IdxT>(        \\
+    raft::resources const& handle,                                \\
     const raft::neighbors::ivf_flat::index_params& params,        \\
     const T* dataset,                                             \\
     IdxT n_rows,                                                  \\
     uint32_t dim)                                                 \\
     ->raft::neighbors::ivf_flat::index<T, IdxT>;                  \\
                                                                   \\
-  template auto raft::neighbors::ivf_flat::build<T, IdxT>( \\
-    raft::resources const& handle,                         \\
+  template auto raft::neighbors::ivf_flat::build<T, IdxT>(        \\
+    raft::resources const& handle,                                \\
     const raft::neighbors::ivf_flat::index_params& params,        \\
     raft::device_matrix_view<const T, IdxT, row_major> dataset)   \\
     ->raft::neighbors::ivf_flat::index<T, IdxT>;                  \\
                                                                   \\
-  template void raft::neighbors::ivf_flat::build<T, IdxT>( \\
-    raft::resources const& handle,                         \\
+  template void raft::neighbors::ivf_flat::build<T, IdxT>(        \\
+    raft::resources const& handle,                                \\
     const raft::neighbors::ivf_flat::index_params& params,        \\
     raft::device_matrix_view<const T, IdxT, row_major> dataset,   \\
+    raft::neighbors::ivf_flat::index<T, IdxT>& idx);              \\
+                                                                  \\
+  template auto raft::neighbors::ivf_flat::build<T, IdxT>(        \\
+    raft::resources const& handle,                                \\
+    const raft::neighbors::ivf_flat::index_params& params,        \\
+    raft::host_matrix_view<const T, IdxT, row_major> dataset)     \\
+    ->raft::neighbors::ivf_flat::index<T, IdxT>;                  \\
+                                                                  \\
+  template void raft::neighbors::ivf_flat::build<T, IdxT>(        \\
+    raft::resources const& handle,                                \\
+    const raft::neighbors::ivf_flat::index_params& params,        \\
+    raft::host_matrix_view<const T, IdxT, row_major> dataset,     \\
     raft::neighbors::ivf_flat::index<T, IdxT>& idx);
 """
 
 extend_macro = """
 #define instantiate_raft_neighbors_ivf_flat_extend(T, IdxT)                \\
-  template auto raft::neighbors::ivf_flat::extend<T, IdxT>(         \\
-    raft::resources const& handle,                                  \\
+  template auto raft::neighbors::ivf_flat::extend<T, IdxT>(                \\
+    raft::resources const& handle,                                         \\
     const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index,           \\
     const T* new_vectors,                                                  \\
     const IdxT* new_indices,                                               \\
     IdxT n_rows)                                                           \\
     ->raft::neighbors::ivf_flat::index<T, IdxT>;                           \\
                                                                            \\
-  template auto raft::neighbors::ivf_flat::extend<T, IdxT>(         \\
-    raft::resources const& handle,                                  \\
+  template auto raft::neighbors::ivf_flat::extend<T, IdxT>(                \\
+    raft::resources const& handle,                                         \\
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \\
     std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \\
     const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index)           \\
     ->raft::neighbors::ivf_flat::index<T, IdxT>;                           \\
                                                                            \\
-  template void raft::neighbors::ivf_flat::extend<T, IdxT>(         \\
-    raft::resources const& handle,                                  \\
+  template void raft::neighbors::ivf_flat::extend<T, IdxT>(                \\
+    raft::resources const& handle,                                         \\
     raft::neighbors::ivf_flat::index<T, IdxT>* index,                      \\
     const T* new_vectors,                                                  \\
     const IdxT* new_indices,                                               \\
     IdxT n_rows);                                                          \\
                                                                            \\
-  template void raft::neighbors::ivf_flat::extend<T, IdxT>(         \\
-    raft::resources const& handle,                                  \\
+  template void raft::neighbors::ivf_flat::extend<T, IdxT>(                \\
+    raft::resources const& handle,                                         \\
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \\
     std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \\
-    raft::neighbors::ivf_flat::index<T, IdxT>* index);
+    raft::neighbors::ivf_flat::index<T, IdxT>* index);                     \\
+                                                                           \\
+   template auto raft::neighbors::ivf_flat::extend<T, IdxT>(               \\
+    const raft::resources& handle,                                         \\
+    raft::host_matrix_view<const T, IdxT, row_major> new_vectors,          \\
+    std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,  \\
+    const raft::neighbors::ivf_flat::index<T, IdxT>& idx)                  \\
+    -> raft::neighbors::ivf_flat::index<T, IdxT>;                          \\
+                                                                           \\
+   template void raft::neighbors::ivf_flat::extend<T, IdxT>(               \\
+    raft::resources const& handle,                                         \\
+    raft::host_matrix_view<const T, IdxT, row_major> new_vectors,          \\
+    std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,   \\
+    raft::neighbors::ivf_flat::index<T, IdxT>* index);                     
 """
 
 search_macro = """
@@ -125,13 +150,16 @@ search_macro = """
 macros = dict(
     build=dict(
         definition=build_macro,
-        name="instantiate_raft_neighbors_ivf_flat_build"),
+        name="instantiate_raft_neighbors_ivf_flat_build",
+    ),
     extend=dict(
         definition=extend_macro,
-        name="instantiate_raft_neighbors_ivf_flat_extend"),
+        name="instantiate_raft_neighbors_ivf_flat_extend",
+    ),
     search=dict(
         definition=search_macro,
-        name="instantiate_raft_neighbors_ivf_flat_search"),
+        name="instantiate_raft_neighbors_ivf_flat_search",
+    ),
 )
 
 for type_path, (T, IdxT) in types.items():
@@ -139,8 +167,7 @@ for type_path, (T, IdxT) in types.items():
         path = f"ivf_flat_{macro_path}_{type_path}.cu"
         with open(path, "w") as f:
             f.write(header)
-            f.write(macro['definition'])
-
+            f.write(macro["definition"])
 
             f.write(f"{macro['name']}({T}, {IdxT});\n\n")
             f.write(f"#undef {macro['name']}\n")

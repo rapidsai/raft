@@ -18,11 +18,17 @@
 
 #include "cuda_stub.hpp"  // cudaStream_t
 
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace raft::bench::ann {
+
+enum Objective {
+  THROUGHPUT,  // See how many vectors we can push through
+  LATENCY      // See how fast we can push a vector through
+};
 
 enum class MemoryType {
   Host,
@@ -79,7 +85,8 @@ template <typename T>
 class ANN : public AnnBase {
  public:
   struct AnnSearchParam {
-    virtual ~AnnSearchParam() = default;
+    Objective metric_objective = Objective::LATENCY;
+    virtual ~AnnSearchParam()  = default;
     [[nodiscard]] virtual auto needs_dataset() const -> bool { return false; };
   };
 
@@ -107,11 +114,16 @@ class ANN : public AnnBase {
   // The advantage of this way is that index has smaller size
   // and many indices can share one dataset.
   //
-  // AlgoProperty::need_dataset_when_search of such algorithm should be true,
+  // SearchParam::needs_dataset() of such algorithm should be true,
   // and set_search_dataset() should save the passed-in pointer somewhere.
   // The client code should call set_search_dataset() before searching,
   // and should not release dataset before searching is finished.
   virtual void set_search_dataset(const T* /*dataset*/, size_t /*nrow*/){};
+
+  /**
+   * Make a shallow copy of the ANN wrapper that shares the resources and ensures thread-safe access
+   * to them. */
+  virtual auto copy() -> std::unique_ptr<ANN<T>> = 0;
 };
 
 }  // namespace raft::bench::ann

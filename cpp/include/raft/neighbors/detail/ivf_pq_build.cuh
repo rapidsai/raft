@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/neighbors/detail/ivf_pq_codepacking.cuh>
@@ -29,7 +28,6 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/core/resource/detail/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
@@ -48,11 +46,10 @@
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <thrust/extrema.h>
 #include <thrust/scan.h>
@@ -311,6 +308,59 @@ auto calculate_offsets_and_indices(IdxT n_rows,
   fill_indices_kernel<n_threads>
     <<<n_blocks, n_threads, 0, stream>>>(n_rows, data_indices, data_offsets, labels);
   return max_cluster_size;
+}
+
+template <typename IdxT>
+void set_centers(raft::resources const& handle, index<IdxT>* index, const float* cluster_centers)
+{
+  auto stream         = resource::get_cuda_stream(handle);
+  auto* device_memory = resource::get_workspace_resource(handle);
+
+  // combine cluster_centers and their norms
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index->centers().data_handle(),
+                                  sizeof(float) * index->dim_ext(),
+                                  cluster_centers,
+                                  sizeof(float) * index->dim(),
+                                  sizeof(float) * index->dim(),
+                                  index->n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
+
+  rmm::device_uvector<float> center_norms(index->n_lists(), stream, device_memory);
+  raft::linalg::rowNorm(center_norms.data(),
+                        cluster_centers,
+                        index->dim(),
+                        index->n_lists(),
+                        raft::linalg::L2Norm,
+                        true,
+                        stream);
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index->centers().data_handle() + index->dim(),
+                                  sizeof(float) * index->dim_ext(),
+                                  center_norms.data(),
+                                  sizeof(float),
+                                  sizeof(float),
+                                  index->n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
+
+  //     Rotate cluster_centers
+  float alpha = 1.0;
+  float beta  = 0.0;
+  linalg::gemm(handle,
+               true,
+               false,
+               index->rot_dim(),
+               index->n_lists(),
+               index->dim(),
+               &alpha,
+               index->rotation_matrix().data_handle(),
+               index->dim(),
+               cluster_centers,
+               index->dim(),
+               &beta,
+               index->centers_rot().data_handle(),
+               index->rot_dim(),
+               resource::get_cuda_stream(handle));
 }
 
 template <typename IdxT>
@@ -613,6 +663,100 @@ void unpack_list_data(raft::resources const& res,
                    resource::get_cuda_stream(res));
 }
 
+/**
+ * A consumer for the `run_on_vector` that just flattens PQ codes
+ * into a tightly packed matrix. That is, the codes are not expanded to one code-per-byte.
+ */
+template <uint32_t PqBits>
+struct unpack_contiguous {
+  uint8_t* codes;
+  uint32_t code_size;
+
+  /**
+   * Create a callable to be passed to `run_on_vector`.
+   *
+   * @param[in] codes flat compressed PQ codes
+   */
+  __host__ __device__ inline unpack_contiguous(uint8_t* codes, uint32_t pq_dim)
+    : codes{codes}, code_size{raft::ceildiv<uint32_t>(pq_dim * PqBits, 8)}
+  {
+  }
+
+  /**  Write j-th component (code) of the i-th vector into the output array. */
+  __host__ __device__ inline void operator()(uint8_t code, uint32_t i, uint32_t j)
+  {
+    bitfield_view_t<PqBits> code_view{codes + i * code_size};
+    code_view[j] = code;
+  }
+};
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) RAFT_KERNEL unpack_contiguous_list_data_kernel(
+  uint8_t* out_codes,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  run_on_list<PqBits>(
+    in_list_data, offset_or_indices, n_rows, pq_dim, unpack_contiguous<PqBits>(out_codes, pq_dim));
+}
+
+/**
+ * Unpack flat PQ codes from an existing list by the given offset.
+ *
+ * @param[out] codes flat compressed PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
+ * @param[in] list_data the packed ivf::list data.
+ * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
+ * @param[in] pq_bits codebook size (1 << pq_bits)
+ * @param[in] stream
+ */
+inline void unpack_contiguous_list_data(
+  uint8_t* codes,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t pq_bits,
+  rmm::cuda_stream_view stream)
+{
+  if (n_rows == 0) { return; }
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [pq_bits]() {
+    switch (pq_bits) {
+      case 4: return unpack_contiguous_list_data_kernel<kBlockSize, 4>;
+      case 5: return unpack_contiguous_list_data_kernel<kBlockSize, 5>;
+      case 6: return unpack_contiguous_list_data_kernel<kBlockSize, 6>;
+      case 7: return unpack_contiguous_list_data_kernel<kBlockSize, 7>;
+      case 8: return unpack_contiguous_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }();
+  kernel<<<blocks, threads, 0, stream>>>(codes, list_data, n_rows, pq_dim, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/** Unpack the list data; see the public interface for the api and usage. */
+template <typename IdxT>
+void unpack_contiguous_list_data(raft::resources const& res,
+                                 const index<IdxT>& index,
+                                 uint8_t* out_codes,
+                                 uint32_t n_rows,
+                                 uint32_t label,
+                                 std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  unpack_contiguous_list_data(out_codes,
+                              index.lists()[label]->data.view(),
+                              n_rows,
+                              index.pq_dim(),
+                              offset_or_indices,
+                              index.pq_bits(),
+                              resource::get_cuda_stream(res));
+}
+
 /** A consumer for the `run_on_list` and `run_on_vector` that approximates the original input data.
  */
 struct reconstruct_vectors {
@@ -848,6 +992,101 @@ void pack_list_data(raft::resources const& res,
                  offset_or_indices,
                  index->pq_bits(),
                  resource::get_cuda_stream(res));
+}
+
+/**
+ * A producer for the `write_vector` reads tightly packed flat codes. That is,
+ * the codes are not expanded to one code-per-byte.
+ */
+template <uint32_t PqBits>
+struct pack_contiguous {
+  const uint8_t* codes;
+  uint32_t code_size;
+
+  /**
+   * Create a callable to be passed to `write_vector`.
+   *
+   * @param[in] codes flat compressed PQ codes
+   */
+  __host__ __device__ inline pack_contiguous(const uint8_t* codes, uint32_t pq_dim)
+    : codes{codes}, code_size{raft::ceildiv<uint32_t>(pq_dim * PqBits, 8)}
+  {
+  }
+
+  /** Read j-th component (code) of the i-th vector from the source. */
+  __host__ __device__ inline auto operator()(uint32_t i, uint32_t j) -> uint8_t
+  {
+    bitfield_view_t<PqBits> code_view{const_cast<uint8_t*>(codes + i * code_size)};
+    return uint8_t(code_view[j]);
+  }
+};
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) RAFT_KERNEL pack_contiguous_list_data_kernel(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  const uint8_t* codes,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  write_list<PqBits, 1>(
+    list_data, offset_or_indices, n_rows, pq_dim, pack_contiguous<PqBits>(codes, pq_dim));
+}
+
+/**
+ * Write flat PQ codes into an existing list by the given offset.
+ *
+ * NB: no memory allocation happens here; the list must fit the data (offset + n_rows).
+ *
+ * @param[out] list_data the packed ivf::list data.
+ * @param[in] codes flat compressed PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
+ * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
+ * @param[in] pq_bits codebook size (1 << pq_bits)
+ * @param[in] stream
+ */
+inline void pack_contiguous_list_data(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  const uint8_t* codes,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t pq_bits,
+  rmm::cuda_stream_view stream)
+{
+  if (n_rows == 0) { return; }
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [pq_bits]() {
+    switch (pq_bits) {
+      case 4: return pack_contiguous_list_data_kernel<kBlockSize, 4>;
+      case 5: return pack_contiguous_list_data_kernel<kBlockSize, 5>;
+      case 6: return pack_contiguous_list_data_kernel<kBlockSize, 6>;
+      case 7: return pack_contiguous_list_data_kernel<kBlockSize, 7>;
+      case 8: return pack_contiguous_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }();
+  kernel<<<blocks, threads, 0, stream>>>(list_data, codes, n_rows, pq_dim, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename IdxT>
+void pack_contiguous_list_data(raft::resources const& res,
+                               index<IdxT>* index,
+                               const uint8_t* new_codes,
+                               uint32_t n_rows,
+                               uint32_t label,
+                               std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  pack_contiguous_list_data(index->lists()[label]->data.view(),
+                            new_codes,
+                            n_rows,
+                            index->pq_dim(),
+                            offset_or_indices,
+                            index->pq_bits(),
+                            resource::get_cuda_stream(res));
 }
 
 /**
@@ -1317,7 +1556,6 @@ void extend(raft::resources const& handle,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::extend(%zu, %u)", size_t(n_rows), index->dim());
 
-  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::extend");
   auto stream           = resource::get_cuda_stream(handle);
   const auto n_clusters = index->n_lists();
 
@@ -1327,13 +1565,7 @@ void extend(raft::resources const& handle,
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported data type");
 
-  rmm::mr::device_memory_resource* device_memory = nullptr;
-  auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-  if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq::extend: using pool memory resource"); }
-
-  rmm::mr::managed_memory_resource managed_memory_upstream;
-  rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
-    &managed_memory_upstream, 1024 * 1024);
+  rmm::mr::device_memory_resource* device_memory = raft::resource::get_workspace_resource(handle);
 
   // The spec defines how the clusters look like
   auto spec = list_spec<uint32_t, IdxT>{
@@ -1351,17 +1583,9 @@ void extend(raft::resources const& handle,
   size_t free_mem, total_mem;
   RAFT_CUDA_TRY(cudaMemGetInfo(&free_mem, &total_mem));
 
-  // Decide on an approximate threshold when we'd better start saving device memory by using
-  // managed allocations for large device buffers
-  rmm::mr::device_memory_resource* labels_mr  = device_memory;
-  rmm::mr::device_memory_resource* batches_mr = device_memory;
-  if (n_rows * (index->dim() * sizeof(T) + index->pq_dim() + sizeof(IdxT) + sizeof(uint32_t)) >
-      free_mem) {
-    labels_mr = &managed_memory;
-  }
   // Allocate a buffer for the new labels (classifying the new data)
-  rmm::device_uvector<uint32_t> new_data_labels(n_rows, stream, labels_mr);
-  if (labels_mr == device_memory) { free_mem -= sizeof(uint32_t) * n_rows; }
+  rmm::device_uvector<uint32_t> new_data_labels(n_rows, stream, device_memory);
+  free_mem -= sizeof(uint32_t) * n_rows;
 
   // Calculate the batch size for the input data if it's not accessible directly from the device
   constexpr size_t kReasonableMaxBatchSize = 65536;
@@ -1390,19 +1614,13 @@ void extend(raft::resources const& handle,
     while (size_factor * max_batch_size > free_mem && max_batch_size > 128) {
       max_batch_size >>= 1;
     }
-    if (size_factor * max_batch_size > free_mem) {
-      // if that still doesn't fit, resort to the UVM
-      batches_mr     = &managed_memory;
-      max_batch_size = kReasonableMaxBatchSize;
-    } else {
-      // If we're keeping the batches in device memory, update the available mem tracker.
-      free_mem -= size_factor * max_batch_size;
-    }
+    // If we're keeping the batches in device memory, update the available mem tracker.
+    free_mem -= size_factor * max_batch_size;
   }
 
   // Predict the cluster labels for the new data, in batches if necessary
   utils::batch_load_iterator<T> vec_batches(
-    new_vectors, n_rows, index->dim(), max_batch_size, stream, batches_mr);
+    new_vectors, n_rows, index->dim(), max_batch_size, stream, device_memory);
   // Release the placeholder memory, because we don't intend to allocate any more long-living
   // temporary buffers before we allocate the index data.
   // This memory could potentially speed up UVM accesses, if any.
@@ -1475,7 +1693,7 @@ void extend(raft::resources const& handle,
   // By this point, the index state is updated and valid except it doesn't contain the new data
   // Fill the extended index with the new data (possibly, in batches)
   utils::batch_load_iterator<IdxT> idx_batches(
-    new_indices, n_rows, 1, max_batch_size, stream, batches_mr);
+    new_indices, n_rows, 1, max_batch_size, stream, device_memory);
   for (const auto& vec_batch : vec_batches) {
     const auto& idx_batch = *idx_batches++;
     process_and_fill_codes(handle,
@@ -1486,7 +1704,7 @@ void extend(raft::resources const& handle,
                              : std::variant<IdxT, const IdxT*>(IdxT(idx_batch.offset())),
                            new_data_labels.data() + vec_batch.offset(),
                            IdxT(vec_batch.size()),
-                           batches_mr);
+                           device_memory);
   }
 }
 
@@ -1516,11 +1734,11 @@ auto build(raft::resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::build(%zu, %u)", size_t(n_rows), dim);
-  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::build");
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported data type");
 
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
+  RAFT_EXPECTS(n_rows >= params.n_lists, "number of rows can't be less than n_lists");
 
   auto stream = resource::get_cuda_stream(handle);
 
@@ -1539,21 +1757,10 @@ auto build(raft::resources const& handle,
 
     auto* device_memory = resource::get_workspace_resource(handle);
     rmm::mr::managed_memory_resource managed_memory_upstream;
-    rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
-      &managed_memory_upstream, 1024 * 1024);
-
-    // If the trainset is small enough to comfortably fit into device memory, put it there.
-    // Otherwise, use the managed memory.
-    constexpr size_t kTolerableRatio                     = 4;
-    rmm::mr::device_memory_resource* big_memory_resource = &managed_memory;
-    if (sizeof(float) * n_rows_train * index.dim() * kTolerableRatio <
-        resource::get_workspace_free_bytes(handle)) {
-      big_memory_resource = device_memory;
-    }
 
     // Besides just sampling, we transform the input dataset into floats to make it easier
     // to use gemm operations from cublas.
-    rmm::device_uvector<float> trainset(n_rows_train * index.dim(), stream, big_memory_resource);
+    rmm::device_uvector<float> trainset(n_rows_train * index.dim(), stream, device_memory);
     // TODO: a proper sampling
     if constexpr (std::is_same_v<T, float>) {
       RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
@@ -1622,7 +1829,7 @@ auto build(raft::resources const& handle,
       handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
 
     // Trainset labels are needed for training PQ codebooks
-    rmm::device_uvector<uint32_t> labels(n_rows_train, stream, big_memory_resource);
+    rmm::device_uvector<uint32_t> labels(n_rows_train, stream, device_memory);
     auto centers_const_view = raft::make_device_matrix_view<const float, IdxT>(
       cluster_centers, index.n_lists(), index.dim());
     auto labels_view = raft::make_device_vector_view<uint32_t, IdxT>(labels.data(), n_rows_train);
@@ -1633,35 +1840,6 @@ auto build(raft::resources const& handle,
                                             labels_view,
                                             utils::mapping<float>());
 
-    {
-      // combine cluster_centers and their norms
-      RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle(),
-                                      sizeof(float) * index.dim_ext(),
-                                      cluster_centers,
-                                      sizeof(float) * index.dim(),
-                                      sizeof(float) * index.dim(),
-                                      index.n_lists(),
-                                      cudaMemcpyDefault,
-                                      stream));
-
-      rmm::device_uvector<float> center_norms(index.n_lists(), stream, device_memory);
-      raft::linalg::rowNorm(center_norms.data(),
-                            cluster_centers,
-                            index.dim(),
-                            index.n_lists(),
-                            raft::linalg::L2Norm,
-                            true,
-                            stream);
-      RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle() + index.dim(),
-                                      sizeof(float) * index.dim_ext(),
-                                      center_norms.data(),
-                                      sizeof(float),
-                                      sizeof(float),
-                                      index.n_lists(),
-                                      cudaMemcpyDefault,
-                                      stream));
-    }
-
     // Make rotation matrix
     make_rotation_matrix(handle,
                          params.force_random_rotation,
@@ -1669,24 +1847,7 @@ auto build(raft::resources const& handle,
                          index.dim(),
                          index.rotation_matrix().data_handle());
 
-    // Rotate cluster_centers
-    float alpha = 1.0;
-    float beta  = 0.0;
-    linalg::gemm(handle,
-                 true,
-                 false,
-                 index.rot_dim(),
-                 index.n_lists(),
-                 index.dim(),
-                 &alpha,
-                 index.rotation_matrix().data_handle(),
-                 index.dim(),
-                 cluster_centers,
-                 index.dim(),
-                 &beta,
-                 index.centers_rot().data_handle(),
-                 index.rot_dim(),
-                 stream);
+    set_centers(handle, &index, cluster_centers);
 
     // Train PQ codebooks
     switch (index.codebook_kind()) {
@@ -1697,7 +1858,7 @@ auto build(raft::resources const& handle,
                          trainset.data(),
                          labels.data(),
                          params.kmeans_n_iters,
-                         &managed_memory);
+                         &managed_memory_upstream);
         break;
       case codebook_gen::PER_CLUSTER:
         train_per_cluster(handle,
@@ -1706,7 +1867,7 @@ auto build(raft::resources const& handle,
                           trainset.data(),
                           labels.data(),
                           params.kmeans_n_iters,
-                          &managed_memory);
+                          &managed_memory_upstream);
         break;
       default: RAFT_FAIL("Unreachable code");
     }

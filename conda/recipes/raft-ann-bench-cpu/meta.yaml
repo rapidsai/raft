@@ -2,7 +2,7 @@
 
 # Usage:
 #   conda build . -c conda-forge -c nvidia -c rapidsai
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set py_version = environ['CONDA_PY'] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
@@ -14,7 +14,7 @@ package:
   script: build.sh
 
 source:
-  git_url: ../../..
+  path: ../../..
 
 build:
   script_env:
@@ -48,6 +48,8 @@ requirements:
     - glog {{ glog_version }}
     - matplotlib
     - nlohmann_json {{ nlohmann_json_version }}
+    - spdlog {{ spdlog_version }}
+    - fmt {{ fmt_version }}
     - python
     - pyyaml
     - pandas

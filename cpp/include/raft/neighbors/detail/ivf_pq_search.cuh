@@ -31,7 +31,6 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/core/resource/detail/device_memory_resource.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -747,7 +746,6 @@ inline void search(raft::resources const& handle,
     params.n_probes,
     k,
     index.dim());
-  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::search");
 
   RAFT_EXPECTS(
     params.internal_distance_dtype == CUDA_R_16F || params.internal_distance_dtype == CUDA_R_32F,
@@ -794,7 +792,9 @@ inline void search(raft::resources const& handle,
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
   rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * n_probes, stream, mr);
 
-  auto search_instance = ivfpq_search<IdxT, IvfSampleFilterT>::fun(params, index.metric());
+  auto filter_adapter = raft::neighbors::filtering::ivf_to_sample_filter(
+    index.inds_ptrs().data_handle(), sample_filter);
+  auto search_instance = ivfpq_search<IdxT, decltype(filter_adapter)>::fun(params, index.metric());
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
@@ -850,7 +850,7 @@ inline void search(raft::resources const& handle,
                       distances + uint64_t(k) * (offset_q + offset_b),
                       utils::config<T>::kDivisor / utils::config<float>::kDivisor,
                       params.preferred_shmem_carveout,
-                      sample_filter);
+                      filter_adapter);
     }
   }
 }
