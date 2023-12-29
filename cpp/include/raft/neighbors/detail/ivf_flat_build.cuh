@@ -160,6 +160,14 @@ RAFT_KERNEL build_index_kernel(const LabelT* labels,
   }
 }
 
+struct inv_sqrt_op {
+  template <typename Type, typename... UnusedArgs>
+  RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
+  {
+    return 1 / raft::sqrt(in);
+  }
+};
+
 /** See raft::neighbors::ivf_flat::extend docs */
 template <typename T, typename IdxT>
 void extend(raft::resources const& handle,
@@ -208,7 +216,7 @@ void extend(raft::resources const& handle,
     // Normalize if necessary (Cosine)
     if (index.metric() == raft::distance::DistanceType::CosineExpanded)
     {
-      raft::linalg::norm(handle, batch_data_view, batch_vectors_norms, raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
+      raft::linalg::norm(handle, batch_data_view, batch_vectors_norms, raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, inv_sqrt_op());
     }
     raft::cluster::kmeans_balanced::predict(handle,
                                             kmeans_params,
@@ -248,7 +256,7 @@ void extend(raft::resources const& handle,
                                                                       list_sizes_view,
                                                                       false,
                                                                       utils::mapping<float>{},
-                                                                      std::make_optional(raft::make_const_mdspan(batch_vectors_norms))); // TODO FIX BATCH
+                                                                      std::make_optional(raft::make_const_mdspan(batch_vectors_norms)));
     }
   } else {
     raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
