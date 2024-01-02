@@ -51,7 +51,7 @@ void refine_device(raft::resources const& handle,
   uint32_t k              = static_cast<uint32_t>(indices.extent(1));
 
   RAFT_EXPECTS(k <= raft::matrix::detail::select::warpsort::kMaxCapacity,
-               "k must be lest than topk::kMaxCapacity (%d).",
+               "k must be less than topk::kMaxCapacity (%d).",
                raft::matrix::detail::select::warpsort::kMaxCapacity);
 
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
