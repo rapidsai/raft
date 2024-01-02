@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,9 @@
 namespace raft {
 enum class memory_type : std::uint8_t {
   host    = std::uint8_t{0},
-  device  = std::uint8_t{1},
-  managed = std::uint8_t{2},
-  pinned  = std::uint8_t{3}
+  pinned  = std::uint8_t{1},
+  device  = std::uint8_t{2},
+  managed = std::uint8_t{3}
 };
 
 auto constexpr is_device_accessible(memory_type mem_type)
