@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 namespace raft {
 
 /**
- * @ingroup error_handling
+ * @addtogroup error_handling
  * @{
  */
 
@@ -76,7 +76,7 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
 #undef _CUBLAS_ERR_TO_STR
 
 /**
- * @ingroup assertion
+ * @addtogroup assertion
  * @{
  */
 
