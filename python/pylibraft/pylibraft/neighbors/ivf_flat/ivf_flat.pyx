@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ cdef class IndexParams:
         Seed used for random sampling if kmeans_trainset_fraction < 1.
         Value -1 disables random sampling, and results in sampling with a
         fixed stride.
-   
+
     """
     cdef c_ivf_flat.index_params params
 
