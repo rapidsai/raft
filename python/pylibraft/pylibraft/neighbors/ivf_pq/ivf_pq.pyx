@@ -156,6 +156,10 @@ cdef class IndexParams:
         repeated calls to `extend` (extending the database).
         To disable this behavior and use as little GPU memory for the
         database as possible, set this flat to `True`.
+    random_seed : int, default = 0
+        Seed used for random sampling if kmeans_trainset_fraction < 1.
+        Value -1 disables random sampling, and results in sampling with a
+        fixed stride.
     """
     def __init__(self, *,
                  n_lists=1024,
@@ -167,7 +171,8 @@ cdef class IndexParams:
                  codebook_kind="subspace",
                  force_random_rotation=False,
                  add_data_on_build=True,
-                 conservative_memory_allocation=False):
+                 conservative_memory_allocation=False,
+                 random_seed=0):
         self.params.n_lists = n_lists
         self.params.metric = _get_metric(metric)
         self.params.metric_arg = 0
@@ -185,6 +190,7 @@ cdef class IndexParams:
         self.params.add_data_on_build = add_data_on_build
         self.params.conservative_memory_allocation = \
             conservative_memory_allocation
+        self.params.random_seed = random_seed
 
     @property
     def n_lists(self):
@@ -225,6 +231,10 @@ cdef class IndexParams:
     @property
     def conservative_memory_allocation(self):
         return self.params.conservative_memory_allocation
+    
+    @property
+    def random_seed(self):
+        return self.params.random_seed
 
 
 cdef class Index:

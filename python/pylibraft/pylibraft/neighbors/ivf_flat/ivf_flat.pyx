@@ -113,6 +113,11 @@ cdef class IndexParams:
         adding new data (through the classification of the added data);
         that is, `index.centers()` "drift" together with the changing
         distribution of the newly added data.
+    random_seed : int, default = 0
+        Seed used for random sampling if kmeans_trainset_fraction < 1.
+        Value -1 disables random sampling, and results in sampling with a
+        fixed stride.
+   
     """
     cdef c_ivf_flat.index_params params
 
@@ -122,7 +127,8 @@ cdef class IndexParams:
                  kmeans_n_iters=20,
                  kmeans_trainset_fraction=0.5,
                  add_data_on_build=True,
-                 bool adaptive_centers=False):
+                 bool adaptive_centers=False,
+                 random_seed=0):
         self.params.n_lists = n_lists
         self.params.metric = _get_metric(metric)
         self.params.metric_arg = 0
@@ -130,6 +136,7 @@ cdef class IndexParams:
         self.params.kmeans_trainset_fraction = kmeans_trainset_fraction
         self.params.add_data_on_build = add_data_on_build
         self.params.adaptive_centers = adaptive_centers
+        self.params.random_seed = random_seed
 
     @property
     def n_lists(self):
@@ -154,6 +161,10 @@ cdef class IndexParams:
     @property
     def adaptive_centers(self):
         return self.params.adaptive_centers
+
+    @property
+    def random_seed(self):
+        return self.params.random_seed
 
 
 cdef class Index:

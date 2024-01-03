@@ -73,6 +73,7 @@ struct AnnIvfFlatInputs {
   raft::distance::DistanceType metric;
   bool adaptive_centers;
   bool host_dataset;
+  int seed;
 };
 
 template <typename IdxT>
@@ -80,7 +81,7 @@ template <typename IdxT>
 {
   os << "{ " << p.num_queries << ", " << p.num_db_vecs << ", " << p.dim << ", " << p.k << ", "
      << p.nprobe << ", " << p.nlist << ", " << static_cast<int>(p.metric) << ", "
-     << p.adaptive_centers << ", " << p.host_dataset << '}' << std::endl;
+     << p.adaptive_centers << ", " << p.host_dataset << "," << p.seed << '}' << std::endl;
   return os;
 }
 
@@ -178,6 +179,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         index_params.add_data_on_build        = false;
         index_params.kmeans_trainset_fraction = 0.5;
         index_params.metric_arg               = 0;
+        index_params.random_seed              = ps.seed;
 
         ivf_flat::index<DataT, IdxT> idx(handle_, index_params, ps.dim);
         ivf_flat::index<DataT, IdxT> index_2(handle_, index_params, ps.dim);
@@ -327,6 +329,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
     index_params.add_data_on_build        = false;
     index_params.kmeans_trainset_fraction = 1.0;
     index_params.metric_arg               = 0;
+    index_params.random_seed              = ps.seed;
 
     auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
       (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
@@ -497,6 +500,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         index_params.add_data_on_build        = true;
         index_params.kmeans_trainset_fraction = 0.5;
         index_params.metric_arg               = 0;
+        index_params.random_seed              = ps.seed;
 
         // Create IVF Flat index
         auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
@@ -607,6 +611,8 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
   {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
   {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
   {10000, 131072, 8, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {10000, 1000000, 96, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false, true, -1},
+  {10000, 1000000, 96, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false, false, -1},
 
   // host input data
   {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded, false, true},

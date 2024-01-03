@@ -55,6 +55,7 @@ void parse_build_param(const nlohmann::json& conf,
   param.n_lists = conf.at("nlist");
   if (conf.contains("niter")) { param.kmeans_n_iters = conf.at("niter"); }
   if (conf.contains("ratio")) { param.kmeans_trainset_fraction = 1.0 / (double)conf.at("ratio"); }
+  if (conf.contains("random_seed")) { param.random_seed = conf.at("random_seed"); }
 }
 
 template <typename T, typename IdxT>
@@ -87,6 +88,7 @@ void parse_build_param(const nlohmann::json& conf,
                                "', should be either 'cluster' or 'subspace'");
     }
   }
+  if (conf.contains("random_seed")) { param.random_seed = conf.at("random_seed"); }
 }
 
 template <typename T, typename IdxT>

@@ -56,6 +56,7 @@ cdef extern from "raft/neighbors/ivf_flat_types.hpp" \
         double kmeans_trainset_fraction
         bool adaptive_centers
         bool conservative_memory_allocation
+        int random_seed
 
     cdef cppclass index[T, IdxT](ann_index):
         index(const device_resources& handle,
