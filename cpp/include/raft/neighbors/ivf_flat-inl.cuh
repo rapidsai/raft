@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -237,7 +237,7 @@ auto extend(raft::resources const& handle,
 }
 
 /**
- * @ingroup ivf_flat
+ * @addtogroup ivf_flat
  * @{
  */
 
@@ -342,7 +342,7 @@ void extend(raft::resources const& handle,
 }
 
 /**
- * @ingroup ivf_flat
+ * @addtogroup ivf_flat
  * @{
  */
 
@@ -536,7 +536,7 @@ void search(raft::resources const& handle,
 }
 
 /**
- * @ingroup ivf_flat
+ * @addtogroup ivf_flat
  * @{
  */
 

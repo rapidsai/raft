@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ auto make_host_mdarray(extents<IndexType, Extents...> exts)
 }
 
 /**
- * @ingroup host_mdarray_factories
+ * @addtogroup host_mdarray_factories
  * @brief Create a 2-dim c-contiguous host mdarray.
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
@@ -167,7 +167,7 @@ auto make_host_matrix(IndexType n_rows, IndexType n_cols)
 }
 
 /**
- * @ingroup host_mdarray_factories
+ * @addtogroup host_mdarray_factories
  * @brief Create a host scalar from v.
  *
  * @tparam ElementType the data type of the scalar element
@@ -217,7 +217,7 @@ auto make_host_scalar(ElementType const& v)
 }
 
 /**
- * @ingroup host_mdarray_factories
+ * @addtogroup host_mdarray_factories
  * @brief Create a 1-dim host mdarray.
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents

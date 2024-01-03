@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
 namespace raft {
 
 /**
- * @ingroup error_handling
+ * @addtogroup error_handling
  * @{
  */
 
@@ -82,7 +82,7 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
 #undef _CUSPARSE_ERR_TO_STR
 
 /**
- * @ingroup assertion
+ * @addtogroup assertion
  * @{
  */
 
@@ -122,7 +122,7 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
 #endif
 
 /**
- * @ingroup assertion
+ * @addtogroup assertion
  * @{
  */
 //@todo: use logger here once logging is enabled
