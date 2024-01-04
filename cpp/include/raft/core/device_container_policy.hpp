@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
  * limitations under the License.
  */
 #pragma once
+#ifndef RAFT_DISABLE_CUDA
 #include <raft/core/device_mdspan.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -196,3 +197,22 @@ class device_uvector_policy {
 };
 
 }  // namespace raft
+#else
+#include <raft/core/detail/fail_container_policy.hpp>
+namespace raft {
+
+// Provide placeholders that will allow CPU-GPU interoperable codebases to
+// compile in non-CUDA mode but which will throw exceptions at runtime on any
+// attempt to touch device data
+
+template <typename T>
+using device_reference = detail::fail_reference<T>;
+
+template <typename T>
+using device_uvector = detail::fail_container<T>;
+
+template <typename ElementType>
+using device_uvector_policy = detail::fail_container_policy<ElementType>;
+
+}  // namespace raft
+#endif
