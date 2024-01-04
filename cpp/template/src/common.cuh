@@ -42,7 +42,7 @@ void generate_dataset(raft::device_resources const& dev_resources,
                         1.0f);
 }
 
-// Copy the results to host and print a few samples
+// Copy the results to host and print them
 template <typename IdxT>
 void print_results(raft::device_resources const& dev_resources,
                    raft::device_matrix_view<IdxT, int64_t> neighbors,
