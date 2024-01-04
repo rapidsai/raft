@@ -24,68 +24,69 @@
 namespace raft {
 
 template <typename AccessorPolicy>
-using device_accessor = host_device_accessor<AccessorPolicy, memory_type::device>;
+using pinned_accessor = host_device_accessor<AccessorPolicy, memory_type::pinned>;
 
 /**
- * @brief std::experimental::mdspan with device tag to avoid accessing incorrect memory location.
+ * @brief std::experimental::mdspan with pinned tag to indicate host/device accessibility
  */
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
-using device_mdspan = mdspan<ElementType, Extents, LayoutPolicy, device_accessor<AccessorPolicy>>;
+using pinned_mdspan = mdspan<ElementType, Extents, LayoutPolicy, pinned_accessor<AccessorPolicy>>;
 
 template <typename T, bool B>
-struct is_device_mdspan : std::false_type {};
+struct is_pinned_mdspan : std::false_type {};
 template <typename T>
-struct is_device_mdspan<T, true> : std::bool_constant<T::accessor_type::is_device_accessible> {};
+struct is_pinned_mdspan<T, true>
+  : std::bool_constant<T::accessor_type::mem_type == memory_type::pinned> {};
 
 /**
- * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
+ * @\brief Boolean to determine if template type T is either raft::pinned_mdspan or a derived type
  */
 template <typename T>
-using is_device_mdspan_t = is_device_mdspan<T, is_mdspan_v<T>>;
+using is_pinned_mdspan_t = is_pinned_mdspan<T, is_mdspan_v<T>>;
 
 template <typename T>
-using is_input_device_mdspan_t = is_device_mdspan<T, is_input_mdspan_v<T>>;
+using is_input_pinned_mdspan_t = is_pinned_mdspan<T, is_input_mdspan_v<T>>;
 
 template <typename T>
-using is_output_device_mdspan_t = is_device_mdspan<T, is_output_mdspan_v<T>>;
+using is_output_pinned_mdspan_t = is_pinned_mdspan<T, is_output_mdspan_v<T>>;
 
 /**
- * @\brief Boolean to determine if variadic template types Tn are either raft::device_mdspan or a
+ * @\brief Boolean to determine if variadic template types Tn are either raft::pinned_mdspan or a
  * derived type
  */
 template <typename... Tn>
-inline constexpr bool is_device_mdspan_v = std::conjunction_v<is_device_mdspan_t<Tn>...>;
+inline constexpr bool is_pinned_mdspan_v = std::conjunction_v<is_pinned_mdspan_t<Tn>...>;
 
 template <typename... Tn>
-inline constexpr bool is_input_device_mdspan_v =
-  std::conjunction_v<is_input_device_mdspan_t<Tn>...>;
+inline constexpr bool is_input_pinned_mdspan_v =
+  std::conjunction_v<is_input_pinned_mdspan_t<Tn>...>;
 
 template <typename... Tn>
-inline constexpr bool is_output_device_mdspan_v =
-  std::conjunction_v<is_output_device_mdspan_t<Tn>...>;
+inline constexpr bool is_output_pinned_mdspan_v =
+  std::conjunction_v<is_output_pinned_mdspan_t<Tn>...>;
 
 template <typename... Tn>
-using enable_if_device_mdspan = std::enable_if_t<is_device_mdspan_v<Tn...>>;
+using enable_if_pinned_mdspan = std::enable_if_t<is_pinned_mdspan_v<Tn...>>;
 
 template <typename... Tn>
-using enable_if_input_device_mdspan = std::enable_if_t<is_input_device_mdspan_v<Tn...>>;
+using enable_if_input_pinned_mdspan = std::enable_if_t<is_input_pinned_mdspan_v<Tn...>>;
 
 template <typename... Tn>
-using enable_if_output_device_mdspan = std::enable_if_t<is_output_device_mdspan_v<Tn...>>;
+using enable_if_output_pinned_mdspan = std::enable_if_t<is_output_pinned_mdspan_v<Tn...>>;
 
 /**
- * @brief Shorthand for 0-dim host mdspan (scalar).
+ * @brief Shorthand for 0-dim pinned mdspan (scalar).
  * @tparam ElementType the data type of the scalar element
  * @tparam IndexType the index type of the extents
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
-using device_scalar_view = device_mdspan<ElementType, scalar_extent<IndexType>>;
+using pinned_scalar_view = pinned_mdspan<ElementType, scalar_extent<IndexType>>;
 
 /**
- * @brief Shorthand for 1-dim device mdspan.
+ * @brief Shorthand for 1-dim pinned mdspan.
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
@@ -93,10 +94,10 @@ using device_scalar_view = device_mdspan<ElementType, scalar_extent<IndexType>>;
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-using device_vector_view = device_mdspan<ElementType, vector_extent<IndexType>, LayoutPolicy>;
+using pinned_vector_view = pinned_mdspan<ElementType, vector_extent<IndexType>, LayoutPolicy>;
 
 /**
- * @brief Shorthand for c-contiguous device matrix view.
+ * @brief Shorthand for c-contiguous pinned matrix view.
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
@@ -104,10 +105,10 @@ using device_vector_view = device_mdspan<ElementType, vector_extent<IndexType>, 
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-using device_matrix_view = device_mdspan<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
+using pinned_matrix_view = pinned_mdspan<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
 
 /**
- * @brief Shorthand for 128 byte aligned device matrix view.
+ * @brief Shorthand for 128 byte aligned pinned matrix view.
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy must be of type layout_{left/right}_padded
@@ -116,27 +117,27 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_right_padded<ElementType>,
           typename              = enable_if_layout_padded<ElementType, LayoutPolicy>>
-using device_aligned_matrix_view =
-  device_mdspan<ElementType,
+using pinned_aligned_matrix_view =
+  pinned_mdspan<ElementType,
                 matrix_extent<IndexType>,
                 LayoutPolicy,
                 std::experimental::aligned_accessor<ElementType, detail::alignment::value>>;
 
 /**
- * @brief Create a 2-dim 128 byte aligned mdspan instance for device pointer. It's
+ * @brief Create a 2-dim 128 byte aligned mdspan instance for pinned pointer. It's
  *        expected that the given layout policy match the layout of the underlying
  *        pointer.
  * @tparam ElementType the data type of the matrix elements
  * @tparam LayoutPolicy must be of type layout_{left/right}_padded
  * @tparam IndexType the index type of the extents
- * @param[in] ptr on device to wrap
+ * @param[in] ptr to pinned memory to wrap
  * @param[in] n_rows number of rows in pointer
  * @param[in] n_cols number of columns in pointer
  */
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_right_padded<ElementType>>
-auto constexpr make_device_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
+auto constexpr make_pinned_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
 {
   using data_handle_type =
     typename std::experimental::aligned_accessor<ElementType,
@@ -150,58 +151,58 @@ auto constexpr make_device_aligned_matrix_view(ElementType* ptr, IndexType n_row
   data_handle_type aligned_pointer = ptr;
 
   matrix_extent<IndexType> extents{n_rows, n_cols};
-  return device_aligned_matrix_view<ElementType, IndexType, LayoutPolicy>{aligned_pointer, extents};
+  return pinned_aligned_matrix_view<ElementType, IndexType, LayoutPolicy>{aligned_pointer, extents};
 }
 
 /**
- * @brief Create a 0-dim (scalar) mdspan instance for device value.
+ * @brief Create a 0-dim (scalar) mdspan instance for pinned value.
  *
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
- * @param[in] ptr on device to wrap
+ * @param[in] ptr to pinned memory to wrap
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
-auto constexpr make_device_scalar_view(ElementType* ptr)
+auto constexpr make_pinned_scalar_view(ElementType* ptr)
 {
   scalar_extent<IndexType> extents;
-  return device_scalar_view<ElementType, IndexType>{ptr, extents};
+  return pinned_scalar_view<ElementType, IndexType>{ptr, extents};
 }
 
 /**
- * @brief Create a 2-dim c-contiguous mdspan instance for device pointer. It's
+ * @brief Create a 2-dim c-contiguous mdspan instance for pinned pointer. It's
  *        expected that the given layout policy match the layout of the underlying
  *        pointer.
  * @tparam ElementType the data type of the matrix elements
  * @tparam LayoutPolicy policy for strides and layout ordering
  * @tparam IndexType the index type of the extents
- * @param[in] ptr on device to wrap
+ * @param[in] ptr to pinned memory to wrap
  * @param[in] n_rows number of rows in pointer
  * @param[in] n_cols number of columns in pointer
  */
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto constexpr make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
+auto constexpr make_pinned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
 {
   matrix_extent<IndexType> extents{n_rows, n_cols};
-  return device_matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
+  return pinned_matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
 }
 
 /**
- * @brief Create a 2-dim mdspan instance for device pointer with a strided layout
+ * @brief Create a 2-dim mdspan instance for pinned pointer with a strided layout
  *        that is restricted to stride 1 in the trailing dimension. It's
  *        expected that the given layout policy match the layout of the underlying
  *        pointer.
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on device to wrap
+ * @param[in] ptr to pinned memory to wrap
  * @param[in] n_rows number of rows in pointer
  * @param[in] n_cols number of columns in pointer
  * @param[in] stride leading dimension / stride of data
  */
 template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
-auto constexpr make_device_strided_matrix_view(ElementType* ptr,
+auto constexpr make_pinned_strided_matrix_view(ElementType* ptr,
                                                IndexType n_rows,
                                                IndexType n_cols,
                                                IndexType stride)
@@ -214,61 +215,56 @@ auto constexpr make_device_strided_matrix_view(ElementType* ptr,
   matrix_extent<IndexType> extents{n_rows, n_cols};
 
   auto layout = make_strided_layout(extents, std::array<IndexType, 2>{stride0, stride1});
-  return device_matrix_view<ElementType, IndexType, layout_stride>{ptr, layout};
+  return pinned_matrix_view<ElementType, IndexType, layout_stride>{ptr, layout};
 }
 
 /**
- * @brief Create a 1-dim mdspan instance for device pointer.
+ * @brief Create a 1-dim mdspan instance for pinned pointer.
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on device to wrap
+ * @param[in] ptr to pinned memory to wrap
  * @param[in] n number of elements in pointer
- * @return raft::device_vector_view
+ * @return raft::pinned_vector_view
  */
 template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
-auto constexpr make_device_vector_view(ElementType* ptr, IndexType n)
+auto constexpr make_pinned_vector_view(ElementType* ptr, IndexType n)
 {
-  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, n};
+  return pinned_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, n};
 }
 
 /**
- * @brief Create a 1-dim mdspan instance for device pointer.
+ * @brief Create a 1-dim mdspan instance for pinned pointer.
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on device to wrap
+ * @param[in] ptr to pinned memory to wrap
  * @param[in] mapping The layout mapping to use for this vector
- * @return raft::device_vector_view
+ * @return raft::pinned_vector_view
  */
 template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
-auto constexpr make_device_vector_view(
+auto constexpr make_pinned_vector_view(
   ElementType* ptr,
   const typename LayoutPolicy::template mapping<vector_extent<IndexType>>& mapping)
 {
-  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, mapping};
+  return pinned_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, mapping};
 }
 
 /**
- * @brief Construct a strided vector layout mapping
- *
- * Usage example:
- * @code{.cpp}
- *  #include <raft/core/device_mdspan.hpp>
- *
- *  int n_elements = 10;
- *  int stride = 10;
- *  auto vector = raft::make_device_vector_view(vector_ptr,
- * raft::make_vector_strided_layout(n_elements, stride));
- * @endcode
- *
+ * @brief Create a raft::pinned_mdspan
+ * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
- * @param[in] n the number of elements in the vector
- * @param[in] stride the stride between elements in the vector
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param ptr Pointer to the data
+ * @param exts dimensionality of the array (series of integers)
+ * @return raft::pinned_mdspan
  */
-template <typename IndexType>
-auto make_vector_strided_layout(IndexType n, IndexType stride)
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_c_contiguous,
+          size_t... Extents>
+auto constexpr make_pinned_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
-  return make_strided_layout(vector_extent<IndexType>{n}, std::array<IndexType, 1>{stride});
+  return make_mdspan<ElementType, IndexType, LayoutPolicy, true, true>(ptr, exts);
 }
 }  // end namespace raft

@@ -92,9 +92,9 @@ Device Factories
 Managed Vocabulary
 ------------------
 
-``#include <raft/core/device_mdspan.hpp>``
+``#include <raft/core/managed_mdspan.hpp>``
 
-..doxygentypedef:: raft::managed_mdspan
+.. doxygentypedef:: raft::managed_mdspan
   :project: RAFT
 
 .. doxygenstruct:: raft::is_managed_mdspan
@@ -122,7 +122,7 @@ Managed Vocabulary
 Managed Factories
 -----------------
 
-``#include <raft/core/device_mdspan.hpp>``
+``#include <raft/core/managed_mdspan.hpp>``
 
 .. doxygenfunction:: make_managed_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
     :project: RAFT
@@ -177,7 +177,38 @@ Host Factories
 .. doxygenfunction:: raft::make_host_vector_view
     :project: RAFT
 
-.. doxygenfunction:: raft::make_device_scalar_view
+.. doxygenfunction:: raft::make_host_scalar_view
+    :project: RAFT
+
+Pinned Vocabulary
+---------------
+
+``#include <raft/core/pinned_mdspan.hpp>``
+
+.. doxygentypedef:: raft::pinned_mdspan
+   :project: RAFT
+
+.. doxygentypedef:: raft::pinned_matrix_view
+   :project: RAFT
+
+.. doxygentypedef:: raft::pinned_vector_view
+   :project: RAFT
+
+.. doxygentypedef:: raft::pinned_scalar_view
+   :project: RAFT
+
+Pinned Factories
+--------------
+
+``#include <raft/core/pinned_mdspan.hpp>``
+
+.. doxygenfunction:: raft::make_pinned_matrix_view
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_pinned_vector_view
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_pinned_scalar_view
     :project: RAFT
 
 

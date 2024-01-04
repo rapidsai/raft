@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -134,7 +134,7 @@ using host_aligned_matrix_view =
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_right_padded<ElementType>>
-auto make_host_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
+auto constexpr make_host_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
 {
   using data_handle_type =
     typename std::experimental::aligned_accessor<ElementType,
@@ -159,7 +159,7 @@ auto make_host_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType
  * @param[in] ptr on device to wrap
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_host_scalar_view(ElementType* ptr)
+auto constexpr make_host_scalar_view(ElementType* ptr)
 {
   scalar_extent<IndexType> extents;
   return host_scalar_view<ElementType, IndexType>{ptr, extents};
@@ -179,7 +179,7 @@ auto make_host_scalar_view(ElementType* ptr)
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_host_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
+auto constexpr make_host_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
 {
   matrix_extent<IndexType> extents{n_rows, n_cols};
   return host_matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
@@ -196,7 +196,7 @@ auto make_host_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_host_vector_view(ElementType* ptr, IndexType n)
+auto constexpr make_host_vector_view(ElementType* ptr, IndexType n)
 {
   return host_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, n};
 }
