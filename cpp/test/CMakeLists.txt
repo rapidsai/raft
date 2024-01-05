@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -125,6 +125,7 @@ if(BUILD_TESTS)
     test/core/interruptible.cu
     test/core/nvtx.cpp
     test/core/mdarray.cu
+    test/core/mdbuffer.cu
     test/core/mdspan_copy.cpp
     test/core/mdspan_copy.cu
     test/core/mdspan_utils.cu
@@ -461,6 +462,7 @@ if(BUILD_TESTS)
     test/util/device_atomics.cu
     test/util/integer_utils.cpp
     test/util/integer_utils.cu
+    test/util/memory_type_dispatcher.cu
     test/util/pow2_utils.cu
     test/util/reduction.cu
   )
