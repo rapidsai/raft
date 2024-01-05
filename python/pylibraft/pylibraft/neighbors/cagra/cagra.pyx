@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ from pylibraft.neighbors.common cimport _get_metric_string
 
 
 cdef class IndexParams:
-    """"
+    """
     Parameters to build index for CAGRA nearest neighbor search
 
     Parameters
@@ -107,10 +107,10 @@ cdef class IndexParams:
     build_algo: string denoting the graph building algorithm to use,
                 default = "ivf_pq"
         Valid values for algo: ["ivf_pq", "nn_descent"], where
-        - ivf_pq will use the IVF-PQ algorithm for building the knn graph
-        - nn_descent (experimental) will use the NN-Descent algorithm for
-          building the knn graph. It is expected to be generally
-          faster than ivf_pq.
+            - ivf_pq will use the IVF-PQ algorithm for building the knn graph
+            - nn_descent (experimental) will use the NN-Descent algorithm for
+              building the knn graph. It is expected to be generally
+              faster than ivf_pq.
     """
     cdef c_cagra.index_params params
 
