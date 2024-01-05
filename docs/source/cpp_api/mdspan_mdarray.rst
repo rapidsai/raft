@@ -69,3 +69,67 @@ Host Factories
     :project: RAFT
     :members:
     :content-only:
+
+Managed Vocabulary
+------------------
+
+``#include <raft/core/managed_mdarray.hpp>``
+
+.. doxygentypedef:: raft::managed_mdarray
+    :project: RAFT
+
+.. doxygentypedef:: raft::managed_matrix
+    :project: RAFT
+
+.. doxygentypedef:: raft::managed_vector
+    :project: RAFT
+
+.. doxygentypedef:: raft::managed_scalar
+    :project: RAFT
+
+
+Managed Factories
+-----------------
+
+``#include <raft/core/managed_mdarray.hpp>``
+
+.. doxygenfunction:: raft::make_managed_matrix
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_managed_vector
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_managed_scalar
+    :project: RAFT
+
+Pinned Vocabulary
+-----------------
+
+``#include <raft/core/pinned_mdarray.hpp>``
+
+.. doxygentypedef:: raft::pinned_mdarray
+    :project: RAFT
+
+.. doxygentypedef:: raft::pinned_matrix
+    :project: RAFT
+
+.. doxygentypedef:: raft::pinned_vector
+    :project: RAFT
+
+.. doxygentypedef:: raft::pinned_scalar
+    :project: RAFT
+
+
+Pinned Factories
+----------------
+
+``#include <raft/core/pinned_mdarray.hpp>``
+
+.. doxygenfunction:: raft::make_pinned_matrix
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_pinned_vector
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_pinned_scalar
+    :project: RAFT
