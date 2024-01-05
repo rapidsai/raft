@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ std::condition_variable cond_var;
 std::atomic_int processed_threads{0};
 
 static inline std::unique_ptr<AnnBase> current_algo{nullptr};
-static inline std::shared_ptr<AlgoProperty> current_algo_props{nullptr};
+static inline std::unique_ptr<AlgoProperty> current_algo_props{nullptr};
 
 using kv_series = std::vector<std::tuple<std::string, std::vector<nlohmann::json>>>;
 
@@ -241,9 +241,8 @@ void bench_search(::benchmark::State& state,
       return;
     }
 
-    auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
-    current_algo_props = std::make_shared<AlgoProperty>(algo_property.dataset_memory_type,
-                                                        algo_property.query_memory_type);
+    current_algo_props = std::make_unique<AlgoProperty>(
+      std::move(parse_algo_property(algo->get_preference(), sp_json)));
 
     if (search_param->needs_dataset()) {
       try {
@@ -277,23 +276,22 @@ void bench_search(::benchmark::State& state,
     // We are accessing shared variables (like current_algo, current_algo_probs) before the
     // benchmark loop, therefore the synchronization here is necessary.
   }
-  const auto algo_property = *current_algo_props;
-  query_set                = dataset->query_set(algo_property.query_memory_type);
+  query_set = dataset->query_set(current_algo_props->query_memory_type);
 
   /**
    * Each thread will manage its own outputs
    */
   std::shared_ptr<buf<float>> distances =
-    std::make_shared<buf<float>>(algo_property.query_memory_type, k * query_set_size);
+    std::make_shared<buf<float>>(current_algo_props->query_memory_type, k * query_set_size);
   std::shared_ptr<buf<std::size_t>> neighbors =
-    std::make_shared<buf<std::size_t>>(algo_property.query_memory_type, k * query_set_size);
+    std::make_shared<buf<std::size_t>>(current_algo_props->query_memory_type, k * query_set_size);
 
   cuda_timer gpu_timer;
   auto start = std::chrono::high_resolution_clock::now();
   {
     nvtx_case nvtx{state.name()};
 
-    ANN<T>* algo = dynamic_cast<ANN<T>*>(current_algo.get());
+    auto algo = dynamic_cast<ANN<T>*>(current_algo.get())->copy();
     for (auto _ : state) {
       [[maybe_unused]] auto ntx_lap = nvtx.lap();
       [[maybe_unused]] auto gpu_lap = gpu_timer.lap();

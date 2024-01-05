@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include "cuda_stub.hpp"  // cudaStream_t
 
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -64,17 +65,10 @@ inline auto parse_memory_type(const std::string& memory_type) -> MemoryType
   }
 }
 
-class AlgoProperty {
- public:
-  inline AlgoProperty() {}
-  inline AlgoProperty(MemoryType dataset_memory_type_, MemoryType query_memory_type_)
-    : dataset_memory_type(dataset_memory_type_), query_memory_type(query_memory_type_)
-  {
-  }
+struct AlgoProperty {
   MemoryType dataset_memory_type;
   // neighbors/distances should have same memory type as queries
   MemoryType query_memory_type;
-  virtual ~AlgoProperty() = default;
 };
 
 class AnnBase {
@@ -125,6 +119,11 @@ class ANN : public AnnBase {
   // The client code should call set_search_dataset() before searching,
   // and should not release dataset before searching is finished.
   virtual void set_search_dataset(const T* /*dataset*/, size_t /*nrow*/){};
+
+  /**
+   * Make a shallow copy of the ANN wrapper that shares the resources and ensures thread-safe access
+   * to them. */
+  virtual auto copy() -> std::unique_ptr<ANN<T>> = 0;
 };
 
 }  // namespace raft::bench::ann

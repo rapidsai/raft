@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -115,14 +115,16 @@ def validate_algorithm(algos_conf, algo, gpu_present):
 def find_executable(algos_conf, algo, group, k, batch_size):
     executable = algos_conf[algo]["executable"]
 
-    return_str = f"{algo}_{group}-{k}-{batch_size}"
+    file_name = (f"{algo},{group}", f"{algo},{group},k{k},bs{batch_size}")
 
     build_path = os.getenv("RAFT_HOME")
     if build_path is not None:
-        build_path = os.path.join(build_path, "cpp", "build", executable)
+        build_path = os.path.join(
+            build_path, "cpp", "build", "release", executable
+        )
         if os.path.exists(build_path):
             print(f"-- Using RAFT bench from repository in {build_path}. ")
-            return (executable, build_path, return_str)
+            return (executable, build_path, file_name)
 
     # if there is no build folder present, we look in the conda environment
     conda_path = os.getenv("CONDA_PREFIX")
@@ -130,7 +132,7 @@ def find_executable(algos_conf, algo, group, k, batch_size):
         conda_path = os.path.join(conda_path, "bin", "ann", executable)
         if os.path.exists(conda_path):
             print("-- Using RAFT bench found in conda environment. ")
-            return (executable, conda_path, return_str)
+            return (executable, conda_path, file_name)
 
     else:
         raise FileNotFoundError(executable)
@@ -152,15 +154,21 @@ def run_build_and_search(
     mode="throughput",
     raft_log_level="info",
 ):
-    for executable, ann_executable_path, algo in executables_to_run.keys():
+    for (
+        executable,
+        ann_executable_path,
+        output_filename,
+    ) in executables_to_run.keys():
         # Need to write temporary configuration
-        temp_conf_filename = f"{conf_filename}_{algo}_{uuid.uuid1()}.json"
+        temp_conf_filename = (
+            f"{conf_filename}_{output_filename[1]}_{uuid.uuid1()}.json"
+        )
         with open(temp_conf_filename, "w") as f:
             temp_conf = dict()
             temp_conf["dataset"] = conf_file["dataset"]
             temp_conf["search_basic_param"] = conf_file["search_basic_param"]
             temp_conf["index"] = executables_to_run[
-                (executable, ann_executable_path, algo)
+                (executable, ann_executable_path, output_filename)
             ]["index"]
             json_str = json.dumps(temp_conf, indent=2)
             f.write(json_str)
@@ -172,7 +180,7 @@ def run_build_and_search(
         if build:
             build_folder = os.path.join(legacy_result_folder, "build")
             os.makedirs(build_folder, exist_ok=True)
-            build_file = f"{algo}.json"
+            build_file = f"{output_filename[0]}.json"
             temp_build_file = f"{build_file}.lock"
             cmd = [
                 ann_executable_path,
@@ -190,7 +198,8 @@ def run_build_and_search(
 
             if dry_run:
                 print(
-                    "Benchmark command for %s:\n%s\n" % (algo, " ".join(cmd))
+                    "Benchmark command for %s:\n%s\n"
+                    % (output_filename[0], " ".join(cmd))
                 )
             else:
                 try:
@@ -208,6 +217,7 @@ def run_build_and_search(
         if search:
             search_folder = os.path.join(legacy_result_folder, "search")
             os.makedirs(search_folder, exist_ok=True)
+            search_file = f"{output_filename[1]}.json"
             cmd = [
                 ann_executable_path,
                 "--search",
@@ -219,7 +229,7 @@ def run_build_and_search(
                 "--benchmark_out_format=json",
                 "--mode=%s" % mode,
                 "--benchmark_out="
-                + f"{os.path.join(search_folder, f'{algo}.json')}",
+                + f"{os.path.join(search_folder, search_file)}",
                 "--raft_log_level=" + f"{parse_log_level(raft_log_level)}",
             ]
             if force:
@@ -231,7 +241,8 @@ def run_build_and_search(
             cmd = cmd + [temp_conf_filename]
             if dry_run:
                 print(
-                    "Benchmark command for %s:\n%s\n" % (algo, " ".join(cmd))
+                    "Benchmark command for %s:\n%s\n"
+                    % (output_filename[1], " ".join(cmd))
                 )
             else:
                 try:
@@ -498,8 +509,8 @@ def main():
             )
             if executable not in executables_to_run:
                 executables_to_run[executable] = {"index": []}
-            build_params = algos_conf[algo]["groups"][group]["build"]
-            search_params = algos_conf[algo]["groups"][group]["search"]
+            build_params = algos_conf[algo]["groups"][group]["build"] or {}
+            search_params = algos_conf[algo]["groups"][group]["search"] or {}
 
             param_names = []
             param_lists = []

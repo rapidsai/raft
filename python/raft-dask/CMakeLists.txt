@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -23,11 +23,7 @@ rapids_cuda_init_architectures(raft-dask-python)
 project(
   raft-dask-python
   VERSION ${raft_dask_version}
-  LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
-            # language to be enabled here. The test project that is built in scikit-build to verify
-            # various linking options for the python library is hardcoded to build with C, so until
-            # that is fixed we need to keep C.
-            C CXX CUDA
+  LANGUAGES CXX CUDA
 )
 
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
@@ -59,7 +55,7 @@ if(NOT raft_FOUND)
   find_package(NCCL REQUIRED)
 endif()
 
-include(rapids-cython)
+include(rapids-cython-core)
 rapids_cython_init()
 
 add_subdirectory(raft_dask/common)

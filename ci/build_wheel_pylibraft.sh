@@ -1,9 +1,9 @@
 #!/bin/bash
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
 # Set up skbuild options. Enable sccache in skbuild config options
-export SKBUILD_CONFIGURE_OPTIONS="-DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
+export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DFIND_RAFT_CPP=OFF"
 
 ci/build_wheel.sh pylibraft python/pylibraft

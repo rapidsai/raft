@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <nlohmann/json.hpp>
 
 #undef WARP_SIZE
-#ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
+#ifdef RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE
 #include "raft_wrapper.h"
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
