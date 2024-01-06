@@ -395,15 +395,15 @@ void train_per_subset(raft::resources const& handle,
                       const float* trainset,   // [n_rows, dim]
                       const uint32_t* labels,  // [n_rows]
                       uint32_t kmeans_n_iters,
+                      double pq_codebook_trainset_fraction,
                       rmm::mr::device_memory_resource* managed_memory)
 {
   auto stream        = resource::get_cuda_stream(handle);
   auto device_memory = resource::get_workspace_resource(handle);
 
   rmm::device_uvector<float> pq_centers_tmp(index.pq_centers().size(), stream, device_memory);
-  // Subsampling the train set for codebook generation. Using similar subsampling strategy as train_per_cluster
-  size_t big_enough     = 256ul * std::max<size_t>(index.pq_book_size(), index.pq_dim());
-  auto pq_n_rows        = uint32_t(std::min(big_enough, n_rows));
+  // Subsampling the train set for codebook generation based on pq_codebook_trainset_fraction. 
+  auto pq_n_rows     = uint32_t(n_rows * pq_codebook_trainset_fraction);
   rmm::device_uvector<float> sub_trainset(pq_n_rows * size_t(index.pq_len()), stream, device_memory);
   rmm::device_uvector<uint32_t> sub_labels(pq_n_rows, stream, device_memory);
 
@@ -1861,6 +1861,7 @@ auto build(raft::resources const& handle,
                          trainset.data(),
                          labels.data(),
                          params.kmeans_n_iters,
+                         params.pq_codebook_trainset_fraction,
                          &managed_memory_upstream);
         break;
       case codebook_gen::PER_CLUSTER:

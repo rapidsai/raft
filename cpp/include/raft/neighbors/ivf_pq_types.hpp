@@ -105,6 +105,12 @@ struct index_params : ann::index_params {
    * flag to `true` if you prefer to use as little GPU memory for the database as possible.
    */
   bool conservative_memory_allocation = false;
+  /** 
+   * The fraction of data to use during PQ codebook generation on top of the subsampled data 
+   * controlled by kmeans_trainset_fraction. The parameter is only used when PQ codebook generation 
+   * kind is PER_SUBSPACE and ignored when PQ codebook generation kind is PER_CLUSTER. 
+  */
+  double pq_codebook_trainset_fraction = 1;
 };
 
 struct search_params : ann::search_params {
