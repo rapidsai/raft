@@ -118,7 +118,7 @@ void search_main(raft::resources const& res,
   RAFT_EXPECTS(queries.extent(1) == index.dim(), "Queries and index dim must match");
   const uint32_t topk = neighbors.extent(1);
 
-  if (params.max_queries == 0) { params.max_queries = std::max<size_t>(queries.extent(0), 65535); }
+  if (params.max_queries == 0) { params.max_queries = std::min<size_t>(queries.extent(0), 65535); }
 
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "cagra::search(max_queries = %u, k = %u, dim = %zu)", params.max_queries, topk, index.dim());
