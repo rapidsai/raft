@@ -181,6 +181,7 @@ if(NOT BUILD_CPU_ONLY)
   include(cmake/thirdparty/get_cccl.cmake)
   include(cmake/thirdparty/get_rmm.cmake)
   include(cmake/thirdparty/get_cutlass.cmake)
+  include(cmake/thirdparty/get_ucxx.cmake)
 
   include(${rapids-cmake-dir}/cpm/cuco.cmake)
   rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
