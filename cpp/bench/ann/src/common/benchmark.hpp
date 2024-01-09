@@ -287,15 +287,14 @@ void bench_search(::benchmark::State& state,
     std::make_shared<buf<std::size_t>>(current_algo_props->query_memory_type, k * query_set_size);
 
   cuda_timer gpu_timer;
-  auto start = std::chrono::high_resolution_clock::now();
   {
     nvtx_case nvtx{state.name()};
+    [[maybe_unused]] auto ntx_lap = nvtx.lap();
+    [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
+    auto start                    = std::chrono::high_resolution_clock::now();
 
     auto algo = dynamic_cast<ANN<T>*>(current_algo.get())->copy();
     for (auto _ : state) {
-      [[maybe_unused]] auto ntx_lap = nvtx.lap();
-      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
-
       // run the search
       try {
         algo->search(query_set + batch_offset * dataset->dim(),
@@ -314,12 +313,12 @@ void bench_search(::benchmark::State& state,
 
       queries_processed += n_queries;
     }
+    auto end      = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+    if (state.thread_index() == 0) { state.counters.insert({{"end_to_end", duration}}); }
+    state.counters.insert(
+      {"Latency", {duration / double(state.iterations()), benchmark::Counter::kAvgThreads}});
   }
-  auto end      = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
-  if (state.thread_index() == 0) { state.counters.insert({{"end_to_end", duration}}); }
-  state.counters.insert(
-    {"Latency", {duration / double(state.iterations()), benchmark::Counter::kAvgThreads}});
 
   state.SetItemsProcessed(queries_processed);
   if (cudart.found()) {
