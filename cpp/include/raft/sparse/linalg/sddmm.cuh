@@ -29,17 +29,15 @@ namespace linalg {
  * followed by an element-wise multiplication with the sparsity pattern of C.
  * It computes the following equation: C = alpha · (opA(A) * opB(B) ∘ spy(C)) + beta · C
  * where A,B are device matrix views and C is a CSR device matrix view
- *
  * @tparam ValueType Data type of input/output matrices (float/double)
  * @tparam IndexType Type of C
+ * @tparam NZType Type of C
  * @tparam LayoutPolicyA layout of A
  * @tparam LayoutPolicyB layout of B
- * @tparam NZType Type of C
- *
  * @param[in] handle raft handle
  * @param[in] A input raft::device_matrix_view
  * @param[in] B input raft::device_matrix_view
- * @param[in/out] C output raft::device_csr_matrix_view
+ * @param[inout] C output raft::device_csr_matrix_view
  * @param[in] opA input Operation op(A)
  * @param[in] opB input Operation op(B)
  * @param[in] alpha input raft::host_scalar_view
