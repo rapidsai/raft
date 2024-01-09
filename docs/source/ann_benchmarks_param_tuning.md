@@ -20,7 +20,7 @@ IVF-flat is a simple algorithm which won't save any space, but it provides compe
 | `nlist`              | `build_param`    | Y        | Positive Integer >0        |          | Number of clusters to partition the vectors into. Larger values will put less points into each cluster but this will impact index build time as more clusters need to be trained. |
 | `niter`              | `build_param`    | N        | Positive Integer >0        | 20       | Number of clusters to partition the vectors into. Larger values will put less points into each cluster but this will impact index build time as more clusters need to be trained. |
 | `ratio`              | `build_param`    | N        | Positive Integer >0        | 2        | `1/ratio` is the number of training points which should be used to train the clusters.                                                                                            |
-| `dataset_memory_type` | `build_param` | N | ["device", "host", "mmap"] | "device" | What memory type should the dataset reside?                                                                                                                                       |
+| `dataset_memory_type` | `build_param` | N | ["device", "host", "mmap"] | "mmap" | What memory type should the dataset reside?                                                                                                                                       |
 | `query_memory_type`  | `search_params` | N | ["device", "host", "mmap"] | "device | What memory type should the queries reside? |
 | `nprobe`             | `search_params`  | Y        | Positive Integer >0        |          | The closest number of clusters to search for each query vector. Larger values will improve recall but will search more points in the index.                                       |
 
@@ -37,12 +37,12 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 | `pq_dim`               | `build_param`  | N | Positive Integer. Multiple of 8. | 0       | Dimensionality of the vector after product quantization. When 0, a heuristic is used to select this value. `pq_dim` * `pq_bits` must be a multiple of 8.                        |
 | `pq_bits`              | `build_param`  | N | Positive Integer. [4-8]          | 8       | Bit length of the vector element after quantization.                                                                                                                            |
 | `codebook_kind`        | `build_param`  | N | ["cluster", "subspace"]          | "subspace" | Type of codebook. See the [API docs](https://docs.rapids.ai/api/raft/nightly/cpp_api/neighbors_ivf_pq/#_CPPv412codebook_gen) for more detail                                 |
-| `dataset_memory_type`  | `build_param` | N | ["device", "host", "mmap"]       | "device" | What memory type should the dataset reside?                                                                                                                                       |
+| `dataset_memory_type`  | `build_param` | N | ["device", "host", "mmap"]       | "host" | What memory type should the dataset reside?                                                                                                                                       |
 | `query_memory_type`    | `search_params` | N | ["device", "host", "mmap"]       | "device | What memory type should the queries reside? |
 | `nprobe`               | `search_params` | Y | Positive Integer >0              |         | The closest number of clusters to search for each query vector. Larger values will improve recall but will search more points in the index.                                     |
 | `internalDistanceDtype` | `search_params` | N | [`float`, `half`]                | `half`  | The precision to use for the distance computations. Lower precision can increase performance at the cost of accuracy.                                                           |
 | `smemLutDtype`         | `search_params` | N | [`float`, `half`, `fp8`]         | `half`  | The precision to use for the lookup table in shared memory. Lower precision can increase performance at the cost of accuracy.                                                   |
-| `refine_ratio`         | `search_params` | N| Positive Number >=0              | 0       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.           |
+| `refine_ratio`         | `search_params` | N| Positive Number >=1              | 1       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.           |
 
 
 ### `raft_cagra`
@@ -53,7 +53,7 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 | `graph_degree`              | `build_param`  | N        | Positive Integer >0        | 64 | Degree of the final kNN graph index. |
 | `intermediate_graph_degree` | `build_param`  | N        | Positive Integer >0        | 128 | Degree of the intermediate kNN graph. |
 | `graph_build_algo`          | `build_param`  | N | ["IVF_PQ", "NN_DESCENT"]   | "IVF_PQ" | Algorithm to use for search |
-| `dataset_memory_type`       | `build_param`  | N | ["device", "host", "mmap"] | "device" | What memory type should the dataset reside while constructing the index?                                                                                                                                       |
+| `dataset_memory_type`       | `build_param`  | N | ["device", "host", "mmap"] | "mmap" | What memory type should the dataset reside while constructing the index?                                                                                                                                       |
 | `query_memory_type`         | `search_params` | N | ["device", "host", "mmap"] | "device | What memory type should the queries reside? |
 | `itopk`                     | `search_wdith`  | N        | Positive Integer >0        | 64 | Number of intermediate search results retained during the search. Higher values improve search accuracy at the cost of speed. |
 | `search_width`              | `search_param`  | N        | Positive Integer >0        | 1 | Number of graph nodes to select as the starting point for the search in each iteration. |
@@ -77,7 +77,7 @@ To fine tune CAGRA index building we can customize IVF-PQ index builder options 
 | `ivf_pq_search_nprobe`               | `build_params` | N | Positive Integer >0              | min(2*dim, nlist)        | The closest number of clusters to search for each query vector.                                    |
 | `ivf_pq_search_internalDistanceDtype` | `build_params` | N | [`float`, `half`]                | `fp8`  | The precision to use for the distance computations. Lower precision can increase performance at the cost of accuracy.                                                           |
 | `ivf_pq_search_smemLutDtype`         | `build_params` | N | [`float`, `half`, `fp8`]         | `half`  | The precision to use for the lookup table in shared memory. Lower precision can increase performance at the cost of accuracy.                                                   |
-| `ivf_pq_search_refine_ratio`         | `build_params` | N| Positive Number >=0              | 2       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.           |
+| `ivf_pq_search_refine_ratio`         | `build_params` | N| Positive Number >=1              | 2       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.           |
 
 Alternatively, if `graph_build_algo == "NN_DESCENT"`, then we can customize the following parameters
 
@@ -125,7 +125,7 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 | `usePrecomputed` | `build_param`  | N        | Boolean. Default=`false`         | `false` | Use pre-computed lookup tables to speed up search at the cost of increased memory usage.                                                                                          |
 | `useFloat16`     | `build_param`  | N        | Boolean. Default=`false`         | `false`  | Use half-precision floats for clustering step.                                                                                                                                    |
 | `nprobe`         | `search_params` | Y        | Positive Integer >0              |         | The closest number of clusters to search for each query vector. Larger values will improve recall but will search more points in the index.                                       |
-| `refine_ratio`   | `search_params` | N| Positive Number >=0          | 0       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.             |
+| `refine_ratio`   | `search_params` | N| Positive Number >=1          | 1       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.             |
 
 ### `faiss_cpu_flat`
 
@@ -159,7 +159,7 @@ Use FAISS IVF-PQ index on CPU
 | `usePrecomputed` | `build_param`  | N        | Boolean. Default=`false`           | `false` | Use pre-computed lookup tables to speed up search at the cost of increased memory usage.                                                                                      |
 | `bitsPerCode`    | `build_param`  | N        | Positive Integer [4-8]             | 8       | Number of bits to use for each code.                                                                                                                                          |
 | `nprobe`         | `search_params` | Y        | Positive Integer >0                |         | The closest number of clusters to search for each query vector. Larger values will improve recall but will search more points in the index.                                   |
-| `refine_ratio`   | `search_params` | N| Positive Number >=0                | 0       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.         |
+| `refine_ratio`   | `search_params` | N| Positive Number >=1                | 1       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.         |
 | `numThreads`     | `search_params` | N        | Positive Integer >0                  | 1       | Number of threads to use for queries.                                                                                                                                                                                                                                                             |
 
 

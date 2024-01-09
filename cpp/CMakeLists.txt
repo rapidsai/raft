@@ -177,8 +177,8 @@ include(cmake/modules/ConfigureCUDA.cmake)
 rapids_cpm_init()
 
 if(NOT BUILD_CPU_ONLY)
-  # thrust before rmm/cuco so we get the right version of thrust/cub
-  include(cmake/thirdparty/get_thrust.cmake)
+  # CCCL before rmm/cuco so we get the right version of CCCL
+  include(cmake/thirdparty/get_cccl.cmake)
   include(cmake/thirdparty/get_rmm.cmake)
   include(cmake/thirdparty/get_cutlass.cmake)
 
@@ -206,7 +206,7 @@ target_include_directories(
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
+  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass CCCL::CCCL)
 endif()
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -372,16 +372,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/refine_host_float_float.cpp
     src/neighbors/detail/refine_host_int8_t_float.cpp
     src/neighbors/detail/refine_host_uint8_t_float.cpp
-    src/neighbors/detail/selection_faiss_int32_t_float.cu
-    src/neighbors/detail/selection_faiss_int_double.cu
-    src/neighbors/detail/selection_faiss_long_float.cu
-    src/neighbors/detail/selection_faiss_size_t_double.cu
-    src/neighbors/detail/selection_faiss_size_t_float.cu
-    src/neighbors/detail/selection_faiss_uint32_t_float.cu
-    src/neighbors/detail/selection_faiss_int64_t_double.cu
-    src/neighbors/detail/selection_faiss_int64_t_half.cu
-    src/neighbors/detail/selection_faiss_uint32_t_double.cu
-    src/neighbors/detail/selection_faiss_uint32_t_half.cu
     src/neighbors/ivf_flat_build_float_int64_t.cu
     src/neighbors/ivf_flat_build_int8_t_int64_t.cu
     src/neighbors/ivf_flat_build_uint8_t_int64_t.cu
@@ -637,16 +627,6 @@ Imported Targets:
 )
 
 set(code_string ${nvtx_export_string})
-
-string(
-  APPEND
-  code_string
-  [=[
-if(NOT TARGET raft::Thrust)
-  thrust_create_target(raft::Thrust FROM_OPTIONS)
-endif()
-]=]
-)
 
 string(
   APPEND

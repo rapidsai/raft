@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
 
-#ifndef RAFT_EXPLICIT_INSTANTIATE_ONLY
-#include "selection_faiss-inl.cuh"
-#endif
+#include <gtest/gtest.h>
 
-#ifdef RAFT_COMPILED
-#include "selection_faiss-ext.cuh"
-#endif
+#include "../ann_brute_force.cuh"
+
+namespace raft::neighbors::brute_force {
+
+using AnnBruteForceTest_float = AnnBruteForceTest<float, float, std::int64_t>;
+TEST_P(AnnBruteForceTest_float, AnnBruteForce) { this->testBruteForce(); }
+
+INSTANTIATE_TEST_CASE_P(AnnBruteForceTest, AnnBruteForceTest_float, ::testing::ValuesIn(inputs));
+
+}  // namespace raft::neighbors::brute_force
