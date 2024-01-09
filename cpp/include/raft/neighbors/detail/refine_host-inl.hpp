@@ -19,6 +19,7 @@
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/neighbors/detail/refine_common.hpp>
+#include <raft/util/integer_utils.hpp>
 
 #include <algorithm>
 #include <omp.h>
