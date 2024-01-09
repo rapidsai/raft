@@ -104,7 +104,7 @@ cdef class IndexParams:
 
     graph_degree : int, default = 64
 
-    build_algo: string denoting the graph building algorithm to use,
+    build_algo: string denoting the graph building algorithm to use, \
                 default = "ivf_pq"
         Valid values for algo: ["ivf_pq", "nn_descent"], where
             - ivf_pq will use the IVF-PQ algorithm for building the knn graph
@@ -501,10 +501,10 @@ cdef class SearchParams:
         Upper limit of search iterations. Auto select when 0.
     algo: string denoting the search algorithm to use, default = "auto"
         Valid values for algo: ["auto", "single_cta", "multi_cta"], where
-        - auto will automatically select the best value based on query size
-        - single_cta is better when query contains larger number of
-        vectors (e.g >10)
-        - multi_cta is better when query contains only a few vectors
+            - auto will automatically select the best value based on query size
+            - single_cta is better when query contains larger number of
+              vectors (e.g >10)
+            - multi_cta is better when query contains only a few vectors
     team_size: int, default = 0
         Number of threads used to calculate a single distance. 4, 8, 16,
         or 32.
@@ -516,13 +516,13 @@ cdef class SearchParams:
     thread_block_size: int, default = 0
         Thread block size. 0, 64, 128, 256, 512, 1024.
         Auto selection when 0.
-    hashmap_mode: string denoting the type of hash map to use. It's
-        usually better to allow the algorithm to select this value.,
-        default = "auto"
+    hashmap_mode: string denoting the type of hash map to use.
+        It's usually better to allow the algorithm to select this value,
+        default = "auto".
         Valid values for hashmap_mode: ["auto", "small", "hash"], where
-        - auto will automatically select the best value based on algo
-        - small will use the small shared memory hash table with resetting.
-        - hash will use a single hash table in global memory.
+            - auto will automatically select the best value based on algo
+            - small will use the small shared memory hash table with resetting.
+            - hash will use a single hash table in global memory.
     hashmap_min_bitlen: int, default = 0
         Upper limit of hashmap fill rate. More than 0.1, less than 0.9.
     hashmap_max_fill_rate: float, default = 0.5
