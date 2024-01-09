@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,16 +24,57 @@ namespace raft::matrix {
  * @{
  */
 
+/**
+ * @brief Algorithm used to select the k largest neighbors
+ *
+ * Details about how the the select-k algorithms in RAFT work can be found in the
+ * paper "Parallel Top-K Algorithms on GPU: A Comprehensive Study and New Methods"
+ * https://doi.org/10.1145/3581784.3607062. The kRadix* variants below correspond
+ * to the 'Air Top-k' algorithm described in the paper, and the kWarp* variants
+ * correspond to the 'GridSelect' algorithm.
+ */
 enum class SelectAlgo : uint8_t {
-  kAuto                 = 0,
-  kRadix8bits           = 1,
-  kRadix11bits          = 2,
+  /** Automatically pick the select-k algorithm based off the input dimensions and k value */
+  kAuto = 0,
+  /** Radix Select using 8 bits per pass */
+  kRadix8bits = 1,
+  /** Radix Select using 11 bits per pass, fusing the last filter step */
+  kRadix11bits = 2,
+  /** Radix Select using 11 bits per pass, without fusing the last filter step */
   kRadix11bitsExtraPass = 3,
-  kWarpAuto             = 4,
-  kWarpImmediate        = 5,
-  kWarpFiltered         = 6,
-  kWarpDistributed      = 7,
-  kWarpDistributedShm   = 8,
+  /**
+   * Automatically switches between the kWarpImmediate and kWarpFiltered algorithms
+   * based off of input size
+   */
+  kWarpAuto = 4,
+  /**
+   * This version of warp_sort adds every input element into the intermediate sorting
+   * buffer, and thus does the sorting step every `Capacity` input elements.
+   *
+   * This implementation is preferred for very small len values.
+   */
+  kWarpImmediate = 5,
+  /**
+   * This version of warp_sort compares each input element against the current
+   * estimate of k-th value before adding it to the intermediate sorting buffer.
+   * This makes the algorithm do less sorting steps for long input sequences
+   * at the cost of extra checks on each step.
+   *
+   * This implementation is preferred for large len values.
+   */
+  kWarpFiltered = 6,
+  /**
+   * This version of warp_sort compares each input element against the current
+   * estimate of k-th value before adding it to the intermediate sorting buffer.
+   * In contrast to `warp_sort_filtered`, it keeps one distributed buffer for
+   * all threads in a warp (independently of the subwarp size), which makes its flushing less often.
+   */
+  kWarpDistributed = 7,
+  /**
+   * The same as `warp_sort_distributed`, but keeps the temporary value and index buffers
+   * in the given external pointers (normally, a shared memory pointer should be passed in).
+   */
+  kWarpDistributedShm = 8,
 };
 
 inline auto operator<<(std::ostream& os, const SelectAlgo& algo) -> std::ostream&
