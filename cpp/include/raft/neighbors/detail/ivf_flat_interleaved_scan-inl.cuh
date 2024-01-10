@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -168,7 +168,7 @@ struct loadAndComputeDist {
     const T*& data, const T* query, const int lane_id, const int dim, const int dimBlocks)
   {
     const int loadDim     = dimBlocks + lane_id;
-    T queryReg            = loadDim < dim ? query[loadDim] : 0;
+    T queryReg            = loadDim < dim ? query[loadDim] : T{0};
     const int loadDataIdx = lane_id * Veclen;
     for (int d = 0; d < dim - dimBlocks; d += Veclen, data += kIndexGroupSize * Veclen) {
       T enc[Veclen];
