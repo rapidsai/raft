@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@
                                                IdxT* out_idx,                       \
                                                bool select_min,                     \
                                                rmm::mr::device_memory_resource* mr, \
-                                               bool sorted)
+                                               bool sorted,                         \
+                                               raft::matrix::SelectAlgo algo)
 
 instantiate_raft_matrix_detail_select_k(__half, int64_t);
 
