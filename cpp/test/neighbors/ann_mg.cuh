@@ -113,6 +113,8 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
                                   ps.k,
                                   0.001,
                                   min_recall));
+      std::fill(indices_ann.begin(), indices_ann.end(), 0);
+      std::fill(distances_ann.begin(), distances_ann.end(), 0);
     }
 
     // IVF-PQ
@@ -151,6 +153,8 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
                                   ps.k,
                                   0.001,
                                   min_recall));
+      std::fill(indices_ann.begin(), indices_ann.end(), 0);
+      std::fill(distances_ann.begin(), distances_ann.end(), 0);
     }
   }
 

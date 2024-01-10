@@ -57,7 +57,7 @@ void extend(detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
 }
 
 template <typename T, typename IdxT>
-void search(detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
+void search(const detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
             const ivf_flat::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
@@ -67,12 +67,42 @@ void search(detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
 }
 
 template <typename T>
-void search(detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
+void search(const detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
             const ivf_pq::search_params& search_params,
             raft::host_matrix_view<const T, uint32_t, row_major> query_dataset,
             raft::host_matrix_view<uint32_t, uint32_t, row_major> neighbors,
             raft::host_matrix_view<float, uint32_t, row_major> distances)
 {
   mg::detail::search<T>(index, search_params, query_dataset, neighbors, distances);
+}
+
+template <typename T, typename IdxT>
+void serialize(const raft::resources& handle,
+               const detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
+               const std::string& filename)
+{
+  mg::detail::serialize(handle, index, filename);
+}
+
+template <typename T>
+void serialize(const raft::resources& handle,
+               const detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
+               const std::string& filename)
+{
+  mg::detail::serialize(handle, index, filename);
+}
+
+template <typename T, typename IdxT>
+detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize(const raft::resources& handle,
+                                                                    const std::string& filename)
+{
+  return mg::detail::deserialize<T, IdxT>(handle, filename);
+}
+
+template <typename T>
+detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> deserialize(const raft::resources& handle,
+                                                                       const std::string& filename)
+{
+  return mg::detail::deserialize<T>(handle, filename);
 }
 }  // namespace raft::neighbors::mg
