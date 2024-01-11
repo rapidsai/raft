@@ -16,6 +16,7 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/matrix/copy.cuh>
 #include <raft/random/make_blobs.cuh>
