@@ -305,7 +305,7 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 
-if hasArg --compile-lib || (( ${NUMARGS} == 0 )); then
+if hasArg --compile-lib || hasArg pylibraft || (( ${NUMARGS} == 0 )); then
     COMPILE_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_lib"
 fi
@@ -376,10 +376,6 @@ if hasArg clean; then
 fi
 if hasArg --incl-cache-stats; then
     BUILD_REPORT_INCL_CACHE_STATS=ON
-fi
-if hasArg pylibraft; then
-    COMPILE_LIBRARY=ON
-    CMAKE_TARGET="${CMAKE_TARGET};raft_lib"
 fi
 if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
