@@ -4,11 +4,11 @@ RAFT has several important algorithms for performing vector search on the GPU an
 
 This tutorial assumes RAFT has been installed and/or added to your build so that you are able to compile and run RAFT code. If not done already, please follow the [build and install instructions](build.md) and consider taking a look at the [example c++ template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) for ready-to-go examples that you can immediately build and start playing with. Also take a look at RAFT's library of [reproducible vector search benchmarks](raft_ann_benchmarks.md) to run benchmarks that compare RAFT against other state-of-the-art nearest neighbors algorithms at scale.
 
-For more information about the various APIs demonstrated in this tutorial, along with comprehensive usage examples of all the APIs offered by RAFT, please refer to the [RAFT's C++ API Documentation](https://docs.rapids.ai/api/raft/nightly/cpp_api/). 
+For more information about the various APIs demonstrated in this tutorial, along with comprehensive usage examples of all the APIs offered by RAFT, please refer to the [RAFT's C++ API Documentation](https://docs.rapids.ai/api/raft/nightly/cpp_api/).
 
 ## Step 1: Starting off with RAFT
 
-### CUDA Development? 
+### CUDA Development?
 
 If you are reading this tuturial then you probably know about CUDA and its relationship to general-purpose GPU computing (GPGPU). You probably also know about Nvidia GPUs but might not necessarily be familiar with the programming model nor GPU computing. The good news is that extensive knowledge of CUDA and GPUs are not needed in order to get started with or build applications with RAFT. RAFT hides away most of the complexities behind simple single-threaded stateless functions that are inherently asynchronous, meaning the result of a computation isn't necessarily read to be used when the function executes and control is given back to the user. The functions are, however, allowed to be chained together in a sequence of calls that don't need to wait for subsequent computations to complete in order to continue execution. In fact, the only time you need to wait for the computation to complete is when you are ready to use the result.
 
@@ -47,9 +47,9 @@ Since a stream is involved in the copy operation above, RAFT functions can be in
 
 `rmm::device_uvector` is a great mechanism for allocating and managing a chunk of device memory. While it's possible to use a single array to represent objects in higher dimensions like matrices, it lacks the means to pass that information along. For example, in addition to knowing that we have a 2d structure, we would need to know the number of rows, the number of columns, and even whether we read the columns or rows first (referred to as column- or row-major respectively).
 
-For this reason, RAFT relies on the `mdspan` standard, which was composed specifically for this purpose. To be even more, `mdspan` itself doesn't actually allocate or own any data on host or device because it's just a view over an existing memory on host device. The `mdspan` simply gives us a way to represent multi-dimensional data so we can pass along the needed metadata to our APIs. Even more powerful is that we can design functions that only accept a matrix of `float` in device memory that is laid out in row-major format. 
+For this reason, RAFT relies on the `mdspan` standard, which was composed specifically for this purpose. To be even more, `mdspan` itself doesn't actually allocate or own any data on host or device because it's just a view over an existing memory on host device. The `mdspan` simply gives us a way to represent multi-dimensional data so we can pass along the needed metadata to our APIs. Even more powerful is that we can design functions that only accept a matrix of `float` in device memory that is laid out in row-major format.
 
-The memory-owning counterpart to the `mdspan` is the `mdarray` and the `mdarray` can allocate memory on device or host and carry along with it the metadata about its shape and layout. An `mdspan` can be produced from an `mdarray` for invoking RAFT APIs with `mdarray.view()`. They also follow similar paradigms to the STL, where we represent an immutable `mdspan` of `int` using `mdspan<const int>` instead of `const mdspan<int>` to ensure it's the type carried along by the `mdspan` that's not allowed to change. 
+The memory-owning counterpart to the `mdspan` is the `mdarray` and the `mdarray` can allocate memory on device or host and carry along with it the metadata about its shape and layout. An `mdspan` can be produced from an `mdarray` for invoking RAFT APIs with `mdarray.view()`. They also follow similar paradigms to the STL, where we represent an immutable `mdspan` of `int` using `mdspan<const int>` instead of `const mdspan<int>` to ensure it's the type carried along by the `mdspan` that's not allowed to change.
 
 Many RAFT functions require `mdspan<const T>` to represent immutable input data and there's no implicit conversion between `mdspan<T>` and `mdspan<const T>` we use `raft::make_const_mdspan()` to alleviate the pain of constructing a new `mdspan` to invoke these functions.
 
@@ -159,7 +159,7 @@ auto index = raft::neighbors::cagra::build<float, uint32_t>(res, index_params, r
 
 ### Query the CAGRA index
 
-Now that we've trained a CAGRA index, we can query it by first allocating our output `mdarray` objects and passing the trained index model into the search function. 
+Now that we've trained a CAGRA index, we can query it by first allocating our output `mdarray` objects and passing the trained index model into the search function.
 
 ```c++
 // create output arrays
@@ -203,14 +203,14 @@ raft::stats::neighborhood_recall(res,
 res.sync_stream();
 ```
 
-Notice we can run invoke the functions for index build and search for both algorithms, one right after the other, because we don't need to access any outputs from the algorithms in host memory. We will need to synchronize the stream on the `raft::device_resources` instance before we can read the result of the `neighborhood_recall` computation, though. 
+Notice we can run invoke the functions for index build and search for both algorithms, one right after the other, because we don't need to access any outputs from the algorithms in host memory. We will need to synchronize the stream on the `raft::device_resources` instance before we can read the result of the `neighborhood_recall` computation, though.
 
 Similar to a Numpy array, when we use a `host_scalar`, we are really using a multi-dimensional structure that contains only a single dimension, and further a single element. We can use element indexing to access the resulting element directly.
 ```c++
 std::cout << recall_value(0) << std::endl;
 ```
 
-While it may seem like unnecessary additional work to wrap the result in a `host_scalar` mdspan, this API choice is made intentionally to support the possibility of also receiving the result as a `device_scalar` so that it can be used directly on the device for follow-on computations without having to incur the synchronization or transfer cost of bringing the result to host. This pattern becomes even more important when the result is being computed in a loop, such as an iterative solver, and the cost of synchronization and device-to-host (d2h) transfer becomes very expensive. 
+While it may seem like unnecessary additional work to wrap the result in a `host_scalar` mdspan, this API choice is made intentionally to support the possibility of also receiving the result as a `device_scalar` so that it can be used directly on the device for follow-on computations without having to incur the synchronization or transfer cost of bringing the result to host. This pattern becomes even more important when the result is being computed in a loop, such as an iterative solver, and the cost of synchronization and device-to-host (d2h) transfer becomes very expensive.
 
 ## Advanced features
 
@@ -308,7 +308,9 @@ As an example, the following code snippet creates a `pool_memory_resource` and s
 
 rmm::mr::cuda_memory_resource cuda_mr;
 // Construct a resource that uses a coalescing best-fit pool allocator
-rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr};
+// set the initial size to half of the free device memory
+auto init_size = rmm::percent_of_free_device_memory(50);
+rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr, init_size};
 rmm::mr::set_current_device_resource(&pool_mr); // Updates the current device resource pointer to `pool_mr`
 ```
 
@@ -316,9 +318,9 @@ The `raft::device_resources` object will now also use the `rmm::current_device_r
 
 ### Workspace memory resource
 
-As mentioned above, `raft::device_resources` will use `rmm::current_device_resource` by default for all memory allocations. However, there are times when a particular algorithm might benefit from using a different memory resource such as a `managed_memory_resource`, which creates a unified memory space between device and host memory, paging memory in and out of device as needed. Most of RAFT's algorithms allocate temporary memory as needed to perform their computations and we can control the memory resource used for these temporary allocations through the `workspace_resource` in the `raft::device_resources` instance. 
+As mentioned above, `raft::device_resources` will use `rmm::current_device_resource` by default for all memory allocations. However, there are times when a particular algorithm might benefit from using a different memory resource such as a `managed_memory_resource`, which creates a unified memory space between device and host memory, paging memory in and out of device as needed. Most of RAFT's algorithms allocate temporary memory as needed to perform their computations and we can control the memory resource used for these temporary allocations through the `workspace_resource` in the `raft::device_resources` instance.
 
-For some applications, the `managed_memory_resource`, can enable a memory space that is larger than the GPU, thus allowing a natural spilling to host memory when needed. This isn't always the best way to use managed memory, though, as it can quickly lead to thrashing and severely impact performance. Still, when it can be used, it provides a very powerful tool that can also avoid out of memory errors when enough host memory is available. 
+For some applications, the `managed_memory_resource`, can enable a memory space that is larger than the GPU, thus allowing a natural spilling to host memory when needed. This isn't always the best way to use managed memory, though, as it can quickly lead to thrashing and severely impact performance. Still, when it can be used, it provides a very powerful tool that can also avoid out of memory errors when enough host memory is available.
 
 The following creates a managed memory allocator and set it as the `workspace_resource` of the `raft::device_resources` instance:
 ```c++
@@ -329,7 +331,7 @@ std::shared_ptr<rmm::mr::managed_memory_resource> managed_resource;
 raft::device_resource res(managed_resource);
 ```
 
-The `workspace_resource` uses an `rmm::mr::limiting_resource_adaptor`, which limits the total amount of allocation possible. This allows RAFT algorithms to work within the confines of the memory constraints imposed by the user so that things like batch sizes can be automatically set to reasonable values without exceeding the allotted memory. By default, this limit restricts the memory allocation space for temporary workspace buffers to the memory available on the device. 
+The `workspace_resource` uses an `rmm::mr::limiting_resource_adaptor`, which limits the total amount of allocation possible. This allows RAFT algorithms to work within the confines of the memory constraints imposed by the user so that things like batch sizes can be automatically set to reasonable values without exceeding the allotted memory. By default, this limit restricts the memory allocation space for temporary workspace buffers to the memory available on the device.
 
 The below example specifies the total number of bytes that RAFT can use for temporary workspace allocations to 3GB:
 ```c++

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,25 @@
  * limitations under the License.
  */
 
-#include <cstddef>
-#include <cuda_runtime.h>
-#include <gtest/gtest.h>
-#include <iostream>
-#include <memory>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cuda_stream_pool.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
+
+#include <rmm/cuda_device.hpp>
 #include <rmm/device_buffer.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+
+#include <cuda_runtime.h>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <iostream>
+#include <memory>
 #include <unordered_map>
 
 namespace raft {
@@ -279,8 +284,8 @@ TEST(Raft, WorkspaceResource)
   auto* orig_mr = resource::get_workspace_resource(handle)->get_upstream();
 
   // Let's create a pooled resource
-  auto pool_mr = std::shared_ptr<rmm::mr::device_memory_resource>{
-    new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource())};
+  auto pool_mr = std::shared_ptr<rmm::mr::device_memory_resource>{new rmm::mr::pool_memory_resource(
+    rmm::mr::get_current_device_resource(), rmm::percent_of_free_device_memory(50))};
 
   // A tiny workspace of 1MB
   size_t max_size = 1024 * 1024;
@@ -318,8 +323,8 @@ TEST(Raft, WorkspaceResourceCopy)
     raft::resources tmp_res(res);
     resource::set_workspace_resource(
       tmp_res,
-      std::shared_ptr<rmm::mr::device_memory_resource>{
-        new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource())},
+      std::shared_ptr<rmm::mr::device_memory_resource>{new rmm::mr::pool_memory_resource(
+        rmm::mr::get_current_device_resource(), rmm::percent_of_free_device_memory(50))},
       orig_size * 2);
 
     ASSERT_EQ(orig_mr, resource::get_workspace_resource(res));
