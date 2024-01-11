@@ -350,14 +350,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim512_t32.cu
     src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim1024_t32.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint32_dim128_t8.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint32_dim512_t32.cu
@@ -374,14 +366,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim512_t32.cu
     src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint64_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint64_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint64_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint64_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim1024_t32.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_half_half_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
@@ -499,7 +483,6 @@ if(RAFT_COMPILE_LIBRARY)
     PROPERTIES OUTPUT_NAME raft
                BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
-               POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 

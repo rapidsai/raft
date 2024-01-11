@@ -329,7 +329,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same<DataT, float>{} || std::is_same<DataT, half>{}) {
+    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
       GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
       GenerateRoundingErrorFreeDataset(
         handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
@@ -418,7 +418,7 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, handle_.get_stream());
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same<DataT, float>{}) {
+    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
       GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, false);
     } else {
       raft::random::uniformInt(
@@ -685,7 +685,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same<DataT, float>{}) {
+    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
       GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
       GenerateRoundingErrorFreeDataset(
         handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
