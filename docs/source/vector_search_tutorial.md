@@ -216,6 +216,55 @@ While it may seem like unnecessary additional work to wrap the result in a `host
 
 The following sections present some advanced features that we have found can be useful for squeezing more utilization out of GPU hardware. As you've seen in this tutorial, RAFT provides several very useful tools and building blocks for developing accelerated applications beyond vector search capabilities.
 
+### Serialization
+
+Most of the indexes in `raft::neighbors` can be serialized to/from streams and files on disk. The index types that support this feature have include files with the naming convention `<index_type>_serialize.cuh`. The serialization functions are similar across the different index types, with the primary difference being that some index types require a pointer to all the training data for search. Since the original training dataset can be quite large, the `serialize()` function for these index types includes an argument `include_dataset`, which allows the user to specify whether the dataset should be included in the serialized form. The index types that allow for this also include a method `update_datasets()` to allow for the dataset to be re-attached to the index after it is deserialized.
+
+The following example demonstrates serializing and deserializing a CAGRA index to and from a file. For index types that don't require the training data, you can remove the `include_dataset` and `update_dataset()` parts. We will assume the CAGRA index has been built using the code from [Step 4](#build-a-cagra-index) above:
+
+```c++
+#include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/cagra_serialize.cuh>
+
+using namespace raft::neighbors;
+
+raft::neighbors::cagra::serialize(res, "cagra_serialized.dat", index, false);
+
+auto index_deser = raft::neighbors::cagra::deserialize(res, "cagra_serialized.dat");
+index_deser.update_dataset(dataset);
+```
+
+### Filtering
+
+As of RAFT 23.10, support for pre-filtering of neighbors has been added to ANN index. This search feature can enable multiple use-cases, such as filtering a vector based on it's attributes (hybrid searches), the removal of vectors already added to the index, or the control of access in searches for security purposes.
+The filtering is available through the `search_with_filtering()` function of the ANN index, and is done by applying a predicate function on the GPU, which usually have the signature `(uint32_t query_ix, uint32_t sample_ix) -> bool`.
+
+One of the most commonly used mechanism for filtering is the bitset: the bitset is a data structure that allows to test the presence of a value in a set through a fast lookup, and is implemented as a bit array so that every element contains a `0` or a `1` (respectively `false` and `true` in boolean logic). RAFT provides a `raft::core::bitset` class that can be used to create and manipulate bitsets on the GPU, and a `raft::core::bitset_view` class that can be used to pass bitsets to filtering functions.
+
+The following example demonstrates how to use the filtering API (assume the CAGRA index is built using the code from [Step 4](#build-a-cagra-index) above:
+
+```c++
+#include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/sample_filter.cuh>
+
+using namespace raft::neighbors;
+
+cagra::search_params search_params;
+
+// create a bitset to filter the search
+auto removed_indices = raft::make_device_vector<IdxT>(res, n_removed_indices);
+raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
+  res, removed_indices.view(), dataset.extent(0));
+
+// ... Populate the bitset ... 
+
+// search K nearest neighbours according to a bitset filter
+auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
+auto distances = raft::make_device_matrix<float>(res, n_queries, k);
+cagra::search_with_filtering(res, search_params, index, queries, neighbors, distances,
+  filtering::bitset_filter(removed_indices_bitset.view()));
+```
+
 ### Stream pools
 
 Within each CPU thread, CUDA uses `streams` to submit asynchronous work. You can think of a stream as a queue. Each stream can submit work to the GPU independently of other streams but work submitted within each stream is queued and executed in the order in which it was submitted. Similar to how we can use thread pools to bound the parallelism of CPU threads, we can use CUDA stream pools to bound the amount of concurrent asynchronous work that can be scheduled on a GPU. Each instance of `device_resources` has a main stream, but can also create a stream pool. For a single CPU thread, multiple different instances of `device_resources` can be created with different main streams and used to invoke a series of RAFT functions concurrently on the same or different GPU devices, so long as the target devices have available resources to perform the work. Once a device is saturated, queued work on streams will be scheduled and wait for a chance to do more work. During this time the streams are waiting, the CPU thread will still continue its own execution asynchronously unless `sync_stream_pool()` is called, causing the thread to block and wait for the thread pools to complete.
@@ -340,37 +389,4 @@ The below example specifies the total number of bytes that RAFT can use for temp
 
 std::shared_ptr<rmm::mr::managed_memory_resource> managed_resource;
 raft::device_resource res(managed_resource, std::make_optional<std::size_t>(3 * 1024^3));
-```
-
-### Filtering
-
-As of RAFT 23.10, support for pre-filtering of neighbors has been added to ANN index. This search feature can enable multiple use-cases, such as filtering a vector based on it's attributes (hybrid searches), the removal of vectors already added to the index, or the control of access in searches for security purposes.
-The filtering is available through the `search_with_filtering()` function of the ANN index, and is done by applying a predicate function on the GPU, which usually have the signature `(uint32_t query_ix, uint32_t sample_ix) -> bool`.
-
-One of the most commonly used mechanism for filtering is the bitset: the bitset is a data structure that allows to test the presence of a value in a set through a fast lookup, and is implemented as a bit array so that every element contains a `0` or a `1` (respectively `false` and `true` in boolean logic). RAFT provides a `raft::core::bitset` class that can be used to create and manipulate bitsets on the GPU, and a `raft::core::bitset_view` class that can be used to pass bitsets to filtering functions.
-
-The following example demonstrates how to use the filtering API:
-
-```c++
-#include <raft/neighbors/cagra.cuh>
-#include <raft/neighbors/sample_filter.cuh>
-
-using namespace raft::neighbors;
-// use default index parameters
-cagra::index_params index_params;
-// create and fill the index from a [N, D] dataset
-auto index = cagra::build(res, index_params, dataset);
-// use default search parameters
-cagra::search_params search_params;
-
-// create a bitset to filter the search
-auto removed_indices = raft::make_device_vector<IdxT>(res, n_removed_indices);
-raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
-  res, removed_indices.view(), dataset.extent(0));
-
-// search K nearest neighbours according to a bitset filter
-auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
-auto distances = raft::make_device_matrix<float>(res, n_queries, k);
-cagra::search_with_filtering(res, search_params, index, queries, neighbors, distances,
-  filtering::bitset_filter(removed_indices_bitset.view()));
 ```
