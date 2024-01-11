@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "detail/spmm.hpp"
-#include <raft/sparse/linalg/detail/utils.cuh>
+#include <raft/sparse/linalg/detail/cusparse_utils.hpp>
+#include <raft/sparse/linalg/detail/spmm.hpp>
 
 namespace raft {
 namespace sparse {

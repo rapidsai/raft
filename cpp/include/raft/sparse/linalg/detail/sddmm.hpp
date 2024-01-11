@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ void sddmm(raft::resources const& handle,
                                                    &bufferSize,
                                                    resource::get_cuda_stream(handle)));
 
-  raft::interruptible::synchronize(resource::get_cuda_stream(handle));
+  resource::sync_stream(handle);
 
   rmm::device_uvector<ValueType> tmp(bufferSize, resource::get_cuda_stream(handle));
 

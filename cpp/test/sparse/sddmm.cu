@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/sparse/linalg/sddmm.cuh>
+#include <raft/random/make_blobs.cuh>
+#include <raft/sparse/linalg/sddmm.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include "../test_utils.cuh"
@@ -31,6 +32,8 @@ namespace sparse {
 
 template <typename ValueType, typename IndexType>
 struct SDDMMInputs {
+  ValueType tolerance;
+
   IndexType m;
   IndexType k;
   IndexType n;
@@ -38,19 +41,21 @@ struct SDDMMInputs {
   ValueType alpha;
   ValueType beta;
 
-  std::vector<ValueType> a_data;
-  std::vector<ValueType> b_data;
+  bool transpose_a;
+  bool transpose_b;
 
-  std::vector<IndexType> c_indptr;
-  std::vector<IndexType> c_indices;
-  std::vector<ValueType> c_data;
+  ValueType sparsity;
 
-  std::vector<ValueType> c_expected_data;
+  unsigned long long int seed;
 };
 
 template <typename ValueType, typename IndexType>
 ::std::ostream& operator<<(::std::ostream& os, const SDDMMInputs<ValueType, IndexType>& params)
 {
+  os << " m: " << params.m << "\tk: " << params.k << "\tn: " << params.n
+     << "\talpha: " << params.alpha << "\tbeta: " << params.beta
+     << "\tsparsity: " << params.sparsity;
+
   return os;
 }
 
@@ -73,51 +78,168 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
   }
 
  protected:
+  IndexType create_sparse_matrix(IndexType m,
+                                 IndexType n,
+                                 ValueType sparsity,
+                                 std::vector<bool>& matrix)
+  {
+    IndexType total_elements = static_cast<IndexType>(m * n);
+    IndexType num_ones       = static_cast<IndexType>((total_elements * 1.0f) * sparsity);
+    IndexType res            = num_ones;
+
+    for (IndexType i = 0; i < total_elements; ++i) {
+      matrix[i] = false;
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, total_elements - 1);
+
+    while (num_ones > 0) {
+      size_t index = dis(gen);
+
+      if (matrix[index] == false) {
+        matrix[index] = true;
+        num_ones--;
+      }
+    }
+    return res;
+  }
+
+  void convert_to_csr(std::vector<bool>& matrix,
+                      IndexType rows,
+                      IndexType cols,
+                      std::vector<ValueType>& values,
+                      std::vector<IndexType>& indices,
+                      std::vector<IndexType>& indptr)
+  {
+    IndexType offset_indptr = 0;
+    IndexType offset_values = 0;
+    indptr[offset_indptr++] = 0;
+
+    for (IndexType i = 0; i < rows; ++i) {
+      for (IndexType j = 0; j < cols; ++j) {
+        if (matrix[i * cols + j]) {
+          values[offset_values]  = static_cast<ValueType>(1.0);
+          indices[offset_values] = static_cast<IndexType>(j);
+          offset_values++;
+        }
+      }
+      indptr[offset_indptr++] = static_cast<IndexType>(offset_values);
+    }
+  }
+
+  void cpu_sddmm(const std::vector<ValueType>& A,
+                 const std::vector<ValueType>& B,
+                 std::vector<ValueType>& vals,
+                 const std::vector<IndexType>& cols,
+                 const std::vector<IndexType>& row_ptrs,
+                 bool is_row_major_A,
+                 bool is_row_major_B)
+  {
+    if (params.m * params.k != static_cast<IndexType>(A.size()) ||
+        params.k * params.n != static_cast<IndexType>(B.size())) {
+      std::cerr << "Matrix dimensions and vector size do not match!" << std::endl;
+      return;
+    }
+
+    bool trans_a = params.transpose_a ? !is_row_major_A : is_row_major_A;
+    bool trans_b = params.transpose_b ? !is_row_major_B : is_row_major_B;
+
+    for (IndexType i = 0; i < params.m; ++i) {
+      for (IndexType j = row_ptrs[i]; j < row_ptrs[i + 1]; ++j) {
+        ValueType sum = 0;
+        for (IndexType l = 0; l < params.k; ++l) {
+          IndexType a_index = trans_a ? i * params.k + l : l * params.m + i;
+          IndexType b_index = trans_b ? l * params.n + cols[j] : cols[j] * params.k + l;
+          sum += A[a_index] * B[b_index];
+        }
+        vals[j] = params.alpha * sum + params.beta * vals[j];
+      }
+    }
+  }
+
   void make_data()
   {
-    std::vector<ValueType> a_data_h = params.a_data;
-    std::vector<ValueType> b_data_h = params.b_data;
+    IndexType a_size = params.m * params.k;
+    IndexType b_size = params.k * params.n;
+    IndexType c_size = params.m * params.n;
 
-    std::vector<IndexType> c_indptr_h        = params.c_indptr;
-    std::vector<IndexType> c_indices_h       = params.c_indices;
-    std::vector<ValueType> c_data_h          = params.c_data;
-    std::vector<ValueType> c_expected_data_h = params.c_expected_data;
+    std::vector<ValueType> a_data_h(a_size);
+    std::vector<ValueType> b_data_h(b_size);
 
-    a_data_d.resize(a_data_h.size(), stream);
-    b_data_d.resize(b_data_h.size(), stream);
+    a_data_d.resize(a_size, stream);
+    b_data_d.resize(b_size, stream);
+
+    auto blobs_a_b = raft::make_device_matrix<ValueType, IndexType>(handle, 1, a_size + b_size);
+    auto labels    = raft::make_device_vector<IndexType, IndexType>(handle, 1);
+
+    raft::random::make_blobs<ValueType, IndexType>(blobs_a_b.data_handle(),
+                                                   labels.data_handle(),
+                                                   1,
+                                                   a_size + b_size,
+                                                   1,
+                                                   stream,
+                                                   false,
+                                                   nullptr,
+                                                   nullptr,
+                                                   ValueType(1.0),
+                                                   false,
+                                                   ValueType(-1.0f),
+                                                   ValueType(1.0f),
+                                                   uint64_t(2024));
+
+    raft::copy(a_data_h.data(), blobs_a_b.data_handle(), a_size, stream);
+    raft::copy(b_data_h.data(), blobs_a_b.data_handle() + a_size, b_size, stream);
+
+    raft::copy(a_data_d.data(), blobs_a_b.data_handle(), a_size, stream);
+    raft::copy(b_data_d.data(), blobs_a_b.data_handle() + a_size, b_size, stream);
+
+    resource::sync_stream(handle);
+
+    std::vector<bool> c_dense_data_h(c_size);
+    IndexType c_true_nnz =
+      create_sparse_matrix(params.m, params.n, params.sparsity, c_dense_data_h);
+
+    std::vector<IndexType> c_indptr_h(params.m + 1);
+    std::vector<IndexType> c_indices_h(c_true_nnz);
+    std::vector<ValueType> c_data_h(c_true_nnz);
+
+    convert_to_csr(c_dense_data_h, params.m, params.n, c_data_h, c_indices_h, c_indptr_h);
+
+    bool is_row_major_A = (std::is_same_v<LayoutPolicyA, raft::row_major>);
+    bool is_row_major_B = (std::is_same_v<LayoutPolicyB, raft::row_major>);
+
+    c_data_d.resize(c_data_h.size(), stream);
+    update_device(c_data_d.data(), c_data_h.data(), c_data_h.size(), stream);
+    resource::sync_stream(handle);
+
+    cpu_sddmm(
+      a_data_h, b_data_h, c_data_h, c_indices_h, c_indptr_h, is_row_major_A, is_row_major_B);
+
     c_indptr_d.resize(c_indptr_h.size(), stream);
     c_indices_d.resize(c_indices_h.size(), stream);
-    c_data_d.resize(c_data_h.size(), stream);
-    c_expected_data_d.resize(c_expected_data_h.size(), stream);
-
-    update_device(a_data_d.data(), a_data_h.data(), a_data_h.size(), stream);
-    update_device(b_data_d.data(), b_data_h.data(), b_data_h.size(), stream);
+    c_expected_data_d.resize(c_data_h.size(), stream);
 
     update_device(c_indptr_d.data(), c_indptr_h.data(), c_indptr_h.size(), stream);
     update_device(c_indices_d.data(), c_indices_h.data(), c_indices_h.size(), stream);
-    update_device(c_data_d.data(), c_data_h.data(), c_data_h.size(), stream);
-    update_device(
-      c_expected_data_d.data(), c_expected_data_h.data(), c_expected_data_h.size(), stream);
+    update_device(c_expected_data_d.data(), c_data_h.data(), c_data_h.size(), stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    resource::sync_stream(handle);
   }
 
   void SetUp() override { make_data(); }
 
   void Run()
   {
-    // Check params
-    ASSERT_EQ(params.a_data.size(), params.m * params.k);
-    ASSERT_EQ(params.b_data.size(), params.n * params.k);
-    ASSERT_EQ(params.c_data.size(), params.c_indices.size());
-    ASSERT_GE(params.c_indices.size(), 0);
-
     auto a = raft::make_device_matrix_view<const ValueType, IndexType, LayoutPolicyA>(
-      a_data_d.data(), params.m, params.k);
+      a_data_d.data(),
+      (!params.transpose_a ? params.m : params.k),
+      (!params.transpose_a ? params.k : params.m));
     auto b = raft::make_device_matrix_view<const ValueType, IndexType, LayoutPolicyB>(
       b_data_d.data(),
-      ((std::is_same_v<LayoutPolicyA, LayoutPolicyB>) ? params.n : params.k),
-      ((std::is_same_v<LayoutPolicyA, LayoutPolicyB>) ? params.k : params.n));
+      (!params.transpose_b ? params.k : params.n),
+      (!params.transpose_b ? params.n : params.k));
 
     auto c_structure = raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
       c_indptr_d.data(),
@@ -128,12 +250,10 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
 
     auto c = raft::make_device_csr_matrix_view<ValueType>(c_data_d.data(), c_structure);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(resource::get_cuda_stream(handle)));
-
-    auto op_a = raft::linalg::Operation::NON_TRANSPOSE;
-    auto op_b = !(std::is_same_v<LayoutPolicyA, LayoutPolicyB>)
-                  ? raft::linalg::Operation::NON_TRANSPOSE
-                  : raft::linalg::Operation::TRANSPOSE;
+    auto op_a = params.transpose_a ? raft::linalg::Operation::TRANSPOSE
+                                   : raft::linalg::Operation::NON_TRANSPOSE;
+    auto op_b = params.transpose_b ? raft::linalg::Operation::TRANSPOSE
+                                   : raft::linalg::Operation::NON_TRANSPOSE;
 
     raft::sparse::linalg::sddmm(handle,
                                 a,
@@ -144,19 +264,18 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
                                 raft::make_host_scalar_view<ValueType>(&params.alpha),
                                 raft::make_host_scalar_view<ValueType>(&params.beta));
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    RAFT_CUDA_TRY(cudaDeviceSynchronize());
+    resource::sync_stream(handle);
 
     ASSERT_TRUE(raft::devArrMatch<ValueType>(c_expected_data_d.data(),
                                              c.get_elements().data(),
-                                             params.c_indices.size(),
-                                             raft::CompareApprox<ValueType>(1e-6f),
+                                             c_expected_data_d.size(),
+                                             raft::CompareApprox<ValueType>(params.tolerance),
                                              stream));
   }
 
   raft::resources handle;
-  SDDMMInputs<ValueType, IndexType> params;
   cudaStream_t stream;
+  SDDMMInputs<ValueType, IndexType> params;
 
   rmm::device_uvector<ValueType> a_data_d;
   rmm::device_uvector<ValueType> b_data_d;
@@ -192,234 +311,35 @@ TEST_P(SDDMMTestD_Row_Row, Result) { Run(); }
 using SDDMMTestD_Col_Col = SDDMMTest<double, int, raft::col_major, raft::col_major>;
 TEST_P(SDDMMTestD_Col_Col, Result) { Run(); }
 
-const std::vector<SDDMMInputs<float, int>> sddmm_inputs_row_col_f = {
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.0,
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0},
-    {1.0, 4.0, 7.0, 10.0, 2.0, 5.0, 8.0, 11.0, 3.0, 6.0, 9.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.0, 80.0, 90.0, 184.0, 246.0, 288.0, 330.0, 334.0, 450.0},
-  },
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.5,
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0},
-    {1.0, 4.0, 7.0, 10.0, 2.0, 5.0, 8.0, 11.0, 3.0, 6.0, 9.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.5, 80.5, 90.5, 184.5, 246.5, 288.5, 330.5, 334.5, 450.5},
-  }};
-const std::vector<SDDMMInputs<float, int>> sddmm_inputs_col_row_f = {
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.0,
-    {1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0},
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.0, 80.0, 90.0, 184.0, 246.0, 288.0, 330.0, 334.0, 450.0},
-  },
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.5,
-    {1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0},
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.5, 80.5, 90.5, 184.5, 246.5, 288.5, 330.5, 334.5, 450.5},
-  }};
-const std::vector<SDDMMInputs<float, int>> sddmm_inputs_row_row_f = {
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.0,
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0},
-    {1.0, 4.0, 7.0, 10.0, 2.0, 5.0, 8.0, 11.0, 3.0, 6.0, 9.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.0, 80.0, 90.0, 184.0, 246.0, 288.0, 330.0, 334.0, 450.0},
-  },
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.5,
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0},
-    {1.0, 4.0, 7.0, 10.0, 2.0, 5.0, 8.0, 11.0, 3.0, 6.0, 9.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.5, 80.5, 90.5, 184.5, 246.5, 288.5, 330.5, 334.5, 450.5},
-  }};
-const std::vector<SDDMMInputs<float, int>> sddmm_inputs_col_col_f = {
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.0,
-    {1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0},
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.0, 80.0, 90.0, 184.0, 246.0, 288.0, 330.0, 334.0, 450.0},
-  },
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.5,
-    {1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0},
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.5, 80.5, 90.5, 184.5, 246.5, 288.5, 330.5, 334.5, 450.5},
-  }};
+const std::vector<SDDMMInputs<float, int>> sddmm_inputs_f = {
+  {0.0001f, 10, 5, 32, 1.0, 0.0, false, false, 0.01, 1234ULL},
+  {0.0001f, 1024, 32, 1024, 0.3, 0.0, true, false, 0.1, 1234ULL},
+  {0.0003f, 32, 1024, 1024, 1.0, 0.3, false, true, 0.2, 1234ULL},
+  {0.001f, 1024, 1024, 1024, 0.2, 0.2, true, true, 0.19, 1234ULL},
+  {0.0001f, 1024, 1024, 32, 0.1, 0.2, false, false, 0.3, 1234ULL},
+  {0.0001f, 1024, 32, 1024, 1.0, 0.3, true, false, 0.4, 1234ULL},
+  {0.0003f, 32, 1024, 1024, 2.0, 0.2, false, true, 0.19, 1234ULL},
+  {0.001f, 1024, 1024, 1024, 0.0, 1.2, true, true, 0.1, 1234ULL}};
 
-const std::vector<SDDMMInputs<double, int>> sddmm_inputs_row_col_d = {
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.0,
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0},
-    {1.0, 4.0, 7.0, 10.0, 2.0, 5.0, 8.0, 11.0, 3.0, 6.0, 9.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.0, 80.0, 90.0, 184.0, 246.0, 288.0, 330.0, 334.0, 450.0},
-  },
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.5,
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0},
-    {1.0, 4.0, 7.0, 10.0, 2.0, 5.0, 8.0, 11.0, 3.0, 6.0, 9.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.5, 80.5, 90.5, 184.5, 246.5, 288.5, 330.5, 334.5, 450.5},
-  }};
+const std::vector<SDDMMInputs<double, int>> sddmm_inputs_d = {
+  {0.0001f, 10, 5, 32, 1.0, 0.0, false, false, 0.01, 1234ULL},
+  {0.0001f, 1024, 32, 1024, 0.3, 0.0, true, false, 0.1, 1234ULL},
+  {0.0001f, 32, 1024, 1024, 1.0, 0.3, false, true, 0.2, 1234ULL},
+  {0.0001f, 1024, 1024, 1024, 0.2, 0.2, true, true, 0.19, 1234ULL},
+  {0.0001f, 1024, 1024, 32, 0.1, 0.2, false, false, 0.3, 1234ULL},
+  {0.0001f, 1024, 32, 1024, 1.0, 0.3, true, false, 0.4, 1234ULL},
+  {0.0001f, 32, 1024, 1024, 2.0, 0.2, false, true, 0.19, 1234ULL},
+  {0.0001f, 1024, 1024, 1024, 0.0, 1.2, true, true, 0.1, 1234ULL}};
 
-const std::vector<SDDMMInputs<double, int>> sddmm_inputs_col_row_d = {
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.0,
-    {1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0},
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.0, 80.0, 90.0, 184.0, 246.0, 288.0, 330.0, 334.0, 450.0},
-  },
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.5,
-    {1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0},
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.5, 80.5, 90.5, 184.5, 246.5, 288.5, 330.5, 334.5, 450.5},
-  }};
-const std::vector<SDDMMInputs<double, int>> sddmm_inputs_row_row_d = {
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.0,
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0},
-    {1.0, 4.0, 7.0, 10.0, 2.0, 5.0, 8.0, 11.0, 3.0, 6.0, 9.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.0, 80.0, 90.0, 184.0, 246.0, 288.0, 330.0, 334.0, 450.0},
-  },
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.5,
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0},
-    {1.0, 4.0, 7.0, 10.0, 2.0, 5.0, 8.0, 11.0, 3.0, 6.0, 9.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.5, 80.5, 90.5, 184.5, 246.5, 288.5, 330.5, 334.5, 450.5},
-  }};
-const std::vector<SDDMMInputs<double, int>> sddmm_inputs_col_col_d = {
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.0,
-    {1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0},
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.0, 80.0, 90.0, 184.0, 246.0, 288.0, 330.0, 334.0, 450.0},
-  },
-  {
-    4,
-    4,
-    3,
-    1.0,
-    0.5,
-    {1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0},
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0},
-    {0, 3, 4, 7, 9},
-    {0, 1, 2, 1, 0, 1, 2, 0, 2},
-    {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
-    {70.5, 80.5, 90.5, 184.5, 246.5, 288.5, 330.5, 334.5, 450.5},
-  }};
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Row_Col, ::testing::ValuesIn(sddmm_inputs_f));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Col_Row, ::testing::ValuesIn(sddmm_inputs_f));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Row_Row, ::testing::ValuesIn(sddmm_inputs_f));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Col_Col, ::testing::ValuesIn(sddmm_inputs_f));
 
-INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Row_Col, ::testing::ValuesIn(sddmm_inputs_row_col_f));
-INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Col_Row, ::testing::ValuesIn(sddmm_inputs_col_row_f));
-INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Row_Row, ::testing::ValuesIn(sddmm_inputs_row_row_f));
-INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Col_Col, ::testing::ValuesIn(sddmm_inputs_col_col_f));
-
-INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Row_Col, ::testing::ValuesIn(sddmm_inputs_row_col_d));
-INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Col_Row, ::testing::ValuesIn(sddmm_inputs_col_row_d));
-INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Row_Row, ::testing::ValuesIn(sddmm_inputs_row_row_d));
-INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Col_Col, ::testing::ValuesIn(sddmm_inputs_col_col_d));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Row_Col, ::testing::ValuesIn(sddmm_inputs_d));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Col_Row, ::testing::ValuesIn(sddmm_inputs_d));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Row_Row, ::testing::ValuesIn(sddmm_inputs_d));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Col_Col, ::testing::ValuesIn(sddmm_inputs_d));
 
 }  // namespace sparse
 }  // namespace raft
