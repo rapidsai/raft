@@ -8,7 +8,8 @@ files:
     includes:
       - build
       - build_pylibraft
-      - cudatoolkit
+      - cuda
+      - cuda_version
       - develop
       - checks
       - build_wheels
@@ -26,19 +27,20 @@ files:
       arch: [x86_64, aarch64]
     includes:
       - build
+      - cuda
+      - cuda_version
       - develop
-      - cudatoolkit
       - nn_bench
       - nn_bench_python
   test_cpp:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - test_libraft
   test_python:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - py_version
       - test_python_common
       - test_pylibraft
@@ -51,11 +53,11 @@ files:
   docs:
     output: none
     includes:
-      - test_pylibraft
+      - cuda_version
       - cupy
-      - cudatoolkit
       - docs
       - py_version
+      - test_pylibraft
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -156,8 +158,8 @@ dependencies:
               - sysroot_linux-aarch64==2.17
       - output_types: conda
         matrices:
-          - matrix: {cuda: "12.0"}
-            packages: [cuda-version=12.0, cuda-nvcc]
+          - matrix: {cuda: "12.*"}
+            packages: [cuda-nvcc]
           - matrix: {cuda: "11.8", arch: x86_64}
             packages: [nvcc_linux-64=11.8]
           - matrix: {cuda: "11.8", arch: aarch64}
@@ -240,15 +242,37 @@ dependencies:
           - pandas
           - pyyaml
           - pandas
-
-  cudatoolkit:
+  cuda_version:
     specific:
       - output_types: conda
         matrices:
           - matrix:
+              cuda: "11.2"
+            packages:
+              - cuda-version=11.2
+          - matrix:
+              cuda: "11.4"
+            packages:
+              - cuda-version=11.4
+          - matrix:
+              cuda: "11.5"
+            packages:
+              - cuda-version=11.5
+          - matrix:
+              cuda: "11.8"
+            packages:
+              - cuda-version=11.8
+          - matrix:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+  cuda:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
               - cuda-nvtx-dev
               - cuda-cudart-dev
               - cuda-profiler-api
@@ -259,7 +283,6 @@ dependencies:
           - matrix:
               cuda: "11.8"
             packages:
-              - cuda-version=11.8
               - cudatoolkit
               - cuda-nvtx=11.8
               - cuda-profiler-api=11.8.86
@@ -274,7 +297,6 @@ dependencies:
           - matrix:
               cuda: "11.5"
             packages:
-              - cuda-version=11.5
               - cudatoolkit
               - cuda-nvtx=11.5
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
@@ -289,7 +311,6 @@ dependencies:
           - matrix:
               cuda: "11.4"
             packages:
-              - cuda-version=11.4
               - cudatoolkit
               - &cudanvtx114 cuda-nvtx=11.4
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
@@ -304,7 +325,6 @@ dependencies:
           - matrix:
               cuda: "11.2"
             packages:
-              - cuda-version=11.2
               - cudatoolkit
               - *cudanvtx114
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
