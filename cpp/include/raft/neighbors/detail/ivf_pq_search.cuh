@@ -738,14 +738,16 @@ inline void search(raft::resources const& handle,
                    float* distances,
                    IvfSampleFilterT sample_filter = IvfSampleFilterT())
 {
+  // raft::print_device_vector("queries", queries, 100, std::cout);
+  RAFT_LOG_INFO("k %u, n_probes %u", k, params.n_probes);
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported element type.");
-  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "ivf_pq::search(n_queries = %u, n_probes = %u, k = %u, dim = %zu)",
-    n_queries,
-    params.n_probes,
-    k,
-    index.dim());
+  // common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+  //   "ivf_pq::search(n_queries = %u, n_probes = %u, k = %u, dim = %zu)",
+  //   n_queries,
+  //   params.n_probes,
+  //   k,
+  //   index.dim());
 
   RAFT_EXPECTS(
     params.internal_distance_dtype == CUDA_R_16F || params.internal_distance_dtype == CUDA_R_32F,
@@ -761,6 +763,7 @@ inline void search(raft::resources const& handle,
     static_cast<uint64_t>(index.size()));
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
+  RAFT_LOG_INFO("assertions done");
 
   switch (utils::check_pointer_residency(queries, neighbors, distances)) {
     case utils::pointer_residency::device_only:
@@ -773,6 +776,7 @@ inline void search(raft::resources const& handle,
   auto dim      = index.dim();
   auto dim_ext  = index.dim_ext();
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
+  RAFT_LOG_INFO("dim %u dim_ext", dim, dim_ext);
 
   uint32_t max_samples = 0;
   {
@@ -798,6 +802,8 @@ inline void search(raft::resources const& handle,
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
+    
+    RAFT_LOG_INFO("about to select clusters");
 
     select_clusters(handle,
                     clusters_to_probe.data(),
@@ -811,6 +817,9 @@ inline void search(raft::resources const& handle,
                     queries + static_cast<size_t>(dim) * offset_q,
                     index.centers().data_handle(),
                     mr);
+    // raft::resource::sync_stream(handle);
+    // raft::print_device_vector("index_centers", index.centers().data_handle(), 100, std::cout);
+    // raft::print_device_vector("clusters_to_probe", clusters_to_probe.data(), 100, std::cout);
 
     // Rotate queries
     float alpha = 1.0;
@@ -830,6 +839,9 @@ inline void search(raft::resources const& handle,
                  rot_queries.data(),
                  index.rot_dim(),
                  stream);
+    // raft::resource::sync_stream(handle);
+    // raft::print_device_vector("rot_matrix", index.rotation_matrix().data_handle(), dim, std::cout);
+    // raft::print_device_vector("rot_queries", rot_queries.data(), 100, std::cout);
 
     for (uint32_t offset_b = 0; offset_b < queries_batch; offset_b += max_batch_size) {
       uint32_t batch_size = min(max_batch_size, queries_batch - offset_b);
@@ -853,6 +865,9 @@ inline void search(raft::resources const& handle,
                       filter_adapter);
     }
   }
+  // raft::resource::sync_stream(handle);
+  // raft::print_device_vector("neighbors", neighbors, 100, std::cout);
+  // raft::print_device_vector("distances", distances, 100, std::cout);
 }
 
 }  // namespace raft::neighbors::ivf_pq::detail

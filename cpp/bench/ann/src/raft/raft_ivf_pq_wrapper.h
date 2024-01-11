@@ -107,6 +107,8 @@ void RaftIvfPQ<T, IdxT>::load(const std::string& file)
 {
   std::make_shared<raft::neighbors::ivf_pq::index<IdxT>>(handle_, index_params_, dimension_)
     .swap(index_);
+  // raft::runtime::neighbors::ivf_pq::deserialize(handle_, "/raid/tarangj/datasets/deep-image-96-inner/index/faiss_trained_index", index_.get());
+  // RAFT_LOG_INFO("index.size() %u", index_.get()->size());
   raft::runtime::neighbors::ivf_pq::deserialize(handle_, file, index_.get());
   return;
 }
@@ -114,6 +116,7 @@ void RaftIvfPQ<T, IdxT>::load(const std::string& file)
 template <typename T, typename IdxT>
 void RaftIvfPQ<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
+  // raft::print_host_vector("raft dataset", dataset, 100, std::cout);
   auto dataset_v = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dim_);
   std::make_shared<raft::neighbors::ivf_pq::index<IdxT>>(
     std::move(raft::runtime::neighbors::ivf_pq::build(handle_, index_params_, dataset_v)))
@@ -152,6 +155,8 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
 {
   if (refine_ratio_ > 1.0f) {
     uint32_t k0 = static_cast<uint32_t>(refine_ratio_ * k);
+    // raft::print_device_vector("queries_device from raft search", queries, 100, std::cout);
+    // raft::print_host_vector("queries_host from raft search", queries, 100, std::cout);
     auto queries_v =
       raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, index_->dim());
     auto distances_tmp = raft::make_device_matrix<float, IdxT>(handle_, batch_size, k0);
@@ -175,6 +180,7 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
                                        index_->metric());
       handle_.stream_wait(stream);  // RAFT stream -> bench stream
     } else {
+      RAFT_LOG_INFO("dataset on host");
       auto queries_host    = raft::make_host_matrix<T, IdxT>(batch_size, index_->dim());
       auto candidates_host = raft::make_host_matrix<IdxT, IdxT>(batch_size, k0);
       auto neighbors_host  = raft::make_host_matrix<IdxT, IdxT>(batch_size, k);

@@ -17,15 +17,15 @@
 #define FAISS_WRAPPER_H_
 
 #include "../common/ann_types.hpp"
-#include "faiss/MetricType.h"
-#include "raft/core/device_mdarray.hpp"
-#include "raft/core/host_mdarray.hpp"
-#include "raft/core/host_mdspan.hpp"
-#include "raft/core/logger-macros.hpp"
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/host_mdspan.hpp>
+#include <raft/distance/distance_types.hpp>
 
 #include <raft/core/logger.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <faiss/MetricType.h>
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
@@ -42,10 +42,10 @@
 
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/stream_view.hpp>
+#include <raft_runtime/neighbors/refine.hpp>
 #include <rmm/cuda_device.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-#include <raft_runtime/neighbors/refine.hpp>
 
 #include <cassert>
 #include <memory>
@@ -108,7 +108,7 @@ class FaissGpu : public ANN<T> {
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
     int nprobe;
-    float refine_ratio = 1.0;
+    float refine_ratio   = 1.0;
     bool raft_refinement = false;
     auto needs_dataset() const -> bool override { return refine_ratio > 1.0f; }
   };
@@ -149,11 +149,11 @@ class FaissGpu : public ANN<T> {
     AlgoProperty property;
     // to enable building big dataset which is larger than GPU memory
     property.dataset_memory_type = MemoryType::Host;
-    property.query_memory_type   = MemoryType::Host;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
 
-  auto metric_faiss_to_raft(faiss::MetricType metric) const -> raft::bench::ann::Metric;
+  auto metric_faiss_to_raft(faiss::MetricType metric) const -> raft::distance::DistanceType;
 
  protected:
   template <typename GpuIndex, typename CpuIndex>
@@ -200,20 +200,20 @@ class FaissGpu : public ANN<T> {
 };
 
 template <typename T>
-auto FaissGpu<T>::metric_faiss_to_raft(faiss::MetricType metric) const -> raft::bench::ann::Metric {
+auto FaissGpu<T>::metric_faiss_to_raft(faiss::MetricType metric) const
+  -> raft::distance::DistanceType
+{
   switch (metric) {
-    case faiss::MetricType::METRIC_L2:
-     return raft::bench::ann::Metric::kEuclidean;
+    case faiss::MetricType::METRIC_L2: return raft::distance::DistanceType::L2Expanded;
     case faiss::MetricType::METRIC_INNER_PRODUCT:
-     return raft::bench::ann::Metric::kInnerProduct;
-    default:
-      throw "Unsupported metric";
+    default: throw std::runtime_error("FAISS supports only metric type of inner product and L2");
   }
 }
 
 template <typename T>
 void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
+  // raft::print_host_vector("faiss dataset", dataset, 100, std::cout);
   OmpSingleThreadScope omp_single_thread;
   auto index_ivf = dynamic_cast<faiss::gpu::GpuIndexIVF*>(index_.get());
   if (index_ivf != nullptr) {
@@ -254,34 +254,72 @@ void FaissGpu<T>::search(const T* queries,
   using IdxT = faiss::idx_t;
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
+  
+  // raft::print_device_vector("queries_device from faiss search", queries, 100, std::cout);
+  // raft::print_host_vector("queries_host from faiss search", queries, 100, std::cout);
 
   if (refine_ratio_ > 1.0) {
     if (raft_refinement_) {
       uint32_t k0        = static_cast<uint32_t>(refine_ratio_ * k);
-      auto distances_tmp = raft::make_host_matrix<float, IdxT>(batch_size, k0);
-      auto candidates    = raft::make_host_matrix<IdxT, IdxT>(batch_size, k0);
+      // auto distances_tmp = raft::make_host_matrix<float, IdxT>(batch_size, k0);
+      // auto candidates    = raft::make_host_matrix<IdxT, IdxT>(batch_size, k0);
+      auto distances_tmp = raft::make_device_matrix<float, IdxT>(gpu_resource_->getRaftHandle(device_), batch_size, k0);
+      auto candidates    = raft::make_device_matrix<IdxT, IdxT>(gpu_resource_->getRaftHandle(device_), batch_size, k0);
       index_->search(batch_size,
                      queries,
-                     k,
+                     k0,
                      distances_tmp.data_handle(),
                      candidates.data_handle(),
                      this->search_params_.get());
-      auto queries_v    = raft::make_host_matrix_view<const T, IdxT>(queries, batch_size, index_->d);
+      // auto queries_v = raft::make_host_matrix_view<const T, IdxT>(queries, batch_size, index_->d);
 
-      auto dataset_v = raft::make_host_matrix_view<const T, faiss::idx_t>(
-        this->dataset_, index_->ntotal, index_->d);
-      
-      auto neighbors_v = raft::make_host_matrix_view<IdxT, IdxT>(reinterpret_cast<IdxT*>(neighbors), batch_size, k);
-      auto distances_v = raft::make_host_matrix_view<float, IdxT>(distances, batch_size, k);      
+
+      // auto dataset_v = raft::make_host_matrix_view<const T, faiss::idx_t>(
+      //   this->dataset_, index_->ntotal, index_->d);
+
+      // auto neighbors_v =
+      //   raft::make_host_matrix_view<IdxT, IdxT>(reinterpret_cast<IdxT*>(neighbors), batch_size, k);
+      // auto distances_v = raft::make_host_matrix_view<float, IdxT>(distances, batch_size, k);
 
       // auto refinement_start = std::chrono::high_resolution_clock::now();
-      raft::runtime::neighbors::refine(gpu_resource_->getRaftHandle(device_),
+      // raft::runtime::neighbors::refine(gpu_resource_->getRaftHandle(device_),
+      //                                  dataset_v,
+      //                                  queries_v,
+      //                                  candidates.view(),
+      //                                  neighbors_v,
+      //                                  distances_v,
+      //                                  metric_faiss_to_raft(index_->metric_type));
+
+      auto queries_host    = raft::make_host_matrix<T, IdxT>(batch_size, index_->d);
+      auto candidates_host = raft::make_host_matrix<IdxT, IdxT>(batch_size, k0);
+      auto neighbors_host  = raft::make_host_matrix<IdxT, IdxT>(batch_size, k);
+      auto distances_host  = raft::make_host_matrix<float, IdxT>(batch_size, k);
+      auto dataset_v = raft::make_host_matrix_view<const T, faiss::idx_t>(
+        this->dataset_, index_->ntotal, index_->d);
+
+      auto handle_ = gpu_resource_->getRaftHandle(device_);
+
+      raft::copy(queries_host.data_handle(), queries, queries_host.size(), stream);
+      raft::copy(candidates_host.data_handle(),
+                 candidates.data_handle(),
+                 candidates_host.size(),
+                 resource::get_cuda_stream(handle_));
+
+      // wait for the queries to copy to host in 'stream` and for IVF-PQ::search to finish
+      // RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), resource::get_cuda_stream(handle_)));
+      // RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), stream));
+      // RAFT_CUDA_TRY(cudaEventSynchronize(handle_.get_sync_event()));
+      handle_.sync_stream();
+      raft::runtime::neighbors::refine(handle_,
                                        dataset_v,
-                                       queries_v,
-                                       candidates.view(),
-                                       neighbors_v,
-                                       distances_v,
+                                       queries_host.view(),
+                                       candidates_host.view(),
+                                       neighbors_host.view(),
+                                       distances_host.view(),
                                        metric_faiss_to_raft(index_->metric_type));
+
+      raft::copy(neighbors, (size_t*)neighbors_host.data_handle(), neighbors_host.size(), stream);
+      raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
     } else {
       index_refine_->search(batch_size,
                             queries,
@@ -355,7 +393,6 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
     faiss_search_params.nprobe = nprobe;
     this->search_params_       = std::make_shared<faiss::IVFSearchParameters>(faiss_search_params);
     this->refine_ratio_        = search_param.refine_ratio;
-    this->raft_refinement_     = search_param.raft_refinement;
   }
 
   void save(const std::string& file) const override
@@ -378,7 +415,6 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     bool usePrecomputed;
     bool use_raft;
     int bitsPerCode;
-    bool raft_refinement;
   };
 
   FaissGpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
@@ -395,7 +431,7 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
                                                   dim,
                                                   param.nlist,
                                                   param.M,
-                                                  8,  // FAISS only supports bitsPerCode=8
+                                                  param.bitsPerCode,
                                                   this->metric_type_,
                                                   config);
   }
@@ -421,6 +457,8 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
       this->refine_search_params_ =
         std::make_unique<faiss::IndexRefineSearchParameters>(faiss_refine_search_params);
     }
+    this->raft_refinement_     = search_param.raft_refinement;
+    RAFT_LOG_INFO("refine_ratio %f raft_refinement %d", this->refine_ratio_, this->raft_refinement_);
   }
 
   void save(const std::string& file) const override
