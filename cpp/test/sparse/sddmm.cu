@@ -24,6 +24,7 @@
 #include <raft/random/make_blobs.cuh>
 #include <raft/sparse/linalg/sddmm.hpp>
 #include <raft/util/cudart_utils.hpp>
+#include <thrust/reduce.h>
 
 #include "../test_utils.cuh"
 
@@ -47,6 +48,14 @@ struct SDDMMInputs {
   ValueType sparsity;
 
   unsigned long long int seed;
+};
+
+template <typename ValueType>
+struct sum_abs_op {
+  __host__ __device__ ValueType operator()(const ValueType& x, const ValueType& y) const
+  {
+    return y >= ValueType(0.0) ? (x + y) : (x - y);
+  }
 };
 
 template <typename ValueType, typename IndexType>
@@ -271,6 +280,17 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
                                              c_expected_data_d.size(),
                                              raft::CompareApprox<ValueType>(params.tolerance),
                                              stream));
+
+    thrust::device_ptr<ValueType> expected_data_ptr =
+      thrust::device_pointer_cast(c_expected_data_d.data());
+    ValueType sum_abs = thrust::reduce(thrust::cuda::par.on(stream),
+                                       expected_data_ptr,
+                                       expected_data_ptr + c_expected_data_d.size(),
+                                       ValueType(0.0f),
+                                       sum_abs_op<ValueType>());
+    ValueType avg     = sum_abs / (1.0f * c_expected_data_d.size());
+
+    ASSERT_GE(avg, (params.tolerance * static_cast<ValueType>(0.001f)));
   }
 
   raft::resources handle;
