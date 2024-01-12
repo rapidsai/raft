@@ -124,7 +124,7 @@ class std_comms : public comms_iface {
     free_requests_.clear();
 
     if (own_nccl_comm_) {
-      ncclCommDestroy(nccl_comm_);
+      RAFT_NCCL_TRY_NO_THROW(ncclCommDestroy(nccl_comm_));
       nccl_comm_ = nullptr;
     }
   }
