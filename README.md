@@ -354,3 +354,17 @@ If citing CAGRA, please consider the following bibtex:
       primaryClass={cs.DS}
 }
 ```
+
+If citing the k-selection routines, please consider the following bibtex:
+
+```bibtex
+@proceedings{10.1145/3581784,
+    title = {SC '23: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
+    year = {2023},
+    isbn = {9798400701092},
+    publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+    abstract = {Started in 1988, the SC Conference has become the annual nexus for researchers and practitioners from academia, industry and government to share information and foster collaborations to advance the state of the art in High Performance Computing (HPC), Networking, Storage, and Analysis.},
+    location = {, Denver, CO, USA, }
+}
+```
