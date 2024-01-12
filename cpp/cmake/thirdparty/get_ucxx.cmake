@@ -21,8 +21,8 @@ function(find_and_configure_ucxx)
 
     rapids_cpm_find(ucxx ${PKG_VERSION}
             GLOBAL_TARGETS         ucxx::ucxx
-            BUILD_EXPORT_SET       raft-exports
-            INSTALL_EXPORT_SET     raft-exports
+            BUILD_EXPORT_SET       raft-distributed-exports
+            INSTALL_EXPORT_SET     raft-distributed-exports
             CPM_ARGS
             GIT_REPOSITORY         https://github.com/rapidsai/ucxx.git
             GIT_TAG                ${PKG_PINNED_TAG}
