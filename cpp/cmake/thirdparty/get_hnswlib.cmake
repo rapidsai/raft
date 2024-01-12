@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,40 +15,42 @@
 #=============================================================================
 
 function(find_and_configure_hnswlib)
-    set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL)
-    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-            "${multiValueArgs}" ${ARGN} )
+  set(oneValueArgs VERSION REPOSITORY PINNED_TAG EXCLUDE_FROM_ALL)
+  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
+          "${multiValueArgs}" ${ARGN} )
 
-    set ( EXTERNAL_INCLUDES_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
-    if( NOT EXISTS ${EXTERNAL_INCLUDES_DIRECTORY}/_deps/hnswlib-src )
+  set(patch_files_to_run "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/hnswlib.diff")
+  set(patch_issues_to_ref "fix compile issues")
+  set(patch_script "${CMAKE_BINARY_DIR}/rapids-cmake/patches/hnswlib/patch.cmake")
+  set(log_file "${CMAKE_BINARY_DIR}/rapids-cmake/patches/hnswlib/log")
+  string(TIMESTAMP current_year "%Y" UTC)
+  configure_file(${rapids-cmake-dir}/cpm/patches/command_template.cmake.in "${patch_script}"
+                @ONLY)
 
-        execute_process (
-                COMMAND git clone --branch=v0.6.2 https://github.com/nmslib/hnswlib.git hnswlib-src
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps )
-
-        message("SOURCE ${CMAKE_CURRENT_SOURCE_DIR}")
-        execute_process (
-                COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/hnswlib.patch
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src
-        )
-    endif ()
-
-    include(cmake/modules/FindAVX.cmake)
-
-    set(HNSW_CXX_FLAGS "")
-    if(CXX_AVX_FOUND)
-        set(HNSW_CXX_FLAGS "${HNSW_CXX_FLAGS} ${CXX_AVX_FLAGS}")
-    elseif(CXX_AVX2_FOUND)
-        set(HNSW_CXX_FLAGS "${HNSW_CXX_FLAGS} ${CXX_AVX2_FLAGS}")
-    elseif(CXX_AVX512_FOUND)
-        set(HNSW_CXX_FLAGS "${HNSW_CXX_FLAGS} ${CXX_AVX512_FLAGS}")
-    endif()
+  rapids_cpm_find(
+    hnswlib ${PKG_VERSION}
+    GLOBAL_TARGETS hnswlib::hnswlib
+    CPM_ARGS
+    GIT_REPOSITORY ${PKG_REPOSITORY}
+    GIT_TAG ${PKG_PINNED_TAG}
+    GIT_SHALLOW TRUE
+    EXCLUDE_FROM_ALL  ${PKG_EXCLUDE_FROM_ALL}
+    PATCH_COMMAND ${CMAKE_COMMAND} -P ${patch_script}
+  )
+  if(NOT TARGET hnswlib::hnswlib)
+    add_library(hnswlib::hnswlib ALIAS hnswlib)
+  endif()
 endfunction()
 
-# Change pinned tag here to test a commit in CI
-# To use a different RAFT locally, set the CMake variable
-# CPM_raft_SOURCE=/path/to/local/raft
-find_and_configure_hnswlib(VERSION  0.6.2
-        FORK             nmslib
-        PINNED_TAG       v0.6.2
+
+if(NOT RAFT_HNSWLIB_GIT_TAG)
+  set(RAFT_HNSWLIB_GIT_TAG v0.6.2)
+endif()
+
+if(NOT RAFT_HNSWLIB_GIT_REPOSITORY)
+  set(RAFT_HNSWLIB_GIT_REPOSITORY https://github.com/nmslib/hnswlib.git)
+endif()
+find_and_configure_hnswlib(VERSION 0.6.2
+        REPOSITORY       ${RAFT_HNSWLIB_GIT_REPOSITORY}
+        PINNED_TAG       ${RAFT_HNSWLIB_GIT_TAG}
         EXCLUDE_FROM_ALL YES)
