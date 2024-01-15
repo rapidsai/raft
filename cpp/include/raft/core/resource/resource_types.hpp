@@ -44,7 +44,7 @@ enum resource_type {
   THRUST_POLICY,           // thrust execution policy
   WORKSPACE_RESOURCE,      // rmm device memory resource
   CUBLASLT_HANDLE,         // cublasLt handle
-  USER_DEFINED,            // user-defined default-constructible resource
+  CUSTOM,                  // runtime-shared default-constructible resource
 
   LAST_KEY  // reserved for the last key
 };

@@ -23,10 +23,10 @@
 
 namespace raft::resource {
 
-class user_resource : public resource {
+class custom_resource : public resource {
  public:
-  user_resource()                    = default;
-  ~user_resource() noexcept override = default;
+  custom_resource()                    = default;
+  ~custom_resource() noexcept override = default;
   auto get_resource() -> void* override { return this; }
 
   template <typename ResourceT>
@@ -48,32 +48,37 @@ class user_resource : public resource {
 };
 
 /** Factory that knows how to construct a specific raft::resource to populate the res_t. */
-class user_resource_factory : public resource_factory {
+class custom_resource_factory : public resource_factory {
  public:
-  auto get_resource_type() -> resource_type override { return resource_type::USER_DEFINED; }
-  auto make_resource() -> resource* override { return new user_resource(); }
+  auto get_resource_type() -> resource_type override { return resource_type::CUSTOM; }
+  auto make_resource() -> resource* override { return new custom_resource(); }
 };
 
 /**
- * @defgroup resource_user_defined user-defined resource functions
+ * @defgroup resource_custom custom resource functions
  * @{
  */
 
 /**
- * Get the user-defined default-constructible resource if it exists, create it otherwise.
+ * Get the custom default-constructible resource if it exists, create it otherwise.
+ *
+ * Note: in contrast to the other, hard-coded resources, there's no information about the custom
+ * resources at compile time. Hence, custom resources are kept in a hashmap and looked-up at
+ * runtime. This leads to slightly slower access times.
  *
  * @tparam ResourceT the type of the resource; it must be complete and default-constructible.
  *
  * @param[in] res the raft resources object
- * @return a pointer to the user-defined resource.
+ * @return a pointer to the custom resource.
  */
 template <typename ResourceT>
-auto get_user_resource(resources const& res) -> ResourceT*
+auto get_custom_resource(resources const& res) -> ResourceT*
 {
-  if (!res.has_resource_factory(resource_type::USER_DEFINED)) {
-    res.add_resource_factory(std::make_shared<user_resource_factory>());
+  static_assert(std::is_default_constructible_v<ResourceT>);
+  if (!res.has_resource_factory(resource_type::CUSTOM)) {
+    res.add_resource_factory(std::make_shared<custom_resource_factory>());
   }
-  return res.get_resource<user_resource>(resource_type::USER_DEFINED)->load<ResourceT>();
+  return res.get_resource<custom_resource>(resource_type::CUSTOM)->load<ResourceT>();
 };
 
 /**

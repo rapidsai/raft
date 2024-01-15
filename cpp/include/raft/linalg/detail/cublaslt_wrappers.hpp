@@ -19,7 +19,7 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cublaslt_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/user_resource.hpp>
+#include <raft/core/resource/custom_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cache.hpp>
 #include <raft/util/cuda_data_type.hpp>
@@ -251,7 +251,7 @@ template <bool DevicePointerMode = false, typename S, typename A, typename B, ty
   std::shared_ptr<matmul_desc> mm_desc{nullptr};
   matmul_key_t mm_key{m, n, k, lda, ldb, ldc, trans_a, trans_b};
   auto& cache =
-    resource::get_user_resource<matmul_cache<S, A, B, C, DevicePointerMode>>(res)->value;
+    resource::get_custom_resource<matmul_cache<S, A, B, C, DevicePointerMode>>(res)->value;
   if (!cache.get(mm_key, &mm_desc)) {
     mm_desc.reset(new matmul_desc{matmul_desc::create<S, A, B, C, DevicePointerMode>(res, mm_key)});
     cache.set(mm_key, mm_desc);
