@@ -17,7 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/gemm.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 

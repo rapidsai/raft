@@ -15,6 +15,10 @@
  */
 #pragma once
 
+#pragma message(__FILE__                                                    \
+                  " is deprecated and will be removed in a future release." \
+                  " Use cublaslt_wrappers.hpp if you really need this low-level api.")
+
 #include "cublaslt_wrappers.hpp"
 
 #include <raft/core/resources.hpp>
@@ -38,21 +42,21 @@ void legacy_gemm(raft::resources const& res,
                  const int ldc,
                  cudaStream_t stream)
 {
-  return matmul<DevicePointerMode, T, T, T, T>(res,
-                                               trans_a,
-                                               trans_b,
-                                               static_cast<uint64_t>(m),
-                                               static_cast<uint64_t>(n),
-                                               static_cast<uint64_t>(k),
-                                               alpha,
-                                               A,
-                                               static_cast<uint64_t>(lda),
-                                               B,
-                                               static_cast<uint64_t>(ldb),
-                                               beta,
-                                               C,
-                                               static_cast<uint64_t>(ldc),
-                                               stream);
+  return legacy_matmul<DevicePointerMode, T, T, T, T>(res,
+                                                      trans_a,
+                                                      trans_b,
+                                                      static_cast<uint64_t>(m),
+                                                      static_cast<uint64_t>(n),
+                                                      static_cast<uint64_t>(k),
+                                                      alpha,
+                                                      A,
+                                                      static_cast<uint64_t>(lda),
+                                                      B,
+                                                      static_cast<uint64_t>(ldb),
+                                                      beta,
+                                                      C,
+                                                      static_cast<uint64_t>(ldc),
+                                                      stream);
 }
 
 template <typename T>
@@ -73,21 +77,21 @@ void legacy_gemm(raft::resources const& res,
   int m  = n_rows_c;
   int n  = n_cols_c;
   auto k = trans_a == CUBLAS_OP_T ? n_rows_a : n_cols_a;
-  return matmul<false, T, T, T, T>(res,
-                                   trans_a == CUBLAS_OP_T,
-                                   trans_b == CUBLAS_OP_T,
-                                   static_cast<uint64_t>(n_rows_c),
-                                   static_cast<uint64_t>(n_cols_c),
-                                   static_cast<uint64_t>(k),
-                                   &alpha,
-                                   a,
-                                   static_cast<uint64_t>(trans_a == CUBLAS_OP_T ? k : m),
-                                   b,
-                                   static_cast<uint64_t>(trans_b == CUBLAS_OP_T ? n : k),
-                                   &beta,
-                                   c,
-                                   static_cast<uint64_t>(m),
-                                   stream);
+  return legacy_matmul<false, T, T, T, T>(res,
+                                          trans_a == CUBLAS_OP_T,
+                                          trans_b == CUBLAS_OP_T,
+                                          static_cast<uint64_t>(n_rows_c),
+                                          static_cast<uint64_t>(n_cols_c),
+                                          static_cast<uint64_t>(k),
+                                          &alpha,
+                                          a,
+                                          static_cast<uint64_t>(trans_a == CUBLAS_OP_T ? k : m),
+                                          b,
+                                          static_cast<uint64_t>(trans_b == CUBLAS_OP_T ? n : k),
+                                          &beta,
+                                          c,
+                                          static_cast<uint64_t>(m),
+                                          stream);
 }
 
 template <typename T>
@@ -123,21 +127,22 @@ void legacy_gemm(raft::resources const& res,
                  const T* beta)
 {
   if (isZColMajor) {
-    return matmul<DevicePointerMode, T, T, T, T>(res,
-                                                 !isXColMajor,
-                                                 !isYColMajor,
-                                                 static_cast<uint64_t>(_M),
-                                                 static_cast<uint64_t>(_N),
-                                                 static_cast<uint64_t>(_K),
-                                                 alpha,
-                                                 x,
-                                                 static_cast<uint64_t>(isXColMajor ? _M : _K),
-                                                 y,
-                                                 static_cast<uint64_t>(isYColMajor ? _K : _N),
-                                                 beta,
-                                                 z,
-                                                 static_cast<uint64_t>(_M),
-                                                 stream);
+    return legacy_matmul<DevicePointerMode, T, T, T, T>(
+      res,
+      !isXColMajor,
+      !isYColMajor,
+      static_cast<uint64_t>(_M),
+      static_cast<uint64_t>(_N),
+      static_cast<uint64_t>(_K),
+      alpha,
+      x,
+      static_cast<uint64_t>(isXColMajor ? _M : _K),
+      y,
+      static_cast<uint64_t>(isYColMajor ? _K : _N),
+      beta,
+      z,
+      static_cast<uint64_t>(_M),
+      stream);
   } else {
     return legacy_gemm<T, DevicePointerMode>(
       res, z, y, x, _N, _M, _K, true, !isYColMajor, !isXColMajor, stream, alpha, beta);

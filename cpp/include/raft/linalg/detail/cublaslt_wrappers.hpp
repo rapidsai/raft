@@ -221,47 +221,30 @@ struct matmul_cache {
 };
 
 /**
- * @brief the wrapper of cublasLt matmul function
- *  It computes the following equation: C = alpha .* opA(A) * opB(B) + beta .* C
+ * Compatibility version of the cublasLt matmul wrapper: It takes the cudaStream_t argument
+ * explicitly rather than through the raft::resources. This function is used by other legacy
+ * functions, which take the cudaStream_t argument explicitly; by using `legacy_matmul`, such
+ * functions do not need to duplicate the raft resources handle to set the explicit stream before
+ * passing it to `matmul` (thus avoid the extra overheads associated with that).
  *
- * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
- * @tparam S the type of scale parameters alpha, beta
- * @tparam A the element type of matrix A
- * @tparam B the element type of matrix B
- * @tparam C the element type of matrix C
- *
- * @param [in] res raft resources
- * @param [in] trans_a cublas transpose op for A
- * @param [in] trans_b cublas transpose op for B
- * @param [in] m number of rows of C
- * @param [in] n number of columns of C
- * @param [in] k number of rows of opB(B) / number of columns of opA(A)
- * @param [in] alpha host or device scalar
- * @param [in] a_ptr such a matrix that the shape of column-major opA(A) is [m, k]
- * @param [in] lda leading dimension of A
- * @param [in] b_ptr such a matrix that the shape of column-major opA(B) is [k, n]
- * @param [in] ldb leading dimension of B
- * @param [in] beta host or device scalar
- * @param [inout] c_ptr column-major matrix of size [m, n]
- * @param [in] ldc leading dimension of C
- * @param [in] stream
+ * The use of this function in any new code in deprecated.
  */
 template <bool DevicePointerMode = false, typename S, typename A, typename B, typename C>
-void matmul(raft::resources const& res,
-            bool trans_a,
-            bool trans_b,
-            uint64_t m,
-            uint64_t n,
-            uint64_t k,
-            const S* alpha,
-            const A* a_ptr,
-            uint64_t lda,
-            const B* b_ptr,
-            uint64_t ldb,
-            const S* beta,
-            C* c_ptr,
-            uint64_t ldc,
-            cudaStream_t stream)
+[[deprecated]] void legacy_matmul(raft::resources const& res,
+                                  bool trans_a,
+                                  bool trans_b,
+                                  uint64_t m,
+                                  uint64_t n,
+                                  uint64_t k,
+                                  const S* alpha,
+                                  const A* a_ptr,
+                                  uint64_t lda,
+                                  const B* b_ptr,
+                                  uint64_t ldb,
+                                  const S* beta,
+                                  C* c_ptr,
+                                  uint64_t ldc,
+                                  cudaStream_t stream)
 {
   common::nvtx::range<common::nvtx::domain::raft> batch_scope(
     "linalg::matmul(m = %d, n = %d, k = %d)", m, n, k);
@@ -289,6 +272,64 @@ void matmul(raft::resources const& res,
                                  nullptr,
                                  0,
                                  stream));
+}
+
+/**
+ * @brief the wrapper of cublasLt matmul function
+ *  It computes the following equation: C = alpha .* opA(A) * opB(B) + beta .* C
+ *
+ * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
+ * @tparam S the type of scale parameters alpha, beta
+ * @tparam A the element type of matrix A
+ * @tparam B the element type of matrix B
+ * @tparam C the element type of matrix C
+ *
+ * @param [in] res raft resources
+ * @param [in] trans_a cublas transpose op for A
+ * @param [in] trans_b cublas transpose op for B
+ * @param [in] m number of rows of C
+ * @param [in] n number of columns of C
+ * @param [in] k number of rows of opB(B) / number of columns of opA(A)
+ * @param [in] alpha host or device scalar
+ * @param [in] a_ptr such a matrix that the shape of column-major opA(A) is [m, k]
+ * @param [in] lda leading dimension of A
+ * @param [in] b_ptr such a matrix that the shape of column-major opA(B) is [k, n]
+ * @param [in] ldb leading dimension of B
+ * @param [in] beta host or device scalar
+ * @param [inout] c_ptr column-major matrix of size [m, n]
+ * @param [in] ldc leading dimension of C
+ */
+template <bool DevicePointerMode = false, typename S, typename A, typename B, typename C>
+void matmul(raft::resources const& res,
+            bool trans_a,
+            bool trans_b,
+            uint64_t m,
+            uint64_t n,
+            uint64_t k,
+            const S* alpha,
+            const A* a_ptr,
+            uint64_t lda,
+            const B* b_ptr,
+            uint64_t ldb,
+            const S* beta,
+            C* c_ptr,
+            uint64_t ldc)
+{
+  return legacy_matmul(res,
+                       trans_a,
+                       trans_b,
+                       m,
+                       n,
+                       k,
+                       alpha,
+                       a_ptr,
+                       lda,
+                       b_ptr,
+                       ldb,
+                       beta,
+                       c_ptr,
+                       ldc,
+                       resource::get_cuda_stream(res));
 }
 
 }  // namespace raft::linalg::detail
