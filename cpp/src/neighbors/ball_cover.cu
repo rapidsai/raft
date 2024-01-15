@@ -87,14 +87,12 @@
     bool perform_post_filtering,                                                                   \
     float weight);
 
-instantiate_raft_neighbors_ball_cover(int64_t, float, uint32_t, uint32_t);
+instantiate_raft_neighbors_ball_cover(int64_t, float, int64_t, int64_t);
+instantiate_raft_neighbors_ball_cover(int64_t, double, int64_t, int64_t);
 
 #undef instantiate_raft_neighbors_ball_cover
 
 #define instantiate_raft_neighbors_ball_cover_eps(idx_t, value_t, int_t, matrix_idx_t)             \
-  template void raft::neighbors::ball_cover::build_index<idx_t, value_t, int_t, matrix_idx_t>(     \
-    raft::resources const& handle,                                                                 \
-    raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index);      \
                                                                                                    \
   template void                                                                                    \
   raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<idx_t, value_t, int_t, matrix_idx_t>(     \
@@ -120,9 +118,9 @@ instantiate_raft_neighbors_ball_cover(int64_t, float, uint32_t, uint32_t);
     value_t eps,                                                                                   \
     int_t* max_k);
 
-instantiate_raft_neighbors_ball_cover_eps(int32_t, float, int32_t, int32_t);
-instantiate_raft_neighbors_ball_cover_eps(int32_t, double, int32_t, int32_t);
-instantiate_raft_neighbors_ball_cover_eps(int64_t, float, int64_t, int64_t);
-instantiate_raft_neighbors_ball_cover_eps(int64_t, double, int64_t, int64_t);
+// instantiate_raft_neighbors_ball_cover_eps(int64_t, float, int64_t, int64_t);
+// instantiate_raft_neighbors_ball_cover_eps(int32_t, double, int32_t, int32_t);
+// instantiate_raft_neighbors_ball_cover_eps(int64_t, float, int64_t, int64_t);
+// instantiate_raft_neighbors_ball_cover_eps(int64_t, double, int64_t, int64_t);
 
 #undef instantiate_raft_neighbors_ball_cover_eps
