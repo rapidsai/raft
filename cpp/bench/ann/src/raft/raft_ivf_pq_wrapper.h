@@ -221,10 +221,25 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
       raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, index_->dim());
     auto neighbors_v = raft::make_device_matrix_view<IdxT, IdxT>((IdxT*)neighbors, batch_size, k);
     auto distances_v = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
+    
+    // std::cout << "n_queries" << batch_size << std::endl;
+    // raft::resource::sync_stream(handle_);
+    // auto raft_proper_search_start = std::chrono::high_resolution_clock::now();
 
+      // auto refinement_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+      //       refinement_end - refinement_start);
+      // RAFT_LOG_INFO("raft_refinement_duration %ld\n", refinement_duration.count());
     raft::runtime::neighbors::ivf_pq::search(
       handle_, search_params_, *index_, queries_v, neighbors_v, distances_v);
     handle_.stream_wait(stream);  // RAFT stream -> bench stream
+    // raft::resource::sync_stream(handle_);
+    // auto raft_proper_search_end = std::chrono::high_resolution_clock::now();
+
+    // auto raft_proper_search_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+    //         raft_proper_search_end - raft_proper_search_start);
+
+    // std::cout << "Raft proper search Time taken: " << raft_proper_search_duration.count() << " microseconds" << std::endl;
+
   }
 }
 }  // namespace raft::bench::ann

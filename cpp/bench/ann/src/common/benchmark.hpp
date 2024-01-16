@@ -318,6 +318,7 @@ void bench_search(::benchmark::State& state,
   }
   auto end      = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+  // std::cout << "duration" << duration << std::endl;
   if (state.thread_index() == 0) { state.counters.insert({{"end_to_end", duration}}); }
   state.counters.insert(
     {"Latency", {duration / double(state.iterations()), benchmark::Counter::kAvgThreads}});

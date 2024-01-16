@@ -1,0 +1,456 @@
+{
+  "dataset": {
+    "name": "deep-image-96-inner",
+    "base_file": "deep-image-96-inner/base.fbin",
+    "query_file": "deep-image-96-inner/query.fbin",
+    "dims": 96,
+    "groundtruth_neighbors_file": "deep-image-96-inner/groundtruth.neighbors.ibin",
+    "distance": "euclidean"
+  },
+  "search_basic_param": {
+    "k": 10,
+    "batch_size": 10000
+  },
+  "index": [
+    {
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 8192,
+        "pq_dim": 48,
+        "pq_bits": 8,
+        "ratio": 4,
+        "niter": 20
+      },
+      "name": "raft_ivf_pq_large.nlist8192.pq_dim48.pq_bits8.ratio4.niter20",
+      "file": "/raid/tarangj/datasets/deep-image-96-inner/index/raft_ivf_pq_large.nlist8192.pq_dim48.pq_bits8.ratio4.niter20",
+      "search_params": [
+        {
+          "nprobe": 20,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 20,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 30,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 30,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 40,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 40,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 50,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 50,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 100,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 100,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 200,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 200,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 500,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 500,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 1000,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 1000,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        }
+      ]
+    },
+    {
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 8192,
+        "pq_dim": 32,
+        "pq_bits": 8,
+        "ratio": 4,
+        "niter": 20
+      },
+      "name": "raft_ivf_pq_large.nlist8192.pq_dim32.pq_bits8.ratio4.niter20",
+      "file": "/raid/tarangj/datasets/deep-image-96-inner/index/raft_ivf_pq_large.nlist8192.pq_dim32.pq_bits8.ratio4.niter20",
+      "search_params": [
+        {
+          "nprobe": 20,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 20,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 30,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 30,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 40,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 40,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 50,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 50,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 100,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 100,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 200,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 200,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 500,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 500,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 1000,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 1000,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        }
+      ]
+    },
+    {
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 8192,
+        "pq_dim": 16,
+        "pq_bits": 8,
+        "ratio": 4,
+        "niter": 20
+      },
+      "name": "raft_ivf_pq_large.nlist8192.pq_dim16.pq_bits8.ratio4.niter20",
+      "file": "/raid/tarangj/datasets/deep-image-96-inner/index/raft_ivf_pq_large.nlist8192.pq_dim16.pq_bits8.ratio4.niter20",
+      "search_params": [
+        {
+          "nprobe": 20,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 20,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 30,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 30,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 40,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 40,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 50,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 50,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 100,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 100,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 200,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 200,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 500,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 500,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 1000,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 1000,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        }
+      ]
+    },
+    {
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 8192,
+        "pq_dim": 8,
+        "pq_bits": 8,
+        "ratio": 4,
+        "niter": 20
+      },
+      "name": "raft_ivf_pq_large.nlist8192.pq_dim8.pq_bits8.ratio4.niter20",
+      "file": "/raid/tarangj/datasets/deep-image-96-inner/index/raft_ivf_pq_large.nlist8192.pq_dim8.pq_bits8.ratio4.niter20",
+      "search_params": [
+        {
+          "nprobe": 20,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 20,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 30,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 30,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 40,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 40,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 50,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 50,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 100,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 100,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 200,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 200,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 500,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 500,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 1000,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "float",
+          "refine_ratio": 1
+        },
+        {
+          "nprobe": 1000,
+          "internalDistanceDtype": "float",
+          "smemLutDtype": "half",
+          "refine_ratio": 1
+        }
+      ]
+    }
+  ]
+}
