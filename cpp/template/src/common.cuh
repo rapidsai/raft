@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/matrix/copy.cuh>
 #include <raft/random/make_blobs.cuh>
@@ -42,7 +43,7 @@ void generate_dataset(raft::device_resources const& dev_resources,
                         1.0f);
 }
 
-// Copy the results to host and print a few samples
+// Copy the results to host and print them
 template <typename IdxT>
 void print_results(raft::device_resources const& dev_resources,
                    raft::device_matrix_view<IdxT, int64_t> neighbors,
@@ -61,7 +62,7 @@ void print_results(raft::device_resources const& dev_resources,
   // We need to sync the stream before accessing the data.
   raft::resource::sync_stream(dev_resources, stream);
 
-  for (int query_id = 0; query_id < 2; query_id++) {
+  for (int query_id = 0; query_id < neighbors.extent(0); query_id++) {
     std::cout << "Query " << query_id << " neighbor indices: ";
     raft::print_host_vector("", &neighbors_host(query_id, 0), topk, std::cout);
     std::cout << "Query " << query_id << " neighbor distances: ";

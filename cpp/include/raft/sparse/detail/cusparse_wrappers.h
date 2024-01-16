@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -571,6 +571,118 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
                       alg,
                       static_cast<void*>(externalBuffer));
 }
+
+template <typename T>
+cusparseStatus_t cusparsesddmm_bufferSize(cusparseHandle_t handle,
+                                          cusparseOperation_t opA,
+                                          cusparseOperation_t opB,
+                                          const T* alpha,
+                                          const cusparseDnMatDescr_t matA,
+                                          const cusparseDnMatDescr_t matB,
+                                          const T* beta,
+                                          cusparseSpMatDescr_t matC,
+                                          cusparseSDDMMAlg_t alg,
+                                          size_t* bufferSize,
+                                          cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsesddmm_bufferSize(cusparseHandle_t handle,
+                                                 cusparseOperation_t opA,
+                                                 cusparseOperation_t opB,
+                                                 const float* alpha,
+                                                 const cusparseDnMatDescr_t matA,
+                                                 const cusparseDnMatDescr_t matB,
+                                                 const float* beta,
+                                                 cusparseSpMatDescr_t matC,
+                                                 cusparseSDDMMAlg_t alg,
+                                                 size_t* bufferSize,
+                                                 cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSDDMM_bufferSize(
+    handle, opA, opB, alpha, matA, matB, beta, matC, CUDA_R_32F, alg, bufferSize);
+}
+template <>
+inline cusparseStatus_t cusparsesddmm_bufferSize(cusparseHandle_t handle,
+                                                 cusparseOperation_t opA,
+                                                 cusparseOperation_t opB,
+                                                 const double* alpha,
+                                                 const cusparseDnMatDescr_t matA,
+                                                 const cusparseDnMatDescr_t matB,
+                                                 const double* beta,
+                                                 cusparseSpMatDescr_t matC,
+                                                 cusparseSDDMMAlg_t alg,
+                                                 size_t* bufferSize,
+                                                 cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSDDMM_bufferSize(
+    handle, opA, opB, alpha, matA, matB, beta, matC, CUDA_R_64F, alg, bufferSize);
+}
+template <typename T>
+inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
+                                      cusparseOperation_t opA,
+                                      cusparseOperation_t opB,
+                                      const T* alpha,
+                                      const cusparseDnMatDescr_t matA,
+                                      const cusparseDnMatDescr_t matB,
+                                      const T* beta,
+                                      cusparseSpMatDescr_t matC,
+                                      cusparseSDDMMAlg_t alg,
+                                      T* externalBuffer,
+                                      cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
+                                      cusparseOperation_t opA,
+                                      cusparseOperation_t opB,
+                                      const float* alpha,
+                                      const cusparseDnMatDescr_t matA,
+                                      const cusparseDnMatDescr_t matB,
+                                      const float* beta,
+                                      cusparseSpMatDescr_t matC,
+                                      cusparseSDDMMAlg_t alg,
+                                      float* externalBuffer,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSDDMM(handle,
+                       opA,
+                       opB,
+                       static_cast<void const*>(alpha),
+                       matA,
+                       matB,
+                       static_cast<void const*>(beta),
+                       matC,
+                       CUDA_R_32F,
+                       alg,
+                       static_cast<void*>(externalBuffer));
+}
+template <>
+inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
+                                      cusparseOperation_t opA,
+                                      cusparseOperation_t opB,
+                                      const double* alpha,
+                                      const cusparseDnMatDescr_t matA,
+                                      const cusparseDnMatDescr_t matB,
+                                      const double* beta,
+                                      cusparseSpMatDescr_t matC,
+                                      cusparseSDDMMAlg_t alg,
+                                      double* externalBuffer,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSDDMM(handle,
+                       opA,
+                       opB,
+                       static_cast<void const*>(alpha),
+                       matA,
+                       matB,
+                       static_cast<void const*>(beta),
+                       matC,
+                       CUDA_R_64F,
+                       alg,
+                       static_cast<void*>(externalBuffer));
+}
+
 /** @} */
 #else
 /**
