@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@
 #include "topk_for_cagra/topk_core.cuh"  //todo replace with raft kernel
 #include "utils.hpp"
 #include <raft/core/logger.hpp>
+#include <raft/matrix/select_k.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
@@ -597,6 +598,95 @@ void set_value_batch(T* const dev_ptr,
     <<<grid_size, block_size, 0, cuda_stream>>>(dev_ptr, ld, val, count, batch_size);
 }
 
+template <class ValT>
+inline void _find_topk(raft::resources const& handle,
+                       uint32_t topK,
+                       uint32_t sizeBatch,
+                       uint32_t numElements,
+                       const float* inputKeys,  // [sizeBatch, ldIK,]
+                       uint32_t ldIK,           // (*) ldIK >= numElements
+                       const ValT* inputVals,   // [sizeBatch, ldIV,]
+                       uint32_t ldIV,           // (*) ldIV >= numElements
+                       float* outputKeys,       // [sizeBatch, ldOK,]
+                       uint32_t ldOK,           // (*) ldOK >= topK
+                       ValT* outputVals,        // [sizeBatch, ldOV,]
+                       uint32_t ldOV,           // (*) ldOV >= topK
+                       void* workspace,
+                       bool sort,
+                       uint32_t* hints)
+{
+  auto stream = resource::get_cuda_stream(handle);
+
+  // _cuann_find_topk right now is limited to a max-k of 1024.
+  // RAFT has a matrix::select_k function - which handles arbitrary sized values of k,
+  // but doesn't accept strided inputs unlike _cuann_find_topk
+  // The multi-kernel search path requires strided access - since its cleverly allocating memory
+  // (layout described in the search_plan_impl function below), such that both the
+  // neighbors and the internal_topk are adjacent - in a double buffered format.
+  // Since this layout doesn't work with the matrix::select_k code - we have to copy
+  // over to a contiguous (non-strided) access to handle topk larger than 1024, and
+  // potentially also copy back to a strided layout afterwards
+  if (topK <= 1024) {
+    return _cuann_find_topk(topK,
+                            sizeBatch,
+                            numElements,
+                            inputKeys,
+                            ldIK,
+                            inputVals,
+                            ldIV,
+                            outputKeys,
+                            ldOK,
+                            outputVals,
+                            ldOV,
+                            workspace,
+                            sort,
+                            hints,
+                            stream);
+  }
+
+  rmm::device_uvector<float> input_keys_storage(0, stream);
+  rmm::device_uvector<float> output_keys_storage(0, stream);
+  rmm::device_uvector<ValT> input_values_storage(0, stream);
+  rmm::device_uvector<ValT> output_values_storage(0, stream);
+
+  if (ldIK > numElements) {
+    input_keys_storage.resize(sizeBatch * numElements, stream);
+    batched_memcpy(
+      input_keys_storage.data(), numElements, inputKeys, ldIK, numElements, sizeBatch, stream);
+    inputKeys = input_keys_storage.data();
+  }
+
+  if (ldIV > numElements) {
+    input_values_storage.resize(sizeBatch * numElements, stream);
+    batched_memcpy(
+      input_values_storage.data(), numElements, inputVals, ldIV, numElements, sizeBatch, stream);
+    inputVals = input_values_storage.data();
+  }
+
+  if (ldOK > topK) { output_keys_storage.resize(sizeBatch * topK, stream); }
+
+  if (ldOV > topK) { output_values_storage.resize(sizeBatch * topK, stream); }
+
+  raft::matrix::select_k<float, ValT>(
+    handle,
+    raft::make_device_matrix_view<const float, int64_t>(inputKeys, sizeBatch, numElements),
+    raft::make_device_matrix_view<const ValT, int64_t>(inputVals, sizeBatch, numElements),
+    raft::make_device_matrix_view<float, int64_t>(
+      ldOK > topK ? output_keys_storage.data() : outputKeys, sizeBatch, topK),
+    raft::make_device_matrix_view<ValT, int64_t>(
+      ldOV > topK ? output_values_storage.data() : outputVals, sizeBatch, topK),
+    true,  // select_min
+    sort);
+
+  if (ldOK > topK) {
+    batched_memcpy(outputKeys, ldOK, output_keys_storage.data(), topK, topK, sizeBatch, stream);
+  }
+
+  if (ldOV > topK) {
+    batched_memcpy(outputVals, ldOV, output_values_storage.data(), topK, topK, sizeBatch, stream);
+  }
+}
+
 // result_buffer (work buffer) for "multi-kernel"
 // +--------------------+------------------------------+-------------------+
 // | internal_top_k (A) | neighbors of internal_top_k  | internal_topk (B) |
@@ -746,21 +836,21 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
     unsigned iter = 0;
     while (1) {
       // Make an index list of internal top-k nodes
-      _cuann_find_topk(itopk_size,
-                       num_queries,
-                       result_buffer_size,
-                       result_distances.data() + (iter & 0x1) * itopk_size,
-                       result_buffer_allocation_size,
-                       result_indices.data() + (iter & 0x1) * itopk_size,
-                       result_buffer_allocation_size,
-                       result_distances.data() + (1 - (iter & 0x1)) * result_buffer_size,
-                       result_buffer_allocation_size,
-                       result_indices.data() + (1 - (iter & 0x1)) * result_buffer_size,
-                       result_buffer_allocation_size,
-                       topk_workspace.data(),
-                       true,
-                       top_hint_ptr,
-                       stream);
+      _find_topk(res,
+                 itopk_size,
+                 num_queries,
+                 result_buffer_size,
+                 result_distances.data() + (iter & 0x1) * itopk_size,
+                 result_buffer_allocation_size,
+                 result_indices.data() + (iter & 0x1) * itopk_size,
+                 result_buffer_allocation_size,
+                 result_distances.data() + (1 - (iter & 0x1)) * result_buffer_size,
+                 result_buffer_allocation_size,
+                 result_indices.data() + (1 - (iter & 0x1)) * result_buffer_size,
+                 result_buffer_allocation_size,
+                 topk_workspace.data(),
+                 true,
+                 top_hint_ptr);
 
       // termination (1)
       if ((iter + 1 == max_iterations)) {
@@ -841,21 +931,21 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
 
       result_indices_ptr   = result_indices.data() + (1 - (iter & 0x1)) * result_buffer_size;
       result_distances_ptr = result_distances.data() + (1 - (iter & 0x1)) * result_buffer_size;
-      _cuann_find_topk(itopk_size,
-                       num_queries,
-                       result_buffer_size,
-                       result_distances.data() + (iter & 0x1) * itopk_size,
-                       result_buffer_allocation_size,
-                       result_indices.data() + (iter & 0x1) * itopk_size,
-                       result_buffer_allocation_size,
-                       result_distances_ptr,
-                       result_buffer_allocation_size,
-                       result_indices_ptr,
-                       result_buffer_allocation_size,
-                       topk_workspace.data(),
-                       true,
-                       top_hint_ptr,
-                       stream);
+      _find_topk(res,
+                 itopk_size,
+                 num_queries,
+                 result_buffer_size,
+                 result_distances.data() + (iter & 0x1) * itopk_size,
+                 result_buffer_allocation_size,
+                 result_indices.data() + (iter & 0x1) * itopk_size,
+                 result_buffer_allocation_size,
+                 result_distances_ptr,
+                 result_buffer_allocation_size,
+                 result_indices_ptr,
+                 result_buffer_allocation_size,
+                 topk_workspace.data(),
+                 true,
+                 top_hint_ptr);
     } else {
       // Remove parent bit in search results
       remove_parent_bit(

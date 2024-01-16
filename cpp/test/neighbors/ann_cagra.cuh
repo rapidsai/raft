@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -230,6 +230,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         search_params.algo        = ps.algo;
         search_params.max_queries = ps.max_queries;
         search_params.team_size   = ps.team_size;
+        search_params.itopk_size  = ps.itopk_size;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
@@ -787,6 +788,23 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {false, true},
     {false},
     {0.995});
+  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
+
+  inputs2 =
+    raft::util::itertools::product<AnnCagraInputs>({100},
+                                                   {20000},
+                                                   {32},
+                                                   {2048},  // k
+                                                   {graph_build_algo::NN_DESCENT},
+                                                   {search_algo::AUTO},
+                                                   {10},
+                                                   {0},
+                                                   {4096},  // itopk_size
+                                                   {1},
+                                                   {raft::distance::DistanceType::L2Expanded},
+                                                   {false},
+                                                   {false},
+                                                   {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
   return inputs;
