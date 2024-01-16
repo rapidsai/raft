@@ -15,7 +15,7 @@
 #=============================================================================
 
 function(find_and_configure_ggnn)
-  set(oneValueArgs VERSION REPOSITORY PINNED_TAG EXCLUDE_FROM_ALL)
+  set(oneValueArgs VERSION REPOSITORY PINNED_TAG)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
           "${multiValueArgs}" ${ARGN} )
 

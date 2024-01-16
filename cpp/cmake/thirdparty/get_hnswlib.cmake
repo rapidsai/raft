@@ -34,11 +34,32 @@ function(find_and_configure_hnswlib)
     GIT_REPOSITORY ${PKG_REPOSITORY}
     GIT_TAG ${PKG_PINNED_TAG}
     GIT_SHALLOW TRUE
-    EXCLUDE_FROM_ALL  ${PKG_EXCLUDE_FROM_ALL}
+    DOWNLOAD_ONLY ON
     PATCH_COMMAND ${CMAKE_COMMAND} -P ${patch_script}
   )
   if(NOT TARGET hnswlib::hnswlib)
+    add_library(hnswlib INTERFACE )
     add_library(hnswlib::hnswlib ALIAS hnswlib)
+    target_include_directories(hnswlib INTERFACE
+     "$<BUILD_INTERFACE:${hnswlib_SOURCE_DIR}>"
+     "$<INSTALL_INTERFACE:include>")
+
+    if(NOT PKG_EXCLUDE_FROM_ALL)
+      install(TARGETS hnswlib EXPORT hnswlib-exports)
+      install(DIRECTORY "${hnswlib_SOURCE_DIR}/hnswlib/" DESTINATION include/hnswlib)
+
+      # write export rules
+      rapids_export(
+        BUILD hnswlib
+        EXPORT_SET hnswlib-exports
+        GLOBAL_TARGETS hnswlib
+        NAMESPACE hnswlib::)
+      rapids_export(
+        INSTALL hnswlib
+        EXPORT_SET hnswlib-exports
+        GLOBAL_TARGETS hnswlib
+        NAMESPACE hnswlib::)
+    endif()
   endif()
 endfunction()
 
@@ -53,4 +74,5 @@ endif()
 find_and_configure_hnswlib(VERSION 0.6.2
         REPOSITORY       ${RAFT_HNSWLIB_GIT_REPOSITORY}
         PINNED_TAG       ${RAFT_HNSWLIB_GIT_TAG}
-        EXCLUDE_FROM_ALL YES)
+        EXCLUDE_FROM_ALL ON
+        )
