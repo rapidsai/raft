@@ -315,6 +315,7 @@ if(BUILD_TESTS)
     test/sparse/normalize.cu
     test/sparse/reduce.cu
     test/sparse/row_op.cu
+    test/sparse/sddmm.cu
     test/sparse/sort.cu
     test/sparse/spgemmi.cu
     test/sparse/symmetrize.cu
