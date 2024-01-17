@@ -1,5 +1,3 @@
-diff --git a/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh b/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
-index 890420e..d792903 100644
 --- a/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
 +++ b/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
 @@ -62,7 +62,7 @@ struct SimpleKNNSymCache {
@@ -227,3 +225,6 @@ index 49d76a1..eef69e6 100644
  #include <cub/cub.cuh>
  
  #include "ggnn/utils/cuda_knn_constants.cuh"
+-- 
+2.43.0
+
