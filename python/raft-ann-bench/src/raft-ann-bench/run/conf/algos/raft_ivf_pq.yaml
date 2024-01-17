@@ -17,13 +17,13 @@ groups:
       refine_ratio: [1, 2, 4]
   large:
     build:
-      nlist: [8192]
+      nlist: [8192, 16384, 32768, 65536]
       pq_dim: [48, 32, 16, 8]
-      pq_bits: [8]
+      pq_bits: [8, 6, 5, 4]
       ratio: [4]
       niter: [20]
     search:
       nprobe: [20, 30, 40, 50, 100, 200, 500, 1000]
       internalDistanceDtype: ["float"]
       smemLutDtype: ["float", "half"]
-      refine_ratio: [1]
+      refine_ratio: [1, 2, 4]

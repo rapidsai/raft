@@ -78,7 +78,7 @@ class RaftIvfPQ : public ANN<T> {
   {
     AlgoProperty property;
     property.dataset_memory_type = MemoryType::Host;
-    property.query_memory_type   = MemoryType::Device;
+    property.query_memory_type   = MemoryType::Host;
     return property;
   }
   void save(const std::string& file) const override;
@@ -107,8 +107,6 @@ void RaftIvfPQ<T, IdxT>::load(const std::string& file)
 {
   std::make_shared<raft::neighbors::ivf_pq::index<IdxT>>(handle_, index_params_, dimension_)
     .swap(index_);
-  // raft::runtime::neighbors::ivf_pq::deserialize(handle_, "/raid/tarangj/datasets/deep-image-96-inner/index/faiss_trained_index", index_.get());
-  // RAFT_LOG_INFO("index.size() %u", index_.get()->size());
   raft::runtime::neighbors::ivf_pq::deserialize(handle_, file, index_.get());
   return;
 }
@@ -116,7 +114,6 @@ void RaftIvfPQ<T, IdxT>::load(const std::string& file)
 template <typename T, typename IdxT>
 void RaftIvfPQ<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
-  // raft::print_host_vector("raft dataset", dataset, 100, std::cout);
   auto dataset_v = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dim_);
   std::make_shared<raft::neighbors::ivf_pq::index<IdxT>>(
     std::move(raft::runtime::neighbors::ivf_pq::build(handle_, index_params_, dataset_v)))
@@ -155,8 +152,6 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
 {
   if (refine_ratio_ > 1.0f) {
     uint32_t k0 = static_cast<uint32_t>(refine_ratio_ * k);
-    // raft::print_device_vector("queries_device from raft search", queries, 100, std::cout);
-    // raft::print_host_vector("queries_host from raft search", queries, 100, std::cout);
     auto queries_v =
       raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, index_->dim());
     auto distances_tmp = raft::make_device_matrix<float, IdxT>(handle_, batch_size, k0);
@@ -180,7 +175,6 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
                                        index_->metric());
       handle_.stream_wait(stream);  // RAFT stream -> bench stream
     } else {
-      RAFT_LOG_INFO("dataset on host");
       auto queries_host    = raft::make_host_matrix<T, IdxT>(batch_size, index_->dim());
       auto candidates_host = raft::make_host_matrix<IdxT, IdxT>(batch_size, k0);
       auto neighbors_host  = raft::make_host_matrix<IdxT, IdxT>(batch_size, k);
@@ -209,12 +203,6 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
 
       raft::copy(neighbors, (size_t*)neighbors_host.data_handle(), neighbors_host.size(), stream);
       raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
-
-      // auto refinement_end = std::chrono::high_resolution_clock::now();
-
-      // auto refinement_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-      //       refinement_end - refinement_start);
-      // RAFT_LOG_INFO("raft_refinement_duration %ld\n", refinement_duration.count());
     }
   } else {
     auto queries_v =
@@ -222,24 +210,9 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
     auto neighbors_v = raft::make_device_matrix_view<IdxT, IdxT>((IdxT*)neighbors, batch_size, k);
     auto distances_v = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
     
-    // std::cout << "n_queries" << batch_size << std::endl;
-    // raft::resource::sync_stream(handle_);
-    // auto raft_proper_search_start = std::chrono::high_resolution_clock::now();
-
-      // auto refinement_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-      //       refinement_end - refinement_start);
-      // RAFT_LOG_INFO("raft_refinement_duration %ld\n", refinement_duration.count());
     raft::runtime::neighbors::ivf_pq::search(
       handle_, search_params_, *index_, queries_v, neighbors_v, distances_v);
     handle_.stream_wait(stream);  // RAFT stream -> bench stream
-    // raft::resource::sync_stream(handle_);
-    // auto raft_proper_search_end = std::chrono::high_resolution_clock::now();
-
-    // auto raft_proper_search_duration = std::chrono::duration_cast<std::chrono::microseconds>(
-    //         raft_proper_search_end - raft_proper_search_start);
-
-    // std::cout << "Raft proper search Time taken: " << raft_proper_search_duration.count() << " microseconds" << std::endl;
-
   }
 }
 }  // namespace raft::bench::ann

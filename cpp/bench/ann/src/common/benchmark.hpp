@@ -347,8 +347,6 @@ void bench_search(::benchmark::State& state,
     std::size_t rows                = std::min(queries_processed, query_set_size);
     std::size_t match_count         = 0;
     std::size_t total_count         = rows * static_cast<size_t>(k);
-    // raft::print_host_vector("gt", gt, 100, std::cout);
-    // raft::print_host_vector("neighbors_host", neighbors_host.data, 100, std::cout);
 
     // We go through the groundtruth with same stride as the benchmark loop.
     size_t out_offset   = 0;
@@ -360,10 +358,8 @@ void bench_search(::benchmark::State& state,
         if (i_out_idx < rows) {
           for (std::uint32_t j = 0; j < k; j++) {
             auto act_idx = std::int32_t(neighbors_host.data[i_out_idx * k + j]);
-            // RAFT_LOG_INFO("act_idx id %d", i_out_idx * k + j);
             for (std::uint32_t l = 0; l < k; l++) {
               auto exp_idx = gt[i_orig_idx * max_k + l];
-              // RAFT_LOG_INFO("act_idx %zu exp_idx %zu", act_idx, exp_idx);
               if (act_idx == exp_idx) {
                 match_count++;
                 break;

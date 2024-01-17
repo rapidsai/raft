@@ -149,7 +149,7 @@ class FaissGpu : public ANN<T> {
     AlgoProperty property;
     // to enable building big dataset which is larger than GPU memory
     property.dataset_memory_type = MemoryType::Host;
-    property.query_memory_type   = MemoryType::Device;
+    property.query_memory_type   = MemoryType::Host;
     return property;
   }
 
@@ -254,9 +254,6 @@ void FaissGpu<T>::search(const T* queries,
   using IdxT = faiss::idx_t;
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
-  
-  // raft::print_device_vector("queries_device from faiss search", queries, 100, std::cout);
-  // raft::print_host_vector("queries_host from faiss search", queries, 100, std::cout);
 
   if (refine_ratio_ > 1.0) {
     if (raft_refinement_) {
@@ -281,7 +278,6 @@ void FaissGpu<T>::search(const T* queries,
       //   raft::make_host_matrix_view<IdxT, IdxT>(reinterpret_cast<IdxT*>(neighbors), batch_size, k);
       // auto distances_v = raft::make_host_matrix_view<float, IdxT>(distances, batch_size, k);
 
-      // auto refinement_start = std::chrono::high_resolution_clock::now();
       // raft::runtime::neighbors::refine(gpu_resource_->getRaftHandle(device_),
       //                                  dataset_v,
       //                                  queries_v,
