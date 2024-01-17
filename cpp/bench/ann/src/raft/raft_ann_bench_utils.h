@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,20 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/logger.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
+
 #include <cassert>
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/logger.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <string>
