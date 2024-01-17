@@ -630,14 +630,15 @@ void compute_landmark_dists(raft::resources const& handle,
   // compute distances for all queries against all landmarks
   // index.get_R() -- landmark points in row order (index.n_landmarks x index.k)
   // query_pts     -- query points in row order (n_query_pts x index.k)
-  raft::distance::pairwise_distance(handle,
-                                    query_pts,
-                                    index.get_R().data_handle(),
-                                    R_dists,
-                                    n_query_pts,
-                                    index.n_landmarks,
-                                    index.n,
-                                    index.get_metric());
+  // TODO(mfoerste4): sice we cast to int, we shall assert whether matrices can be idexed with int
+  raft::distance::pairwise_distance<value_t, int>(handle,
+                                                  query_pts,
+                                                  index.get_R().data_handle(),
+                                                  R_dists,
+                                                  n_query_pts,
+                                                  index.n_landmarks,
+                                                  index.n,
+                                                  index.get_metric());
 }
 
 /**
