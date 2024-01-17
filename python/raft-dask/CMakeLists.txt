@@ -17,7 +17,9 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 set(raft_dask_version 24.02.00)
 
 include(../../fetch_rapids.cmake)
+include(rapids-cpm)
 include(rapids-cuda)
+include(../../cpp/cmake/thirdparty/get_ucxx.cmake)
 rapids_cuda_init_architectures(raft-dask-python)
 
 project(
@@ -39,7 +41,6 @@ endif()
 
 if(NOT raft_FOUND)
   find_package(ucx REQUIRED)
-  find_package(ucxx REQUIRED)
 
   # raft-dask doesn't actually use raft libraries, it just needs the headers, so we can turn off all
   # library compilation and we don't need to install anything here.
