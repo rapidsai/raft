@@ -30,6 +30,7 @@
 #include <cub/block/block_scan.cuh>
 #include <cub/block/block_store.cuh>
 #include <cub/block/radix_rank_sort_operations.cuh>
+#include <cuda/atomic>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
@@ -400,7 +401,7 @@ _RAFT_DEVICE void choose_bucket(Counter<T, IdxT>* counter,
 
 // For one-block version, last_filter() could be called when pass < num_passes - 1.
 // So `pass` could not be constexpr
-template <typename T, typename IdxT, int BitsPerPass>
+template <typename T, typename IdxT, int BitsPerPass, bool prioritize_smaller_indice = false>
 _RAFT_DEVICE void last_filter(const T* in_buf,
                               const IdxT* in_idx_buf,
                               T* out,
@@ -418,6 +419,8 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
   const IdxT num_of_kth_needed = counter->k;
   IdxT* p_out_cnt              = &counter->out_cnt;
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
+  IdxT* p_equal                = out_idx + k - num_of_kth_needed;
+  cuda::atomic_ref<IdxT, cuda::thread_scope_block> ref_last(p_equal[num_of_kth_needed - 1]);
   for (IdxT i = threadIdx.x; i < current_len; i += blockDim.x) {
     const T value   = in_buf[i];
     const auto bits = (twiddle_in(value, select_min) >> start_bit) << start_bit;
@@ -431,15 +434,27 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
       if (back_pos < num_of_kth_needed) {
-        IdxT pos     = k - 1 - back_pos;
-        out[pos]     = value;
-        out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
+        IdxT pos = k - 1 - back_pos;
+        out[pos] = value;
+        if constexpr (!prioritize_smaller_indice) { out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i; }
+      }
+      if constexpr (prioritize_smaller_indice) {
+        // We don't need to overwrite the value here
+        // because we presume that two values that are equal have the same bits.
+        static_assert(std::is_scalar_v<T>);
+        IdxT new_idx = in_idx_buf ? in_idx_buf[i] : i;
+        if (new_idx < ref_last.load(cuda::memory_order_relaxed)) {
+          for (int j = 0; j < num_of_kth_needed; j++) {
+            IdxT pre_idx = atomicMin_block(&p_equal[j], new_idx);
+            if (pre_idx > new_idx) { new_idx = pre_idx; }
+          }
+        }
       }
     }
   }
 }
 
-template <typename T, typename IdxT, int BitsPerPass>
+template <typename T, typename IdxT, int BitsPerPass, bool prioritize_smaller_indice = false>
 RAFT_KERNEL last_filter_kernel(const T* in,
                                const IdxT* in_idx,
                                const T* in_buf,
@@ -475,7 +490,8 @@ RAFT_KERNEL last_filter_kernel(const T* in,
   const IdxT num_of_kth_needed = counter->k;
   IdxT* p_out_cnt              = &counter->out_cnt;
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
-
+  IdxT* p_equal                = out_idx + k - num_of_kth_needed;
+  cuda::atomic_ref<IdxT> ref_last(p_equal[num_of_kth_needed - 1]);
   auto f = [k,
             select_min,
             kth_value_bits,
@@ -484,7 +500,9 @@ RAFT_KERNEL last_filter_kernel(const T* in,
             p_out_back_cnt,
             in_idx_buf,
             out,
-            out_idx](T value, IdxT i) {
+            out_idx,
+            p_equal,
+            ref_last](T value, IdxT i) {
     const auto bits = (twiddle_in(value, select_min) >> start_bit) << start_bit;
     if (bits < kth_value_bits) {
       IdxT pos     = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
@@ -493,9 +511,19 @@ RAFT_KERNEL last_filter_kernel(const T* in,
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
       if (back_pos < num_of_kth_needed) {
-        IdxT pos     = k - 1 - back_pos;
-        out[pos]     = value;
-        out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
+        IdxT pos = k - 1 - back_pos;
+        out[pos] = value;
+        if constexpr (!prioritize_smaller_indice) { out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i; }
+      }
+      if constexpr (prioritize_smaller_indice) {
+        static_assert(std::is_trivially_copyable_v<T>);
+        IdxT new_idx = in_idx_buf ? in_idx_buf[i] : i;
+        if (new_idx < ref_last.load(cuda::memory_order_relaxed)) {
+          for (int j = 0; j < num_of_kth_needed; j++) {
+            IdxT pre_idx = atomicMin(&p_equal[j], new_idx);
+            if (pre_idx > new_idx) { new_idx = pre_idx; }
+          }
+        }
       }
     }
   };
@@ -542,7 +570,12 @@ RAFT_KERNEL last_filter_kernel(const T* in,
  * rather than from `in_buf`. The benefit is that we can save the cost of writing candidates and
  * their indices.
  */
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool fused_last_filter>
+template <typename T,
+          typename IdxT,
+          int BitsPerPass,
+          int BlockSize,
+          bool fused_last_filter,
+          bool prioritize_smaller_indice = false>
 RAFT_KERNEL radix_kernel(const T* in,
                          const IdxT* in_idx,
                          const T* in_buf,
@@ -658,17 +691,26 @@ RAFT_KERNEL radix_kernel(const T* in,
       counter->filter_cnt = 0;
     }
 
-    if constexpr (fused_last_filter) {
-      if (pass == num_passes - 1) {
-        last_filter<T, IdxT, BitsPerPass>(out_buf ? out_buf : in_buf,
-                                          out_idx_buf ? out_idx_buf : in_idx_buf,
-                                          out,
-                                          out_idx,
-                                          out_buf ? current_len : len,
-                                          k,
-                                          counter,
-                                          select_min,
-                                          pass);
+    if (pass == num_passes - 1) {
+      if constexpr (prioritize_smaller_indice) {
+        const IdxT num_of_kth_needed = counter->k;
+        for (IdxT i = threadIdx.x; i < num_of_kth_needed; i += blockDim.x) {
+          out_idx[k - num_of_kth_needed + i] = cuda::std::numeric_limits<IdxT>::max();
+        }
+        __syncthreads();
+      }
+
+      if constexpr (fused_last_filter) {
+        last_filter<T, IdxT, BitsPerPass, prioritize_smaller_indice>(
+          out_buf ? out_buf : in_buf,
+          out_idx_buf ? out_idx_buf : in_idx_buf,
+          out,
+          out_idx,
+          out_buf ? current_len : len,
+          k,
+          counter,
+          select_min,
+          pass);
       }
     }
   }
@@ -829,7 +871,8 @@ void radix_topk(const T* in,
                 unsigned grid_dim,
                 int sm_cnt,
                 rmm::cuda_stream_view stream,
-                rmm::mr::device_memory_resource* mr)
+                rmm::mr::device_memory_resource* mr,
+                bool prioritize_smaller_indice = false)
 {
   // TODO: is it possible to relax this restriction?
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
@@ -859,8 +902,19 @@ void radix_topk(const T* in,
     RAFT_CUDA_TRY(
       cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms.data(), 0, histograms.size() * sizeof(IdxT), stream));
-    auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
 
+    auto kernel              = prioritize_smaller_indice ? radix_kernel<T,
+                                                           IdxT,
+                                                           BitsPerPass,
+                                                           BlockSize,
+                                                           /*fused_last_filter*/ false,
+                                                           /*prioritize_smaller_indice*/ true>
+                                                         : radix_kernel<T,
+                                                           IdxT,
+                                                           BitsPerPass,
+                                                           BlockSize,
+                                                           /*fused_last_filter*/ false,
+                                                           /*prioritize_smaller_indice*/ false>;
     const T* chunk_in        = in + offset * len;
     const IdxT* chunk_in_idx = in_idx ? (in_idx + offset * len) : nullptr;
     T* chunk_out             = out + offset * k;
@@ -888,7 +942,18 @@ void radix_topk(const T* in,
                        out_idx_buf);
 
       if (fused_last_filter && pass == num_passes - 1) {
-        kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, true>;
+        kernel = prioritize_smaller_indice ? radix_kernel<T,
+                                                          IdxT,
+                                                          BitsPerPass,
+                                                          BlockSize,
+                                                          /*fused_last_filter*/ true,
+                                                          /*prioritize_smaller_indice*/ true>
+                                           : radix_kernel<T,
+                                                          IdxT,
+                                                          BitsPerPass,
+                                                          BlockSize,
+                                                          /*fused_last_filter*/ true,
+                                                          /*prioritize_smaller_indice*/ false>;
       }
 
       kernel<<<blocks, BlockSize, 0, stream>>>(chunk_in,
@@ -909,16 +974,20 @@ void radix_topk(const T* in,
     }
 
     if (!fused_last_filter) {
-      last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(chunk_in,
-                                                                                 chunk_in_idx,
-                                                                                 out_buf,
-                                                                                 out_idx_buf,
-                                                                                 chunk_out,
-                                                                                 chunk_out_idx,
-                                                                                 len,
-                                                                                 k,
-                                                                                 counters.data(),
-                                                                                 select_min);
+      auto kernel =
+        prioritize_smaller_indice
+          ? last_filter_kernel<T, IdxT, BitsPerPass, /*prioritize_smaller_indice*/ true>
+          : last_filter_kernel<T, IdxT, BitsPerPass, /*prioritize_smaller_indice*/ false>;
+      kernel<<<blocks, BlockSize, 0, stream>>>(chunk_in,
+                                               chunk_in_idx,
+                                               out_buf,
+                                               out_idx_buf,
+                                               chunk_out,
+                                               chunk_out_idx,
+                                               len,
+                                               k,
+                                               counters.data(),
+                                               select_min);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
   }
@@ -1000,7 +1069,11 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
   }
 }
 
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
+template <typename T,
+          typename IdxT,
+          int BitsPerPass,
+          int BlockSize,
+          bool prioritize_smaller_indice = false>
 RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
                                         const IdxT* in_idx,
                                         const IdxT len,
@@ -1074,16 +1147,34 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
     if (threadIdx.x == 0) { counter.previous_len = current_len; }
     __syncthreads();
 
-    if (counter.len == counter.k || pass == num_passes - 1) {
-      last_filter<T, IdxT, BitsPerPass>(out_buf ? out_buf : in,
-                                        out_buf ? out_idx_buf : in_idx,
-                                        out,
-                                        out_idx,
-                                        out_buf ? current_len : len,
-                                        k,
-                                        &counter,
-                                        select_min,
-                                        pass);
+    if ((pass == num_passes - 1)) {
+      if constexpr (prioritize_smaller_indice) {
+        const IdxT num_of_kth_needed = counter.k;
+        for (IdxT i = threadIdx.x; i < num_of_kth_needed; i += blockDim.x) {
+          out_idx[k - num_of_kth_needed + i] = cuda::std::numeric_limits<IdxT>::max();
+        }
+        __syncthreads();
+      }
+      last_filter<T, IdxT, BitsPerPass, prioritize_smaller_indice>(out_buf ? out_buf : in,
+                                                                   out_buf ? out_idx_buf : in_idx,
+                                                                   out,
+                                                                   out_idx,
+                                                                   out_buf ? current_len : len,
+                                                                   k,
+                                                                   &counter,
+                                                                   select_min,
+                                                                   pass);
+      break;
+    } else if (counter.len == counter.k) {
+      last_filter<T, IdxT, BitsPerPass, false>(out_buf ? out_buf : in,
+                                               out_buf ? out_idx_buf : in_idx,
+                                               out,
+                                               out_idx,
+                                               out_buf ? current_len : len,
+                                               k,
+                                               &counter,
+                                               select_min,
+                                               pass);
       break;
     }
   }
@@ -1105,11 +1196,22 @@ void radix_topk_one_block(const T* in,
                           bool select_min,
                           int sm_cnt,
                           rmm::cuda_stream_view stream,
-                          rmm::mr::device_memory_resource* mr)
+                          rmm::mr::device_memory_resource* mr,
+                          bool prioritize_smaller_indice = false)
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
 
-  auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
+  auto kernel        = prioritize_smaller_indice
+                         ? radix_topk_one_block_kernel<T,
+                                                IdxT,
+                                                BitsPerPass,
+                                                BlockSize,
+                                                /*prioritize_smaller_indice*/ true>
+                         : radix_topk_one_block_kernel<T,
+                                                IdxT,
+                                                BitsPerPass,
+                                                BlockSize,
+                                                /*prioritize_smaller_indice*/ false>;
   const IdxT buf_len = calc_buf_len<T, IdxT, unsigned>(len);
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, true);
@@ -1187,6 +1289,13 @@ void radix_topk_one_block(const T* in,
  * @param stream
  * @param mr an optional memory resource to use across the calls (you can provide a large enough
  *           memory pool here to avoid memory allocations within the call).
+ * @param prioritize_smaller_indice
+ *    For the Kth smallest/largest value, there might be more than one elements with this value.
+ * So it's possible that more than K elements are eligible to be results.
+ *    By default, we only ensure to output K elements. So only some of the elements with the Kth
+ * smallest/largest value will be the results. The indices are chosen randomly.
+ *    With this flag set (prioritize_smaller_indice=true), we will always choose smallest several
+ * indice for the elements with the Kth smallest/largest value.
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 void select_k(const T* in,
@@ -1199,7 +1308,8 @@ void select_k(const T* in,
               bool select_min,
               bool fused_last_filter,
               rmm::cuda_stream_view stream,
-              rmm::mr::device_memory_resource* mr = nullptr)
+              rmm::mr::device_memory_resource* mr = nullptr,
+              bool prioritize_smaller_indice      = false)
 {
   if (k == len) {
     RAFT_CUDA_TRY(
@@ -1229,14 +1339,34 @@ void select_k(const T* in,
   constexpr int items_per_thread = 32;
 
   if (len <= BlockSize * items_per_thread) {
-    impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, sm_cnt, stream, mr);
+    impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(in,
+                                                                in_idx,
+                                                                batch_size,
+                                                                len,
+                                                                k,
+                                                                out,
+                                                                out_idx,
+                                                                select_min,
+                                                                sm_cnt,
+                                                                stream,
+                                                                mr,
+                                                                prioritize_smaller_indice);
   } else {
     unsigned grid_dim =
       impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt);
     if (grid_dim == 1) {
-      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, sm_cnt, stream, mr);
+      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(in,
+                                                                  in_idx,
+                                                                  batch_size,
+                                                                  len,
+                                                                  k,
+                                                                  out,
+                                                                  out_idx,
+                                                                  select_min,
+                                                                  sm_cnt,
+                                                                  stream,
+                                                                  mr,
+                                                                  prioritize_smaller_indice);
     } else {
       impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(in,
                                                         in_idx,
@@ -1250,7 +1380,8 @@ void select_k(const T* in,
                                                         grid_dim,
                                                         sm_cnt,
                                                         stream,
-                                                        mr);
+                                                        mr,
+                                                        prioritize_smaller_indice);
     }
   }
 }
