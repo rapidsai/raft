@@ -19,7 +19,6 @@ set(raft_dask_version 24.02.00)
 include(../../fetch_rapids.cmake)
 include(rapids-cpm)
 include(rapids-cuda)
-include(../../cpp/cmake/thirdparty/get_ucxx.cmake)
 rapids_cuda_init_architectures(raft-dask-python)
 
 project(
@@ -27,6 +26,9 @@ project(
   VERSION ${raft_dask_version}
   LANGUAGES CXX CUDA
 )
+
+rapids_cpm_init()
+include(../../cpp/cmake/thirdparty/get_ucxx.cmake)
 
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
        OFF
