@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +15,22 @@
  */
 
 #include "../common/ann_types.hpp"
-
 #include "raft_ann_bench_param_parser.h"
+
+#include <raft/core/logger.hpp>
+
+#include <rmm/mr/device/per_device_resource.hpp>
+
+#define JSON_DIAGNOSTICS 1
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <memory>
-#include <raft/core/logger.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
-
-#define JSON_DIAGNOSTICS 1
-#include <nlohmann/json.hpp>
 
 namespace raft::bench::ann {
 
@@ -44,7 +44,7 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   // stop compiler warning; not all algorithms support multi-GPU so it may not be used
   (void)dev_list;
 
-  raft::bench::ann::Metric metric = parse_metric(distance);
+  [[maybe_unused]] raft::bench::ann::Metric metric = parse_metric(distance);
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
   if constexpr (std::is_same_v<T, float>) {
