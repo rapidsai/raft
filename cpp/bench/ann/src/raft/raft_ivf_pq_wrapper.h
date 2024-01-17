@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
  */
 #pragma once
 
+#include "../common/ann_types.hpp"
+#include "raft_ann_bench_utils.h"
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
@@ -28,14 +31,11 @@
 #include <raft/util/cudart_utils.hpp>
 #include <raft_runtime/neighbors/ivf_pq.hpp>
 #include <raft_runtime/neighbors/refine.hpp>
+
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
-#include <type_traits>
 
-#include "../common/ann_types.hpp"
-#include "raft_ann_bench_utils.h"
-#include <raft/util/cudart_utils.hpp>
+#include <type_traits>
 
 namespace raft::bench::ann {
 
