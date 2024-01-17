@@ -1,5 +1,20 @@
 # Vector Search in C++ Tutorial
 
+## Table of Contents
+
+- [Step 1: Starting off with RAFT](#step-1-starting-off-with-raft)
+- [Step 2: Generate some data](#step-2-generate-some-data)
+- [Step 3: Using brute-force indexes](#step-3-using-brute-force-indexes)
+- [Step 4: Using the ANN indexes](#step-4-using-the-ann-indexes)
+- [Step 5: Evaluate neighborhood quality](#step-5-evaluate-neighborhood-quality)
+- [Advanced Features](#advanced-features)
+  - [Serialization](#serialization)
+  - [Filtering](#filtering)
+  - [Stream Pools](#stream-pools)
+  - [Device Resources Manager](#device-resources-manager)
+  - [Device Memory Resources](#device-memory-resources)
+  - [Workspace Memory Resource](#workspace-memory-resource)
+
 RAFT has several important algorithms for performing vector search on the GPU and this tutorial walks through the primary vector search APIs from start to finish to provide a reference for quick setup and C++ API usage.
 
 This tutorial assumes RAFT has been installed and/or added to your build so that you are able to compile and run RAFT code. If not done already, please follow the [build and install instructions](build.md) and consider taking a look at the [example c++ template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) for ready-to-go examples that you can immediately build and start playing with. Also take a look at RAFT's library of [reproducible vector search benchmarks](raft_ann_benchmarks.md) to run benchmarks that compare RAFT against other state-of-the-art nearest neighbors algorithms at scale.
