@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ class BenchmarkTimer:
                 self.timings.append(t1 - t0)
 
 
-def load_dataset(dataset_url, work_folder=None):
+def load_dataset(dataset_url="http://ann-benchmarks.com/sift-128-euclidean.hdf5", work_folder=None):
     """Download dataset from url. It is expected that the dataset contains a hdf5 file in ann-benchmarks format
 
     Parameters
@@ -82,7 +82,6 @@ def load_dataset(dataset_url, work_folder=None):
       work_folder name of the local folder to store the dataset
 
     """
-    dataset_url = "http://ann-benchmarks.com/sift-128-euclidean.hdf5"
     dataset_filename = dataset_url.split("/")[-1]
 
     # We'll need to load store some data in this tutorial
