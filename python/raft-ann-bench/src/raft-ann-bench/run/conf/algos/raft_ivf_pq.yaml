@@ -6,7 +6,7 @@ groups:
   base:
     build:
       nlist: [1024, 2048, 4096, 8192]
-      pq_dim: [64, 32, 16, 8]
+      pq_dim: [64, 32, 16]
       pq_bits: [8, 6, 5, 4]
       ratio: [10]
       niter: [25]
@@ -18,7 +18,7 @@ groups:
   large:
     build:
       nlist: [8192, 16384, 32768, 65536]
-      pq_dim: [48, 32, 16, 8]
+      pq_dim: [48, 32, 16]
       pq_bits: [8, 6, 5, 4]
       ratio: [4]
       niter: [20]

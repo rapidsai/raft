@@ -1829,12 +1829,9 @@ auto build(raft::resources const& handle,
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = params.kmeans_n_iters;
     kmeans_params.metric  = index.metric();
-    raft::print_device_vector("trainset", trainset.data(), 200, std::cout);
-    std::cout << "n_rows_train" << n_rows_train << "kmeans_n_iters" << kmeans_params.n_iters << std::endl;
     raft::cluster::kmeans_balanced::fit(
       handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
-    
-    raft::print_device_vector("cluster_centers", cluster_centers, 100, std::cout);
+
     // Trainset labels are needed for training PQ codebooks
     rmm::device_uvector<uint32_t> labels(n_rows_train, stream, device_memory);
     auto centers_const_view = raft::make_device_matrix_view<const float, IdxT>(

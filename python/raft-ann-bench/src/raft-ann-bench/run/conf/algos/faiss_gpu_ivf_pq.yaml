@@ -6,7 +6,7 @@ groups:
   base:
     build:
       nlist: [1024, 2048, 4096, 8192]
-      M: [64, 32, 16, 8]
+      M: [64, 32, 16]
       ratio: [10]
       usePrecomputed: [False, True]
       useFloat16: [False, True]
@@ -18,7 +18,7 @@ groups:
   baseraft:
     build:
       nlist: [1024, 2048, 4096, 8192]
-      M: [64, 32, 16, 8]
+      M: [64, 32, 16]
       ratio: [10]
       usePrecomputed: [False]
       useFloat16: [False, True]
@@ -30,7 +30,7 @@ groups:
   large:
     build:
       nlist: [8192, 16384, 32768, 65536]
-      M: [48, 32, 16, 8]
+      M: [48, 32, 16]
       ratio: [4]
       usePrecomputed: [False, True]
       useFloat16: [False, True]
@@ -42,7 +42,7 @@ groups:
   largeraft:
     build:
       nlist: [8192, 16384, 32768, 65536]
-      M: [48, 32, 16, 8]
+      M: [48, 32, 16]
       ratio: [4]
       usePrecomputed: [False]
       useFloat16: [False, True]

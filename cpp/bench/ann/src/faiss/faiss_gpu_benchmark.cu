@@ -92,12 +92,6 @@ void parse_search_param(const nlohmann::json& conf,
 {
   param.nprobe = conf.at("nprobe");
   if (conf.contains("refine_ratio")) { param.refine_ratio = conf.at("refine_ratio"); }
-  if (conf.contains("raft_refinement")) {
-    RAFT_LOG_INFO("found raft_refinement");
-    param.raft_refinement = conf.at("raft_refinement");
-  } else {
-    param.raft_refinement = false;
-  }
 }
 
 template <typename T, template <typename> class Algo>
