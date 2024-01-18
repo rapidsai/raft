@@ -29,6 +29,7 @@ project(
 
 rapids_cpm_init()
 include(../../cpp/cmake/thirdparty/get_ucxx.cmake)
+find_package(ucxx REQUIRED)
 
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
        OFF
@@ -43,7 +44,6 @@ endif()
 
 if(NOT raft_FOUND)
   find_package(ucx REQUIRED)
-  find_package(ucxx REQUIRED)
 
   # raft-dask doesn't actually use raft libraries, it just needs the headers, so we can turn off all
   # library compilation and we don't need to install anything here.
