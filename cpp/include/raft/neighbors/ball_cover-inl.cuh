@@ -351,10 +351,10 @@ void eps_nn(raft::resources const& handle,
  *                    matrix. Pass a nullptr if you don't need this info.
  * @param[in]  query  first matrix [row-major] [on device] [dim = m x k]
  * @param[in]  eps    defines epsilon neighborhood radius
- * @param[inout] max_k if nullptr (default), the user needs to make 2 subsequent calls:
+ * @param[inout] max_k if nullopt (default), the user needs to make 2 subsequent calls:
  *                     The first call computes adj_ia and allows adj_ja allocation.
  *                     The second call fills in adj_ja based on adj_ia.
- *                     If max_k != nullptr the algorithm only fills up neighbors up to a
+ *                     If max_k != nullopt the algorithm only fills up neighbors up to a
  *                     maximum number of max_k for each row in a single pass. Note
  *                     that it is not guarantueed to return the nearest neighbors.
  *                     Upon return max_k is overwritten with the actual max_k found during
@@ -368,7 +368,7 @@ void eps_nn(raft::resources const& handle,
             raft::device_vector_view<idx_t, matrix_idx_t> vd,
             raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
             value_t eps,
-            int_t* max_k)
+            std::optional<raft::host_scalar_view<int_t, matrix_idx_t>> max_k = std::nullopt)
 {
   ASSERT(index.n == query.extent(1), "vector dimension needs to be the same for index and queries");
   ASSERT(index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
@@ -376,12 +376,15 @@ void eps_nn(raft::resources const& handle,
          "Metric not supported");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
+  int_t* max_k_ptr = nullptr;
+  if (max_k.has_value()) { max_k_ptr = max_k.value().data_handle(); }
+
   // run query
   raft::spatial::knn::detail::rbc_eps_nn_query(
     handle,
     index,
     eps,
-    max_k,
+    max_k_ptr,
     query.data_handle(),
     query.extent(0),
     adj_ia.data_handle(),

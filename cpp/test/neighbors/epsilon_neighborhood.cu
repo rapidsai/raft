@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/ball_cover.cuh>
 #include <raft/random/make_blobs.cuh>
@@ -361,7 +362,7 @@ TEST_P(EpsNeighRbcTestFI, SparseRbcMaxK)
         make_device_vector_view<int64_t, int64_t>(vd.data(), batchSize + 1),
         make_device_matrix_view<float, int64_t>(query, batchSize, param.n_col),
         param.eps * param.eps,
-        &max_k);
+        make_host_scalar_view<int64_t, int64_t>(&max_k));
       ASSERT_TRUE(raft::devArrMatch(
         adj_ia_baseline.data(), adj_ia.data(), batchSize + 1, raft::Compare<int64_t>(), stream));
       ASSERT_TRUE(assertCsrEqualUnordered(adj_ia_baseline.data(),
@@ -387,7 +388,7 @@ TEST_P(EpsNeighRbcTestFI, SparseRbcMaxK)
         make_device_vector_view<int64_t, int64_t>(vd.data(), batchSize + 1),
         make_device_matrix_view<float, int64_t>(query, batchSize, param.n_col),
         param.eps * param.eps,
-        &max_k);
+        make_host_scalar_view<int64_t, int64_t>(&max_k));
       ASSERT_TRUE(max_k == expected_max_k);
       ASSERT_TRUE(raft::devArrMatch(
         expected_max_k / 2, vd.data(), batchSize, raft::Compare<int64_t>(), stream));

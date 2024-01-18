@@ -83,7 +83,8 @@ void eps_nn(raft::resources const& handle,
             raft::device_vector_view<idx_t, matrix_idx_t> vd,
             raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
             value_t eps,
-            int_t* max_k = nullptr) RAFT_EXPLICIT;
+            std::optional<raft::host_scalar_view<int_t, matrix_idx_t>> max_k = std::nullopt)
+  RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors::ball_cover
 
@@ -121,7 +122,7 @@ void eps_nn(raft::resources const& handle,
     raft::device_vector_view<idx_t, matrix_idx_t> vd,                                              \
     raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,                        \
     value_t eps,                                                                                   \
-    int_t* max_k);                                                                                 \
+    std::optional<raft::host_scalar_view<int_t, matrix_idx_t>> max_k);                             \
                                                                                                    \
   extern template void                                                                             \
   raft::neighbors::ball_cover::all_knn_query<idx_t, value_t, int_t, matrix_idx_t>(                 \
