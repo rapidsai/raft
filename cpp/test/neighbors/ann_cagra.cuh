@@ -166,10 +166,10 @@ void GenerateRoundingErrorFreeDataset(
   const uint32_t block_size = 256;
   const uint32_t grid_size  = (size + block_size - 1) / block_size;
 
-  const int_type resolution = std::max<int_type>(
-    int_type{128},
-    int_type{1} << static_cast<unsigned>(
-      std::floor((mapper_type::kBitshiftBase - std::log2(dim) - (diff_flag ? 1 : 0)) / 2)));
+  const auto bitshift = (mapper_type::kBitshiftBase - std::log2(dim) - (diff_flag ? 1 : 0)) / 2;
+  // Skip the test when `dim` is too big for type `T` to allow rounding error-free test.
+  if (bitshift <= 1) { GTEST_SKIP(); }
+  const int_type resolution = int_type{1} << static_cast<unsigned>(std::floor(bitshift));
   raft::random::uniformInt<int_type>(
     handle, rng, reinterpret_cast<int_type*>(ptr), size, -resolution, resolution - 1);
 
