@@ -136,7 +136,7 @@ endif()
 function(ConfigureAnnBench)
 
   set(oneValueArgs NAME)
-  set(multiValueArgs PATH LINKS CXXFLAGS INCLUDES)
+  set(multiValueArgs PATH LINKS CXXFLAGS)
 
   if(NOT BUILD_CPU_ONLY)
     set(GPU_BUILD ON)
@@ -225,9 +225,11 @@ endfunction()
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   ConfigureAnnBench(
-    NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp INCLUDES
-    ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib CXXFLAGS "${HNSW_CXX_FLAGS}"
+    NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp
+    LINKS
+    hnswlib::hnswlib
   )
+
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
@@ -278,12 +280,9 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
     RAFT_CAGRA_HNSWLIB
     PATH
     bench/ann/src/raft/raft_cagra_hnswlib.cu
-    INCLUDES
-    ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib
     LINKS
     raft::compiled
-    CXXFLAGS
-    "${HNSW_CXX_FLAGS}"
+    hnswlib::hnswlib
   )
 endif()
 
@@ -338,8 +337,8 @@ endif()
 if(RAFT_ANN_BENCH_USE_GGNN)
   include(cmake/thirdparty/get_glog.cmake)
   ConfigureAnnBench(
-    NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu INCLUDES
-    ${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src/include LINKS glog::glog
+    NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu
+    LINKS glog::glog ggnn::ggnn
   )
 endif()
 

@@ -15,10 +15,9 @@
  */
 #pragma once
 
-#include <cassert>
-#include <fstream>
-#include <iostream>
-#include <memory>
+#include "../common/ann_types.hpp"
+#include "raft_ann_bench_utils.h"
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
@@ -28,15 +27,14 @@
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
+
+#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-
-#include "../common/ann_types.hpp"
-#include "raft_ann_bench_utils.h"
-#include <raft/util/cudart_utils.hpp>
 
 namespace raft::bench::ann {
 

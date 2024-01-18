@@ -33,7 +33,7 @@
 
 #include "../common/ann_types.hpp"
 #include "../common/thread_pool.hpp"
-#include <hnswlib.h>
+#include <hnswlib/hnswlib.h>
 
 namespace raft::bench::ann {
 
