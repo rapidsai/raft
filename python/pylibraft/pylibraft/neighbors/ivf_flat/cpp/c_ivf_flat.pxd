@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,7 +56,6 @@ cdef extern from "raft/neighbors/ivf_flat_types.hpp" \
         double kmeans_trainset_fraction
         bool adaptive_centers
         bool conservative_memory_allocation
-        int random_seed
 
     cdef cppclass index[T, IdxT](ann_index):
         index(const device_resources& handle,

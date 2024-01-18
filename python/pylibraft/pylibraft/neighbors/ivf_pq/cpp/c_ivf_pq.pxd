@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,7 +78,6 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         codebook_gen codebook_kind
         bool force_random_rotation
         bool conservative_memory_allocation
-        int random_seed
 
     cdef cppclass index[IdxT](ann_index):
         index(const device_resources& handle,

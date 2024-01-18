@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,12 +76,6 @@ struct index_params : ann::index_params {
    * flag to `true` if you prefer to use as little GPU memory for the database as possible.
    */
   bool conservative_memory_allocation = false;
-  /**
-   * Seed used for random sampling if kmeans_trainset_fraction < 1.
-   *
-   * Value -1 disables random sampling, and results in sampling with a fixed stride.
-   */
-  int random_seed = 0;
 };
 
 struct search_params : ann::search_params {

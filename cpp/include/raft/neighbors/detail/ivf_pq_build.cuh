@@ -1755,6 +1755,7 @@ auto build(raft::resources const& handle,
   utils::memzero(index.inds_ptrs().data_handle(), index.inds_ptrs().size(), stream);
 
   {
+    int random_seed     = 137;
     auto trainset_ratio = std::max<size_t>(
       1,
       size_t(n_rows) / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
@@ -1770,14 +1771,14 @@ auto build(raft::resources const& handle,
 
     if constexpr (std::is_same_v<T, float>) {
       raft::spatial::knn::detail::utils::subsample(
-        handle, dataset, n_rows, trainset.view(), params.random_seed);
+        handle, dataset, n_rows, trainset.view(), random_seed);
     } else {
       // TODO(tfeher): Enable codebook generation with any type T, and then remove
       // trainset tmp.
       auto trainset_tmp =
         make_device_mdarray<T>(handle, device_mr, make_extents<IdxT>(n_rows_train, dim));
       raft::spatial::knn::detail::utils::subsample(
-        handle, dataset, n_rows, trainset_tmp.view(), params.random_seed);
+        handle, dataset, n_rows, trainset_tmp.view(), random_seed);
       cudaDeviceSynchronize();
       RAFT_LOG_INFO("Subsampling done, converting to float");
       raft::linalg::unaryOp(trainset.data_handle(),
