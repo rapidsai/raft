@@ -20,13 +20,20 @@ function(find_and_configure_ucxx)
             "${multiValueArgs}" ${ARGN} )
 
     rapids_cpm_find(ucxx ${PKG_VERSION}
-            GLOBAL_TARGETS         ucxx::ucxx
+            GLOBAL_TARGETS         ucxx::ucxx ucxx::python
             BUILD_EXPORT_SET       raft-distributed-exports
             INSTALL_EXPORT_SET     raft-distributed-exports
             CPM_ARGS
-            GIT_REPOSITORY         https://github.com/rapidsai/ucxx.git
+            GIT_REPOSITORY         https://github.com/${PKG_FORK}/ucxx.git
             GIT_TAG                ${PKG_PINNED_TAG}
-            EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL})
+            SOURCE_SUBDIR          cpp
+            EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
+            OPTIONS
+              "BUILD_TESTS OFF"
+              "BUILD_BENCH OFF"
+              "UCXX_ENABLE_PYTHON ON"
+              "UCXX_ENABLE_RMM ON"
+        )
 
 endfunction()
 
@@ -34,6 +41,6 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_ucxx(VERSION  0.36
-        FORK             ucxx
-        PINNED_TAG       v0.36.00a
+        FORK             rapidsai
+        PINNED_TAG       branch-0.36
         EXCLUDE_FROM_ALL YES)
