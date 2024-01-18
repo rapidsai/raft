@@ -168,6 +168,37 @@ DI void sts(half* addr, const half (&x)[2])
                  "h"(*reinterpret_cast<const uint16_t*>(x)),
                  "h"(*reinterpret_cast<const uint16_t*>(x + 1)));
 }
+DI void sts(half* addr, const half (&x)[4])
+{
+  auto s = __cvta_generic_to_shared(reinterpret_cast<uint16_t*>(addr));
+  asm volatile("st.shared.v4.u16 [%0], {%1, %2, %3, %4};"
+               :
+               : "l"(s),
+                 "h"(*reinterpret_cast<const uint16_t*>(x)),
+                 "h"(*reinterpret_cast<const uint16_t*>(x + 1)),
+                 "h"(*reinterpret_cast<const uint16_t*>(x + 2)),
+                 "h"(*reinterpret_cast<const uint16_t*>(x + 3)));
+}
+DI void sts(half* addr, const half (&x)[8])
+{
+  auto s = __cvta_generic_to_shared(reinterpret_cast<uint32_t*>(addr));
+  half2 y[4];
+  y[0].x = x[0];
+  y[0].y = x[1];
+  y[1].x = x[2];
+  y[1].y = x[3];
+  y[2].x = x[4];
+  y[2].y = x[5];
+  y[3].x = x[6];
+  y[3].y = x[7];
+  asm volatile("st.shared.v4.u32 [%0], {%1, %2, %3, %4};"
+               :
+               : "l"(s),
+                 "r"(*reinterpret_cast<uint32_t*>(y)),
+                 "r"(*reinterpret_cast<uint32_t*>(y + 1)),
+                 "r"(*reinterpret_cast<uint32_t*>(y + 2)),
+                 "r"(*reinterpret_cast<uint32_t*>(y + 3)));
+}
 
 DI void sts(float* addr, const float& x)
 {
