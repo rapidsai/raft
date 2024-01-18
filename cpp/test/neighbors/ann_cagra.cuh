@@ -118,7 +118,7 @@ struct fpi_mapper {};
 template <>
 struct fpi_mapper<double> {
   using type                         = int64_t;
-  static constexpr int kBitshiftBase = 50;
+  static constexpr int kBitshiftBase = 53;
 };
 
 template <>
