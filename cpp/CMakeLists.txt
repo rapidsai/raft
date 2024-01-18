@@ -181,7 +181,6 @@ if(NOT BUILD_CPU_ONLY)
   include(cmake/thirdparty/get_cccl.cmake)
   include(cmake/thirdparty/get_rmm.cmake)
   include(cmake/thirdparty/get_cutlass.cmake)
-  include(cmake/thirdparty/get_ucxx.cmake)
 
   include(${rapids-cmake-dir}/cpm/cuco.cmake)
   rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
@@ -533,8 +532,8 @@ rapids_find_generate_module(
 
 rapids_export_package(BUILD ucx raft-distributed-exports)
 rapids_export_package(INSTALL ucx raft-distributed-exports)
-rapids_export_package(BUILD ucxx raft-distributed-exports)
-rapids_export_package(INSTALL ucxx raft-distributed-exports)
+rapids_export_package(BUILD ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python)
+rapids_export_package(INSTALL ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python)
 rapids_export_package(BUILD NCCL raft-distributed-exports)
 rapids_export_package(INSTALL NCCL raft-distributed-exports)
 
