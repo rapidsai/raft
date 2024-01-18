@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,6 +113,8 @@ instantiate_raft_neighbors_brute_force_knn(
   int64_t, float, uint32_t, raft::row_major, raft::row_major, raft::identity_op);
 instantiate_raft_neighbors_brute_force_knn(
   int64_t, float, int64_t, raft::row_major, raft::row_major, raft::identity_op);
+instantiate_raft_neighbors_brute_force_knn(
+  int64_t, double, int64_t, raft::row_major, raft::row_major, raft::identity_op);
 instantiate_raft_neighbors_brute_force_knn(
   int, float, int, raft::row_major, raft::row_major, raft::identity_op);
 instantiate_raft_neighbors_brute_force_knn(

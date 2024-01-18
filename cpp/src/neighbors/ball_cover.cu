@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
-
 #include <cstdint>
 #include <raft/neighbors/ball_cover-inl.cuh>
 
@@ -60,9 +58,9 @@
     bool perform_post_filtering,                                                                   \
     float weight);                                                                                 \
                                                                                                    \
-  template void raft::neighbors::ball_cover::knn_query<idx_t, value_t, int_t>(                     \
+  template void raft::neighbors::ball_cover::knn_query<idx_t, value_t, int_t, matrix_idx_t>(       \
     raft::resources const& handle,                                                                 \
-    const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t>& index,               \
+    const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
     int_t k,                                                                                       \
     const value_t* query,                                                                          \
     int_t n_query_pts,                                                                             \
