@@ -618,17 +618,9 @@ void subsample(raft::resources const& res,
 {
   IdxT n_dim   = output.extent(1);
   IdxT n_train = output.extent(0);
-  if (seed == -1 || n_train == n_samples) {
-    IdxT trainset_ratio = n_samples / n_train;
-    RAFT_LOG_INFO("Fixed stride subsampling");
-    RAFT_CUDA_TRY(cudaMemcpy2DAsync(output.data_handle(),
-                                    sizeof(T) * n_dim,
-                                    input,
-                                    sizeof(T) * n_dim * trainset_ratio,
-                                    sizeof(T) * n_dim,
-                                    n_train,
-                                    cudaMemcpyDefault,
-                                    resource::get_cuda_stream(res)));
+  if (n_train == n_samples) {
+    RAFT_LOG_INFO("No subsampling");
+    raft::copy(output.data_handle(), input, n_dim * n_samples, resource::get_cuda_stream(res));
     return;
   }
   RAFT_LOG_DEBUG("Random subsampling");
