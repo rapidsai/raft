@@ -1776,7 +1776,7 @@ auto build(raft::resources const& handle,
       // TODO(tfeher): Enable codebook generation with any type T, and then remove
       // trainset tmp.
       auto trainset_tmp =
-        make_device_mdarray<T>(handle, device_mr, make_extents<IdxT>(n_rows_train, dim));
+        make_device_mdarray<T>(handle, &managed_mr, make_extents<IdxT>(n_rows_train, dim));
       raft::spatial::knn::detail::utils::subsample(
         handle, dataset, n_rows, trainset_tmp.view(), random_seed);
       cudaDeviceSynchronize();
