@@ -616,8 +616,8 @@ void subsample(raft::resources const& res,
                raft::device_matrix_view<T, IdxT> output,
                int seed)
 {
-  int64_t n_dim   = output.extent(1);
-  int64_t n_train = output.extent(0);
+  IdxT n_dim   = output.extent(1);
+  IdxT n_train = output.extent(0);
   if (seed == -1 || n_train == n_samples) {
     IdxT trainset_ratio = n_samples / n_train;
     RAFT_LOG_INFO("Fixed stride subsampling");
