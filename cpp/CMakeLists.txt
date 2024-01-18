@@ -329,6 +329,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/matrix/detail/select_k_half_uint32_t.cu
     src/neighbors/ball_cover.cu
     src/neighbors/brute_force_fused_l2_knn_float_int64_t.cu
+    src/neighbors/brute_force_knn_int64_t_double_int64_t.cu
     src/neighbors/brute_force_knn_int64_t_float_int64_t.cu
     src/neighbors/brute_force_knn_int64_t_float_uint32_t.cu
     src/neighbors/brute_force_knn_int_float_int.cu
@@ -444,6 +445,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/spatial/knn/detail/ball_cover/registers_pass_two_3d_euclidean.cu
     src/spatial/knn/detail/ball_cover/registers_pass_two_3d_haversine.cu
     src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
+    src/spatial/knn/detail/fused_l2_knn_int64_t_double.cu
     src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
     src/util/memory_pool.cpp

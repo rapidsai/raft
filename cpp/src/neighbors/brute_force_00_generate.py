@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 header = """
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,6 +73,7 @@ fused_l2_knn_macro = """
 knn_types = dict(
     int64_t_float_uint32_t=("int64_t","float","uint32_t"),
     int64_t_float_int64_t=("int64_t","float","int64_t"),
+    int64_t_double_int64_t=("int64_t","double","int64_t"),
     int_float_int=("int","float","int"),
     uint32_t_float_uint32_t=("uint32_t","float","uint32_t"),
 )

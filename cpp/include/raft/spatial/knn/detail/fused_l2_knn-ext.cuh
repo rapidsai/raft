@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,6 +68,8 @@ instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, float, true);
 instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, float, false);
 
 // These are used by brute_force_knn:
+instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, double, false);
+instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, double, true);
 instantiate_raft_spatial_knn_detail_fusedL2Knn(uint32_t, float, true);
 instantiate_raft_spatial_knn_detail_fusedL2Knn(uint32_t, float, false);
 
