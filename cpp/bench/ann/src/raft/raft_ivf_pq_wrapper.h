@@ -78,7 +78,7 @@ class RaftIvfPQ : public ANN<T> {
   {
     AlgoProperty property;
     property.dataset_memory_type = MemoryType::Host;
-    property.query_memory_type   = MemoryType::Host;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
   void save(const std::string& file) const override;
@@ -209,7 +209,7 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
       raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, index_->dim());
     auto neighbors_v = raft::make_device_matrix_view<IdxT, IdxT>((IdxT*)neighbors, batch_size, k);
     auto distances_v = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
-    
+
     raft::runtime::neighbors::ivf_pq::search(
       handle_, search_params_, *index_, queries_v, neighbors_v, distances_v);
     handle_.stream_wait(stream);  // RAFT stream -> bench stream
