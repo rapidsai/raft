@@ -800,7 +800,7 @@ inline void search(raft::resources const& handle,
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
-    
+
     RAFT_LOG_INFO("about to select clusters");
 
     select_clusters(handle,
@@ -838,8 +838,8 @@ inline void search(raft::resources const& handle,
                  index.rot_dim(),
                  stream);
     // raft::resource::sync_stream(handle);
-    // raft::print_device_vector("rot_matrix", index.rotation_matrix().data_handle(), dim, std::cout);
-    // raft::print_device_vector("rot_queries", rot_queries.data(), 100, std::cout);
+    // raft::print_device_vector("rot_matrix", index.rotation_matrix().data_handle(), dim,
+    // std::cout); raft::print_device_vector("rot_queries", rot_queries.data(), 100, std::cout);
 
     for (uint32_t offset_b = 0; offset_b < queries_batch; offset_b += max_batch_size) {
       uint32_t batch_size = min(max_batch_size, queries_batch - offset_b);

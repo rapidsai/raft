@@ -414,7 +414,7 @@ def load_all_results(
         for result_filename in result_files
     ]
     algo_group_files = list(zip(*algo_group_files))
-    
+
     print("algorithms", algorithms)
     print("groups", groups)
     print("algo_group_files", algo_group_files)

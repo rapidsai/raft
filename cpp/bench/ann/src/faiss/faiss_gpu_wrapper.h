@@ -25,12 +25,12 @@
 #include <raft/core/logger.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#include <faiss/MetricType.h>
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexRefine.h>
 #include <faiss/IndexScalarQuantizer.h>
+#include <faiss/MetricType.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuIndexIVFFlat.h>
 #include <faiss/gpu/GpuIndexIVFPQ.h>
@@ -108,7 +108,7 @@ class FaissGpu : public ANN<T> {
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
     int nprobe;
-    float refine_ratio   = 1.0;
+    float refine_ratio = 1.0;
     auto needs_dataset() const -> bool override { return refine_ratio > 1.0f; }
   };
 
@@ -194,7 +194,7 @@ class FaissGpu : public ANN<T> {
   std::shared_ptr<faiss::SearchParameters> search_params_;
   std::shared_ptr<faiss::IndexRefineSearchParameters> refine_search_params_{nullptr};
   const T* dataset_;
-  float refine_ratio_   = 1.0;
+  float refine_ratio_ = 1.0;
 };
 
 template <typename T>
@@ -256,8 +256,10 @@ void FaissGpu<T>::search(const T* queries,
   if (refine_ratio_ > 1.0) {
     if (raft::get_device_for_address(queries) >= 0) {
       uint32_t k0        = static_cast<uint32_t>(refine_ratio_ * k);
-      auto distances_tmp = raft::make_device_matrix<float, IdxT>(gpu_resource_->getRaftHandle(device_), batch_size, k0);
-      auto candidates    = raft::make_device_matrix<IdxT, IdxT>(gpu_resource_->getRaftHandle(device_), batch_size, k0);
+      auto distances_tmp = raft::make_device_matrix<float, IdxT>(
+        gpu_resource_->getRaftHandle(device_), batch_size, k0);
+      auto candidates =
+        raft::make_device_matrix<IdxT, IdxT>(gpu_resource_->getRaftHandle(device_), batch_size, k0);
       index_->search(batch_size,
                      queries,
                      k0,
@@ -269,7 +271,7 @@ void FaissGpu<T>::search(const T* queries,
       auto candidates_host = raft::make_host_matrix<IdxT, IdxT>(batch_size, k0);
       auto neighbors_host  = raft::make_host_matrix<IdxT, IdxT>(batch_size, k);
       auto distances_host  = raft::make_host_matrix<float, IdxT>(batch_size, k);
-      auto dataset_v = raft::make_host_matrix_view<const T, faiss::idx_t>(
+      auto dataset_v       = raft::make_host_matrix_view<const T, faiss::idx_t>(
         this->dataset_, index_->ntotal, index_->d);
 
       auto handle_ = gpu_resource_->getRaftHandle(device_);
@@ -401,14 +403,13 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     config.interleavedLayout      = param.use_raft;
     config.device                 = this->device_;
 
-    this->index_ =
-      std::make_shared<faiss::gpu::GpuIndexIVFPQ>(this->gpu_resource_.get(),
-                                                  dim,
-                                                  param.nlist,
-                                                  param.M,
-                                                  param.bitsPerCode,
-                                                  this->metric_type_,
-                                                  config);
+    this->index_ = std::make_shared<faiss::gpu::GpuIndexIVFPQ>(this->gpu_resource_.get(),
+                                                               dim,
+                                                               param.nlist,
+                                                               param.M,
+                                                               param.bitsPerCode,
+                                                               this->metric_type_,
+                                                               config);
   }
 
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override

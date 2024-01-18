@@ -18,7 +18,6 @@
 #include "ann_types.hpp"
 #include "conf.hpp"
 #include "dataset.hpp"
-#include "raft/util/cudart_utils.hpp"
 #include "util.hpp"
 
 #include <benchmark/benchmark.h>

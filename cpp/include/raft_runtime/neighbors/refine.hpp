@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/resources.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::runtime::neighbors {
@@ -30,7 +30,7 @@ namespace raft::runtime::neighbors {
               raft::device_matrix_view<const IDX_T, int64_t, row_major> neighbor_candidates, \
               raft::device_matrix_view<IDX_T, int64_t, row_major> indices,                   \
               raft::device_matrix_view<float, int64_t, row_major> distances,                 \
-              raft::distance::DistanceType metric);                                                \
+              raft::distance::DistanceType metric);                                          \
                                                                                              \
   void refine(raft::resources const& handle,                                                 \
               raft::host_matrix_view<const DATA_T, int64_t, row_major> dataset,              \
