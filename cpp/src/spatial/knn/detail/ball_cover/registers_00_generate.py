@@ -45,11 +45,11 @@ header = """/*
 
 macro_pass_one = """
 #define instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(                            \\
-  Mvalue_idx, Mvalue_t, Mvalue_int, Mdims, Mdist_func)                                       \\
+  Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdims, Mdist_func)                          \\
   template void                                                                              \\
-  raft::spatial::knn::detail::rbc_low_dim_pass_one<Mvalue_idx, Mvalue_t, Mvalue_int, Mdims>( \\
+  raft::spatial::knn::detail::rbc_low_dim_pass_one<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdims>( \\
     raft::resources const& handle,                                                           \\
-    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                           \\
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>& index,              \\
     const Mvalue_t* query,                                                                   \\
     const Mvalue_int n_query_rows,                                                           \\
     Mvalue_int k,                                                                            \\
@@ -65,11 +65,11 @@ macro_pass_one = """
 
 macro_pass_two = """
 #define instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(                            \\
-  Mvalue_idx, Mvalue_t, Mvalue_int, Mdims, Mdist_func)                                       \\
+  Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdims, Mdist_func)                          \\
   template void                                                                              \\
-  raft::spatial::knn::detail::rbc_low_dim_pass_two<Mvalue_idx, Mvalue_t, Mvalue_int, Mdims>( \\
+  raft::spatial::knn::detail::rbc_low_dim_pass_two<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdims>( \\
     raft::resources const& handle,                                                           \\
-    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                           \\
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>& index,              \\
     const Mvalue_t* query,                                                                   \\
     const Mvalue_int n_query_rows,                                                           \\
     Mvalue_int k,                                                                            \\
@@ -122,8 +122,6 @@ distances = dict(
 )
 
 types = dict(
-    int32_float=("std::int32_t", "float"),
-    int32_double=("std::int32_t", "double"),
     int64_float=("std::int64_t", "float"),
     int64_double=("std::int64_t", "double"),
 )
@@ -134,8 +132,9 @@ for k, v in distances.items():
         with open(path, "w") as f:
             f.write(header)
             f.write(macro_pass_one)
-            f.write(f"instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(\n")
-            f.write(f"  std::int64_t, float, std::uint32_t, {dim}, {v});\n")
+            for type_path, (int_t, data_t) in types.items():
+                f.write(f"instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(\n")
+                f.write(f"  {int_t}, {data_t}, {int_t}, {int_t}, {dim}, {v});\n")
             f.write("#undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one\n")
         print(f"src/spatial/knn/detail/ball_cover/{path}")
 
@@ -145,17 +144,11 @@ for k, v in distances.items():
         with open(path, "w") as f:
             f.write(header)
             f.write(macro_pass_two)
-            f.write(f"instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(\n")
-            f.write(f"  std::int64_t, float, std::uint32_t, {dim}, {v});\n")
+            for type_path, (int_t, data_t) in types.items():
+                f.write(f"instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(\n")
+                f.write(f"  {int_t}, {data_t}, {int_t}, {int_t}, {dim}, {v});\n")
             f.write("#undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two\n")
         print(f"src/spatial/knn/detail/ball_cover/{path}")
-
-types = dict(
-    int32_float=("std::int32_t", "float"),
-    int32_double=("std::int32_t", "double"),
-    int64_float=("std::int64_t", "float"),
-    int64_double=("std::int64_t", "double"),
-)
 
 path="registers_eps_pass_euclidean.cu"
 with open(path, "w") as f:

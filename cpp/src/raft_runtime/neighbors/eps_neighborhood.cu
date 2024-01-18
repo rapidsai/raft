@@ -59,14 +59,7 @@ RAFT_INST_BFEPSN(int64_t, double, int64_t, raft::row_major, raft::row_major);
       index.extent(1),                                                                          \
       raft::distance::DistanceType::L2SqrtUnexpanded);                                          \
     raft::neighbors::ball_cover::build_index(handle, rbc_index);                                \
-    raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc(handle,                              \
-                                                           rbc_index,                           \
-                                                           adj.data_handle(),                   \
-                                                           vd.data_handle(),                    \
-                                                           search.data_handle(),                \
-                                                           search.extent(0),                    \
-                                                           search.extent(1),                    \
-                                                           eps);                                \
+    raft::neighbors::ball_cover::eps_nn(handle, rbc_index, adj, vd, search, eps);               \
   }                                                                                             \
   void build_rbc_index(                                                                         \
     raft::resources const& handle,                                                              \
@@ -82,15 +75,14 @@ RAFT_INST_BFEPSN(int64_t, double, int64_t, raft::row_major, raft::row_major);
     raft::device_vector_view<IDX_T, MATRIX_IDX_T> vd,                                           \
     DATA_T eps)                                                                                 \
   {                                                                                             \
-    raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc(handle,                              \
-                                                           rbc_index,                           \
-                                                           adj_ia.data_handle(),                \
-                                                           (IDX_T*)nullptr,                     \
-                                                           vd.data_handle(),                    \
-                                                           search.data_handle(),                \
-                                                           search.extent(0),                    \
-                                                           search.extent(1),                    \
-                                                           eps);                                \
+    raft::neighbors::ball_cover::eps_nn(                                                        \
+      handle,                                                                                   \
+      rbc_index,                                                                                \
+      adj_ia,                                                                                   \
+      raft::make_device_vector_view<IDX_T, MATRIX_IDX_T>(nullptr, 0),                           \
+      vd,                                                                                       \
+      search,                                                                                   \
+      eps);                                                                                     \
   }                                                                                             \
   void eps_neighbors_l2_rbc_pass2(                                                              \
     raft::resources const& handle,                                                              \
@@ -101,15 +93,7 @@ RAFT_INST_BFEPSN(int64_t, double, int64_t, raft::row_major, raft::row_major);
     raft::device_vector_view<IDX_T, MATRIX_IDX_T> vd,                                           \
     DATA_T eps)                                                                                 \
   {                                                                                             \
-    raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc(handle,                              \
-                                                           rbc_index,                           \
-                                                           adj_ia.data_handle(),                \
-                                                           adj_ja.data_handle(),                \
-                                                           vd.data_handle(),                    \
-                                                           search.data_handle(),                \
-                                                           search.extent(0),                    \
-                                                           search.extent(1),                    \
-                                                           eps);                                \
+    raft::neighbors::ball_cover::eps_nn(handle, rbc_index, adj_ia, adj_ja, vd, search, eps);    \
   }
 
 RAFT_INST_RBCEPSN(int64_t, float, int64_t, int64_t, raft::row_major, raft::row_major);

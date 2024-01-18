@@ -68,26 +68,22 @@ void knn_query(raft::resources const& handle,
                float weight                = 1.0) RAFT_EXPLICIT;
 
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
-void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
-                               const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
-                               bool* adj,
-                               idx_t* vd,
-                               const value_t* x,
-                               int_t m,
-                               int_t n,
-                               value_t eps) RAFT_EXPLICIT;
+void eps_nn(raft::resources const& handle,
+            const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
+            raft::device_matrix_view<bool, matrix_idx_t, row_major> adj,
+            raft::device_vector_view<idx_t, matrix_idx_t> vd,
+            raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
+            value_t eps) RAFT_EXPLICIT;
 
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
-void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
-                               const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
-                               idx_t* adj_ia,
-                               idx_t* adj_ja,
-                               idx_t* vd,
-                               const value_t* x,
-                               int_t m,
-                               int_t n,
-                               value_t eps,
-                               int_t* max_k = nullptr) RAFT_EXPLICIT;
+void eps_nn(raft::resources const& handle,
+            const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
+            raft::device_vector_view<idx_t, matrix_idx_t> adj_ia,
+            raft::device_vector_view<idx_t, matrix_idx_t> adj_ja,
+            raft::device_vector_view<idx_t, matrix_idx_t> vd,
+            raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
+            value_t eps,
+            int_t* max_k = nullptr) RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors::ball_cover
 
@@ -109,27 +105,21 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
     bool perform_post_filtering,                                                                   \
     float weight);                                                                                 \
                                                                                                    \
-  extern template void                                                                             \
-  raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<idx_t, value_t, int_t, matrix_idx_t>(     \
+  extern template void raft::neighbors::ball_cover::eps_nn<idx_t, value_t, int_t, matrix_idx_t>(   \
     raft::resources const& handle,                                                                 \
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
-    bool* adj,                                                                                     \
-    idx_t* vd,                                                                                     \
-    const value_t* x,                                                                              \
-    int_t m,                                                                                       \
-    int_t n,                                                                                       \
+    raft::device_matrix_view<bool, matrix_idx_t, row_major> adj,                                   \
+    raft::device_vector_view<idx_t, matrix_idx_t> vd,                                              \
+    raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,                        \
     value_t eps);                                                                                  \
                                                                                                    \
-  extern template void                                                                             \
-  raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<idx_t, value_t, int_t, matrix_idx_t>(     \
+  extern template void raft::neighbors::ball_cover::eps_nn<idx_t, value_t, int_t, matrix_idx_t>(   \
     raft::resources const& handle,                                                                 \
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
-    idx_t* adj_ia,                                                                                 \
-    idx_t* adj_ja,                                                                                 \
-    idx_t* vd,                                                                                     \
-    const value_t* x,                                                                              \
-    int_t m,                                                                                       \
-    int_t n,                                                                                       \
+    raft::device_vector_view<idx_t, matrix_idx_t> adj_ia,                                          \
+    raft::device_vector_view<idx_t, matrix_idx_t> adj_ja,                                          \
+    raft::device_vector_view<idx_t, matrix_idx_t> vd,                                              \
+    raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,                        \
     value_t eps,                                                                                   \
     int_t* max_k);                                                                                 \
                                                                                                    \

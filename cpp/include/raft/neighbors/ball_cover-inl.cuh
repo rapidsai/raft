@@ -254,7 +254,7 @@ void all_knn_query(raft::resources const& handle,
  *               looking in the closest landmark.
  * @param[in] n_query_pts number of query points
  */
-template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::uint32_t>
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::int64_t>
 void knn_query(raft::resources const& handle,
                const BallCoverIndex<idx_t, value_t, int_t, matrix_idx>& index,
                int_t k,
@@ -306,22 +306,18 @@ void knn_query(raft::resources const& handle,
  * @param[out] vd     vertex degree array [on device] [len = m + 1]
  *                    `vd + m` stores the total number of edges in the adjacency
  *                    matrix. Pass a nullptr if you don't need this info.
- * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
- * @param[in]  m      number of rows in x
- * @param[in]  n      number of columns in x and index
+ * @param[in]  query  first matrix [row-major] [on device] [dim = m x k]
  * @param[in]  eps    defines epsilon neighborhood radius
  */
-template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::uint32_t>
-void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
-                               const BallCoverIndex<idx_t, value_t, int_t, matrix_idx>& index,
-                               bool* adj,
-                               idx_t* vd,
-                               const value_t* x,
-                               int_t m,
-                               int_t n,
-                               value_t eps)
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t = std::int64_t>
+void eps_nn(raft::resources const& handle,
+            const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
+            raft::device_matrix_view<bool, matrix_idx_t, row_major> adj,
+            raft::device_vector_view<idx_t, matrix_idx_t> vd,
+            raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
+            value_t eps)
 {
-  ASSERT(index.n == n, "vector dimension needs to be the same for index and queries");
+  ASSERT(index.n == query.extent(1), "vector dimension needs to be the same for index and queries");
   ASSERT(index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
            index.metric == raft::distance::DistanceType::L2SqrtUnexpanded,
          "Metric not supported");
@@ -329,7 +325,14 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
 
   // run query
   raft::spatial::knn::detail::rbc_eps_nn_query(
-    handle, index, eps, x, m, adj, vd, spatial::knn::detail::EuclideanFunc<value_t, int_t>());
+    handle,
+    index,
+    eps,
+    query.data_handle(),
+    query.extent(0),
+    adj.data_handle(),
+    vd.data_handle(),
+    spatial::knn::detail::EuclideanFunc<value_t, int_t>());
 }
 
 /**
@@ -346,9 +349,7 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
  * @param[out] vd     vertex degree array [on device] [len = m + 1]
  *                    `vd + m` stores the total number of edges in the adjacency
  *                    matrix. Pass a nullptr if you don't need this info.
- * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
- * @param[in]  m      number of rows in x
- * @param[in]  n      number of columns in x and index
+ * @param[in]  query  first matrix [row-major] [on device] [dim = m x k]
  * @param[in]  eps    defines epsilon neighborhood radius
  * @param[inout] max_k if nullptr (default), the user needs to make 2 subsequent calls:
  *                     The first call computes adj_ia and allows adj_ja allocation.
@@ -359,19 +360,17 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
  *                     Upon return max_k is overwritten with the actual max_k found during
  *                     computation.
  */
-template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::uint32_t>
-void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
-                               const BallCoverIndex<idx_t, value_t, int_t, matrix_idx>& index,
-                               idx_t* adj_ia,
-                               idx_t* adj_ja,
-                               idx_t* vd,
-                               const value_t* x,
-                               int_t m,
-                               int_t n,
-                               value_t eps,
-                               int_t* max_k)
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t = std::int64_t>
+void eps_nn(raft::resources const& handle,
+            const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
+            raft::device_vector_view<idx_t, matrix_idx_t> adj_ia,
+            raft::device_vector_view<idx_t, matrix_idx_t> adj_ja,
+            raft::device_vector_view<idx_t, matrix_idx_t> vd,
+            raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
+            value_t eps,
+            int_t* max_k)
 {
-  ASSERT(index.n == n, "vector dimension needs to be the same for index and queries");
+  ASSERT(index.n == query.extent(1), "vector dimension needs to be the same for index and queries");
   ASSERT(index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
            index.metric == raft::distance::DistanceType::L2SqrtUnexpanded,
          "Metric not supported");
@@ -383,11 +382,11 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
     index,
     eps,
     max_k,
-    x,
-    m,
-    adj_ia,
-    adj_ja,
-    vd,
+    query.data_handle(),
+    query.extent(0),
+    adj_ia.data_handle(),
+    adj_ja.data_handle(),
+    vd.data_handle(),
     spatial::knn::detail::EuclideanFunc<value_t, int_t>());
 }
 

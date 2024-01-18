@@ -67,8 +67,8 @@ namespace detail {
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t>
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 void sample_landmarks(raft::resources const& handle,
                       BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index)
 {
@@ -128,8 +128,8 @@ void sample_landmarks(raft::resources const& handle,
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t>
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 void construct_landmark_1nn(raft::resources const& handle,
                             const value_idx* R_knn_inds_ptr,
                             const value_t* R_knn_dists_ptr,
@@ -186,8 +186,8 @@ void construct_landmark_1nn(raft::resources const& handle,
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t>
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 void k_closest_landmarks(raft::resources const& handle,
                          const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                          const value_t* query_pts,
@@ -217,8 +217,8 @@ void k_closest_landmarks(raft::resources const& handle,
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t>
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 void compute_landmark_radii(raft::resources const& handle,
                             BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index)
 {
@@ -248,14 +248,14 @@ void compute_landmark_radii(raft::resources const& handle,
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename dist_func>
 void perform_rbc_query(raft::resources const& handle,
                        const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                        const value_t* query,
                        value_int n_query_pts,
-                       std::uint32_t k,
+                       value_int k,
                        const value_idx* R_knn_inds,
                        const value_t* R_knn_dists,
                        dist_func dfunc,
@@ -278,62 +278,62 @@ void perform_rbc_query(raft::resources const& handle,
 
   if (index.n == 2) {
     // Compute nearest k for each neighborhood in each closest R
-    rbc_low_dim_pass_one<value_idx, value_t, value_int, 2>(handle,
-                                                           index,
-                                                           query,
-                                                           n_query_pts,
-                                                           k,
-                                                           R_knn_inds,
-                                                           R_knn_dists,
-                                                           dfunc,
-                                                           inds,
-                                                           dists,
-                                                           weight,
-                                                           dists_counter);
+    rbc_low_dim_pass_one<value_idx, value_t, value_int, matrix_idx, 2>(handle,
+                                                                       index,
+                                                                       query,
+                                                                       n_query_pts,
+                                                                       k,
+                                                                       R_knn_inds,
+                                                                       R_knn_dists,
+                                                                       dfunc,
+                                                                       inds,
+                                                                       dists,
+                                                                       weight,
+                                                                       dists_counter);
 
     if (perform_post_filtering) {
-      rbc_low_dim_pass_two<value_idx, value_t, value_int, 2>(handle,
-                                                             index,
-                                                             query,
-                                                             n_query_pts,
-                                                             k,
-                                                             R_knn_inds,
-                                                             R_knn_dists,
-                                                             dfunc,
-                                                             inds,
-                                                             dists,
-                                                             weight,
-                                                             post_dists_counter);
+      rbc_low_dim_pass_two<value_idx, value_t, value_int, matrix_idx, 2>(handle,
+                                                                         index,
+                                                                         query,
+                                                                         n_query_pts,
+                                                                         k,
+                                                                         R_knn_inds,
+                                                                         R_knn_dists,
+                                                                         dfunc,
+                                                                         inds,
+                                                                         dists,
+                                                                         weight,
+                                                                         post_dists_counter);
     }
 
   } else if (index.n == 3) {
     // Compute nearest k for each neighborhood in each closest R
-    rbc_low_dim_pass_one<value_idx, value_t, value_int, 3>(handle,
-                                                           index,
-                                                           query,
-                                                           n_query_pts,
-                                                           k,
-                                                           R_knn_inds,
-                                                           R_knn_dists,
-                                                           dfunc,
-                                                           inds,
-                                                           dists,
-                                                           weight,
-                                                           dists_counter);
+    rbc_low_dim_pass_one<value_idx, value_t, value_int, matrix_idx, 3>(handle,
+                                                                       index,
+                                                                       query,
+                                                                       n_query_pts,
+                                                                       k,
+                                                                       R_knn_inds,
+                                                                       R_knn_dists,
+                                                                       dfunc,
+                                                                       inds,
+                                                                       dists,
+                                                                       weight,
+                                                                       dists_counter);
 
     if (perform_post_filtering) {
-      rbc_low_dim_pass_two<value_idx, value_t, value_int, 3>(handle,
-                                                             index,
-                                                             query,
-                                                             n_query_pts,
-                                                             k,
-                                                             R_knn_inds,
-                                                             R_knn_dists,
-                                                             dfunc,
-                                                             inds,
-                                                             dists,
-                                                             weight,
-                                                             post_dists_counter);
+      rbc_low_dim_pass_two<value_idx, value_t, value_int, matrix_idx, 3>(handle,
+                                                                         index,
+                                                                         query,
+                                                                         n_query_pts,
+                                                                         k,
+                                                                         R_knn_inds,
+                                                                         R_knn_dists,
+                                                                         dfunc,
+                                                                         inds,
+                                                                         dists,
+                                                                         weight,
+                                                                         post_dists_counter);
     }
   }
 }
@@ -350,8 +350,8 @@ void perform_rbc_query(raft::resources const& handle,
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename dist_func>
 void perform_rbc_eps_nn_query(
   raft::resources const& handle,
@@ -378,8 +378,8 @@ void perform_rbc_eps_nn_query(
 
 template <typename value_idx,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename dist_func>
 void perform_rbc_eps_nn_query(
   raft::resources const& handle,
@@ -413,8 +413,8 @@ void perform_rbc_eps_nn_query(
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename distance_func>
 void rbc_build_index(raft::resources const& handle,
                      BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
@@ -472,8 +472,8 @@ void rbc_build_index(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename distance_func>
 void rbc_all_knn_query(raft::resources const& handle,
                        BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
@@ -546,8 +546,8 @@ void rbc_all_knn_query(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename distance_func>
 void rbc_knn_query(raft::resources const& handle,
                    const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
@@ -619,8 +619,8 @@ void rbc_knn_query(raft::resources const& handle,
 
 template <typename value_idx,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t>
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 void compute_landmark_dists(raft::resources const& handle,
                             const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                             const value_t* query_pts,
@@ -649,8 +649,8 @@ void compute_landmark_dists(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename distance_func>
 void rbc_eps_nn_query(raft::resources const& handle,
                       const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
@@ -666,12 +666,8 @@ void rbc_eps_nn_query(raft::resources const& handle,
   rmm::device_uvector<value_t> R_dists(index.n_landmarks * n_query_pts,
                                        resource::get_cuda_stream(handle));
 
-  resource::sync_stream(handle);
-
   // find all landmarks that might have points in range
   compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data());
-
-  resource::sync_stream(handle);
 
   // query all points and write to adj
   perform_rbc_eps_nn_query(handle, index, query, n_query_pts, eps, R_dists.data(), dfunc, adj, vd);
@@ -679,8 +675,8 @@ void rbc_eps_nn_query(raft::resources const& handle,
 
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename distance_func>
 void rbc_eps_nn_query(raft::resources const& handle,
                       const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
@@ -698,12 +694,8 @@ void rbc_eps_nn_query(raft::resources const& handle,
   rmm::device_uvector<value_t> R_dists(index.n_landmarks * n_query_pts,
                                        resource::get_cuda_stream(handle));
 
-  resource::sync_stream(handle);
-
   // find all landmarks that might have points in range
   compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data());
-
-  resource::sync_stream(handle);
 
   // query all points and write to adj
   perform_rbc_eps_nn_query(
