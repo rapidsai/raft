@@ -54,10 +54,10 @@ from pylibraft.common.cpp.mdspan cimport (
 from pylibraft.neighbors.cpp.eps_neighborhood cimport (
     BallCoverIndex as c_BallCoverIndex,
     build_rbc_index as c_build_rbc_index,
-    eps_neighbors_l2 as c_eps_neighbors_l2,
-    eps_neighbors_l2_rbc as c_eps_neighbors_l2_rbc,
-    eps_neighbors_l2_rbc_pass1 as c_eps_neighbors_l2_rbc_pass1,
-    eps_neighbors_l2_rbc_pass2 as c_eps_neighbors_l2_rbc_pass2,
+    eps_neighbors as c_eps_neighbors,
+    eps_neighbors_rbc as c_eps_neighbors_rbc,
+    eps_neighbors_rbc_pass1 as c_eps_neighbors_rbc_pass1,
+    eps_neighbors_rbc_pass2 as c_eps_neighbors_rbc_pass2,
 )
 
 
@@ -204,7 +204,7 @@ def eps_neighbors(dataset, queries, eps, method="brute", handle=None):
     if dataset_cai.dtype == np.float32:
         with cuda_interruptible():
             if method == "ball_cover":
-                c_eps_neighbors_l2_rbc(
+                c_eps_neighbors_rbc(
                     deref(handle_),
                     get_dmv_float(dataset_cai, check_shape=True),
                     get_dmv_float(queries_cai, check_shape=True),
@@ -212,7 +212,7 @@ def eps_neighbors(dataset, queries, eps, method="brute", handle=None):
                     vd_vector_view,
                     eps)
             elif method == "brute":
-                c_eps_neighbors_l2(
+                c_eps_neighbors(
                     deref(handle_),
                     get_dmv_float(dataset_cai, check_shape=True),
                     get_dmv_float(queries_cai, check_shape=True),
@@ -308,7 +308,7 @@ def eps_neighbors_sparse(RbcIndex rbc_index, queries, eps, handle=None):
     if queries_cai.dtype == np.float32:
         rbc_index_float = rbc_index
         with cuda_interruptible():
-            c_eps_neighbors_l2_rbc_pass1(
+            c_eps_neighbors_rbc_pass1(
                 deref(handle_),
                 deref(rbc_index_float.index),
                 get_dmv_float(queries_cai, check_shape=True),
@@ -327,7 +327,7 @@ def eps_neighbors_sparse(RbcIndex rbc_index, queries, eps, handle=None):
 
     if queries_cai.dtype == np.float32:
         with cuda_interruptible():
-            c_eps_neighbors_l2_rbc_pass2(
+            c_eps_neighbors_rbc_pass2(
                 deref(handle_),
                 deref(rbc_index_float.index),
                 get_dmv_float(queries_cai, check_shape=True),

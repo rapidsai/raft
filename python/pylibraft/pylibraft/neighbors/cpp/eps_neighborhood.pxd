@@ -54,7 +54,7 @@ cdef extern from "raft/neighbors/ball_cover_types.hpp" \
 cdef extern from "raft_runtime/neighbors/eps_neighborhood.hpp" \
         namespace "raft::runtime::neighbors::epsilon_neighborhood" nogil:
 
-    cdef void eps_neighbors_l2(
+    cdef void eps_neighbors(
         const device_resources & handle,
         device_matrix_view[float, int64_t, row_major] index,
         device_matrix_view[float, int64_t, row_major] search,
@@ -62,7 +62,7 @@ cdef extern from "raft_runtime/neighbors/eps_neighborhood.hpp" \
         device_vector_view[int64_t, int64_t] vd,
         float eps) except +
 
-    cdef void eps_neighbors_l2_rbc(
+    cdef void eps_neighbors_rbc(
         const device_resources & handle,
         device_matrix_view[float, int64_t, row_major] index,
         device_matrix_view[float, int64_t, row_major] search,
@@ -74,7 +74,7 @@ cdef extern from "raft_runtime/neighbors/eps_neighborhood.hpp" \
         const device_resources & handle,
         BallCoverIndex[int64_t, float, int64_t, int64_t] rbc_index) except +
 
-    cdef void eps_neighbors_l2_rbc_pass1(
+    cdef void eps_neighbors_rbc_pass1(
         const device_resources & handle,
         BallCoverIndex[int64_t, float, int64_t, int64_t] rbc_index,
         device_matrix_view[float, int64_t, row_major] search,
@@ -82,7 +82,7 @@ cdef extern from "raft_runtime/neighbors/eps_neighborhood.hpp" \
         device_vector_view[int64_t, int64_t] vd,
         float eps) except +
 
-    cdef void eps_neighbors_l2_rbc_pass2(
+    cdef void eps_neighbors_rbc_pass2(
         const device_resources & handle,
         BallCoverIndex[int64_t, float, int64_t, int64_t] rbc_index,
         device_matrix_view[float, int64_t, row_major] search,
