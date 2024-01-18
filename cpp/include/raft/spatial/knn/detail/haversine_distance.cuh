@@ -52,7 +52,7 @@ DI value_t compute_haversine(value_t x1, value_t y1, value_t x2, value_t y2)
  * @param[in] n_index_rows number of rows in index array
  * @param[in] k number of closest neighbors to return
  */
-template <typename value_idx, typename value_t, int warp_q = 512, int thread_q = 8, int tpb = 128>
+template <typename value_idx, typename value_t, int warp_q = 1024, int thread_q = 8, int tpb = 128>
 RAFT_KERNEL haversine_knn_kernel(value_idx* out_inds,
                                  value_t* out_dists,
                                  const value_t* index,
@@ -133,8 +133,10 @@ void haversine_knn(value_idx* out_inds,
                    int k,
                    cudaStream_t stream)
 {
-  haversine_knn_kernel<<<n_query_rows, 128, 0, stream>>>(
-    out_inds, out_dists, index, query, n_index_rows, k);
+  // ensure kernel does not breach shared memory limits
+  constexpr int kWarpQ = sizeof(value_t) > 4 ? 512 : 1024;
+  haversine_knn_kernel<value_idx, value_t, kWarpQ>
+    <<<n_query_rows, 128, 0, stream>>>(out_inds, out_dists, index, query, n_index_rows, k);
 }
 
 }  // namespace detail
