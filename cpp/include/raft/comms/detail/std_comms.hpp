@@ -95,8 +95,6 @@ class std_comms : public comms_iface {
       rank_(rank),
       subcomms_ucp_(subcomms_ucp),
       ucx_objects_(ucx_objects),
-      ucp_worker_(ucp_worker),
-      ucp_eps_(eps),
       own_nccl_comm_(false),
       next_request_id_(0)
   {
