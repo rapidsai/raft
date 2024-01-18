@@ -130,7 +130,7 @@ struct fpi_mapper<float> {
 template <>
 struct fpi_mapper<half> {
   using type                         = int16_t;
-  static constexpr int kBitshiftBase = 8;
+  static constexpr int kBitshiftBase = 11;
 };
 
 // Generate dataset to ensure no rounding error occurs in the norm computation of any two vectors.
