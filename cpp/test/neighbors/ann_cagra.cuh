@@ -124,7 +124,7 @@ struct fpi_mapper<double> {
 template <>
 struct fpi_mapper<float> {
   using type                         = int32_t;
-  static constexpr int kBitshiftBase = 22;
+  static constexpr int kBitshiftBase = 24;
 };
 
 template <>
