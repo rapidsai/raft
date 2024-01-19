@@ -32,7 +32,7 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 )
 
 rapids_cpm_init()
-include(../../cpp/cmake/thirdparty/get_ucxx.cmake)
+include(cmake/thirdparty/get_ucxx.cmake)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
