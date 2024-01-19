@@ -22,7 +22,7 @@
 #include <raft/distance/distance_types.hpp>
 
 #include <cstdint>
-#include <hnswlib.h>
+#include <hnswlib/hnswlib.h>
 #include <sys/types.h>
 #include <type_traits>
 

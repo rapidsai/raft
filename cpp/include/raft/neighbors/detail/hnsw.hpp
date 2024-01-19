@@ -24,7 +24,7 @@
 
 #include <omp.h>
 
-#include <hnswlib.h>
+#include <hnswlib/hnswlib.h>
 
 namespace raft::neighbors::hnsw::detail {
 

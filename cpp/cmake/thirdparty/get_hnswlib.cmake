@@ -74,5 +74,5 @@ endif()
 find_and_configure_hnswlib(VERSION 0.6.2
         REPOSITORY       ${RAFT_HNSWLIB_GIT_REPOSITORY}
         PINNED_TAG       ${RAFT_HNSWLIB_GIT_TAG}
-        EXCLUDE_FROM_ALL ON
+        EXCLUDE_FROM_ALL OFF
         )
