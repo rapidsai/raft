@@ -17,6 +17,8 @@
 #include <raft/neighbors/cagra.cuh>
 #include <raft_runtime/neighbors/cagra.hpp>
 
+#include <cuda_fp16.h>
+
 namespace raft::runtime::neighbors::cagra {
 
 #define RAFT_INST_CAGRA_SEARCH(T, IdxT)                                                            \
@@ -31,6 +33,7 @@ namespace raft::runtime::neighbors::cagra {
   }
 
 RAFT_INST_CAGRA_SEARCH(float, uint32_t);
+RAFT_INST_CAGRA_SEARCH(half, uint32_t);
 RAFT_INST_CAGRA_SEARCH(int8_t, uint32_t);
 RAFT_INST_CAGRA_SEARCH(uint8_t, uint32_t);
 
