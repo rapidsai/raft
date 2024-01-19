@@ -530,8 +530,6 @@ rapids_find_generate_module(
   INSTALL_EXPORT_SET raft-distributed-exports
 )
 
-rapids_export_package(BUILD ucx raft-distributed-exports)
-rapids_export_package(INSTALL ucx raft-distributed-exports)
 rapids_export_package(BUILD ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python)
 rapids_export_package(INSTALL ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python)
 rapids_export_package(BUILD NCCL raft-distributed-exports)
