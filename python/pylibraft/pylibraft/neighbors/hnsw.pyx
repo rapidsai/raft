@@ -218,7 +218,7 @@ def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
     dim : int
         Dimensions of the training dataest
     dtype : np.dtype of the saved index
-        Valid values for dtype: ["float", "byte", "ubyte"]
+        Valid values for dtype: [np.float32, np.byte, np.ubyte]
     metric : string denoting the metric type, default="sqeuclidean"
         Valid values for metric: ["sqeuclidean", "inner_product"], where
             - sqeuclidean is the euclidean distance without the square root
@@ -235,7 +235,7 @@ def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
     --------
     >>> from pylibraft.neighbors import hnsw
     >>> dim = 50 # Assuming training dataset has 50 dimensions
-    >>> index = hnsw.load("my_index.bin", dim, "sqeuclidean")
+    >>> index = hnsw.load("my_index.bin", dim, np.float32, "sqeuclidean")
     """
     if handle is None:
         handle = DeviceResources()
@@ -400,8 +400,8 @@ def search(SearchParams search_params,
     >>> hnsw_index = hnsw.from_cagra(index, handle=handle)
     >>>
     >>> # Search hnswlib using the loaded index
-    >>> queries = np.random.random_sample((n_queries, n_features),
-    ...                                   dtype=cp.float32)
+    >>> queries = np.random.random_sample((n_queries, n_features)).
+    ...                                   astype(np.float32)
     >>> k = 10
     >>> search_params = hnsw.SearchParams(
     ...     ef=20,
