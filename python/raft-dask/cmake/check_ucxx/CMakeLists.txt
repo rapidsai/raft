@@ -14,6 +14,6 @@
 # limitations under the License.
 #=============================================================================
 
-set(ucx_FOUND FALSE)
-find_package(ucx)
-set(ucx_FOUND ${ucx_FOUND} PARENT_SCOPE)
+set(ucxx_FOUND FALSE)
+find_package(ucxx)
+set(ucxx_FOUND ${ucxx_FOUND} PARENT_SCOPE)

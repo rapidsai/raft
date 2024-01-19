@@ -45,7 +45,8 @@ if(FIND_RAFT_CPP)
   # if we are attempting a search for raft, either both ucx and ucxx will be installed, or neither
   # will be.
   add_subdirectory(cmake/check_ucxx)
-  if(NOT ucx_FOUND)
+  if(NOT ucxx_FOUND)
+    unset(ucxx_FOUND)
     include(cmake/thirdparty/get_ucxx.cmake)
   endif()
 
