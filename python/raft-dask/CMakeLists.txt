@@ -35,18 +35,17 @@ rapids_cpm_init()
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-  # When building against a pre-built raft, in a context where the ucx and ucxx libraries _are not_
-  # already present on the system (they would be in a conda environment created just for building
-  # raft, for instance, but not in a pip devcontainer) we need to determine whether ucx is
-  # available. However, we have to do so in a way that does not create the conflicting target in
-  # this scope if it _does_ exist. To accomplish this we create a subdirectory scope just for
-  # finding ucx. If that fails to be found, then we use our custom module for getting ucxx, which
-  # will also find ucx transitively for us. This assumes that we will always be in a scenario where,
-  # if we are attempting a search for raft, either both ucx and ucxx will be installed, or neither
-  # will be.
+  # When building against a pre-built raft, if ucxx is available on the system then its config will
+  # bring ucx targets into this scope. In a context where the ucx and ucxx libraries _are not_
+  # already present on the system (such as a pip devcontainer), we need to make sure ucx targets are
+  # available here. However, we cannot unconditionally find ucx here, because if raft successfully
+  # finds a ucxx (e.g. in a conda devcontainer) the config will try to find ucx again, triggering an
+  # error because ucx is currently not safe to find multiple times. Therefore, we only search for ucx
+  # here if ucxx cannot be found, and we do so before finding raft.
   add_subdirectory(cmake/check_ucxx)
   if(NOT ucxx_FOUND)
     unset(ucxx_FOUND)
+    find_package(ucx REQUIRED)
     include(cmake/thirdparty/get_ucxx.cmake)
   endif()
 
