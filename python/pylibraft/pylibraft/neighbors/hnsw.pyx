@@ -400,8 +400,8 @@ def search(SearchParams search_params,
     >>> hnsw_index = hnsw.from_cagra(index, handle=handle)
     >>>
     >>> # Search hnswlib using the loaded index
-    >>> queries = np.random.random_sample((n_queries, n_features)).
-    ...                                   astype(np.float32)
+    >>> queries = np.random.random_sample((n_queries, n_features)).astype(
+    ...     np.float32)
     >>> k = 10
     >>> search_params = hnsw.SearchParams(
     ...     ef=20,
