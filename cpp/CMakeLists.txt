@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -196,7 +196,7 @@ if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
   rapids_cpm_gbench()
 endif()
 
-if (BUILD_CAGRA_HNSWLIB)
+if(BUILD_CAGRA_HNSWLIB)
   include(cmake/thirdparty/get_hnswlib.cmake)
 endif()
 
@@ -206,8 +206,10 @@ add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
 
 target_include_directories(
-  raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
-  "$<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib>"
+  raft
+  INTERFACE
+    "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
+    "$<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib>"
 )
 
 if(NOT BUILD_CPU_ONLY)
