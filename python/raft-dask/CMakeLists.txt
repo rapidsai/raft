@@ -31,15 +31,32 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
        OFF
 )
 
+rapids_cpm_init()
+
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
+  # When building against a pre-built raft, in a context where the ucx and
+  # ucxx libraries _are not_ already present on the system (they would be in
+  # a conda environment created just for building raft, for instance, but not
+  # in a pip devcontainer) we need to determine whether ucx is available.
+  # However, we have to do so in a way that does not create the conflicting
+  # target in this scope if it _does_ exist. To accomplish this we create a
+  # subdirectory scope just for finding ucx. If that fails to be found, then we
+  # use our custom module for getting ucxx, which will also find ucx
+  # transitively for us. This assumes that we will always be in a scenario
+  # where, if we are attempting a search for raft, either both ucx and ucxx
+  # will be installed, or neither will be.
+  add_subdirectory(cmake/get_ucxx)
+  if(NOT ucx_FOUND)
+    include(cmake/thirdparty/get_ucxx.cmake)
+  endif()
+
   find_package(raft ${raft_dask_version} REQUIRED COMPONENTS distributed)
 else()
   set(raft_FOUND OFF)
 endif()
 
 if(NOT raft_FOUND)
-  rapids_cpm_init()
   include(cmake/thirdparty/get_ucxx.cmake)
 
   find_package(ucx REQUIRED)
