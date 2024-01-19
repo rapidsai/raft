@@ -1,14 +1,29 @@
 # Vector Search in C++ Tutorial
 
+## Table of Contents
+
+- [Step 1: Starting off with RAFT](#step-1-starting-off-with-raft)
+- [Step 2: Generate some data](#step-2-generate-some-data)
+- [Step 3: Using brute-force indexes](#step-3-using-brute-force-indexes)
+- [Step 4: Using the ANN indexes](#step-4-using-the-ann-indexes)
+- [Step 5: Evaluate neighborhood quality](#step-5-evaluate-neighborhood-quality)
+- [Advanced Features](#advanced-features)
+  - [Serialization](#serialization)
+  - [Filtering](#filtering)
+  - [Stream Pools](#stream-pools)
+  - [Device Resources Manager](#device-resources-manager)
+  - [Device Memory Resources](#device-memory-resources)
+  - [Workspace Memory Resource](#workspace-memory-resource)
+
 RAFT has several important algorithms for performing vector search on the GPU and this tutorial walks through the primary vector search APIs from start to finish to provide a reference for quick setup and C++ API usage.
 
 This tutorial assumes RAFT has been installed and/or added to your build so that you are able to compile and run RAFT code. If not done already, please follow the [build and install instructions](build.md) and consider taking a look at the [example c++ template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) for ready-to-go examples that you can immediately build and start playing with. Also take a look at RAFT's library of [reproducible vector search benchmarks](raft_ann_benchmarks.md) to run benchmarks that compare RAFT against other state-of-the-art nearest neighbors algorithms at scale.
 
-For more information about the various APIs demonstrated in this tutorial, along with comprehensive usage examples of all the APIs offered by RAFT, please refer to the [RAFT's C++ API Documentation](https://docs.rapids.ai/api/raft/nightly/cpp_api/). 
+For more information about the various APIs demonstrated in this tutorial, along with comprehensive usage examples of all the APIs offered by RAFT, please refer to the [RAFT's C++ API Documentation](https://docs.rapids.ai/api/raft/nightly/cpp_api/).
 
 ## Step 1: Starting off with RAFT
 
-### CUDA Development? 
+### CUDA Development?
 
 If you are reading this tuturial then you probably know about CUDA and its relationship to general-purpose GPU computing (GPGPU). You probably also know about Nvidia GPUs but might not necessarily be familiar with the programming model nor GPU computing. The good news is that extensive knowledge of CUDA and GPUs are not needed in order to get started with or build applications with RAFT. RAFT hides away most of the complexities behind simple single-threaded stateless functions that are inherently asynchronous, meaning the result of a computation isn't necessarily read to be used when the function executes and control is given back to the user. The functions are, however, allowed to be chained together in a sequence of calls that don't need to wait for subsequent computations to complete in order to continue execution. In fact, the only time you need to wait for the computation to complete is when you are ready to use the result.
 
@@ -47,9 +62,9 @@ Since a stream is involved in the copy operation above, RAFT functions can be in
 
 `rmm::device_uvector` is a great mechanism for allocating and managing a chunk of device memory. While it's possible to use a single array to represent objects in higher dimensions like matrices, it lacks the means to pass that information along. For example, in addition to knowing that we have a 2d structure, we would need to know the number of rows, the number of columns, and even whether we read the columns or rows first (referred to as column- or row-major respectively).
 
-For this reason, RAFT relies on the `mdspan` standard, which was composed specifically for this purpose. To be even more, `mdspan` itself doesn't actually allocate or own any data on host or device because it's just a view over an existing memory on host device. The `mdspan` simply gives us a way to represent multi-dimensional data so we can pass along the needed metadata to our APIs. Even more powerful is that we can design functions that only accept a matrix of `float` in device memory that is laid out in row-major format. 
+For this reason, RAFT relies on the `mdspan` standard, which was composed specifically for this purpose. To be even more, `mdspan` itself doesn't actually allocate or own any data on host or device because it's just a view over an existing memory on host device. The `mdspan` simply gives us a way to represent multi-dimensional data so we can pass along the needed metadata to our APIs. Even more powerful is that we can design functions that only accept a matrix of `float` in device memory that is laid out in row-major format.
 
-The memory-owning counterpart to the `mdspan` is the `mdarray` and the `mdarray` can allocate memory on device or host and carry along with it the metadata about its shape and layout. An `mdspan` can be produced from an `mdarray` for invoking RAFT APIs with `mdarray.view()`. They also follow similar paradigms to the STL, where we represent an immutable `mdspan` of `int` using `mdspan<const int>` instead of `const mdspan<int>` to ensure it's the type carried along by the `mdspan` that's not allowed to change. 
+The memory-owning counterpart to the `mdspan` is the `mdarray` and the `mdarray` can allocate memory on device or host and carry along with it the metadata about its shape and layout. An `mdspan` can be produced from an `mdarray` for invoking RAFT APIs with `mdarray.view()`. They also follow similar paradigms to the STL, where we represent an immutable `mdspan` of `int` using `mdspan<const int>` instead of `const mdspan<int>` to ensure it's the type carried along by the `mdspan` that's not allowed to change.
 
 Many RAFT functions require `mdspan<const T>` to represent immutable input data and there's no implicit conversion between `mdspan<T>` and `mdspan<const T>` we use `raft::make_const_mdspan()` to alleviate the pain of constructing a new `mdspan` to invoke these functions.
 
@@ -159,7 +174,7 @@ auto index = raft::neighbors::cagra::build<float, uint32_t>(res, index_params, r
 
 ### Query the CAGRA index
 
-Now that we've trained a CAGRA index, we can query it by first allocating our output `mdarray` objects and passing the trained index model into the search function. 
+Now that we've trained a CAGRA index, we can query it by first allocating our output `mdarray` objects and passing the trained index model into the search function.
 
 ```c++
 // create output arrays
@@ -203,18 +218,67 @@ raft::stats::neighborhood_recall(res,
 res.sync_stream();
 ```
 
-Notice we can run invoke the functions for index build and search for both algorithms, one right after the other, because we don't need to access any outputs from the algorithms in host memory. We will need to synchronize the stream on the `raft::device_resources` instance before we can read the result of the `neighborhood_recall` computation, though. 
+Notice we can run invoke the functions for index build and search for both algorithms, one right after the other, because we don't need to access any outputs from the algorithms in host memory. We will need to synchronize the stream on the `raft::device_resources` instance before we can read the result of the `neighborhood_recall` computation, though.
 
 Similar to a Numpy array, when we use a `host_scalar`, we are really using a multi-dimensional structure that contains only a single dimension, and further a single element. We can use element indexing to access the resulting element directly.
 ```c++
 std::cout << recall_value(0) << std::endl;
 ```
 
-While it may seem like unnecessary additional work to wrap the result in a `host_scalar` mdspan, this API choice is made intentionally to support the possibility of also receiving the result as a `device_scalar` so that it can be used directly on the device for follow-on computations without having to incur the synchronization or transfer cost of bringing the result to host. This pattern becomes even more important when the result is being computed in a loop, such as an iterative solver, and the cost of synchronization and device-to-host (d2h) transfer becomes very expensive. 
+While it may seem like unnecessary additional work to wrap the result in a `host_scalar` mdspan, this API choice is made intentionally to support the possibility of also receiving the result as a `device_scalar` so that it can be used directly on the device for follow-on computations without having to incur the synchronization or transfer cost of bringing the result to host. This pattern becomes even more important when the result is being computed in a loop, such as an iterative solver, and the cost of synchronization and device-to-host (d2h) transfer becomes very expensive.
 
 ## Advanced features
 
 The following sections present some advanced features that we have found can be useful for squeezing more utilization out of GPU hardware. As you've seen in this tutorial, RAFT provides several very useful tools and building blocks for developing accelerated applications beyond vector search capabilities.
+
+### Serialization
+
+Most of the indexes in `raft::neighbors` can be serialized to/from streams and files on disk. The index types that support this feature have include files with the naming convention `<index_type>_serialize.cuh`. The serialization functions are similar across the different index types, with the primary difference being that some index types require a pointer to all the training data for search. Since the original training dataset can be quite large, the `serialize()` function for these index types includes an argument `include_dataset`, which allows the user to specify whether the dataset should be included in the serialized form. The index types that allow for this also include a method `update_datasets()` to allow for the dataset to be re-attached to the index after it is deserialized.
+
+The following example demonstrates serializing and deserializing a CAGRA index to and from a file. For index types that don't require the training data, you can remove the `include_dataset` and `update_dataset()` parts. We will assume the CAGRA index has been built using the code from [Step 4](#build-a-cagra-index) above:
+
+```c++
+#include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/cagra_serialize.cuh>
+
+using namespace raft::neighbors;
+
+raft::neighbors::cagra::serialize(res, "cagra_serialized.dat", index, false);
+
+auto index_deser = raft::neighbors::cagra::deserialize(res, "cagra_serialized.dat");
+index_deser.update_dataset(dataset);
+```
+
+### Filtering
+
+As of RAFT 23.10, support for pre-filtering of neighbors has been added to ANN index. This search feature can enable multiple use-cases, such as filtering a vector based on it's attributes (hybrid searches), the removal of vectors already added to the index, or the control of access in searches for security purposes.
+The filtering is available through the `search_with_filtering()` function of the ANN index, and is done by applying a predicate function on the GPU, which usually have the signature `(uint32_t query_ix, uint32_t sample_ix) -> bool`.
+
+One of the most commonly used mechanism for filtering is the bitset: the bitset is a data structure that allows to test the presence of a value in a set through a fast lookup, and is implemented as a bit array so that every element contains a `0` or a `1` (respectively `false` and `true` in boolean logic). RAFT provides a `raft::core::bitset` class that can be used to create and manipulate bitsets on the GPU, and a `raft::core::bitset_view` class that can be used to pass bitsets to filtering functions.
+
+The following example demonstrates how to use the filtering API (assume the CAGRA index is built using the code from [Step 4](#build-a-cagra-index) above:
+
+```c++
+#include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/sample_filter.cuh>
+
+using namespace raft::neighbors;
+
+cagra::search_params search_params;
+
+// create a bitset to filter the search
+auto removed_indices = raft::make_device_vector<IdxT>(res, n_removed_indices);
+raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
+  res, removed_indices.view(), dataset.extent(0));
+
+// ... Populate the bitset ... 
+
+// search K nearest neighbours according to a bitset filter
+auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
+auto distances = raft::make_device_matrix<float>(res, n_queries, k);
+cagra::search_with_filtering(res, search_params, index, queries, neighbors, distances,
+  filtering::bitset_filter(removed_indices_bitset.view()));
+```
 
 ### Stream pools
 
@@ -308,7 +372,9 @@ As an example, the following code snippet creates a `pool_memory_resource` and s
 
 rmm::mr::cuda_memory_resource cuda_mr;
 // Construct a resource that uses a coalescing best-fit pool allocator
-rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr};
+// set the initial size to half of the free device memory
+auto init_size = rmm::percent_of_free_device_memory(50);
+rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr, init_size};
 rmm::mr::set_current_device_resource(&pool_mr); // Updates the current device resource pointer to `pool_mr`
 ```
 
@@ -316,9 +382,9 @@ The `raft::device_resources` object will now also use the `rmm::current_device_r
 
 ### Workspace memory resource
 
-As mentioned above, `raft::device_resources` will use `rmm::current_device_resource` by default for all memory allocations. However, there are times when a particular algorithm might benefit from using a different memory resource such as a `managed_memory_resource`, which creates a unified memory space between device and host memory, paging memory in and out of device as needed. Most of RAFT's algorithms allocate temporary memory as needed to perform their computations and we can control the memory resource used for these temporary allocations through the `workspace_resource` in the `raft::device_resources` instance. 
+As mentioned above, `raft::device_resources` will use `rmm::current_device_resource` by default for all memory allocations. However, there are times when a particular algorithm might benefit from using a different memory resource such as a `managed_memory_resource`, which creates a unified memory space between device and host memory, paging memory in and out of device as needed. Most of RAFT's algorithms allocate temporary memory as needed to perform their computations and we can control the memory resource used for these temporary allocations through the `workspace_resource` in the `raft::device_resources` instance.
 
-For some applications, the `managed_memory_resource`, can enable a memory space that is larger than the GPU, thus allowing a natural spilling to host memory when needed. This isn't always the best way to use managed memory, though, as it can quickly lead to thrashing and severely impact performance. Still, when it can be used, it provides a very powerful tool that can also avoid out of memory errors when enough host memory is available. 
+For some applications, the `managed_memory_resource`, can enable a memory space that is larger than the GPU, thus allowing a natural spilling to host memory when needed. This isn't always the best way to use managed memory, though, as it can quickly lead to thrashing and severely impact performance. Still, when it can be used, it provides a very powerful tool that can also avoid out of memory errors when enough host memory is available.
 
 The following creates a managed memory allocator and set it as the `workspace_resource` of the `raft::device_resources` instance:
 ```c++
@@ -329,7 +395,7 @@ std::shared_ptr<rmm::mr::managed_memory_resource> managed_resource;
 raft::device_resource res(managed_resource);
 ```
 
-The `workspace_resource` uses an `rmm::mr::limiting_resource_adaptor`, which limits the total amount of allocation possible. This allows RAFT algorithms to work within the confines of the memory constraints imposed by the user so that things like batch sizes can be automatically set to reasonable values without exceeding the allotted memory. By default, this limit restricts the memory allocation space for temporary workspace buffers to the memory available on the device. 
+The `workspace_resource` uses an `rmm::mr::limiting_resource_adaptor`, which limits the total amount of allocation possible. This allows RAFT algorithms to work within the confines of the memory constraints imposed by the user so that things like batch sizes can be automatically set to reasonable values without exceeding the allotted memory. By default, this limit restricts the memory allocation space for temporary workspace buffers to the memory available on the device.
 
 The below example specifies the total number of bytes that RAFT can use for temporary workspace allocations to 3GB:
 ```c++
@@ -340,37 +406,4 @@ The below example specifies the total number of bytes that RAFT can use for temp
 
 std::shared_ptr<rmm::mr::managed_memory_resource> managed_resource;
 raft::device_resource res(managed_resource, std::make_optional<std::size_t>(3 * 1024^3));
-```
-
-### Filtering
-
-As of RAFT 23.10, support for pre-filtering of neighbors has been added to ANN index. This search feature can enable multiple use-cases, such as filtering a vector based on it's attributes (hybrid searches), the removal of vectors already added to the index, or the control of access in searches for security purposes.
-The filtering is available through the `search_with_filtering()` function of the ANN index, and is done by applying a predicate function on the GPU, which usually have the signature `(uint32_t query_ix, uint32_t sample_ix) -> bool`.
-
-One of the most commonly used mechanism for filtering is the bitset: the bitset is a data structure that allows to test the presence of a value in a set through a fast lookup, and is implemented as a bit array so that every element contains a `0` or a `1` (respectively `false` and `true` in boolean logic). RAFT provides a `raft::core::bitset` class that can be used to create and manipulate bitsets on the GPU, and a `raft::core::bitset_view` class that can be used to pass bitsets to filtering functions.
-
-The following example demonstrates how to use the filtering API:
-
-```c++
-#include <raft/neighbors/cagra.cuh>
-#include <raft/neighbors/sample_filter.cuh>
-
-using namespace raft::neighbors;
-// use default index parameters
-cagra::index_params index_params;
-// create and fill the index from a [N, D] dataset
-auto index = cagra::build(res, index_params, dataset);
-// use default search parameters
-cagra::search_params search_params;
-
-// create a bitset to filter the search
-auto removed_indices = raft::make_device_vector<IdxT>(res, n_removed_indices);
-raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
-  res, removed_indices.view(), dataset.extent(0));
-
-// search K nearest neighbours according to a bitset filter
-auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
-auto distances = raft::make_device_matrix<float>(res, n_queries, k);
-cagra::search_with_filtering(res, search_params, index, queries, neighbors, distances,
-  filtering::bitset_filter(removed_indices_bitset.view()));
 ```

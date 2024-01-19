@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <cstdint>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/matrix/copy.cuh>
 #include <raft/random/make_blobs.cuh>
@@ -26,6 +26,8 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
+
+#include <cstdint>
 
 // Fill dataset and queries with synthetic data.
 void generate_dataset(raft::device_resources const& dev_resources,

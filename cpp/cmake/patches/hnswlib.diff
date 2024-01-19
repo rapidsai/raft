@@ -1,5 +1,3 @@
-diff --git a/hnswlib/hnswalg.h b/hnswlib/hnswalg.h
-index e95e0b5..f0fe50a 100644
 --- a/hnswlib/hnswalg.h
 +++ b/hnswlib/hnswalg.h
 @@ -3,6 +3,7 @@
@@ -185,3 +183,6 @@ index 5e1a4a5..4195ebd 100644
              numelements = numelements1;
              mass = new vl_type[numelements];
          }
+-- 
+2.43.0
+

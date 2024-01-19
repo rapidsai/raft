@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 
 #include "../common/ann_types.hpp"
 #include "../common/thread_pool.hpp"
-#include <hnswlib.h>
+#include <hnswlib/hnswlib.h>
 
 namespace raft::bench::ann {
 

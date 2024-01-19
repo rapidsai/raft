@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -147,7 +147,7 @@ struct search_plan_impl : public search_plan_impl_base {
   // defines hash_bitlen, small_hash_bitlen, small_hash_reset interval, hash_size
   inline void calc_hashmap_params(raft::resources const& res)
   {
-    // for multipel CTA search
+    // for multiple CTA search
     uint32_t mc_num_cta_per_query = 0;
     uint32_t mc_search_width      = 0;
     uint32_t mc_itopk_size        = 0;
