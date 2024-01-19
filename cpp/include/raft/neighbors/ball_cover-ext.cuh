@@ -158,9 +158,4 @@ void eps_nn(raft::resources const& handle,
 
 instantiate_raft_neighbors_ball_cover(int64_t, float, int64_t, int64_t);
 
-// instantiate_raft_neighbors_ball_cover(int32_t, float, int32_t, int32_t);
-// instantiate_raft_neighbors_ball_cover(int32_t, double, int32_t, int32_t);
-// instantiate_raft_neighbors_ball_cover(int64_t, float, int64_t, int64_t);
-instantiate_raft_neighbors_ball_cover(int64_t, double, int64_t, int64_t);
-
 #undef instantiate_raft_neighbors_ball_cover

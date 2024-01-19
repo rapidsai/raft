@@ -38,7 +38,6 @@ namespace raft::runtime::neighbors::epsilon_neighborhood {
   }
 
 RAFT_INST_BFEPSN(int64_t, float, int64_t, raft::row_major, raft::row_major);
-RAFT_INST_BFEPSN(int64_t, double, int64_t, raft::row_major, raft::row_major);
 
 #undef RAFT_INST_BFEPSN
 
@@ -96,7 +95,6 @@ RAFT_INST_BFEPSN(int64_t, double, int64_t, raft::row_major, raft::row_major);
   }
 
 RAFT_INST_RBCEPSN(int64_t, float, int64_t, int64_t, raft::row_major, raft::row_major);
-RAFT_INST_RBCEPSN(int64_t, double, int64_t, int64_t, raft::row_major, raft::row_major);
 
 #undef RAFT_INST_RBCEPSN
 

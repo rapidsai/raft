@@ -56,6 +56,4 @@
 
 instantiate_raft_spatial_knn_detail_rbc_eps_pass(
   std::int64_t, float, std::int64_t, std::int64_t, raft::spatial::knn::detail::EuclideanFunc);
-instantiate_raft_spatial_knn_detail_rbc_eps_pass(
-  std::int64_t, double, std::int64_t, std::int64_t, raft::spatial::knn::detail::EuclideanFunc);
 #undef instantiate_raft_spatial_knn_detail_rbc_eps_pass

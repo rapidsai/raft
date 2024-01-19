@@ -123,7 +123,7 @@ distances = dict(
 
 types = dict(
     int64_float=("std::int64_t", "float"),
-    int64_double=("std::int64_t", "double"),
+    #int64_double=("std::int64_t", "double"),
 )
 
 for k, v in distances.items():

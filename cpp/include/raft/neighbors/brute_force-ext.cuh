@@ -114,8 +114,6 @@ instantiate_raft_neighbors_brute_force_knn(
 instantiate_raft_neighbors_brute_force_knn(
   int64_t, float, int64_t, raft::row_major, raft::row_major, raft::identity_op);
 instantiate_raft_neighbors_brute_force_knn(
-  int64_t, double, int64_t, raft::row_major, raft::row_major, raft::identity_op);
-instantiate_raft_neighbors_brute_force_knn(
   int, float, int, raft::row_major, raft::row_major, raft::identity_op);
 instantiate_raft_neighbors_brute_force_knn(
   uint32_t, float, uint32_t, raft::row_major, raft::row_major, raft::identity_op);

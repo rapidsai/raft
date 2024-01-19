@@ -45,6 +45,4 @@
 
 instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(
   std::int64_t, float, std::int64_t, std::int64_t, 3, raft::spatial::knn::detail::HaversineFunc);
-instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(
-  std::int64_t, double, std::int64_t, std::int64_t, 3, raft::spatial::knn::detail::HaversineFunc);
 #undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one
