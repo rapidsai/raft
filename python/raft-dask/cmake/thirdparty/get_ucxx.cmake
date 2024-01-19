@@ -16,8 +16,14 @@
 
 function(find_and_configure_ucxx)
     set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL)
+    set(options UCXX_STATIC)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
+
+    set(BUILD_UCXX_SHARED ON)
+    if(PKG_UCXX_STATIC)
+      set(BUILD_UCXX_SHARED OFF)
+    endif()
 
     rapids_cpm_find(ucxx ${PKG_VERSION}
             GLOBAL_TARGETS         ucxx::ucxx ucxx::python
@@ -33,6 +39,7 @@ function(find_and_configure_ucxx)
               "BUILD_BENCH OFF"
               "UCXX_ENABLE_PYTHON ON"
               "UCXX_ENABLE_RMM ON"
+              "BUILD_SHARED_LIBS ${BUILD_UCXX_SHARED}"
         )
 
 endfunction()
@@ -43,4 +50,6 @@ endfunction()
 find_and_configure_ucxx(VERSION  0.36
         FORK             rapidsai
         PINNED_TAG       branch-0.36
-        EXCLUDE_FROM_ALL YES)
+        EXCLUDE_FROM_ALL YES
+        UCXX_STATIC      ${RAFT_DASK_UCXX_STATIC}
+    )
