@@ -32,17 +32,16 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 )
 
 rapids_cpm_init()
+include(cmake/thirdparty/get_ucxx.cmake)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-  include(cmake/thirdparty/get_ucxx.cmake)
   find_package(raft ${raft_dask_version} REQUIRED COMPONENTS distributed)
 else()
   set(raft_FOUND OFF)
 endif()
 
 if(NOT raft_FOUND)
-  include(cmake/thirdparty/get_ucxx.cmake)
   find_package(ucx REQUIRED)
 
   # raft-dask doesn't actually use raft libraries, it just needs the headers, so we can turn off all
