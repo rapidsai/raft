@@ -34,7 +34,7 @@ dependencies:
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libucxx==0.36.*
+- libucxx==0.37.*
 - nccl>=2.9.9
 - ninja
 - numba>=0.57

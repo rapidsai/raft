@@ -138,7 +138,7 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - nccl>=2.9.9
-          - libucxx==0.36.*
+          - libucxx==0.37.*
           - scikit-build-core>=0.7.0
       - output_types: [requirements, pyproject]
         packages:
