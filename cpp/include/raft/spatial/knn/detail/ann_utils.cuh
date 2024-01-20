@@ -16,13 +16,15 @@
 
 #pragma once
 
+#include <raft/common/nvtx.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
+
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/matrix/copy.cuh>
+#include <raft/matrix/gather.cuh>
 #include <raft/random/sample_without_replacement.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -601,10 +603,6 @@ auto get_subsample_indices(raft::resources const& res, IdxT n_samples, IdxT n_su
                                            std::nullopt,
                                            train_indices.view(),
                                            std::nullopt);
-
-  thrust::sort(resource::get_thrust_policy(res),
-               train_indices.data_handle(),
-               train_indices.data_handle() + n_subsamples);
   return train_indices;
 }
 
@@ -618,12 +616,7 @@ void subsample(raft::resources const& res,
 {
   IdxT n_dim   = output.extent(1);
   IdxT n_train = output.extent(0);
-  if (n_train == n_samples) {
-    RAFT_LOG_INFO("No subsampling");
-    raft::copy(output.data_handle(), input, n_dim * n_samples, resource::get_cuda_stream(res));
-    return;
-  }
-  RAFT_LOG_DEBUG("Random subsampling");
+
   raft::device_vector<IdxT, IdxT> train_indices =
     get_subsample_indices<IdxT>(res, n_samples, n_train, seed);
 
@@ -631,29 +624,13 @@ void subsample(raft::resources const& res,
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, input));
   T* ptr = reinterpret_cast<T*>(attr.devicePointer);
   if (ptr != nullptr) {
-    raft::matrix::copy_rows(res,
-                            raft::make_device_matrix_view<const T, IdxT>(ptr, n_samples, n_dim),
-                            output,
-                            raft::make_const_mdspan(train_indices.view()));
+    raft::matrix::gather(res,
+                         raft::make_device_matrix_view<const T, IdxT>(ptr, n_samples, n_dim),
+                         raft::make_const_mdspan(train_indices.view()),
+                         output);
   } else {
-    auto dataset            = raft::make_host_matrix_view<const T, IdxT>(input, n_samples, n_dim);
-    auto train_indices_host = raft::make_host_vector<IdxT, IdxT>(n_train);
-    raft::copy(train_indices_host.data_handle(),
-               train_indices.data_handle(),
-               n_train,
-               resource::get_cuda_stream(res));
-    resource::sync_stream(res);
-    auto out_tmp = raft::make_host_matrix<T, IdxT>(n_train, n_dim);
-#pragma omp parallel for
-    for (IdxT i = 0; i < n_train; i++) {
-      IdxT in_idx = train_indices_host(i);
-      for (IdxT k = 0; k < n_dim; k++) {
-        out_tmp(i, k) = dataset(in_idx, k);
-      }
-    }
-    raft::copy(
-      output.data_handle(), out_tmp.data_handle(), output.size(), resource::get_cuda_stream(res));
-    resource::sync_stream(res);
+    auto dataset = raft::make_host_matrix_view<const T, IdxT>(input, n_samples, n_dim);
+    raft::matrix::detail::gather(res, dataset, make_const_mdspan(train_indices.view()), output);
   }
 }
 }  // namespace raft::spatial::knn::detail::utils
