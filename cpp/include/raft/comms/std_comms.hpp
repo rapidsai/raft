@@ -82,6 +82,8 @@ void build_comms_nccl_only(resources* handle, ncclComm_t nccl_comm, int num_rank
  *
  * @param handle raft::resources for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
+ * @param is_ucxx whether `ucp_worker` and `eps` objects are UCXX (true) or
+ *                pure UCX (false).
  * @param ucp_worker of local process
  *        Note: This is purposefully left as void* so that the ucp_worker_h
  *        doesn't need to be exposed through the cython layer
