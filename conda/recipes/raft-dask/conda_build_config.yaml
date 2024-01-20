@@ -17,7 +17,7 @@ ucx_version:
   - ">=1.14.1,<1.16.0"
 
 ucx_py_version:
-  - "0.36.*"
+  - "0.37.*"
 
 ucxx_version:
   - "0.36.*"
