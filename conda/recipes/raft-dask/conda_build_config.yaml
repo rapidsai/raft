@@ -20,7 +20,7 @@ ucx_py_version:
   - "0.37.*"
 
 ucxx_version:
-  - "0.36.*"
+  - "0.37.*"
 
 cmake_version:
 cmake_version:
