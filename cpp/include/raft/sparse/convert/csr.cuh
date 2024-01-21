@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,10 @@
 
 #pragma once
 
+#include <raft/core/bitmap.hpp>
+#include <raft/core/device_csr_matrix.hpp>
 #include <raft/sparse/convert/detail/adj_to_csr.cuh>
+#include <raft/sparse/convert/detail/bitmap_to_csr.cuh>
 #include <raft/sparse/convert/detail/csr.cuh>
 #include <raft/sparse/csr.hpp>
 
@@ -100,6 +103,32 @@ void adj_to_csr(raft::resources const& handle,
 )
 {
   detail::adj_to_csr(handle, adj, row_ind, num_rows, num_cols, tmp, out_col_ind);
+}
+
+/**
+ * @brief Converts a bitmap matrix into unsorted CSR format matrix.
+ *
+ * @tparam       bitmap_t    Underlying type of the bitmap.
+ * @tparam       index_t     Indexing type used.
+ * @tparam       value_t     Data type of CSR
+ * @tparam       nnz_t       Type of CSR
+ *
+ * @param[in]    handle      RAFT handle
+ * @param[in]    bitmap      input raft::bitmap_view
+ * @param[inout] csr         output raft::device_csr_matrix_view
+ */
+template <typename bitmap_t, typename index_t, typename value_t, typename nnz_t>
+void bitmap_to_csr(raft::resources const& handle,
+                   raft::core::bitmap_view<bitmap_t, index_t> bitmap,
+                   raft::device_csr_matrix_view<value_t, index_t, index_t, nnz_t> csr)
+{
+  auto csr_view = csr.structure_view();
+  detail::bitmap_to_csr(handle,
+                        bitmap.data(),
+                        csr_view.get_n_rows(),
+                        csr_view.get_n_cols(),
+                        csr_view.get_indptr().data(),
+                        csr_view.get_indices().data());
 }
 
 };  // end NAMESPACE convert
