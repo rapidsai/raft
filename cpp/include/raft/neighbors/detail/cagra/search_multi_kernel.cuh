@@ -40,7 +40,7 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace multi_kernel_search {
 
 template <class T>
@@ -308,8 +308,8 @@ template <unsigned TEAM_SIZE,
           class INDEX_T,
           class DISTANCE_T>
 __global__ void compute_distance_to_child_nodes_kernel(
-  const INDEX_T* const parent_node_list,  // [num_queries, num_parents]
-  const std::uint32_t num_parents,
+  const INDEX_T* const parent_node_list,  // [num_queries, search_width]
+  const std::uint32_t search_width,
   const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
@@ -321,16 +321,16 @@ __global__ void compute_distance_to_child_nodes_kernel(
   const std::uint32_t hash_bitlen,
   INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
   DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
-  const std::uint32_t ldd                   // (*) ldd >= num_parents * graph_degree
+  const std::uint32_t ldd                   // (*) ldd >= search_width * graph_degree
 )
 {
   const uint32_t ldb        = hashmap::get_size(hash_bitlen);
   const auto tid            = threadIdx.x + blockDim.x * blockIdx.x;
   const auto global_team_id = tid / TEAM_SIZE;
-  if (global_team_id >= num_parents * graph_degree) { return; }
+  if (global_team_id >= search_width * graph_degree) { return; }
 
   const std::size_t parent_index =
-    parent_node_list[global_team_id / graph_degree + (num_parents * blockIdx.y)];
+    parent_node_list[global_team_id / graph_degree + (search_width * blockIdx.y)];
   if (parent_index == utils::get_max_value<INDEX_T>()) {
     result_distances_ptr[ldd * blockIdx.y + global_team_id] = utils::get_max_value<DISTANCE_T>();
     return;
@@ -369,8 +369,8 @@ template <unsigned TEAM_SIZE,
           class INDEX_T,
           class DISTANCE_T>
 void compute_distance_to_child_nodes(
-  const INDEX_T* const parent_node_list,  // [num_queries, num_parents]
-  const uint32_t num_parents,
+  const INDEX_T* const parent_node_list,  // [num_queries, search_width]
+  const uint32_t search_width,
   const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
@@ -383,16 +383,16 @@ void compute_distance_to_child_nodes(
   const std::uint32_t hash_bitlen,
   INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
   DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
-  const std::uint32_t ldd,                  // (*) ldd >= num_parents * graph_degree
+  const std::uint32_t ldd,                  // (*) ldd >= search_width * graph_degree
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
   const dim3 grid_size(
-    (num_parents * graph_degree + (block_size / TEAM_SIZE) - 1) / (block_size / TEAM_SIZE),
+    (search_width * graph_degree + (block_size / TEAM_SIZE) - 1) / (block_size / TEAM_SIZE),
     num_queries);
   compute_distance_to_child_nodes_kernel<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>
     <<<grid_size, block_size, 0, cuda_stream>>>(parent_node_list,
-                                                num_parents,
+                                                search_width,
                                                 dataset_ptr,
                                                 data_dim,
                                                 dataset_size,
@@ -499,7 +499,7 @@ void set_value_batch(T* const dev_ptr,
 // result_buffer (work buffer) for "multi-kernel"
 // +--------------------+------------------------------+-------------------+
 // | internal_top_k (A) | neighbors of internal_top_k  | internal_topk (B) |
-// | <itopk_size>       | <num_parents * graph_degree> | <itopk_size>      |
+// | <itopk_size>       | <search_width * graph_degree> | <itopk_size>      |
 // +--------------------+------------------------------+-------------------+
 // |<---                 result_buffer_allocation_size                 --->|
 // |<---                       result_buffer_size  --->|                     // Double buffer (A)
@@ -514,7 +514,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::itopk_size;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::algo;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::team_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_parents;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::search_width;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::min_iterations;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_iterations;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::thread_block_size;
@@ -573,14 +573,14 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     //
     // Allocate memory for intermediate buffer and workspace.
     //
-    result_buffer_size            = itopk_size + (num_parents * graph_degree);
+    result_buffer_size            = itopk_size + (search_width * graph_degree);
     result_buffer_allocation_size = result_buffer_size + itopk_size;
     result_indices.resize(result_buffer_allocation_size * max_queries,
                           resource::get_cuda_stream(res));
     result_distances.resize(result_buffer_allocation_size * max_queries,
                             resource::get_cuda_stream(res));
 
-    parent_node_list.resize(max_queries * num_parents, resource::get_cuda_stream(res));
+    parent_node_list.resize(max_queries * search_width, resource::get_cuda_stream(res));
     topk_hint.resize(max_queries, resource::get_cuda_stream(res));
 
     size_t topk_workspace_size = _cuann_find_topk_bufferSize(
@@ -594,8 +594,8 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   ~search() {}
 
   void operator()(raft::resources const& res,
-                  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
-                  raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+                  raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                  raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                   INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
                   DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
                   const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
@@ -670,8 +670,8 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                           hash_bitlen,
                           _small_hash_bitlen,
                           parent_node_list.data(),
-                          num_parents,
-                          num_parents,
+                          search_width,
+                          search_width,
                           terminate_flag.data(),
                           stream);
 
@@ -684,7 +684,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       // Compute distance to child nodes that are adjacent to the parent node
       compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM>(
         parent_node_list.data(),
-        num_parents,
+        search_width,
         dataset.data_handle(),
         dataset.extent(1),
         dataset.extent(0),
@@ -738,4 +738,4 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 };
 
 }  // namespace multi_kernel_search
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

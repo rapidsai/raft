@@ -614,26 +614,10 @@ def search(SearchParams search_params,
     ...                                   dtype=cp.float32)
     >>> k = 10
     >>> search_params = ivf_flat.SearchParams(
-    ...     n_probes=20,
-    ...     lut_dtype=cp.float16,
-    ...     internal_distance_dtype=cp.float32
-    ... )
-
-        # TODO update example to set default pool allocator
-        #      (instead of passing an mr)
-
-    >>> # Using a pooling allocator reduces overhead of temporary array
-    >>> # creation during search. This is useful if multiple searches
-    >>> # are performad with same query size.
-    >>> import rmm
-    >>> mr = rmm.mr.PoolMemoryResource(
-    ...     rmm.mr.CudaMemoryResource(),
-    ...     initial_pool_size=2**29,
-    ...     maximum_pool_size=2**31
+    ...     n_probes=20
     ... )
     >>> distances, neighbors = ivf_flat.search(search_params, index, queries,
-    ...                                      k, memory_resource=mr,
-    ...                                      handle=handle)
+    ...                                      k, handle=handle)
 
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
@@ -817,7 +801,7 @@ def load(filename, handle=None):
     >>> handle = DeviceResources()
     >>> index = ivf_flat.load("my_index.bin", handle=handle)
 
-    >>> distances, neighbors = ivf_flat.search(ivf_pq.SearchParams(), index,
+    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(), index,
     ...                                      queries, k=10, handle=handle)
     """
     if handle is None:

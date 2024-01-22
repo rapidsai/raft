@@ -58,7 +58,7 @@ namespace raft::matrix {
  * @tparam IdxT
  *   the index type (what is being selected together with the keys).
  *
- * @param[in] handle
+ * @param[in] handle container of reusable resources
  * @param[in] in_val
  *   inputs values [batch_size, len];
  *   these are compared and selected.
@@ -74,14 +74,17 @@ namespace raft::matrix {
  *   the payload selected together with `out_val`.
  * @param[in] select_min
  *   whether to select k smallest (true) or largest (false) keys.
+ * @param[in] sorted
+ *   whether to make sure selected pairs are sorted by value
  */
 template <typename T, typename IdxT>
-void select_k(const resources& handle,
+void select_k(raft::resources const& handle,
               raft::device_matrix_view<const T, int64_t, row_major> in_val,
               std::optional<raft::device_matrix_view<const IdxT, int64_t, row_major>> in_idx,
               raft::device_matrix_view<T, int64_t, row_major> out_val,
               raft::device_matrix_view<IdxT, int64_t, row_major> out_idx,
-              bool select_min)
+              bool select_min,
+              bool sorted = false)
 {
   RAFT_EXPECTS(out_val.extent(1) <= int64_t(std::numeric_limits<int>::max()),
                "output k must fit the int type.");
@@ -95,7 +98,9 @@ void select_k(const resources& handle,
     RAFT_EXPECTS(len == in_idx->extent(1), "value and index input lengths must be equal");
   }
   RAFT_EXPECTS(int64_t(k) == out_idx.extent(1), "value and index output lengths must be equal");
-  return detail::select_k<T, IdxT>(in_val.data_handle(),
+
+  return detail::select_k<T, IdxT>(handle,
+                                   in_val.data_handle(),
                                    in_idx.has_value() ? in_idx->data_handle() : nullptr,
                                    batch_size,
                                    len,
@@ -103,7 +108,8 @@ void select_k(const resources& handle,
                                    out_val.data_handle(),
                                    out_idx.data_handle(),
                                    select_min,
-                                   resource::get_cuda_stream(handle));
+                                   nullptr,
+                                   sorted);
 }
 
 /** @} */  // end of group select_k

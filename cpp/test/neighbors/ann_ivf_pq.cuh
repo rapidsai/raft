@@ -186,7 +186,8 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     size_t queries_size = size_t{ps.num_queries} * size_t{ps.k};
     rmm::device_uvector<EvalT> distances_naive_dev(queries_size, stream_);
     rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-    naive_knn<EvalT, DataT, IdxT>(distances_naive_dev.data(),
+    naive_knn<EvalT, DataT, IdxT>(handle_,
+                                  distances_naive_dev.data(),
                                   indices_naive_dev.data(),
                                   search_queries.data(),
                                   database.data(),
@@ -194,8 +195,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                                   ps.num_db_vecs,
                                   ps.dim,
                                   ps.k,
-                                  ps.index_params.metric,
-                                  stream_);
+                                  ps.index_params.metric);
     distances_ref.resize(queries_size);
     update_host(distances_ref.data(), distances_naive_dev.data(), queries_size, stream_);
     indices_ref.resize(queries_size);

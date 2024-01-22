@@ -195,7 +195,6 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  *   Setting this to `false` allows to reduce the shared memory usage (and maximum data dim)
  *   at the cost of reducing global memory reading throughput.
  *
- * @param n_rows the number of records in the dataset
  * @param dim the dimensionality of the data (NB: after rotation transform, i.e. `index.rot_dim()`).
  * @param n_probes the number of clusters to search for each query
  * @param pq_dim
@@ -251,8 +250,7 @@ template <typename OutT,
           int Capacity,
           bool PrecompBaseDiff,
           bool EnableSMemLut>
-__global__ void compute_similarity_kernel(uint32_t n_rows,
-                                          uint32_t dim,
+__global__ void compute_similarity_kernel(uint32_t dim,
                                           uint32_t n_probes,
                                           uint32_t pq_dim,
                                           uint32_t n_queries,
@@ -327,14 +325,15 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
     uint32_t* out_indices = nullptr;
     if constexpr (kManageLocalTopK) {
       // Store topk calculated distances to out_scores (and its indices to out_indices)
-      out_scores  = _out_scores + topk * (probe_ix + (n_probes * query_ix));
-      out_indices = _out_indices + topk * (probe_ix + (n_probes * query_ix));
+      const uint64_t out_offset = probe_ix + n_probes * query_ix;
+      out_scores                = _out_scores + out_offset * topk;
+      out_indices               = _out_indices + out_offset * topk;
     } else {
       // Store all calculated distances to out_scores
-      out_scores = _out_scores + max_samples * query_ix;
+      out_scores = _out_scores + uint64_t(max_samples) * query_ix;
     }
     uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
-    const float* cluster_center = cluster_centers + (dim * label);
+    const float* cluster_center = cluster_centers + dim * label;
     const float* pq_center;
     if (codebook_kind == codebook_gen::PER_SUBSPACE) {
       pq_center = pq_centers;
@@ -602,7 +601,6 @@ template <typename OutT,
           typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 void compute_similarity_run(selected<OutT, LutT, IvfSampleFilterT> s,
                             rmm::cuda_stream_view stream,
-                            uint32_t n_rows,
                             uint32_t dim,
                             uint32_t n_probes,
                             uint32_t pq_dim,
@@ -625,8 +623,7 @@ void compute_similarity_run(selected<OutT, LutT, IvfSampleFilterT> s,
                             OutT* _out_scores,
                             uint32_t* _out_indices)
 {
-  s.kernel<<<s.grid_dim, s.block_dim, s.smem_size, stream>>>(n_rows,
-                                                             dim,
+  s.kernel<<<s.grid_dim, s.block_dim, s.smem_size, stream>>>(dim,
                                                              n_probes,
                                                              pq_dim,
                                                              n_queries,

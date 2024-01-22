@@ -88,9 +88,7 @@ DISABLE_DEPRECATION_WARNINGS=ON
 CMAKE_TARGET=""
 
 # Set defaults for vars that may not have been defined externally
-#  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
-#         CONDA_PREFIX, but there is no fallback from there!
-INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
+INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX:=$LIBRAFT_BUILD_DIR/install}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=`nproc`}
 BUILD_ABI=${BUILD_ABI:=ON}
 
@@ -367,8 +365,9 @@ if [[ ${CMAKE_TARGET} == "" ]]; then
 fi
 
 # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+SKBUILD_EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS}"
 if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
-    EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
+    SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
 fi
 
 # If clean given, run it prior to any other steps
@@ -383,14 +382,6 @@ if (( ${CLEAN} == 1 )); then
           rmdir ${bd} || true
       fi
     done
-
-    cd ${REPODIR}/python/raft-dask
-    python setup.py clean --all
-    cd ${REPODIR}
-
-    cd ${REPODIR}/python/pylibraft
-    python setup.py clean --all
-    cd ${REPODIR}
 fi
 
 ################################################################################
@@ -484,29 +475,16 @@ fi
 
 # Build and (optionally) install the pylibraft Python package
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
-    # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
-    if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
-        EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
-    fi
-    cd ${REPODIR}/python/pylibraft
-    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
-    if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
-    fi
+    SKBUILD_CONFIGURE_OPTIONS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
+        SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
+        python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/pylibraft
 fi
 
 # Build and (optionally) install the raft-dask Python package
 if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
-    # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
-    if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
-        EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
-    fi
-
-    cd ${REPODIR}/python/raft-dask
-    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
-    if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
-    fi
+    SKBUILD_CONFIGURE_OPTIONS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
+        SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
+        python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-dask
 fi
 
 

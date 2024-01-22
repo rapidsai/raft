@@ -27,7 +27,7 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
-namespace raft::neighbors::experimental::cagra {
+namespace raft::neighbors::cagra {
 
 /**
  * @defgroup cagra CUDA ANN Graph-based nearest neighbor search
@@ -64,8 +64,8 @@ namespace raft::neighbors::experimental::cagra {
  * optimized_graph.view());
  * @endcode
  *
- * @tparam T data element type
- * @tparam IdxT type of the indices in the source dataset
+ * @tparam DataT data element type
+ * @tparam IdxT type of the dataset vector indices
  *
  * @param[in] res raft resources
  * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
@@ -76,22 +76,22 @@ namespace raft::neighbors::experimental::cagra {
  */
 template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::resources const& res,
-                     mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
-                     raft::host_matrix_view<IdxT, IdxT, row_major> knn_graph,
+                     mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
+                     raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
                      std::optional<float> refine_rate                   = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
 
-  auto knn_graph_internal = make_host_matrix_view<internal_IdxT, internal_IdxT>(
+  auto knn_graph_internal = make_host_matrix_view<internal_IdxT, int64_t>(
     reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
     knn_graph.extent(0),
     knn_graph.extent(1));
-  auto dataset_internal = mdspan<const DataT, matrix_extent<internal_IdxT>, row_major, accessor>(
+  auto dataset_internal = mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor>(
     dataset.data_handle(), dataset.extent(0), dataset.extent(1));
 
-  detail::build_knn_graph(
+  cagra::detail::build_knn_graph(
     res, dataset_internal, knn_graph_internal, refine_rate, build_params, search_params);
 }
 
@@ -119,7 +119,7 @@ void build_knn_graph(raft::resources const& res,
  * @endcode
  *
  * @tparam DataT type of the data in the source dataset
- * @tparam IdxT type of the indices in the source dataset
+ * @tparam IdxT type of the dataset vector indices
  *
  * @param[in] res raft resources
  * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
@@ -133,23 +133,23 @@ template <typename DataT,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void sort_knn_graph(raft::resources const& res,
-                    mdspan<const DataT, matrix_extent<IdxT>, row_major, d_accessor> dataset,
-                    mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph)
+                    mdspan<const DataT, matrix_extent<int64_t>, row_major, d_accessor> dataset,
+                    mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph)
 {
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
 
   using g_accessor_internal =
     host_device_accessor<std::experimental::default_accessor<internal_IdxT>, g_accessor::mem_type>;
   auto knn_graph_internal =
-    mdspan<internal_IdxT, matrix_extent<internal_IdxT>, row_major, g_accessor_internal>(
+    mdspan<internal_IdxT, matrix_extent<int64_t>, row_major, g_accessor_internal>(
       reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
       knn_graph.extent(0),
       knn_graph.extent(1));
 
-  auto dataset_internal = mdspan<const DataT, matrix_extent<internal_IdxT>, row_major, d_accessor>(
+  auto dataset_internal = mdspan<const DataT, matrix_extent<int64_t>, row_major, d_accessor>(
     dataset.data_handle(), dataset.extent(0), dataset.extent(1));
 
-  detail::graph::sort_knn_graph(res, dataset_internal, knn_graph_internal);
+  cagra::detail::graph::sort_knn_graph(res, dataset_internal, knn_graph_internal);
 }
 
 /**
@@ -170,12 +170,12 @@ template <typename IdxT = uint32_t,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void optimize(raft::resources const& res,
-              mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
-              raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
+              mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
+              raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)
 {
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
 
-  auto new_graph_internal = raft::make_host_matrix_view<internal_IdxT, internal_IdxT>(
+  auto new_graph_internal = raft::make_host_matrix_view<internal_IdxT, int64_t>(
     reinterpret_cast<internal_IdxT*>(new_graph.data_handle()),
     new_graph.extent(0),
     new_graph.extent(1));
@@ -183,12 +183,12 @@ void optimize(raft::resources const& res,
   using g_accessor_internal =
     host_device_accessor<std::experimental::default_accessor<internal_IdxT>, memory_type::host>;
   auto knn_graph_internal =
-    mdspan<internal_IdxT, matrix_extent<internal_IdxT>, row_major, g_accessor_internal>(
+    mdspan<internal_IdxT, matrix_extent<int64_t>, row_major, g_accessor_internal>(
       reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
       knn_graph.extent(0),
       knn_graph.extent(1));
 
-  detail::graph::optimize(res, knn_graph_internal, new_graph_internal);
+  cagra::detail::graph::optimize(res, knn_graph_internal, new_graph_internal);
 }
 
 /**
@@ -237,7 +237,7 @@ template <typename T,
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
 index<T, IdxT> build(raft::resources const& res,
                      const index_params& params,
-                     mdspan<const T, matrix_extent<IdxT>, row_major, Accessor> dataset)
+                     mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
 {
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
@@ -256,16 +256,16 @@ index<T, IdxT> build(raft::resources const& res,
     graph_degree = intermediate_degree;
   }
 
-  auto knn_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), intermediate_degree);
+  auto knn_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree);
 
   build_knn_graph(res, dataset, knn_graph.view());
 
-  auto cagra_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), graph_degree);
+  auto cagra_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), graph_degree);
 
   optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
 
   // Construct an index from dataset and optimized knn graph.
-  return index<T, IdxT>(res, params.metric, dataset, cagra_graph.view());
+  return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
 }
 
 /**
@@ -289,9 +289,9 @@ template <typename T, typename IdxT>
 void search(raft::resources const& res,
             const search_params& params,
             const index<T, IdxT>& idx,
-            raft::device_matrix_view<const T, IdxT, row_major> queries,
-            raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
-            raft::device_matrix_view<float, IdxT, row_major> distances)
+            raft::device_matrix_view<const T, int64_t, row_major> queries,
+            raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
+            raft::device_matrix_view<float, int64_t, row_major> distances)
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
@@ -303,18 +303,27 @@ void search(raft::resources const& res,
                "Number of query dimensions should equal number of dimensions in the index.");
 
   using internal_IdxT   = typename std::make_unsigned<IdxT>::type;
-  auto queries_internal = raft::make_device_matrix_view<const T, internal_IdxT, row_major>(
+  auto queries_internal = raft::make_device_matrix_view<const T, int64_t, row_major>(
     queries.data_handle(), queries.extent(0), queries.extent(1));
-  auto neighbors_internal = raft::make_device_matrix_view<internal_IdxT, internal_IdxT, row_major>(
+  auto neighbors_internal = raft::make_device_matrix_view<internal_IdxT, int64_t, row_major>(
     reinterpret_cast<internal_IdxT*>(neighbors.data_handle()),
     neighbors.extent(0),
     neighbors.extent(1));
-  auto distances_internal = raft::make_device_matrix_view<float, internal_IdxT, row_major>(
+  auto distances_internal = raft::make_device_matrix_view<float, int64_t, row_major>(
     distances.data_handle(), distances.extent(0), distances.extent(1));
 
-  detail::search_main<T, internal_IdxT, IdxT>(
+  cagra::detail::search_main<T, internal_IdxT, IdxT>(
     res, params, idx, queries_internal, neighbors_internal, distances_internal);
 }
 /** @} */  // end group cagra
 
+}  // namespace raft::neighbors::cagra
+
+// TODO: Remove deprecated experimental namespace in 23.12 release
+namespace raft::neighbors::experimental::cagra {
+using raft::neighbors::cagra::build;
+using raft::neighbors::cagra::build_knn_graph;
+using raft::neighbors::cagra::optimize;
+using raft::neighbors::cagra::search;
+using raft::neighbors::cagra::sort_knn_graph;
 }  // namespace raft::neighbors::experimental::cagra

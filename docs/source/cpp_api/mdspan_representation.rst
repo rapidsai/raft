@@ -8,14 +8,12 @@ Multi-dimensional Representation
 Data Layouts
 -------------
 
-``#include <raft/core/mdspan.hpp>``
+``#include <raft/core/mdspan_types.hpp>``
 
-.. doxygentypedef:: raft::row_major
+.. doxygengroup:: mdspan_layout
     :project: RAFT
-
-.. doxygentypedef:: raft::col_major
-    :project: RAFT
-
+    :members:
+    :content-only:
 
 Shapes
 ------

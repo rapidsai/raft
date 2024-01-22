@@ -26,7 +26,7 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/pow2_utils.cuh>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 struct search_plan_impl_base : public search_params {
   int64_t max_dim;
@@ -53,7 +53,6 @@ struct search_plan_impl_base : public search_params {
     max_dim = 128;
     while (max_dim < dim && max_dim <= 1024)
       max_dim *= 2;
-    if (team_size != 0) { RAFT_LOG_WARN("Overriding team size parameter."); }
     // To keep binary size in check we limit only one team size specialization for each max_dim.
     // TODO(tfeher): revise this decision.
     switch (max_dim) {
@@ -106,8 +105,8 @@ struct search_plan_impl : public search_plan_impl_base {
   virtual ~search_plan_impl() {}
 
   virtual void operator()(raft::resources const& res,
-                          raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
-                          raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+                          raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                          raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                           INDEX_T* const result_indices_ptr,       // [num_queries, topk]
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
                           const DATA_T* const queries_ptr,         // [num_queries, dataset_dim]
@@ -124,7 +123,7 @@ struct search_plan_impl : public search_plan_impl_base {
         _max_iterations = 1 + std::min(32 * 1.1, 32 + 10.0);  // TODO(anaruse)
       } else {
         _max_iterations =
-          1 + std::min((itopk_size / num_parents) * 1.1, (itopk_size / num_parents) + 10.0);
+          1 + std::min((itopk_size / search_width) * 1.1, (itopk_size / search_width) + 10.0);
       }
     }
     if (max_iterations < min_iterations) { _max_iterations = min_iterations; }
@@ -148,14 +147,14 @@ struct search_plan_impl : public search_plan_impl_base {
   {
     // for multipel CTA search
     uint32_t mc_num_cta_per_query = 0;
-    uint32_t mc_num_parents       = 0;
+    uint32_t mc_search_width      = 0;
     uint32_t mc_itopk_size        = 0;
     if (algo == search_algo::MULTI_CTA) {
       mc_itopk_size        = 32;
-      mc_num_parents       = 1;
-      mc_num_cta_per_query = max(num_parents, itopk_size / 32);
+      mc_search_width      = 1;
+      mc_num_cta_per_query = max(search_width, itopk_size / 32);
       RAFT_LOG_DEBUG("# mc_itopk_size: %u", mc_itopk_size);
-      RAFT_LOG_DEBUG("# mc_num_parents: %u", mc_num_parents);
+      RAFT_LOG_DEBUG("# mc_search_width: %u", mc_search_width);
       RAFT_LOG_DEBUG("# mc_num_cta_per_query: %u", mc_num_cta_per_query);
     }
 
@@ -173,7 +172,7 @@ struct search_plan_impl : public search_plan_impl_base {
       // be determined based on the internal topk size and the number of nodes
       // visited per iteration.
       //
-      const auto max_visited_nodes = itopk_size + (num_parents * graph_degree * 1);
+      const auto max_visited_nodes = itopk_size + (search_width * graph_degree * 1);
       unsigned min_bitlen          = 8;   // 256
       unsigned max_bitlen          = 13;  // 8K
       if (min_bitlen < hashmap_min_bitlen) { min_bitlen = hashmap_min_bitlen; }
@@ -202,7 +201,7 @@ struct search_plan_impl : public search_plan_impl_base {
       small_hash_reset_interval = 1;
       while (1) {
         const auto max_visited_nodes =
-          itopk_size + (num_parents * graph_degree * (small_hash_reset_interval + 1));
+          itopk_size + (search_width * graph_degree * (small_hash_reset_interval + 1));
         if (max_visited_nodes > hashmap::get_size(hash_bitlen) * max_fill_rate) { break; }
         small_hash_reset_interval += 1;
       }
@@ -214,9 +213,9 @@ struct search_plan_impl : public search_plan_impl_base {
       // nodes that may be visited before the search is completed and the
       // maximum fill rate of the hash table.
       //
-      uint32_t max_visited_nodes = itopk_size + (num_parents * graph_degree * max_iterations);
+      uint32_t max_visited_nodes = itopk_size + (search_width * graph_degree * max_iterations);
       if (algo == search_algo::MULTI_CTA) {
-        max_visited_nodes = mc_itopk_size + (mc_num_parents * graph_degree * max_iterations);
+        max_visited_nodes = mc_itopk_size + (mc_search_width * graph_degree * max_iterations);
         max_visited_nodes *= mc_num_cta_per_query;
       }
       unsigned min_bitlen = 11;  // 2K
@@ -229,7 +228,7 @@ struct search_plan_impl : public search_plan_impl_base {
     }
 
     RAFT_LOG_DEBUG("# internal topK = %lu", itopk_size);
-    RAFT_LOG_DEBUG("# parent size = %lu", num_parents);
+    RAFT_LOG_DEBUG("# parent size = %lu", search_width);
     RAFT_LOG_DEBUG("# min_iterations = %lu", min_iterations);
     RAFT_LOG_DEBUG("# max_iterations = %lu", max_iterations);
     RAFT_LOG_DEBUG("# max_queries = %lu", max_queries);
@@ -255,7 +254,7 @@ struct search_plan_impl : public search_plan_impl_base {
   {
     RAFT_EXPECTS(topk <= itopk_size, "topk must be smaller than itopk_size = %lu", itopk_size);
     if (algo == search_algo::MULTI_CTA) {
-      uint32_t mc_num_cta_per_query = max(num_parents, itopk_size / 32);
+      uint32_t mc_num_cta_per_query = max(search_width, itopk_size / 32);
       RAFT_EXPECTS(mc_num_cta_per_query * 32 >= topk,
                    "`mc_num_cta_per_query` (%u) * 32 must be equal to or greater than "
                    "`topk` /%u) when 'search_mode' is \"multi-cta\"",
@@ -325,4 +324,4 @@ struct search_plan_impl : public search_plan_impl_base {
 // };
 /** @} */  // end group cagra
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

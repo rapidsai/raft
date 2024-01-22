@@ -303,7 +303,7 @@ class interruptible {
 };
 
 /**
- * @}
+ * @} // end doxygen group interruptible
  */
 
 }  // namespace raft

@@ -20,7 +20,7 @@
 #include <raft/core/logger.hpp>
 #include <type_traits>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace device {
 
 namespace detail {
@@ -208,4 +208,4 @@ _RAFT_DEVICE void print_fragment(const device::fragment<DIM, T, TEAM_SIZE>& a)
 }
 
 }  // namespace device
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

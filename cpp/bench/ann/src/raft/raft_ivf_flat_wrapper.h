@@ -79,6 +79,8 @@ class RaftIvfFlatGpu : public ANN<T> {
   void save(const std::string& file) const override;
   void load(const std::string&) override;
 
+  ~RaftIvfFlatGpu() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
+
  private:
   raft::device_resources handle_;
   BuildParam index_params_;
@@ -96,7 +98,8 @@ RaftIvfFlatGpu<T, IdxT>::RaftIvfFlatGpu(Metric metric, int dim, const BuildParam
     dimension_(dim),
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
-  index_params_.metric = parse_metric_type(metric);
+  index_params_.metric                         = parse_metric_type(metric);
+  index_params_.conservative_memory_allocation = true;
   rmm::mr::set_current_device_resource(&mr_);
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }

@@ -1,0 +1,30 @@
+faise_gpu_ivf_flat:
+  executable: FAISS_IVF_FLAT_ANN_BENCH
+  disabled: false
+faiss_gpu_flat:
+  executable: FAISS_IVF_FLAT_ANN_BENCH
+  disabled: false
+faiss_gpu_ivf_pq:
+  executable: FAISS_IVF_PQ_ANN_BENCH
+  disabled: false
+faiss_gpu_ivf_sq:
+  executable: FAISS_IVF_PQ_ANN_BENCH
+  disabled: false
+faiss_gpu_bfknn:
+  executable: FAISS_BFKNN_ANN_BENCH
+  disabled: false
+raft_ivf_flat:
+  executable: RAFT_IVF_FLAT_ANN_BENCH
+  disabled: false
+raft_ivf_pq:
+  executable: RAFT_IVF_PQ_ANN_BENCH
+  disabled: false
+raft_cagra:
+  executable: RAFT_CAGRA_ANN_BENCH
+  disabled: false
+ggnn:
+  executable: GGNN_ANN_BENCH
+  disabled: false
+hnswlib:
+  executable: HNSWLIB_ANN_BENCH
+  disabled: false

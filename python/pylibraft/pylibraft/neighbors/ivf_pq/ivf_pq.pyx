@@ -95,7 +95,6 @@ cdef _get_dtype_string(dtype):
 
 
 cdef class IndexParams:
-    cdef c_ivf_pq.index_params params
 
     def __init__(self, *,
                  n_lists=1024,
@@ -521,7 +520,6 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 
 
 cdef class SearchParams:
-    cdef c_ivf_pq.search_params params
 
     def __init__(self, *, n_probes=20,
                  lut_dtype=np.float32,

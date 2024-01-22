@@ -32,7 +32,8 @@ namespace raft {
  */
 class handle_t : public raft::device_resources {
  public:
-  handle_t(const handle_t& handle, rmm::mr::device_memory_resource* workspace_resource)
+  handle_t(const handle_t& handle,
+           std::shared_ptr<rmm::mr::device_memory_resource> workspace_resource)
     : device_resources(handle, workspace_resource)
   {
   }
@@ -51,9 +52,9 @@ class handle_t : public raft::device_resources {
    * @param[in] workspace_resource an optional resource used by some functions for allocating
    *            temporary workspaces.
    */
-  handle_t(rmm::cuda_stream_view stream_view                   = rmm::cuda_stream_per_thread,
-           std::shared_ptr<rmm::cuda_stream_pool> stream_pool  = {nullptr},
-           rmm::mr::device_memory_resource* workspace_resource = nullptr)
+  handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
+           std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr},
+           std::shared_ptr<rmm::mr::device_memory_resource> workspace_resource = {nullptr})
     : device_resources{stream_view, stream_pool, workspace_resource}
   {
   }

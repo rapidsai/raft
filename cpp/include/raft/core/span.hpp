@@ -280,7 +280,6 @@ auto as_writable_bytes(span<T, is_device, E> s) noexcept
   return {reinterpret_cast<std::byte*>(s.data()), s.size_bytes()};
 }
 
-/**
- * @}
- */
+/* @} */
+
 }  // namespace raft

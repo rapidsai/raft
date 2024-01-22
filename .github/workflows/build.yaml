@@ -69,19 +69,17 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-pylibraft:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      package-name: pylibraft
-      package-dir: python/pylibraft
-      skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
+      script: ci/build_wheel_pylibraft.sh
   wheel-publish-pylibraft:
     needs: wheel-build-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-publish.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-publish.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -91,19 +89,17 @@ jobs:
   wheel-build-raft-dask:
     needs: wheel-publish-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      package-name: raft_dask
-      package-dir: python/raft-dask
-      skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
+      script: ci/build_wheel_raft_dask.sh
   wheel-publish-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-publish.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-publish.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}

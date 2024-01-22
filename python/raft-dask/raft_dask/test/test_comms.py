@@ -17,9 +17,8 @@ from collections import OrderedDict
 
 import pytest
 
-from dask.distributed import get_worker, wait
-
-from .conftest import create_client
+from dask.distributed import Client, get_worker, wait
+from dask_cuda import LocalCUDACluster
 
 try:
     from raft_dask.common import (
@@ -42,6 +41,29 @@ try:
     pytestmark = pytest.mark.mg
 except ImportError:
     pytestmark = pytest.mark.skip
+
+
+def create_client(cluster):
+    """
+    Create a Dask distributed client for a specified cluster.
+
+    Parameters
+    ----------
+    cluster : LocalCUDACluster instance or str
+        If a LocalCUDACluster instance is provided, a client will be created
+        for it directly. If a string is provided, it should specify the path to
+        a Dask scheduler file. A client will then be created for the cluster
+        referenced by this scheduler file.
+
+    Returns
+    -------
+    dask.distributed.Client
+        A client connected to the specified cluster.
+    """
+    if isinstance(cluster, LocalCUDACluster):
+        return Client(cluster)
+    else:
+        return Client(scheduler_file=cluster)
 
 
 def test_comms_init_no_p2p(cluster):

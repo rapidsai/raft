@@ -112,7 +112,7 @@ auto make_device_mdarray(raft::resources const& handle,
   using mdarray_t = device_mdarray<ElementType, decltype(exts), LayoutPolicy>;
 
   typename mdarray_t::mapping_type layout{exts};
-  typename mdarray_t::container_policy_type policy{};
+  typename mdarray_t::container_policy_type policy{mr};
 
   return mdarray_t{handle, layout, policy};
 }

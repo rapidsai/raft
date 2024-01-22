@@ -789,9 +789,5 @@
 
       ],
       "search_result_file" : "result/glove-100-inner/ggnn/kbuild96-segment64-refine2-k10"
-    },
-
-
-  ]
-
+    }]
 }

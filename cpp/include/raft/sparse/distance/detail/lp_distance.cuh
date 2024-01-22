@@ -126,11 +126,13 @@ class l2_sqrt_unexpanded_distances_t : public l2_unexpanded_distances_t<value_id
   void compute(value_t* out_dists)
   {
     l2_unexpanded_distances_t<value_idx, value_t>::compute(out_dists);
+
+    uint64_t n = (uint64_t)this->config_->a_nrows * (uint64_t)this->config_->b_nrows;
     // Sqrt Post-processing
     raft::linalg::unaryOp<value_t>(
       out_dists,
       out_dists,
-      this->config_->a_nrows * this->config_->b_nrows,
+      n,
       [] __device__(value_t input) {
         int neg = input < 0 ? -1 : 1;
         return raft::sqrt(abs(input) * neg);
@@ -203,10 +205,11 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
       raft::add_op(),
       raft::atomic_add_op());
 
+    uint64_t n         = (uint64_t)this->config_->a_nrows * (uint64_t)this->config_->b_nrows;
     value_t one_over_p = value_t{1} / p;
     raft::linalg::unaryOp<value_t>(out_dists,
                                    out_dists,
-                                   config_->a_nrows * config_->b_nrows,
+                                   n,
                                    raft::pow_const_op<value_t>(one_over_p),
                                    resource::get_cuda_stream(config_->handle));
   }
@@ -229,10 +232,11 @@ class hamming_unexpanded_distances_t : public distances_t<value_t> {
     unexpanded_lp_distances<value_idx, value_t>(
       out_dists, config_, raft::notequal_op(), raft::add_op(), raft::atomic_add_op());
 
+    uint64_t n     = (uint64_t)config_->a_nrows * (uint64_t)config_->b_nrows;
     value_t n_cols = 1.0 / config_->a_ncols;
     raft::linalg::unaryOp<value_t>(out_dists,
                                    out_dists,
-                                   config_->a_nrows * config_->b_nrows,
+                                   n,
                                    raft::mul_const_op<value_t>(n_cols),
                                    resource::get_cuda_stream(config_->handle));
   }
@@ -271,10 +275,11 @@ class jensen_shannon_unexpanded_distances_t : public distances_t<value_t> {
       raft::add_op(),
       raft::atomic_add_op());
 
+    uint64_t n = (uint64_t)this->config_->a_nrows * (uint64_t)this->config_->b_nrows;
     raft::linalg::unaryOp<value_t>(
       out_dists,
       out_dists,
-      config_->a_nrows * config_->b_nrows,
+      n,
       [=] __device__(value_t input) { return raft::sqrt(0.5 * input); },
       resource::get_cuda_stream(config_->handle));
   }
@@ -311,9 +316,10 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
       raft::add_op(),
       raft::atomic_add_op());
 
+    uint64_t n = (uint64_t)this->config_->a_nrows * (uint64_t)this->config_->b_nrows;
     raft::linalg::unaryOp<value_t>(out_dists,
                                    out_dists,
-                                   config_->a_nrows * config_->b_nrows,
+                                   n,
                                    raft::mul_const_op<value_t>(0.5),
                                    resource::get_cuda_stream(config_->handle));
   }

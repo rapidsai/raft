@@ -893,11 +893,8 @@ EXCLUDE                = ../include/raft/sparse/linalg/symmetrize.hpp \
                          ../include/raft/util/device_utils.cuh \
                          ../include/raft/core/error.hpp \
                          ../include/raft/core/handle.hpp \
-                         ../include/raft/util/integer_utils.hpp \
-                         ../include/raft/core/interruptible.hpp \
-                         ../include/raft/core/mdarray.hpp \
+                         ../include/raft/util/integer_utils.hpp
                          ../include/raft/util/pow2_utils.cuh \
-                         ../include/raft/core/span.hpp \
                          ../include/raft/util/vectorized.cuh \
                          ../include/raft/raft.hpp \
                          ../include/raft/core/cudart_utils.hpp \

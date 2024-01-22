@@ -36,12 +36,12 @@
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/refine.cuh>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::resources const& res,
-                     mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
-                     raft::host_matrix_view<IdxT, IdxT, row_major> knn_graph,
+                     mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
+                     raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
                      std::optional<float> refine_rate                   = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
@@ -108,7 +108,6 @@ void build_knn_graph(raft::resources const& res,
     max_batch_size,
     search_params->n_probes);
 
-  // TODO(tfeher): shall we use uint32_t?
   auto distances = raft::make_device_matrix<float, int64_t>(res, max_batch_size, gpu_top_k);
   auto neighbors = raft::make_device_matrix<int64_t, int64_t>(res, max_batch_size, gpu_top_k);
   auto refined_distances = raft::make_device_matrix<float, int64_t>(res, max_batch_size, top_k);
@@ -135,7 +134,12 @@ void build_knn_graph(raft::resources const& res,
     resource::get_cuda_stream(res),
     device_memory);
 
+  size_t next_report_offset = 0;
+  size_t d_report_offset    = dataset.extent(0) / 100;  // Report progress in 1% steps.
+
   for (const auto& batch : vec_batches) {
+    // Map int64_t to uint32_t because ivf_pq requires the latter.
+    // TODO(tfeher): remove this mapping once ivf_pq accepts mdspan with int64_t index type
     auto queries_view = raft::make_device_matrix_view<const DataT, uint32_t>(
       batch.data(), batch.size(), batch.row_width());
     auto neighbors_view = make_device_matrix_view<int64_t, uint32_t>(
@@ -144,7 +148,6 @@ void build_knn_graph(raft::resources const& res,
       distances.data_handle(), batch.size(), distances.extent(1));
 
     ivf_pq::search(res, *search_params, index, queries_view, neighbors_view, distances_view);
-
     if constexpr (is_host_mdspan_v<decltype(dataset)>) {
       raft::copy(neighbors_host.data_handle(),
                  neighbors.data_handle(),
@@ -164,7 +167,7 @@ void build_knn_graph(raft::resources const& res,
         refined_distances_host.data_handle(), batch.size(), top_k);
       resource::sync_stream(res);
 
-      raft::neighbors::detail::refine_host<int64_t, DataT, float, int64_t>(  // res,
+      raft::neighbors::detail::refine_host<int64_t, DataT, float, int64_t>(
         dataset,
         queries_host_view,
         neighbors_host_view,
@@ -212,21 +215,27 @@ void build_knn_graph(raft::resources const& res,
 
     size_t num_queries_done = batch.offset() + batch.size();
     const auto end_clock    = std::chrono::system_clock::now();
-    const auto time =
-      std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() * 1e-6;
-    const auto throughput = num_queries_done / time;
-    RAFT_LOG_DEBUG(
-      "# Search %12lu / %12lu (%3.2f %%), %e queries/sec, %.2f minutes ETA, self included = "
-      "%3.2f %%    \r",
-      num_queries_done,
-      dataset.extent(0),
-      num_queries_done / static_cast<double>(dataset.extent(0)) * 100,
-      throughput,
-      (num_queries - num_queries_done) / throughput / 60,
-      static_cast<double>(num_self_included) / num_queries_done * 100.);
+    if (batch.offset() > next_report_offset) {
+      next_report_offset += d_report_offset;
+      const auto time =
+        std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() *
+        1e-6;
+      const auto throughput = num_queries_done / time;
+
+      RAFT_LOG_DEBUG(
+        "# Search %12lu / %12lu (%3.2f %%), %e queries/sec, %.2f minutes ETA, self included = "
+        "%3.2f %%    \r",
+        num_queries_done,
+        dataset.extent(0),
+        num_queries_done / static_cast<double>(dataset.extent(0)) * 100,
+        throughput,
+        (num_queries - num_queries_done) / throughput / 60,
+        static_cast<double>(num_self_included) / num_queries_done * 100.);
+    }
     first = false;
   }
+
   if (!first) RAFT_LOG_DEBUG("# Finished building kNN graph");
 }
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

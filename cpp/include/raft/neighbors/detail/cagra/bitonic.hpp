@@ -18,7 +18,7 @@
 #include <cstdint>
 #include <raft/core/detail/macros.hpp>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace bitonic {
 
 namespace detail {
@@ -223,4 +223,4 @@ __device__ void warp_sort(K k[N], V v[N], const bool asc = true)
 }
 
 }  // namespace bitonic
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

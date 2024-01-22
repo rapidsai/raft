@@ -27,7 +27,7 @@
 namespace raft {
 
 /**
- * \defgroup TemporaryDeviceBuffer `raft::temporary_device_buffer` and associated factories
+ * \defgroup temporary_device_buffer `raft::temporary_device_buffer`
  * @{
  */
 
@@ -136,6 +136,13 @@ class temporary_device_buffer {
   std::size_t length_;
   int device_id_;
 };
+
+/**@}*/
+
+/**
+ * \defgroup temporary_device_buffer_factories Temporary device buffer factories
+ * @{
+ */
 
 /**
  * @brief Factory to create a `raft::temporary_device_buffer`

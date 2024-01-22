@@ -30,7 +30,7 @@
 #include "search_plan.cuh"
 #include "search_single_cta.cuh"
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 /**
  * @brief Search ANN using the constructed index.
@@ -38,7 +38,9 @@ namespace raft::neighbors::experimental::cagra::detail {
  * See the [build](#build) documentation for a usage example.
  *
  * @tparam T data element type
- * @tparam IdxT type of the indices
+ * @tparam IdxT type of database vector indices
+ * @tparam internal_IdxT during search we map IdxT to internal_IdxT, this way we do not need
+ * separate kernels for int/uint.
  *
  * @param[in] handle
  * @param[in] params configure the search
@@ -54,9 +56,9 @@ template <typename T, typename internal_IdxT, typename IdxT = uint32_t, typename
 void search_main(raft::resources const& res,
                  search_params params,
                  const index<T, IdxT>& index,
-                 raft::device_matrix_view<const T, internal_IdxT, row_major> queries,
-                 raft::device_matrix_view<internal_IdxT, internal_IdxT, row_major> neighbors,
-                 raft::device_matrix_view<DistanceT, internal_IdxT, row_major> distances)
+                 raft::device_matrix_view<const T, int64_t, row_major> queries,
+                 raft::device_matrix_view<internal_IdxT, int64_t, row_major> neighbors,
+                 raft::device_matrix_view<DistanceT, int64_t, row_major> distances)
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.dataset().extent(0)),
@@ -92,16 +94,15 @@ void search_main(raft::resources const& res,
         : nullptr;
     uint32_t* _num_executed_iterations = nullptr;
 
-    auto dataset_internal = make_device_strided_matrix_view<const T, internal_IdxT, row_major>(
-      index.dataset().data_handle(),
-      index.dataset().extent(0),
-      index.dataset().extent(1),
-      index.dataset().stride(0));
-    auto graph_internal =
-      raft::make_device_matrix_view<const internal_IdxT, internal_IdxT, row_major>(
-        reinterpret_cast<const internal_IdxT*>(index.graph().data_handle()),
-        index.graph().extent(0),
-        index.graph().extent(1));
+    auto dataset_internal =
+      make_device_strided_matrix_view<const T, int64_t, row_major>(index.dataset().data_handle(),
+                                                                   index.dataset().extent(0),
+                                                                   index.dataset().extent(1),
+                                                                   index.dataset().stride(0));
+    auto graph_internal = raft::make_device_matrix_view<const internal_IdxT, int64_t, row_major>(
+      reinterpret_cast<const internal_IdxT*>(index.graph().data_handle()),
+      index.graph().extent(0),
+      index.graph().extent(1));
 
     (*plan)(res,
             dataset_internal,
@@ -133,4 +134,4 @@ void search_main(raft::resources const& res,
 }
 /** @} */  // end group cagra
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

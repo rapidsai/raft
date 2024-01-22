@@ -26,6 +26,11 @@
 namespace raft {
 
 /**
+ * \defgroup device_csr_matrix Device CSR Matrix Types
+ * @{
+ */
+
+/**
  * Specialization for a sparsity-preserving compressed structure view which uses device memory
  */
 template <typename IndptrType, typename IndicesType, typename NZType>
@@ -413,5 +418,7 @@ auto make_device_compressed_structure_view(raft::device_span<IndptrType> indptr,
 {
   return device_compressed_structure_view<IndptrType, IndicesType, NZType>(indptr, indices, n_cols);
 }
+
+/** @} */
 
 };  // namespace raft

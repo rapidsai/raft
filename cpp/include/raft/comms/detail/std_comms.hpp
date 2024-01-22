@@ -28,6 +28,8 @@
 
 #include <raft/util/cudart_utils.hpp>
 
+#include <thrust/iterator/zip_iterator.h>
+
 #include <cuda_runtime.h>
 
 #include <ucp/api/ucp.h>
@@ -138,50 +140,39 @@ class std_comms : public comms_iface {
     update_host(h_colors.data(), d_colors.data(), get_size(), stream_);
     update_host(h_keys.data(), d_keys.data(), get_size(), stream_);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
-
-    std::vector<int> subcomm_ranks{};
-    std::vector<ucp_ep_h> new_ucx_ptrs{};
-
-    for (int i = 0; i < get_size(); ++i) {
-      if (h_colors[i] == color) {
-        subcomm_ranks.push_back(i);
-        if (ucp_worker_ != nullptr && subcomms_ucp_) { new_ucx_ptrs.push_back((*ucp_eps_)[i]); }
-      }
-    }
-
-    ncclUniqueId id{};
-    if (get_rank() == subcomm_ranks[0]) {  // root of the new subcommunicator
-      RAFT_NCCL_TRY(ncclGetUniqueId(&id));
-      std::vector<request_t> requests(subcomm_ranks.size() - 1);
-      for (size_t i = 1; i < subcomm_ranks.size(); ++i) {
-        isend(&id, sizeof(ncclUniqueId), subcomm_ranks[i], color, requests.data() + (i - 1));
-      }
-      waitall(requests.size(), requests.data());
-    } else {
-      request_t request{};
-      irecv(&id, sizeof(ncclUniqueId), subcomm_ranks[0], color, &request);
-      waitall(1, &request);
-    }
-    // FIXME: this seems unnecessary, do more testing and remove this
-    barrier();
+    this->sync_stream(stream_);
 
     ncclComm_t nccl_comm;
-    RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm, subcomm_ranks.size(), id, key));
 
-    if (ucp_worker_ != nullptr && subcomms_ucp_) {
-      auto eps_sp = std::make_shared<ucp_ep_h*>(new_ucx_ptrs.data());
-      return std::unique_ptr<comms_iface>(new std_comms(nccl_comm,
-                                                        (ucp_worker_h)ucp_worker_,
-                                                        eps_sp,
-                                                        subcomm_ranks.size(),
-                                                        key,
-                                                        stream_,
-                                                        subcomms_ucp_));
-    } else {
-      return std::unique_ptr<comms_iface>(
-        new std_comms(nccl_comm, subcomm_ranks.size(), key, stream_));
-    }
+    // Create a structure to allgather...
+    ncclUniqueId id{};
+    rmm::device_uvector<ncclUniqueId> d_nccl_ids(get_size(), stream_);
+
+    if (key == 0) { RAFT_NCCL_TRY(ncclGetUniqueId(&id)); }
+
+    update_device(d_nccl_ids.data() + get_rank(), &id, 1, stream_);
+
+    allgather(d_nccl_ids.data() + get_rank(),
+              d_nccl_ids.data(),
+              sizeof(ncclUniqueId),
+              datatype_t::UINT8,
+              stream_);
+
+    auto offset =
+      std::distance(thrust::make_zip_iterator(h_colors.begin(), h_keys.begin()),
+                    std::find_if(thrust::make_zip_iterator(h_colors.begin(), h_keys.begin()),
+                                 thrust::make_zip_iterator(h_colors.end(), h_keys.end()),
+                                 [color](auto tuple) { return thrust::get<0>(tuple) == color; }));
+
+    auto subcomm_size = std::count(h_colors.begin(), h_colors.end(), color);
+
+    update_host(&id, d_nccl_ids.data() + offset, 1, stream_);
+
+    this->sync_stream(stream_);
+
+    RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm, subcomm_size, id, key));
+
+    return std::unique_ptr<comms_iface>(new std_comms(nccl_comm, subcomm_size, key, stream_));
   }
 
   void barrier() const

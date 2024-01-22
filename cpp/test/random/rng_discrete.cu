@@ -193,15 +193,16 @@ const std::vector<RngDiscreteInputs<int64_t>> inputs_i64 = {
   {1, 10000, 5, 5, GenPhilox, 1234ULL},
 };
 
-#define RNG_DISCRETE_TEST(test_type, test_name, test_inputs)       \
-  typedef RAFT_DEPAREN(test_type) test_name;                       \
-  TEST_P(test_name, Result)                                        \
-  {                                                                \
-    ASSERT_TRUE(devArrMatchHost(exp_histogram.data(),              \
-                                histogram.data(),                  \
-                                exp_histogram.size(),              \
-                                CompareApprox<float>(tolerance))); \
-  }                                                                \
+#define RNG_DISCRETE_TEST(test_type, test_name, test_inputs)     \
+  typedef RAFT_DEPAREN(test_type) test_name;                     \
+  TEST_P(test_name, Result)                                      \
+  {                                                              \
+    ASSERT_TRUE(devArrMatchHost(exp_histogram.data(),            \
+                                histogram.data(),                \
+                                exp_histogram.size(),            \
+                                CompareApprox<float>(tolerance), \
+                                stream));                        \
+  }                                                              \
   INSTANTIATE_TEST_CASE_P(ReduceTests, test_name, ::testing::ValuesIn(test_inputs))
 
 RNG_DISCRETE_TEST((RngDiscreteTest<int, float, int>), RngDiscreteTestI32FI32, inputs_i32);

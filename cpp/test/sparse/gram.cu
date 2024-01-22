@@ -157,6 +157,8 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     raft::random::Rng r(42137ULL);
     r.uniform(x1.data(), x1.size(), math_t(0), math_t(1), stream);
     r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
+
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   ~GramMatrixTest() override { RAFT_CUDA_TRY_NO_THROW(cudaStreamDestroy(stream)); }
@@ -204,7 +206,6 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     raft::update_device(indices, indices_host.data(), nnz, stream);
     raft::update_device(data, data_host.data(), nnz, stream);
     resource::sync_stream(handle, stream);
-
     return nnz;
   }
 
@@ -273,7 +274,9 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
         (*kernel)(handle, x1_csr, x2_csr, out_span);
       }
     }
-
+    // Something in gram is executing not on the 'stream' and therefore
+    // a full device sync is required
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
     naiveGramMatrixKernel(params.n1,
                           params.n2,
                           params.n_cols,
@@ -287,11 +290,10 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
                           params.kernel,
                           stream,
                           handle);
-
     resource::sync_stream(handle, stream);
 
     ASSERT_TRUE(raft::devArrMatchHost(
-      gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f)));
+      gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f), stream));
   }
 
   raft::resources handle;

@@ -466,7 +466,7 @@ struct batch_load_iterator {
       if (source_ == nullptr) { return; }
       if (needs_copy_) {
         if (size() > 0) {
-          RAFT_LOG_DEBUG("batch_load_iterator::copy(offset = %zu, size = %zu, row_width = %zu)",
+          RAFT_LOG_TRACE("batch_load_iterator::copy(offset = %zu, size = %zu, row_width = %zu)",
                          size_t(offset()),
                          size_t(size()),
                          size_t(row_width()));

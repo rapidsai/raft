@@ -78,7 +78,7 @@ void Configuration::parse_dataset_(const nlohmann::json& conf)
     } else if (!filename.compare(filename.size() - 5, 5, "i8bin")) {
       dataset_conf_.dtype = "int8";
     } else {
-      log_error("Could not determine data type of the dataset");
+      log_error("Could not determine data type of the dataset %s", filename.c_str());
     }
   }
 }

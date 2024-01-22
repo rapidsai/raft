@@ -31,6 +31,8 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/detail/device_memory_resource.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
@@ -151,7 +153,8 @@ void select_clusters(raft::resources const& handle,
 
   // Select neighbor clusters for each query.
   rmm::device_uvector<float> cluster_dists(n_queries * n_probes, stream, mr);
-  matrix::detail::select_k<float, uint32_t>(qc_distances.data(),
+  matrix::detail::select_k<float, uint32_t>(handle,
+                                            qc_distances.data(),
                                             nullptr,
                                             n_queries,
                                             n_lists,
@@ -159,7 +162,6 @@ void select_clusters(raft::resources const& handle,
                                             cluster_dists.data(),
                                             clusters_to_probe,
                                             true,
-                                            stream,
                                             mr);
 }
 
@@ -429,13 +431,15 @@ void ivfpq_search_worker(raft::resources const& handle,
                          float* distances,                   // [n_queries, topK]
                          float scaling_factor,
                          double preferred_shmem_carveout,
-                         IvfSampleFilterT sample_filter,
-                         rmm::mr::device_memory_resource* mr)
+                         IvfSampleFilterT sample_filter)
 {
   auto stream = resource::get_cuda_stream(handle);
+  auto mr     = resource::get_workspace_resource(handle);
 
-  bool manage_local_topk = is_local_topk_feasible(topK, n_probes, n_queries);
-  auto topk_len          = manage_local_topk ? n_probes * topK : max_samples;
+  bool manage_local_topk         = is_local_topk_feasible(topK, n_probes, n_queries);
+  auto topk_len                  = manage_local_topk ? n_probes * topK : max_samples;
+  std::size_t n_queries_probes   = std::size_t(n_queries) * std::size_t(n_probes);
+  std::size_t n_queries_topk_len = std::size_t(n_queries) * std::size_t(topk_len);
   if (manage_local_topk) {
     RAFT_LOG_DEBUG("Fused version of the search kernel is selected (manage_local_topk == true)");
   } else {
@@ -446,13 +450,13 @@ void ivfpq_search_worker(raft::resources const& handle,
   rmm::device_uvector<uint32_t> index_list_sorted_buf(0, stream, mr);
   uint32_t* index_list_sorted = nullptr;
   rmm::device_uvector<uint32_t> num_samples(n_queries, stream, mr);
-  rmm::device_uvector<uint32_t> chunk_index(n_queries * n_probes, stream, mr);
+  rmm::device_uvector<uint32_t> chunk_index(n_queries_probes, stream, mr);
   // [maxBatchSize, max_samples] or  [maxBatchSize, n_probes, topk]
-  rmm::device_uvector<ScoreT> distances_buf(n_queries * topk_len, stream, mr);
+  rmm::device_uvector<ScoreT> distances_buf(n_queries_topk_len, stream, mr);
   rmm::device_uvector<uint32_t> neighbors_buf(0, stream, mr);
   uint32_t* neighbors_ptr = nullptr;
   if (manage_local_topk) {
-    neighbors_buf.resize(n_queries * topk_len, stream);
+    neighbors_buf.resize(n_queries_topk_len, stream);
     neighbors_ptr = neighbors_buf.data();
   }
   rmm::device_uvector<uint32_t> neighbors_uint32_buf(0, stream, mr);
@@ -477,10 +481,10 @@ void ivfpq_search_worker(raft::resources const& handle,
     // The goal is to incrase the L2 cache hit rate to read the vectors
     // of a cluster by processing the cluster at the same time as much as
     // possible.
-    index_list_sorted_buf.resize(n_queries * n_probes, stream);
+    index_list_sorted_buf.resize(n_queries_probes, stream);
     auto index_list_buf =
-      make_device_mdarray<uint32_t>(handle, mr, make_extents<uint32_t>(n_queries * n_probes));
-    rmm::device_uvector<uint32_t> cluster_labels_out(n_queries * n_probes, stream, mr);
+      make_device_mdarray<uint32_t>(handle, mr, make_extents<uint32_t>(n_queries_probes));
+    rmm::device_uvector<uint32_t> cluster_labels_out(n_queries_probes, stream, mr);
     auto index_list   = index_list_buf.data_handle();
     index_list_sorted = index_list_sorted_buf.data();
 
@@ -495,7 +499,7 @@ void ivfpq_search_worker(raft::resources const& handle,
                                     cluster_labels_out.data(),
                                     index_list,
                                     index_list_sorted,
-                                    n_queries * n_probes,
+                                    n_queries_probes,
                                     begin_bit,
                                     end_bit,
                                     stream);
@@ -506,7 +510,7 @@ void ivfpq_search_worker(raft::resources const& handle,
                                     cluster_labels_out.data(),
                                     index_list,
                                     index_list_sorted,
-                                    n_queries * n_probes,
+                                    n_queries_probes,
                                     begin_bit,
                                     end_bit,
                                     stream);
@@ -556,7 +560,6 @@ void ivfpq_search_worker(raft::resources const& handle,
   }
   compute_similarity_run(search_instance,
                          stream,
-                         index.size(),
                          index.rot_dim(),
                          n_probes,
                          index.pq_dim(),
@@ -581,7 +584,8 @@ void ivfpq_search_worker(raft::resources const& handle,
 
   // Select topk vectors for each query
   rmm::device_uvector<ScoreT> topk_dists(n_queries * topK, stream, mr);
-  matrix::detail::select_k<ScoreT, uint32_t>(distances_buf.data(),
+  matrix::detail::select_k<ScoreT, uint32_t>(handle,
+                                             distances_buf.data(),
                                              neighbors_ptr,
                                              n_queries,
                                              topk_len,
@@ -589,7 +593,6 @@ void ivfpq_search_worker(raft::resources const& handle,
                                              topk_dists.data(),
                                              neighbors_uint32,
                                              true,
-                                             stream,
                                              mr);
 
   // Postprocessing
@@ -677,6 +680,7 @@ struct ivfpq_search {
  * A heuristic for bounding the number of queries per batch, to improve GPU utilization.
  * (based on the number of SMs and the work size).
  *
+ * @param res is used to query the workspace size
  * @param k top-k
  * @param n_probes number of selected clusters per query
  * @param n_queries number of queries hoped to be processed at once.
@@ -685,7 +689,8 @@ struct ivfpq_search {
  *
  * @return maximum recommended batch size.
  */
-inline auto get_max_batch_size(uint32_t k,
+inline auto get_max_batch_size(raft::resources const& res,
+                               uint32_t k,
                                uint32_t n_probes,
                                uint32_t n_queries,
                                uint32_t max_samples) -> uint32_t
@@ -702,13 +707,17 @@ inline auto get_max_batch_size(uint32_t k,
   }
   // Check in the tmp distance buffer is not too big
   auto ws_size = [k, n_probes, max_samples](uint32_t bs) -> uint64_t {
-    return uint64_t(is_local_topk_feasible(k, n_probes, bs) ? k * n_probes : max_samples) * bs;
+    const uint64_t buffers_fused     = 12ull * k * n_probes;
+    const uint64_t buffers_non_fused = 4ull * max_samples;
+    const uint64_t other             = 32ull * n_probes;
+    return static_cast<uint64_t>(bs) *
+           (other + (is_local_topk_feasible(k, n_probes, bs) ? buffers_fused : buffers_non_fused));
   };
-  constexpr uint64_t kMaxWsSize = 1024 * 1024 * 1024;
-  if (ws_size(max_batch_size) > kMaxWsSize) {
+  auto max_ws_size = resource::get_workspace_free_bytes(res);
+  if (ws_size(max_batch_size) > max_ws_size) {
     uint32_t smaller_batch_size = bound_by_power_of_two(max_batch_size);
     // gradually reduce the batch size until we fit into the max size limit.
-    while (smaller_batch_size > 1 && ws_size(smaller_batch_size) > kMaxWsSize) {
+    while (smaller_batch_size > 1 && ws_size(smaller_batch_size) > max_ws_size) {
       smaller_batch_size >>= 1;
     }
     return smaller_batch_size;
@@ -728,8 +737,7 @@ inline void search(raft::resources const& handle,
                    uint32_t k,
                    IdxT* neighbors,
                    float* distances,
-                   rmm::mr::device_memory_resource* mr = nullptr,
-                   IvfSampleFilterT sample_filter      = IvfSampleFilterT())
+                   IvfSampleFilterT sample_filter = IvfSampleFilterT())
 {
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported element type.");
@@ -739,6 +747,7 @@ inline void search(raft::resources const& handle,
     params.n_probes,
     k,
     index.dim());
+  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::search");
 
   RAFT_EXPECTS(
     params.internal_distance_dtype == CUDA_R_16F || params.internal_distance_dtype == CUDA_R_32F,
@@ -775,15 +784,11 @@ inline void search(raft::resources const& handle,
     max_samples = ms;
   }
 
-  auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("ivf_pq::search: using pool memory resource with initial size %zu bytes",
-                   n_queries * n_probes * k * 16ull);
-  }
+  auto mr = resource::get_workspace_resource(handle);
 
   // Maximum number of query vectors to search at the same time.
   const auto max_queries = std::min<uint32_t>(std::max<uint32_t>(n_queries, 1), 4096);
-  auto max_batch_size    = get_max_batch_size(k, n_probes, max_queries, max_samples);
+  auto max_batch_size    = get_max_batch_size(handle, k, n_probes, max_queries, max_samples);
 
   rmm::device_uvector<float> float_queries(max_queries * dim_ext, stream, mr);
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
@@ -845,8 +850,7 @@ inline void search(raft::resources const& handle,
                       distances + uint64_t(k) * (offset_q + offset_b),
                       utils::config<T>::kDivisor / utils::config<float>::kDivisor,
                       params.preferred_shmem_carveout,
-                      sample_filter,
-                      mr);
+                      sample_filter);
     }
   }
 }

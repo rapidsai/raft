@@ -45,16 +45,16 @@ namespace raft::neighbors::experimental::cagra {
 namespace {
 // For sort_knn_graph test
 template <typename IdxT>
-void RandomSuffle(raft::host_matrix_view<IdxT, IdxT> index)
+void RandomSuffle(raft::host_matrix_view<IdxT, int64_t> index)
 {
   for (IdxT i = 0; i < index.extent(0); i++) {
     uint64_t rand       = i;
     IdxT* const row_ptr = index.data_handle() + i * index.extent(1);
     for (unsigned j = 0; j < index.extent(1); j++) {
       // Swap two indices at random
-      rand          = raft::neighbors::experimental::cagra::detail::device::xorshift64(rand);
+      rand          = raft::neighbors::cagra::detail::device::xorshift64(rand);
       const auto i0 = rand % index.extent(1);
-      rand          = raft::neighbors::experimental::cagra::detail::device::xorshift64(rand);
+      rand          = raft::neighbors::cagra::detail::device::xorshift64(rand);
       const auto i1 = rand % index.extent(1);
 
       const auto tmp = row_ptr[i0];
@@ -65,8 +65,8 @@ void RandomSuffle(raft::host_matrix_view<IdxT, IdxT> index)
 }
 
 template <typename DistanceT, typename DatatT, typename IdxT>
-testing::AssertionResult CheckOrder(raft::host_matrix_view<IdxT, IdxT> index_test,
-                                    raft::host_matrix_view<DatatT, IdxT> dataset)
+testing::AssertionResult CheckOrder(raft::host_matrix_view<IdxT, int64_t> index_test,
+                                    raft::host_matrix_view<DatatT, int64_t> dataset)
 {
   for (IdxT i = 0; i < index_test.extent(0); i++) {
     const DatatT* const base_vec = dataset.data_handle() + i * dataset.extent(1);
@@ -134,7 +134,7 @@ struct AnnCagraInputs {
   int max_queries;
   int team_size;
   int itopk_size;
-  int num_parents;
+  int search_width;
   raft::distance::DistanceType metric;
   bool host_dataset;
   // std::optional<double>
@@ -146,7 +146,7 @@ inline ::std::ostream& operator<<(::std::ostream& os, const AnnCagraInputs& p)
   std::vector<std::string> algo = {"single-cta", "multi_cta", "multi_kernel", "auto"};
   os << "{n_queries=" << p.n_queries << ", dataset shape=" << p.n_rows << "x" << p.dim
      << ", k=" << p.k << ", " << algo.at((int)p.algo) << ", max_queries=" << p.max_queries
-     << ", itopk_size=" << p.itopk_size << ", num_parents=" << p.num_parents
+     << ", itopk_size=" << p.itopk_size << ", search_width=" << p.search_width
      << ", metric=" << static_cast<int>(p.metric) << (p.host_dataset ? ", host" : ", device") << '}'
      << std::endl;
   return os;
@@ -166,9 +166,6 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagra()
   {
-    if (ps.algo == search_algo::MULTI_CTA && ps.max_queries != 1) {
-      GTEST_SKIP() << "Skipping test due to issue #1575";
-    }
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
@@ -178,7 +175,8 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
     {
       rmm::device_uvector<DistanceT> distances_naive_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naive_knn<DistanceT, DataT, IdxT>(distances_naive_dev.data(),
+      naive_knn<DistanceT, DataT, IdxT>(handle_,
+                                        distances_naive_dev.data(),
                                         indices_naive_dev.data(),
                                         search_queries.data(),
                                         database.data(),
@@ -186,8 +184,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                         ps.n_rows,
                                         ps.dim,
                                         ps.k,
-                                        ps.metric,
-                                        stream_);
+                                        ps.metric);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       resource::sync_stream(handle_);
@@ -206,15 +203,15 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         search_params.max_queries = ps.max_queries;
         search_params.team_size   = ps.team_size;
 
-        auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
+        auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
 
         {
           cagra::index<DataT, IdxT> index(handle_);
           if (ps.host_dataset) {
-            auto database_host = raft::make_host_matrix<DataT, IdxT>(ps.n_rows, ps.dim);
+            auto database_host = raft::make_host_matrix<DataT, int64_t>(ps.n_rows, ps.dim);
             raft::copy(database_host.data_handle(), database.data(), database.size(), stream_);
-            auto database_host_view = raft::make_host_matrix_view<const DataT, IdxT>(
+            auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
               (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
             index = cagra::build<DataT, IdxT>(handle_, index_params, database_host_view);
           } else {
@@ -224,12 +221,12 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         }
         auto index = cagra::deserialize<DataT, IdxT>(handle_, "cagra_index");
 
-        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
+        auto search_queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
           search_queries.data(), ps.n_queries, ps.dim);
         auto indices_out_view =
-          raft::make_device_matrix_view<IdxT, IdxT>(indices_dev.data(), ps.n_queries, ps.k);
-        auto dists_out_view =
-          raft::make_device_matrix_view<DistanceT, IdxT>(distances_dev.data(), ps.n_queries, ps.k);
+          raft::make_device_matrix_view<IdxT, int64_t>(indices_dev.data(), ps.n_queries, ps.k);
+        auto dists_out_view = raft::make_device_matrix_view<DistanceT, int64_t>(
+          distances_dev.data(), ps.n_queries, ps.k);
 
         cagra::search(
           handle_, search_params, index, search_queries_view, indices_out_view, dists_out_view);
@@ -237,6 +234,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);
         resource::sync_stream(handle_);
       }
+
       // for (int i = 0; i < min(ps.n_queries, 10); i++) {
       //   //  std::cout << "query " << i << std::end;
       //   print_vector("T", indices_naive.data() + i * ps.k, ps.k, std::cout);
@@ -269,11 +267,8 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
   void SetUp() override
   {
-    std::cout << "Resizing database: " << ps.n_rows * ps.dim << std::endl;
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
-    std::cout << "Done.\nResizing queries" << std::endl;
     search_queries.resize(ps.n_queries * ps.dim, stream_);
-    std::cout << "Done.\nRuning rng" << std::endl;
     raft::random::Rng r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
       r.normal(database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0), stream_);
@@ -313,17 +308,17 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
   {
     {
       // Step 1: Build a sorted KNN graph by CAGRA knn build
-      auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
+      auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
         (const DataT*)database.data(), ps.n_rows, ps.dim);
-      auto database_host = raft::make_host_matrix<DataT, IdxT>(ps.n_rows, ps.dim);
+      auto database_host = raft::make_host_matrix<DataT, int64_t>(ps.n_rows, ps.dim);
       raft::copy(
         database_host.data_handle(), database.data(), database.size(), handle_.get_stream());
-      auto database_host_view = raft::make_host_matrix_view<const DataT, IdxT>(
+      auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
         (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
 
       cagra::index_params index_params;
       auto knn_graph =
-        raft::make_host_matrix<IdxT, IdxT>(ps.n_rows, index_params.intermediate_graph_degree);
+        raft::make_host_matrix<IdxT, int64_t>(ps.n_rows, index_params.intermediate_graph_degree);
 
       if (ps.host_dataset) {
         cagra::build_knn_graph<DataT, IdxT>(handle_, database_host_view, knn_graph.view());
@@ -371,8 +366,7 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
 inline std::vector<AnnCagraInputs> generate_inputs()
 {
-  // Todo(tfeher): MULTI_CTA tests a bug, consider disabling that mode.
-  // TODO(tfeher): test MULTI_CTA kernel with num_Parents>1 to allow multiple CTA per queries
+  // TODO(tfeher): test MULTI_CTA kernel with search_width > 1 to allow multiple CTA per queries
   std::vector<AnnCagraInputs> inputs = raft::util::itertools::product<AnnCagraInputs>(
     {100},
     {1000},

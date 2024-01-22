@@ -13,27 +13,38 @@
 # =============================================================================
 
 # ##################################################################################################
-# * compiler function -----------------------------------------------------------------------------
+# enable testing ################################################################################
+# ##################################################################################################
+enable_testing()
+include(rapids-test)
+rapids_test_init()
 
 function(ConfigureTest)
 
   set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY)
-  set(oneValueArgs NAME)
+  set(oneValueArgs NAME GPUS PERCENT)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
-  cmake_parse_arguments(ConfigureTest "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+  cmake_parse_arguments(_RAFT_TEST "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+  if(NOT DEFINED _RAFT_TEST_GPUS AND NOT DEFINED _RAFT_TEST_PERCENT)
+    set(_RAFT_TEST_GPUS 1)
+    set(_RAFT_TEST_PERCENT 30)
+  endif()
+  if(NOT DEFINED _RAFT_TEST_GPUS)
+    set(_RAFT_TEST_GPUS 1)
+  endif()
+  if(NOT DEFINED _RAFT_TEST_PERCENT)
+    set(_RAFT_TEST_PERCENT 100)
+  endif()
 
-  set(TEST_NAME ${ConfigureTest_NAME})
+  set(TEST_NAME ${_RAFT_TEST_NAME})
 
-  add_executable(${TEST_NAME} ${ConfigureTest_PATH})
-
-  message("TEST PATH: ${ConfigureTest_PATH}")
-
+  add_executable(${TEST_NAME} ${_RAFT_TEST_PATH})
   target_link_libraries(
     ${TEST_NAME}
     PRIVATE raft
             raft_internal
-            $<$<BOOL:${ConfigureTest_LIB}>:raft::compiled>
+            $<$<BOOL:${_RAFT_TEST_LIB}>:raft::compiled>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
@@ -41,35 +52,31 @@ function(ConfigureTest)
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
   )
-
-  add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-
   set_target_properties(
     ${TEST_NAME}
-    PROPERTIES # set target compile options
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${RAFT_BINARY_DIR}/gtests>"
                INSTALL_RPATH "\$ORIGIN/../../../lib"
                CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
                CUDA_STANDARD 17
                CUDA_STANDARD_REQUIRED ON
   )
-
   target_compile_options(
     ${TEST_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
-
-  if(ConfigureTest_EXPLICIT_INSTANTIATE_ONLY)
+  if(_RAFT_TEST_EXPLICIT_INSTANTIATE_ONLY)
     target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
   endif()
 
   target_include_directories(${TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>")
 
-  install(
-    TARGETS ${TEST_NAME}
-    COMPONENT testing
-    DESTINATION bin/gtests/libraft
-    EXCLUDE_FROM_ALL
+  rapids_test_add(
+    NAME ${TEST_NAME}
+    COMMAND ${TEST_NAME}
+    GPUS ${_RAFT_TEST_GPUS}
+    PERCENT ${_RAFT_TEST_PERCENT}
+    INSTALL_COMPONENT_SET testing
   )
 endfunction()
 
@@ -90,7 +97,6 @@ if(BUILD_TESTS)
     test/cluster/cluster_solvers.cu
     test/cluster/linkage.cu
     test/cluster/kmeans_find_k.cu
-    OPTIONAL
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
@@ -117,7 +123,6 @@ if(BUILD_TESTS)
     test/core/span.cu
     test/core/temporary_device_buffer.cu
     test/test.cpp
-    OPTIONAL
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
@@ -147,7 +152,6 @@ if(BUILD_TESTS)
     test/distance/masked_nn_compress_to_bits.cu
     test/distance/fused_l2_nn.cu
     test/distance/gram.cu
-    OPTIONAL
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
@@ -181,12 +185,10 @@ if(BUILD_TESTS)
   # * EXT_HEADERS_TEST_COMPILED_IMPLICIT: RAFT_COMPILED defined
   # * EXT_HEADERS_TEST_IMPLICIT:          no macros defined.
   ConfigureTest(
-    NAME EXT_HEADERS_TEST_COMPILED_EXPLICIT PATH ${EXT_HEADER_TEST_SOURCES} OPTIONAL LIB
+    NAME EXT_HEADERS_TEST_COMPILED_EXPLICIT PATH ${EXT_HEADER_TEST_SOURCES} LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
-  ConfigureTest(
-    NAME EXT_HEADERS_TEST_COMPILED_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES} OPTIONAL LIB
-  )
+  ConfigureTest(NAME EXT_HEADERS_TEST_COMPILED_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES} LIB)
   ConfigureTest(NAME EXT_HEADERS_TEST_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES})
 
   ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
@@ -238,19 +240,24 @@ if(BUILD_TESTS)
     test/matrix/columnSort.cu
     test/matrix/diagonal.cu
     test/matrix/gather.cu
+    test/matrix/scatter.cu
     test/matrix/eye.cu
     test/matrix/linewise_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
     test/matrix/norm.cu
     test/matrix/reverse.cu
-    test/matrix/select_k.cu
     test/matrix/slice.cu
     test/matrix/triangular.cu
     test/sparse/spectral_matrix.cu
-    OPTIONAL
     LIB
     EXPLICIT_INSTANTIATE_ONLY
+  )
+
+  ConfigureTest(NAME MATRIX_SELECT_TEST PATH test/matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY)
+
+  ConfigureTest(
+    NAME MATRIX_SELECT_LARGE_TEST PATH test/matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -270,7 +277,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu test/linalg/eigen_solvers.cu
-    test/lap/lap.cu test/sparse/mst.cu OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
+    test/lap/lap.cu test/sparse/mst.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -296,17 +303,16 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu
-    test/sparse/gram.cu OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
+    test/sparse/gram.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
     NAME
     SPARSE_NEIGHBORS_TEST
     PATH
-    test/sparse/neighbors/connect_components.cu
+    test/sparse/neighbors/cross_component_nn.cu
     test/sparse/neighbors/brute_force.cu
     test/sparse/neighbors/knn_graph.cu
-    OPTIONAL
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
@@ -315,10 +321,45 @@ if(BUILD_TESTS)
     NAME
     NEIGHBORS_TEST
     PATH
+    test/neighbors/knn.cu
+    test/neighbors/fused_l2_knn.cu
+    test/neighbors/tiled_knn.cu
+    test/neighbors/haversine.cu
+    test/neighbors/ball_cover.cu
+    test/neighbors/epsilon_neighborhood.cu
+    test/neighbors/refine.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+  )
+
+  ConfigureTest(
+    NAME
+    NEIGHBORS_ANN_CAGRA_TEST
+    PATH
     test/neighbors/ann_cagra/test_float_uint32_t.cu
     test/neighbors/ann_cagra/test_int8_t_uint32_t.cu
     test/neighbors/ann_cagra/test_uint8_t_uint32_t.cu
     test/neighbors/ann_cagra/test_float_int64_t.cu
+    src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim128_t8.cu
+    src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim256_t16.cu
+    src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim512_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim1024_t32.cu
+    src/neighbors/detail/cagra/search_single_cta_float_uint64_dim128_t8.cu
+    src/neighbors/detail/cagra/search_single_cta_float_uint64_dim256_t16.cu
+    src/neighbors/detail/cagra/search_single_cta_float_uint64_dim512_t32.cu
+    src/neighbors/detail/cagra/search_single_cta_float_uint64_dim1024_t32.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
+  )
+
+  ConfigureTest(
+    NAME
+    NEIGHBORS_ANN_IVF_TEST
+    PATH
     test/neighbors/ann_ivf_flat/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
@@ -327,17 +368,17 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_pq/test_float_int64_t.cu
     test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
-    test/neighbors/knn.cu
-    test/neighbors/fused_l2_knn.cu
-    test/neighbors/tiled_knn.cu
-    test/neighbors/haversine.cu
-    test/neighbors/ball_cover.cu
-    test/neighbors/epsilon_neighborhood.cu
-    test/neighbors/refine.cu
-    test/neighbors/selection.cu
-    OPTIONAL
     LIB
     EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
+  )
+
+  ConfigureTest(
+    NAME NEIGHBORS_SELECTION_TEST PATH test/neighbors/selection.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    GPUS 1 PERCENT 50
   )
 
   ConfigureTest(
@@ -369,7 +410,6 @@ if(BUILD_TESTS)
     test/stats/trustworthiness.cu
     test/stats/weighted_mean.cu
     test/stats/v_measure.cu
-    OPTIONAL
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
@@ -387,3 +427,8 @@ if(BUILD_TESTS)
     test/util/reduction.cu
   )
 endif()
+
+# ##################################################################################################
+# Install tests ####################################################################################
+# ##################################################################################################
+rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/gtests/libraft)

@@ -143,7 +143,7 @@ Device Memory Resource
 
 namespace *raft::resource*
 
- .. doxygengroup:: resource_memory_resource
+ .. doxygengroup:: device_memory_resource
      :project: RAFT
      :members:
      :content-only:
