@@ -23,7 +23,7 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       enable_check_symbols: true
-      symbol_exclusions: (void (thrust::|cub::)|_ZN\d+raft_cutlass)
+      symbol_exclusions: _ZN\d+raft_cutlass
   conda-cpp-tests:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@test-cuda-12.2
