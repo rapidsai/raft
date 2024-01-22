@@ -30,7 +30,6 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <cstdint>
 #include <cstring>
