@@ -30,6 +30,8 @@ function(find_and_configure_hnswlib)
   rapids_cpm_find(
     hnswlib ${PKG_VERSION}
     GLOBAL_TARGETS hnswlib::hnswlib
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports
     CPM_ARGS
     GIT_REPOSITORY ${PKG_REPOSITORY}
     GIT_TAG ${PKG_PINNED_TAG}
