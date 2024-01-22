@@ -201,10 +201,10 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - &rmm_cu12 rmm-cu12==24.2.*
+              - &rmm_cu12 rmm-cu12==24.4.*
           - matrix: {cuda: "11.*"}
             packages:
-              - &rmm_cu11 rmm-cu11==24.2.*
+              - &rmm_cu11 rmm-cu11==24.4.*
           - {matrix: null, packages: [*rmm_conda] }
   checks:
     common:
@@ -456,12 +456,12 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - &pylibraft_cu12 pylibraft-cu12==24.2.*
-              - &ucx_py_cu12 ucx-py-cu12==0.36.*
+              - &pylibraft_cu12 pylibraft-cu12==24.4.*
+              - &ucx_py_cu12 ucx-py-cu12==0.37.*
           - matrix: {cuda: "11.*"}
             packages:
-              - &pylibraft_cu11 pylibraft-cu11==24.2.*
-              - &ucx_py_cu11 ucx-py-cu11==0.36.*
+              - &pylibraft_cu11 pylibraft-cu11==24.4.*
+              - &ucx_py_cu11 ucx-py-cu11==0.37.*
           - {matrix: null, packages: [*pylibraft_conda, *ucx_py_conda]}
   test_python_common:
     common:
