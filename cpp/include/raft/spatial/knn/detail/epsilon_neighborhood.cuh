@@ -171,10 +171,8 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
 };  // struct EpsUnexpL2SqNeighborhood
 
 template <typename DataT, typename IdxT, typename Policy>
-__global__ __launch_bounds__(Policy::Nthreads, 2)
-
-  void epsUnexpL2SqNeighKernel(
-    bool* adj, IdxT* vd, const DataT* x, const DataT* y, IdxT m, IdxT n, IdxT k, DataT eps)
+__launch_bounds__(Policy::Nthreads, 2) RAFT_KERNEL epsUnexpL2SqNeighKernel(
+  bool* adj, IdxT* vd, const DataT* x, const DataT* y, IdxT m, IdxT n, IdxT k, DataT eps)
 {
   extern __shared__ char smem[];
   EpsUnexpL2SqNeighborhood<DataT, IdxT, Policy> obj(adj, vd, x, y, m, n, k, eps, smem);

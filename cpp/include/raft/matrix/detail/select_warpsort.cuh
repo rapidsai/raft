@@ -56,7 +56,7 @@
     the top-k result.
 
     Example:
-      __global__ void kernel() {
+      RAFT_KERNEL kernel() {
         block_sort<warp_sort_immediate, ...> queue(...);
 
         for (IdxT i = threadIdx.x; i < len, i += blockDim.x) {
@@ -80,7 +80,7 @@
     (see the usage of LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing).
 
     Example:
-      __global__ void kernel() {
+      RAFT_KERNEL kernel() {
         warp_sort_immediate<...> queue(...);
         int warp_id = threadIdx.x / WarpSize;
         int lane_id = threadIdx.x % WarpSize;
@@ -750,8 +750,8 @@ template <template <int, bool, typename, typename> class WarpSortClass,
           bool Ascending,
           typename T,
           typename IdxT>
-__launch_bounds__(256) __global__
-  void block_kernel(const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx)
+__launch_bounds__(256) RAFT_KERNEL
+  block_kernel(const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx)
 {
   extern __shared__ __align__(256) uint8_t smem_buf_bytes[];
   using bq_t         = block_sort<WarpSortClass, Capacity, Ascending, T, IdxT>;
@@ -959,7 +959,7 @@ void calc_launch_parameter(
       if (batch_size >= size_t(another_min_grid_size)  // still have enough work
           && another_block_size < block_size           // protect against an infinite loop
           && another_min_grid_size * another_block_size >
-               min_grid_size * block_size              // improve occupancy
+               min_grid_size * block_size  // improve occupancy
       ) {
         block_size    = another_block_size;
         min_grid_size = another_min_grid_size;
@@ -988,9 +988,7 @@ void select_k_(int num_of_block,
                rmm::cuda_stream_view stream,
                rmm::mr::device_memory_resource* mr = nullptr)
 {
-  auto pool_guard = raft::get_pool_memory_resource(
-    mr, num_of_block * k * batch_size * 2 * std::max(sizeof(T), sizeof(IdxT)));
-  if (pool_guard) { RAFT_LOG_DEBUG("warpsort::select_k: using pool memory resource"); }
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
 
   rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream, mr);
   rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream, mr);

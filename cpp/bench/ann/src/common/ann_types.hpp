@@ -1,5 +1,3 @@
-
-
 /*
  * Copyright (c) 2023, NVIDIA CORPORATION.
  *
@@ -17,16 +15,19 @@
  */
 
 #pragma once
+
+#include "cuda_stub.hpp"  // cudaStream_t
+
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
-#include <cuda_runtime_api.h>
-
 namespace raft::bench::ann {
 
-enum class Metric {
-  kInnerProduct,
-  kEuclidean,
+enum Objective {
+  THROUGHPUT,  // See how many vectors we can push through
+  LATENCY      // See how fast we can push a vector through
 };
 
 enum class MemoryType {
@@ -35,22 +36,61 @@ enum class MemoryType {
   Device,
 };
 
+enum class Metric {
+  kInnerProduct,
+  kEuclidean,
+};
+
+inline auto parse_metric(const std::string& metric_str) -> Metric
+{
+  if (metric_str == "inner_product") {
+    return raft::bench::ann::Metric::kInnerProduct;
+  } else if (metric_str == "euclidean") {
+    return raft::bench::ann::Metric::kEuclidean;
+  } else {
+    throw std::runtime_error("invalid metric: '" + metric_str + "'");
+  }
+}
+
+inline auto parse_memory_type(const std::string& memory_type) -> MemoryType
+{
+  if (memory_type == "host") {
+    return MemoryType::Host;
+  } else if (memory_type == "mmap") {
+    return MemoryType::HostMmap;
+  } else if (memory_type == "device") {
+    return MemoryType::Device;
+  } else {
+    throw std::runtime_error("invalid memory type: '" + memory_type + "'");
+  }
+}
+
 struct AlgoProperty {
   MemoryType dataset_memory_type;
   // neighbors/distances should have same memory type as queries
   MemoryType query_memory_type;
-  bool need_dataset_when_search;
+};
+
+class AnnBase {
+ public:
+  inline AnnBase(Metric metric, int dim) : metric_(metric), dim_(dim) {}
+  virtual ~AnnBase() = default;
+
+ protected:
+  Metric metric_;
+  int dim_;
 };
 
 template <typename T>
-class ANN {
+class ANN : public AnnBase {
  public:
   struct AnnSearchParam {
-    virtual ~AnnSearchParam() = default;
+    Objective metric_objective = Objective::LATENCY;
+    virtual ~AnnSearchParam()  = default;
+    [[nodiscard]] virtual auto needs_dataset() const -> bool { return false; };
   };
 
-  ANN(Metric metric, int dim) : metric_(metric), dim_(dim) {}
-  virtual ~ANN() = default;
+  inline ANN(Metric metric, int dim) : AnnBase(metric, dim) {}
 
   virtual void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) = 0;
 
@@ -67,22 +107,31 @@ class ANN {
   virtual void save(const std::string& file) const = 0;
   virtual void load(const std::string& file)       = 0;
 
-  virtual AlgoProperty get_property() const = 0;
+  virtual AlgoProperty get_preference() const = 0;
 
   // Some algorithms don't save the building dataset in their indices.
   // So they should be given the access to that dataset during searching.
   // The advantage of this way is that index has smaller size
   // and many indices can share one dataset.
   //
-  // AlgoProperty::need_dataset_when_search of such algorithm should be true,
+  // SearchParam::needs_dataset() of such algorithm should be true,
   // and set_search_dataset() should save the passed-in pointer somewhere.
   // The client code should call set_search_dataset() before searching,
   // and should not release dataset before searching is finished.
   virtual void set_search_dataset(const T* /*dataset*/, size_t /*nrow*/){};
 
- protected:
-  Metric metric_;
-  int dim_;
+  /**
+   * Make a shallow copy of the ANN wrapper that shares the resources and ensures thread-safe access
+   * to them. */
+  virtual auto copy() -> std::unique_ptr<ANN<T>> = 0;
 };
 
 }  // namespace raft::bench::ann
+
+#define REGISTER_ALGO_INSTANCE(DataT)                                                            \
+  template auto raft::bench::ann::create_algo<DataT>(                                            \
+    const std::string&, const std::string&, int, const nlohmann::json&, const std::vector<int>&) \
+    ->std::unique_ptr<raft::bench::ann::ANN<DataT>>;                                             \
+  template auto raft::bench::ann::create_search_param<DataT>(const std::string&,                 \
+                                                             const nlohmann::json&)              \
+    ->std::unique_ptr<typename raft::bench::ann::ANN<DataT>::AnnSearchParam>;

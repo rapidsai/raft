@@ -41,7 +41,7 @@ struct rowNormalize : public fixture {
     : params(p), in(p.rows * p.cols, stream), out(p.rows * p.cols, stream)
   {
     raft::random::RngState rng{1234};
-    raft::random::uniform(rng, in.data(), p.rows * p.cols, (T)-10.0, (T)10.0, stream);
+    raft::random::uniform(handle, rng, in.data(), p.rows * p.cols, (T)-10.0, (T)10.0);
   }
 
   void run_benchmark(::benchmark::State& state) override

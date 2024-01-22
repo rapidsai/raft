@@ -1,0 +1,230 @@
+--- a/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
++++ b/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
+@@ -62,7 +62,7 @@ struct SimpleKNNSymCache {
+                                                 const ValueT dist_half)
+         : dist_query(dist_query), dist_half(dist_half) {}
+ 
+-    __device__ __forceinline__ DistQueryAndHalf() {}
++    DistQueryAndHalf() = default;
+   };
+ 
+   struct DistanceAndNorm {
+@@ -98,8 +98,7 @@ struct SimpleKNNSymCache {
+     KeyT cache;
+     DistQueryAndHalf dist;
+     bool flag;
+-
+-    __device__ __forceinline__ SyncTempStorage() {}
++    SyncTempStorage() = default;
+   };
+ 
+  public:
+diff --git a/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh b/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh
+index 8cbaf0d..6eb72ac 100644
+--- a/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh
++++ b/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh
+@@ -41,7 +41,6 @@ limitations under the License.
+ #include "ggnn/sym/cuda_knn_sym_query_layer.cuh"
+ #include "ggnn/utils/cuda_knn_utils.cuh"
+ #include "ggnn/utils/cuda_knn_constants.cuh"
+-#include "ggnn/utils/cuda_knn_dataset.cuh"
+ 
+ template <typename ValueT>
+ __global__ void divide(ValueT* res, ValueT* input, ValueT N) {
+@@ -98,9 +97,7 @@ struct GGNNGPUInstance {
+   typedef GGNNGraphDevice<KeyT, BaseT, ValueT> GGNNGraphDevice;
+   typedef GGNNGraphHost<KeyT, BaseT, ValueT> GGNNGraphHost;
+ 
+-  const Dataset<KeyT, BaseT, BAddrT>* dataset;
+   GGNNGraphBuffer<KeyT, ValueT>* ggnn_buffer {nullptr};
+-  GGNNQuery<KeyT, ValueT, BaseT> ggnn_query;
+ 
+   // Graph Shards resident on the GPU
+   std::vector<GGNNGraphDevice> ggnn_shards;
+@@ -117,13 +114,12 @@ struct GGNNGPUInstance {
+   // number of shards that need to be processed by this instance
+   const int num_parts;
+ 
+-  GGNNGPUInstance(const int gpu_id, const Dataset<KeyT, BaseT, BAddrT>* dataset,
++  GGNNGPUInstance(const int gpu_id,
+             const int N_shard, const int L,
+             const bool enable_construction, const float tau_build,
+             const int num_parts=1, const int num_cpu_buffers=1) :
+     N_shard{N_shard}, L{L}, tau_build{tau_build},
+-    dataset{dataset}, gpu_id{gpu_id},
+-    ggnn_query{dataset->N_query, D, KQuery, num_parts},
++    gpu_id{gpu_id},
+     num_parts{num_parts}
+   {
+     CHECK_LE(L, MAX_LAYER);
+@@ -135,7 +131,6 @@ struct GGNNGPUInstance {
+       CHECK_EQ(current_gpu_id, gpu_id) << "cudaSetDevice() needs to be called in advance!";
+     }
+ 
+-    ggnn_query.loadQueriesAsync(dataset->h_query, 0);
+ 
+     computeGraphParameters();
+ 
+@@ -186,7 +181,7 @@ struct GGNNGPUInstance {
+   }
+ 
+   GGNNGPUInstance(const GGNNGPUInstance& other)
+-   : dataset{nullptr}, ggnn_query{0, D, KQuery},
++   :
+      gpu_id{0}, N_shard{0}, num_parts{0} {
+     // this exists to allow using vector::emplace_back
+     // when it triggers a reallocation, this code will be called.
+@@ -305,6 +300,7 @@ struct GGNNGPUInstance {
+ 
+   // io
+ 
++  /*
+   void waitForDiskIO(const int shard_id) {
+     auto& cpu_buffer = ggnn_cpu_buffers[shard_id%ggnn_cpu_buffers.size()];
+     if (cpu_buffer.disk_io_thread.joinable())
+@@ -468,11 +464,12 @@ struct GGNNGPUInstance {
+     CHECK_CUDA(cudaDeviceSynchronize());
+     CHECK_CUDA(cudaPeekAtLastError());
+   }
++  */
+ 
+   // graph operations
+ 
+   template <int BLOCK_DIM_X = 32, int MAX_ITERATIONS = 400, int CACHE_SIZE = 512, int SORTED_SIZE = 256, bool DIST_STATS = false>
+-  void queryLayer(const int shard_id = 0) const {
++  void queryLayer(const BaseT* d_query, int batch_size, KeyT* d_query_result_ids, ValueT* d_query_result_dists, const int shard_id = 0) const {
+     CHECK_CUDA(cudaSetDevice(gpu_id));
+     const auto& shard = ggnn_shards.at(shard_id%ggnn_shards.size());
+ 
+@@ -482,21 +479,21 @@ struct GGNNGPUInstance {
+ 
+     int* m_dist_statistics = nullptr;
+     if (DIST_STATS)
+-      cudaMallocManaged(&m_dist_statistics, dataset->N_query * sizeof(int));
++      cudaMallocManaged(&m_dist_statistics, batch_size * sizeof(int));
+ 
+     QueryKernel query_kernel;
+     query_kernel.d_base = shard.d_base;
+-    query_kernel.d_query = ggnn_query.d_query;
++    query_kernel.d_query = d_query;
+ 
+     query_kernel.d_graph = shard.d_graph;
+-    query_kernel.d_query_results = ggnn_query.d_query_result_ids;
+-    query_kernel.d_query_results_dists = ggnn_query.d_query_result_dists;
++    query_kernel.d_query_results = d_query_result_ids;
++    query_kernel.d_query_results_dists = d_query_result_dists;
+ 
+     query_kernel.d_translation = shard.d_translation;
+ 
+     query_kernel.d_nn1_stats = shard.d_nn1_stats;
+ 
+-    query_kernel.N = dataset->N_query;
++    query_kernel.N = batch_size;
+     query_kernel.N_offset = 0;
+ 
+     query_kernel.d_dist_stats = m_dist_statistics;
+@@ -771,6 +768,16 @@ struct GGNNGPUInstance {
+       sym(layer, shard_id);
+     }
+   }
++
++  void set_stream(cudaStream_t stream) {
++    assert(ggnn_shards.size() == 1);
++    ggnn_shards.at(0).stream = stream;
++  }
++
++  void set_base_data(const BaseT* dataset) {
++    assert(ggnn_shards.size() == 1);
++    ggnn_shards.at(0).d_base = dataset;
++  }
+ };
+ 
+ #endif  // INCLUDE_GGNN_CUDA_KNN_GGNN_GPU_INSTANCE_CUH_
+diff --git a/include/ggnn/graph/cuda_knn_ggnn_graph_device.cuh b/include/ggnn/graph/cuda_knn_ggnn_graph_device.cuh
+index c94a8f1..781226d 100644
+--- a/include/ggnn/graph/cuda_knn_ggnn_graph_device.cuh
++++ b/include/ggnn/graph/cuda_knn_ggnn_graph_device.cuh
+@@ -50,7 +50,7 @@ struct GGNNGraphDevice {
+   ValueT* d_nn1_stats;
+ 
+   /// base data pointer for the shard.
+-  BaseT* d_base;
++  const BaseT* d_base;
+ 
+   /// combined memory pool
+   char* d_memory;
+@@ -69,7 +69,9 @@ struct GGNNGraphDevice {
+     const size_t selection_translation_size = align8(ST_all * sizeof(KeyT));
+     const size_t nn1_stats_size = align8(2 * sizeof(ValueT));
+     total_graph_size = graph_size + 2 * selection_translation_size + nn1_stats_size;
+-    base_size = align8(static_cast<size_t>(N) * D * sizeof(BaseT));
++    // base_size = align8(static_cast<size_t>(N) * D * sizeof(BaseT));
++    (void) N;
++    (void) D;
+ 
+     const size_t total_size = base_size+total_graph_size;
+ 
+@@ -86,8 +88,7 @@ struct GGNNGraphDevice {
+     CHECK_CUDA(cudaMalloc(&d_memory, total_size));
+ 
+     size_t pos = 0;
+-    d_base = reinterpret_cast<BaseT*>(d_memory+pos);
+-    pos += base_size;
++    d_base = nullptr;
+     d_graph = reinterpret_cast<KeyT*>(d_memory+pos);
+     pos += graph_size;
+     d_translation = reinterpret_cast<KeyT*>(d_memory+pos);
+@@ -99,14 +100,14 @@ struct GGNNGraphDevice {
+ 
+     CHECK_EQ(pos, total_size);
+ 
+-    CHECK_CUDA(cudaStreamCreate(&stream));
++    // CHECK_CUDA(cudaStreamCreate(&stream));
+ 
+     CHECK_CUDA(cudaPeekAtLastError());
+     CHECK_CUDA(cudaDeviceSynchronize());
+     CHECK_CUDA(cudaPeekAtLastError());
+   }
+ 
+-  GGNNGraphDevice(const GGNNGraphDevice& other) {
++  GGNNGraphDevice(const GGNNGraphDevice&) {
+     // this exists to allow using vector::emplace_back
+     // when it triggers a reallocation, this code will be called.
+     // always make sure that enough memory is reserved ahead of time.
+@@ -116,7 +117,7 @@ struct GGNNGraphDevice {
+   ~GGNNGraphDevice() {
+     cudaFree(d_memory);
+ 
+-    CHECK_CUDA(cudaStreamDestroy(stream));
++    // CHECK_CUDA(cudaStreamDestroy(stream));
+   }
+ };
+ 
+diff --git a/include/ggnn/graph/cuda_knn_ggnn_graph_host.cuh b/include/ggnn/graph/cuda_knn_ggnn_graph_host.cuh
+index 2055f9e..ef5843a 100644
+--- a/include/ggnn/graph/cuda_knn_ggnn_graph_host.cuh
++++ b/include/ggnn/graph/cuda_knn_ggnn_graph_host.cuh
+@@ -92,7 +92,7 @@ struct GGNNGraphHost {
+     CHECK_CUDA(cudaPeekAtLastError());
+   }
+ 
+-  GGNNGraphHost(const GGNNGraphHost& other) {
++  GGNNGraphHost(const GGNNGraphHost&) {
+     // this exists to allow using vector::emplace_back
+     // when it triggers a reallocation, this code will be called.
+     // always make sure that enough memory is reserved ahead of time.
+diff --git a/include/ggnn/select/cuda_knn_wrs_select_layer.cuh b/include/ggnn/select/cuda_knn_wrs_select_layer.cuh
+index 49d76a1..eef69e6 100644
+--- a/include/ggnn/select/cuda_knn_wrs_select_layer.cuh
++++ b/include/ggnn/select/cuda_knn_wrs_select_layer.cuh
+@@ -22,7 +22,6 @@ limitations under the License.
+ #include <cuda.h>
+ #include <cuda_runtime.h>
+ 
+-#include <gflags/gflags.h>
+ #include <cub/cub.cuh>
+ 
+ #include "ggnn/utils/cuda_knn_constants.cuh"
+-- 
+2.43.0
+

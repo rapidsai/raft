@@ -33,8 +33,7 @@ template <typename T>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::Ggnn<T>::BuildParam& param)
 {
-  param.dataset_size = conf.at("dataset_size");
-  param.k            = conf.at("k");
+  param.k = conf.at("k");
 
   if (conf.contains("k_build")) { param.k_build = conf.at("k_build"); }
   if (conf.contains("segment_size")) { param.segment_size = conf.at("segment_size"); }
@@ -84,7 +83,6 @@ template <typename T>
 std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
                                                       const std::string& distance,
                                                       int dim,
-                                                      float refine_ratio,
                                                       const nlohmann::json& conf,
                                                       const std::vector<int>& dev_list)
 {
@@ -101,7 +99,6 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   if (algo == "ggnn") { ann = make_algo<T, raft::bench::ann::Ggnn>(metric, dim, conf); }
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 
-  if (refine_ratio > 1.0) {}
   return ann;
 }
 
@@ -120,6 +117,11 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
 
 }  // namespace raft::bench::ann
 
-#include "../common/benchmark.hpp"
+REGISTER_ALGO_INSTANCE(float);
+REGISTER_ALGO_INSTANCE(std::int8_t);
+REGISTER_ALGO_INSTANCE(std::uint8_t);
 
+#ifdef ANN_BENCH_BUILD_MAIN
+#include "../common/benchmark.hpp"
 int main(int argc, char** argv) { return raft::bench::ann::run_main(argc, argv); }
+#endif

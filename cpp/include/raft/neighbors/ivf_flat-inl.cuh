@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@
 #include <raft/neighbors/ivf_flat_serialize.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
-#include <raft/core/device_mdspan.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
@@ -55,7 +55,7 @@ namespace raft::neighbors::ivf_flat {
  *
  * @param[in] handle
  * @param[in] params configure the index building
- * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
+ * @param[in] dataset a host or device pointer to a row-major matrix [n_rows, dim]
  * @param[in] n_rows the number of samples
  * @param[in] dim the dimensionality of the data
  *
@@ -102,7 +102,7 @@ auto build(raft::resources const& handle,
  *
  * @param[in] handle
  * @param[in] params configure the index building
- * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
+ * @param[in] dataset a device matrix [n_rows, dim]
  *
  * @return the constructed ivf-flat index
  */
@@ -118,6 +118,20 @@ auto build(raft::resources const& handle,
                                                   static_cast<IdxT>(dataset.extent(1)));
 }
 
+/**
+ * @brief Build the index from a dataset in host memory.
+ */
+template <typename T, typename IdxT>
+auto build(raft::resources const& handle,
+           const index_params& params,
+           raft::host_matrix_view<const T, IdxT, row_major> dataset) -> index<T, IdxT>
+{
+  return raft::neighbors::ivf_flat::detail::build(handle,
+                                                  params,
+                                                  dataset.data_handle(),
+                                                  static_cast<IdxT>(dataset.extent(0)),
+                                                  static_cast<IdxT>(dataset.extent(1)));
+}
 /**
  * @brief Build the index from the dataset for efficient search.
  *
@@ -162,6 +176,21 @@ void build(raft::resources const& handle,
                                                  static_cast<IdxT>(dataset.extent(1)));
 }
 
+/**
+ * @brief Build the index from a dataset in host memory.
+ */
+template <typename T, typename IdxT>
+void build(raft::resources const& handle,
+           const index_params& params,
+           raft::host_matrix_view<const T, IdxT, row_major> dataset,
+           raft::neighbors::ivf_flat::index<T, IdxT>& idx)
+{
+  idx = raft::neighbors::ivf_flat::detail::build(handle,
+                                                 params,
+                                                 dataset.data_handle(),
+                                                 static_cast<IdxT>(dataset.extent(0)),
+                                                 static_cast<IdxT>(dataset.extent(1)));
+}
 /** @} */
 
 /**
@@ -188,8 +217,8 @@ void build(raft::resources const& handle,
  *
  * @param[in] handle
  * @param[in] orig_index original index
- * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
- * @param[in] new_indices a device pointer to a vector of indices [n_rows].
+ * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
  * @param[in] n_rows number of rows in `new_vectors`
@@ -257,6 +286,23 @@ auto extend(raft::resources const& handle,
                          new_vectors.extent(0));
 }
 
+/**
+ * @brief Extend the index with additional vectors.
+ *
+ * This overloads takes input data in host memory.
+ */
+template <typename T, typename IdxT>
+auto extend(raft::resources const& handle,
+            raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,
+            const index<T, IdxT>& orig_index) -> index<T, IdxT>
+{
+  return extend<T, IdxT>(handle,
+                         orig_index,
+                         new_vectors.data_handle(),
+                         new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
+                         new_vectors.extent(0));
+}
 /** @} */
 
 /**
@@ -279,8 +325,8 @@ auto extend(raft::resources const& handle,
  *
  * @param handle
  * @param[inout] index
- * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
- * @param[in] new_indices a device pointer to a vector of indices [n_rows].
+ * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
  * @param[in] n_rows the number of samples
@@ -339,10 +385,27 @@ void extend(raft::resources const& handle,
          static_cast<IdxT>(new_vectors.extent(0)));
 }
 
+/**
+ * @brief Extend the index with additional vectors.
+ *
+ * This overloads takes input data in host memory.
+ */
+template <typename T, typename IdxT>
+void extend(raft::resources const& handle,
+            raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,
+            index<T, IdxT>* index)
+{
+  extend(handle,
+         index,
+         new_vectors.data_handle(),
+         new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
+         static_cast<IdxT>(new_vectors.extent(0)));
+}
 /** @} */
 
 /**
- * @brief Search ANN using the constructed index.
+ * @brief Search ANN using the constructed index with the given filter.
  *
  * See the [ivf_flat::build](#ivf_flat::build) documentation for a usage example.
  *
@@ -374,6 +437,9 @@ void extend(raft::resources const& handle,
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
+ * @tparam IvfSampleFilterT Device filter function, with the signature
+ *         `(uint32_t query_ix, uint32 cluster_ix, uint32_t sample_ix) -> bool` or
+ *         `(uint32_t query_ix, uint32 sample_ix) -> bool`
  *
  * @param[in] handle
  * @param[in] params configure the search
@@ -386,7 +452,7 @@ void extend(raft::resources const& handle,
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
  * @param[in] mr an optional memory resource to use across the searches (you can provide a large
  * enough memory pool here to avoid memory allocations within search).
- * @param[in] sample_filter a filter the greenlights samples for a given query
+ * @param[in] sample_filter a device filter function that greenlights samples for a given query
  */
 template <typename T, typename IdxT, typename IvfSampleFilterT>
 void search_with_filtering(raft::resources const& handle,
@@ -475,7 +541,7 @@ void search(raft::resources const& handle,
  */
 
 /**
- * @brief Search ANN using the constructed index using the given filter.
+ * @brief Search ANN using the constructed index with the given filter.
  *
  * See the [ivf_flat::build](#ivf_flat::build) documentation for a usage example.
  *
@@ -501,6 +567,9 @@ void search(raft::resources const& handle,
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
+ * @tparam IvfSampleFilterT Device filter function, with the signature
+ *         `(uint32_t query_ix, uint32 cluster_ix, uint32_t sample_ix) -> bool` or
+ *         `(uint32_t query_ix, uint32 sample_ix) -> bool`
  *
  * @param[in] handle
  * @param[in] params configure the search
@@ -509,7 +578,7 @@ void search(raft::resources const& handle,
  * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
- * @param[in] sample_filter a filter the greenlights samples for a given query
+ * @param[in] sample_filter a device filter function that greenlights samples for a given query
  */
 template <typename T, typename IdxT, typename IvfSampleFilterT>
 void search_with_filtering(raft::resources const& handle,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>  // RAFT_CUDA_TRY
 #include <raft/util/device_loads_stores.cuh>
@@ -167,7 +168,7 @@ struct loadAndComputeDist {
     const T*& data, const T* query, const int lane_id, const int dim, const int dimBlocks)
   {
     const int loadDim     = dimBlocks + lane_id;
-    T queryReg            = loadDim < dim ? query[loadDim] : 0;
+    T queryReg            = loadDim < dim ? query[loadDim] : T{0};
     const int loadDataIdx = lane_id * Veclen;
     for (int d = 0; d < dim - dimBlocks; d += Veclen, data += kIndexGroupSize * Veclen) {
       T enc[Veclen];
@@ -659,7 +660,7 @@ template <int Capacity,
           typename IvfSampleFilterT,
           typename Lambda,
           typename PostLambda>
-__global__ void __launch_bounds__(kThreadsPerBlock)
+RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
   interleaved_scan_kernel(Lambda compute_dist,
                           PostLambda post_process,
                           const uint32_t query_smem_elems,
@@ -737,10 +738,11 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
 
         // This is the vector a given lane/thread handles
         const uint32_t vec_id = group_id * WarpSize + lane_id;
-        const bool valid      = vec_id < list_length;
+        const bool valid =
+          vec_id < list_length && sample_filter(queries_offset + blockIdx.y, list_id, vec_id);
 
         // Process first shm_assisted_dim dimensions (always using shared memory)
-        if (valid && sample_filter(queries_offset + blockIdx.y, probe_id, vec_id)) {
+        if (valid) {
           loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> lc(dist,
                                                                                   compute_dist);
           for (int pos = 0; pos < shm_assisted_dim;
@@ -884,6 +886,7 @@ void launch_kernel(Lambda lambda,
     queries += grid_dim_y * index.dim();
     neighbors += grid_dim_y * grid_dim_x * k;
     distances += grid_dim_y * grid_dim_x * k;
+    coarse_index += grid_dim_y * n_probes;
   }
 }
 
@@ -1095,22 +1098,25 @@ void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                               rmm::cuda_stream_view stream)
 {
   const int capacity = bound_by_power_of_two(k);
-  select_interleaved_scan_kernel<T, AccT, IdxT, IvfSampleFilterT>::run(capacity,
-                                                                       index.veclen(),
-                                                                       select_min,
-                                                                       metric,
-                                                                       index,
-                                                                       queries,
-                                                                       coarse_query_results,
-                                                                       n_queries,
-                                                                       queries_offset,
-                                                                       n_probes,
-                                                                       k,
-                                                                       sample_filter,
-                                                                       neighbors,
-                                                                       distances,
-                                                                       grid_dim_x,
-                                                                       stream);
+
+  auto filter_adapter = raft::neighbors::filtering::ivf_to_sample_filter(
+    index.inds_ptrs().data_handle(), sample_filter);
+  select_interleaved_scan_kernel<T, AccT, IdxT, decltype(filter_adapter)>::run(capacity,
+                                                                               index.veclen(),
+                                                                               select_min,
+                                                                               metric,
+                                                                               index,
+                                                                               queries,
+                                                                               coarse_query_results,
+                                                                               n_queries,
+                                                                               queries_offset,
+                                                                               n_probes,
+                                                                               k,
+                                                                               filter_adapter,
+                                                                               neighbors,
+                                                                               distances,
+                                                                               grid_dim_x,
+                                                                               stream);
 }
 
 }  // namespace raft::neighbors::ivf_flat::detail

@@ -12,11 +12,11 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../../fetch_rapids.cmake)
 
-set(pylibraft_version 23.08.00)
+set(pylibraft_version 24.02.00)
 
 # We always need CUDA for pylibraft because the raft dependency brings in a header-only cuco
 # dependency that enables CUDA unconditionally.
@@ -26,18 +26,12 @@ rapids_cuda_init_architectures(pylibraft)
 project(
   pylibraft
   VERSION ${pylibraft_version}
-  LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
-            # language to be enabled here. The test project that is built in scikit-build to verify
-            # various linking options for the python library is hardcoded to build with C, so until
-            # that is fixed we need to keep C.
-            C CXX CUDA
+  LANGUAGES CXX CUDA
 )
 
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
        ON
 )
-
-option(RAFT_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
@@ -53,23 +47,16 @@ else()
   set(raft_FOUND OFF)
 endif()
 
-include(rapids-cython)
+include(rapids-cython-core)
 
 if(NOT raft_FOUND)
   set(BUILD_TESTS OFF)
   set(BUILD_PRIMS_BENCH OFF)
   set(BUILD_ANN_BENCH OFF)
   set(RAFT_COMPILE_LIBRARY ON)
+  set(CUDA_STATIC_RUNTIME ON)
 
-  set(_exclude_from_all "")
-  if(RAFT_BUILD_WHEELS)
-    # Statically link dependencies if building wheels
-    set(CUDA_STATIC_RUNTIME ON)
-    # Don't install the raft C++ targets into wheels
-    set(_exclude_from_all EXCLUDE_FROM_ALL)
-  endif()
-
-  add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
+  add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
 
   # When building the C++ libraries from source we must copy libraft.so alongside the
   # pairwise_distance and random Cython libraries TODO: when we have a single 'compiled' raft

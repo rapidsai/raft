@@ -4,40 +4,47 @@ files:
     output: conda
     matrix:
       cuda: ["11.8", "12.0"]
-      arch: [x86_64]
+      arch: [x86_64, aarch64]
     includes:
       - build
       - build_pylibraft
-      - cudatoolkit
+      - cuda
+      - cuda_version
       - develop
+      - checks
+      - build_wheels
       - test_libraft
       - docs
       - run_raft_dask
       - run_pylibraft
       - test_python_common
       - test_pylibraft
+      - cupy
   bench_ann:
     output: conda
     matrix:
-      cuda: ["11.8"]
-      arch: [x86_64]
+      cuda: ["11.8", "12.0"]
+      arch: [x86_64, aarch64]
     includes:
       - build
+      - cuda
+      - cuda_version
       - develop
-      - cudatoolkit
       - nn_bench
+      - nn_bench_python
   test_cpp:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - test_libraft
   test_python:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - py_version
       - test_python_common
       - test_pylibraft
+      - cupy
   checks:
     output: none
     includes:
@@ -46,10 +53,11 @@ files:
   docs:
     output: none
     includes:
-      - test_pylibraft
-      - cudatoolkit
+      - cuda_version
+      - cupy
       - docs
       - py_version
+      - test_pylibraft
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -58,7 +66,6 @@ files:
     includes:
       - build
       - build_pylibraft
-      - build_wheels
   py_run_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -75,6 +82,7 @@ files:
     includes:
       - test_python_common
       - test_pylibraft
+      - cupy
   py_build_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -82,7 +90,6 @@ files:
       table: build-system
     includes:
       - build
-      - build_wheels
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -98,6 +105,20 @@ files:
       key: test
     includes:
       - test_python_common
+  py_build_raft_ann_bench:
+    output: pyproject
+    pyproject_dir: python/raft-ann-bench
+    extras:
+      table: build-system
+    includes:
+      - build_wheels
+  py_run_raft_ann_bench:
+    output: pyproject
+    pyproject_dir: python/raft-ann-bench
+    extras:
+      table: project
+    includes:
+      - nn_bench_python
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -109,15 +130,18 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cmake_ver cmake>=3.23.1,!=3.25.0
-          - cython>=0.29,<0.30
+          - &cmake_ver cmake>=3.26.4
+          - cython>=3.0.0
           - ninja
-          - scikit-build>=0.13.1
       - output_types: [conda]
         packages:
           - c-compiler
           - cxx-compiler
           - nccl>=2.9.9
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: conda
         matrices:
@@ -131,11 +155,38 @@ dependencies:
             packages:
               - gcc_linux-aarch64=11.*
               - sysroot_linux-aarch64==2.17
+      - output_types: conda
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages: [cuda-nvcc]
+          - matrix: {cuda: "11.8", arch: x86_64}
+            packages: [nvcc_linux-64=11.8]
+          - matrix: {cuda: "11.8", arch: aarch64}
+            packages: [nvcc_linux-aarch64=11.8]
+          - matrix: {cuda: "11.5", arch: x86_64}
+            packages: [nvcc_linux-64=11.5]
+          - matrix: {cuda: "11.5", arch: aarch64}
+            packages: [nvcc_linux-aarch64=11.5]
+          - matrix: {cuda: "11.4", arch: x86_64}
+            packages: [nvcc_linux-64=11.4]
+          - matrix: {cuda: "11.4", arch: aarch64}
+            packages: [nvcc_linux-aarch64=11.4]
+          - matrix: {cuda: "11.2", arch: x86_64}
+            packages: [nvcc_linux-64=11.2]
+          - matrix: {cuda: "11.2", arch: aarch64}
+            packages: [nvcc_linux-aarch64=11.2]
+
   build_pylibraft:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda]
         packages:
-          - &rmm rmm==23.8.*
+          - &rmm_conda rmm==24.2.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for rmm-cu{11,12}.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -146,6 +197,20 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - &cuda_python11 cuda-python>=11.7.1,<12.0a0
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.2"}
+            packages: &build_pylibraft_packages_cu12
+              - &rmm_cu12 rmm-cu12==24.2.*
+          - {matrix: {cuda: "12.1"}, packages: *build_pylibraft_packages_cu12}
+          - {matrix: {cuda: "12.0"}, packages: *build_pylibraft_packages_cu12}
+          - matrix: {cuda: "11.8"}
+            packages: &build_pylibraft_packages_cu11
+              - &rmm_cu11 rmm-cu11==24.2.*
+          - {matrix: {cuda: "11.5"}, packages: *build_pylibraft_packages_cu11}
+          - {matrix: {cuda: "11.4"}, packages: *build_pylibraft_packages_cu11}
+          - {matrix: {cuda: "11.2"}, packages: *build_pylibraft_packages_cu11}
+          - {matrix: null, packages: [*rmm_conda] }
   checks:
     common:
       - output_types: [conda, requirements]
@@ -153,32 +218,61 @@ dependencies:
           - pre-commit
   develop:
     common:
-      - output_types: [conda, requirements]
+      - output_types: conda
         packages:
-          - clang=16.0.1
-      - output_types: [conda]
-        packages:
-          - clang-tools=16.0.1
+          - clang==16.0.6
+          - clang-tools=16.0.6
   nn_bench:
     common:
-      - output_types: [conda]
+      - output_types: [conda, pyproject, requirements]
         packages:
           - hnswlib=0.7.0
           - nlohmann_json>=3.11.2
           - glog>=0.6.0
           - h5py>=3.8.0
-          - libfaiss>=1.7.1
-          - faiss-proc=*=cuda
+          - benchmark>=1.8.2
+          - openblas
+          - *rmm_conda
+  nn_bench_python:
+    common:
+      - output_types: [conda]
+        packages:
           - matplotlib
-
-  cudatoolkit:
+          - pandas
+          - pyyaml
+          - pandas
+  cuda_version:
     specific:
       - output_types: conda
         matrices:
           - matrix:
+              cuda: "11.2"
+            packages:
+              - cuda-version=11.2
+          - matrix:
+              cuda: "11.4"
+            packages:
+              - cuda-version=11.4
+          - matrix:
+              cuda: "11.5"
+            packages:
+              - cuda-version=11.5
+          - matrix:
+              cuda: "11.8"
+            packages:
+              - cuda-version=11.8
+          - matrix:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+  cuda:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - cuda-nvtx-dev
               - cuda-cudart-dev
               - cuda-profiler-api
               - libcublas-dev
@@ -188,8 +282,8 @@ dependencies:
           - matrix:
               cuda: "11.8"
             packages:
-              - cuda-version=11.8
               - cudatoolkit
+              - cuda-nvtx=11.8
               - cuda-profiler-api=11.8.86
               - libcublas-dev=11.11.3.6
               - libcublas=11.11.3.6
@@ -202,8 +296,8 @@ dependencies:
           - matrix:
               cuda: "11.5"
             packages:
-              - cuda-version=11.5
               - cudatoolkit
+              - cuda-nvtx=11.5
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
               - libcublas-dev>=11.7.3.1,<=11.7.4.6
               - libcublas>=11.7.3.1,<=11.7.4.6
@@ -216,8 +310,8 @@ dependencies:
           - matrix:
               cuda: "11.4"
             packages:
-              - cuda-version=11.4
               - cudatoolkit
+              - &cudanvtx114 cuda-nvtx=11.4
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
               - &libcublas_dev114 libcublas-dev>=11.5.2.43,<=11.6.5.2
               - &libcublas114 libcublas>=11.5.2.43,<=11.6.5.2
@@ -230,8 +324,8 @@ dependencies:
           - matrix:
               cuda: "11.2"
             packages:
-              - cuda-version=11.2
               - cudatoolkit
+              - *cudanvtx114
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
               # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
               # so 11.2 uses 11.4 packages (the oldest available).
@@ -243,6 +337,45 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
+
+  cupy:
+    common:
+      - output_types: conda
+        packages:
+          - cupy>=12.0.0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          # All CUDA 12 + x86_64 versions
+          - matrix: {cuda: "12.2", arch: x86_64}
+            packages: &cupy_packages_cu12_x86_64
+              - &cupy_cu12_x86_64 cupy-cuda12x>=12.0.0
+          - {matrix: {cuda: "12.1", arch: x86_64}, packages: *cupy_packages_cu12_x86_64}
+          - {matrix: {cuda: "12.0", arch: x86_64}, packages: *cupy_packages_cu12_x86_64}
+          # All CUDA 12 + aarch64 versions
+          - matrix: {cuda: "12.2", arch: aarch64}
+            packages: &cupy_packages_cu12_aarch64
+              - &cupy_cu12_aarch64 cupy-cuda12x -f https://pip.cupy.dev/aarch64 # TODO: Verify that this works.
+          - {matrix: {cuda: "12.1", arch: aarch64}, packages: *cupy_packages_cu12_aarch64}
+          - {matrix: {cuda: "12.0", arch: aarch64}, packages: *cupy_packages_cu12_aarch64}
+
+          # All CUDA 11 + x86_64 versions
+          - matrix: {cuda: "11.8", arch: x86_64}
+            packages: &cupy_packages_cu11_x86_64
+              - cupy-cuda11x>=12.0.0
+          - {matrix: {cuda: "11.5", arch: x86_64}, packages: *cupy_packages_cu11_x86_64}
+          - {matrix: {cuda: "11.4", arch: x86_64}, packages: *cupy_packages_cu11_x86_64}
+          - {matrix: {cuda: "11.2", arch: x86_64}, packages: *cupy_packages_cu11_x86_64}
+
+          # All CUDA 11 + aarch64 versions
+          - matrix: {cuda: "11.8", arch: aarch64}
+            packages: &cupy_packages_cu11_aarch64
+              - cupy-cuda11x -f https://pip.cupy.dev/aarch64 # TODO: Verify that this works.
+          - {matrix: {cuda: "11.5", arch: aarch64}, packages: *cupy_packages_cu11_aarch64}
+          - {matrix: {cuda: "11.4", arch: aarch64}, packages: *cupy_packages_cu11_aarch64}
+          - {matrix: {cuda: "11.2", arch: aarch64}, packages: *cupy_packages_cu11_aarch64}
+          - {matrix: null, packages: [cupy-cuda11x>=12.0.0]}
+
   test_libraft:
     common:
       - output_types: [conda]
@@ -265,7 +398,7 @@ dependencies:
           - sphinx-markdown-tables
   build_wheels:
     common:
-      - output_types: pyproject
+      - output_types: [requirements, pyproject]
         packages:
           - wheel
           - setuptools
@@ -289,7 +422,15 @@ dependencies:
       - output_types: [conda, pyproject]
         packages:
           - &numpy numpy>=1.21
-          - *rmm
+      - output_types: [conda]
+        packages:
+          - *rmm_conda
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for cudf and rmm.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -300,25 +441,61 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - *cuda_python11
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.2"}
+            packages: &run_pylibraft_packages_cu12
+              - *rmm_cu12
+          - {matrix: {cuda: "12.1"}, packages: *run_pylibraft_packages_cu12}
+          - {matrix: {cuda: "12.0"}, packages: *run_pylibraft_packages_cu12}
+          - matrix: {cuda: "11.8"}
+            packages: &run_pylibraft_packages_cu11
+              - *rmm_cu11
+          - {matrix: {cuda: "11.5"}, packages: *run_pylibraft_packages_cu11}
+          - {matrix: {cuda: "11.4"}, packages: *run_pylibraft_packages_cu11}
+          - {matrix: {cuda: "11.2"}, packages: *run_pylibraft_packages_cu11}
+          - {matrix: null, packages: [*rmm_conda]}
   run_raft_dask:
     common:
       - output_types: [conda, pyproject]
         packages:
-          - dask==2023.7.1
-          - dask-cuda==23.8.*
-          - distributed==2023.7.1
+          - dask-cuda==24.2.*
           - joblib>=0.11
           - numba>=0.57
           - *numpy
-          - ucx-py==0.33.*
+          - rapids-dask-dependency==24.2.*
+          - ucx-py==0.36.*
       - output_types: conda
         packages:
-          - dask-core==2023.7.1
           - ucx>=1.13.0
           - ucx-proc=*=gpu
+          - &ucx_py_conda ucx-py==0.36.*
       - output_types: pyproject
         packages:
-          - pylibraft==23.8.*
+          - &pylibraft_conda pylibraft==24.2.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for cudf and rmm.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.2"}
+            packages: &run_raft_dask_packages_cu12
+              - &pylibraft_cu12 pylibraft-cu12==24.2.*
+              - &ucx_py_cu12 ucx-py-cu12==0.36.*
+          - {matrix: {cuda: "12.1"}, packages: *run_raft_dask_packages_cu12}
+          - {matrix: {cuda: "12.0"}, packages: *run_raft_dask_packages_cu12}
+          - matrix: {cuda: "11.8"}
+            packages: &run_raft_dask_packages_cu11
+              - &pylibraft_cu11 pylibraft-cu11==24.2.*
+              - &ucx_py_cu11 ucx-py-cu11==0.36.*
+          - {matrix: {cuda: "11.5"}, packages: *run_raft_dask_packages_cu11}
+          - {matrix: {cuda: "11.4"}, packages: *run_raft_dask_packages_cu11}
+          - {matrix: {cuda: "11.2"}, packages: *run_raft_dask_packages_cu11}
+          - {matrix: null, packages: [*pylibraft_conda, *ucx_py_conda]}
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -331,9 +508,3 @@ dependencies:
         packages:
           - scikit-learn
           - scipy
-      - output_types: conda
-        packages:
-          - cupy>=12.0.0
-      - output_types: pyproject
-        packages:
-          - cupy-cuda11x>=12.0.0

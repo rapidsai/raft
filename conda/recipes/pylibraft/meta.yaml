@@ -2,7 +2,7 @@
 
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set py_version = environ['CONDA_PY'] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
@@ -14,7 +14,7 @@ package:
   version: {{ version }}
 
 source:
-  git_url: ../../..
+  path: ../../..
 
 build:
   number: {{ GIT_DESCRIBE_NUMBER }}
@@ -45,13 +45,12 @@ requirements:
     - cuda-python >=12.0,<13.0a0
     {% endif %}
     - cuda-version ={{ cuda_version }}
-    - cython >=0.29,<0.30
+    - cython >=3.0.0
     - libraft {{ version }}
     - libraft-headers {{ version }}
-    - numpy >=1.21
     - python x.x
     - rmm ={{ minor_version }}
-    - scikit-build >=0.13.1
+    - scikit-build-core >=0.7.0
     - setuptools
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
@@ -60,6 +59,7 @@ requirements:
     {% endif %}
     - libraft {{ version }}
     - libraft-headers {{ version }}
+    - numpy >=1.21
     - python x.x
     - rmm ={{ minor_version }}
 

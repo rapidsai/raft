@@ -240,7 +240,7 @@ void matrix_vector_op(raft::resources const& handle,
 
 /** @} */  // end of group matrix_vector_op
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif

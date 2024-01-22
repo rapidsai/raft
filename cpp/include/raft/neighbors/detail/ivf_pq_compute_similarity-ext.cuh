@@ -42,27 +42,27 @@ template <typename OutT,
           int Capacity,
           bool PrecompBaseDiff,
           bool EnableSMemLut>
-__global__ void compute_similarity_kernel(uint32_t dim,
-                                          uint32_t n_probes,
-                                          uint32_t pq_dim,
-                                          uint32_t n_queries,
-                                          uint32_t queries_offset,
-                                          distance::DistanceType metric,
-                                          codebook_gen codebook_kind,
-                                          uint32_t topk,
-                                          uint32_t max_samples,
-                                          const float* cluster_centers,
-                                          const float* pq_centers,
-                                          const uint8_t* const* pq_dataset,
-                                          const uint32_t* cluster_labels,
-                                          const uint32_t* _chunk_indices,
-                                          const float* queries,
-                                          const uint32_t* index_list,
-                                          float* query_kths,
-                                          IvfSampleFilterT sample_filter,
-                                          LutT* lut_scores,
-                                          OutT* _out_scores,
-                                          uint32_t* _out_indices) RAFT_EXPLICIT;
+RAFT_KERNEL compute_similarity_kernel(uint32_t dim,
+                                      uint32_t n_probes,
+                                      uint32_t pq_dim,
+                                      uint32_t n_queries,
+                                      uint32_t queries_offset,
+                                      distance::DistanceType metric,
+                                      codebook_gen codebook_kind,
+                                      uint32_t topk,
+                                      uint32_t max_samples,
+                                      const float* cluster_centers,
+                                      const float* pq_centers,
+                                      const uint8_t* const* pq_dataset,
+                                      const uint32_t* cluster_labels,
+                                      const uint32_t* _chunk_indices,
+                                      const float* queries,
+                                      const uint32_t* index_list,
+                                      float* query_kths,
+                                      IvfSampleFilterT sample_filter,
+                                      LutT* lut_scores,
+                                      OutT* _out_scores,
+                                      uint32_t* _out_indices) RAFT_EXPLICIT;
 
 // The signature of the kernel defined by a minimal set of template parameters
 template <typename OutT, typename LutT, typename IvfSampleFilterT>
@@ -180,25 +180,38 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
   half,
   raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>,
-  raft::neighbors::filtering::none_ivf_sample_filter);
+  raft::neighbors::filtering::ivf_to_sample_filter<
+    int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
   half,
   raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>,
-  raft::neighbors::filtering::none_ivf_sample_filter);
+  raft::neighbors::filtering::ivf_to_sample_filter<
+    int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  half, half, raft::neighbors::filtering::none_ivf_sample_filter);
+  half,
+  half,
+  raft::neighbors::filtering::ivf_to_sample_filter<
+    int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  float, half, raft::neighbors::filtering::none_ivf_sample_filter);
+  float,
+  half,
+  raft::neighbors::filtering::ivf_to_sample_filter<
+    int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  float, float, raft::neighbors::filtering::none_ivf_sample_filter);
+  float,
+  float,
+  raft::neighbors::filtering::ivf_to_sample_filter<
+    int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
   float,
   raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>,
-  raft::neighbors::filtering::none_ivf_sample_filter);
+  raft::neighbors::filtering::ivf_to_sample_filter<
+    int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
   float,
   raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>,
-  raft::neighbors::filtering::none_ivf_sample_filter);
+  raft::neighbors::filtering::ivf_to_sample_filter<
+    int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>);
 
 #undef COMMA
 

@@ -25,7 +25,7 @@ namespace raft {
 namespace linalg {
 
 template <typename Type>
-__global__ void naiveSubtractElemKernel(Type* out, const Type* in1, const Type* in2, int len)
+RAFT_KERNEL naiveSubtractElemKernel(Type* out, const Type* in1, const Type* in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = in1[idx] - in2[idx]; }
@@ -41,7 +41,7 @@ void naiveSubtractElem(Type* out, const Type* in1, const Type* in2, int len, cud
 }
 
 template <typename Type>
-__global__ void naiveSubtractScalarKernel(Type* out, const Type* in1, const Type in2, int len)
+RAFT_KERNEL naiveSubtractScalarKernel(Type* out, const Type* in1, const Type in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = in1[idx] - in2; }

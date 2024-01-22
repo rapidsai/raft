@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,5 +31,12 @@ enum class Apply { ALONG_ROWS, ALONG_COLUMNS };
  *
  */
 enum class FillMode { UPPER, LOWER };
+
+/**
+ * @brief Enum for this type indicates which operation is applied to the related input (e.g. sparse
+ * matrix, or vector).
+ *
+ */
+enum class Operation { NON_TRANSPOSE, TRANSPOSE };
 
 }  // end namespace raft::linalg

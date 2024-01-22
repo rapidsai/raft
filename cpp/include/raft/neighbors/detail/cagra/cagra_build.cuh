@@ -34,6 +34,7 @@
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/neighbors/nn_descent.cuh>
 #include <raft/neighbors/refine.cuh>
 
 namespace raft::neighbors::cagra::detail {
@@ -122,9 +123,7 @@ void build_knn_graph(raft::resources const& res,
   bool first                    = true;
   const auto start_clock        = std::chrono::system_clock::now();
 
-  rmm::mr::device_memory_resource* device_memory = nullptr;
-  auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-  if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq using pool memory resource"); }
+  rmm::mr::device_memory_resource* device_memory = raft::resource::get_workspace_resource(res);
 
   raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(
     dataset.data_handle(),
@@ -238,4 +237,109 @@ void build_knn_graph(raft::resources const& res,
   if (!first) RAFT_LOG_DEBUG("# Finished building kNN graph");
 }
 
+template <typename DataT, typename IdxT, typename accessor>
+void build_knn_graph(raft::resources const& res,
+                     mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
+                     raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
+                     experimental::nn_descent::index_params build_params)
+{
+  auto nn_descent_idx = experimental::nn_descent::index<IdxT>(res, knn_graph);
+  experimental::nn_descent::build<DataT, IdxT>(res, build_params, dataset, nn_descent_idx);
+
+  using internal_IdxT = typename std::make_unsigned<IdxT>::type;
+  using g_accessor    = typename decltype(nn_descent_idx.graph())::accessor_type;
+  using g_accessor_internal =
+    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, g_accessor::mem_type>;
+
+  auto knn_graph_internal =
+    mdspan<internal_IdxT, matrix_extent<int64_t>, row_major, g_accessor_internal>(
+      reinterpret_cast<internal_IdxT*>(nn_descent_idx.graph().data_handle()),
+      nn_descent_idx.graph().extent(0),
+      nn_descent_idx.graph().extent(1));
+
+  graph::sort_knn_graph(res, dataset, knn_graph_internal);
+}
+
+template <typename IdxT = uint32_t,
+          typename g_accessor =
+            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
+void optimize(raft::resources const& res,
+              mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
+              raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)
+{
+  using internal_IdxT = typename std::make_unsigned<IdxT>::type;
+
+  auto new_graph_internal = raft::make_host_matrix_view<internal_IdxT, int64_t>(
+    reinterpret_cast<internal_IdxT*>(new_graph.data_handle()),
+    new_graph.extent(0),
+    new_graph.extent(1));
+
+  using g_accessor_internal =
+    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, memory_type::host>;
+  auto knn_graph_internal =
+    mdspan<internal_IdxT, matrix_extent<int64_t>, row_major, g_accessor_internal>(
+      reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
+      knn_graph.extent(0),
+      knn_graph.extent(1));
+
+  cagra::detail::graph::optimize(res, knn_graph_internal, new_graph_internal);
+}
+
+template <typename T,
+          typename IdxT = uint32_t,
+          typename Accessor =
+            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+index<T, IdxT> build(
+  raft::resources const& res,
+  const index_params& params,
+  mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
+  std::optional<experimental::nn_descent::index_params> nn_descent_params = std::nullopt,
+  std::optional<float> refine_rate                                        = std::nullopt,
+  std::optional<ivf_pq::index_params> pq_build_params                     = std::nullopt,
+  std::optional<ivf_pq::search_params> search_params                      = std::nullopt)
+{
+  size_t intermediate_degree = params.intermediate_graph_degree;
+  size_t graph_degree        = params.graph_degree;
+  if (intermediate_degree >= static_cast<size_t>(dataset.extent(0))) {
+    RAFT_LOG_WARN(
+      "Intermediate graph degree cannot be larger than dataset size, reducing it to %lu",
+      dataset.extent(0));
+    intermediate_degree = dataset.extent(0) - 1;
+  }
+  if (intermediate_degree < graph_degree) {
+    RAFT_LOG_WARN(
+      "Graph degree (%lu) cannot be larger than intermediate graph degree (%lu), reducing "
+      "graph_degree.",
+      graph_degree,
+      intermediate_degree);
+    graph_degree = intermediate_degree;
+  }
+
+  std::optional<raft::host_matrix<IdxT, int64_t>> knn_graph(
+    raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree));
+
+  if (params.build_algo == graph_build_algo::IVF_PQ) {
+    build_knn_graph(res, dataset, knn_graph->view(), refine_rate, pq_build_params, search_params);
+
+  } else {
+    // Use nn-descent to build CAGRA knn graph
+    if (!nn_descent_params) {
+      nn_descent_params                            = experimental::nn_descent::index_params();
+      nn_descent_params->graph_degree              = intermediate_degree;
+      nn_descent_params->intermediate_graph_degree = 1.5 * intermediate_degree;
+      nn_descent_params->max_iterations            = params.nn_descent_niter;
+    }
+    build_knn_graph<T, IdxT>(res, dataset, knn_graph->view(), *nn_descent_params);
+  }
+
+  auto cagra_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), graph_degree);
+
+  optimize<IdxT>(res, knn_graph->view(), cagra_graph.view());
+
+  // free intermediate graph before trying to create the index
+  knn_graph.reset();
+
+  // Construct an index from dataset and optimized knn graph.
+  return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
+}
 }  // namespace raft::neighbors::cagra::detail

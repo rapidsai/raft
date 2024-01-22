@@ -44,6 +44,7 @@
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/integer_utils.hpp>
 
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_vector.hpp>
@@ -434,11 +435,11 @@ template <uint32_t BlockDimY,
           typename LabelT,
           typename CounterT,
           typename MappingOpT>
-__global__ void __launch_bounds__((WarpSize * BlockDimY))
+__launch_bounds__((WarpSize * BlockDimY)) RAFT_KERNEL
   adjust_centers_kernel(MathT* centers,  // [n_clusters, dim]
                         IdxT n_clusters,
                         IdxT dim,
-                        const T* dataset,               // [n_rows, dim]
+                        const T* dataset,  // [n_rows, dim]
                         IdxT n_rows,
                         const LabelT* labels,           // [n_rows]
                         const CounterT* cluster_sizes,  // [n_clusters]
@@ -970,16 +971,11 @@ void build_hierarchical(const raft::resources& handle,
   IdxT n_mesoclusters = std::min(n_clusters, static_cast<IdxT>(std::sqrt(n_clusters) + 0.5));
   RAFT_LOG_DEBUG("build_hierarchical: n_mesoclusters: %u", n_mesoclusters);
 
+  // TODO: Remove the explicit managed memory- we shouldn't be creating this on the user's behalf.
   rmm::mr::managed_memory_resource managed_memory;
   rmm::mr::device_memory_resource* device_memory = resource::get_workspace_resource(handle);
   auto [max_minibatch_size, mem_per_row] =
     calc_minibatch_size<MathT>(n_clusters, n_rows, dim, params.metric, std::is_same_v<T, MathT>);
-  auto pool_guard =
-    raft::get_pool_memory_resource(device_memory, mem_per_row * size_t(max_minibatch_size));
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("build_hierarchical: using pool memory resource with initial size %zu bytes",
-                   mem_per_row * size_t(max_minibatch_size));
-  }
 
   // Precompute the L2 norm of the dataset if relevant.
   const MathT* dataset_norm = nullptr;

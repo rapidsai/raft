@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,17 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft_runtime/neighbors/cagra.hpp>
 
+#include <cuda_fp16.h>
+
 namespace raft::runtime::neighbors::cagra {
 
 #define RAFT_INST_CAGRA_SERIALIZE(DTYPE)                                             \
   void serialize_file(raft::resources const& handle,                                 \
                       const std::string& filename,                                   \
-                      const raft::neighbors::cagra::index<DTYPE, uint32_t>& index)   \
+                      const raft::neighbors::cagra::index<DTYPE, uint32_t>& index,   \
+                      bool include_dataset)                                          \
   {                                                                                  \
-    raft::neighbors::cagra::serialize(handle, filename, index);                      \
+    raft::neighbors::cagra::serialize(handle, filename, index, include_dataset);     \
   };                                                                                 \
                                                                                      \
   void deserialize_file(raft::resources const& handle,                               \
@@ -41,10 +44,11 @@ namespace raft::runtime::neighbors::cagra {
   };                                                                                 \
   void serialize(raft::resources const& handle,                                      \
                  std::string& str,                                                   \
-                 const raft::neighbors::cagra::index<DTYPE, uint32_t>& index)        \
+                 const raft::neighbors::cagra::index<DTYPE, uint32_t>& index,        \
+                 bool include_dataset)                                               \
   {                                                                                  \
     std::stringstream os;                                                            \
-    raft::neighbors::cagra::serialize(handle, os, index);                            \
+    raft::neighbors::cagra::serialize(handle, os, index, include_dataset);           \
     str = os.str();                                                                  \
   }                                                                                  \
                                                                                      \
@@ -58,6 +62,7 @@ namespace raft::runtime::neighbors::cagra {
   }
 
 RAFT_INST_CAGRA_SERIALIZE(float);
+RAFT_INST_CAGRA_SERIALIZE(half);
 RAFT_INST_CAGRA_SERIALIZE(int8_t);
 RAFT_INST_CAGRA_SERIALIZE(uint8_t);
 

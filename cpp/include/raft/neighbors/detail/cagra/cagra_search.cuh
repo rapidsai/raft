@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,12 @@
 
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/detail/ivf_pq_search.cuh>
+#include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
@@ -31,6 +33,48 @@
 #include "search_single_cta.cuh"
 
 namespace raft::neighbors::cagra::detail {
+
+template <class CagraSampleFilterT>
+struct CagraSampleFilterWithQueryIdOffset {
+  const uint32_t offset;
+  CagraSampleFilterT filter;
+
+  CagraSampleFilterWithQueryIdOffset(const uint32_t offset, const CagraSampleFilterT filter)
+    : offset(offset), filter(filter)
+  {
+  }
+
+  _RAFT_DEVICE auto operator()(const uint32_t query_id, const uint32_t sample_id)
+  {
+    return filter(query_id + offset, sample_id);
+  }
+};
+
+template <class CagraSampleFilterT>
+struct CagraSampleFilterT_Selector {
+  using type = CagraSampleFilterWithQueryIdOffset<CagraSampleFilterT>;
+};
+template <>
+struct CagraSampleFilterT_Selector<raft::neighbors::filtering::none_cagra_sample_filter> {
+  using type = raft::neighbors::filtering::none_cagra_sample_filter;
+};
+
+// A helper function to set a query id offset
+template <class CagraSampleFilterT>
+inline typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type set_offset(
+  CagraSampleFilterT filter, const uint32_t offset)
+{
+  typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type new_filter(offset, filter);
+  return new_filter;
+}
+template <>
+inline
+  typename CagraSampleFilterT_Selector<raft::neighbors::filtering::none_cagra_sample_filter>::type
+  set_offset<raft::neighbors::filtering::none_cagra_sample_filter>(
+    raft::neighbors::filtering::none_cagra_sample_filter filter, const uint32_t)
+{
+  return filter;
+}
 
 /**
  * @brief Search ANN using the constructed index.
@@ -52,13 +96,18 @@ namespace raft::neighbors::cagra::detail {
  * k]
  */
 
-template <typename T, typename internal_IdxT, typename IdxT = uint32_t, typename DistanceT = float>
+template <typename T,
+          typename internal_IdxT,
+          typename CagraSampleFilterT,
+          typename IdxT      = uint32_t,
+          typename DistanceT = float>
 void search_main(raft::resources const& res,
                  search_params params,
                  const index<T, IdxT>& index,
                  raft::device_matrix_view<const T, int64_t, row_major> queries,
                  raft::device_matrix_view<internal_IdxT, int64_t, row_major> neighbors,
-                 raft::device_matrix_view<DistanceT, int64_t, row_major> distances)
+                 raft::device_matrix_view<DistanceT, int64_t, row_major> distances,
+                 CagraSampleFilterT sample_filter = CagraSampleFilterT())
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.dataset().extent(0)),
@@ -66,13 +115,20 @@ void search_main(raft::resources const& res,
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
-  RAFT_EXPECTS(queries.extent(1) == index.dim(), "Querise and index dim must match");
+  RAFT_EXPECTS(queries.extent(1) == index.dim(), "Queries and index dim must match");
   const uint32_t topk = neighbors.extent(1);
 
-  if (params.max_queries == 0) { params.max_queries = queries.extent(0); }
+  cudaDeviceProp deviceProp = resource::get_device_properties(res);
+  if (params.max_queries == 0) {
+    params.max_queries = std::min<size_t>(queries.extent(0), deviceProp.maxGridSize[1]);
+  }
 
-  std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT>> plan =
-    factory<T, internal_IdxT, DistanceT>::create(
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "cagra::search(max_queries = %u, k = %u, dim = %zu)", params.max_queries, topk, index.dim());
+
+  using CagraSampleFilterT_s = typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type;
+  std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>> plan =
+    factory<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>::create(
       res, params, index.dim(), index.graph_degree(), topk);
 
   plan->check(neighbors.extent(1));
@@ -113,7 +169,8 @@ void search_main(raft::resources const& res,
             n_queries,
             _seed_ptr,
             _num_executed_iterations,
-            topk);
+            topk,
+            set_offset(sample_filter, qid));
   }
 
   static_assert(std::is_same_v<DistanceT, float>,

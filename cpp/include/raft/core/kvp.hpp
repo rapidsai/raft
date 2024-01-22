@@ -32,11 +32,11 @@ struct KeyValuePair {
   typedef _Key Key;      ///< Key data type
   typedef _Value Value;  ///< Value data type
 
-  Key key;               ///< Item key
-  Value value;           ///< Item value
+  Key key;      ///< Item key
+  Value value;  ///< Item value
 
   /// Constructor
-  RAFT_INLINE_FUNCTION KeyValuePair() {}
+  KeyValuePair() = default;
 
 #ifdef _RAFT_HAS_CUDA
   /// Conversion Constructor to allow integration w/ cub

@@ -46,9 +46,9 @@ struct GramMatrix : public fixture {
     A.resize(params.m * params.k, stream);
     B.resize(params.k * params.n, stream);
     C.resize(params.m * params.n, stream);
-    raft::random::Rng r(123456ULL);
-    r.uniform(A.data(), params.m * params.k, T(-1.0), T(1.0), stream);
-    r.uniform(B.data(), params.k * params.n, T(-1.0), T(1.0), stream);
+    raft::random::RngState rng(123456ULL);
+    raft::random::uniform(handle, rng, A.data(), params.m * params.k, T(-1.0), T(1.0));
+    raft::random::uniform(handle, rng, B.data(), params.k * params.n, T(-1.0), T(1.0));
   }
 
   ~GramMatrix()

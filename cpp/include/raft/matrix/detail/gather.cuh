@@ -47,14 +47,14 @@ template <typename Policy,
           typename MapTransformOp,
           typename OutputIteratorT,
           typename IndexT>
-__global__ void gather_kernel(const InputIteratorT in,
-                              IndexT D,
-                              IndexT len,
-                              const MapIteratorT map,
-                              StencilIteratorT stencil,
-                              OutputIteratorT out,
-                              PredicateOp pred_op,
-                              MapTransformOp transform_op)
+RAFT_KERNEL gather_kernel(const InputIteratorT in,
+                          IndexT D,
+                          IndexT len,
+                          const MapIteratorT map,
+                          StencilIteratorT stencil,
+                          OutputIteratorT out,
+                          PredicateOp pred_op,
+                          MapTransformOp transform_op)
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
   typedef typename std::iterator_traits<StencilIteratorT>::value_type StencilValueT;

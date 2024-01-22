@@ -26,15 +26,15 @@ namespace raft {
 namespace linalg {
 
 template <typename Type>
-__global__ void naiveReduceRowsByKeyKernel(const Type* d_A,
-                                           int lda,
-                                           uint32_t* d_keys,
-                                           const Type* d_weight,
-                                           char* d_char_keys,
-                                           int nrows,
-                                           int ncols,
-                                           int nkeys,
-                                           Type* d_sums)
+RAFT_KERNEL naiveReduceRowsByKeyKernel(const Type* d_A,
+                                       int lda,
+                                       uint32_t* d_keys,
+                                       const Type* d_weight,
+                                       char* d_char_keys,
+                                       int nrows,
+                                       int ncols,
+                                       int nkeys,
+                                       Type* d_sums)
 {
   int c = threadIdx.x + blockIdx.x * blockDim.x;
   if (c >= ncols) return;

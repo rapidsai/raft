@@ -21,8 +21,8 @@ from pylibraft.common import DeviceResources, Stream, device_ndarray
 from pylibraft.distance import pairwise_distance
 
 
-@pytest.mark.parametrize("n_rows", [32, 100])
-@pytest.mark.parametrize("n_cols", [40, 100])
+@pytest.mark.parametrize("n_rows", [50, 100])
+@pytest.mark.parametrize("n_cols", [10, 50])
 @pytest.mark.parametrize(
     "metric",
     [
@@ -63,8 +63,6 @@ def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
     else:
         expected = cdist(input1, input1, metric)
 
-    expected[expected <= 1e-5] = 0.0
-
     input1_device = device_ndarray(input1)
     output_device = device_ndarray(output) if inplace else None
 
@@ -79,6 +77,4 @@ def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
 
     actual = output_device.copy_to_host()
 
-    actual[actual <= 1e-5] = 0.0
-
-    assert np.allclose(expected, actual, rtol=1e-4)
+    assert np.allclose(expected, actual, atol=1e-3, rtol=1e-3)

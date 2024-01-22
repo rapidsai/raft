@@ -197,8 +197,8 @@ cdef class Handle(DeviceResources):
 
 
 _HANDLE_PARAM_DOCSTRING = """
-     handle : Optional RAFT resource handle for reusing expensive CUDA
-        resources. If a handle isn't supplied, CUDA resources will be
+     handle : Optional RAFT resource handle for reusing CUDA resources.
+        If a handle isn't supplied, CUDA resources will be
         allocated inside this function and synchronized before the
         function exits. If a handle is supplied, you will need to
         explicitly synchronize yourself by calling `handle.sync()`

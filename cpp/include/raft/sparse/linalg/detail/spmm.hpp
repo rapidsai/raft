@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,56 +46,6 @@ bool is_row_major(raft::device_matrix_view<const ValueType, IndexType, LayoutPol
   bool is_col_major = z.stride(0) == 1 && y.stride(0) == 1;
   ASSERT(is_row_major || is_col_major, "Both matrices need to be either row or col major");
   return is_row_major;
-}
-
-/**
- * @brief create a cuSparse dense descriptor
- * @tparam ValueType Data type of dense_view (float/double)
- * @tparam IndexType Type of dense_view
- * @tparam LayoutPolicy layout of dense_view
- * @param[in] dense_view input raft::device_matrix_view
- * @param[in] is_row_major data layout of raft::device_matrix_view
- * @returns dense matrix descriptor to be used by cuSparse API
- */
-template <typename ValueType, typename IndexType, typename LayoutPolicy>
-cusparseDnMatDescr_t create_descriptor(
-  raft::device_matrix_view<ValueType, IndexType, LayoutPolicy>& dense_view, const bool is_row_major)
-{
-  auto order   = is_row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
-  IndexType ld = is_row_major ? dense_view.stride(0) : dense_view.stride(1);
-  cusparseDnMatDescr_t descr;
-  RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednmat(
-    &descr,
-    dense_view.extent(0),
-    dense_view.extent(1),
-    ld,
-    const_cast<std::remove_const_t<ValueType>*>(dense_view.data_handle()),
-    order));
-  return descr;
-}
-
-/**
- * @brief create a cuSparse sparse descriptor
- * @tparam ValueType Data type of sparse_view (float/double)
- * @tparam NZType Type of sparse_view
- * @param[in] sparse_view input raft::device_csr_matrix_view of size M rows x K columns
- * @returns sparse matrix descriptor to be used by cuSparse API
- */
-template <typename ValueType, typename NZType>
-cusparseSpMatDescr_t create_descriptor(
-  raft::device_csr_matrix_view<ValueType, int, int, NZType>& sparse_view)
-{
-  cusparseSpMatDescr_t descr;
-  auto csr_structure = sparse_view.structure_view();
-  RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatecsr(
-    &descr,
-    csr_structure.get_n_rows(),
-    csr_structure.get_n_cols(),
-    csr_structure.get_nnz(),
-    const_cast<int*>(csr_structure.get_indptr().data()),
-    const_cast<int*>(csr_structure.get_indices().data()),
-    const_cast<std::remove_const_t<ValueType>*>(sparse_view.get_elements().data())));
-  return descr;
 }
 
 /**

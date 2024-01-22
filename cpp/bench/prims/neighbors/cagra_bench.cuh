@@ -18,8 +18,10 @@
 
 #include <common/benchmark.hpp>
 #include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
+#include <thrust/sequence.h>
 
 #include <optional>
 
@@ -40,6 +42,8 @@ struct params {
   int block_size;
   int search_width;
   int max_iterations;
+  /** Ratio of removed indices. */
+  double removed_ratio;
 };
 
 template <typename T, typename IdxT>
@@ -49,7 +53,8 @@ struct CagraBench : public fixture {
       params_(ps),
       queries_(make_device_matrix<T, int64_t>(handle, ps.n_queries, ps.n_dims)),
       dataset_(make_device_matrix<T, int64_t>(handle, ps.n_samples, ps.n_dims)),
-      knn_graph_(make_device_matrix<IdxT, int64_t>(handle, ps.n_samples, ps.degree))
+      knn_graph_(make_device_matrix<IdxT, int64_t>(handle, ps.n_samples, ps.degree)),
+      removed_indices_bitset_(handle, ps.n_samples)
   {
     // Generate random dataset and queriees
     raft::random::RngState state{42};
@@ -57,23 +62,30 @@ struct CagraBench : public fixture {
     constexpr T kRangeMin = std::is_integral_v<T> ? std::numeric_limits<T>::min() : T(-1);
     if constexpr (std::is_integral_v<T>) {
       raft::random::uniformInt(
-        state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax, stream);
+        handle, state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax);
       raft::random::uniformInt(
-        state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax, stream);
+        handle, state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax);
     } else {
       raft::random::uniform(
-        state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax, stream);
+        handle, state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax);
       raft::random::uniform(
-        state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax, stream);
+        handle, state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax);
     }
 
     // Generate random knn graph
 
     raft::random::uniformInt<IdxT>(
-      state, knn_graph_.data_handle(), knn_graph_.size(), 0, ps.n_samples - 1, stream);
+      handle, state, knn_graph_.data_handle(), knn_graph_.size(), 0, ps.n_samples - 1);
 
     auto metric = raft::distance::DistanceType::L2Expanded;
 
+    auto removed_indices =
+      raft::make_device_vector<IdxT, int64_t>(handle, ps.removed_ratio * ps.n_samples);
+    thrust::sequence(
+      resource::get_thrust_policy(handle),
+      thrust::device_pointer_cast(removed_indices.data_handle()),
+      thrust::device_pointer_cast(removed_indices.data_handle() + removed_indices.extent(0)));
+    removed_indices_bitset_.set(handle, removed_indices.view());
     index_.emplace(raft::neighbors::cagra::index<T, IdxT>(
       handle, metric, make_const_mdspan(dataset_.view()), make_const_mdspan(knn_graph_.view())));
   }
@@ -95,10 +107,18 @@ struct CagraBench : public fixture {
       distances.data_handle(), params_.n_queries, params_.k);
 
     auto queries_v = make_const_mdspan(queries_.view());
-    loop_on_state(state, [&]() {
-      raft::neighbors::cagra::search(
-        this->handle, search_params, *this->index_, queries_v, ind_v, dist_v);
-    });
+    if (params_.removed_ratio > 0) {
+      auto filter = raft::neighbors::filtering::bitset_filter(removed_indices_bitset_.view());
+      loop_on_state(state, [&]() {
+        raft::neighbors::cagra::search_with_filtering(
+          this->handle, search_params, *this->index_, queries_v, ind_v, dist_v, filter);
+      });
+    } else {
+      loop_on_state(state, [&]() {
+        raft::neighbors::cagra::search(
+          this->handle, search_params, *this->index_, queries_v, ind_v, dist_v);
+      });
+    }
 
     double data_size  = params_.n_samples * params_.n_dims * sizeof(T);
     double graph_size = params_.n_samples * params_.degree * sizeof(IdxT);
@@ -120,6 +140,7 @@ struct CagraBench : public fixture {
     state.counters["block_size"]    = params_.block_size;
     state.counters["search_width"]  = params_.search_width;
     state.counters["iterations"]    = iterations;
+    state.counters["removed_ratio"] = params_.removed_ratio;
   }
 
  private:
@@ -128,6 +149,7 @@ struct CagraBench : public fixture {
   raft::device_matrix<T, int64_t, row_major> queries_;
   raft::device_matrix<T, int64_t, row_major> dataset_;
   raft::device_matrix<IdxT, int64_t, row_major> knn_graph_;
+  raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset_;
 };
 
 inline const std::vector<params> generate_inputs()
@@ -141,7 +163,8 @@ inline const std::vector<params> generate_inputs()
                                            {64},                   // itopk_size
                                            {0},                    // block_size
                                            {1},                    // search_width
-                                           {0}                     // max_iterations
+                                           {0},                    // max_iterations
+                                           {0.0}                   // removed_ratio
     );
   auto inputs2 = raft::util::itertools::product<params>({2000000ull, 10000000ull},  // n_samples
                                                         {128},                      // dataset dim
@@ -151,7 +174,22 @@ inline const std::vector<params> generate_inputs()
                                                         {64},  // itopk_size
                                                         {64, 128, 256, 512, 1024},  // block_size
                                                         {1},                        // search_width
-                                                        {0}  // max_iterations
+                                                        {0},   // max_iterations
+                                                        {0.0}  // removed_ratio
+  );
+  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
+
+  inputs2 = raft::util::itertools::product<params>(
+    {2000000ull, 10000000ull},                 // n_samples
+    {128},                                     // dataset dim
+    {1, 10, 10000},                            // n_queries
+    {255},                                     // k
+    {64},                                      // knn graph degree
+    {300},                                     // itopk_size
+    {256},                                     // block_size
+    {2},                                       // search_width
+    {0},                                       // max_iterations
+    {0.0, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64}  // removed_ratio
   );
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
   return inputs;

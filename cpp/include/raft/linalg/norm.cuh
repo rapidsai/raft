@@ -20,6 +20,7 @@
 
 #include "detail/norm.cuh"
 #include "linalg_types.hpp"
+#include <raft/core/mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>

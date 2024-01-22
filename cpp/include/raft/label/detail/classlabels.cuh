@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -119,13 +119,13 @@ void getOvrlabels(
 // +/-1, return array with the new class labels and corresponding indices.
 
 template <typename Type, int TPB_X, typename Lambda>
-__global__ void map_label_kernel(Type* map_ids,
-                                 size_t N_labels,
-                                 Type* in,
-                                 Type* out,
-                                 size_t N,
-                                 Lambda filter_op,
-                                 bool zero_based = false)
+RAFT_KERNEL map_label_kernel(Type* map_ids,
+                             size_t N_labels,
+                             Type* in,
+                             Type* out,
+                             size_t N,
+                             Lambda filter_op,
+                             bool zero_based = false)
 {
   int tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {

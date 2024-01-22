@@ -24,3 +24,14 @@ namespace *raft::neighbors::ivf_flat*
     :project: RAFT
     :members:
     :content-only:
+
+Helper Methods
+--------------
+``#include <raft/neighbors/ivf_flat_helpers.cuh>``
+
+namespace *raft::neighbors::ivf_flat::helpers*
+
+.. doxygengroup:: ivf_flat_helpers
+    :project: RAFT
+    :members:
+    :content-only:

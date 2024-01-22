@@ -43,7 +43,7 @@ repos:
                 additional_dependencies: [toml]
                 args: ["--config=pyproject.toml"]
       - repo: https://github.com/pre-commit/mirrors-clang-format
-        rev: v16.0.1
+        rev: v16.0.6
         hooks:
               - id: clang-format
                 types_or: [c, c++, cuda]
@@ -101,11 +101,14 @@ repos:
                 args: ["--toml", "pyproject.toml"]
                 exclude: (?x)^(^CHANGELOG.md$)
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.5.1
+        rev: v1.8.0
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
-
+      - repo: https://github.com/pre-commit/pre-commit-hooks
+        rev: v4.5.0
+        hooks:
+              - id: check-json
 
 default_language_version:
       python: python3

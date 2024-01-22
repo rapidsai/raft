@@ -33,7 +33,7 @@ namespace raft::util {
 constexpr int max_warps_per_block = 32;
 
 template <typename ReduceLambda>
-__global__ void test_reduction_kernel(const int* input, int* reduction_res, ReduceLambda reduce_op)
+RAFT_KERNEL test_reduction_kernel(const int* input, int* reduction_res, ReduceLambda reduce_op)
 {
   assert(gridDim.x == 1);
   __shared__ int red_buf[max_warps_per_block];
@@ -43,10 +43,10 @@ __global__ void test_reduction_kernel(const int* input, int* reduction_res, Redu
 }
 
 template <typename ReduceLambda>
-__global__ void test_ranked_reduction_kernel(const int* input,
-                                             int* reduction_res,
-                                             int* out_rank,
-                                             ReduceLambda reduce_op)
+RAFT_KERNEL test_ranked_reduction_kernel(const int* input,
+                                         int* reduction_res,
+                                         int* out_rank,
+                                         ReduceLambda reduce_op)
 {
   assert(gridDim.x == 1);
   __shared__ int red_buf[2 * max_warps_per_block];
@@ -59,7 +59,7 @@ __global__ void test_ranked_reduction_kernel(const int* input,
   }
 }
 
-__global__ void test_block_random_sample_kernel(const int* input, int* reduction_res)
+RAFT_KERNEL test_block_random_sample_kernel(const int* input, int* reduction_res)
 {
   assert(gridDim.x == 1);
   __shared__ int red_buf[2 * max_warps_per_block];
@@ -71,7 +71,7 @@ __global__ void test_block_random_sample_kernel(const int* input, int* reduction
 }
 
 template <int TPB>
-__global__ void test_binary_reduction_kernel(const int* input, int* reduction_res)
+RAFT_KERNEL test_binary_reduction_kernel(const int* input, int* reduction_res)
 {
   assert(gridDim.x == 1);
   __shared__ int shared[TPB / WarpSize];
@@ -147,9 +147,9 @@ struct reduction_launch {
 template <typename T>
 class ReductionTest : public testing::TestWithParam<std::vector<int>> {  // NOLINT
  protected:
-  const std::vector<int> input;                                          // NOLINT
-  rmm::cuda_stream_view stream;                                          // NOLINT
-  rmm::device_uvector<int> arr_d;                                        // NOLINT
+  const std::vector<int> input;    // NOLINT
+  rmm::cuda_stream_view stream;    // NOLINT
+  rmm::device_uvector<int> arr_d;  // NOLINT
 
  public:
   explicit ReductionTest()
@@ -184,8 +184,8 @@ const std::vector<int> binary_test_vector{
 auto reduction_input        = ::testing::Values(test_vector);
 auto binary_reduction_input = ::testing::Values(binary_test_vector);
 
-using ReductionTestInt       = ReductionTest<int>;                            // NOLINT
-using BinaryReductionTestInt = ReductionTest<int>;                            // NOLINT
+using ReductionTestInt       = ReductionTest<int>;  // NOLINT
+using BinaryReductionTestInt = ReductionTest<int>;  // NOLINT
 TEST_P(ReductionTestInt, REDUCTIONS) { run_reduction(); }
 INSTANTIATE_TEST_CASE_P(ReductionTest, ReductionTestInt, reduction_input);    // NOLINT
 TEST_P(BinaryReductionTestInt, BINARY_REDUCTION) { run_binary_reduction(); }  // NOLINT

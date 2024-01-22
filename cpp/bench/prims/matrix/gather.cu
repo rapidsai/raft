@@ -52,11 +52,11 @@ struct Gather : public fixture {
 
     raft::random::RngState rng{1234};
     raft::random::uniform(
-      rng, matrix.data_handle(), params.rows * params.cols, T(-1), T(1), stream);
+      handle, rng, matrix.data_handle(), params.rows * params.cols, T(-1), T(1));
     raft::random::uniformInt(
       handle, rng, map.data_handle(), params.map_length, (MapT)0, (MapT)params.rows);
     if constexpr (Conditional) {
-      raft::random::uniform(rng, stencil.data_handle(), params.map_length, T(-1), T(1), stream);
+      raft::random::uniform(handle, rng, stencil.data_handle(), params.map_length, T(-1), T(1));
     }
     resource::sync_stream(handle, stream);
   }

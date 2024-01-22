@@ -46,7 +46,7 @@ template <typename T>
 }
 
 template <typename T>
-__global__ void naiveMinMaxInitKernel(int ncols, T* globalmin, T* globalmax, T init_val)
+RAFT_KERNEL naiveMinMaxInitKernel(int ncols, T* globalmin, T* globalmax, T init_val)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= ncols) return;
@@ -55,7 +55,7 @@ __global__ void naiveMinMaxInitKernel(int ncols, T* globalmin, T* globalmax, T i
 }
 
 template <typename T>
-__global__ void naiveMinMaxKernel(const T* data, int nrows, int ncols, T* globalmin, T* globalmax)
+RAFT_KERNEL naiveMinMaxKernel(const T* data, int nrows, int ncols, T* globalmin, T* globalmax)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int col = tid / nrows;
@@ -83,7 +83,7 @@ void naiveMinMax(
 }
 
 template <typename T>
-__global__ void nanKernel(T* data, const bool* mask, int len, T nan)
+RAFT_KERNEL nanKernel(T* data, const bool* mask, int len, T nan)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) return;

@@ -20,6 +20,10 @@
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/util/integer_utils.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <type_traits>
 
 namespace raft::neighbors::cagra::detail {
@@ -150,4 +154,129 @@ struct gen_index_msb_1_mask {
 };
 }  // namespace utils
 
+/**
+ * Utility to sync memory from a host_matrix_view to a device_matrix_view
+ *
+ * In certain situations (UVM/HMM/ATS) host memory might be directly accessible on the
+ * device, and no extra allocations need to be performed. This class checks
+ * if the host_matrix_view is already accessible on the device, and only creates device
+ * memory and copies over if necessary. In memory limited situations this is preferable
+ * to having both a host and device copy
+ * TODO: once the mdbuffer changes here https://github.com/wphicks/raft/blob/fea-mdbuffer
+ * have been merged, we should remove this class and switch over to using mdbuffer for this
+ */
+template <typename T, typename IdxT>
+class device_matrix_view_from_host {
+ public:
+  device_matrix_view_from_host(raft::resources const& res, host_matrix_view<T, IdxT> host_view)
+    : host_view_(host_view)
+  {
+    cudaPointerAttributes attr;
+    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, host_view.data_handle()));
+    device_ptr = reinterpret_cast<T*>(attr.devicePointer);
+    if (device_ptr == NULL) {
+      // allocate memory and copy over
+      device_mem_.emplace(
+        raft::make_device_matrix<T, IdxT>(res, host_view.extent(0), host_view.extent(1)));
+      raft::copy(device_mem_->data_handle(),
+                 host_view.data_handle(),
+                 host_view.extent(0) * host_view.extent(1),
+                 resource::get_cuda_stream(res));
+      device_ptr = device_mem_->data_handle();
+    }
+  }
+
+  device_matrix_view<T, IdxT> view()
+  {
+    return make_device_matrix_view<T, IdxT>(device_ptr, host_view_.extent(0), host_view_.extent(1));
+  }
+
+  T* data_handle() { return device_ptr; }
+
+  bool allocated_memory() const { return device_mem_.has_value(); }
+
+ private:
+  std::optional<device_matrix<T, IdxT>> device_mem_;
+  host_matrix_view<T, IdxT> host_view_;
+  T* device_ptr;
+};
+
+/**
+ * Utility to sync memory from a device_matrix_view to a host_matrix_view
+ *
+ * In certain situations (UVM/HMM/ATS) device memory might be directly accessible on the
+ * host, and no extra allocations need to be performed. This class checks
+ * if the device_matrix_view is already accessible on the host, and only creates host
+ * memory and copies over if necessary. In memory limited situations this is preferable
+ * to having both a host and device copy
+ * TODO: once the mdbuffer changes here https://github.com/wphicks/raft/blob/fea-mdbuffer
+ * have been merged, we should remove this class and switch over to using mdbuffer for this
+ */
+template <typename T, typename IdxT>
+class host_matrix_view_from_device {
+ public:
+  host_matrix_view_from_device(raft::resources const& res, device_matrix_view<T, IdxT> device_view)
+    : device_view_(device_view)
+  {
+    cudaPointerAttributes attr;
+    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, device_view.data_handle()));
+    host_ptr = reinterpret_cast<T*>(attr.hostPointer);
+    if (host_ptr == NULL) {
+      // allocate memory and copy over
+      host_mem_.emplace(
+        raft::make_host_matrix<T, IdxT>(device_view.extent(0), device_view.extent(1)));
+      raft::copy(host_mem_->data_handle(),
+                 device_view.data_handle(),
+                 device_view.extent(0) * device_view.extent(1),
+                 resource::get_cuda_stream(res));
+      host_ptr = host_mem_->data_handle();
+    }
+  }
+
+  host_matrix_view<T, IdxT> view()
+  {
+    return make_host_matrix_view<T, IdxT>(host_ptr, device_view_.extent(0), device_view_.extent(1));
+  }
+
+  T* data_handle() { return host_ptr; }
+
+  bool allocated_memory() const { return host_mem_.has_value(); }
+
+ private:
+  std::optional<host_matrix<T, IdxT>> host_mem_;
+  device_matrix_view<T, IdxT> device_view_;
+  T* host_ptr;
+};
+
+// Copy matrix src to dst. pad rows with 0 if necessary to make them 16 byte aligned.
+template <typename T, typename data_accessor>
+void copy_with_padding(raft::resources const& res,
+                       raft::device_matrix<T, int64_t, row_major>& dst,
+                       mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> src,
+                       rmm::mr::device_memory_resource* mr = nullptr)
+{
+  if (!mr) { mr = rmm::mr::get_current_device_resource(); }
+  size_t padded_dim = round_up_safe<size_t>(src.extent(1) * sizeof(T), 16) / sizeof(T);
+
+  if ((dst.extent(0) != src.extent(0)) || (static_cast<size_t>(dst.extent(1)) != padded_dim)) {
+    // clear existing memory before allocating to prevent OOM errors on large datasets
+    if (dst.size()) { dst = make_device_matrix<T, int64_t>(res, 0, 0); }
+    dst = make_device_mdarray<T>(res, mr, make_extents<int64_t>(src.extent(0), padded_dim));
+  }
+  if (dst.extent(1) == src.extent(1)) {
+    raft::copy(dst.data_handle(), src.data_handle(), src.size(), resource::get_cuda_stream(res));
+  } else {
+    // copy with padding
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      dst.data_handle(), 0, dst.size() * sizeof(T), resource::get_cuda_stream(res)));
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(dst.data_handle(),
+                                    sizeof(T) * dst.extent(1),
+                                    src.data_handle(),
+                                    sizeof(T) * src.extent(1),
+                                    sizeof(T) * src.extent(1),
+                                    src.extent(0),
+                                    cudaMemcpyDefault,
+                                    resource::get_cuda_stream(res)));
+  }
+}
 }  // namespace raft::neighbors::cagra::detail

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,11 @@ namespace raft {
 namespace linalg {
 
 /**
- * @ingroup arithmetic
+ * @defgroup arithmetic Arithmetic functions
+ * @{
+ */
+
+/**
  * @brief Elementwise scalar add operation on the input buffer
  *
  * @tparam InT     input data-type. Also the data-type upon which the math ops
@@ -86,6 +90,8 @@ void addDevScalar(
 {
   detail::addDevScalar(outDev, inDev, singleScalarDev, len, stream);
 }
+
+/** @} */  // end of group add
 
 /**
  * @defgroup add_dense Addition Arithmetic
@@ -217,7 +223,7 @@ void add_scalar(raft::resources const& handle,
 
 /** @} */  // end of group add
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif

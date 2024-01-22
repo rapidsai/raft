@@ -30,6 +30,8 @@
 #include <thrust/reduce.h>
 #include <thrust/system/cuda/execution_policy.h>
 
+#include <cuda/functional>
+
 #include <algorithm>
 
 // =========================================================
@@ -49,11 +51,11 @@ using size_type = int;  // for now; TODO: move it in appropriate header
 // Apply diagonal matrix to vector:
 //
 template <typename IndexType_, typename ValueType_>
-static __global__ void diagmv(IndexType_ n,
-                              ValueType_ alpha,
-                              const ValueType_* __restrict__ D,
-                              const ValueType_* __restrict__ x,
-                              ValueType_* __restrict__ y)
+RAFT_KERNEL diagmv(IndexType_ n,
+                   ValueType_ alpha,
+                   const ValueType_* __restrict__ D,
+                   const ValueType_* __restrict__ x,
+                   ValueType_* __restrict__ y)
 {
   IndexType_ i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
@@ -107,15 +109,16 @@ class vector_t {
 
   value_type nrm1() const
   {
-    return thrust::reduce(thrust_policy,
-                          buffer_.data(),
-                          buffer_.data() + buffer_.size(),
-                          value_type{0},
-                          [] __device__(auto left, auto right) {
-                            auto abs_left  = left > 0 ? left : -left;
-                            auto abs_right = right > 0 ? right : -right;
-                            return abs_left + abs_right;
-                          });
+    return thrust::reduce(
+      thrust_policy,
+      buffer_.data(),
+      buffer_.data() + buffer_.size(),
+      value_type{0},
+      cuda::proclaim_return_type<value_type>([] __device__(auto left, auto right) {
+        auto abs_left  = left > 0 ? left : -left;
+        auto abs_right = right > 0 ? right : -right;
+        return abs_left + abs_right;
+      }));
   }
 
   void fill(value_type value)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,10 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
+
+#if defined(_RAFT_HAS_CUDA)
+#include <cuda_fp16.h>
+#endif
 
 #include <algorithm>
 #include <complex>
@@ -75,7 +79,7 @@ namespace numpy_serializer {
 
 #if RAFT_SYSTEM_LITTLE_ENDIAN == 1
 #define RAFT_NUMPY_HOST_ENDIAN_CHAR RAFT_NUMPY_LITTLE_ENDIAN_CHAR
-#else   // RAFT_SYSTEM_LITTLE_ENDIAN == 1
+#else  // RAFT_SYSTEM_LITTLE_ENDIAN == 1
 #define RAFT_NUMPY_HOST_ENDIAN_CHAR RAFT_NUMPY_BIG_ENDIAN_CHAR
 #endif  // RAFT_SYSTEM_LITTLE_ENDIAN == 1
 
@@ -120,6 +124,14 @@ inline dtype_t get_numpy_dtype()
 {
   return {RAFT_NUMPY_HOST_ENDIAN_CHAR, 'f', sizeof(T)};
 }
+
+#if defined(_RAFT_HAS_CUDA)
+template <typename T, typename std::enable_if_t<std::is_same_v<T, half>, bool> = true>
+inline dtype_t get_numpy_dtype()
+{
+  return {RAFT_NUMPY_HOST_ENDIAN_CHAR, 'e', sizeof(T)};
+}
+#endif
 
 template <typename T,
           typename std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>, bool> = true>
@@ -273,7 +285,7 @@ inline dtype_t parse_descr(std::string typestr)
 
   const char endian_chars[] = {
     RAFT_NUMPY_LITTLE_ENDIAN_CHAR, RAFT_NUMPY_BIG_ENDIAN_CHAR, RAFT_NUMPY_NO_ENDIAN_CHAR};
-  const char numtype_chars[] = {'f', 'i', 'u', 'c'};
+  const char numtype_chars[] = {'f', 'i', 'u', 'c', 'e'};
 
   RAFT_EXPECTS(std::find(std::begin(endian_chars), std::end(endian_chars), byteorder_c) !=
                  std::end(endian_chars),

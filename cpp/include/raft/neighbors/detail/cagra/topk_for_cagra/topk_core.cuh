@@ -22,8 +22,6 @@
 #include <stdio.h>
 
 namespace raft::neighbors::cagra::detail {
-using namespace cub;
-
 //
 __device__ inline uint32_t convert(uint32_t x)
 {
@@ -174,8 +172,46 @@ __device__ inline uint16_t get_element_from_u16_vector(struct u16_vector& vec, i
   return xi;
 }
 
+template <typename T>
+__device__ inline void block_scan(const T input, T& output)
+{
+  switch (blockDim.x) {
+    case 32: {
+      typedef cub::BlockScan<T, 32> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 64: {
+      typedef cub::BlockScan<T, 64> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 128: {
+      typedef cub::BlockScan<T, 128> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 256: {
+      typedef cub::BlockScan<T, 256> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 512: {
+      typedef cub::BlockScan<T, 512> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 1024: {
+      typedef cub::BlockScan<T, 1024> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    default: break;
+  }
+}
+
 //
-template <typename T, int blockDim_x, int stateBitLen, int vecLen>
+template <typename T, int stateBitLen, int vecLen>
 __device__ inline void update_histogram(int itr,
                                         uint32_t thread_id,
                                         uint32_t num_threads,
@@ -183,9 +219,9 @@ __device__ inline void update_histogram(int itr,
                                         uint32_t threshold,
                                         uint32_t& num_bins,
                                         uint32_t& shift,
-                                        const T* x,        // [nx,]
+                                        const T* x,  // [nx,]
                                         uint32_t nx,
-                                        uint32_t* hist,    // [num_bins]
+                                        uint32_t* hist,  // [num_bins]
                                         uint8_t* state,
                                         uint32_t* output,  // [topk]
                                         uint32_t* output_count)
@@ -220,7 +256,7 @@ __device__ inline void update_histogram(int itr,
     return;
   }
   if (itr > 0) {
-    for (int i = threadIdx.x; i < num_bins; i += blockDim_x) {
+    for (int i = threadIdx.x; i < num_bins; i += blockDim.x) {
       hist[i] = 0;
     }
     __syncthreads();
@@ -285,8 +321,53 @@ __device__ inline void update_histogram(int itr,
   __syncthreads();
 }
 
+template <unsigned blockDim_x>
+__device__ inline void select_best_index_for_next_threshold_core(uint32_t& my_index,
+                                                                 uint32_t& my_csum,
+                                                                 const unsigned num_bins,
+                                                                 const uint32_t* const hist,
+                                                                 const uint32_t nx_below_threshold,
+                                                                 const uint32_t max_threshold,
+                                                                 const uint32_t threshold,
+                                                                 const uint32_t shift,
+                                                                 const uint32_t topk)
+{
+  typedef cub::BlockScan<uint32_t, blockDim_x> BlockScanT;
+  __shared__ typename BlockScanT::TempStorage temp_storage;
+  if (num_bins == 2048) {
+    constexpr int n_data = 2048 / blockDim_x;
+    uint32_t csum[n_data];
+    for (int i = 0; i < n_data; i++) {
+      csum[i] = hist[i + (n_data * threadIdx.x)];
+    }
+    BlockScanT(temp_storage).InclusiveSum(csum, csum);
+    for (int i = n_data - 1; i >= 0; i--) {
+      if (nx_below_threshold + csum[i] > topk) continue;
+      const uint32_t index = i + (n_data * threadIdx.x);
+      if (threshold + (index << shift) > max_threshold) continue;
+      my_index = index;
+      my_csum  = csum[i];
+      break;
+    }
+  } else if (num_bins == 1024) {
+    constexpr int n_data = 1024 / blockDim_x;
+    uint32_t csum[n_data];
+    for (int i = 0; i < n_data; i++) {
+      csum[i] = hist[i + (n_data * threadIdx.x)];
+    }
+    BlockScanT(temp_storage).InclusiveSum(csum, csum);
+    for (int i = n_data - 1; i >= 0; i--) {
+      if (nx_below_threshold + csum[i] > topk) continue;
+      const uint32_t index = i + (n_data * threadIdx.x);
+      if (threshold + (index << shift) > max_threshold) continue;
+      my_index = index;
+      my_csum  = csum[i];
+      break;
+    }
+  }
+}
+
 //
-template <int blockDim_x>
 __device__ inline void select_best_index_for_next_threshold(
   const uint32_t topk,
   const uint32_t threshold,
@@ -302,15 +383,12 @@ __device__ inline void select_best_index_for_next_threshold(
   // index under the condition that the sum of the number of elements found
   // so far ('nx_below_threshold') and the csum value does not exceed the
   // topk value.
-  typedef BlockScan<uint32_t, blockDim_x> BlockScanT;
-  __shared__ typename BlockScanT::TempStorage temp_storage;
-
   uint32_t my_index = 0xffffffff;
   uint32_t my_csum  = 0;
-  if (num_bins <= blockDim_x) {
+  if (num_bins <= blockDim.x) {
     uint32_t csum = 0;
     if (threadIdx.x < num_bins) { csum = hist[threadIdx.x]; }
-    BlockScanT(temp_storage).InclusiveSum(csum, csum);
+    detail::block_scan(csum, csum);
     if (threadIdx.x < num_bins) {
       const uint32_t index = threadIdx.x;
       if ((nx_below_threshold + csum <= topk) && (threshold + (index << shift) <= max_threshold)) {
@@ -319,36 +397,62 @@ __device__ inline void select_best_index_for_next_threshold(
       }
     }
   } else {
-    if (num_bins == 2048) {
-      constexpr int n_data = 2048 / blockDim_x;
-      uint32_t csum[n_data];
-      for (int i = 0; i < n_data; i++) {
-        csum[i] = hist[i + (n_data * threadIdx.x)];
-      }
-      BlockScanT(temp_storage).InclusiveSum(csum, csum);
-      for (int i = n_data - 1; i >= 0; i--) {
-        if (nx_below_threshold + csum[i] > topk) continue;
-        const uint32_t index = i + (n_data * threadIdx.x);
-        if (threshold + (index << shift) > max_threshold) continue;
-        my_index = index;
-        my_csum  = csum[i];
+    switch (blockDim.x) {
+      case 64:
+        select_best_index_for_next_threshold_core<64>(my_index,
+                                                      my_csum,
+                                                      num_bins,
+                                                      hist,
+                                                      nx_below_threshold,
+                                                      max_threshold,
+                                                      threshold,
+                                                      shift,
+                                                      topk);
         break;
-      }
-    } else if (num_bins == 1024) {
-      constexpr int n_data = 1024 / blockDim_x;
-      uint32_t csum[n_data];
-      for (int i = 0; i < n_data; i++) {
-        csum[i] = hist[i + (n_data * threadIdx.x)];
-      }
-      BlockScanT(temp_storage).InclusiveSum(csum, csum);
-      for (int i = n_data - 1; i >= 0; i--) {
-        if (nx_below_threshold + csum[i] > topk) continue;
-        const uint32_t index = i + (n_data * threadIdx.x);
-        if (threshold + (index << shift) > max_threshold) continue;
-        my_index = index;
-        my_csum  = csum[i];
+      case 128:
+        select_best_index_for_next_threshold_core<128>(my_index,
+                                                       my_csum,
+                                                       num_bins,
+                                                       hist,
+                                                       nx_below_threshold,
+                                                       max_threshold,
+                                                       threshold,
+                                                       shift,
+                                                       topk);
         break;
-      }
+      case 256:
+        select_best_index_for_next_threshold_core<256>(my_index,
+                                                       my_csum,
+                                                       num_bins,
+                                                       hist,
+                                                       nx_below_threshold,
+                                                       max_threshold,
+                                                       threshold,
+                                                       shift,
+                                                       topk);
+        break;
+      case 512:
+        select_best_index_for_next_threshold_core<512>(my_index,
+                                                       my_csum,
+                                                       num_bins,
+                                                       hist,
+                                                       nx_below_threshold,
+                                                       max_threshold,
+                                                       threshold,
+                                                       shift,
+                                                       topk);
+        break;
+      case 1024:
+        select_best_index_for_next_threshold_core<1024>(my_index,
+                                                        my_csum,
+                                                        num_bins,
+                                                        hist,
+                                                        nx_below_threshold,
+                                                        max_threshold,
+                                                        threshold,
+                                                        shift,
+                                                        topk);
+        break;
     }
   }
   if (threadIdx.x < num_bins) {
@@ -481,10 +585,14 @@ __device__ inline uint32_t max_value_of<uint32_t>()
   return ~0u;
 }
 
-template <int blockDim_x, int stateBitLen>
+template <int stateBitLen, unsigned BLOCK_SIZE = 0>
 __device__ __host__ inline uint32_t get_state_size(uint32_t len_x)
 {
-  const uint32_t num_threads = blockDim_x;
+#ifdef __CUDA_ARCH__
+  const uint32_t num_threads = blockDim.x;
+#else
+  const uint32_t num_threads = BLOCK_SIZE;
+#endif
   if (stateBitLen == 8) {
     uint32_t numElements_perThread = (len_x + num_threads - 1) / num_threads;
     uint32_t numState_perThread    = (numElements_perThread + stateBitLen - 1) / stateBitLen;
@@ -494,7 +602,7 @@ __device__ __host__ inline uint32_t get_state_size(uint32_t len_x)
 }
 
 //
-template <int blockDim_x, int stateBitLen, int vecLen, int maxTopk, int numSortThreads, class ValT>
+template <int stateBitLen, int vecLen, int maxTopk, int numSortThreads, class ValT>
 __device__ inline void topk_cta_11_core(uint32_t topk,
                                         uint32_t len_x,
                                         const uint32_t* _x,    // [size_batch, ld_x,]
@@ -511,7 +619,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
   uint32_t* const best_index    = &(_smem[2 * maxTopk + 2048]);
   uint32_t* const best_csum     = &(_smem[2 * maxTopk + 2048 + 3]);
 
-  const uint32_t num_threads = blockDim_x;
+  const uint32_t num_threads = blockDim.x;
   const uint32_t thread_id   = threadIdx.x;
   uint32_t nx                = len_x;
   const uint32_t* const x    = _x;
@@ -541,29 +649,29 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
   for (int j = 0; j < 3; j += 1) {
     uint32_t num_bins;
     uint32_t shift;
-    update_histogram<uint32_t, blockDim_x, stateBitLen, vecLen>(j,
-                                                                thread_id,
-                                                                num_threads,
-                                                                hint,
-                                                                threshold,
-                                                                num_bins,
-                                                                shift,
-                                                                x,
-                                                                nx,
-                                                                hist,
-                                                                state,
-                                                                smem_out_vals,
-                                                                output_count);
 
-    select_best_index_for_next_threshold<blockDim_x>(topk,
-                                                     threshold,
-                                                     hint,
-                                                     nx_below_threshold,
-                                                     num_bins,
-                                                     shift,
-                                                     hist,
-                                                     best_index + j,
-                                                     best_csum + j);
+    update_histogram<uint32_t, stateBitLen, vecLen>(j,
+                                                    thread_id,
+                                                    num_threads,
+                                                    hint,
+                                                    threshold,
+                                                    num_bins,
+                                                    shift,
+                                                    x,
+                                                    nx,
+                                                    hist,
+                                                    state,
+                                                    smem_out_vals,
+                                                    output_count);
+    select_best_index_for_next_threshold(topk,
+                                         threshold,
+                                         hint,
+                                         nx_below_threshold,
+                                         num_bins,
+                                         shift,
+                                         hist,
+                                         best_index + j,
+                                         best_csum + j);
 
     threshold += (best_index[j] << shift);
     nx_below_threshold += best_csum[j];
@@ -601,7 +709,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
 #endif
 
   if (!sort) {
-    for (int k = thread_id; k < topk; k += blockDim_x) {
+    for (int k = thread_id; k < topk; k += blockDim.x) {
       const uint32_t i = smem_out_vals[k];
       if (y) { y[k] = x[i]; }
       if (out_vals) {
@@ -756,22 +864,22 @@ int _get_vecLen(uint32_t maxSamples, int maxVecLen = MAX_VEC_LENGTH)
 }
 }  // unnamed namespace
 
-template <int blockDim_x, int stateBitLen, int vecLen, int maxTopk, int numSortThreads, class ValT>
-__launch_bounds__(1024, 1) __global__
-  void kern_topk_cta_11(uint32_t topk,
-                        uint32_t size_batch,
-                        uint32_t len_x,
-                        const uint32_t* _x,    // [size_batch, ld_x,]
-                        uint32_t ld_x,
-                        const ValT* _in_vals,  // [size_batch, ld_iv,]
-                        uint32_t ld_iv,
-                        uint32_t* _y,          // [size_batch, ld_y,]
-                        uint32_t ld_y,
-                        ValT* _out_vals,       // [size_batch, ld_ov,]
-                        uint32_t ld_ov,
-                        uint8_t* _state,       // [size_batch, ...,]
-                        uint32_t* _hints,      // [size_batch,]
-                        bool sort)
+template <int stateBitLen, int vecLen, int maxTopk, int numSortThreads, class ValT>
+__launch_bounds__(1024, 1) RAFT_KERNEL
+  kern_topk_cta_11(uint32_t topk,
+                   uint32_t size_batch,
+                   uint32_t len_x,
+                   const uint32_t* _x,  // [size_batch, ld_x,]
+                   uint32_t ld_x,
+                   const ValT* _in_vals,  // [size_batch, ld_iv,]
+                   uint32_t ld_iv,
+                   uint32_t* _y,  // [size_batch, ld_y,]
+                   uint32_t ld_y,
+                   ValT* _out_vals,  // [size_batch, ld_ov,]
+                   uint32_t ld_ov,
+                   uint8_t* _state,   // [size_batch, ...,]
+                   uint32_t* _hints,  // [size_batch,]
+                   bool sort)
 {
   const uint32_t i_batch = blockIdx.x;
   if (i_batch >= size_batch) return;
@@ -781,14 +889,14 @@ __launch_bounds__(1024, 1) __global__
                 "maxTopk * sizeof(ValT) must be smaller or equal to 8192 byte");
   __shared__ uint32_t _smem[smem_len];
 
-  topk_cta_11_core<blockDim_x, stateBitLen, vecLen, maxTopk, numSortThreads, ValT>(
+  topk_cta_11_core<stateBitLen, vecLen, maxTopk, numSortThreads, ValT>(
     topk,
     len_x,
     (_x == NULL ? NULL : _x + i_batch * ld_x),
     (_in_vals == NULL ? NULL : _in_vals + i_batch * ld_iv),
     (_y == NULL ? NULL : _y + i_batch * ld_y),
     (_out_vals == NULL ? NULL : _out_vals + i_batch * ld_ov),
-    (_state == NULL ? NULL : _state + i_batch * get_state_size<blockDim_x, stateBitLen>(len_x)),
+    (_state == NULL ? NULL : _state + i_batch * get_state_size<stateBitLen>(len_x)),
     (_hints == NULL ? NULL : _hints + i_batch),
     sort,
     _smem);
@@ -808,7 +916,7 @@ size_t inline _cuann_find_topk_bufferSize(uint32_t topK,
   // state
   if (stateBitLen == 8) {
     workspaceSize = _cuann_aligned(
-      sizeof(uint8_t) * get_state_size<numThreads, stateBitLen>(numElements) * sizeBatch);
+      sizeof(uint8_t) * get_state_size<stateBitLen, numThreads>(numElements) * sizeBatch);
   }
 
   return workspaceSize;
@@ -862,12 +970,12 @@ inline void _cuann_find_topk(uint32_t topK,
                      bool) = nullptr;
 
   // V:vecLen, K:maxTopk, T:numSortThreads
-#define SET_KERNEL_VKT(V, K, T, ValT)                                      \
-  do {                                                                     \
-    assert(numThreads >= T);                                               \
-    assert((K % T) == 0);                                                  \
-    assert((K / T) <= 4);                                                  \
-    cta_kernel = kern_topk_cta_11<numThreads, stateBitLen, V, K, T, ValT>; \
+#define SET_KERNEL_VKT(V, K, T, ValT)                          \
+  do {                                                         \
+    assert(numThreads >= T);                                   \
+    assert((K % T) == 0);                                      \
+    assert((K / T) <= 4);                                      \
+    cta_kernel = kern_topk_cta_11<stateBitLen, V, K, T, ValT>; \
   } while (0)
 
   // V: vecLen

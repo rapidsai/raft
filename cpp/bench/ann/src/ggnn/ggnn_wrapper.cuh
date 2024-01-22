@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <memory>
-#include <stdexcept>
-
 #include "../common/ann_types.hpp"
-#include "../common/benchmark_util.hpp"
+
 #include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <memory>
+#include <stdexcept>
 
 namespace raft::bench::ann {
 
@@ -38,8 +38,6 @@ class Ggnn : public ANN<T> {
     int num_layers{4};     // L
     float tau{0.5};
     int refine_iterations{2};
-
-    size_t dataset_size;
     int k;  // GGNN requires to know k during building
   };
 
@@ -50,10 +48,10 @@ class Ggnn : public ANN<T> {
     int max_iterations{400};
     int cache_size{512};
     int sorted_size{256};
+    auto needs_dataset() const -> bool override { return true; }
   };
 
   Ggnn(Metric metric, int dim, const BuildParam& param);
-  ~Ggnn() { delete impl_; }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) override
   {
@@ -73,8 +71,9 @@ class Ggnn : public ANN<T> {
 
   void save(const std::string& file) const override { impl_->save(file); }
   void load(const std::string& file) override { impl_->load(file); }
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<Ggnn<T>>(*this); };
 
-  AlgoProperty get_property() const override { return impl_->get_property(); }
+  AlgoProperty get_preference() const override { return impl_->get_preference(); }
 
   void set_search_dataset(const T* dataset, size_t nrow) override
   {
@@ -82,7 +81,7 @@ class Ggnn : public ANN<T> {
   };
 
  private:
-  ANN<T>* impl_;
+  std::shared_ptr<ANN<T>> impl_;
 };
 
 template <typename T>
@@ -91,23 +90,23 @@ Ggnn<T>::Ggnn(Metric metric, int dim, const BuildParam& param) : ANN<T>(metric, 
   // ggnn/src/sift1m.cu
   if (metric == Metric::kEuclidean && dim == 128 && param.k_build == 24 && param.k == 10 &&
       param.segment_size == 32) {
-    impl_ = new GgnnImpl<T, Euclidean, 128, 24, 10, 32>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Euclidean, 128, 24, 10, 32>>(metric, dim, param);
   }
   // ggnn/src/deep1b_multi_gpu.cu, and adapt it deep1B
   else if (metric == Metric::kEuclidean && dim == 96 && param.k_build == 24 && param.k == 10 &&
            param.segment_size == 32) {
-    impl_ = new GgnnImpl<T, Euclidean, 96, 24, 10, 32>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Euclidean, 96, 24, 10, 32>>(metric, dim, param);
   } else if (metric == Metric::kInnerProduct && dim == 96 && param.k_build == 24 && param.k == 10 &&
              param.segment_size == 32) {
-    impl_ = new GgnnImpl<T, Cosine, 96, 24, 10, 32>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Cosine, 96, 24, 10, 32>>(metric, dim, param);
   } else if (metric == Metric::kInnerProduct && dim == 96 && param.k_build == 96 && param.k == 10 &&
              param.segment_size == 64) {
-    impl_ = new GgnnImpl<T, Cosine, 96, 96, 10, 64>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Cosine, 96, 96, 10, 64>>(metric, dim, param);
   }
   // ggnn/src/glove200.cu, adapt it to glove100
   else if (metric == Metric::kInnerProduct && dim == 100 && param.k_build == 96 && param.k == 10 &&
            param.segment_size == 64) {
-    impl_ = new GgnnImpl<T, Cosine, 100, 96, 10, 64>(metric, dim, param);
+    impl_ = std::make_shared<GgnnImpl<T, Cosine, 100, 96, 10, 64>>(metric, dim, param);
   } else {
     throw std::runtime_error(
       "ggnn: not supported combination of metric, dim and build param; "
@@ -134,13 +133,16 @@ class GgnnImpl : public ANN<T> {
 
   void save(const std::string& file) const override;
   void load(const std::string& file) override;
+  std::unique_ptr<ANN<T>> copy() override
+  {
+    return std::make_unique<GgnnImpl<T, measure, D, KBuild, KQuery, S>>(*this);
+  };
 
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Device;
-    property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = true;
+    property.dataset_memory_type = MemoryType::Device;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
 
@@ -161,7 +163,7 @@ class GgnnImpl : public ANN<T> {
                                           KBuild / 2 /* KF */,
                                           KQuery,
                                           S>;
-  std::unique_ptr<GGNNGPUInstance> ggnn_;
+  std::shared_ptr<GGNNGPUInstance> ggnn_;
   typename Ggnn<T>::BuildParam build_param_;
   typename Ggnn<T>::SearchParam search_param_;
 };
@@ -182,12 +184,6 @@ GgnnImpl<T, measure, D, KBuild, KQuery, S>::GgnnImpl(Metric metric,
   }
 
   if (dim != D) { throw std::runtime_error("mis-matched dim"); }
-
-  int device;
-  RAFT_CUDA_TRY(cudaGetDevice(&device));
-
-  ggnn_ = std::make_unique<GGNNGPUInstance>(
-    device, build_param_.dataset_size, build_param_.num_layers, true, build_param_.tau);
 }
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
@@ -195,11 +191,10 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
                                                        size_t nrow,
                                                        cudaStream_t stream)
 {
-  if (nrow != build_param_.dataset_size) {
-    throw std::runtime_error(
-      "build_param_.dataset_size = " + std::to_string(build_param_.dataset_size) +
-      " , but nrow = " + std::to_string(nrow));
-  }
+  int device;
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
+  ggnn_ = std::make_shared<GGNNGPUInstance>(
+    device, nrow, build_param_.num_layers, true, build_param_.tau);
 
   ggnn_->set_base_data(dataset);
   ggnn_->set_stream(stream);
@@ -212,11 +207,6 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
 void GgnnImpl<T, measure, D, KBuild, KQuery, S>::set_search_dataset(const T* dataset, size_t nrow)
 {
-  if (nrow != build_param_.dataset_size) {
-    throw std::runtime_error(
-      "build_param_.dataset_size = " + std::to_string(build_param_.dataset_size) +
-      " , but nrow = " + std::to_string(nrow));
-  }
   ggnn_->set_base_data(dataset);
 }
 

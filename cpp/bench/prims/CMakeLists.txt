@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -32,6 +32,7 @@ function(ConfigureBench)
     PRIVATE raft::raft
             raft_internal
             $<$<BOOL:${ConfigureBench_LIB}>:raft::compiled>
+            ${RAFT_CTK_MATH_DEPENDENCIES}
             benchmark::benchmark
             Threads::Threads
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
@@ -74,6 +75,10 @@ endfunction()
 
 if(BUILD_PRIMS_BENCH)
   ConfigureBench(
+    NAME CORE_BENCH PATH bench/prims/core/bitset.cu bench/prims/core/copy.cu bench/prims/main.cpp
+  )
+
+  ConfigureBench(
     NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
     bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
@@ -112,6 +117,7 @@ if(BUILD_PRIMS_BENCH)
     bench/prims/linalg/reduce_cols_by_key.cu
     bench/prims/linalg/reduce_rows_by_key.cu
     bench/prims/linalg/reduce.cu
+    bench/prims/linalg/sddmm.cu
     bench/prims/main.cpp
   )
 
@@ -142,10 +148,12 @@ if(BUILD_PRIMS_BENCH)
     bench/prims/neighbors/knn/brute_force_float_int64_t.cu
     bench/prims/neighbors/knn/brute_force_float_uint32_t.cu
     bench/prims/neighbors/knn/cagra_float_uint32_t.cu
+    bench/prims/neighbors/knn/ivf_flat_filter_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_int8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_float_int64_t.cu
+    bench/prims/neighbors/knn/ivf_pq_filter_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_int8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_uint8_t_int64_t.cu
     bench/prims/neighbors/refine_float_int64_t.cu
@@ -155,4 +163,5 @@ if(BUILD_PRIMS_BENCH)
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
+
 endif()

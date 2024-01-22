@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/core/resource/detail/device_memory_resource.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -171,12 +170,12 @@ void select_clusters(raft::resources const& handle,
  * number of samples per query (sum of the cluster sizes that we probe) is returned in n_samples.
  */
 template <int BlockDim>
-__launch_bounds__(BlockDim) __global__
-  void calc_chunk_indices_kernel(uint32_t n_probes,
-                                 const uint32_t* cluster_sizes,      // [n_clusters]
-                                 const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
-                                 uint32_t* chunk_indices,            // [n_queries, n_probes]
-                                 uint32_t* n_samples                 // [n_queries]
+__launch_bounds__(BlockDim) RAFT_KERNEL
+  calc_chunk_indices_kernel(uint32_t n_probes,
+                            const uint32_t* cluster_sizes,      // [n_clusters]
+                            const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
+                            uint32_t* chunk_indices,            // [n_queries, n_probes]
+                            uint32_t* n_samples                 // [n_queries]
   )
 {
   using block_scan = cub::BlockScan<uint32_t, BlockDim>;
@@ -274,15 +273,15 @@ __device__ inline auto find_chunk_ix(uint32_t& sample_ix,  // NOLINT
 }
 
 template <int BlockDim, typename IdxT>
-__launch_bounds__(BlockDim) __global__
-  void postprocess_neighbors_kernel(IdxT* neighbors_out,                // [n_queries, topk]
-                                    const uint32_t* neighbors_in,       // [n_queries, topk]
-                                    const IdxT* const* db_indices,      // [n_clusters][..]
-                                    const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
-                                    const uint32_t* chunk_indices,      // [n_queries, n_probes]
-                                    uint32_t n_queries,
-                                    uint32_t n_probes,
-                                    uint32_t topk)
+__launch_bounds__(BlockDim) RAFT_KERNEL
+  postprocess_neighbors_kernel(IdxT* neighbors_out,                // [n_queries, topk]
+                               const uint32_t* neighbors_in,       // [n_queries, topk]
+                               const IdxT* const* db_indices,      // [n_clusters][..]
+                               const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
+                               const uint32_t* chunk_indices,      // [n_queries, n_probes]
+                               uint32_t n_queries,
+                               uint32_t n_probes,
+                               uint32_t topk)
 {
   const uint64_t i        = threadIdx.x + BlockDim * uint64_t(blockIdx.x);
   const uint32_t query_ix = i / uint64_t(topk);
@@ -739,7 +738,8 @@ inline void search(raft::resources const& handle,
                    float* distances,
                    IvfSampleFilterT sample_filter = IvfSampleFilterT())
 {
-  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, half> || std::is_same_v<T, uint8_t> ||
+                  std::is_same_v<T, int8_t>,
                 "Unsupported element type.");
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::search(n_queries = %u, n_probes = %u, k = %u, dim = %zu)",
@@ -747,7 +747,6 @@ inline void search(raft::resources const& handle,
     params.n_probes,
     k,
     index.dim());
-  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::search");
 
   RAFT_EXPECTS(
     params.internal_distance_dtype == CUDA_R_16F || params.internal_distance_dtype == CUDA_R_32F,
@@ -794,7 +793,9 @@ inline void search(raft::resources const& handle,
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
   rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * n_probes, stream, mr);
 
-  auto search_instance = ivfpq_search<IdxT, IvfSampleFilterT>::fun(params, index.metric());
+  auto filter_adapter = raft::neighbors::filtering::ivf_to_sample_filter(
+    index.inds_ptrs().data_handle(), sample_filter);
+  auto search_instance = ivfpq_search<IdxT, decltype(filter_adapter)>::fun(params, index.metric());
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
@@ -850,7 +851,7 @@ inline void search(raft::resources const& handle,
                       distances + uint64_t(k) * (offset_q + offset_b),
                       utils::config<T>::kDivisor / utils::config<float>::kDivisor,
                       params.preferred_shmem_carveout,
-                      sample_filter);
+                      filter_adapter);
     }
   }
 }

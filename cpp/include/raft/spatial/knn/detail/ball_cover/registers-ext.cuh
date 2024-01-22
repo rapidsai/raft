@@ -61,7 +61,7 @@ void rbc_low_dim_pass_two(raft::resources const& handle,
                           float weight,
                           value_int* post_dists_counter) RAFT_EXPLICIT;
 
-};      // namespace raft::spatial::knn::detail
+};  // namespace raft::spatial::knn::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 

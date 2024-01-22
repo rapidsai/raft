@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -228,38 +228,39 @@ testing::AssertionResult diagonalMatch(
 }
 
 template <typename T, typename IdxT>
-typename std::enable_if_t<std::is_floating_point_v<T>> gen_uniform(T* out,
+typename std::enable_if_t<std::is_floating_point_v<T>> gen_uniform(const raft::resources& handle,
+                                                                   T* out,
                                                                    raft::random::RngState& rng,
                                                                    IdxT len,
-                                                                   cudaStream_t stream,
                                                                    T range_min = T(-1),
                                                                    T range_max = T(1))
 {
-  raft::random::uniform(rng, out, len, range_min, range_max, stream);
+  raft::random::uniform(handle, rng, out, len, range_min, range_max);
 }
 
 template <typename T, typename IdxT>
-typename std::enable_if_t<std::is_integral_v<T>> gen_uniform(T* out,
+typename std::enable_if_t<std::is_integral_v<T>> gen_uniform(const raft::resources& handle,
+                                                             T* out,
                                                              raft::random::RngState& rng,
                                                              IdxT len,
-                                                             cudaStream_t stream,
                                                              T range_min = T(0),
                                                              T range_max = T(100))
 {
-  raft::random::uniformInt(rng, out, len, range_min, range_max, stream);
+  raft::random::uniformInt(handle, rng, out, len, range_min, range_max);
 }
 
 template <typename T1, typename T2, typename IdxT>
-void gen_uniform(raft::KeyValuePair<T1, T2>* out,
+void gen_uniform(const raft::resources& handle,
+                 raft::KeyValuePair<T1, T2>* out,
                  raft::random::RngState& rng,
-                 IdxT len,
-                 cudaStream_t stream)
+                 IdxT len)
 {
+  auto stream = resource::get_cuda_stream(handle);
   rmm::device_uvector<T1> keys(len, stream);
   rmm::device_uvector<T2> values(len, stream);
 
-  gen_uniform(keys.data(), rng, len, stream);
-  gen_uniform(values.data(), rng, len, stream);
+  gen_uniform(handle, keys.data(), rng, len);
+  gen_uniform(handle, values.data(), rng, len);
 
   const T1* d_keys   = keys.data();
   const T2* d_values = values.data();

@@ -25,6 +25,7 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/detail/cagra/utils.hpp>
 #include <raft/util/integer_utils.hpp>
 
 #include <memory>
@@ -36,18 +37,37 @@
 #include <raft/core/logger.hpp>
 namespace raft::neighbors::cagra {
 /**
- * @ingroup cagra
+ * @addtogroup cagra
  * @{
  */
 
+/**
+ * @brief ANN algorithm used by CAGRA to build knn graph
+ *
+ */
+enum class graph_build_algo {
+  /* Use IVF-PQ to build all-neighbors knn graph */
+  IVF_PQ,
+  /* Experimental, use NN-Descent to build all-neighbors knn graph */
+  NN_DESCENT
+};
+
 struct index_params : ann::index_params {
-  size_t intermediate_graph_degree = 128;  // Degree of input graph for pruning.
-  size_t graph_degree              = 64;   // Degree of output graph.
+  /** Degree of input graph for pruning. */
+  size_t intermediate_graph_degree = 128;
+  /** Degree of output graph. */
+  size_t graph_degree = 64;
+  /** ANN algorithm to build knn graph. */
+  graph_build_algo build_algo = graph_build_algo::IVF_PQ;
+  /** Number of Iterations to run if building with NN_DESCENT */
+  size_t nn_descent_niter = 20;
 };
 
 enum class search_algo {
-  SINGLE_CTA,  // for large batch
-  MULTI_CTA,   // for small batch
+  /** For large batch sizes. */
+  SINGLE_CTA,
+  /** For small batch sizes. */
+  MULTI_CTA,
   MULTI_KERNEL,
   AUTO
 };
@@ -77,7 +97,7 @@ struct search_params : ann::search_params {
   /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
   size_t team_size = 0;
 
-  /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
+  /** Number of graph nodes to select as the starting point for the search in each iteration. aka
    * search width?*/
   size_t search_width = 1;
   /** Lower limit of search iterations. */
@@ -92,9 +112,9 @@ struct search_params : ann::search_params {
   /** Upper limit of hashmap fill rate. More than 0.1, less than 0.9.*/
   float hashmap_max_fill_rate = 0.5;
 
-  /* Number of iterations of initial random seed node selection. 1 or more. */
+  /** Number of iterations of initial random seed node selection. 1 or more. */
   uint32_t num_random_samplings = 1;
-  // Bit mask used for initial random seed node selection. */
+  /** Bit mask used for initial random seed node selection. */
   uint64_t rand_xor_mask = 0x128394;
 };
 
@@ -122,7 +142,7 @@ struct index : ann::index {
     return metric_;
   }
 
-  // /** Total length of the index (number of vectors). */
+  /** Total length of the index (number of vectors). */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
     return dataset_view_.extent(0);
@@ -161,9 +181,10 @@ struct index : ann::index {
   ~index()                               = default;
 
   /** Construct an empty index. */
-  index(raft::resources const& res)
+  index(raft::resources const& res,
+        raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
     : ann::index(),
-      metric_(raft::distance::DistanceType::L2Expanded),
+      metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
       graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
   {
@@ -292,7 +313,11 @@ struct index : ann::index {
                     raft::host_matrix_view<const IdxT, int64_t, row_major> knn_graph)
   {
     RAFT_LOG_DEBUG("Copying CAGRA knn graph from host to device");
-    graph_ = make_device_matrix<IdxT, int64_t>(res, knn_graph.extent(0), knn_graph.extent(1));
+    if ((graph_.extent(0) != knn_graph.extent(0)) || (graph_.extent(1) != knn_graph.extent(1))) {
+      // clear existing memory before allocating to prevent OOM errors on large graphs
+      if (graph_.size()) { graph_ = make_device_matrix<IdxT, int64_t>(res, 0, 0); }
+      graph_ = make_device_matrix<IdxT, int64_t>(res, knn_graph.extent(0), knn_graph.extent(1));
+    }
     raft::copy(graph_.data_handle(),
                knn_graph.data_handle(),
                knn_graph.size(),
@@ -306,26 +331,8 @@ struct index : ann::index {
   void copy_padded(raft::resources const& res,
                    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset)
   {
-    size_t padded_dim = round_up_safe<size_t>(dataset.extent(1) * sizeof(T), 16) / sizeof(T);
-    dataset_          = make_device_matrix<T, int64_t>(res, dataset.extent(0), padded_dim);
-    if (dataset_.extent(1) == dataset.extent(1)) {
-      raft::copy(dataset_.data_handle(),
-                 dataset.data_handle(),
-                 dataset.size(),
-                 resource::get_cuda_stream(res));
-    } else {
-      // copy with padding
-      RAFT_CUDA_TRY(cudaMemsetAsync(
-        dataset_.data_handle(), 0, dataset_.size() * sizeof(T), resource::get_cuda_stream(res)));
-      RAFT_CUDA_TRY(cudaMemcpy2DAsync(dataset_.data_handle(),
-                                      sizeof(T) * dataset_.extent(1),
-                                      dataset.data_handle(),
-                                      sizeof(T) * dataset.extent(1),
-                                      sizeof(T) * dataset.extent(1),
-                                      dataset.extent(0),
-                                      cudaMemcpyDefault,
-                                      resource::get_cuda_stream(res)));
-    }
+    detail::copy_with_padding(res, dataset_, dataset);
+
     dataset_view_ = make_device_strided_matrix_view<const T, int64_t>(
       dataset_.data_handle(), dataset_.extent(0), dataset.extent(1), dataset_.extent(1));
     RAFT_LOG_DEBUG("CAGRA dataset strided matrix view %zux%zu, stride %zu",
@@ -347,6 +354,7 @@ struct index : ann::index {
 
 // TODO: Remove deprecated experimental namespace in 23.12 release
 namespace raft::neighbors::experimental::cagra {
+using raft::neighbors::cagra::graph_build_algo;
 using raft::neighbors::cagra::hash_mode;
 using raft::neighbors::cagra::index;
 using raft::neighbors::cagra::index_params;
