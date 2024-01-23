@@ -64,51 +64,6 @@ namespace raft::neighbors::ivf_pq::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
 
-template <uint32_t BlockDim, typename T, typename S>
-__launch_bounds__(BlockDim) RAFT_KERNEL copy_warped_kernel(
-  T* out, uint32_t ld_out, const S* in, uint32_t ld_in, uint32_t n_cols, size_t n_rows)
-{
-  using warp    = Pow2<WarpSize>;
-  size_t row_ix = warp::div(size_t(threadIdx.x) + size_t(BlockDim) * size_t(blockIdx.x));
-  uint32_t i    = warp::mod(threadIdx.x);
-  if (row_ix >= n_rows) return;
-  out += row_ix * ld_out;
-  in += row_ix * ld_in;
-  auto f = utils::mapping<T>{};
-  for (uint32_t col_ix = i; col_ix < n_cols; col_ix += warp::Value) {
-    auto x = f(in[col_ix]);
-    __syncwarp();
-    out[col_ix] = x;
-  }
-}
-
-/**
- * Copy the data one warp-per-row:
- *
- *  1. load the data per-warp
- *  2. apply the `utils::mapping<T>{}`
- *  3. sync within warp
- *  4. store the data.
- *
- * Assuming sizeof(T) >= sizeof(S) and the data is properly aligned (see the usage in `build`), this
- * allows to re-structure the data within rows in-place.
- */
-template <typename T, typename S>
-void copy_warped(T* out,
-                 uint32_t ld_out,
-                 const S* in,
-                 uint32_t ld_in,
-                 uint32_t n_cols,
-                 size_t n_rows,
-                 rmm::cuda_stream_view stream)
-{
-  constexpr uint32_t kBlockDim = 128;
-  dim3 threads(kBlockDim, 1, 1);
-  dim3 blocks(div_rounding_up_safe<size_t>(n_rows, kBlockDim / WarpSize), 1, 1);
-  copy_warped_kernel<kBlockDim, T, S>
-    <<<blocks, threads, 0, stream>>>(out, ld_out, in, ld_in, n_cols, n_rows);
-}
-
 /**
  * @brief Fill-in a random orthogonal transformation matrix.
  *
@@ -1780,7 +1735,6 @@ auto build(raft::resources const& handle,
       raft::spatial::knn::detail::utils::subsample(
         handle, dataset, n_rows, trainset_tmp.view(), random_seed);
       cudaDeviceSynchronize();
-      RAFT_LOG_INFO("Subsampling done, converting to float");
       raft::linalg::unaryOp(trainset.data_handle(),
                             trainset_tmp.data_handle(),
                             trainset.size(),
