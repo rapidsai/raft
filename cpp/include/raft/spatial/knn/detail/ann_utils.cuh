@@ -23,7 +23,9 @@
 #include <raft/core/host_mdarray.hpp>
 
 #include <raft/core/logger.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/sample_without_replacement.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -38,10 +40,6 @@
 #include <optional>
 
 #include <cuda_fp16.hpp>
-#include <thrust/copy.h>
-#include <thrust/device_ptr.h>
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/sort.h>
 
 namespace raft::spatial::knn::detail::utils {
 
@@ -592,9 +590,7 @@ auto get_subsample_indices(raft::resources const& res, IdxT n_samples, IdxT n_su
   RAFT_EXPECTS(n_subsamples <= n_samples, "Cannot have more training samples than dataset vectors");
 
   auto data_indices = raft::make_device_vector<IdxT, IdxT>(res, n_samples);
-  thrust::counting_iterator<IdxT> first(0);
-  thrust::device_ptr<IdxT> ptr(data_indices.data_handle());
-  thrust::copy(raft::resource::get_thrust_policy(res), first, first + n_samples, ptr);
+  raft::linalg::map_offset(res, data_indices.view(), identity_op());
   raft::random::RngState rng(seed);
   auto train_indices = raft::make_device_vector<IdxT, IdxT>(res, n_subsamples);
   raft::random::sample_without_replacement(res,
