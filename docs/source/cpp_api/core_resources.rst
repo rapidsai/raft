@@ -25,7 +25,7 @@ namespace *raft::resource*
 Device Resources
 ----------------
 
-`raft::device_resources` is a convenience over using `raft::resources` directly. It provides accessor methods to retrieve resources such as the CUDA stream, stream pool, and handles to the various CUDA math libraries like cuBLAS and cuSOLVER. 
+`raft::device_resources` is a convenience over using `raft::resources` directly. It provides accessor methods to retrieve resources such as the CUDA stream, stream pool, and handles to the various CUDA math libraries like cuBLAS and cuSOLVER.
 
 ``#include <raft/core/device_resources.hpp>``
 
@@ -73,11 +73,23 @@ namespace *raft::resource*
 cuBLAS Handle
 ~~~~~~~~~~~~~
 
-``#include <raft/core/resource/cublase_handle.hpp>``
+``#include <raft/core/resource/cublas_handle.hpp>``
 
 namespace *raft::resource*
 
  .. doxygengroup:: resource_cublas
+     :project: RAFT
+     :members:
+     :content-only:
+
+cuBLASLt Handle
+~~~~~~~~~~~~~~~
+
+``#include <raft/core/resource/cublaslt_handle.hpp>``
+
+namespace *raft::resource*
+
+ .. doxygengroup:: resource_cublaslt
      :project: RAFT
      :members:
      :content-only:
@@ -199,6 +211,25 @@ Thrust Exec Policy
 namespace *raft::resource*
 
  .. doxygengroup:: resource_thrust_policy
+     :project: RAFT
+     :members:
+     :content-only:
+
+Custom runtime-shared resources
+~~~~~~~~~~~~~~~~~~~~~~
+
+A custom resource is an arbitrary default-constructible C++ class.
+The consumer of the API can keep such a resource in the `raft::resources` handle.
+For example, consider a function that is expected to be called repeatedly and
+involves a costly kernel configuration. One can cache the kernel configuration in
+a custom resource.
+The cost of accessing it is one hashmap lookup.
+
+``#include <raft/core/resource/custom_resource.hpp>``
+
+namespace *raft::resource*
+
+ .. doxygengroup:: resource_custom
      :project: RAFT
      :members:
      :content-only:
