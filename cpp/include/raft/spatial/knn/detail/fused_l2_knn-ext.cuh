@@ -68,8 +68,6 @@ instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, float, true);
 instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, float, false);
 
 // These are used by brute_force_knn:
-instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, double, false);
-instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, double, true);
 instantiate_raft_spatial_knn_detail_fusedL2Knn(uint32_t, float, true);
 instantiate_raft_spatial_knn_detail_fusedL2Knn(uint32_t, float, false);
 
