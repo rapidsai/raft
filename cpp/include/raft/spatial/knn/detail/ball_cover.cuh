@@ -104,18 +104,14 @@ void sample_landmarks(raft::resources const& handle,
                                          (value_idx)index.n_landmarks,
                                          (value_idx)index.m);
 
-  // index.get_X() returns matrix_idx where we need value_idx, so we might need to
-  // create new device_matrix_view here
-  if (!std::is_same<value_idx, matrix_idx>::value) {
-    auto x = index.get_X();
-    auto r = index.get_R();
+  auto x = index.get_X();
+  auto r = index.get_R();
 
-    raft::matrix::copy_rows<value_t, value_idx>(
-      handle,
-      make_device_matrix_view<const value_t, value_idx>(x.data_handle(), x.extent(0), x.extent(1)),
-      make_device_matrix_view<value_t, value_idx>(r.data_handle(), r.extent(0), r.extent(1)),
-      make_device_vector_view(R_1nn_cols2.data(), index.n_landmarks));
-  }
+  raft::matrix::copy_rows<value_t, value_idx>(
+    handle,
+    make_device_matrix_view<const value_t, value_idx>(x.data_handle(), x.extent(0), x.extent(1)),
+    make_device_matrix_view<value_t, value_idx>(r.data_handle(), r.extent(0), r.extent(1)),
+    make_device_vector_view(R_1nn_cols2.data(), index.n_landmarks));
 }
 
 /**
