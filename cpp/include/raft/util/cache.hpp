@@ -21,8 +21,8 @@
 #include <cstddef>
 #include <list>
 #include <mutex>
+#include <optional>
 #include <tuple>
-#include <unordered_map>
 #include <utility>
 
 namespace raft::cache {
@@ -37,49 +37,67 @@ class lru {
   /** Default cache size. */
   static constexpr size_t kDefaultSize = 100;
 
-  explicit lru(size_t size = kDefaultSize) : size_(size)
+  explicit lru(size_t size = kDefaultSize) : size_(size), data_(size), order_(size)
   {
+    for (size_t i = 0; i < size_; i++) {
+      order_[i] = i + 1;
+      data_[i]  = std::nullopt;
+    }
     RAFT_EXPECTS(size >= 1, "The cache must fit at least one record.");
   }
 
   void set(const K& key, const Values&... values)
   {
     std::lock_guard<std::mutex> guard(lock_);
-    auto pos = map_.find(key);
-    if (pos == map_.end()) {
-      if (map_.size() >= size_) {
-        map_.erase(queue_.back());
-        queue_.pop_back();
-      }
-    } else {
-      queue_.erase(std::get<0>(pos->second));
+    auto pos  = root_;
+    auto prev = root_;
+    while (true) {
+      auto next = order_[pos];
+      if (next >= size_ || !data_[pos].has_value()) { break; }
+      prev = pos;
+      pos  = next;
     }
-    queue_.push_front(key);
-    map_[key] = std::make_tuple(queue_.begin(), values...);
+    update_lru(prev, pos);
+    data_[pos].emplace(key, values...);
   }
 
   auto get(const K& key, Values*... values) -> bool
   {
     std::lock_guard<std::mutex> guard(lock_);
-    auto pos = map_.find(key);
-    if (pos == map_.end()) { return false; }
-    auto& map_val = pos->second;
-    queue_.erase(std::get<0>(map_val));
-    queue_.push_front(key);
-    std::get<0>(map_val) = queue_.begin();
-    set_values(map_val, values..., std::index_sequence_for<Values...>());
-    return true;
+    auto pos  = root_;
+    auto prev = root_;
+    while (pos < size_ && data_[pos].has_value()) {
+      auto& val = data_[pos].value();
+      if (std::get<0>(val) == key) {
+        update_lru(prev, pos);
+        set_values(val, values..., std::index_sequence_for<Values...>());
+        return true;
+      }
+      prev = pos;
+      pos  = order_[pos];
+    }
+    return false;
   }
 
  private:
-  using queue_iterator = typename std::list<K>::iterator;
-  std::list<K> queue_{};
-  std::unordered_map<K, std::tuple<queue_iterator, Values...>, HashK, EqK> map_{};
+  std::size_t size_;
+  std::vector<std::optional<std::tuple<K, Values...>>> data_;
+  std::vector<std::size_t> order_;
   std::mutex lock_{};
-  size_t size_;
+  std::size_t root_{0};
+
+  // Place `pos` at the root of the queue.
+  inline void update_lru(std::size_t prev, std::size_t pos)
+  {
+    if (pos != root_) {
+      order_[prev] = order_[pos];
+      order_[pos]  = root_;
+      root_        = pos;
+    }
+  }
 
   template <size_t... Is>
-  static void set_values(const std::tuple<queue_iterator, Values...>& tup,
+  static void set_values(const std::tuple<K, Values...>& tup,
                          Values*... vals,
                          std::index_sequence<Is...>)
   {

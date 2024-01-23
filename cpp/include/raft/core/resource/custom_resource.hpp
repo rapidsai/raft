@@ -18,6 +18,7 @@
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
+#include <algorithm>
 #include <memory>
 #include <typeindex>
 
@@ -34,17 +35,21 @@ class custom_resource : public resource {
   {
     std::lock_guard<std::mutex> _(lock_);
     auto key = std::type_index{typeid(ResourceT)};
-    auto pos = map_.find(key);
-    if (pos != map_.end()) { return reinterpret_cast<ResourceT*>(pos->second.get()); }
+    auto pos = std::lower_bound(store_.begin(), store_.end(), kv{key, {nullptr}});
+    if ((pos != store_.end()) && std::get<0>(*pos) == key) {
+      return reinterpret_cast<ResourceT*>(std::get<1>(*pos).get());
+    }
     auto store_ptr = new ResourceT{};
-    map_[key] =
-      std::shared_ptr<void>(store_ptr, [](void* ptr) { delete reinterpret_cast<ResourceT*>(ptr); });
+    store_.insert(pos, kv{key, std::shared_ptr<void>(store_ptr, [](void* ptr) {
+                            delete reinterpret_cast<ResourceT*>(ptr);
+                          })});
     return store_ptr;
   }
 
  private:
-  std::unordered_map<std::type_index, std::shared_ptr<void>> map_{};
+  using kv = std::tuple<std::type_index, std::shared_ptr<void>>;
   std::mutex lock_{};
+  std::vector<kv> store_{};
 };
 
 /** Factory that knows how to construct a specific raft::resource to populate the res_t. */
