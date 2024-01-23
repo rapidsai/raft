@@ -156,13 +156,6 @@ cdef class IndexParams:
         repeated calls to `extend` (extending the database).
         To disable this behavior and use as little GPU memory for the
         database as possible, set this flat to `True`.
-    pq_codebook_trainset_fraction : int, default = 0.5 
-        If pq_codebook_trainset_fraction is less than 1, then the dataset is
-        subsampled for PQ codebook generation, and only n_samples * 
-        pq_codebook_trainset_fraction rows are used for PQ codebook generation.
-        This subsampling is applied after kmeans_trainset subsampling, 
-        controlled by kmeans_trainset_fraction and only used when codebook_kind
-        is PER_SUBSPACE. 
     """
     def __init__(self, *,
                  n_lists=1024,
@@ -174,8 +167,7 @@ cdef class IndexParams:
                  codebook_kind="subspace",
                  force_random_rotation=False,
                  add_data_on_build=True,
-                 conservative_memory_allocation=False,
-                 pq_codebook_trainset_fraction=0.5):
+                 conservative_memory_allocation=False):
         self.params.n_lists = n_lists
         self.params.metric = _get_metric(metric)
         self.params.metric_arg = 0
@@ -193,8 +185,6 @@ cdef class IndexParams:
         self.params.add_data_on_build = add_data_on_build
         self.params.conservative_memory_allocation = \
             conservative_memory_allocation
-        self.params.pq_codebook_trainset_fraction = \
-            pq_codebook_trainset_fraction
 
     @property
     def n_lists(self):
@@ -236,9 +226,6 @@ cdef class IndexParams:
     def conservative_memory_allocation(self):
         return self.params.conservative_memory_allocation
 
-    @property
-        def pq_codebook_trainset_fraction(self):
-            return self.params.pq_codebook_trainset_fraction
 
 cdef class Index:
     # We store a pointer to the index because it dose not have a trivial

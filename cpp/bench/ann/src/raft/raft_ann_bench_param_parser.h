@@ -87,9 +87,6 @@ void parse_build_param(const nlohmann::json& conf,
                                "', should be either 'cluster' or 'subspace'");
     }
   }
-  if (conf.contains("pq_codebook_ratio")) { 
-    param.pq_codebook_trainset_fraction = 1.0 / (double)conf.at("pq_codebook_ratio"); 
-  }
 }
 
 template <typename T, typename IdxT>
