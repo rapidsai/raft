@@ -22,11 +22,6 @@
 #include <stdint.h>
 #include <type_traits>
 
-#if defined(_RAFT_HAS_CUDA)
-#include <cuda_bf16.h>
-#include <cuda_fp16.h>
-#endif
-
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/math.hpp>
 #include <raft/core/operators.hpp>
@@ -291,6 +286,19 @@ RAFT_DEVICE_INLINE_FUNCTION double myInf<double>()
 {
   return CUDART_INF;
 }
+// Half/Bfloat constants only defined after CUDA 12.2
+#if __CUDACC_VER_MAJOR__ < 12 || (__CUDACC_VER_MAJOR__ == 12 && __CUDACC_VER_MINOR__ < 2)
+template <>
+RAFT_DEVICE_INLINE_FUNCTION __half myInf<__half>()
+{
+  return __ushort_as_half((unsigned short)0x7C00U);
+}
+template <>
+RAFT_DEVICE_INLINE_FUNCTION nv_bfloat16 myInf<nv_bfloat16>()
+{
+  return __ushort_as_bfloat16((unsigned short)0x7F80U);
+}
+#else
 template <>
 RAFT_DEVICE_INLINE_FUNCTION __half myInf<__half>()
 {
@@ -301,6 +309,7 @@ RAFT_DEVICE_INLINE_FUNCTION nv_bfloat16 myInf<nv_bfloat16>()
 {
   return CUDART_INF_BF16;
 }
+#endif
 /** @} */
 
 /**
