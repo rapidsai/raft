@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "24.04")
-set(RAFT_VERSION "24.04.00")
+set(RAPIDS_VERSION "24.02")
+set(RAFT_VERSION "24.02.00")
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 include(../fetch_rapids.cmake)

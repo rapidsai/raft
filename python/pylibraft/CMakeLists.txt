@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../../fetch_rapids.cmake)
 
-set(pylibraft_version 24.04.00)
+set(pylibraft_version 24.02.00)
 
 # We always need CUDA for pylibraft because the raft dependency brings in a header-only cuco
 # dependency that enables CUDA unconditionally.
