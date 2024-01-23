@@ -42,7 +42,7 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
   /**
    * @brief Create a bitmap view from a device raw pointer.
    *
-   * @param bitset_ptr Device raw pointer
+   * @param bitmap_ptr Device raw pointer
    * @param rows Number of row in the matrix.
    * @param cols Number of col in the matrix.
    */
