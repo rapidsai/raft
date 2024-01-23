@@ -41,7 +41,6 @@ from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.interruptible import cuda_interruptible
 from pylibraft.neighbors.common import _check_input_array, _get_metric
 
-cimport pylibraft.neighbors.cpp.eps_neighborhood as c_eps_neighborhood
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,
     device_vector_view,
@@ -51,10 +50,9 @@ from pylibraft.common.cpp.mdspan cimport (
     make_host_matrix_view,
     row_major,
 )
-from pylibraft.neighbors.cpp.eps_neighborhood cimport (
+from pylibraft.neighbors.cpp.rbc cimport (
     BallCoverIndex as c_BallCoverIndex,
     build_rbc_index as c_build_rbc_index,
-    eps_neighbors as c_eps_neighbors,
     eps_neighbors_rbc as c_eps_neighbors_rbc,
     eps_neighbors_rbc_pass1 as c_eps_neighbors_rbc_pass1,
     eps_neighbors_rbc_pass2 as c_eps_neighbors_rbc_pass2,
@@ -131,105 +129,7 @@ def build_rbc_index(dataset, handle=None):
 
 @auto_sync_handle
 @auto_convert_output
-def eps_neighbors(dataset, queries, eps, method="brute", handle=None):
-    """
-    Perform an epsilon neighborhood search using the L2-norm.
-
-    Parameters
-    ----------
-    dataset : array interface compliant matrix, row-major layout,
-        shape (n_samples, dim). Supported dtype [float]
-    queries : array interface compliant matrix, row-major layout,
-        shape (n_queries, dim) Supported dtype [float]
-    eps : threshold
-    method : string, default = "brute"
-        Valid values ["brute", "ball_tree"]
-    {handle_docstring}
-
-    Returns
-    -------
-    adj: array interface compliant object containing bool adjacency mask
-         shape (n_queries, n_samples)
-
-    vd: array interface compliant object containing row sums of adj
-        shape (n_queries + 1). vd[n_queries] contains the total sum
-
-    Examples
-    --------
-    >>> import cupy as cp
-    >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors.eps_neighborhood import eps_neighbors
-    >>> handle = DeviceResources()
-    >>> n_samples = 50000
-    >>> n_features = 50
-    >>> n_queries = 1000
-    >>> dataset = cp.random.random_sample((n_samples, n_features),
-    ...                                   dtype=cp.float32)
-    >>> queries = cp.random.random_sample((n_queries, n_features),
-    ...                                   dtype=cp.float32)
-    >>> eps = 0.1
-    >>> adj, vd = eps_neighbors(dataset, queries, eps, handle=handle)
-    >>> adj = cp.asarray(adj)
-    >>> vd = cp.asarray(vd)
-    >>> # pylibraft functions are often asynchronous so the
-    >>> # handle needs to be explicitly synchronized
-    >>> handle.sync()
-    """
-
-    if handle is None:
-        handle = DeviceResources()
-
-    dataset_cai = cai_wrapper(dataset)
-    queries_cai = cai_wrapper(queries)
-
-    # we require c-contiguous (rowmajor) inputs here
-    _check_input_array(dataset_cai, [np.dtype("float32")])
-    _check_input_array(queries_cai, [np.dtype("float32")],
-                       exp_cols=dataset_cai.shape[1])
-
-    n_queries = queries_cai.shape[0]
-    n_samples = dataset_cai.shape[0]
-
-    adj = device_ndarray.empty((n_queries, n_samples), dtype='bool')
-    vd = device_ndarray.empty((n_queries + 1, ), dtype='int64')
-    adj_cai = cai_wrapper(adj)
-    vd_cai = cai_wrapper(vd)
-
-    cdef device_resources* handle_ = \
-        <device_resources*><size_t>handle.getHandle()
-
-    vd_vector_view = make_device_vector_view(
-        <int64_t *><uintptr_t>vd_cai.data, <int64_t>vd_cai.shape[0])
-
-    if dataset_cai.dtype == np.float32:
-        with cuda_interruptible():
-            if method == "ball_cover":
-                c_eps_neighbors_rbc(
-                    deref(handle_),
-                    get_dmv_float(dataset_cai, check_shape=True),
-                    get_dmv_float(queries_cai, check_shape=True),
-                    get_dmv_bool(adj_cai, check_shape=True),
-                    vd_vector_view,
-                    eps)
-            elif method == "brute":
-                c_eps_neighbors(
-                    deref(handle_),
-                    get_dmv_float(dataset_cai, check_shape=True),
-                    get_dmv_float(queries_cai, check_shape=True),
-                    get_dmv_bool(adj_cai, check_shape=True),
-                    vd_vector_view,
-                    eps)
-            else:
-                raise ValueError("Unsupported method %s" % method)
-    else:
-        raise TypeError("dtype %s not supported" % dataset_cai.dtype)
-
-    return (adj, vd)
-
-
-@auto_sync_handle
-@auto_convert_output
-def eps_neighbors_sparse(RbcIndex rbc_index, queries, eps, handle=None):
+def eps_neighbors(RbcIndex rbc_index, queries, eps, handle=None):
     """
     Perform an epsilon neighborhood search with random ball cover (rbc)
     using the L2-norm.
@@ -258,8 +158,8 @@ def eps_neighbors_sparse(RbcIndex rbc_index, queries, eps, handle=None):
     --------
     >>> import cupy as cp
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors.eps_neighborhood import eps_neighbors_sparse
-    >>> from pylibraft.neighbors.eps_neighborhood import build_rbc_index
+    >>> from pylibraft.neighbors.rbc import eps_neighbors
+    >>> from pylibraft.neighbors.rbc import build_rbc_index
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
@@ -270,7 +170,7 @@ def eps_neighbors_sparse(RbcIndex rbc_index, queries, eps, handle=None):
     >>> eps = 0.1
     >>> handle = DeviceResources()
     >>> rbc_index = build_rbc_index(dataset)
-    >>> adj_ia, adj_ja, vd = eps_neighbors_sparse(rbc_index, queries, eps)
+    >>> adj_ia, adj_ja, vd = eps_neighbors(rbc_index, queries, eps)
     >>> adj_ia = cp.asarray(adj_ia)
     >>> adj_ja = cp.asarray(adj_ja)
     >>> vd = cp.asarray(vd)

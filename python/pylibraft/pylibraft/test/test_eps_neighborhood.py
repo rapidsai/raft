@@ -18,14 +18,14 @@ import pytest
 from scipy.sparse import csr_array
 
 from pylibraft.common import DeviceResources, Stream
-from pylibraft.neighbors.eps_neighborhood import (
+from pylibraft.neighbors.brute_force import eps_neighbors as eps_neighbors_bf
+from pylibraft.neighbors.rbc import (
     build_rbc_index,
-    eps_neighbors,
-    eps_neighbors_sparse,
+    eps_neighbors as eps_neighbors_rbc,
 )
 
 
-def test_eps_neighbors_check_col_major_inputs():
+def test_bf_eps_neighbors_check_col_major_inputs():
     # make sure that we get an exception if passed col-major inputs,
     # instead of returning incorrect results
     cp = pytest.importorskip("cupy")
@@ -35,27 +35,16 @@ def test_eps_neighbors_check_col_major_inputs():
     queries = cp.random.random_sample((n_query_rows, n_cols), dtype="float32")
 
     with pytest.raises(ValueError):
-        eps_neighbors(cp.asarray(index, order="F"), queries, eps)
+        eps_neighbors_bf(cp.asarray(index, order="F"), queries, eps)
 
     with pytest.raises(ValueError):
-        eps_neighbors(index, cp.asarray(queries, order="F"), eps)
-
-    with pytest.raises(ValueError):
-        eps_neighbors(
-            cp.asarray(index, order="F"), queries, eps, method="ball_cover"
-        )
-
-    with pytest.raises(ValueError):
-        eps_neighbors(
-            index, cp.asarray(queries, order="F"), eps, method="ball_cover"
-        )
+        eps_neighbors_bf(index, cp.asarray(queries, order="F"), eps)
 
     # shouldn't throw an exception with c-contiguous inputs
-    eps_neighbors(index, queries, eps)
-    eps_neighbors(index, queries, eps, method="ball_cover")
+    eps_neighbors_bf(index, queries, eps)
 
 
-def test_eps_neighbors_sparse_check_col_major_inputs():
+def test_rbc_eps_neighbors_check_col_major_inputs():
     # make sure that we get an exception if passed col-major inputs,
     # instead of returning incorrect results
     cp = pytest.importorskip("cupy")
@@ -70,9 +59,9 @@ def test_eps_neighbors_sparse_check_col_major_inputs():
     rbc_index = build_rbc_index(index)
 
     with pytest.raises(ValueError):
-        eps_neighbors_sparse(rbc_index, cp.asarray(queries, order="F"), eps)
+        eps_neighbors_rbc(rbc_index, cp.asarray(queries, order="F"), eps)
 
-    eps_neighbors_sparse(rbc_index, queries, eps)
+    eps_neighbors_rbc(rbc_index, queries, eps)
 
 
 @pytest.mark.parametrize("n_index_rows", [32, 100, 1000])
@@ -88,31 +77,21 @@ def test_eps_neighbors(n_index_rows, n_query_rows, n_cols):
     queries = cp.random.random_sample((n_query_rows, n_cols), dtype="float32")
 
     # brute force
-    adj_bf, vd_bf = eps_neighbors(index, queries, eps, handle=handle)
+    adj_bf, vd_bf = eps_neighbors_bf(index, queries, eps, handle=handle)
     adj_bf = cp.asarray(adj_bf)
     vd_bf = cp.asarray(vd_bf)
 
-    # rbc
-    adj_rbc, vd_rbc = eps_neighbors(
-        index, queries, eps, method="ball_cover", handle=handle
-    )
-    adj_rbc = cp.asarray(adj_rbc)
-    vd_rbc = cp.asarray(vd_rbc)
-
-    np.testing.assert_array_equal(adj_bf.get(), adj_rbc.get())
-    np.testing.assert_array_equal(vd_bf.get(), vd_rbc.get())
-
     rbc_index = build_rbc_index(index, handle=handle)
-    adj_rbc_ia, adj_rbc_ja, vd_rbc2 = eps_neighbors_sparse(
+    adj_rbc_ia, adj_rbc_ja, vd_rbc = eps_neighbors_rbc(
         rbc_index, queries, eps, handle=handle
     )
     adj_rbc_ia = cp.asarray(adj_rbc_ia)
     adj_rbc_ja = cp.asarray(adj_rbc_ja)
-    vd_rbc2 = cp.asarray(vd_rbc2)
+    vd_rbc = cp.asarray(vd_rbc)
 
-    np.testing.assert_array_equal(vd_bf.get(), vd_rbc2.get())
+    np.testing.assert_array_equal(vd_bf.get(), vd_rbc.get())
 
-    adj_rbc2 = csr_array(
+    adj_rbc = csr_array(
         (
             np.ones(adj_rbc_ia.get()[n_query_rows]),
             adj_rbc_ja.get(),
@@ -120,4 +99,4 @@ def test_eps_neighbors(n_index_rows, n_query_rows, n_cols):
         ),
         shape=(n_query_rows, n_index_rows),
     ).toarray()
-    np.testing.assert_array_equal(adj_bf.get(), adj_rbc2)
+    np.testing.assert_array_equal(adj_bf.get(), adj_rbc)

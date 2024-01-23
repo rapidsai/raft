@@ -54,14 +54,6 @@ cdef extern from "raft/neighbors/ball_cover_types.hpp" \
 cdef extern from "raft_runtime/neighbors/eps_neighborhood.hpp" \
         namespace "raft::runtime::neighbors::epsilon_neighborhood" nogil:
 
-    cdef void eps_neighbors(
-        const device_resources & handle,
-        device_matrix_view[float, int64_t, row_major] index,
-        device_matrix_view[float, int64_t, row_major] search,
-        device_matrix_view[bool, int64_t, row_major] adj,
-        device_vector_view[int64_t, int64_t] vd,
-        float eps) except +
-
     cdef void eps_neighbors_rbc(
         const device_resources & handle,
         device_matrix_view[float, int64_t, row_major] index,
