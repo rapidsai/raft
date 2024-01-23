@@ -233,8 +233,19 @@ def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
 
     Examples
     --------
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import cagra
     >>> from pylibraft.neighbors import hnsw
-    >>> dim = 50 # Assuming training dataset has 50 dimensions
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> # Build index
+    >>> handle = DeviceResources()
+    >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
+    >>> # Serialize the CAGRA index to hnswlib base layer only index format
+    >>> hnsw.save("my_index.bin", index, handle=handle)
     >>> index = hnsw.load("my_index.bin", dim, np.float32, "sqeuclidean")
     """
     if handle is None:
@@ -396,7 +407,7 @@ def search(SearchParams search_params,
     >>> handle = DeviceResources()
     >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
     >>>
-    >>> Load saved base-layer-only hnswlib index from CAGRA index
+    >>> # Load saved base-layer-only hnswlib index from CAGRA index
     >>> hnsw_index = hnsw.from_cagra(index, handle=handle)
     >>>
     >>> # Search hnswlib using the loaded index
