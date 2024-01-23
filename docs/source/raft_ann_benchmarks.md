@@ -39,7 +39,7 @@ mamba create --name raft_ann_benchmarks
 conda activate raft_ann_benchmarks
 
 # to install GPU package:
-mamba install -c rapidsai -c conda-forge -c nvidia raft-ann-bench cuda-version=11.8*
+mamba install -c rapidsai -c conda-forge -c nvidia raft-ann-bench=<rapids_version> cuda-version=11.8*
 
 # to install CPU package for usage in CPU-only systems:
 mamba install -c rapidsai -c conda-forge  raft-ann-bench-cpu
@@ -268,7 +268,7 @@ The steps below demonstrate how to download, install, and run benchmarks on a su
 python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
 
 # (2) build and search index
-python -m raft-ann-bench.run --dataset deep-image-96-inner
+python -m raft-ann-bench.run --dataset deep-image-96-inner --algorithms raft_cagra --batch-size 10 -k 10
 
 # (3) export data
 python -m raft-ann-bench.data_export --dataset deep-image-96-inner
@@ -312,7 +312,7 @@ python -m raft-ann-bench.split_groundtruth --groundtruth datasets/deep-1B/deep_n
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python -m raft-ann-bench.run --dataset deep-1B
+python -m raft-ann-bench.run --dataset deep-1B --algorithms raft_cagra --batch-size 10 -k 10
 
 # (3) export data
 python -m raft-ann-bench.data_export --dataset deep-1B
@@ -460,6 +460,7 @@ groups:
     build:
       graph_degree: [32, 64]
       intermediate_graph_degree: [64, 96]
+      graph_build_algo: ["NN_DESCENT"]
     search:
       itopk: [32, 64, 128]
 
@@ -477,13 +478,13 @@ There config above has 2 fields:
 
 The table below contains all algorithms supported by RAFT. Each unique algorithm will have its own set of `build` and `search` settings. The [ANN Algorithm Parameter Tuning Guide](ann_benchmarks_param_tuning.md) contains detailed instructions on choosing build and search parameters for each supported algorithm.
 
-| Library   | Algorithms                                                       |
-|-----------|------------------------------------------------------------------|
-| FAISS GPU | `faiss_gpu_flat`, `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`       |
-| FAISS CPU | `faiss_cpu_flat`, `faiss_cpu_ivf_flat`, `faiss_cpu_ivf_pq`       |
-| GGNN      | `ggnn`                                                           |
-| HNSWlib   | `hnswlib`                                                        |
-| RAFT      | `raft_brute_force`, `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq` |
+| Library   | Algorithms                                                                            |
+|-----------|---------------------------------------------------------------------------------------|
+| FAISS GPU | `faiss_gpu_flat`, `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`                            |
+| FAISS CPU | `faiss_cpu_flat`, `faiss_cpu_ivf_flat`, `faiss_cpu_ivf_pq`                            |
+| GGNN      | `ggnn`                                                                                |
+| HNSWlib   | `hnswlib`                                                                             |
+| RAFT      | `raft_brute_force`, `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq`, `raft_cagra_hnswlib`|
 
 ## Adding a new ANN algorithm
 

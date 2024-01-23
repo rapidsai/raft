@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <optional>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/device_setter.hpp>
+#include <rmm/cuda_device.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
@@ -170,7 +171,9 @@ struct device_resources_manager {
             if (upstream != nullptr) {
               result =
                 std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>(
-                  upstream, params.init_mem_pool_size, params.max_mem_pool_size);
+                  upstream,
+                  params.init_mem_pool_size.value_or(rmm::percent_of_free_device_memory(50)),
+                  params.max_mem_pool_size);
               rmm::mr::set_current_device_resource(result.get());
             } else {
               RAFT_LOG_WARN(
