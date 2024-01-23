@@ -246,7 +246,7 @@ def load(filename, dim, dtype, metric="sqeuclidean", handle=None):
     >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
     >>> # Serialize the CAGRA index to hnswlib base layer only index format
     >>> hnsw.save("my_index.bin", index, handle=handle)
-    >>> index = hnsw.load("my_index.bin", dim, np.float32, "sqeuclidean")
+    >>> index = hnsw.load("my_index.bin", n_features, np.float32, "sqeuclidean")
     """
     if handle is None:
         handle = DeviceResources()
