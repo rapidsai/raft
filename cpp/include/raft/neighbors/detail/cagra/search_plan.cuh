@@ -154,7 +154,7 @@ struct search_plan_impl : public search_plan_impl_base {
     if (algo == search_algo::MULTI_CTA) {
       mc_itopk_size        = 32;
       mc_search_width      = 1;
-      mc_num_cta_per_query = max(search_width, itopk_size / 32);
+      mc_num_cta_per_query = max(search_width, raft::ceildiv(itopk_size, (size_t)32));
       RAFT_LOG_DEBUG("# mc_itopk_size: %u", mc_itopk_size);
       RAFT_LOG_DEBUG("# mc_search_width: %u", mc_search_width);
       RAFT_LOG_DEBUG("# mc_num_cta_per_query: %u", mc_num_cta_per_query);
