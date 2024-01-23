@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 
 #include <raft/neighbors/sample_filter_types.hpp>  // none_cagra_sample_filter
 #include <raft/util/raft_explicit.hpp>             // RAFT_EXPLICIT
+
+#include <cuda_fp16.h>
 
 namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {
@@ -92,6 +94,14 @@ instantiate_kernel_selection(
   16, 256, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_kernel_selection(
   32, 512, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
+  32, 1024, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
+  8, 128, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
+  16, 256, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
+  32, 512, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_kernel_selection(
   32, 1024, int8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_kernel_selection(
