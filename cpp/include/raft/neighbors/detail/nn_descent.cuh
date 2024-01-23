@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -686,12 +686,12 @@ __device__ __forceinline__ void remove_duplicates(
 // Per
 // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#features-and-technical-specifications,
 // MAX_RESIDENT_THREAD_PER_SM = BLOCK_SIZE * BLOCKS_PER_SM = 2048
-// For architectures 750 and 860, the values for MAX_RESIDENT_THREAD_PER_SM
+// For architectures 750 and 860 (890), the values for MAX_RESIDENT_THREAD_PER_SM
 // is 1024 and 1536 respectively, which means the bounds don't work anymore
 template <typename Index_t, typename ID_t = InternalID_t<Index_t>>
 RAFT_KERNEL
 #ifdef __CUDA_ARCH__
-#if (__CUDA_ARCH__) == 750 || (__CUDA_ARCH__) == 860
+#if (__CUDA_ARCH__) == 750 || ((__CUDA_ARCH__) >= 860 && (__CUDA_ARCH__) <= 890)
 __launch_bounds__(BLOCK_SIZE)
 #else
 __launch_bounds__(BLOCK_SIZE, 4)
