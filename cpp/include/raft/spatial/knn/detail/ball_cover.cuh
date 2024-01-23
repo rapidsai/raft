@@ -104,16 +104,18 @@ void sample_landmarks(raft::resources const& handle,
                                          (value_idx)index.n_landmarks,
                                          (value_idx)index.m);
 
-  // index.get_X() returns the wrong indextype (uint32_t where we need value_idx), so need to
+  // index.get_X() returns matrix_idx where we need value_idx, so we might need to
   // create new device_matrix_view here
-  auto x = index.get_X();
-  auto r = index.get_R();
+  if (!std::is_same<value_idx, matrix_idx>::value) {
+    auto x = index.get_X();
+    auto r = index.get_R();
 
-  raft::matrix::copy_rows<value_t, value_idx>(
-    handle,
-    make_device_matrix_view<const value_t, value_idx>(x.data_handle(), x.extent(0), x.extent(1)),
-    make_device_matrix_view<value_t, value_idx>(r.data_handle(), r.extent(0), r.extent(1)),
-    make_device_vector_view(R_1nn_cols2.data(), index.n_landmarks));
+    raft::matrix::copy_rows<value_t, value_idx>(
+      handle,
+      make_device_matrix_view<const value_t, value_idx>(x.data_handle(), x.extent(0), x.extent(1)),
+      make_device_matrix_view<value_t, value_idx>(r.data_handle(), r.extent(0), r.extent(1)),
+      make_device_vector_view(R_1nn_cols2.data(), index.n_landmarks));
+  }
 }
 
 /**
@@ -630,7 +632,12 @@ void compute_landmark_dists(raft::resources const& handle,
   // compute distances for all queries against all landmarks
   // index.get_R() -- landmark points in row order (index.n_landmarks x index.k)
   // query_pts     -- query points in row order (n_query_pts x index.k)
-  // TODO(mfoerste4): sice we cast to int, we shall assert whether matrices can be idexed with int
+  RAFT_EXPECTS(std::max<size_t>(index.n_landmarks, n_query_pts) * index.n <
+                 static_cast<size_t>(std::numeric_limits<int>::max()),
+               "Too large input for pairwise_distance with `int` index.");
+  RAFT_EXPECTS(n_query_pts * static_cast<size_t>(index.n_landmarks) <
+                 static_cast<size_t>(std::numeric_limits<int>::max()),
+               "Too large input for pairwise_distance with `int` index.");
   raft::distance::pairwise_distance<value_t, int>(handle,
                                                   query_pts,
                                                   index.get_R().data_handle(),
@@ -663,14 +670,15 @@ void rbc_eps_nn_query(raft::resources const& handle,
 {
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
-  rmm::device_uvector<value_t> R_dists(index.n_landmarks * n_query_pts,
-                                       resource::get_cuda_stream(handle));
+  auto R_dists =
+    raft::make_device_matrix<value_t, matrix_idx>(handle, index.n_landmarks, n_query_pts);
 
   // find all landmarks that might have points in range
-  compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data());
+  compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data_handle());
 
   // query all points and write to adj
-  perform_rbc_eps_nn_query(handle, index, query, n_query_pts, eps, R_dists.data(), dfunc, adj, vd);
+  perform_rbc_eps_nn_query(
+    handle, index, query, n_query_pts, eps, R_dists.data_handle(), dfunc, adj, vd);
 }
 
 template <typename value_idx = std::int64_t,
@@ -691,15 +699,24 @@ void rbc_eps_nn_query(raft::resources const& handle,
 {
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
-  rmm::device_uvector<value_t> R_dists(index.n_landmarks * n_query_pts,
-                                       resource::get_cuda_stream(handle));
+  auto R_dists =
+    raft::make_device_matrix<value_t, matrix_idx>(handle, index.n_landmarks, n_query_pts);
 
   // find all landmarks that might have points in range
-  compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data());
+  compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data_handle());
 
   // query all points and write to adj
-  perform_rbc_eps_nn_query(
-    handle, index, query, n_query_pts, eps, max_k, R_dists.data(), dfunc, adj_ia, adj_ja, vd);
+  perform_rbc_eps_nn_query(handle,
+                           index,
+                           query,
+                           n_query_pts,
+                           eps,
+                           max_k,
+                           R_dists.data_handle(),
+                           dfunc,
+                           adj_ia,
+                           adj_ja,
+                           vd);
 }
 
 };  // namespace detail

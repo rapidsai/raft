@@ -345,14 +345,15 @@ void eps_nn(raft::resources const& handle,
  * @param[in] index ball cover index which has been built
  * @param[out] adj_ia    adjacency matrix CSR row offsets
  * @param[out] adj_ja    adjacency matrix CSR column indices, needs to be nullptr
- *                       in first pass with k == 0
+ *                       in first pass with max_k nullopt
  * @param[out] vd     vertex degree array [on device] [len = m + 1]
  *                    `vd + m` stores the total number of edges in the adjacency
  *                    matrix. Pass a nullptr if you don't need this info.
  * @param[in]  query  first matrix [row-major] [on device] [dim = m x k]
  * @param[in]  eps    defines epsilon neighborhood radius
  * @param[inout] max_k if nullopt (default), the user needs to make 2 subsequent calls:
- *                     The first call computes adj_ia and allows adj_ja allocation.
+ *                     The first call computes row offsets in adj_ia, where adj_ia[m]
+ *                     contains the minimum required size for adj_ja.
  *                     The second call fills in adj_ja based on adj_ia.
  *                     If max_k != nullopt the algorithm only fills up neighbors up to a
  *                     maximum number of max_k for each row in a single pass. Note
