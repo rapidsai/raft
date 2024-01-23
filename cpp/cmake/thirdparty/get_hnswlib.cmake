@@ -53,11 +53,13 @@ function(find_and_configure_hnswlib)
       # write export rules
       rapids_export(
         BUILD hnswlib
+        VERSION ${PKG_VERSION}
         EXPORT_SET hnswlib-exports
         GLOBAL_TARGETS hnswlib
         NAMESPACE hnswlib::)
       rapids_export(
         INSTALL hnswlib
+        VERSION ${PKG_VERSION}
         EXPORT_SET hnswlib-exports
         GLOBAL_TARGETS hnswlib
         NAMESPACE hnswlib::)
