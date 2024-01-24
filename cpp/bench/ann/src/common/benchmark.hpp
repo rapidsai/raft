@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -287,11 +287,11 @@ void bench_search(::benchmark::State& state,
     std::make_shared<buf<std::size_t>>(current_algo_props->query_memory_type, k * query_set_size);
 
   cuda_timer gpu_timer;
-  auto start = std::chrono::high_resolution_clock::now();
   {
     nvtx_case nvtx{state.name()};
 
-    auto algo = dynamic_cast<ANN<T>*>(current_algo.get())->copy();
+    auto algo  = dynamic_cast<ANN<T>*>(current_algo.get())->copy();
+    auto start = std::chrono::high_resolution_clock::now();
     for (auto _ : state) {
       [[maybe_unused]] auto ntx_lap = nvtx.lap();
       [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
@@ -314,17 +314,15 @@ void bench_search(::benchmark::State& state,
 
       queries_processed += n_queries;
     }
+    auto end      = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+    if (state.thread_index() == 0) { state.counters.insert({{"end_to_end", duration}}); }
+    state.counters.insert({"Latency", {duration, benchmark::Counter::kAvgIterations}});
   }
-  auto end      = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
-  if (state.thread_index() == 0) { state.counters.insert({{"end_to_end", duration}}); }
-  state.counters.insert(
-    {"Latency", {duration / double(state.iterations()), benchmark::Counter::kAvgThreads}});
 
   state.SetItemsProcessed(queries_processed);
   if (cudart.found()) {
-    double gpu_time_per_iteration = gpu_timer.total_time() / (double)state.iterations();
-    state.counters.insert({"GPU", {gpu_time_per_iteration, benchmark::Counter::kAvgThreads}});
+    state.counters.insert({"GPU", {gpu_timer.total_time(), benchmark::Counter::kAvgIterations}});
   }
 
   // This will be the total number of queries across all threads
