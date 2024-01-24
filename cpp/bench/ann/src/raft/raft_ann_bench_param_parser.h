@@ -88,7 +88,7 @@ void parse_build_param(const nlohmann::json& conf,
     }
   }
   if (conf.contains("max_train_points_per_pq_code")) {
-    param.max_train_points_per_pq_code = 1.0 / (double)conf.at("max_train_points_per_pq_code");
+    param.max_train_points_per_pq_code = conf.at("max_train_points_per_pq_code");
   }
 }
 

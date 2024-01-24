@@ -45,6 +45,7 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 | `smemLutDtype`         | `search` | N | [`float`, `half`, `fp8`]         | `half`  | The precision to use for the lookup table in shared memory. Lower precision can increase performance at the cost of accuracy.                                                   |
 | `refine_ratio`         | `search` | N| Positive Number >=1              | 1       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.           |
 
+
 ### `raft_cagra`
 <a id='raft-cagra'></a>CAGRA uses a graph-based index, which creates an intermediate, approximate kNN graph using IVF-PQ and then further refining and optimizing to create a final kNN graph. This kNN graph is used by CAGRA as an index for search.
 
