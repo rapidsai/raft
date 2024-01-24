@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -969,12 +969,16 @@ void fusedL2Knn(size_t D,
   size_t worksize = 0, tempWorksize = 0;
   rmm::device_uvector<char> workspace(worksize, stream);
   value_idx lda = D, ldb = D, ldd = n_index_rows;
-
+  // <raft::distance::DistanceType::L2Expanded, float, float, float, value_idx>
   switch (metric) {
     case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded:
-      tempWorksize = raft::distance::detail::
-        getWorkspaceSize<raft::distance::DistanceType::L2Expanded, float, float, float, value_idx>(
+      tempWorksize =
+        raft::distance::detail::getWorkspaceSize<raft::distance::DistanceType::L2Expanded,
+                                                 value_t,
+                                                 value_t,
+                                                 value_t,
+                                                 value_idx>(
           query, index, n_query_rows, n_index_rows, D);
       worksize = tempWorksize;
       workspace.resize(worksize, stream);

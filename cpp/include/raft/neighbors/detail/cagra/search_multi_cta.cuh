@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,8 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILT
     constexpr unsigned muti_cta_itopk_size = 32;
     this->itopk_size                       = muti_cta_itopk_size;
     search_width                           = 1;
-    num_cta_per_query  = max(params.search_width, params.itopk_size / muti_cta_itopk_size);
+    num_cta_per_query =
+      max(params.search_width, raft::ceildiv(params.itopk_size, (size_t)muti_cta_itopk_size));
     result_buffer_size = itopk_size + search_width * graph_degree;
     typedef raft::Pow2<32> AlignBytes;
     unsigned result_buffer_size_32 = AlignBytes::roundUp(result_buffer_size);
@@ -184,7 +185,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILT
     RAFT_EXPECTS(num_cta_per_query * 32 >= topk,
                  "`num_cta_per_query` (%u) * 32 must be equal to or greater than "
                  "`topk` (%u) when 'search_mode' is \"multi-cta\". "
-                 "(`num_cta_per_query`=max(`search_width`, `itopk_size`/32))",
+                 "(`num_cta_per_query`=max(`search_width`, ceildiv(`itopk_size`, 32)))",
                  num_cta_per_query,
                  topk);
   }
