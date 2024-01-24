@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 
 #include <raft/neighbors/detail/faiss_select/key_value_block_select.cuh>
 
+#include <raft/distance/distance.cuh>
 #include <raft/matrix/copy.cuh>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
@@ -64,9 +65,12 @@ namespace detail {
  * @param handle
  * @param index
  */
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 void sample_landmarks(raft::resources const& handle,
-                      BallCoverIndex<value_idx, value_t, value_int>& index)
+                      BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index)
 {
   rmm::device_uvector<value_idx> R_1nn_cols2(index.n_landmarks, resource::get_cuda_stream(handle));
   rmm::device_uvector<value_t> R_1nn_ones(index.m, resource::get_cuda_stream(handle));
@@ -100,8 +104,6 @@ void sample_landmarks(raft::resources const& handle,
                                          (value_idx)index.n_landmarks,
                                          (value_idx)index.m);
 
-  // index.get_X() returns the wrong indextype (uint32_t where we need value_idx), so need to
-  // create new device_matrix_view here
   auto x = index.get_X();
   auto r = index.get_R();
 
@@ -122,12 +124,15 @@ void sample_landmarks(raft::resources const& handle,
  * @param k
  * @param index
  */
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 void construct_landmark_1nn(raft::resources const& handle,
                             const value_idx* R_knn_inds_ptr,
                             const value_t* R_knn_dists_ptr,
                             value_int k,
-                            BallCoverIndex<value_idx, value_t, value_int>& index)
+                            BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index)
 {
   rmm::device_uvector<value_idx> R_1nn_inds(index.m, resource::get_cuda_stream(handle));
 
@@ -177,9 +182,12 @@ void construct_landmark_1nn(raft::resources const& handle,
  * @param R_knn_inds
  * @param R_knn_dists
  */
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 void k_closest_landmarks(raft::resources const& handle,
-                         const BallCoverIndex<value_idx, value_t, value_int>& index,
+                         const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                          const value_t* query_pts,
                          value_int n_query_pts,
                          value_int k,
@@ -205,9 +213,12 @@ void k_closest_landmarks(raft::resources const& handle,
  * @param handle
  * @param index
  */
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 void compute_landmark_radii(raft::resources const& handle,
-                            BallCoverIndex<value_idx, value_t, value_int>& index)
+                            BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index)
 {
   auto entries = thrust::make_counting_iterator<value_idx>(0);
 
@@ -235,13 +246,14 @@ void compute_landmark_radii(raft::resources const& handle,
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename dist_func>
 void perform_rbc_query(raft::resources const& handle,
-                       const BallCoverIndex<value_idx, value_t, value_int>& index,
+                       const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                        const value_t* query,
                        value_int n_query_pts,
-                       std::uint32_t k,
+                       value_int k,
                        const value_idx* R_knn_inds,
                        const value_t* R_knn_dists,
                        dist_func dfunc,
@@ -264,64 +276,126 @@ void perform_rbc_query(raft::resources const& handle,
 
   if (index.n == 2) {
     // Compute nearest k for each neighborhood in each closest R
-    rbc_low_dim_pass_one<value_idx, value_t, value_int, 2>(handle,
-                                                           index,
-                                                           query,
-                                                           n_query_pts,
-                                                           k,
-                                                           R_knn_inds,
-                                                           R_knn_dists,
-                                                           dfunc,
-                                                           inds,
-                                                           dists,
-                                                           weight,
-                                                           dists_counter);
+    rbc_low_dim_pass_one<value_idx, value_t, value_int, matrix_idx, 2>(handle,
+                                                                       index,
+                                                                       query,
+                                                                       n_query_pts,
+                                                                       k,
+                                                                       R_knn_inds,
+                                                                       R_knn_dists,
+                                                                       dfunc,
+                                                                       inds,
+                                                                       dists,
+                                                                       weight,
+                                                                       dists_counter);
 
     if (perform_post_filtering) {
-      rbc_low_dim_pass_two<value_idx, value_t, value_int, 2>(handle,
-                                                             index,
-                                                             query,
-                                                             n_query_pts,
-                                                             k,
-                                                             R_knn_inds,
-                                                             R_knn_dists,
-                                                             dfunc,
-                                                             inds,
-                                                             dists,
-                                                             weight,
-                                                             post_dists_counter);
+      rbc_low_dim_pass_two<value_idx, value_t, value_int, matrix_idx, 2>(handle,
+                                                                         index,
+                                                                         query,
+                                                                         n_query_pts,
+                                                                         k,
+                                                                         R_knn_inds,
+                                                                         R_knn_dists,
+                                                                         dfunc,
+                                                                         inds,
+                                                                         dists,
+                                                                         weight,
+                                                                         post_dists_counter);
     }
 
   } else if (index.n == 3) {
     // Compute nearest k for each neighborhood in each closest R
-    rbc_low_dim_pass_one<value_idx, value_t, value_int, 3>(handle,
-                                                           index,
-                                                           query,
-                                                           n_query_pts,
-                                                           k,
-                                                           R_knn_inds,
-                                                           R_knn_dists,
-                                                           dfunc,
-                                                           inds,
-                                                           dists,
-                                                           weight,
-                                                           dists_counter);
+    rbc_low_dim_pass_one<value_idx, value_t, value_int, matrix_idx, 3>(handle,
+                                                                       index,
+                                                                       query,
+                                                                       n_query_pts,
+                                                                       k,
+                                                                       R_knn_inds,
+                                                                       R_knn_dists,
+                                                                       dfunc,
+                                                                       inds,
+                                                                       dists,
+                                                                       weight,
+                                                                       dists_counter);
 
     if (perform_post_filtering) {
-      rbc_low_dim_pass_two<value_idx, value_t, value_int, 3>(handle,
-                                                             index,
-                                                             query,
-                                                             n_query_pts,
-                                                             k,
-                                                             R_knn_inds,
-                                                             R_knn_dists,
-                                                             dfunc,
-                                                             inds,
-                                                             dists,
-                                                             weight,
-                                                             post_dists_counter);
+      rbc_low_dim_pass_two<value_idx, value_t, value_int, matrix_idx, 3>(handle,
+                                                                         index,
+                                                                         query,
+                                                                         n_query_pts,
+                                                                         k,
+                                                                         R_knn_inds,
+                                                                         R_knn_dists,
+                                                                         dfunc,
+                                                                         inds,
+                                                                         dists,
+                                                                         weight,
+                                                                         post_dists_counter);
     }
   }
+}
+
+/**
+ * Perform eps-select
+ *
+ * a. Map 1 row to each warp/block
+ * b. Add closest k R points to heap
+ * c. Iterate through batches of R, having each thread in the warp load a set
+ * of distances y from R (only if d(q, r) < 3 * distance to closest r) and
+ * marking the distance to be computed between x, y only
+ * if knn[k].distance >= d(x_i, R_k) + d(R_k, y)
+ */
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
+          typename dist_func>
+void perform_rbc_eps_nn_query(
+  raft::resources const& handle,
+  const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
+  const value_t* query,
+  value_int n_query_pts,
+  value_t eps,
+  const value_t* landmark_dists,
+  dist_func dfunc,
+  bool* adj,
+  value_idx* vd)
+{
+  // initialize output
+  RAFT_CUDA_TRY(cudaMemsetAsync(
+    adj, 0, index.m * n_query_pts * sizeof(bool), resource::get_cuda_stream(handle)));
+
+  resource::sync_stream(handle);
+
+  rbc_eps_pass<value_idx, value_t, value_int, matrix_idx>(
+    handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj, vd);
+
+  resource::sync_stream(handle);
+}
+
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
+          typename dist_func>
+void perform_rbc_eps_nn_query(
+  raft::resources const& handle,
+  const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
+  const value_t* query,
+  value_int n_query_pts,
+  value_t eps,
+  value_int* max_k,
+  const value_t* landmark_dists,
+  dist_func dfunc,
+  value_idx* adj_ia,
+  value_idx* adj_ja,
+  value_idx* vd)
+{
+  rbc_eps_pass<value_idx, value_t, value_int, matrix_idx>(
+    handle, index, query, n_query_pts, eps, max_k, landmark_dists, dfunc, adj_ia, adj_ja, vd);
+
+  resource::sync_stream(handle);
 }
 
 /**
@@ -337,13 +411,13 @@ void perform_rbc_query(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename distance_func>
 void rbc_build_index(raft::resources const& handle,
-                     BallCoverIndex<value_idx, value_t, value_int>& index,
+                     BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                      distance_func dfunc)
 {
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
   rmm::device_uvector<value_idx> R_knn_inds(index.m, resource::get_cuda_stream(handle));
@@ -396,10 +470,11 @@ void rbc_build_index(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename distance_func>
 void rbc_all_knn_query(raft::resources const& handle,
-                       BallCoverIndex<value_idx, value_t, value_int>& index,
+                       BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                        value_int k,
                        value_idx* inds,
                        value_t* dists,
@@ -469,10 +544,11 @@ void rbc_all_knn_query(raft::resources const& handle,
  */
 template <typename value_idx = std::int64_t,
           typename value_t,
-          typename value_int = std::uint32_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
           typename distance_func>
 void rbc_knn_query(raft::resources const& handle,
-                   const BallCoverIndex<value_idx, value_t, value_int>& index,
+                   const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                    value_int k,
                    const value_t* query,
                    value_int n_query_pts,
@@ -537,6 +613,106 @@ void rbc_knn_query(raft::resources const& handle,
                     post_dists_counter.data(),
                     weight,
                     perform_post_filtering);
+}
+
+template <typename value_idx,
+          typename value_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
+void compute_landmark_dists(raft::resources const& handle,
+                            const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
+                            const value_t* query_pts,
+                            value_int n_query_pts,
+                            value_t* R_dists)
+{
+  // compute distances for all queries against all landmarks
+  // index.get_R() -- landmark points in row order (index.n_landmarks x index.k)
+  // query_pts     -- query points in row order (n_query_pts x index.k)
+  RAFT_EXPECTS(std::max<size_t>(index.n_landmarks, n_query_pts) * index.n <
+                 static_cast<size_t>(std::numeric_limits<int>::max()),
+               "Too large input for pairwise_distance with `int` index.");
+  RAFT_EXPECTS(n_query_pts * static_cast<size_t>(index.n_landmarks) <
+                 static_cast<size_t>(std::numeric_limits<int>::max()),
+               "Too large input for pairwise_distance with `int` index.");
+  raft::distance::pairwise_distance<value_t, int>(handle,
+                                                  query_pts,
+                                                  index.get_R().data_handle(),
+                                                  R_dists,
+                                                  n_query_pts,
+                                                  index.n_landmarks,
+                                                  index.n,
+                                                  index.get_metric());
+}
+
+/**
+ * Performs a knn query against an index. This assumes the index has
+ * already been built.
+ * Modified version that takes an eps as threshold and outputs to a dense adj matrix (row-major)
+ * we are assuming that there are sufficiently many landmarks
+ */
+template <typename value_idx = std::int64_t,
+          typename value_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
+          typename distance_func>
+void rbc_eps_nn_query(raft::resources const& handle,
+                      const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
+                      const value_t eps,
+                      const value_t* query,
+                      value_int n_query_pts,
+                      bool* adj,
+                      value_idx* vd,
+                      distance_func dfunc)
+{
+  ASSERT(index.is_index_trained(), "index must be previously trained");
+
+  auto R_dists =
+    raft::make_device_matrix<value_t, matrix_idx>(handle, index.n_landmarks, n_query_pts);
+
+  // find all landmarks that might have points in range
+  compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data_handle());
+
+  // query all points and write to adj
+  perform_rbc_eps_nn_query(
+    handle, index, query, n_query_pts, eps, R_dists.data_handle(), dfunc, adj, vd);
+}
+
+template <typename value_idx = std::int64_t,
+          typename value_t,
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t,
+          typename distance_func>
+void rbc_eps_nn_query(raft::resources const& handle,
+                      const BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
+                      const value_t eps,
+                      value_int* max_k,
+                      const value_t* query,
+                      value_int n_query_pts,
+                      value_idx* adj_ia,
+                      value_idx* adj_ja,
+                      value_idx* vd,
+                      distance_func dfunc)
+{
+  ASSERT(index.is_index_trained(), "index must be previously trained");
+
+  auto R_dists =
+    raft::make_device_matrix<value_t, matrix_idx>(handle, index.n_landmarks, n_query_pts);
+
+  // find all landmarks that might have points in range
+  compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data_handle());
+
+  // query all points and write to adj
+  perform_rbc_eps_nn_query(handle,
+                           index,
+                           query,
+                           n_query_pts,
+                           eps,
+                           max_k,
+                           R_dists.data_handle(),
+                           dfunc,
+                           adj_ia,
+                           adj_ja,
+                           vd);
 }
 
 };  // namespace detail
