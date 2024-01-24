@@ -275,37 +275,49 @@ template <>
  * @{
  */
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION T myInf();
-template <>
-RAFT_DEVICE_INLINE_FUNCTION float myInf<float>()
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, float>, float> myInf()
 {
   return CUDART_INF_F;
 }
-template <>
-RAFT_DEVICE_INLINE_FUNCTION double myInf<double>()
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, double>, double> myInf()
 {
   return CUDART_INF;
 }
 // Half/Bfloat constants only defined after CUDA 12.2
 #if __CUDACC_VER_MAJOR__ < 12 || (__CUDACC_VER_MAJOR__ == 12 && __CUDACC_VER_MINOR__ < 2)
-template <>
-RAFT_DEVICE_INLINE_FUNCTION __half myInf<__half>()
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> myInf()
 {
+#if (__CUDA_ARCH__ >= 530)
   return __ushort_as_half((unsigned short)0x7C00U);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
 }
-template <>
-RAFT_DEVICE_INLINE_FUNCTION nv_bfloat16 myInf<nv_bfloat16>()
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+myInf()
 {
+#if (__CUDA_ARCH__ >= 800)
   return __ushort_as_bfloat16((unsigned short)0x7F80U);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
 }
 #else
-template <>
-RAFT_DEVICE_INLINE_FUNCTION __half myInf<__half>()
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> myInf()
 {
   return CUDART_INF_FP16;
 }
-template <>
-RAFT_DEVICE_INLINE_FUNCTION nv_bfloat16 myInf<nv_bfloat16>()
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+myInf()
 {
   return CUDART_INF_BF16;
 }
