@@ -58,6 +58,8 @@ class cuda_pinned_resource final : public rmm::mr::device_memory_resource {
    *
    * The returned pointer has at least 256B alignment.
    *
+   * @note Stream argument is ignored
+   *
    * @throws `rmm::bad_alloc` if the requested allocation could not be fulfilled
    *
    * @param bytes The size, in bytes, of the allocation
