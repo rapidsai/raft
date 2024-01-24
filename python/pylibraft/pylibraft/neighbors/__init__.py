@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,16 @@
 # limitations under the License.
 #
 
-from pylibraft.neighbors import brute_force, cagra, ivf_flat, ivf_pq
+from pylibraft.neighbors import brute_force, cagra, ivf_flat, ivf_pq, rbc
 
 from .refine import refine
 
-__all__ = ["common", "refine", "brute_force", "ivf_flat", "ivf_pq", "cagra"]
+__all__ = [
+    "common",
+    "refine",
+    "brute_force",
+    "ivf_flat",
+    "ivf_pq",
+    "rbc",
+    "cagra",
+]
