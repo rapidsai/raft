@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/linalg/gemm.cuh>
 #include <raft/random/multi_variable_gaussian.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -107,7 +108,6 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     corr      = params.corr;
     tolerance = params.tolerance;
 
-    auto cublasH   = resource::get_cublas_handle(handle);
     auto cusolverH = resource::get_cusolver_dn_handle(handle);
     auto stream    = resource::get_cuda_stream(handle);
 
@@ -175,21 +175,21 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     // finding the cov matrix, placing in Rand_cov
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
 
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublasH,
-                                                     CUBLAS_OP_N,
-                                                     CUBLAS_OP_T,
-                                                     dim,
-                                                     dim,
-                                                     nPoints,
-                                                     &alfa,
-                                                     X_d.data(),
-                                                     dim,
-                                                     X_d.data(),
-                                                     dim,
-                                                     &beta,
-                                                     Rand_cov.data(),
-                                                     dim,
-                                                     stream));
+    linalg::gemm(handle,
+                 false,
+                 true,
+                 dim,
+                 dim,
+                 nPoints,
+                 &alfa,
+                 X_d.data(),
+                 dim,
+                 X_d.data(),
+                 dim,
+                 &beta,
+                 Rand_cov.data(),
+                 dim,
+                 stream);
 
     // restoring cov provided into P_d
     raft::update_device(P_d.data(), P.data(), dim * dim, stream);
@@ -247,7 +247,6 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     corr        = params.corr;
     tolerance   = params.tolerance;
 
-    auto cublasH   = resource::get_cublas_handle(handle);
     auto cusolverH = resource::get_cusolver_dn_handle(handle);
     auto stream    = resource::get_cuda_stream(handle);
 
@@ -309,21 +308,21 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     // finding the cov matrix, placing in Rand_cov
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
 
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublasH,
-                                                     CUBLAS_OP_N,
-                                                     CUBLAS_OP_T,
-                                                     dim,
-                                                     dim,
-                                                     nPoints,
-                                                     &alfa,
-                                                     X_d.data(),
-                                                     dim,
-                                                     X_d.data(),
-                                                     dim,
-                                                     &beta,
-                                                     Rand_cov.data(),
-                                                     dim,
-                                                     stream));
+    linalg::gemm(handle,
+                 false,
+                 true,
+                 dim,
+                 dim,
+                 nPoints,
+                 &alfa,
+                 X_d.data(),
+                 dim,
+                 X_d.data(),
+                 dim,
+                 &beta,
+                 Rand_cov.data(),
+                 dim,
+                 stream);
 
     // restoring cov provided into P_d
     raft::update_device(P_d.data(), P.data(), dim * dim, stream);
