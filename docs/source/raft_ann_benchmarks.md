@@ -39,7 +39,7 @@ mamba create --name raft_ann_benchmarks
 conda activate raft_ann_benchmarks
 
 # to install GPU package:
-mamba install -c rapidsai -c conda-forge -c nvidia raft-ann-bench cuda-version=11.8*
+mamba install -c rapidsai -c conda-forge -c nvidia raft-ann-bench=<rapids_version> cuda-version=11.8*
 
 # to install CPU package for usage in CPU-only systems:
 mamba install -c rapidsai -c conda-forge  raft-ann-bench-cpu
@@ -62,7 +62,7 @@ Nightly images are located in [dockerhub](https://hub.docker.com/r/rapidsai/raft
 - The following command pulls the nightly container for python version 10, cuda version 12, and RAFT version 23.10:
 
 ```bash
-docker pull rapidsai/raft-ann-bench:24.02a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
+docker pull rapidsai/raft-ann-bench:24.04a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
 ```
 
 The CUDA and python versions can be changed for the supported values:
@@ -83,7 +83,7 @@ You can see the exact versions as well in the dockerhub site:
 [//]: # ()
 [//]: # (```bash)
 
-[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:24.02-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.)
+[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:24.04-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.)
 
 [//]: # (```)
 
@@ -268,7 +268,7 @@ The steps below demonstrate how to download, install, and run benchmarks on a su
 python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
 
 # (2) build and search index
-python -m raft-ann-bench.run --dataset deep-image-96-inner
+python -m raft-ann-bench.run --dataset deep-image-96-inner --algorithms raft_cagra --batch-size 10 -k 10
 
 # (3) export data
 python -m raft-ann-bench.data_export --dataset deep-image-96-inner
@@ -312,7 +312,7 @@ python -m raft-ann-bench.split_groundtruth --groundtruth datasets/deep-1B/deep_n
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python -m raft-ann-bench.run --dataset deep-1B
+python -m raft-ann-bench.run --dataset deep-1B --algorithms raft_cagra --batch-size 10 -k 10
 
 # (3) export data
 python -m raft-ann-bench.data_export --dataset deep-1B
@@ -344,7 +344,7 @@ For GPU-enabled systems, the `DATA_FOLDER` variable should be a local folder whe
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run --gpus all --rm -it -u $(id -u)                      \
     -v $DATA_FOLDER:/data/benchmarks                            \
-    rapidsai/raft-ann-bench:24.02a-cuda11.8-py3.10              \
+    rapidsai/raft-ann-bench:24.04a-cuda11.8-py3.10              \
     "--dataset deep-image-96-angular"                           \
     "--normalize"                                               \
     "--algorithms raft_cagra,raft_ivf_pq --batch-size 10 -k 10" \
@@ -355,7 +355,7 @@ Usage of the above command is as follows:
 
 | Argument                                                  | Description                                                                                        |
 |-----------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| `rapidsai/raft-ann-bench:24.02a-cuda11.8-py3.10`          | Image to use. Can be either `raft-ann-bench` or `raft-ann-bench-datasets`                          |
+| `rapidsai/raft-ann-bench:24.04a-cuda11.8-py3.10`          | Image to use. Can be either `raft-ann-bench` or `raft-ann-bench-datasets`                          |
 | `"--dataset deep-image-96-angular"`                       | Dataset name                                                                                       |
 | `"--normalize"`                                           | Whether to normalize the dataset                                                                   |
 | `"--algorithms raft_cagra,hnswlib --batch-size 10 -k 10"` | Arguments passed to the `run` script, such as the algorithms to benchmark, the batch size, and `k` |
@@ -372,7 +372,7 @@ The container arguments in the above section also be used for the CPU-only conta
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run  --rm -it -u $(id -u)                  \
     -v $DATA_FOLDER:/data/benchmarks              \
-    rapidsai/raft-ann-bench-cpu:24.02a-py3.10     \
+    rapidsai/raft-ann-bench-cpu:24.04a-py3.10     \
      "--dataset deep-image-96-angular"            \
      "--normalize"                                \
      "--algorithms hnswlib --batch-size 10 -k 10" \
@@ -389,7 +389,7 @@ docker run --gpus all --rm -it -u $(id -u)          \
     --entrypoint /bin/bash                          \
     --workdir /data/benchmarks                      \
     -v $DATA_FOLDER:/data/benchmarks                \
-    rapidsai/raft-ann-bench:24.02a-cuda11.8-py3.10 
+    rapidsai/raft-ann-bench:24.04a-cuda11.8-py3.10 
 ```
 
 This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) section above:
@@ -460,6 +460,7 @@ groups:
     build:
       graph_degree: [32, 64]
       intermediate_graph_degree: [64, 96]
+      graph_build_algo: ["NN_DESCENT"]
     search:
       itopk: [32, 64, 128]
 
@@ -477,13 +478,13 @@ There config above has 2 fields:
 
 The table below contains all algorithms supported by RAFT. Each unique algorithm will have its own set of `build` and `search` settings. The [ANN Algorithm Parameter Tuning Guide](ann_benchmarks_param_tuning.md) contains detailed instructions on choosing build and search parameters for each supported algorithm.
 
-| Library   | Algorithms                                                       |
-|-----------|------------------------------------------------------------------|
-| FAISS GPU | `faiss_gpu_flat`, `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`       |
-| FAISS CPU | `faiss_cpu_flat`, `faiss_cpu_ivf_flat`, `faiss_cpu_ivf_pq`       |
-| GGNN      | `ggnn`                                                           |
-| HNSWlib   | `hnswlib`                                                        |
-| RAFT      | `raft_brute_force`, `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq` |
+| Library   | Algorithms                                                                            |
+|-----------|---------------------------------------------------------------------------------------|
+| FAISS GPU | `faiss_gpu_flat`, `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`                            |
+| FAISS CPU | `faiss_cpu_flat`, `faiss_cpu_ivf_flat`, `faiss_cpu_ivf_pq`                            |
+| GGNN      | `ggnn`                                                                                |
+| HNSWlib   | `hnswlib`                                                                             |
+| RAFT      | `raft_brute_force`, `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq`, `raft_cagra_hnswlib`|
 
 ## Adding a new ANN algorithm
 

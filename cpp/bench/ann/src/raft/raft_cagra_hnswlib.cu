@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include "raft_ann_bench_param_parser.h"
 #include "raft_cagra_hnswlib_wrapper.h"
 
+#include <rmm/cuda_device.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 #define JSON_DIAGNOSTICS 1
@@ -43,7 +44,7 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   // stop compiler warning; not all algorithms support multi-GPU so it may not be used
   (void)dev_list;
 
-  raft::bench::ann::Metric metric = parse_metric(distance);
+  [[maybe_unused]] raft::bench::ann::Metric metric = parse_metric(distance);
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
   if constexpr (std::is_same_v<T, float> or std::is_same_v<T, std::uint8_t>) {
@@ -85,7 +86,9 @@ int main(int argc, char** argv)
 {
   rmm::mr::cuda_memory_resource cuda_mr;
   // Construct a resource that uses a coalescing best-fit pool allocator
-  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr};
+  // and is initially sized to half of free device memory.
+  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{
+    &cuda_mr, rmm::percent_of_free_device_memory(50)};
   rmm::mr::set_current_device_resource(
     &pool_mr);  // Updates the current device resource pointer to `pool_mr`
   rmm::mr::device_memory_resource* mr =

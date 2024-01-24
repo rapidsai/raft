@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 # cython: language_level = 3
 
 from libc.stdint cimport int8_t, int64_t, uint8_t, uint32_t
+from libcpp cimport bool
 from libcpp.string cimport string
 
 from pylibraft.common.cpp.mdspan cimport (
@@ -38,6 +39,9 @@ ctypedef const uint8_t const_uint8_t
 
 
 cdef device_matrix_view[float, int64_t, row_major] get_dmv_float(
+    array, check_shape) except *
+
+cdef device_matrix_view[bool, int64_t, row_major] get_dmv_bool(
     array, check_shape) except *
 
 cdef device_matrix_view[uint8_t, int64_t, row_major] get_dmv_uint8(
