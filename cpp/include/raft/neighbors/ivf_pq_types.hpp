@@ -105,6 +105,14 @@ struct index_params : ann::index_params {
    * flag to `true` if you prefer to use as little GPU memory for the database as possible.
    */
   bool conservative_memory_allocation = false;
+  /**
+   * The max number of data points to use per PQ code during PQ codebook training. Using more data
+   * points per PQ code may increase the quality of PQ codebook but may also increase the build time.
+   * The parameter is applied to both PQ codebook generation methods, i.e., PER_SUBSPACE and
+   * PER_CLUSTER. For PER_CLUSTER, max_train_points_per_pq_code per pq_dim numbers of points would be
+   * used if pq_dim is more than pq_book_size. 
+   */
+  uint32_t max_train_points_per_pq_code = 256;
 };
 
 struct search_params : ann::search_params {
