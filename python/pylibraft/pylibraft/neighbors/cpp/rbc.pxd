@@ -35,34 +35,50 @@ from pylibraft.common.cpp.mdspan cimport (
     device_vector_view,
     host_matrix_view,
     make_device_matrix_view,
-    make_device_vector_view,
     make_host_matrix_view,
     row_major,
 )
-from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport device_resources
 from pylibraft.distance.distance_type cimport DistanceType
 
 
-cdef extern from "raft_runtime/neighbors/brute_force.hpp" \
-        namespace "raft::runtime::neighbors::brute_force" nogil:
+cdef extern from "raft/neighbors/ball_cover_types.hpp" \
+        namespace "raft::neighbors::ball_cover" nogil:
 
-    cdef void knn(const device_resources & handle,
-                  device_matrix_view[float, int64_t, row_major] index,
-                  device_matrix_view[float, int64_t, row_major] search,
-                  device_matrix_view[int64_t, int64_t, row_major] indices,
-                  device_matrix_view[float, int64_t, row_major] distances,
-                  DistanceType metric,
-                  optional[float] metric_arg,
-                  optional[int64_t] global_id_offset) except +
+    cdef cppclass BallCoverIndex[IdxT, T, IntT, MatIdxT]:
+        BallCoverIndex(const device_resources& handle,
+                       device_matrix_view[T, MatIdxT, row_major] dataset,
+                       DistanceType metric)
+
 
 cdef extern from "raft_runtime/neighbors/eps_neighborhood.hpp" \
         namespace "raft::runtime::neighbors::epsilon_neighborhood" nogil:
 
-    cdef void eps_neighbors(
+    cdef void eps_neighbors_rbc(
         const device_resources & handle,
         device_matrix_view[float, int64_t, row_major] index,
         device_matrix_view[float, int64_t, row_major] search,
         device_matrix_view[bool, int64_t, row_major] adj,
+        device_vector_view[int64_t, int64_t] vd,
+        float eps) except +
+
+    cdef void build_rbc_index(
+        const device_resources & handle,
+        BallCoverIndex[int64_t, float, int64_t, int64_t] rbc_index) except +
+
+    cdef void eps_neighbors_rbc_pass1(
+        const device_resources & handle,
+        BallCoverIndex[int64_t, float, int64_t, int64_t] rbc_index,
+        device_matrix_view[float, int64_t, row_major] search,
+        device_vector_view[int64_t, int64_t] adj_ia,
+        device_vector_view[int64_t, int64_t] vd,
+        float eps) except +
+
+    cdef void eps_neighbors_rbc_pass2(
+        const device_resources & handle,
+        BallCoverIndex[int64_t, float, int64_t, int64_t] rbc_index,
+        device_matrix_view[float, int64_t, row_major] search,
+        device_vector_view[int64_t, int64_t] adj_ia,
+        device_vector_view[int64_t, int64_t] adj_ja,
         device_vector_view[int64_t, int64_t] vd,
         float eps) except +

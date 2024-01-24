@@ -42,7 +42,7 @@ namespace linalg {
  * @param[in] x input raft::device_csr_matrix_view
  * @param[in] y input raft::device_matrix_view
  * @param[in] beta scalar
- * @param[out] z output raft::device_matrix_view
+ * @param[inout] z input-output raft::device_matrix_view
  */
 template <typename ValueType,
           typename IndexType,
@@ -60,9 +60,8 @@ void spmm(raft::resources const& handle,
 {
   bool is_row_major = detail::is_row_major(y, z);
 
-  auto z_tmp = raft::make_device_matrix<ValueType, IndexType>(handle, z.extent(0), z.extent(1));
   auto z_tmp_view = raft::make_device_strided_matrix_view<ValueType, IndexType, LayoutPolicyZ>(
-    z_tmp.data_handle(), z.extent(0), z.extent(1), is_row_major ? z.stride(0) : z.stride(1));
+    z.data_handle(), z.extent(0), z.extent(1), is_row_major ? z.stride(0) : z.stride(1));
 
   auto descr_x = detail::create_descriptor(x);
   auto descr_y = detail::create_descriptor(y);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,34 +57,14 @@ void cov(raft::resources const& handle,
          cudaStream_t stream)
 {
   if (stable) {
-    cublasHandle_t cublas_h = resource::get_cublas_handle(handle);
-
     // since mean operation is assumed to be along a given column, broadcast
     // must be along rows!
     raft::stats::meanCenter(data, data, mu, D, N, rowMajor, true, stream);
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta  = Type(0);
-    if (rowMajor) {
-      // #TODO: Call from public API when ready
-      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_h,
-                                                       CUBLAS_OP_N,
-                                                       CUBLAS_OP_T,
-                                                       D,
-                                                       D,
-                                                       N,
-                                                       &alpha,
-                                                       data,
-                                                       D,
-                                                       data,
-                                                       D,
-                                                       &beta,
-                                                       covar,
-                                                       D,
-                                                       stream));
-    } else {
-      raft::linalg::gemm(
-        handle, data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, stream);
-    }
+    auto ldd   = rowMajor ? D : N;
+    linalg::gemm(
+      handle, !rowMajor, rowMajor, D, D, N, &alpha, data, ldd, data, ldd, &beta, covar, D, stream);
   } else {
     ///@todo: implement this using cutlass + customized epilogue!
     ASSERT(false, "cov: Implement stable=false case!");
