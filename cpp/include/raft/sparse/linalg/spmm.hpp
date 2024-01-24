@@ -69,9 +69,6 @@ void spmm(raft::resources const& handle,
 
   detail::spmm(handle, trans_x, trans_y, is_row_major, alpha, descr_x, descr_y, beta, descr_z);
 
-  raft::copy(
-    z.data_handle(), z_tmp.data_handle(), z_tmp.size(), raft::resource::get_cuda_stream(handle));
-
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(descr_x));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(descr_y));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(descr_z));
