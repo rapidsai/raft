@@ -46,14 +46,6 @@ class cuda_pinned_resource final : public rmm::mr::device_memory_resource {
   cuda_pinned_resource& operator=(cuda_pinned_resource&&)      = default;
 
   /**
-   * @brief Query whether the resource supports use of non-null CUDA streams for
-   * allocation/deallocation. `cuda_pinned_resource` does not support streams.
-   *
-   * @returns bool false
-   */
-  [[nodiscard]] bool supports_streams() const noexcept override { return false; }
-
-  /**
    * @brief Query whether the resource supports the get_mem_info API.
    *
    * @return true
@@ -65,8 +57,6 @@ class cuda_pinned_resource final : public rmm::mr::device_memory_resource {
    * @brief Allocates memory of size at least `bytes` using cudaMalloc.
    *
    * The returned pointer has at least 256B alignment.
-   *
-   * @note Stream argument is ignored
    *
    * @throws `rmm::bad_alloc` if the requested allocation could not be fulfilled
    *
