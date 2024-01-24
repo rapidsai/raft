@@ -322,7 +322,6 @@ void bench_search(::benchmark::State& state,
 
   state.SetItemsProcessed(queries_processed);
   if (cudart.found()) {
-    double gpu_time_per_iteration = gpu_timer.total_time() / (double)state.iterations();
     state.counters.insert({"GPU", {gpu_timer.total_time(), benchmark::Counter::kAvgIterations}});
   }
 
