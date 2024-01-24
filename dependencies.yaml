@@ -66,6 +66,7 @@ files:
     includes:
       - build
       - build_pylibraft
+      - cuda_version
   py_run_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -90,6 +91,7 @@ files:
       table: build-system
     includes:
       - build
+      - cuda_version
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
