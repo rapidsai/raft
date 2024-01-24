@@ -59,6 +59,7 @@ While not exhaustive, the following general categories help summarize the accele
    quick_start.md
    build.md
    cpp_api.rst
+   c_api.rst
    pylibraft_api.rst
    using_libraft.md
    vector_search_tutorial.md

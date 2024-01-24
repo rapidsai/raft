@@ -12,10 +12,30 @@
 # the License.
 # =============================================================================
 
-if(BUILD_TESTS OR BUILD_PRIMS_BENCH OR BUILD_C_TESTS)
-  add_library(raft_internal INTERFACE)
-  target_include_directories(
-    raft_internal INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/internal>"
+# This function finds dlpack and sets any additional necessary environment variables.
+function(find_and_configure_dlpack VERSION)
+
+  include(${rapids-cmake-dir}/find/generate_module.cmake)
+  rapids_find_generate_module(DLPACK HEADER_NAMES dlpack.h)
+
+  rapids_cpm_find(
+    dlpack ${VERSION}
+    GIT_REPOSITORY https://github.com/dmlc/dlpack.git
+    GIT_TAG v${VERSION}
+    GIT_SHALLOW TRUE
+    DOWNLOAD_ONLY TRUE
+    OPTIONS "BUILD_MOCK OFF"
   )
-  target_compile_features(raft_internal INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
-endif()
+
+  if(DEFINED dlpack_SOURCE_DIR)
+    # otherwise find_package(DLPACK) will set this variable
+    set(DLPACK_INCLUDE_DIR
+        "${dlpack_SOURCE_DIR}/include"
+        PARENT_SCOPE
+    )
+  endif()
+endfunction()
+
+set(RAFT_MIN_VERSION_dlpack 0.8)
+
+find_and_configure_dlpack(${RAFT_MIN_VERSION_dlpack})

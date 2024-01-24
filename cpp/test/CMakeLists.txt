@@ -21,7 +21,7 @@ rapids_test_init()
 
 function(ConfigureTest)
 
-  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY NOCUDA)
+  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY NOCUDA C_LIB)
   set(oneValueArgs NAME GPUS PERCENT)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -49,6 +49,7 @@ function(ConfigureTest)
     PRIVATE raft
             raft_internal
             $<$<BOOL:${_RAFT_TEST_LIB}>:raft::compiled>
+            $<$<BOOL:${_RAFT_TEST_C_LIB}>:raft::c_api>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
@@ -476,9 +477,36 @@ if(BUILD_TESTS)
     test/util/pow2_utils.cu
     test/util/reduction.cu
   )
+
+endif()
+
+if(BUILD_C_TESTS)
+  ConfigureTest(
+    NAME
+    INTEROP_TEST
+    PATH
+    test/core/interop.cu
+    C_LIB
+  )
+
+  ConfigureTest(
+    NAME
+    CAGRA_C_TEST
+    PATH
+    test/neighbors/ann_cagra_c.cu
+    C_LIB
+  )
 endif()
 
 # ##################################################################################################
 # Install tests ####################################################################################
 # ##################################################################################################
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/gtests/libraft)
+
+if(BUILD_C_TESTS)
+  enable_language(C)
+
+  add_executable(raft_c_test test/core/c_api.c)
+
+  target_link_libraries(raft_c_test PUBLIC raft::c_api)
+endif()
