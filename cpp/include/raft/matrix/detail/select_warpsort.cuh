@@ -885,7 +885,6 @@ template <template <int, bool, typename, typename> class WarpSortClass, typename
 static auto calc_optimal_params(raft::resources const& res, int k, int block_size_limit = 0)
   -> launch_params
 {
-  static thread_local std::unordered_map<uint64_t, launch_params> memo{};
   uint64_t key = (static_cast<uint64_t>(k) << 32) | static_cast<uint64_t>(block_size_limit);
   auto& cache =
     resource::get_custom_resource<warpsort_params_cache<WarpSortClass, T, IdxT>>(res)->value;
