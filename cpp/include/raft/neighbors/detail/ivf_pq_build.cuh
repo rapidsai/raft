@@ -361,9 +361,10 @@ void train_per_subset(raft::resources const& handle,
 
   rmm::device_uvector<float> pq_centers_tmp(index.pq_centers().size(), stream, device_memory);
   // Subsampling the train set for codebook generation based on max_train_points_per_pq_code.
-  size_t big_enough     = max_train_points_per_pq_code * size_t(index.pq_book_size());
-  auto pq_n_rows        = uint32_t(std::min(big_enough, n_rows));
-  rmm::device_uvector<float> sub_trainset(pq_n_rows * size_t(index.pq_len()), stream, device_memory);
+  size_t big_enough = max_train_points_per_pq_code * size_t(index.pq_book_size());
+  auto pq_n_rows    = uint32_t(std::min(big_enough, n_rows));
+  rmm::device_uvector<float> sub_trainset(
+    pq_n_rows * size_t(index.pq_len()), stream, device_memory);
   rmm::device_uvector<uint32_t> sub_labels(pq_n_rows, stream, device_memory);
 
   rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
@@ -404,13 +405,14 @@ void train_per_subset(raft::resources const& handle,
                  stream);
 
     // train PQ codebook for this subspace
-    auto sub_trainset_view =
-      raft::make_device_matrix_view<const float, IdxT>(sub_trainset.data(), pq_n_rows, index.pq_len());
+    auto sub_trainset_view = raft::make_device_matrix_view<const float, IdxT>(
+      sub_trainset.data(), pq_n_rows, index.pq_len());
     auto centers_tmp_view = raft::make_device_matrix_view<float, IdxT>(
       pq_centers_tmp.data() + index.pq_book_size() * index.pq_len() * j,
       index.pq_book_size(),
       index.pq_len());
-    auto sub_labels_view = raft::make_device_vector_view<uint32_t, IdxT>(sub_labels.data(), pq_n_rows);
+    auto sub_labels_view =
+      raft::make_device_vector_view<uint32_t, IdxT>(sub_labels.data(), pq_n_rows);
     auto cluster_sizes_view =
       raft::make_device_vector_view<uint32_t, IdxT>(pq_cluster_sizes.data(), index.pq_book_size());
     raft::cluster::kmeans_balanced_params kmeans_params;
@@ -485,7 +487,8 @@ void train_per_cluster(raft::resources const& handle,
     // limit the cluster size to bound the training time based on max_train_points_per_pq_code
     // If pq_book_size is less than pq_dim, use max_train_points_per_pq_code per pq_dim instead
     // [sic] we interpret the data as pq_len-dimensional
-    size_t big_enough     = max_train_points_per_pq_code * std::max<size_t>(index.pq_book_size(), index.pq_dim());
+    size_t big_enough =
+      max_train_points_per_pq_code * std::max<size_t>(index.pq_book_size(), index.pq_dim());
     size_t available_rows = size_t(cluster_size) * size_t(index.pq_dim());
     auto pq_n_rows        = uint32_t(std::min(big_enough, available_rows));
     // train PQ codebook for this cluster
