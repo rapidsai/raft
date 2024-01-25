@@ -65,8 +65,11 @@ void serialize(raft::resources const& res,
   serialize_scalar(res, os, index_.metric());
   serialize_mdspan(res, os, index_.graph());
 
+  include_dataset &= (index_.dataset().extent(0) > 0);
+
   serialize_scalar(res, os, include_dataset);
   if (include_dataset) {
+    RAFT_LOG_INFO("Saving CAGRA index with dataset");
     auto dataset = index_.dataset();
     // Remove padding before saving the dataset
     auto host_dataset = make_host_matrix<T, int64_t>(dataset.extent(0), dataset.extent(1));
@@ -80,6 +83,8 @@ void serialize(raft::resources const& res,
                                     resource::get_cuda_stream(res)));
     resource::sync_stream(res);
     serialize_mdspan(res, os, host_dataset.view());
+  } else {
+    RAFT_LOG_INFO("Saving CAGRA index WITHOUT dataset");
   }
 }
 

@@ -145,7 +145,7 @@ struct index : ann::index {
   /** Total length of the index (number of vectors). */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
-    return dataset_view_.extent(0);
+    return dataset_view_.extent(0) ? dataset_view_.extent(0) : graph_view_.extent(0);
   }
 
   /** Dimensionality of the data. */
