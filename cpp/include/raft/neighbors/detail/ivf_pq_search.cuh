@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,9 +31,8 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/core/resource/detail/device_memory_resource.hpp>
+#include <raft/core/resource/custom_resource.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
-#include <raft/core/resource/user_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
@@ -600,7 +599,8 @@ void ivfpq_search_worker(raft::resources const& handle,
                                n_probes,
                                topK};
   auto& cache =
-    resource::get_user_resource<search_kernel_cache<ScoreT, LutT, IvfSampleFilterT>>(handle)->value;
+    resource::get_custom_resource<search_kernel_cache<ScoreT, LutT, IvfSampleFilterT>>(handle)
+      ->value;
   if (!cache.get(search_key, &search_instance)) {
     search_instance = compute_similarity_select<ScoreT, LutT, IvfSampleFilterT>(
       resource::get_device_properties(handle),
@@ -808,7 +808,8 @@ inline void search(raft::resources const& handle,
                    float* distances,
                    IvfSampleFilterT sample_filter = IvfSampleFilterT())
 {
-  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, half> || std::is_same_v<T, uint8_t> ||
+                  std::is_same_v<T, int8_t>,
                 "Unsupported element type.");
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::search(n_queries = %u, n_probes = %u, k = %u, dim = %zu)",
@@ -816,7 +817,6 @@ inline void search(raft::resources const& handle,
     params.n_probes,
     k,
     index.dim());
-  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::search");
 
   RAFT_EXPECTS(
     params.internal_distance_dtype == CUDA_R_16F || params.internal_distance_dtype == CUDA_R_32F,

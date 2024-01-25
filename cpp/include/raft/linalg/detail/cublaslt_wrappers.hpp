@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cublaslt_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/user_resource.hpp>
+#include <raft/core/resource/custom_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cache.hpp>
 #include <raft/util/cuda_data_type.hpp>
@@ -221,6 +221,60 @@ struct matmul_cache {
 };
 
 /**
+ * Compatibility version of the cublasLt matmul wrapper: It takes the cudaStream_t argument
+ * explicitly rather than through the raft::resources. This function is used by other legacy
+ * functions, which take the cudaStream_t argument explicitly; by using `legacy_matmul`, such
+ * functions do not need to duplicate the raft resources handle to set the explicit stream before
+ * passing it to `matmul` (thus avoid the extra overheads associated with that).
+ *
+ * The use of this function in any new code in deprecated.
+ */
+template <bool DevicePointerMode = false, typename S, typename A, typename B, typename C>
+[[deprecated]] void legacy_matmul(raft::resources const& res,
+                                  bool trans_a,
+                                  bool trans_b,
+                                  uint64_t m,
+                                  uint64_t n,
+                                  uint64_t k,
+                                  const S* alpha,
+                                  const A* a_ptr,
+                                  uint64_t lda,
+                                  const B* b_ptr,
+                                  uint64_t ldb,
+                                  const S* beta,
+                                  C* c_ptr,
+                                  uint64_t ldc,
+                                  cudaStream_t stream)
+{
+  common::nvtx::range<common::nvtx::domain::raft> batch_scope(
+    "linalg::matmul(m = %d, n = %d, k = %d)", m, n, k);
+  std::shared_ptr<matmul_desc> mm_desc{nullptr};
+  matmul_key_t mm_key{m, n, k, lda, ldb, ldc, trans_a, trans_b};
+  auto& cache =
+    resource::get_custom_resource<matmul_cache<S, A, B, C, DevicePointerMode>>(res)->value;
+  if (!cache.get(mm_key, &mm_desc)) {
+    mm_desc.reset(new matmul_desc{matmul_desc::create<S, A, B, C, DevicePointerMode>(res, mm_key)});
+    cache.set(mm_key, mm_desc);
+  }
+  RAFT_CUBLAS_TRY(cublasLtMatmul(resource::get_cublaslt_handle(res),
+                                 mm_desc->desc,
+                                 alpha,
+                                 a_ptr,
+                                 mm_desc->a,
+                                 b_ptr,
+                                 mm_desc->b,
+                                 beta,
+                                 c_ptr,
+                                 mm_desc->c,
+                                 c_ptr,
+                                 mm_desc->c,
+                                 &(mm_desc->heuristics.algo),
+                                 nullptr,
+                                 0,
+                                 stream));
+}
+
+/**
  * @brief the wrapper of cublasLt matmul function
  *  It computes the following equation: C = alpha .* opA(A) * opB(B) + beta .* C
  *
@@ -244,7 +298,6 @@ struct matmul_cache {
  * @param [in] beta host or device scalar
  * @param [inout] c_ptr column-major matrix of size [m, n]
  * @param [in] ldc leading dimension of C
- * @param [in] stream
  */
 template <bool DevicePointerMode = false, typename S, typename A, typename B, typename C>
 void matmul(raft::resources const& res,
@@ -260,35 +313,23 @@ void matmul(raft::resources const& res,
             uint64_t ldb,
             const S* beta,
             C* c_ptr,
-            uint64_t ldc,
-            cudaStream_t stream)
+            uint64_t ldc)
 {
-  common::nvtx::range<common::nvtx::domain::raft> batch_scope(
-    "linalg::matmul(m = %d, n = %d, k = %d)", m, n, k);
-  std::shared_ptr<matmul_desc> mm_desc{nullptr};
-  matmul_key_t mm_key{m, n, k, lda, ldb, ldc, trans_a, trans_b};
-  auto& cache =
-    resource::get_user_resource<matmul_cache<S, A, B, C, DevicePointerMode>>(res)->value;
-  if (!cache.get(mm_key, &mm_desc)) {
-    mm_desc.reset(new matmul_desc{matmul_desc::create<S, A, B, C, DevicePointerMode>(res, mm_key)});
-    cache.set(mm_key, mm_desc);
-  }
-  RAFT_CUBLAS_TRY(cublasLtMatmul(resource::get_cublaslt_handle(res),
-                                 mm_desc->desc,
-                                 alpha,
-                                 a_ptr,
-                                 mm_desc->a,
-                                 b_ptr,
-                                 mm_desc->b,
-                                 beta,
-                                 c_ptr,
-                                 mm_desc->c,
-                                 c_ptr,
-                                 mm_desc->c,
-                                 &(mm_desc->heuristics.algo),
-                                 nullptr,
-                                 0,
-                                 stream));
+  return legacy_matmul(res,
+                       trans_a,
+                       trans_b,
+                       m,
+                       n,
+                       k,
+                       alpha,
+                       a_ptr,
+                       lda,
+                       b_ptr,
+                       ldb,
+                       beta,
+                       c_ptr,
+                       ldc,
+                       resource::get_cuda_stream(res));
 }
 
 }  // namespace raft::linalg::detail

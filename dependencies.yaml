@@ -8,7 +8,8 @@ files:
     includes:
       - build
       - build_pylibraft
-      - cudatoolkit
+      - cuda
+      - cuda_version
       - develop
       - checks
       - build_wheels
@@ -26,19 +27,20 @@ files:
       arch: [x86_64, aarch64]
     includes:
       - build
+      - cuda
+      - cuda_version
       - develop
-      - cudatoolkit
       - nn_bench
       - nn_bench_python
   test_cpp:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - test_libraft
   test_python:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - py_version
       - test_python_common
       - test_pylibraft
@@ -51,11 +53,11 @@ files:
   docs:
     output: none
     includes:
-      - test_pylibraft
+      - cuda_version
       - cupy
-      - cudatoolkit
       - docs
       - py_version
+      - test_pylibraft
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -64,7 +66,6 @@ files:
     includes:
       - build
       - build_pylibraft
-      - build_wheels
   py_run_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -89,7 +90,6 @@ files:
       table: build-system
     includes:
       - build
-      - build_wheels
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -133,12 +133,15 @@ dependencies:
           - &cmake_ver cmake>=3.26.4
           - cython>=3.0.0
           - ninja
-          - scikit-build>=0.13.1
       - output_types: [conda]
         packages:
           - c-compiler
           - cxx-compiler
           - nccl>=2.9.9
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: conda
         matrices:
@@ -154,8 +157,8 @@ dependencies:
               - sysroot_linux-aarch64==2.17
       - output_types: conda
         matrices:
-          - matrix: {cuda: "12.0"}
-            packages: [cuda-version=12.0, cuda-nvcc]
+          - matrix: {cuda: "12.*"}
+            packages: [cuda-nvcc]
           - matrix: {cuda: "11.8", arch: x86_64}
             packages: [nvcc_linux-64=11.8]
           - matrix: {cuda: "11.8", arch: aarch64}
@@ -177,12 +180,13 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - &rmm_conda rmm==23.12.*
+          - &rmm_conda rmm==24.2.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for rmm-cu{11,12}.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -197,12 +201,12 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.2"}
             packages: &build_pylibraft_packages_cu12
-              - &rmm_cu12 rmm-cu12==23.12.*
+              - &rmm_cu12 rmm-cu12==24.2.*
           - {matrix: {cuda: "12.1"}, packages: *build_pylibraft_packages_cu12}
           - {matrix: {cuda: "12.0"}, packages: *build_pylibraft_packages_cu12}
           - matrix: {cuda: "11.8"}
             packages: &build_pylibraft_packages_cu11
-              - &rmm_cu11 rmm-cu11==23.12.*
+              - &rmm_cu11 rmm-cu11==24.2.*
           - {matrix: {cuda: "11.5"}, packages: *build_pylibraft_packages_cu11}
           - {matrix: {cuda: "11.4"}, packages: *build_pylibraft_packages_cu11}
           - {matrix: {cuda: "11.2"}, packages: *build_pylibraft_packages_cu11}
@@ -237,15 +241,37 @@ dependencies:
           - pandas
           - pyyaml
           - pandas
-
-  cudatoolkit:
+  cuda_version:
     specific:
       - output_types: conda
         matrices:
           - matrix:
+              cuda: "11.2"
+            packages:
+              - cuda-version=11.2
+          - matrix:
+              cuda: "11.4"
+            packages:
+              - cuda-version=11.4
+          - matrix:
+              cuda: "11.5"
+            packages:
+              - cuda-version=11.5
+          - matrix:
+              cuda: "11.8"
+            packages:
+              - cuda-version=11.8
+          - matrix:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+  cuda:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
               - cuda-nvtx-dev
               - cuda-cudart-dev
               - cuda-profiler-api
@@ -256,7 +282,6 @@ dependencies:
           - matrix:
               cuda: "11.8"
             packages:
-              - cuda-version=11.8
               - cudatoolkit
               - cuda-nvtx=11.8
               - cuda-profiler-api=11.8.86
@@ -271,7 +296,6 @@ dependencies:
           - matrix:
               cuda: "11.5"
             packages:
-              - cuda-version=11.5
               - cudatoolkit
               - cuda-nvtx=11.5
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
@@ -286,7 +310,6 @@ dependencies:
           - matrix:
               cuda: "11.4"
             packages:
-              - cuda-version=11.4
               - cudatoolkit
               - &cudanvtx114 cuda-nvtx=11.4
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
@@ -301,7 +324,6 @@ dependencies:
           - matrix:
               cuda: "11.2"
             packages:
-              - cuda-version=11.2
               - cudatoolkit
               - *cudanvtx114
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
@@ -408,6 +430,7 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -436,38 +459,39 @@ dependencies:
     common:
       - output_types: [conda, pyproject]
         packages:
-          - dask-cuda==23.12.*
+          - dask-cuda==24.2.*
           - joblib>=0.11
           - numba>=0.57
           - *numpy
-          - rapids-dask-dependency==23.12.*
-          - ucx-py==0.35.*
+          - rapids-dask-dependency==24.2.*
+          - ucx-py==0.36.*
       - output_types: conda
         packages:
           - ucx>=1.13.0
           - ucx-proc=*=gpu
-          - &ucx_py_conda ucx-py==0.35.*
+          - &ucx_py_conda ucx-py==0.36.*
       - output_types: pyproject
         packages:
-          - &pylibraft_conda pylibraft==23.12.*
+          - &pylibraft_conda pylibraft==24.2.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix: {cuda: "12.2"}
             packages: &run_raft_dask_packages_cu12
-              - &pylibraft_cu12 pylibraft-cu12==23.12.*
-              - &ucx_py_cu12 ucx-py-cu12==0.35.*
+              - &pylibraft_cu12 pylibraft-cu12==24.2.*
+              - &ucx_py_cu12 ucx-py-cu12==0.36.*
           - {matrix: {cuda: "12.1"}, packages: *run_raft_dask_packages_cu12}
           - {matrix: {cuda: "12.0"}, packages: *run_raft_dask_packages_cu12}
           - matrix: {cuda: "11.8"}
             packages: &run_raft_dask_packages_cu11
-              - &pylibraft_cu11 pylibraft-cu11==23.12.*
-              - &ucx_py_cu11 ucx-py-cu11==0.35.*
+              - &pylibraft_cu11 pylibraft-cu11==24.2.*
+              - &ucx_py_cu11 ucx-py-cu11==0.36.*
           - {matrix: {cuda: "11.5"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.4"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.2"}, packages: *run_raft_dask_packages_cu11}

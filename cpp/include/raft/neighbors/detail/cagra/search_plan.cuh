@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,39 +29,42 @@
 namespace raft::neighbors::cagra::detail {
 
 struct search_plan_impl_base : public search_params {
-  int64_t max_dim;
+  int64_t dataset_block_dim;
   int64_t dim;
   int64_t graph_degree;
   uint32_t topk;
   search_plan_impl_base(search_params params, int64_t dim, int64_t graph_degree, uint32_t topk)
     : search_params(params), dim(dim), graph_degree(graph_degree), topk(topk)
   {
-    set_max_dim_team(dim);
+    set_dataset_block_and_team_size(dim);
     if (algo == search_algo::AUTO) {
       const size_t num_sm = raft::getMultiProcessorCount();
       if (itopk_size <= 512 && search_params::max_queries >= num_sm * 2lu) {
         algo = search_algo::SINGLE_CTA;
         RAFT_LOG_DEBUG("Auto strategy: selecting single-cta");
-      } else {
+      } else if (topk <= 1024) {
         algo = search_algo::MULTI_CTA;
         RAFT_LOG_DEBUG("Auto strategy: selecting multi-cta");
+      } else {
+        algo = search_algo::MULTI_KERNEL;
+        RAFT_LOG_DEBUG("Auto strategy: selecting multi kernel");
       }
     }
   }
 
-  void set_max_dim_team(int64_t dim)
+  void set_dataset_block_and_team_size(int64_t dim)
   {
-    max_dim = 128;
-    while (max_dim < dim && max_dim <= 1024)
-      max_dim *= 2;
+    constexpr int64_t max_dataset_block_dim = 512;
+    dataset_block_dim                       = 128;
+    while (dataset_block_dim < dim && dataset_block_dim < max_dataset_block_dim) {
+      dataset_block_dim *= 2;
+    }
     // To keep binary size in check we limit only one team size specialization for each max_dim.
     // TODO(tfeher): revise this decision.
-    switch (max_dim) {
+    switch (dataset_block_dim) {
       case 128: team_size = 8; break;
       case 256: team_size = 16; break;
-      case 512: team_size = 32; break;
-      case 1024: team_size = 32; break;
-      default: RAFT_LOG_DEBUG("Dataset dimension is too large (%lu)\n", dim);
+      default: team_size = 32; break;
     }
   }
 };
@@ -98,7 +101,7 @@ struct search_plan_impl : public search_plan_impl_base {
     adjust_search_params();
     check_params();
     calc_hashmap_params(res);
-    set_max_dim_team(dim);
+    set_dataset_block_and_team_size(dim);
     num_executed_iterations.resize(max_queries, resource::get_cuda_stream(res));
     RAFT_LOG_DEBUG("# algo = %d", static_cast<int>(algo));
   }
@@ -147,14 +150,14 @@ struct search_plan_impl : public search_plan_impl_base {
   // defines hash_bitlen, small_hash_bitlen, small_hash_reset interval, hash_size
   inline void calc_hashmap_params(raft::resources const& res)
   {
-    // for multipel CTA search
+    // for multiple CTA search
     uint32_t mc_num_cta_per_query = 0;
     uint32_t mc_search_width      = 0;
     uint32_t mc_itopk_size        = 0;
     if (algo == search_algo::MULTI_CTA) {
       mc_itopk_size        = 32;
       mc_search_width      = 1;
-      mc_num_cta_per_query = max(search_width, itopk_size / 32);
+      mc_num_cta_per_query = max(search_width, raft::ceildiv(itopk_size, (size_t)32));
       RAFT_LOG_DEBUG("# mc_itopk_size: %u", mc_itopk_size);
       RAFT_LOG_DEBUG("# mc_search_width: %u", mc_search_width);
       RAFT_LOG_DEBUG("# mc_num_cta_per_query: %u", mc_num_cta_per_query);
@@ -255,7 +258,8 @@ struct search_plan_impl : public search_plan_impl_base {
   virtual void check(const uint32_t topk)
   {
     // For single-CTA and multi kernel
-    RAFT_EXPECTS(topk <= itopk_size, "topk must be smaller than itopk_size = %lu", itopk_size);
+    RAFT_EXPECTS(
+      topk <= itopk_size, "topk = %u must be smaller than itopk_size = %lu", topk, itopk_size);
   }
 
   inline void check_params()
@@ -263,7 +267,7 @@ struct search_plan_impl : public search_plan_impl_base {
     std::string error_message = "";
 
     if (itopk_size > 1024) {
-      if (algo == search_algo::MULTI_CTA) {
+      if ((algo == search_algo::MULTI_CTA) || (algo == search_algo::MULTI_KERNEL)) {
       } else {
         error_message += std::string("- `internal_topk` (" + std::to_string(itopk_size) +
                                      ") must be smaller or equal to 1024");

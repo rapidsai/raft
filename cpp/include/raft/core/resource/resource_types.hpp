@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ enum resource_type {
   THRUST_POLICY,           // thrust execution policy
   WORKSPACE_RESOURCE,      // rmm device memory resource
   CUBLASLT_HANDLE,         // cublasLt handle
-  USER_DEFINED,            // user-defined default-constructible resource
+  CUSTOM,                  // runtime-shared default-constructible resource
 
   LAST_KEY  // reserved for the last key
 };

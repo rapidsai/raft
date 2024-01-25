@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -39,3 +39,6 @@ target_link_libraries(CAGRA_EXAMPLE PRIVATE raft::raft raft::compiled)
 
 add_executable(IVF_FLAT_EXAMPLE src/ivf_flat_example.cu)
 target_link_libraries(IVF_FLAT_EXAMPLE PRIVATE raft::raft raft::compiled)
+
+add_executable(IVF_PQ_EXAMPLE src/ivf_pq_example.cu)
+target_link_libraries(IVF_PQ_EXAMPLE PRIVATE raft::raft raft::compiled)

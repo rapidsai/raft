@@ -215,21 +215,21 @@ namespace *raft::resource*
      :members:
      :content-only:
 
-User-defined resources
+Custom runtime-shared resources
 ~~~~~~~~~~~~~~~~~~~~~~
 
-A user-defined resource is an arbitrary default-constructible C++ class.
+A custom resource is an arbitrary default-constructible C++ class.
 The consumer of the API can keep such a resource in the `raft::resources` handle.
 For example, consider a function that is expected to be called repeatedly and
 involves a costly kernel configuration. One can cache the kernel configuration in
-a user-defined resource.
+a custom resource.
 The cost of accessing it is one hashmap lookup.
 
-``#include <raft/core/resource/user_resource.hpp>``
+``#include <raft/core/resource/custom_resource.hpp>``
 
 namespace *raft::resource*
 
- .. doxygengroup:: resource_user_defined
+ .. doxygengroup:: resource_custom
      :project: RAFT
      :members:
      :content-only:

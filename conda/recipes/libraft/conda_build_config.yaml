@@ -71,3 +71,9 @@ cuda11_cuda_profiler_api_host_version:
 
 cuda11_cuda_profiler_api_run_version:
   - ">=11.4.240,<12"
+
+spdlog_version:
+  - ">=1.12.0,<1.13"
+
+fmt_version:
+  - ">=10.1.1,<11"

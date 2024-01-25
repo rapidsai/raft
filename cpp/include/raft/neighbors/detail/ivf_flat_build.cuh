@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,7 +120,8 @@ RAFT_KERNEL build_index_kernel(const LabelT* labels,
                                uint32_t* list_sizes_ptr,
                                IdxT n_rows,
                                uint32_t dim,
-                               uint32_t veclen)
+                               uint32_t veclen,
+                               IdxT batch_offset = 0)
 {
   const IdxT i = IdxT(blockDim.x) * IdxT(blockIdx.x) + threadIdx.x;
   if (i >= n_rows) { return; }
@@ -131,7 +132,7 @@ RAFT_KERNEL build_index_kernel(const LabelT* labels,
   auto* list_data  = list_data_ptrs[list_id];
 
   // Record the source vector id in the index
-  list_index[inlist_id] = source_ixs == nullptr ? i : source_ixs[i];
+  list_index[inlist_id] = source_ixs == nullptr ? i + batch_offset : source_ixs[i];
 
   // The data is written in interleaved groups of `index::kGroupSize` vectors
   using interleaved_group = Pow2<kIndexGroupSize>;
@@ -180,16 +181,33 @@ void extend(raft::resources const& handle,
 
   auto new_labels = raft::make_device_vector<LabelT, IdxT>(handle, n_rows);
   raft::cluster::kmeans_balanced_params kmeans_params;
-  kmeans_params.metric  = index->metric();
-  auto new_vectors_view = raft::make_device_matrix_view<const T, IdxT>(new_vectors, n_rows, dim);
+  kmeans_params.metric = index->metric();
   auto orig_centroids_view =
     raft::make_device_matrix_view<const float, IdxT>(index->centers().data_handle(), n_lists, dim);
-  raft::cluster::kmeans_balanced::predict(handle,
-                                          kmeans_params,
-                                          new_vectors_view,
-                                          orig_centroids_view,
-                                          new_labels.view(),
-                                          utils::mapping<float>{});
+  // Calculate the batch size for the input data if it's not accessible directly from the device
+  constexpr size_t kReasonableMaxBatchSize = 65536;
+  size_t max_batch_size                    = std::min<size_t>(n_rows, kReasonableMaxBatchSize);
+
+  // Predict the cluster labels for the new data, in batches if necessary
+  utils::batch_load_iterator<T> vec_batches(new_vectors,
+                                            n_rows,
+                                            index->dim(),
+                                            max_batch_size,
+                                            stream,
+                                            resource::get_workspace_resource(handle));
+
+  for (const auto& batch : vec_batches) {
+    auto batch_data_view =
+      raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), index->dim());
+    auto batch_labels_view = raft::make_device_vector_view<LabelT, IdxT>(
+      new_labels.data_handle() + batch.offset(), batch.size());
+    raft::cluster::kmeans_balanced::predict(handle,
+                                            kmeans_params,
+                                            batch_data_view,
+                                            orig_centroids_view,
+                                            batch_labels_view,
+                                            utils::mapping<float>{});
+  }
 
   auto* list_sizes_ptr    = index->list_sizes().data_handle();
   auto old_list_sizes_dev = raft::make_device_vector<uint32_t, IdxT>(handle, n_lists);
@@ -202,14 +220,19 @@ void extend(raft::resources const& handle,
     auto list_sizes_view =
       raft::make_device_vector_view<std::remove_pointer_t<decltype(list_sizes_ptr)>, IdxT>(
         list_sizes_ptr, n_lists);
-    auto const_labels_view = make_const_mdspan(new_labels.view());
-    raft::cluster::kmeans_balanced::helpers::calc_centers_and_sizes(handle,
-                                                                    new_vectors_view,
-                                                                    const_labels_view,
-                                                                    centroids_view,
-                                                                    list_sizes_view,
-                                                                    false,
-                                                                    utils::mapping<float>{});
+    for (const auto& batch : vec_batches) {
+      auto batch_data_view =
+        raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), index->dim());
+      auto batch_labels_view = raft::make_device_vector_view<const LabelT, IdxT>(
+        new_labels.data_handle() + batch.offset(), batch.size());
+      raft::cluster::kmeans_balanced::helpers::calc_centers_and_sizes(handle,
+                                                                      batch_data_view,
+                                                                      batch_labels_view,
+                                                                      centroids_view,
+                                                                      list_sizes_view,
+                                                                      false,
+                                                                      utils::mapping<float>{});
+    }
   } else {
     raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
                                            reinterpret_cast<int32_t*>(list_sizes_ptr),
@@ -244,20 +267,39 @@ void extend(raft::resources const& handle,
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
   raft::copy(list_sizes_ptr, old_list_sizes_dev.data_handle(), n_lists, stream);
 
-  // Kernel to insert the new vectors
-  const dim3 block_dim(256);
-  const dim3 grid_dim(raft::ceildiv<IdxT>(n_rows, block_dim.x));
-  build_index_kernel<<<grid_dim, block_dim, 0, stream>>>(new_labels.data_handle(),
-                                                         new_vectors,
-                                                         new_indices,
-                                                         index->data_ptrs().data_handle(),
-                                                         index->inds_ptrs().data_handle(),
-                                                         list_sizes_ptr,
-                                                         n_rows,
-                                                         dim,
-                                                         index->veclen());
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  utils::batch_load_iterator<IdxT> vec_indices(
+    new_indices, n_rows, 1, max_batch_size, stream, resource::get_workspace_resource(handle));
+  utils::batch_load_iterator<IdxT> idx_batch = vec_indices.begin();
+  size_t next_report_offset                  = 0;
+  size_t d_report_offset                     = n_rows * 5 / 100;
+  for (const auto& batch : vec_batches) {
+    auto batch_data_view =
+      raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), index->dim());
+    // Kernel to insert the new vectors
+    const dim3 block_dim(256);
+    const dim3 grid_dim(raft::ceildiv<IdxT>(batch.size(), block_dim.x));
+    build_index_kernel<T, IdxT, LabelT>
+      <<<grid_dim, block_dim, 0, stream>>>(new_labels.data_handle() + batch.offset(),
+                                           batch_data_view.data_handle(),
+                                           idx_batch->data(),
+                                           index->data_ptrs().data_handle(),
+                                           index->inds_ptrs().data_handle(),
+                                           list_sizes_ptr,
+                                           batch.size(),
+                                           dim,
+                                           index->veclen(),
+                                           batch.offset());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
+    if (batch.offset() > next_report_offset) {
+      float progress = batch.offset() * 100.0f / n_rows;
+      RAFT_LOG_DEBUG("ivf_flat::extend added vectors %zu, %6.1f%% complete",
+                     static_cast<size_t>(batch.offset()),
+                     progress);
+      next_report_offset += d_report_offset;
+    }
+    ++idx_batch;
+  }
   // Precompute the centers vector norms for L2Expanded distance
   if (!index->center_norms().has_value()) {
     index->allocate_center_norms(handle);
@@ -319,28 +361,23 @@ inline auto build(raft::resources const& handle,
 
   // Train the kmeans clustering
   {
+    int random_seed     = 137;
     auto trainset_ratio = std::max<size_t>(
       1, n_rows / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
     auto n_rows_train = n_rows / trainset_ratio;
-    rmm::device_uvector<T> trainset(n_rows_train * index.dim(), stream);
-    // TODO: a proper sampling
-    RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
-                                    sizeof(T) * index.dim(),
-                                    dataset,
-                                    sizeof(T) * index.dim() * trainset_ratio,
-                                    sizeof(T) * index.dim(),
-                                    n_rows_train,
-                                    cudaMemcpyDefault,
-                                    stream));
-    auto trainset_const_view =
-      raft::make_device_matrix_view<const T, IdxT>(trainset.data(), n_rows_train, index.dim());
+    auto trainset     = make_device_matrix<T, IdxT>(handle, n_rows_train, index.dim());
+    raft::spatial::knn::detail::utils::subsample(
+      handle, dataset, n_rows, trainset.view(), random_seed);
     auto centers_view = raft::make_device_matrix_view<float, IdxT>(
       index.centers().data_handle(), index.n_lists(), index.dim());
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = params.kmeans_n_iters;
     kmeans_params.metric  = index.metric();
-    raft::cluster::kmeans_balanced::fit(
-      handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
+    raft::cluster::kmeans_balanced::fit(handle,
+                                        kmeans_params,
+                                        make_const_mdspan(trainset.view()),
+                                        centers_view,
+                                        utils::mapping<float>{});
   }
 
   // add the data if necessary

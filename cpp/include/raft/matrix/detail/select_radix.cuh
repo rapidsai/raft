@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -835,6 +835,8 @@ void radix_topk(const T* in,
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+
   auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, false);
@@ -843,15 +845,7 @@ void radix_topk(const T* in,
   }
   const IdxT buf_len = calc_buf_len<T>(len);
 
-  size_t req_aux = max_chunk_size * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
   size_t req_buf = max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
-  size_t mem_req = req_aux + req_buf + 256 * 6;  // might need extra memory for alignment
-
-  auto pool_guard = raft::get_pool_memory_resource(mr, mem_req);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
-                   mem_req);
-  }
 
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
   rmm::device_uvector<IdxT> histograms(max_chunk_size * num_buckets, stream, mr);
@@ -1120,10 +1114,6 @@ void radix_topk_one_block(const T* in,
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, true);
 
-  auto pool_guard =
-    raft::get_pool_memory_resource(mr, max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)));
-  if (pool_guard) { RAFT_LOG_DEBUG("radix::select_k: using pool memory resource"); }
-
   rmm::device_uvector<char> bufs(
     max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
 
@@ -1150,6 +1140,12 @@ void radix_topk_one_block(const T* in,
  * in the row-major matrix `out` of size (batch_size, k).
  *
  * Note, the output is NOT sorted within the groups of `k` selected elements.
+ *
+ * Reference:
+ * Jingrong Zhang, Akira Naruse, Xipeng Li, and Yong Wang. 2023. Parallel Top-K Algorithms on GPU:
+ * A Comprehensive Study and New Methods. In The International Conference for High Performance
+ * Computing, Networking, Storage and Analysis (SC ’23), November 12–17, 2023, Denver, CO, USA.
+ * ACM, New York, NY, USA. https://doi.org/10.1145/3581784.3607062
  *
  * @tparam T
  *   the type of the keys (what is being compared).

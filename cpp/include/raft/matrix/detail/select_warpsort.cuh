@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/logger.hpp>
-#include <raft/core/resource/user_resource.hpp>
+#include <raft/core/resource/custom_resource.hpp>
 #include <raft/util/bitonic_sort.cuh>
 #include <raft/util/cache.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -888,7 +888,7 @@ static auto calc_optimal_params(raft::resources const& res, int k, int block_siz
   static thread_local std::unordered_map<uint64_t, launch_params> memo{};
   uint64_t key = (static_cast<uint64_t>(k) << 32) | static_cast<uint64_t>(block_size_limit);
   auto& cache =
-    resource::get_user_resource<warpsort_params_cache<WarpSortClass, T, IdxT>>(res)->value;
+    resource::get_custom_resource<warpsort_params_cache<WarpSortClass, T, IdxT>>(res)->value;
   launch_params val;
   if (!cache.get(key, &val)) {
     val =
@@ -989,7 +989,7 @@ void calc_launch_parameter(raft::resources const& res,
       if (batch_size >= size_t(another.min_grid_size)  // still have enough work
           && another.block_size < block_size           // protect against an infinite loop
           && another.min_grid_size * another.block_size >
-               min_grid_size * block_size  // improve occupancy
+               min_grid_size * block_size              // improve occupancy
       ) {
         block_size    = another.block_size;
         min_grid_size = another.min_grid_size;
@@ -1018,9 +1018,7 @@ void select_k_(int num_of_block,
                rmm::cuda_stream_view stream,
                rmm::mr::device_memory_resource* mr = nullptr)
 {
-  auto pool_guard = raft::get_pool_memory_resource(
-    mr, num_of_block * k * batch_size * 2 * std::max(sizeof(T), sizeof(IdxT)));
-  if (pool_guard) { RAFT_LOG_DEBUG("warpsort::select_k: using pool memory resource"); }
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
 
   rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream, mr);
   rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream, mr);

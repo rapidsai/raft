@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,9 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resources.hpp>
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/detail/knn_brute_force.cuh>
-#include <raft/neighbors/detail/selection_faiss.cuh>
 
 namespace raft::spatial::knn {
 
@@ -64,114 +61,6 @@ inline void knn_merge_parts(const value_t* in_keys,
 {
   raft::neighbors::detail::knn_merge_parts(
     in_keys, in_values, out_keys, out_values, n_samples, n_parts, k, stream, translations);
-}
-
-/** Choose an implementation for the select-top-k, */
-enum class SelectKAlgo {
-  /** Adapted from the faiss project. Result: sorted (not stable). */
-  FAISS,
-  /** Incomplete series of radix sort passes, comparing 8 bits per pass. Result: unsorted. */
-  RADIX_8_BITS,
-  /** Incomplete series of radix sort passes, comparing 11 bits per pass. Result: unsorted. */
-  RADIX_11_BITS,
-  /** Filtering with a bitonic-sort-based priority queue. Result: sorted (not stable). */
-  WARP_SORT
-};
-
-/**
- * Select k smallest or largest key/values from each row in the input data.
- *
- * If you think of the input data `in_keys` as a row-major matrix with input_len columns and
- * n_inputs rows, then this function selects k smallest/largest values in each row and fills
- * in the row-major matrix `out_keys` of size (n_inputs, k).
- *
- * Note, depending on the selected algorithm, the values within rows of `out_keys` are not
- * necessarily sorted. See the `SelectKAlgo` enumeration for more details.
- *
- * Note: This call is deprecated, please use `raft/matrix/select_k.cuh`
- *
- * @tparam idx_t
- *   the payload type (what is being selected together with the keys).
- * @tparam value_t
- *   the type of the keys (what is being compared).
- *
- * @param[in] in_keys
- *   contiguous device array of inputs of size (input_len * n_inputs);
- *   these are compared and selected.
- * @param[in] in_values
- *   contiguous device array of inputs of size (input_len * n_inputs);
- *   typically, these are indices of the corresponding in_keys.
- *   You can pass `NULL` as an argument here; this would imply `in_values` is a homogeneous array
- *   of indices from `0` to `input_len - 1` for every input and reduce the usage of memory
- *   bandwidth.
- * @param[in] n_inputs
- *   number of input rows, i.e. the batch size.
- * @param[in] input_len
- *   length of a single input array (row); also sometimes referred as n_cols.
- *   Invariant: input_len >= k.
- * @param[out] out_keys
- *   contiguous device array of outputs of size (k * n_inputs);
- *   the k smallest/largest values from each row of the `in_keys`.
- * @param[out] out_values
- *   contiguous device array of outputs of size (k * n_inputs);
- *   the payload selected together with `out_keys`.
- * @param[in] select_min
- *   whether to select k smallest (true) or largest (false) keys.
- * @param[in] k
- *   the number of outputs to select in each input row.
- * @param[in] stream
- * @param[in] algo
- *   the implementation of the algorithm
- */
-template <typename idx_t = int, typename value_t = float>
-[[deprecated("Use function `select_k` from `raft/matrix/select_k.cuh`")]] inline void select_k(
-  const value_t* in_keys,
-  const idx_t* in_values,
-  size_t n_inputs,
-  size_t input_len,
-  value_t* out_keys,
-  idx_t* out_values,
-  bool select_min,
-  int k,
-  cudaStream_t stream,
-  SelectKAlgo algo = SelectKAlgo::FAISS)
-{
-  common::nvtx::range<common::nvtx::domain::raft> fun_scope("select-%s-%d (%zu, %zu) algo-%d",
-                                                            select_min ? "min" : "max",
-                                                            k,
-                                                            n_inputs,
-                                                            input_len,
-                                                            int(algo));
-  ASSERT(size_t(input_len) >= size_t(k),
-         "Size of the input (input_len = %zu) must be not smaller than the selection (k = %zu).",
-         size_t(input_len),
-         size_t(k));
-
-  switch (algo) {
-    case SelectKAlgo::FAISS:
-      neighbors::detail::select_k(
-        in_keys, in_values, n_inputs, input_len, out_keys, out_values, select_min, k, stream);
-      break;
-
-    case SelectKAlgo::RADIX_8_BITS:
-      matrix::detail::select::radix::select_k<value_t, idx_t, 8, 512>(
-        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, true, stream);
-      break;
-
-    case SelectKAlgo::RADIX_11_BITS:
-      matrix::detail::select::radix::select_k<value_t, idx_t, 11, 512>(
-        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, true, stream);
-      break;
-
-    case SelectKAlgo::WARP_SORT: {
-      raft::resources res;
-      resource::set_cuda_stream(res, stream);
-      matrix::detail::select::warpsort::select_k<value_t, idx_t>(
-        res, in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
-    } break;
-
-    default: ASSERT(false, "Unknown algorithm (id = %d)", int(algo));
-  }
 }
 
 /**

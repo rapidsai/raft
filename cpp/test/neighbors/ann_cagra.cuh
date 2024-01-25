@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,8 @@
 #include <gtest/gtest.h>
 
 #include <thrust/sequence.h>
+
+#include <cuda_fp16.h>
 
 #include <cstddef>
 #include <iostream>
@@ -110,37 +112,69 @@ testing::AssertionResult CheckOrder(raft::host_matrix_view<IdxT, int64_t> index_
   return testing::AssertionSuccess();
 }
 
+template <typename T>
+struct fpi_mapper {};
+
+template <>
+struct fpi_mapper<double> {
+  using type                         = int64_t;
+  static constexpr int kBitshiftBase = 53;
+};
+
+template <>
+struct fpi_mapper<float> {
+  using type                         = int32_t;
+  static constexpr int kBitshiftBase = 24;
+};
+
+template <>
+struct fpi_mapper<half> {
+  using type                         = int16_t;
+  static constexpr int kBitshiftBase = 11;
+};
+
 // Generate dataset to ensure no rounding error occurs in the norm computation of any two vectors.
 // When testing the CAGRA index sorting function, rounding errors can affect the norm and alter the
 // order of the index. To ensure the accuracy of the test, we utilize the dataset. The generation
 // method is based on the error-free transformation (EFT) method.
-RAFT_KERNEL GenerateRoundingErrorFreeDataset_kernel(float* const ptr,
+template <typename T>
+RAFT_KERNEL GenerateRoundingErrorFreeDataset_kernel(T* const ptr,
                                                     const uint32_t size,
-                                                    const uint32_t resolution)
+                                                    const typename fpi_mapper<T>::type resolution)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= size) { return; }
 
-  const float u32 = *reinterpret_cast<const uint32_t*>(ptr + tid);
+  const float u32 = *reinterpret_cast<const typename fpi_mapper<T>::type*>(ptr + tid);
   ptr[tid]        = u32 / resolution;
 }
 
-void GenerateRoundingErrorFreeDataset(const raft::resources& handle,
-                                      float* const ptr,
-                                      const uint32_t n_row,
-                                      const uint32_t dim,
-                                      raft::random::RngState& rng)
+template <typename T>
+void GenerateRoundingErrorFreeDataset(
+  const raft::resources& handle,
+  T* const ptr,
+  const uint32_t n_row,
+  const uint32_t dim,
+  raft::random::RngState& rng,
+  const bool diff_flag  // true if compute the norm between two vectors
+)
 {
+  using mapper_type         = fpi_mapper<T>;
+  using int_type            = typename mapper_type::type;
   auto cuda_stream          = resource::get_cuda_stream(handle);
   const uint32_t size       = n_row * dim;
   const uint32_t block_size = 256;
   const uint32_t grid_size  = (size + block_size - 1) / block_size;
 
-  const uint32_t resolution = 1u << static_cast<unsigned>(std::floor((24 - std::log2(dim)) / 2));
-  raft::random::uniformInt(handle, rng, reinterpret_cast<uint32_t*>(ptr), size, 0u, resolution - 1);
+  const auto bitshift = (mapper_type::kBitshiftBase - std::log2(dim) - (diff_flag ? 1 : 0)) / 2;
+  // Skip the test when `dim` is too big for type `T` to allow rounding error-free test.
+  if (bitshift <= 1) { GTEST_SKIP(); }
+  const int_type resolution = int_type{1} << static_cast<unsigned>(std::floor(bitshift));
+  raft::random::uniformInt<int_type>(
+    handle, rng, reinterpret_cast<int_type*>(ptr), size, -resolution, resolution - 1);
 
-  GenerateRoundingErrorFreeDataset_kernel<<<grid_size, block_size, 0, cuda_stream>>>(
-    ptr, size, resolution);
+  GenerateRoundingErrorFreeDataset_kernel<T>
+    <<<grid_size, block_size, 0, cuda_stream>>>(ptr, size, resolution);
 }
 }  // namespace
 
@@ -225,6 +259,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         search_params.algo        = ps.algo;
         search_params.max_queries = ps.max_queries;
         search_params.team_size   = ps.team_size;
+        search_params.itopk_size  = ps.itopk_size;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
@@ -295,10 +330,10 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same<DataT, float>{}) {
-      raft::random::normal(handle_, r, database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0));
-      raft::random::normal(
-        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(0.1), DataT(2.0));
+    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
+      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
+      GenerateRoundingErrorFreeDataset(
+        handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
     } else {
       raft::random::uniformInt(
         handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
@@ -384,8 +419,8 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, handle_.get_stream());
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same<DataT, float>{}) {
-      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r);
+    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
+      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, false);
     } else {
       raft::random::uniformInt(
         handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
@@ -462,6 +497,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
         search_params.algo         = ps.algo;
         search_params.max_queries  = ps.max_queries;
         search_params.team_size    = ps.team_size;
+        search_params.itopk_size   = ps.itopk_size;
         search_params.hashmap_mode = cagra::hash_mode::HASH;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
@@ -577,6 +613,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
         search_params.algo         = ps.algo;
         search_params.max_queries  = ps.max_queries;
         search_params.team_size    = ps.team_size;
+        search_params.itopk_size   = ps.itopk_size;
         search_params.hashmap_mode = cagra::hash_mode::HASH;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
@@ -651,10 +688,10 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same<DataT, float>{}) {
-      raft::random::normal(handle_, r, database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0));
-      raft::random::normal(
-        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(0.1), DataT(2.0));
+    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
+      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
+      GenerateRoundingErrorFreeDataset(
+        handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
     } else {
       raft::random::uniformInt(
         handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
@@ -685,8 +722,8 @@ inline std::vector<AnnCagraInputs> generate_inputs()
   std::vector<AnnCagraInputs> inputs = raft::util::itertools::product<AnnCagraInputs>(
     {100},
     {1000},
-    {1, 8, 17},
-    {1, 16},  // k
+    {1, 8, 17, 1599},
+    {16},  // k
     {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
     {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
     {0, 1, 10, 100},  // query size
@@ -699,6 +736,25 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0.995});
 
   auto inputs2 = raft::util::itertools::product<AnnCagraInputs>(
+    {100},
+    {1000},
+    {1, 8, 17, 1599},
+    {1},  // k
+    {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
+    {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
+    {0, 1, 10, 100},  // query size
+    {0},
+    {256},
+    {1},
+    {raft::distance::DistanceType::L2Expanded},
+    {false},
+    {true},
+    {99. / 100}
+    // smaller threshould than the other test cases because it is too strict for Top-1 search
+  );
+  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
+
+  inputs2 = raft::util::itertools::product<AnnCagraInputs>(
     {100},
     {1000},
     {1, 3, 5, 7, 8, 17, 64, 128, 137, 192, 256, 512, 619, 1024},  // dim
@@ -763,6 +819,23 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {false, true},
     {false},
     {0.995});
+  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
+
+  inputs2 =
+    raft::util::itertools::product<AnnCagraInputs>({100},
+                                                   {20000},
+                                                   {32},
+                                                   {2048},  // k
+                                                   {graph_build_algo::NN_DESCENT},
+                                                   {search_algo::AUTO},
+                                                   {10},
+                                                   {0},
+                                                   {4096},  // itopk_size
+                                                   {1},
+                                                   {raft::distance::DistanceType::L2Expanded},
+                                                   {false},
+                                                   {false},
+                                                   {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
   return inputs;

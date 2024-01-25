@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -124,6 +124,7 @@ if(BUILD_TESTS)
     test/core/interruptible.cu
     test/core/nvtx.cpp
     test/core/mdarray.cu
+    test/core/mdbuffer.cu
     test/core/mdspan_copy.cpp
     test/core/mdspan_copy.cu
     test/core/mdspan_utils.cu
@@ -190,7 +191,6 @@ if(BUILD_TESTS)
     test/ext_headers/raft_core_logger.cpp
     test/ext_headers/raft_neighbors_refine.cu
     test/ext_headers/raft_neighbors_detail_ivf_flat_search.cu
-    test/ext_headers/raft_neighbors_detail_selection_faiss.cu
     test/ext_headers/raft_linalg_detail_coalesced_reduction.cu
     test/ext_headers/raft_spatial_knn_detail_ball_cover_registers.cu
     test/ext_headers/raft_neighbors_detail_ivf_flat_interleaved_scan.cu
@@ -315,6 +315,7 @@ if(BUILD_TESTS)
     test/sparse/normalize.cu
     test/sparse/reduce.cu
     test/sparse/row_op.cu
+    test/sparse/sddmm.cu
     test/sparse/sort.cu
     test/sparse/spgemmi.cu
     test/sparse/symmetrize.cu
@@ -352,13 +353,20 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
+    NAME NEIGHBORS_ANN_BRUTE_FORCE_TEST PATH test/neighbors/ann_brute_force/test_float.cu LIB
+    EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT 100
+  )
+
+  ConfigureTest(
     NAME
     NEIGHBORS_ANN_CAGRA_TEST
     PATH
     test/neighbors/ann_cagra/test_float_uint32_t.cu
+    test/neighbors/ann_cagra/test_half_uint32_t.cu
     test/neighbors/ann_cagra/test_int8_t_uint32_t.cu
     test/neighbors/ann_cagra/test_uint8_t_uint32_t.cu
     test/neighbors/ann_cagra/test_float_int64_t.cu
+    test/neighbors/ann_cagra/test_half_int64_t.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim128_t8.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim256_t16.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim512_t32.cu
@@ -367,6 +375,14 @@ if(BUILD_TESTS)
     src/neighbors/detail/cagra/search_single_cta_float_uint64_dim256_t16.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint64_dim512_t32.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint64_dim1024_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim128_t8.cu
+    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim256_t16.cu
+    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim512_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim1024_t32.cu
+    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim128_t8.cu
+    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim256_t16.cu
+    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim512_t32.cu
+    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim1024_t32.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
     GPUS
@@ -413,11 +429,6 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME NEIGHBORS_SELECTION_TEST PATH test/neighbors/selection.cu LIB EXPLICIT_INSTANTIATE_ONLY
-    GPUS 1 PERCENT 50
-  )
-
-  ConfigureTest(
     NAME
     STATS_TEST
     PATH
@@ -461,6 +472,7 @@ if(BUILD_TESTS)
     test/util/device_atomics.cu
     test/util/integer_utils.cpp
     test/util/integer_utils.cu
+    test/util/memory_type_dispatcher.cu
     test/util/pow2_utils.cu
     test/util/reduction.cu
   )
