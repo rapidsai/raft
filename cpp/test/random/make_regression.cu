@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,23 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/core/resource/cublas_handle.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <thrust/count.h>
-#include <thrust/device_ptr.h>
-#include <thrust/device_vector.h>
-
 #include "../test_utils.cuh"
-#include <raft/core/resources.hpp>
-#include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/subtract.cuh>
 
+#include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map_reduce.cuh>
+#include <raft/linalg/subtract.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/random/make_regression.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 
 namespace raft::random {
 
@@ -45,15 +46,6 @@ struct MakeRegressionInputs {
 
 template <typename T>
 class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<T>> {
- public:
-  MakeRegressionTest()
-    : params(::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam()),
-      stream(resource::get_cuda_stream(handle)),
-      values_ret(params.n_samples * params.n_targets, stream),
-      values_prod(params.n_samples * params.n_targets, stream)
-  {
-  }
-
  protected:
   void SetUp() override
   {
@@ -88,21 +80,21 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(resource::get_cublas_handle(handle),
-                                                     CUBLAS_OP_T,
-                                                     CUBLAS_OP_T,
-                                                     params.n_samples,
-                                                     params.n_targets,
-                                                     params.n_features,
-                                                     &alpha,
-                                                     data.data(),
-                                                     params.n_features,
-                                                     coef.data(),
-                                                     params.n_targets,
-                                                     &beta,
-                                                     values_cm.data(),
-                                                     params.n_samples,
-                                                     stream));
+    raft::linalg::gemm(handle,
+                       true,
+                       true,
+                       params.n_samples,
+                       params.n_targets,
+                       params.n_features,
+                       &alpha,
+                       data.data(),
+                       params.n_features,
+                       coef.data(),
+                       params.n_targets,
+                       &beta,
+                       values_cm.data(),
+                       params.n_samples,
+                       stream);
 
     // Transpose the values to row-major
     raft::linalg::transpose(
@@ -116,16 +108,24 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
                             stream);
 
     // Count the number of zeroes in the coefficients
-    thrust::device_ptr<T> __coef = thrust::device_pointer_cast(coef.data());
-    zero_count = thrust::count(__coef, __coef + params.n_features * params.n_targets, (T)0.0);
+    rmm::device_scalar<int> zc_device(stream);
+    raft::linalg::mapReduce(zc_device.data(),
+                            coef.size(),
+                            0,
+                            raft::compose_op{raft::cast_op<int>{}, raft::equal_const_op<T>{0}},
+                            raft::add_op{},
+                            stream,
+                            coef.data());
+    zero_count = zc_device.value(stream);
   }
 
  protected:
+  MakeRegressionInputs<T> params{::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam()};
   raft::resources handle;
-  cudaStream_t stream = 0;
+  rmm::cuda_stream_view stream{resource::get_cuda_stream(handle)};
+  rmm::device_uvector<T> values_ret{size_t(params.n_samples) * size_t(params.n_targets), stream};
+  rmm::device_uvector<T> values_prod{size_t(params.n_samples) * size_t(params.n_targets), stream};
 
-  MakeRegressionInputs<T> params;
-  rmm::device_uvector<T> values_ret, values_prod;
   int zero_count;
 };
 
@@ -183,8 +183,6 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
  protected:
   void SetUp() override
   {
-    auto stream = resource::get_cuda_stream(handle);
-
     // Noise must be zero to compare the actual and expected values
     T noise = (T)0.0, tail_strength = (T)0.5;
 
@@ -220,21 +218,21 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
     // Calculate the values from the data and coefficients (column-major)
     T alpha{};
     T beta{};
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(resource::get_cublas_handle(handle),
-                                                     CUBLAS_OP_T,
-                                                     CUBLAS_OP_T,
-                                                     params.n_samples,
-                                                     params.n_targets,
-                                                     params.n_features,
-                                                     &alpha,
-                                                     data.data(),
-                                                     params.n_features,
-                                                     coef.data(),
-                                                     params.n_targets,
-                                                     &beta,
-                                                     values_cm.data(),
-                                                     params.n_samples,
-                                                     stream));
+    raft::linalg::gemm(handle,
+                       true,
+                       true,
+                       params.n_samples,
+                       params.n_targets,
+                       params.n_features,
+                       &alpha,
+                       data.data(),
+                       params.n_features,
+                       coef.data(),
+                       params.n_targets,
+                       &beta,
+                       values_cm.data(),
+                       params.n_samples,
+                       stream);
 
     // Transpose the values to row-major
     raft::linalg::transpose(
@@ -248,18 +246,24 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
                             stream);
 
     // Count the number of zeroes in the coefficients
-    thrust::device_ptr<T> __coef = thrust::device_pointer_cast(coef.data());
-    constexpr T ZERO{};
-    zero_count = thrust::count(__coef, __coef + params.n_features * params.n_targets, ZERO);
+    rmm::device_scalar<int> zc_device(stream);
+    raft::linalg::mapReduce(zc_device.data(),
+                            coef.size(),
+                            0,
+                            raft::compose_op{raft::cast_op<int>{}, raft::equal_const_op<T>{0}},
+                            raft::add_op{},
+                            stream,
+                            coef.data());
+    zero_count = zc_device.value(stream);
   }
 
  private:
   MakeRegressionInputs<T> params{::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam()};
   raft::resources handle;
-  rmm::device_uvector<T> values_ret{params.n_samples * params.n_targets,
-                                    resource::get_cuda_stream(handle)};
-  rmm::device_uvector<T> values_prod{params.n_samples * params.n_targets,
-                                     resource::get_cuda_stream(handle)};
+  rmm::cuda_stream_view stream{resource::get_cuda_stream(handle)};
+  rmm::device_uvector<T> values_ret{size_t(params.n_samples) * size_t(params.n_targets), stream};
+  rmm::device_uvector<T> values_prod{size_t(params.n_samples) * size_t(params.n_targets), stream};
+
   int zero_count = -1;
 };
 
