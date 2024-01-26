@@ -26,6 +26,8 @@
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/cagra_serialize.cuh>
 #define RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 // Number of rows per batch (search on shards)
@@ -57,6 +59,9 @@ class ann_interface {
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
       index_.emplace(std::move(ivf_pq::build<T>(
         handle, *static_cast<const ivf_pq::index_params*>(index_params), d_index_dataset_view)));
+    } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
+      index_.emplace(std::move(cagra::build<T, IdxT>(
+        handle, *static_cast<const cagra::index_params*>(index_params), d_index_dataset_view)));
     }
   }
 
@@ -84,6 +89,8 @@ class ann_interface {
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
       index_.emplace(std::move(
         ivf_pq::extend<T, IdxT>(handle, d_new_vectors_view, new_indices_opt, index_.value())));
+    } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
+      RAFT_FAIL("CAGRA does not implement the extend method");
     }
   }
 
@@ -107,7 +114,14 @@ class ann_interface {
                               query_dataset,
                               neighbors,
                               distances);
-    }
+    } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
+      cagra::search<T, IdxT>(handle,
+                             *reinterpret_cast<const cagra::search_params*>(search_params),
+                             index_.value(),
+                             query_dataset,
+                             neighbors,
+                             distances);
+    } 
   }
 
   // Index duplication, results stored on host memory without merge
@@ -177,6 +191,8 @@ class ann_interface {
       ivf_flat::serialize<T, IdxT>(handle, os, index_.value());
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
       ivf_pq::serialize<T, IdxT>(handle, os, index_.value());
+    } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
+      cagra::serialize<T, IdxT>(handle, os, index_.value());
     }
   }
 
@@ -187,6 +203,8 @@ class ann_interface {
       index_.emplace(std::move(ivf_flat::deserialize<T, IdxT>(handle, is)));
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
       index_.emplace(std::move(ivf_pq::deserialize<T, IdxT>(handle, is)));
+    } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
+      index_.emplace(std::move(cagra::deserialize<T, IdxT>(handle, is)));
     }
   }
 
@@ -195,6 +213,8 @@ class ann_interface {
     if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, IdxT>>::value) {
       return index_.value().size();
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
+      return index_.value().size();
+    } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
       return index_.value().size();
     }
   }
@@ -517,6 +537,18 @@ ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> build(
 }
 
 template <typename T, typename IdxT>
+ann_mg_index<cagra::index<T, IdxT>, T, IdxT> build(
+  const std::vector<int> device_ids,  
+  dist_mode mode,
+  const cagra::index_params& index_params,
+  raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
+{
+  ann_mg_index<cagra::index<T, IdxT>, T, IdxT> index(device_ids, mode);
+  index.build(static_cast<const ann::index_params*>(&index_params), index_dataset);
+  return index;
+}
+
+template <typename T, typename IdxT>
 void extend(ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
             raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
             std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
@@ -555,6 +587,17 @@ void search(const ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
 }
 
 template <typename T, typename IdxT>
+void search(const ann_mg_index<cagra::index<T, IdxT>, T, IdxT>& index,
+            const cagra::search_params& search_params,
+            raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
+            raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
+            raft::host_matrix_view<float, IdxT, row_major> distances)
+{
+  index.search(
+    static_cast<const ann::search_params*>(&search_params), query_dataset, neighbors, distances);
+}
+
+template <typename T, typename IdxT>
 void serialize(const raft::resources& handle,
                const ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
                const std::string& filename)
@@ -571,17 +614,32 @@ void serialize(const raft::resources& handle,
 }
 
 template <typename T, typename IdxT>
-ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize(const raft::resources& handle,
-                                                            const std::string& filename)
+void serialize(const raft::resources& handle,
+               const ann_mg_index<cagra::index<T, IdxT>, T, IdxT>& index,
+               const std::string& filename)
+{
+  index.serialize(handle, filename);
+}
+
+template <typename T, typename IdxT>
+ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize_flat(const raft::resources& handle,
+                                                                 const std::string& filename)
 {
   return ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>(handle, filename);
 }
 
 template <typename T>
-ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> deserialize(const raft::resources& handle,
-                                                               const std::string& filename)
+ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> deserialize_pq(const raft::resources& handle,
+                                                                  const std::string& filename)
 {
   return ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>(handle, filename);
+}
+
+template <typename T, typename IdxT>
+ann_mg_index<cagra::index<T, IdxT>, T, IdxT> deserialize_cagra(const raft::resources& handle,
+                                                               const std::string& filename)
+{
+  return ann_mg_index<cagra::index<T, IdxT>, T, IdxT>(handle, filename);
 }
 
 }  // namespace raft::neighbors::mg::detail

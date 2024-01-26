@@ -41,6 +41,16 @@ auto build(const std::vector<int> device_ids,
 }
 
 template <typename T, typename IdxT>
+auto build(const std::vector<int> device_ids,
+           raft::neighbors::mg::dist_mode mode,
+           const cagra::index_params& index_params,
+           raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
+  -> detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT>
+{
+  return mg::detail::build<T, IdxT>(device_ids, mode, index_params, index_dataset);
+}
+
+template <typename T, typename IdxT>
 void extend(detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
             raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
             std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
@@ -77,6 +87,16 @@ void search(const detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& in
 }
 
 template <typename T, typename IdxT>
+void search(const detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT>& index,
+            const cagra::search_params& search_params,
+            raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
+            raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
+            raft::host_matrix_view<float, IdxT, row_major> distances)
+{
+  mg::detail::search<T, IdxT>(index, search_params, query_dataset, neighbors, distances);
+}
+
+template <typename T, typename IdxT>
 void serialize(const raft::resources& handle,
                const detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
                const std::string& filename)
@@ -93,16 +113,31 @@ void serialize(const raft::resources& handle,
 }
 
 template <typename T, typename IdxT>
-detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize(const raft::resources& handle,
-                                                                    const std::string& filename)
+void serialize(const raft::resources& handle,
+               const detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT>& index,
+               const std::string& filename)
 {
-  return mg::detail::deserialize<T, IdxT>(handle, filename);
+  mg::detail::serialize(handle, index, filename);
+}
+
+template <typename T, typename IdxT>
+detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize_flat(const raft::resources& handle,
+                                                                         const std::string& filename)
+{
+  return mg::detail::deserialize_flat<T, IdxT>(handle, filename);
 }
 
 template <typename T>
-detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> deserialize(const raft::resources& handle,
+detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> deserialize_pq(const raft::resources& handle,
+                                                                          const std::string& filename)
+{
+  return mg::detail::deserialize_pq<T>(handle, filename);
+}
+
+template <typename T, typename IdxT>
+detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT> deserialize_cagra(const raft::resources& handle,
                                                                        const std::string& filename)
 {
-  return mg::detail::deserialize<T>(handle, filename);
+  return mg::detail::deserialize_cagra<T, IdxT>(handle, filename);
 }
 }  // namespace raft::neighbors::mg

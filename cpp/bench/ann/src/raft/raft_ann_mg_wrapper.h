@@ -103,7 +103,7 @@ void RaftAnnMG<T, IdxT>::save(const std::string& file) const
 template <typename T, typename IdxT>
 void RaftAnnMG<T, IdxT>::load(const std::string& file)
 {
-  index_.emplace(raft::neighbors::mg::deserialize<T, IdxT>(handle_, file));
+  index_.emplace(raft::neighbors::mg::deserialize_flat<T, IdxT>(handle_, file));
 }
 
 template <typename T, typename IdxT>
