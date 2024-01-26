@@ -57,6 +57,7 @@ option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
 option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
+option(BUILD_CAGRA_HNSWLIB "Build CAGRA+hnswlib interface" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -195,6 +196,10 @@ if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
   rapids_cpm_gbench()
 endif()
 
+if(BUILD_CAGRA_HNSWLIB)
+  include(cmake/thirdparty/get_hnswlib.cmake)
+endif()
+
 # ##################################################################################################
 # * raft ---------------------------------------------------------------------
 add_library(raft INTERFACE)
@@ -203,6 +208,9 @@ add_library(raft::raft ALIAS raft)
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
+if(BUILD_CAGRA_HNSWLIB)
+  target_link_libraries(raft INTERFACE hnswlib::hnswlib)
+endif()
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
@@ -425,6 +433,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/neighbors/cagra_search.cu
     src/raft_runtime/neighbors/cagra_serialize.cu
     src/raft_runtime/neighbors/eps_neighborhood.cu
+    src/raft_runtime/neighbors/hnsw.cpp
     src/raft_runtime/neighbors/ivf_flat_build.cu
     src/raft_runtime/neighbors/ivf_flat_search.cu
     src/raft_runtime/neighbors/ivf_flat_serialize.cu
