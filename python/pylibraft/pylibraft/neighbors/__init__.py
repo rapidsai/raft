@@ -15,7 +15,8 @@
 
 from pylibraft.neighbors import brute_force  # type: ignore
 from pylibraft.neighbors import hnsw  # type: ignore
-from pylibraft.neighbors import cagra, ivf_flat, ivf_pq, rbc
+from pylibraft.neighbors import rbc  # type: ignore
+from pylibraft.neighbors import cagra, ivf_flat, ivf_pq
 
 from .refine import refine
 
@@ -27,5 +28,5 @@ __all__ = [
     "ivf_pq",
     "cagra",
     "hnsw",
-    "rbc"
+    "rbc",
 ]
