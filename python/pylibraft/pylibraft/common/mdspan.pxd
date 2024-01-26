@@ -19,7 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from libc.stdint cimport int8_t, int64_t, uint8_t, uint32_t
+from libc.stdint cimport int8_t, int64_t, uint8_t, uint32_t, uint64_t
 from libcpp cimport bool
 from libcpp.string cimport string
 
@@ -81,6 +81,9 @@ cdef host_matrix_view[int64_t, int64_t, row_major] get_hmv_int64(
     array, check_shape) except *
 
 cdef host_matrix_view[uint32_t, int64_t, row_major] get_hmv_uint32(
+    array, check_shape) except *
+
+cdef host_matrix_view[uint64_t, int64_t, row_major] get_hmv_uint64(
     array, check_shape) except *
 
 cdef host_matrix_view[const_float, int64_t, row_major] get_const_hmv_float(
