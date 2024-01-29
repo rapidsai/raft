@@ -18,7 +18,9 @@
 
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/custom_resource.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/util/bitonic_sort.cuh>
 #include <raft/util/cache.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -1015,10 +1017,8 @@ void select_k_(int num_of_block,
                IdxT* out_idx,
                bool select_min,
                rmm::cuda_stream_view stream,
-               rmm::mr::device_memory_resource* mr = nullptr)
+               rmm::mr::device_memory_resource* mr)
 {
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
-
   rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream, mr);
   rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream, mr);
 
@@ -1071,9 +1071,7 @@ void select_k_impl(raft::resources const& res,
                    int k,
                    T* out,
                    IdxT* out_idx,
-                   bool select_min,
-                   rmm::cuda_stream_view stream,
-                   rmm::mr::device_memory_resource* mr = nullptr)
+                   bool select_min)
 {
   int num_of_block = 0;
   int num_of_warp  = 0;
@@ -1090,8 +1088,8 @@ void select_k_impl(raft::resources const& res,
                                     out,
                                     out_idx,
                                     select_min,
-                                    stream,
-                                    mr);
+                                    resource::get_cuda_stream(res),
+                                    resource::get_workspace_resource(res));
 }
 
 /**
@@ -1106,6 +1104,7 @@ void select_k_impl(raft::resources const& res,
  * @tparam IdxT
  *   the index type (what is being selected together with the keys).
  *
+ * @param[in] res container of reusable resources
  * @param[in] in
  *   contiguous device array of inputs of size (len * batch_size);
  *   these are compared and selected.
@@ -1127,9 +1126,6 @@ void select_k_impl(raft::resources const& res,
  *   the payload selected together with `out`.
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
- * @param stream
- * @param mr an optional memory resource to use across the calls (you can provide a large enough
- *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT>
 void select_k(raft::resources const& res,
@@ -1140,9 +1136,7 @@ void select_k(raft::resources const& res,
               int k,
               T* out,
               IdxT* out_idx,
-              bool select_min,
-              rmm::cuda_stream_view stream,
-              rmm::mr::device_memory_resource* mr = nullptr)
+              bool select_min)
 {
   ASSERT(k <= kMaxCapacity, "Current max k is %d (requested %d)", kMaxCapacity, k);
   ASSERT(len <= size_t(std::numeric_limits<IdxT>::max()),
@@ -1167,8 +1161,8 @@ void select_k(raft::resources const& res,
                                             out,
                                             out_idx,
                                             select_min,
-                                            stream,
-                                            mr);
+                                            resource::get_cuda_stream(res),
+                                            resource::get_workspace_resource(res));
   } else {
     calc_launch_parameter<warp_sort_filtered, T, IdxT>(
       res, batch_size, len, k, &num_of_block, &num_of_warp);
@@ -1182,8 +1176,8 @@ void select_k(raft::resources const& res,
                                            out,
                                            out_idx,
                                            select_min,
-                                           stream,
-                                           mr);
+                                           resource::get_cuda_stream(res),
+                                           resource::get_workspace_resource(res));
   }
 }
 

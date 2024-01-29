@@ -168,8 +168,7 @@ void select_clusters(raft::resources const& handle,
                                             n_probes,
                                             cluster_dists.data(),
                                             clusters_to_probe,
-                                            true,
-                                            mr);
+                                            true);
 }
 
 /**
@@ -661,8 +660,7 @@ void ivfpq_search_worker(raft::resources const& handle,
                                              topK,
                                              topk_dists.data(),
                                              neighbors_uint32,
-                                             true,
-                                             mr);
+                                             true);
 
   // Postprocessing
   postprocess_distances(
