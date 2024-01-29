@@ -142,8 +142,6 @@ cdef class IndexParams:
 
 
 cdef class Index:
-    cdef readonly bool trained
-    cdef str active_index_type
 
     def __cinit__(self):
         self.trained = False
@@ -151,7 +149,6 @@ cdef class Index:
 
 
 cdef class IndexFloat(Index):
-    cdef c_cagra.index[float, uint32_t] * index
 
     def __cinit__(self, handle=None):
         if handle is None:
@@ -216,7 +213,6 @@ cdef class IndexFloat(Index):
 
 
 cdef class IndexInt8(Index):
-    cdef c_cagra.index[int8_t, uint32_t] * index
 
     def __cinit__(self, handle=None):
         if handle is None:
@@ -281,7 +277,6 @@ cdef class IndexInt8(Index):
 
 
 cdef class IndexUint8(Index):
-    cdef c_cagra.index[uint8_t, uint32_t] * index
 
     def __cinit__(self, handle=None):
         if handle is None:

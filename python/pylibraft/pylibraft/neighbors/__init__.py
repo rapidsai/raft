@@ -13,7 +13,10 @@
 # limitations under the License.
 #
 
-from pylibraft.neighbors import brute_force, cagra, ivf_flat, ivf_pq, rbc
+from pylibraft.neighbors import brute_force  # type: ignore
+from pylibraft.neighbors import hnsw  # type: ignore
+from pylibraft.neighbors import rbc  # type: ignore
+from pylibraft.neighbors import cagra, ivf_flat, ivf_pq
 
 from .refine import refine
 
@@ -23,6 +26,7 @@ __all__ = [
     "brute_force",
     "ivf_flat",
     "ivf_pq",
-    "rbc",
     "cagra",
+    "hnsw",
+    "rbc",
 ]
