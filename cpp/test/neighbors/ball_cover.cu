@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ struct ToRadians {
   __device__ __host__ float operator()(float a) { return a * (CUDART_PI_F / 180.0); }
 };
 
-template <typename value_int = std::uint32_t>
+template <typename value_int = std::int64_t>
 struct BallCoverInputs {
   value_int k;
   value_int n_rows;
@@ -136,7 +136,7 @@ struct BallCoverInputs {
   raft::distance::DistanceType metric;
 };
 
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx, typename value_t, typename value_int = std::int64_t>
 class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<value_int>> {
  protected:
   void basicTest()
@@ -151,26 +151,26 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
 
     rmm::device_uvector<value_t> X(params.n_rows * params.n_cols,
                                    resource::get_cuda_stream(handle));
-    rmm::device_uvector<uint32_t> Y(params.n_rows, resource::get_cuda_stream(handle));
+    rmm::device_uvector<value_idx> Y(params.n_rows, resource::get_cuda_stream(handle));
 
     // Make sure the train and query sets are completely disjoint
     rmm::device_uvector<value_t> X2(params.n_query * params.n_cols,
                                     resource::get_cuda_stream(handle));
-    rmm::device_uvector<uint32_t> Y2(params.n_query, resource::get_cuda_stream(handle));
+    rmm::device_uvector<value_idx> Y2(params.n_query, resource::get_cuda_stream(handle));
 
-    raft::random::make_blobs(X.data(),
-                             Y.data(),
-                             params.n_rows,
-                             params.n_cols,
-                             n_centers,
-                             resource::get_cuda_stream(handle));
+    raft::random::make_blobs<value_t, value_idx>(X.data(),
+                                                 Y.data(),
+                                                 params.n_rows,
+                                                 params.n_cols,
+                                                 n_centers,
+                                                 resource::get_cuda_stream(handle));
 
-    raft::random::make_blobs(X2.data(),
-                             Y2.data(),
-                             params.n_query,
-                             params.n_cols,
-                             n_centers,
-                             resource::get_cuda_stream(handle));
+    raft::random::make_blobs<value_t, value_idx>(X2.data(),
+                                                 Y2.data(),
+                                                 params.n_query,
+                                                 params.n_cols,
+                                                 n_centers,
+                                                 resource::get_cuda_stream(handle));
 
     rmm::device_uvector<value_idx> d_ref_I(params.n_query * k, resource::get_cuda_stream(handle));
     rmm::device_uvector<value_t> d_ref_D(params.n_query * k, resource::get_cuda_stream(handle));
@@ -215,7 +215,8 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
     BallCoverIndex<value_idx, value_t, value_int, value_int> index(handle, X_view, metric);
 
     build_index(handle, index);
-    knn_query(handle, index, X2_view, d_pred_I_view, d_pred_D_view, k, true);
+    knn_query<value_idx, value_t, value_int, value_int>(
+      handle, index, X2_view, d_pred_I_view, d_pred_D_view, k, true);
 
     resource::sync_stream(handle);
     // What we really want are for the distances to match exactly. The
@@ -249,7 +250,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
   BallCoverInputs<value_int> params;
 };
 
-template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+template <typename value_idx, typename value_t, typename value_int = std::int64_t>
 class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<value_int>> {
  protected:
   void basicTest()
@@ -264,14 +265,14 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
 
     rmm::device_uvector<value_t> X(params.n_rows * params.n_cols,
                                    resource::get_cuda_stream(handle));
-    rmm::device_uvector<uint32_t> Y(params.n_rows, resource::get_cuda_stream(handle));
+    rmm::device_uvector<value_int> Y(params.n_rows, resource::get_cuda_stream(handle));
 
-    raft::random::make_blobs(X.data(),
-                             Y.data(),
-                             params.n_rows,
-                             params.n_cols,
-                             n_centers,
-                             resource::get_cuda_stream(handle));
+    raft::random::make_blobs<value_t, value_idx>(X.data(),
+                                                 Y.data(),
+                                                 params.n_rows,
+                                                 params.n_cols,
+                                                 n_centers,
+                                                 resource::get_cuda_stream(handle));
 
     rmm::device_uvector<value_idx> d_ref_I(params.n_rows * k, resource::get_cuda_stream(handle));
     rmm::device_uvector<value_t> d_ref_D(params.n_rows * k, resource::get_cuda_stream(handle));
@@ -308,7 +309,8 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
 
     BallCoverIndex<value_idx, value_t> index(handle, X_view, metric);
 
-    all_knn_query(handle, index, d_pred_I_view, d_pred_D_view, k, true);
+    all_knn_query<value_idx, value_t, value_int, value_int>(
+      handle, index, d_pred_I_view, d_pred_D_view, k, true);
 
     resource::sync_stream(handle);
     // What we really want are for the distances to match exactly. The
@@ -348,7 +350,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
 typedef BallCoverAllKNNTest<int64_t, float> BallCoverAllKNNTestF;
 typedef BallCoverKNNQueryTest<int64_t, float> BallCoverKNNQueryTestF;
 
-const std::vector<BallCoverInputs<std::uint32_t>> ballcover_inputs = {
+const std::vector<BallCoverInputs<std::int64_t>> ballcover_inputs = {
   {11, 5000, 2, 1.0, 10000, raft::distance::DistanceType::Haversine},
   {25, 10000, 2, 1.0, 5000, raft::distance::DistanceType::Haversine},
   {2, 10000, 2, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},

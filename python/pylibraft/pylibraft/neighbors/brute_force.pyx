@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ from libc.stdint cimport int64_t, uintptr_t
 
 from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport device_resources
-from pylibraft.common.mdspan cimport get_dmv_float, get_dmv_int64
+from pylibraft.common.mdspan cimport get_dmv_bool, get_dmv_float, get_dmv_int64
 
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.interruptible import cuda_interruptible
@@ -51,12 +51,17 @@ from pylibraft.neighbors.common import _check_input_array
 
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,
+    device_vector_view,
     host_matrix_view,
     make_device_matrix_view,
+    make_device_vector_view,
     make_host_matrix_view,
     row_major,
 )
-from pylibraft.neighbors.cpp.brute_force cimport knn as c_knn
+from pylibraft.neighbors.cpp.brute_force cimport (
+    eps_neighbors as c_eps_neighbors,
+    knn as c_knn,
+)
 
 
 def _get_array_params(array_interface, check_dtype=None):
@@ -177,3 +182,88 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
         raise TypeError("dtype %s not supported" % dataset_cai.dtype)
 
     return (distances, indices)
+
+
+@auto_sync_handle
+@auto_convert_output
+def eps_neighbors(dataset, queries, eps, handle=None):
+    """
+    Perform an epsilon neighborhood search using the L2-norm.
+
+    Parameters
+    ----------
+    dataset : array interface compliant matrix, row-major layout,
+        shape (n_samples, dim). Supported dtype [float]
+    queries : array interface compliant matrix, row-major layout,
+        shape (n_queries, dim) Supported dtype [float]
+    eps : threshold
+    {handle_docstring}
+
+    Returns
+    -------
+    adj: array interface compliant object containing bool adjacency mask
+         shape (n_queries, n_samples)
+
+    vd: array interface compliant object containing row sums of adj
+        shape (n_queries + 1). vd[n_queries] contains the total sum
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors.brute_force import eps_neighbors
+    >>> handle = DeviceResources()
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> eps = 0.1
+    >>> adj, vd = eps_neighbors(dataset, queries, eps, handle=handle)
+    >>> adj = cp.asarray(adj)
+    >>> vd = cp.asarray(vd)
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
+    """
+
+    if handle is None:
+        handle = DeviceResources()
+
+    dataset_cai = cai_wrapper(dataset)
+    queries_cai = cai_wrapper(queries)
+
+    # we require c-contiguous (rowmajor) inputs here
+    _check_input_array(dataset_cai, [np.dtype("float32")])
+    _check_input_array(queries_cai, [np.dtype("float32")],
+                       exp_cols=dataset_cai.shape[1])
+
+    n_queries = queries_cai.shape[0]
+    n_samples = dataset_cai.shape[0]
+
+    adj = device_ndarray.empty((n_queries, n_samples), dtype='bool')
+    vd = device_ndarray.empty((n_queries + 1, ), dtype='int64')
+    adj_cai = cai_wrapper(adj)
+    vd_cai = cai_wrapper(vd)
+
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
+
+    vd_vector_view = make_device_vector_view(
+        <int64_t *><uintptr_t>vd_cai.data, <int64_t>vd_cai.shape[0])
+
+    if dataset_cai.dtype == np.float32:
+        with cuda_interruptible():
+            c_eps_neighbors(
+                deref(handle_),
+                get_dmv_float(dataset_cai, check_shape=True),
+                get_dmv_float(queries_cai, check_shape=True),
+                get_dmv_bool(adj_cai, check_shape=True),
+                vd_vector_view,
+                eps)
+    else:
+        raise TypeError("dtype %s not supported" % dataset_cai.dtype)
+
+    return (adj, vd)

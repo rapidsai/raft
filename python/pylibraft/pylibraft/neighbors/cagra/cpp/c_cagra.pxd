@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -210,6 +210,36 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
                              const string& filename,
                              const index[uint8_t, uint32_t]& index,
                              bool include_dataset) except +
+
+    cdef void serialize_to_hnswlib(
+        const device_resources& handle,
+        string& str,
+        const index[float, uint32_t]& index) except +
+
+    cdef void serialize_to_hnswlib(
+        const device_resources& handle,
+        string& str,
+        const index[uint8_t, uint32_t]& index) except +
+
+    cdef void serialize_to_hnswlib(
+        const device_resources& handle,
+        string& str,
+        const index[int8_t, uint32_t]& index) except +
+
+    cdef void serialize_to_hnswlib_file(
+        const device_resources& handle,
+        const string& filename,
+        const index[float, uint32_t]& index) except +
+
+    cdef void serialize_to_hnswlib_file(
+        const device_resources& handle,
+        const string& filename,
+        const index[uint8_t, uint32_t]& index) except +
+
+    cdef void serialize_to_hnswlib_file(
+        const device_resources& handle,
+        const string& filename,
+        const index[int8_t, uint32_t]& index) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
