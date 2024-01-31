@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -361,23 +361,28 @@ inline auto build(raft::resources const& handle,
 
   // Train the kmeans clustering
   {
-    int random_seed     = 137;
     auto trainset_ratio = std::max<size_t>(
       1, n_rows / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
     auto n_rows_train = n_rows / trainset_ratio;
-    auto trainset     = make_device_matrix<T, IdxT>(handle, n_rows_train, index.dim());
-    raft::spatial::knn::detail::utils::subsample(
-      handle, dataset, n_rows, trainset.view(), random_seed);
+    rmm::device_uvector<T> trainset(n_rows_train * index.dim(), stream);
+    // TODO: a proper sampling
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
+                                    sizeof(T) * index.dim(),
+                                    dataset,
+                                    sizeof(T) * index.dim() * trainset_ratio,
+                                    sizeof(T) * index.dim(),
+                                    n_rows_train,
+                                    cudaMemcpyDefault,
+                                    stream));
+    auto trainset_const_view =
+      raft::make_device_matrix_view<const T, IdxT>(trainset.data(), n_rows_train, index.dim());
     auto centers_view = raft::make_device_matrix_view<float, IdxT>(
       index.centers().data_handle(), index.n_lists(), index.dim());
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = params.kmeans_n_iters;
     kmeans_params.metric  = index.metric();
-    raft::cluster::kmeans_balanced::fit(handle,
-                                        kmeans_params,
-                                        make_const_mdspan(trainset.view()),
-                                        centers_view,
-                                        utils::mapping<float>{});
+    raft::cluster::kmeans_balanced::fit(
+      handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
   }
 
   // add the data if necessary

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,8 @@
 
 #pragma once
 
-#include <raft/common/nvtx.hpp>
-#include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
-#include <raft/core/host_mdarray.hpp>
-
 #include <raft/core/logger.hpp>
-#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/linalg/map.cuh>
-#include <raft/matrix/gather.cuh>
-#include <raft/random/sample_without_replacement.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/integer_utils.hpp>
@@ -583,50 +573,4 @@ struct batch_load_iterator {
   size_type cur_pos_;
 };
 
-template <typename IdxT>
-auto get_subsample_indices(raft::resources const& res, IdxT n_samples, IdxT n_subsamples, int seed)
-  -> raft::device_vector<IdxT, IdxT>
-{
-  RAFT_EXPECTS(n_subsamples <= n_samples, "Cannot have more training samples than dataset vectors");
-
-  auto data_indices = raft::make_device_vector<IdxT, IdxT>(res, n_samples);
-  raft::linalg::map_offset(res, data_indices.view(), identity_op());
-  raft::random::RngState rng(seed);
-  auto train_indices = raft::make_device_vector<IdxT, IdxT>(res, n_subsamples);
-  raft::random::sample_without_replacement(res,
-                                           rng,
-                                           raft::make_const_mdspan(data_indices.view()),
-                                           std::nullopt,
-                                           train_indices.view(),
-                                           std::nullopt);
-  return train_indices;
-}
-
-/** Subsample the dataset to create a training set*/
-template <typename T, typename IdxT = int64_t>
-void subsample(raft::resources const& res,
-               const T* input,
-               IdxT n_samples,
-               raft::device_matrix_view<T, IdxT> output,
-               int seed)
-{
-  IdxT n_dim   = output.extent(1);
-  IdxT n_train = output.extent(0);
-
-  raft::device_vector<IdxT, IdxT> train_indices =
-    get_subsample_indices<IdxT>(res, n_samples, n_train, seed);
-
-  cudaPointerAttributes attr;
-  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, input));
-  T* ptr = reinterpret_cast<T*>(attr.devicePointer);
-  if (ptr != nullptr) {
-    raft::matrix::gather(res,
-                         raft::make_device_matrix_view<const T, IdxT>(ptr, n_samples, n_dim),
-                         raft::make_const_mdspan(train_indices.view()),
-                         output);
-  } else {
-    auto dataset = raft::make_host_matrix_view<const T, IdxT>(input, n_samples, n_dim);
-    raft::matrix::detail::gather(res, dataset, make_const_mdspan(train_indices.view()), output);
-  }
-}
 }  // namespace raft::spatial::knn::detail::utils

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ struct ivf_pq_inputs {
   ivf_pq_inputs()
   {
     index_params.n_lists                  = max(32u, min(1024u, num_db_vecs / 128u));
-    index_params.kmeans_trainset_fraction = 0.95;
+    index_params.kmeans_trainset_fraction = 1.0;
   }
 };
 
