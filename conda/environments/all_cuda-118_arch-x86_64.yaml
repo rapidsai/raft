@@ -44,8 +44,8 @@ dependencies:
 - nvcc_linux-64=11.8
 - pre-commit
 - pydata-sphinx-theme
-- pytest
 - pytest-cov
+- pytest==7.*
 - rapids-dask-dependency==24.2.*
 - recommonmark
 - rmm==24.2.*
