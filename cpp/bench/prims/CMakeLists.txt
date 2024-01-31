@@ -128,6 +128,7 @@ if(BUILD_PRIMS_BENCH)
     bench/prims/matrix/argmin.cu
     bench/prims/matrix/gather.cu
     bench/prims/matrix/select_k.cu
+    bench/prims/matrix/select_k_csr.cu
     bench/prims/matrix/main.cpp
     OPTIONAL
     LIB

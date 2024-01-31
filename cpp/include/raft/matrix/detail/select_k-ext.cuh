@@ -18,6 +18,7 @@
 
 #include <cstdint>      // uint32_t
 #include <cuda_fp16.h>  // __half
+#include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/matrix/select_k_types.hpp>
 #include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
@@ -41,6 +42,15 @@ void select_k(raft::resources const& handle,
               rmm::mr::device_memory_resource* mr = nullptr,
               bool sorted                         = false,
               SelectAlgo algo                     = SelectAlgo::kAuto) RAFT_EXPLICIT;
+
+template <typename T, typename IdxT>
+void select_k(raft::resources const& handle,
+              raft::device_csr_matrix_view<const T, IdxT, IdxT, IdxT> in_val,
+              std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx,
+              raft::device_matrix_view<T, IdxT, raft::row_major> out_val,
+              raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,
+              bool select_min,
+              rmm::mr::device_memory_resource* mr = nullptr) RAFT_EXPLICIT;
 }  // namespace raft::matrix::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -66,6 +76,26 @@ instantiate_raft_matrix_detail_select_k(float, uint32_t);
 instantiate_raft_matrix_detail_select_k(float, int);
 // We did not have these two for double before, but there are tests for them. We
 // therefore include them here.
+instantiate_raft_matrix_detail_select_k(double, int64_t);
+instantiate_raft_matrix_detail_select_k(double, uint32_t);
+
+#undef instantiate_raft_matrix_detail_select_k
+
+#define instantiate_raft_matrix_detail_select_k(T, IdxT)              \
+  extern template void raft::matrix::detail::select_k(                \
+    raft::resources const& handle,                                    \
+    raft::device_csr_matrix_view<const T, IdxT, IdxT, IdxT> in_val,   \
+    std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx, \
+    raft::device_matrix_view<T, IdxT, raft::row_major> out_val,       \
+    raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,    \
+    bool select_min,                                                  \
+    rmm::mr::device_memory_resource* mr)
+
+instantiate_raft_matrix_detail_select_k(__half, uint32_t);
+instantiate_raft_matrix_detail_select_k(__half, int64_t);
+instantiate_raft_matrix_detail_select_k(float, int64_t);
+instantiate_raft_matrix_detail_select_k(float, uint32_t);
+instantiate_raft_matrix_detail_select_k(float, int);
 instantiate_raft_matrix_detail_select_k(double, int64_t);
 instantiate_raft_matrix_detail_select_k(double, uint32_t);
 

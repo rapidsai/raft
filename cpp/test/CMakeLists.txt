@@ -256,6 +256,7 @@ if(BUILD_TESTS)
     test/matrix/argmax.cu
     test/matrix/argmin.cu
     test/matrix/columnSort.cu
+    test/matrix/copy.cu
     test/matrix/diagonal.cu
     test/matrix/gather.cu
     test/matrix/scatter.cu
@@ -272,7 +273,13 @@ if(BUILD_TESTS)
     EXPLICIT_INSTANTIATE_ONLY
   )
 
-  ConfigureTest(NAME MATRIX_SELECT_TEST PATH test/matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY)
+  ConfigureTest(
+    NAME
+    MATRIX_SELECT_TEST
+    PATH test/matrix/select_k.cu
+    PATH test/matrix/select_k_csr.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY)
 
   ConfigureTest(
     NAME MATRIX_SELECT_LARGE_TEST PATH test/matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY

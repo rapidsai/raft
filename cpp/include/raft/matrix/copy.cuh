@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,6 +120,41 @@ void trunc_zero_origin(raft::resources const& handle,
                                       out.extent(0),
                                       out.extent(1),
                                       resource::get_cuda_stream(handle));
+}
+
+/**
+ * @brief Copy a specific number of elements row by row from the source vector to the target matrix
+ * according to the segment indicated by offsets
+ *
+ * @tparam m_t the type of the copied items.
+ * @tparam idx_t the index type of vectors and matrix.
+ * @param[in] handle raft handle
+ * @param[in] max_len_per_row Maximum number of copies per row
+ * @param[in] src Source vector
+ * @param[in] offsets Indicates the starting and ending index of each row in the vector
+ * @param[out] dst Destination matrix in row major order
+ *
+ * @note When the length of one segment is less than max_len_per_row, the remaining position values
+ * of dst will remain unchanged.
+ */
+template <typename m_t, typename idx_t>
+void segmented_copy(raft::resources const& handle,
+                    idx_t max_len_per_row,
+                    raft::device_vector_view<m_t, idx_t> src,
+                    raft::device_vector_view<idx_t, idx_t> offsets,
+                    raft::device_matrix_view<m_t, idx_t, row_major> dst)
+{
+  RAFT_EXPECTS(static_cast<idx_t>(offsets.size()) == (dst.extent(0) + 1),
+               "Number of offsets must be larger than number of output rows by 1");
+  RAFT_EXPECTS(dst.extent(1) >= max_len_per_row,
+               "Number of rows in the out must be equal or larger than max_len_per_row");
+  detail::segmented_copy(handle,
+                         src.data_handle(),
+                         dst.extent(0),
+                         dst.extent(1),
+                         max_len_per_row,
+                         offsets.data_handle(),
+                         dst.data_handle());
 }
 
 /** @} */  // end of group matrix_copy

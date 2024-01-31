@@ -17,12 +17,17 @@
 
 #pragma once
 
+#include <type_traits>
+
 #include "select_radix.cuh"
 #include "select_warpsort.cuh"
 
+#include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/matrix/copy.cuh>
+#include <raft/matrix/gather.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/matrix/select_k_types.hpp>
 
@@ -320,4 +325,98 @@ void select_k(raft::resources const& handle,
     default: RAFT_FAIL("K-selection Algorithm not supported.");
   }
 }
+
+/**
+ * Selects the k smallest or largest keys/values from each row of the input matrix.
+ *
+ * This function operates on a row-major matrix `in_val` with dimensions `batch_size` x `len`,
+ * selecting the k smallest or largest elements from each row. The selected elements are then stored
+ * in a row-major output matrix `out_val` with dimensions `batch_size` x k.
+ *
+ * @tparam T
+ *   Type of the elements being compared (keys).
+ * @tparam IdxT
+ *   Type of the indices associated with the keys.
+ * @tparam NZType
+ *   Type representing non-zero elements of `in_val`.
+ *
+ * @param[in] handle
+ *   Container for managing reusable resources.
+ * @param[in] in_val
+ *   Input matrix in CSR format with a logical dense shape of [batch_size, len],
+ *   containing the elements to be compared and selected.
+ * @param[in] in_idx
+ *   Optional input indices [in_val.nnz] associated with `in_val.values`.
+ *   If `in_idx` is `std::nullopt`, it defaults to a contiguous array from 0 to len-1.
+ * @param[out] out_val
+ *   Output matrix [in_val.get_n_row(), k] storing the selected k smallest/largest elements
+ *   from each row of `in_val`.
+ * @param[out] out_idx
+ *   Output indices [in_val.get_n_row(), k] corresponding to the selected elements in `out_val`.
+ * @param[in] select_min
+ *   Flag indicating whether to select the k smallest (true) or largest (false) elements.
+ * @param[in] mr
+ *   An optional memory resource to use across the calls (you can provide a large enough
+ *           memory pool here to avoid memory allocations within the call).
+ */
+template <typename T, typename IdxT>
+void select_k(raft::resources const& handle,
+              raft::device_csr_matrix_view<const T, IdxT, IdxT, IdxT> in_val,
+              std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx,
+              raft::device_matrix_view<T, IdxT, raft::row_major> out_val,
+              raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,
+              bool select_min,
+              rmm::mr::device_memory_resource* mr = nullptr)
+{
+  auto csr_view = in_val.structure_view();
+  auto nnz      = csr_view.get_nnz();
+
+  if (nnz == 0) return;
+
+  auto batch_size = csr_view.get_n_rows();
+  auto len        = csr_view.get_n_cols();
+  auto k          = IdxT(out_val.extent(1));
+
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+  RAFT_EXPECTS(out_val.extent(1) <= int64_t(std::numeric_limits<int>::max()),
+               "output k must fit the int type.");
+
+  RAFT_EXPECTS(batch_size == out_val.extent(0), "batch sizes must be equal");
+  RAFT_EXPECTS(batch_size == out_idx.extent(0), "batch sizes must be equal");
+
+  if (in_idx.has_value()) {
+    RAFT_EXPECTS(size_t(nnz) == in_idx->size(),
+                 "nnz of in_val must be equal to the length of in_idx");
+  }
+  RAFT_EXPECTS(IdxT(k) == out_idx.extent(1), "value and index output lengths must be equal");
+
+  auto stream = raft::resource::get_cuda_stream(handle);
+
+  rmm::device_uvector<IdxT> offsets(batch_size + 1, stream);
+  rmm::device_uvector<T> keys(nnz, stream);
+  rmm::device_uvector<IdxT> values(nnz, stream);
+
+  raft::copy(offsets.data(), csr_view.get_indptr().data(), batch_size + 1, stream);
+  raft::copy(keys.data(), in_val.get_elements().data(), nnz, stream);
+  raft::copy(values.data(),
+             (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+             nnz,
+             stream);
+
+  segmented_sort_by_key(handle,
+                        keys.data(),
+                        values.data(),
+                        size_t(batch_size),
+                        size_t(nnz),
+                        offsets.data(),
+                        select_min);
+
+  auto src_val      = raft::make_device_vector_view<T, IdxT>(keys.data(), nnz);
+  auto offsets_view = raft::make_device_vector_view<IdxT, IdxT>(offsets.data(), batch_size + 1);
+  raft::matrix::segmented_copy<T, IdxT>(handle, k, src_val, offsets_view, out_val);
+
+  auto src_idx = raft::make_device_vector_view<IdxT, IdxT>(values.data(), nnz);
+  raft::matrix::segmented_copy<IdxT, IdxT>(handle, k, src_idx, offsets_view, out_idx);
+}
+
 }  // namespace raft::matrix::detail
