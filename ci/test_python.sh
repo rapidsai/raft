@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -56,6 +56,7 @@ rapids-logger "pytest raft-dask"
 pushd python/raft-dask/raft_dask
 pytest \
   --cache-clear \
+  --import-mode=append \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-raft-dask.xml" \
   --cov-config=../.coveragerc \
   --cov=raft_dask \

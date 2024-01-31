@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -18,5 +18,5 @@ python -m pip install $(echo ./dist/raft_dask*.whl)[test]
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
     python ./ci/wheel_smoke_test_raft_dask.py
 else
-    python -m pytest ./python/raft-dask/raft_dask/test
+    python -m pytest --import-mode=append ./python/raft-dask/raft_dask/test
 fi
