@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,9 +86,6 @@ void parse_build_param(const nlohmann::json& conf,
       throw std::runtime_error("codebook_kind: '" + kind +
                                "', should be either 'cluster' or 'subspace'");
     }
-  }
-  if (conf.contains("max_train_points_per_pq_code")) {
-    param.max_train_points_per_pq_code = conf.at("max_train_points_per_pq_code");
   }
 }
 

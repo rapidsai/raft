@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,14 +105,6 @@ struct index_params : ann::index_params {
    * flag to `true` if you prefer to use as little GPU memory for the database as possible.
    */
   bool conservative_memory_allocation = false;
-  /**
-   * The max number of data points to use per PQ code during PQ codebook training. Using more data
-   * points per PQ code may increase the quality of PQ codebook but may also increase the build
-   * time. The parameter is applied to both PQ codebook generation methods, i.e., PER_SUBSPACE and
-   * PER_CLUSTER. In both cases, we will use `pq_book_size * max_train_points_per_pq_code` training
-   * points to train each codebook.
-   */
-  uint32_t max_train_points_per_pq_code = 256;
 };
 
 struct search_params : ann::search_params {
