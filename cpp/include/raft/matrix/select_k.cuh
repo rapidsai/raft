@@ -123,6 +123,8 @@ void select_k(raft::resources const& handle,
  * This function operates on a row-major matrix `in_val` with dimensions `batch_size` x `len`,
  * selecting the k smallest or largest elements from each row. The selected elements are then stored
  * in a row-major output matrix `out_val` with dimensions `batch_size` x k.
+ * If the total number of values in a row is less than K, then the extra position in the
+ * corresponding row of out_val will maintain the original value. This applies to out_idx
  *
  * @tparam T
  *   Type of the elements being compared (keys).
