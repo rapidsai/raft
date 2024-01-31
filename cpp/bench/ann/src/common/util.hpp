@@ -216,6 +216,13 @@ struct non_blocking_stream {
 };
 #endif
 
+#ifndef BUILD_CPU_ONLY
+namespace detail {
+inline std::vector<non_blocking_stream> global_stream_pool(0);
+inline std::mutex gsp_mutex;
+}  // namespace detail
+#endif
+
 /**
  * Get a stream associated with the current benchmark thread.
  *
@@ -226,14 +233,26 @@ struct non_blocking_stream {
 inline auto get_stream_from_global_pool() -> cudaStream_t
 {
 #ifndef BUILD_CPU_ONLY
-  static std::vector<non_blocking_stream> pool(1);
-  static std::mutex m;
-  std::lock_guard guard(m);
-  if (int(pool.size()) < benchmark_n_threads) { pool.resize(benchmark_n_threads); }
-  return pool[benchmark_thread_id].view();
+  std::lock_guard guard(detail::gsp_mutex);
+  if (int(detail::global_stream_pool.size()) < benchmark_n_threads) {
+    detail::global_stream_pool.resize(benchmark_n_threads);
+  }
+  return detail::global_stream_pool[benchmark_thread_id].view();
 #else
   return 0;
 #endif
+}
+
+/**
+ * Delete all streams in the global pool.
+ * It's called at the end of the `main` function - before global/static variables and cuda context
+ * is destroyed - to make sure they are destroyed gracefully and correctly seen by analysis tools
+ * such as nsys.
+ */
+inline void reset_global_stream_pool()
+{
+  std::lock_guard guard(detail::gsp_mutex);
+  detail::global_stream_pool.resize(0);
 }
 
 inline auto cuda_info()

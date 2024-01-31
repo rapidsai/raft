@@ -711,6 +711,8 @@ inline auto run_main(int argc, char** argv) -> int
   // Release a possibly cached ANN object, so that it cannot be alive longer than the handle
   // to a shared library it depends on (dynamic benchmark executable).
   current_algo.reset();
+  current_algo_props.reset();
+  reset_global_stream_pool();
   return 0;
 }
 };  // namespace raft::bench::ann
