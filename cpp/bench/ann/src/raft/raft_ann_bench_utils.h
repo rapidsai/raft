@@ -15,22 +15,20 @@
  */
 #pragma once
 
+#include "../common/util.hpp"
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
-#include <cassert>
-#include <fstream>
-#include <iostream>
 #include <memory>
-#include <sstream>
-#include <stdexcept>
-#include <string>
 #include <type_traits>
 
 namespace raft::bench::ann {
@@ -65,16 +63,10 @@ class configured_raft_resources {
    */
   explicit configured_raft_resources(const std::shared_ptr<device_mr_t>& mr)
     : mr_{mr},
-      sync_{[]() {
-              auto* ev = new cudaEvent_t;
-              RAFT_CUDA_TRY(cudaEventCreate(ev, cudaEventDisableTiming));
-              return ev;
-            }(),
-            [](cudaEvent_t* ev) {
-              RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(*ev));
-              delete ev;
-            }},
-      res_{cudaStreamPerThread}
+      workspace_dev_mr_{},
+      workspace_mr_(&workspace_dev_mr_, 128 * 1024 * 1024ull),
+      res_{rmm::cuda_stream_view(get_stream_from_global_pool()),
+           std::shared_ptr<rmm::mr::device_memory_resource>(&workspace_mr_, raft::void_op{})}
   {
   }
 
@@ -83,14 +75,14 @@ class configured_raft_resources {
     : configured_raft_resources{
         {[]() {
            auto* mr =
-             new device_mr_t{rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull};
+             new device_mr_t(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull);
            rmm::mr::set_current_device_resource(mr);
            return mr;
          }(),
          [](device_mr_t* mr) {
            if (mr == nullptr) { return; }
            auto* cur_mr = dynamic_cast<device_mr_t*>(rmm::mr::get_current_device_resource());
-           if (cur_mr != nullptr && (*cur_mr) == (*mr)) {
+           if (cur_mr == mr) {
              // Normally, we'd always want to set the rmm resource back to the upstream of the pool
              // here. However, we expect some implementations may be buggy and mess up the rmm
              // resource, especially during development. This extra check here adds a little bit of
@@ -119,15 +111,8 @@ class configured_raft_resources {
   operator raft::resources&() noexcept { return res_; }
   operator const raft::resources&() const noexcept { return res_; }
 
-  /** Make the given stream wait on all work submitted to the resource. */
-  void stream_wait(cudaStream_t stream) const
-  {
-    RAFT_CUDA_TRY(cudaEventRecord(*sync_, resource::get_cuda_stream(res_)));
-    RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, *sync_));
-  }
-
-  /** Get the internal sync event (which otherwise used only in `stream_wait`). */
-  cudaEvent_t get_sync_event() const { return *sync_; }
+  /** Get the main stream */
+  [[nodiscard]] auto get_sync_stream() const noexcept { return resource::get_cuda_stream(res_); }
 
  private:
   /**
@@ -136,8 +121,11 @@ class configured_raft_resources {
    * used by anyone directly.
    */
   std::shared_ptr<device_mr_t> mr_;
-  /** Each benchmark wrapper must have its own copy of the synchronization event. */
-  std::unique_ptr<cudaEvent_t, std::function<void(cudaEvent_t*)>> sync_;
+  /**
+   * Each benchmark wrapper has its own copy of the workspace resource to avoid mutex congestion.
+   */
+  rmm::mr::cuda_memory_resource workspace_dev_mr_;
+  device_mr_t workspace_mr_;
   /**
    * Until we make the use of copies of raft::resources thread-safe, each benchmark wrapper must
    * have its own copy of it.

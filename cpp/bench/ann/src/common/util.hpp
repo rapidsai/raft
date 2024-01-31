@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,14 +29,31 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include <filesystem>
 #include <functional>
+#include <optional>
 
 namespace raft::bench::ann {
+
+/**
+ * Current thread id as given by the benchmark State.
+ * It's populated on every call of a benchmark case.
+ * It's relevant in the 'throughput' mode of the search benchmarks,
+ * where some algorithms might want to coordinate allocation of the resources.
+ */
+inline thread_local int benchmark_thread_id = 0;
+/**
+ * Total concurrent thread count as given by the benchmark State.
+ * It's populated on every call of a benchmark case.
+ * It's relevant in the 'throughput' mode of the search benchmarks,
+ * where some algorithms might want to coordinate allocation of the resources.
+ */
+inline thread_local int benchmark_n_threads = 1;
 
 template <typename T>
 struct buf {
@@ -91,10 +108,18 @@ struct buf {
 
 struct cuda_timer {
  private:
-  cudaStream_t stream_{nullptr};
+  std::optional<cudaStream_t> stream_;
   cudaEvent_t start_{nullptr};
   cudaEvent_t stop_{nullptr};
   double total_time_{0};
+
+  template <typename AnnT>
+  static inline auto extract_stream(AnnT* algo) -> std::optional<cudaStream_t>
+  {
+    auto gpu_ann = dynamic_cast<AnnGPU*>(algo);
+    if (gpu_ann != nullptr) { return std::make_optional(gpu_ann->get_sync_stream()); }
+    return std::nullopt;
+  }
 
  public:
   struct cuda_lap {
@@ -109,7 +134,6 @@ struct cuda_timer {
       : start_(start), stop_(stop), stream_(stream), total_time_(total_time)
     {
 #ifndef BUILD_CPU_ONLY
-      cudaStreamSynchronize(stream_);
       cudaEventRecord(start_, stream_);
 #endif
     }
@@ -127,33 +151,90 @@ struct cuda_timer {
     }
   };
 
-  cuda_timer()
+  explicit cuda_timer(std::optional<cudaStream_t> stream) : stream_{stream}
   {
 #ifndef BUILD_CPU_ONLY
-    cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking);
-    cudaEventCreate(&stop_);
-    cudaEventCreate(&start_);
+    if (stream_.has_value()) {
+      cudaEventCreate(&stop_);
+      cudaEventCreate(&start_);
+    }
 #endif
+  }
+
+  template <typename AnnT>
+  explicit cuda_timer(const std::unique_ptr<AnnT>& algo) : cuda_timer{extract_stream(algo.get())}
+  {
   }
 
   ~cuda_timer() noexcept
   {
 #ifndef BUILD_CPU_ONLY
-    cudaEventDestroy(start_);
-    cudaEventDestroy(stop_);
-    cudaStreamDestroy(stream_);
+    if (stream_.has_value()) {
+      cudaStreamSynchronize(stream_.value());
+      cudaEventDestroy(start_);
+      cudaEventDestroy(stop_);
+    }
 #endif
   }
 
-  [[nodiscard]] auto stream() const -> cudaStream_t { return stream_; }
+  cuda_timer()                                     = delete;
+  cuda_timer(cuda_timer const&)                    = delete;
+  cuda_timer(cuda_timer&&)                         = delete;
+  auto operator=(cuda_timer const&) -> cuda_timer& = delete;
+  auto operator=(cuda_timer&&) -> cuda_timer&      = delete;
+
+  [[nodiscard]] auto stream() const -> std::optional<cudaStream_t> { return stream_; }
+
+  [[nodiscard]] auto active() const -> bool { return stream_.has_value(); }
 
   [[nodiscard]] auto total_time() const -> double { return total_time_; }
 
-  [[nodiscard]] auto lap() -> cuda_timer::cuda_lap
+  [[nodiscard]] auto lap(bool enabled = true) -> std::optional<cuda_timer::cuda_lap>
   {
-    return cuda_lap{stream_, start_, stop_, total_time_};
+    return enabled && stream_.has_value()
+             ? std::make_optional<cuda_timer::cuda_lap>(stream_.value(), start_, stop_, total_time_)
+             : std::nullopt;
   }
 };
+
+#ifndef BUILD_CPU_ONLY
+// ATM, rmm::stream does not support passing in flags; hence this helper type.
+struct non_blocking_stream {
+  non_blocking_stream() { cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking); }
+  ~non_blocking_stream() noexcept
+  {
+    if (stream_ != nullptr) { cudaStreamDestroy(stream_); }
+  }
+  non_blocking_stream(non_blocking_stream const&) = delete;
+  non_blocking_stream(non_blocking_stream&& other) { std::swap(stream_, other.stream_); }
+  auto operator=(non_blocking_stream const&) -> non_blocking_stream& = delete;
+  auto operator=(non_blocking_stream&&) -> non_blocking_stream&      = delete;
+  [[nodiscard]] auto view() const noexcept -> cudaStream_t { return stream_; }
+
+ private:
+  cudaStream_t stream_{nullptr};
+};
+#endif
+
+/**
+ * Get a stream associated with the current benchmark thread.
+ *
+ * Note, the streams are reused between the benchmark cases.
+ * This makes it easier to profile and analyse multiple benchmark cases in one timeline using tools
+ * like nsys.
+ */
+inline auto get_stream_from_global_pool() -> cudaStream_t
+{
+#ifndef BUILD_CPU_ONLY
+  static std::vector<non_blocking_stream> pool(1);
+  static std::mutex m;
+  std::lock_guard guard(m);
+  if (int(pool.size()) < benchmark_n_threads) { pool.resize(benchmark_n_threads); }
+  return pool[benchmark_thread_id].view();
+#else
+  return 0;
+#endif
+}
 
 inline auto cuda_info()
 {

@@ -126,6 +126,9 @@ void bench_build(::benchmark::State& state,
                  Configuration::Index index,
                  bool force_overwrite)
 {
+  // NB: these two thread-local vars can be used within algo wrappers
+  raft::bench::ann::benchmark_thread_id = state.thread_index();
+  raft::bench::ann::benchmark_n_threads = state.threads();
   dump_parameters(state, index.build_param);
   if (file_exists(index.file)) {
     if (force_overwrite) {
@@ -149,21 +152,23 @@ void bench_build(::benchmark::State& state,
   const T* base_set      = dataset->base_set(algo_property.dataset_memory_type);
   std::size_t index_size = dataset->base_set_size();
 
-  cuda_timer gpu_timer;
+  cuda_timer gpu_timer{algo};
   {
     nvtx_case nvtx{state.name()};
     for (auto _ : state) {
       [[maybe_unused]] auto ntx_lap = nvtx.lap();
       [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
       try {
-        algo->build(base_set, index_size, gpu_timer.stream());
+        algo->build(base_set, index_size);
       } catch (const std::exception& e) {
         state.SkipWithError(std::string(e.what()));
       }
     }
   }
-  state.counters.insert(
-    {{"GPU", gpu_timer.total_time() / state.iterations()}, {"index_size", index_size}});
+  if (gpu_timer.active()) {
+    state.counters.insert({"GPU", {gpu_timer.total_time(), benchmark::Counter::kAvgIterations}});
+  }
+  state.counters.insert({{"index_size", index_size}});
 
   if (state.skipped()) { return; }
   make_sure_parent_dir_exists(index.file);
@@ -177,7 +182,10 @@ void bench_search(::benchmark::State& state,
                   std::shared_ptr<const Dataset<T>> dataset,
                   Objective metric_objective)
 {
-  std::size_t queries_processed = 0;
+  // NB: these two thread-local vars can be used within algo wrappers
+  raft::bench::ann::benchmark_thread_id = state.thread_index();
+  raft::bench::ann::benchmark_n_threads = state.threads();
+  std::size_t queries_processed         = 0;
 
   const auto& sp_json = index.search_params[search_param_ix];
 
@@ -286,24 +294,21 @@ void bench_search(::benchmark::State& state,
   std::shared_ptr<buf<std::size_t>> neighbors =
     std::make_shared<buf<std::size_t>>(current_algo_props->query_memory_type, k * query_set_size);
 
-  cuda_timer gpu_timer;
   {
     nvtx_case nvtx{state.name()};
 
-    auto algo  = dynamic_cast<ANN<T>*>(current_algo.get())->copy();
+    auto algo = dynamic_cast<ANN<T>*>(current_algo.get())->copy();
+    cuda_timer gpu_timer{algo};
     auto start = std::chrono::high_resolution_clock::now();
     for (auto _ : state) {
       [[maybe_unused]] auto ntx_lap = nvtx.lap();
       [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
-
-      // run the search
       try {
         algo->search(query_set + batch_offset * dataset->dim(),
                      n_queries,
                      k,
                      neighbors->data + out_offset * k,
-                     distances->data + out_offset * k,
-                     gpu_timer.stream());
+                     distances->data + out_offset * k);
       } catch (const std::exception& e) {
         state.SkipWithError(std::string(e.what()));
       }
@@ -318,12 +323,13 @@ void bench_search(::benchmark::State& state,
     auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
     if (state.thread_index() == 0) { state.counters.insert({{"end_to_end", duration}}); }
     state.counters.insert({"Latency", {duration, benchmark::Counter::kAvgIterations}});
+
+    if (gpu_timer.active()) {
+      state.counters.insert({"GPU", {gpu_timer.total_time(), benchmark::Counter::kAvgIterations}});
+    }
   }
 
   state.SetItemsProcessed(queries_processed);
-  if (cudart.found()) {
-    state.counters.insert({"GPU", {gpu_timer.total_time(), benchmark::Counter::kAvgIterations}});
-  }
 
   // This will be the total number of queries across all threads
   state.counters.insert({{"total_queries", queries_processed}});

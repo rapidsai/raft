@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ namespace raft::bench::ann {
 
 enum class AllocatorType { HostPinned, HostHugePage, Device };
 template <typename T, typename IdxT>
-class RaftCagra : public ANN<T> {
+class RaftCagra : public ANN<T>, public AnnGPU {
  public:
   using typename ANN<T>::AnnSearchParam;
 
@@ -90,7 +90,7 @@ class RaftCagra : public ANN<T> {
     index_params_.ivf_pq_build_params->metric = parse_metric_type(metric);
   }
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
+  void build(const T* dataset, size_t nrow) final;
 
   void set_search_param(const AnnSearchParam& param) override;
 
@@ -98,12 +98,13 @@ class RaftCagra : public ANN<T> {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const override;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    return handle_.get_sync_stream();
+  }
 
   // to enable dataset access from GPU memory
   AlgoProperty get_preference() const override
@@ -145,7 +146,7 @@ class RaftCagra : public ANN<T> {
 };
 
 template <typename T, typename IdxT>
-void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow)
 {
   auto dataset_view =
     raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
@@ -160,8 +161,6 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t strea
                                                     index_params_.ivf_pq_refine_rate,
                                                     index_params_.ivf_pq_build_params,
                                                     index_params_.ivf_pq_search_params)));
-
-  handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
 
 inline std::string allocator_to_string(AllocatorType mem_type)
@@ -263,16 +262,12 @@ std::unique_ptr<ANN<T>> RaftCagra<T, IdxT>::copy()
 }
 
 template <typename T, typename IdxT>
-void RaftCagra<T, IdxT>::search(const T* queries,
-                                int batch_size,
-                                int k,
-                                size_t* neighbors,
-                                float* distances,
-                                cudaStream_t stream) const
+void RaftCagra<T, IdxT>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   IdxT* neighbors_IdxT;
   rmm::device_uvector<IdxT> neighbors_storage(0, resource::get_cuda_stream(handle_));
-  if constexpr (std::is_same<IdxT, size_t>::value) {
+  if constexpr (std::is_same_v<IdxT, size_t>) {
     neighbors_IdxT = neighbors;
   } else {
     neighbors_storage.resize(batch_size * k, resource::get_cuda_stream(handle_));
@@ -287,14 +282,12 @@ void RaftCagra<T, IdxT>::search(const T* queries,
   raft::neighbors::cagra::search(
     handle_, search_params_, *index_, queries_view, neighbors_view, distances_view);
 
-  if (!std::is_same<IdxT, size_t>::value) {
+  if constexpr (!std::is_same_v<IdxT, size_t>) {
     raft::linalg::unaryOp(neighbors,
                           neighbors_IdxT,
                           batch_size * k,
                           raft::cast_op<size_t>(),
                           raft::resource::get_cuda_stream(handle_));
   }
-
-  handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
 }  // namespace raft::bench::ann
