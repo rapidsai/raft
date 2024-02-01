@@ -20,7 +20,7 @@
 #include <limits>                                        // std::numeric_limits
 #include <raft/core/kvp.hpp>                             // raft::KeyValuePair
 #include <raft/core/operators.hpp>                       // raft::identity_op
-#include <raft/distance/detail/distance_ops/l2_exp.cuh>  // ops::l2_exp_distance_op
+#include <raft/distance/detail/distance_ops/cosine.cuh>  // ops::l2_exp_distance_op
 #include <raft/distance/detail/fused_distance_nn/cutlass_base.cuh>
 #include <raft/distance/detail/fused_distance_nn/helper_structs.cuh>
 #include <raft/distance/detail/fused_distance_nn/simt_kernel.cuh>
@@ -40,7 +40,7 @@ template <typename DataT,
           typename Policy,
           typename ReduceOpT,
           typename KVPReduceOpT>
-void fusedL2NNImpl(OutT* min,
+void fusedCosineNN(OutT* min,
                    const DataT* x,
                    const DataT* y,
                    const DataT* xn,
@@ -52,27 +52,18 @@ void fusedL2NNImpl(OutT* min,
                    ReduceOpT redOp,
                    KVPReduceOpT pairRedOp,
                    bool sqrt,
-                   bool initOutBuffer,
                    cudaStream_t stream)
 {
   // The kernel policy is determined by fusedL2NN.
   typedef Policy P;
 
   dim3 blk(P::Nthreads);
-  auto nblks            = raft::ceildiv<int>(m, P::Nthreads);
   constexpr auto maxVal = std::numeric_limits<DataT>::max();
   typedef KeyValuePair<IdxT, DataT> KVPair;
 
-  RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
-  if (initOutBuffer) {
-    initKernel<DataT, OutT, IdxT, ReduceOpT>
-      <<<nblks, P::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
-    RAFT_CUDA_TRY(cudaGetLastError());
-  }
-
   namespace arch = raft::util::arch;
   using AccT     = DataT;
-  ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{sqrt};
+  ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
 
   raft::identity_op fin_op{};
 
@@ -85,9 +76,8 @@ void fusedL2NNImpl(OutT* min,
                                       decltype(distance_op),
                                       decltype(fin_op)>;
 
-  // Get pointer to fp32 SIMT kernel to determine the best compute architecture
-  // out of all for which the kernel was compiled for that matches closely
-  // to the current device. Other methods to determine the architecture (that do not
+  // Get pointer to fp32 SIMT kernel to determine the runtime architecture of the
+  // current system. Other methods to determine the architecture (that do not
   // require a pointer) can be error prone. See:
   // https://github.com/NVIDIA/cub/issues/545
   void* kernel_ptr   = reinterpret_cast<void*>(kernel);
@@ -96,10 +86,10 @@ void fusedL2NNImpl(OutT* min,
 
   if (cutlass_range.contains(runtime_arch)) {
     // If device is SM_80 or later, use CUTLASS-based kernel.
-    using L2Op                  = raft::distance::detail::ops::l2_exp_cutlass_op<DataT, DataT>;
+    using cosineOp              = raft::distance::detail::ops::cosine_cutlass_op<DataT, DataT>;
     using kvp_cg_min_reduce_op_ = kvp_cg_min_reduce_op<DataT, IdxT, OutT>;
     kvp_cg_min_reduce_op_ cg_reduce_op;
-    L2Op L2_dist_op(sqrt);
+    cosineOp cosine_dist_op;
 
     IdxT lda, ldb, ldd;
     lda = k, ldb = k, ldd = n;
@@ -109,8 +99,8 @@ void fusedL2NNImpl(OutT* min,
                            OutT,
                            IdxT,
                            P::Veclen,
-                           kvp_cg_min_reduce_op_,
-                           L2Op,
+                           decltype(cg_reduce_op),
+                           decltype(cosine_dist_op),
                            ReduceOpT,
                            KVPReduceOpT>(x,
                                          y,
@@ -125,7 +115,7 @@ void fusedL2NNImpl(OutT* min,
                                          min,
                                          workspace,
                                          cg_reduce_op,
-                                         L2_dist_op,
+                                         cosine_dist_op,
                                          redOp,
                                          pairRedOp,
                                          stream);

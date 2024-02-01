@@ -29,7 +29,7 @@
  *
  **************************************************************************************************/
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -322,9 +322,10 @@ class PredicatedTileIteratorReducedVec {
   Params params_;
 
   /// Byte-level pointer
-  uint8_t* byte_pointer_;
+  // uint8_t* byte_pointer_;
   /// Byte-level pointer first tile offset of this threadblock.
-  uint8_t* first_tile_byte_pointer_;
+  volatile uint8_t* first_tile_byte_pointer_;
+  // uint8_t* first_tile_byte_pointer_;
 
   /// Array of boolean values to contain steady-state predicates
   Mask mask_;
@@ -349,6 +350,8 @@ class PredicatedTileIteratorReducedVec {
   /// Scatter indices
   int const* indices_;
 
+  const int do_gmem_reduction_;
+
   //
   // Static asserts about internal strides
   //
@@ -359,7 +362,6 @@ class PredicatedTileIteratorReducedVec {
 
  protected:
   SharedStorage& shared_storage_;
-  const bool& do_gmem_reduction_;
 
  private:
   //
@@ -373,10 +375,10 @@ class PredicatedTileIteratorReducedVec {
   CUTLASS_DEVICE
   PredicatedTileIteratorReducedVec(SharedStorage& shared_storage,
                                    Params const& params,
-                                   Element* pointer,
+                                   volatile Element* pointer,
                                    TensorCoord extent,
                                    int thread_idx,
-                                   const bool& do_gmem_reduction,
+                                   const bool do_gmem_reduction,
                                    TensorCoord threadblock_offset = TensorCoord(),
                                    int const* indices             = nullptr)
     : params_(params),
@@ -408,6 +410,7 @@ class PredicatedTileIteratorReducedVec {
       EpilogueOpParams const& user_params = params_.user_param;
       shared_storage_.initSmem(user_params);
     }
+    __syncthreads();
 
     // Null pointer performs no accesses
     if (!pointer) { mask_.clear(); }
@@ -415,65 +418,61 @@ class PredicatedTileIteratorReducedVec {
     if (ScatterD && !indices) { mask_.clear(); }
 
     // Initialize pointer
-    first_tile_byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
+    first_tile_byte_pointer_ = reinterpret_cast<volatile uint8_t*>(pointer) +
                                LongIndex(block_offset.row()) * LongIndex(params_.stride);
 
-    if (ScatterD) {
-      byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
-                      LongIndex(thread_offset.column()) * sizeof(AccessType) / kElementsPerAccess;
-    }
-
+    // first_tile_byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
+    //                            LongIndex(block_offset.row()) * LongIndex(params_.stride);
     // Initialize internal state counter
     state_[0] = state_[1] = state_[2] = 0;
   }
 
-  /// Destructor
-  CUTLASS_DEVICE
-  ~PredicatedTileIteratorReducedVec()
+  CUTLASS_DEVICE void dumpToGmem()
   {
+    if (block_start_row_first_tile_ >= extent_row_) { return; }
+
     if (do_gmem_reduction_) {
       EpilogueOpParams const& user_params = params_.user_param;
-      auto gmem_ptr                       = reinterpret_cast<Element*>(first_tile_byte_pointer_);
-      Element* shared_elem_arr            = shared_storage_.data();
       const uint32_t mutex_id             = (block_start_row_first_tile_ / total_rows);
-      bool useGmemMutex = (gridDim.x != ((extent_row_ - 1 + total_rows) / total_rows));
-      // If this is not optimal grid size perform mutex based gmem reduce.
-      if (useGmemMutex) {
-        // single lock per block for multiple rows
-        if (threadIdx.x == 0 && block_start_row_first_tile_ < extent_row_) {
-          // acquire mutex lock.
-          unsigned int ns = 8;
-          while (atomicCAS(user_params.mutexes_ + mutex_id, 0, 1) == 1) {
-            __nanosleep(ns);
-            if (ns < 256) { ns *= 2; }
-          }
+      const bool useGmemMutex  = (gridDim.x != ((extent_row_ - 1 + total_rows) / total_rows));
+      int row                  = threadIdx.x;
+      Element* shared_elem_arr = shared_storage_.data();
+      Element row_local_min;
+      if (row < total_rows) { row_local_min = shared_elem_arr[row]; }
+
+      // single lock per block for multiple rows
+      if (useGmemMutex && threadIdx.x == 0) { user_params.bin_mutex_[mutex_id].acquire(); }
+      __syncthreads();
+
+      if (row < total_rows) {
+        volatile Element* gmem_ptr = reinterpret_cast<volatile Element*>(first_tile_byte_pointer_);
+
+        if ((block_start_row_first_tile_ + row) < extent_row_) {
+          user_params.red_op_(block_start_row_first_tile_ + row, (gmem_ptr + row), row_local_min);
         }
       }
 
       __syncthreads();
-      for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
-        if (block_start_row_first_tile_ + row < extent_row_) {
-          user_params.red_op_(
-            block_start_row_first_tile_ + row, &gmem_ptr[row], shared_elem_arr[row]);
-        }
-      }
+      __threadfence();
 
-      if (useGmemMutex) {
-        __threadfence();
-        __syncthreads();
-        if (threadIdx.x == 0 && block_start_row_first_tile_ < extent_row_) {
-          // release mutex lock.
-          atomicExch(user_params.mutexes_ + mutex_id, 0);
-        }
+      if (useGmemMutex && (threadIdx.x == 0)) {
+        // release mutex lock.
+        user_params.bin_mutex_[mutex_id].release();
       }
+      shared_storage_.initSmem(user_params);
+      __syncthreads();
     }
   }
+
+  /// Destructor
+  CUTLASS_DEVICE
+  ~PredicatedTileIteratorReducedVec() {}
 
   /// Adds a pointer offset in units of Element
   CUTLASS_HOST_DEVICE
   void add_pointer_offset(LongIndex pointer_offset)
   {
-    byte_pointer_ += pointer_offset * sizeof_bits<Element>::value / 8;
+    // byte_pointer_ += pointer_offset * sizeof_bits<Element>::value / 8;
   }
 
   /// Performs reduction and Stores a reduced output to memory
@@ -514,9 +513,6 @@ class PredicatedTileIteratorReducedVec {
           user_params.red_op_.init(&red_val, maxVal);
 
           if (row_guard) {
-            const int iter_row      = (row_id % total_rows);
-            const auto prev_red_val = user_params.red_op_.get_value(shared_elem_arr[iter_row]);
-
             CUTLASS_PRAGMA_UNROLL
             for (int column = 0; column < ThreadMap::Iterations::kColumn * kElementsPerAccess;
                  ++column) {
@@ -535,6 +531,10 @@ class PredicatedTileIteratorReducedVec {
                 user_params.red_op_(row_id, &red_val, this_val);
               }
             }
+          }
+          const int iter_row      = (row_id % total_rows);
+          const auto prev_red_val = user_params.red_op_.get_value(shared_elem_arr[iter_row]);
+          if (row_guard) {
             // select_reduce doesn't need to use `red_op_` as at the warp level we use cg_reduce_op,
             // this satisfies the requirement of mst/single linkage of checking colors buffer.
             select_reduce<cg_reduce_t, tile32_t, OutIdxT, OutValT, Element> red_obj(
@@ -543,6 +543,7 @@ class PredicatedTileIteratorReducedVec {
         }
       }
     }
+    __syncthreads();
   }
 
   /// Stores a fragment to memory
@@ -573,15 +574,14 @@ class PredicatedTileIteratorReducedVec {
   PredicatedTileIteratorReducedVec& operator++()
   {
     ++state_[0];
-
-    if (!ScatterD) { byte_pointer_ += params_.advance_row; }
+    // if (!ScatterD) { byte_pointer_ += params_.advance_row; }
 
     thread_start_row_ += ThreadMap::Shape::kRow;
 
     if (state_[0] == ThreadMap::Count::kRow) {
       state_[0] = 0;
       ++state_[1];
-      byte_pointer_ += params_.advance_group;
+      // byte_pointer_ += params_.advance_group;
 
       thread_start_row_ +=
         (ThreadMap::Shape::kGroup - 1) * ThreadMap::Shape::kRow * ThreadMap::Count::kRow;
@@ -589,18 +589,17 @@ class PredicatedTileIteratorReducedVec {
       if (state_[1] == ThreadMap::Count::kGroup) {
         state_[1] = 0;
         ++state_[2];
-        byte_pointer_ += params_.advance_cluster;
+        // byte_pointer_ += params_.advance_cluster;
 
         thread_start_row_ += ThreadMap::Count::kGroup * ThreadMap::Shape::kGroup *
                              ThreadMap::Count::kRow * ThreadMap::Shape::kRow;
 
         if (state_[2] == ThreadMap::Count::kCluster) {
           state_[2] = 0;
-          byte_pointer_ += params_.advance_tile;
+          // byte_pointer_ += params_.advance_tile;
         }
       }
     }
-
     return *this;
   }
 

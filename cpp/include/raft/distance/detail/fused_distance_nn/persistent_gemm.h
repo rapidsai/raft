@@ -29,7 +29,7 @@
  *
  **************************************************************************************************/
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -181,8 +181,7 @@ struct FusedDistanceNNPersistent {
     /// Default ctor
     CUTLASS_HOST_DEVICE
     Arguments()
-      :  // problem_count(0),
-        threadblock_count(0),
+      : threadblock_count(0),
         ptr_A(nullptr),
         ptr_B(nullptr),
         ptr_C(nullptr),
@@ -206,6 +205,7 @@ struct FusedDistanceNNPersistent {
               void const* ptr_B,
               void const* ptr_C,
               void* ptr_Vector,
+              // volatile void* ptr_Tensor,
               void* ptr_Tensor,
               typename LayoutA::Stride::Index lda,
               typename LayoutB::Stride::Index ldb,
@@ -236,7 +236,6 @@ struct FusedDistanceNNPersistent {
 
   /// Parameters structure
   struct Params {
-    // typename ProblemVisitor::Params problem_visitor;
     temp_problem_visitor problem_visitor;
     int threadblock_count;
 

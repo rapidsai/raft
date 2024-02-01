@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@
 #include <cutlass/matrix_coord.h>
 #include <cutlass/tensor_view.h>
 
+#include <cuda/semaphore>
 #include <raft/distance/detail/fused_distance_nn/epilogue_elementwise.cuh>  // FusedDistanceNNEpilogueElementwise
 #include <raft/distance/detail/fused_distance_nn/gemm.h>                    // FusedDistanceNNGemm
 #include <raft/util/cudart_utils.hpp>   // getMultiProcessorCount
@@ -45,6 +46,14 @@
 namespace raft {
 namespace distance {
 namespace detail {
+
+template <typename IdxT>
+RAFT_KERNEL initBinMutexKernel(cuda::binary_semaphore<cuda::thread_scope_device>* mut, IdxT m)
+{
+  auto tid = IdxT(blockIdx.x) * blockDim.x + threadIdx.x;
+
+  if (tid < m) { mut[tid].release(); }
+}
 
 template <typename DataT,
           typename AccT,
@@ -87,8 +96,14 @@ void cutlassFusedDistanceNN(const DataT* x,
     KVPReduceOpT>;
   constexpr int batch_count = 1;
 
+  rmm::device_uvector<cuda::binary_semaphore<cuda::thread_scope_device>> bin_mutex(m, stream);
+
+  int blks_ = (m / 256) + 1;
+
+  initBinMutexKernel<<<blks_, 256, 0, stream>>>(bin_mutex.data(), m);
+
   typename EpilogueOutputOp::Params epilog_op_param(
-    dist_op, cg_reduce_op, redOp, pairRedOp, mutexes);
+    dist_op, cg_reduce_op, redOp, pairRedOp, mutexes, bin_mutex.data());
 
   // Number of pipelines you want to use
   constexpr int NumStages = 3;
