@@ -51,10 +51,9 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
   {
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<IdxT> indices_naive(queries_size);
-    std::vector<float> distances_naive(queries_size);
+    std::vector<T> distances_naive(queries_size);
     std::vector<IdxT> indices_ann(queries_size);
-    std::vector<float> distances_ann(queries_size);
-    std::vector<int64_t> indices_ann_int64(queries_size);
+    std::vector<T> distances_ann(queries_size);
 
     {
       rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
@@ -98,11 +97,13 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(
         distances_ann.data(), ps.num_queries, ps.k);
 
-      auto index =
-        raft::neighbors::mg::build<DataT, IdxT>(device_ids, d_mode, index_params, index_dataset);
-      raft::neighbors::mg::extend<DataT, IdxT>(index, index_dataset, std::nullopt);
-      raft::neighbors::mg::search<DataT, IdxT>(
-        index, search_params, query_dataset, neighbors, distances);
+      {
+        auto index = raft::neighbors::mg::build<DataT, IdxT>(device_ids, d_mode, index_params, index_dataset);
+        raft::neighbors::mg::extend<DataT, IdxT>(index, index_dataset, std::nullopt);
+        raft::neighbors::mg::serialize<DataT, IdxT>(handle_, index, "ann_mg_ivf_flat_index");
+      }
+      auto new_index = raft::neighbors::mg::deserialize_flat<DataT, IdxT>(handle_, "ann_mg_ivf_flat_index");
+      raft::neighbors::mg::search<DataT, IdxT>(new_index, search_params, query_dataset, neighbors, distances);
       resource::sync_stream(handle_);
 
       double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
@@ -130,19 +131,22 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       ivf_pq::search_params search_params;
       search_params.n_probes = ps.nprobe;
 
-      auto index_dataset = raft::make_host_matrix_view<const DataT, uint32_t, row_major>(
+      auto index_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(
         h_index_dataset.data(), ps.num_db_vecs, ps.dim);
-      auto query_dataset = raft::make_host_matrix_view<const DataT, uint32_t, row_major>(
+      auto query_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(
         h_query_dataset.data(), ps.num_queries, ps.dim);
-      auto neighbors = raft::make_host_matrix_view<IdxT, uint32_t, row_major>(
+      auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(
         indices_ann.data(), ps.num_queries, ps.k);
-      auto distances = raft::make_host_matrix_view<float, uint32_t, row_major>(
+      auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(
         distances_ann.data(), ps.num_queries, ps.k);
 
-      auto index =
-        raft::neighbors::mg::build<DataT>(device_ids, d_mode, index_params, index_dataset);
-      raft::neighbors::mg::extend<DataT>(index, index_dataset, std::nullopt);
-      raft::neighbors::mg::search<DataT>(index, search_params, query_dataset, neighbors, distances);
+      {
+        auto index = raft::neighbors::mg::build<DataT, IdxT>(device_ids, d_mode, index_params, index_dataset);
+        raft::neighbors::mg::extend<DataT, IdxT>(index, index_dataset, std::nullopt);
+        raft::neighbors::mg::serialize<DataT, IdxT>(handle_, index, "ann_mg_ivf_pq_index");
+      }
+      auto new_index = raft::neighbors::mg::deserialize_pq<DataT, IdxT>(handle_, "ann_mg_ivf_pq_index");
+      raft::neighbors::mg::search<DataT, IdxT>(new_index, search_params, query_dataset, neighbors, distances);
       resource::sync_stream(handle_);
 
       double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
@@ -168,21 +172,30 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
 
       cagra::search_params search_params;
 
-      auto index_dataset = raft::make_host_matrix_view<const DataT, int64_t, row_major>(
+      auto index_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(
         h_index_dataset.data(), ps.num_db_vecs, ps.dim);
-      auto query_dataset = raft::make_host_matrix_view<const DataT, int64_t, row_major>(
+      auto query_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(
         h_query_dataset.data(), ps.num_queries, ps.dim);
-      auto neighbors = raft::make_host_matrix_view<int64_t, int64_t, row_major>(
-        indices_ann_int64.data(), ps.num_queries, ps.k);
-      auto distances = raft::make_host_matrix_view<float, int64_t, row_major>(
+      auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(
+        indices_ann.data(), ps.num_queries, ps.k);
+      auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(
         distances_ann.data(), ps.num_queries, ps.k);
 
-      auto index = raft::neighbors::mg::build<DataT, int64_t>(device_ids, d_mode, index_params, index_dataset);
-      raft::neighbors::mg::search<DataT, int64_t>(index, search_params, query_dataset, neighbors, distances);
-      resource::sync_stream(handle_);
+      /*
+      TODO : fix CAGRA serialization issue
 
-      std::transform(indices_ann_int64.begin(), indices_ann_int64.end(),
-                     indices_ann.begin(), [](int x) { return (int64_t)x;});
+      {
+        auto index = raft::neighbors::mg::build<DataT, IdxT>(device_ids, d_mode, index_params, index_dataset);
+        raft::neighbors::mg::serialize<DataT>(handle_, index, "ann_mg_cagra_index");
+      }
+      auto new_index = raft::neighbors::mg::deserialize_cagra<DataT, IdxT>(handle_, "ann_mg_cagra_index");
+      raft::neighbors::mg::search<DataT, IdxT>(new_index, search_params, query_dataset, neighbors, distances);
+      */
+
+      auto index = raft::neighbors::mg::build<DataT, IdxT>(device_ids, d_mode, index_params, index_dataset);
+      raft::neighbors::mg::search<DataT, IdxT>(index, search_params, query_dataset, neighbors, distances);
+
+      resource::sync_stream(handle_);
 
       double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
       ASSERT_TRUE(eval_neighbours(indices_naive,
@@ -194,7 +207,6 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
                                   0.001,
                                   min_recall));
       std::fill(indices_ann.begin(), indices_ann.end(), 0);
-      std::fill(indices_ann_int64.begin(), indices_ann_int64.end(), 0);
       std::fill(distances_ann.begin(), distances_ann.end(), 0);
     }
   }
@@ -249,7 +261,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
   rmm::device_uvector<DataT> d_query_dataset;
 };
 
-const std::vector<AnnMGInputs<uint32_t>> inputs = {
+const std::vector<AnnMGInputs<int64_t>> inputs = {
   {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
 };
 }  // namespace raft::neighbors::mg

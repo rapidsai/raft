@@ -26,6 +26,7 @@
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
 #define RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -190,7 +191,7 @@ class ann_interface {
     if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, IdxT>>::value) {
       ivf_flat::serialize<T, IdxT>(handle, os, index_.value());
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
-      ivf_pq::serialize<T, IdxT>(handle, os, index_.value());
+      ivf_pq::serialize<IdxT>(handle, os, index_.value());
     } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
       cagra::serialize<T, IdxT>(handle, os, index_.value());
     }
@@ -202,7 +203,7 @@ class ann_interface {
     if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, IdxT>>::value) {
       index_.emplace(std::move(ivf_flat::deserialize<T, IdxT>(handle, is)));
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
-      index_.emplace(std::move(ivf_pq::deserialize<T, IdxT>(handle, is)));
+      index_.emplace(std::move(ivf_pq::deserialize<IdxT>(handle, is)));
     } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
       index_.emplace(std::move(cagra::deserialize<T, IdxT>(handle, is)));
     }
@@ -524,14 +525,14 @@ ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> build(
   return index;
 }
 
-template <typename T>
-ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> build(
+template <typename T, typename IdxT>
+ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> build(
   const std::vector<int> device_ids,
   dist_mode mode,
   const ivf_pq::index_params& index_params,
-  raft::host_matrix_view<const T, uint32_t, row_major> index_dataset)
+  raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
 {
-  ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> index(device_ids, mode);
+  ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> index(device_ids, mode);
   index.build(static_cast<const ann::index_params*>(&index_params), index_dataset);
   return index;
 }
@@ -556,10 +557,10 @@ void extend(ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
   index.extend(new_vectors, new_indices);
 }
 
-template <typename T>
-void extend(ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
-            raft::host_matrix_view<const T, uint32_t, row_major> new_vectors,
-            std::optional<raft::host_vector_view<const uint32_t, uint32_t>> new_indices)
+template <typename T, typename IdxT>
+void extend(ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
+            raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
 {
   index.extend(new_vectors, new_indices);
 }
@@ -575,12 +576,12 @@ void search(const ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
     static_cast<const ann::search_params*>(&search_params), query_dataset, neighbors, distances);
 }
 
-template <typename T>
-void search(const ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
+template <typename T, typename IdxT>
+void search(const ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
             const ivf_pq::search_params& search_params,
-            raft::host_matrix_view<const T, uint32_t, row_major> query_dataset,
-            raft::host_matrix_view<uint32_t, uint32_t, row_major> neighbors,
-            raft::host_matrix_view<float, uint32_t, row_major> distances)
+            raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
+            raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
+            raft::host_matrix_view<float, IdxT, row_major> distances)
 {
   index.search(
     static_cast<const ann::search_params*>(&search_params), query_dataset, neighbors, distances);
@@ -605,9 +606,9 @@ void serialize(const raft::resources& handle,
   index.serialize(handle, filename);
 }
 
-template <typename T>
+template <typename T, typename IdxT>
 void serialize(const raft::resources& handle,
-               const ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
+               const ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
                const std::string& filename)
 {
   index.serialize(handle, filename);
@@ -628,11 +629,11 @@ ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize_flat(const raft::res
   return ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>(handle, filename);
 }
 
-template <typename T>
-ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> deserialize_pq(const raft::resources& handle,
-                                                                  const std::string& filename)
+template <typename T, typename IdxT>
+ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> deserialize_pq(const raft::resources& handle,
+                                                          const std::string& filename)
 {
-  return ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>(handle, filename);
+  return ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>(handle, filename);
 }
 
 template <typename T, typename IdxT>

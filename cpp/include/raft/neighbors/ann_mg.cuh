@@ -30,12 +30,12 @@ auto build(const std::vector<int> device_ids,
   return mg::detail::build<T, IdxT>(device_ids, mode, index_params, index_dataset);
 }
 
-template <typename T>
+template <typename T, typename IdxT>
 auto build(const std::vector<int> device_ids,
            raft::neighbors::mg::dist_mode mode,
            const ivf_pq::index_params& index_params,
-           raft::host_matrix_view<const T, uint32_t, row_major> index_dataset)
-  -> detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>
+           raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
+  -> detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>
 {
   return mg::detail::build<T>(device_ids, mode, index_params, index_dataset);
 }
@@ -58,10 +58,10 @@ void extend(detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
   mg::detail::extend<T, IdxT>(index, new_vectors, new_indices);
 }
 
-template <typename T>
-void extend(detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
-            raft::host_matrix_view<const T, uint32_t, row_major> new_vectors,
-            std::optional<raft::host_vector_view<const uint32_t, uint32_t>> new_indices)
+template <typename T, typename IdxT>
+void extend(detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
+            raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
 {
   mg::detail::extend<T>(index, new_vectors, new_indices);
 }
@@ -76,12 +76,12 @@ void search(const detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index
   mg::detail::search<T, IdxT>(index, search_params, query_dataset, neighbors, distances);
 }
 
-template <typename T>
-void search(const detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
+template <typename T, typename IdxT>
+void search(const detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
             const ivf_pq::search_params& search_params,
-            raft::host_matrix_view<const T, uint32_t, row_major> query_dataset,
-            raft::host_matrix_view<uint32_t, uint32_t, row_major> neighbors,
-            raft::host_matrix_view<float, uint32_t, row_major> distances)
+            raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
+            raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
+            raft::host_matrix_view<float, IdxT, row_major> distances)
 {
   mg::detail::search<T>(index, search_params, query_dataset, neighbors, distances);
 }
@@ -104,9 +104,9 @@ void serialize(const raft::resources& handle,
   mg::detail::serialize(handle, index, filename);
 }
 
-template <typename T>
+template <typename T, typename IdxT>
 void serialize(const raft::resources& handle,
-               const detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
+               const detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
                const std::string& filename)
 {
   mg::detail::serialize(handle, index, filename);
@@ -127,11 +127,11 @@ detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize_flat(const r
   return mg::detail::deserialize_flat<T, IdxT>(handle, filename);
 }
 
-template <typename T>
-detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> deserialize_pq(const raft::resources& handle,
-                                                                          const std::string& filename)
+template <typename T, typename IdxT>
+detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> deserialize_pq(const raft::resources& handle,
+                                                                  const std::string& filename)
 {
-  return mg::detail::deserialize_pq<T>(handle, filename);
+  return mg::detail::deserialize_pq<T, IdxT>(handle, filename);
 }
 
 template <typename T, typename IdxT>

@@ -4,7 +4,7 @@
 
 namespace raft::neighbors::mg {
 
-typedef AnnMGTest<float, float, uint32_t> AnnMGTestF_float;
+typedef AnnMGTest<float, float, int64_t> AnnMGTestF_float;
     TEST_P(AnnMGTestF_float, AnnMG) { this->testAnnMG(); }
     INSTANTIATE_TEST_CASE_P(AnnMGTest, AnnMGTestF_float, ::testing::ValuesIn(inputs));
 }
