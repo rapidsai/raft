@@ -64,6 +64,10 @@ function(find_and_configure_hnswlib)
         GLOBAL_TARGETS hnswlib
         NAMESPACE hnswlib::)
     endif()
+    include("${rapids-cmake-dir}/export/find_package_root.cmake")
+    rapids_export_find_package_root(
+      BUILD hnswlib [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET raft-exports
+    )
   endif()
 endfunction()
 
