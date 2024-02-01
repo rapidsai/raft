@@ -78,7 +78,6 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         codebook_gen codebook_kind
         bool force_random_rotation
         bool conservative_memory_allocation
-        uint32_t max_train_points_per_pq_code
 
     cdef cppclass index[IdxT](ann_index):
         index(const device_resources& handle,

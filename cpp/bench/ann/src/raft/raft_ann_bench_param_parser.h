@@ -87,9 +87,6 @@ void parse_build_param(const nlohmann::json& conf,
                                "', should be either 'cluster' or 'subspace'");
     }
   }
-  if (conf.contains("max_train_points_per_pq_code")) {
-    param.max_train_points_per_pq_code = conf.at("max_train_points_per_pq_code");
-  }
 }
 
 template <typename T, typename IdxT>
