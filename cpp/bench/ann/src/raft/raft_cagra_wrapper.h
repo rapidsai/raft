@@ -183,7 +183,7 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
   if (search_param.graph_mem != graph_mem_) {
     // Move graph to correct memory space
     graph_mem_ = search_param.graph_mem;
-    RAFT_LOG_INFO("moving graph to new memory space: %s", allocator_to_string(graph_mem_).c_str());
+    RAFT_LOG_DEBUG("moving graph to new memory space: %s", allocator_to_string(graph_mem_).c_str());
     // We create a new graph and copy to it from existing graph
     auto mr        = get_mr(graph_mem_);
     auto new_graph = make_device_mdarray<IdxT, int64_t>(
@@ -207,19 +207,16 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
     index_->update_dataset(handle_, make_const_mdspan(dataset_->view()));
 
     // Allocate space using the correct memory resource.
-    RAFT_LOG_INFO("moving dataset to new memory space: %s",
-                  allocator_to_string(dataset_mem_).c_str());
+    RAFT_LOG_DEBUG("moving dataset to new memory space: %s",
+                   allocator_to_string(dataset_mem_).c_str());
 
     auto mr = get_mr(dataset_mem_);
     raft::neighbors::cagra::detail::copy_with_padding(handle_, *dataset_, *input_dataset_v_, mr);
 
-    index_->update_dataset(handle_, make_const_mdspan(dataset_->view()));
+    auto dataset_view = raft::make_device_strided_matrix_view<const T, int64_t>(
+      dataset_->data_handle(), dataset_->extent(0), this->dim_, dataset_->extent(1));
+    index_->update_dataset(handle_, dataset_view);
 
-    // Ideally, instead of dataset_.view(), we should pass a strided matrix view to update.
-    // See Issue https://github.com/rapidsai/raft/issues/1972 for details.
-    // auto dataset_view = make_device_strided_matrix_view<const T, int64_t>(
-    //   dataset_.data_handle(), dataset_.extent(0), this->dim_, dataset_.extent(1));
-    // index_->update_dataset(handle_, dataset_view);
     need_dataset_update_ = false;
   }
 }
