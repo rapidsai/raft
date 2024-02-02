@@ -209,6 +209,23 @@ class ann_interface {
     }
   }
 
+  void deserialize(raft::resources const& handle,
+                   const std::string& filename)
+  {
+    std::ifstream is(filename, std::ios::in | std::ios::binary);
+    if (!is) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
+
+    if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, IdxT>>::value) {
+      index_.emplace(std::move(ivf_flat::deserialize<T, IdxT>(handle, is)));
+    } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
+      index_.emplace(std::move(ivf_pq::deserialize<IdxT>(handle, is)));
+    } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
+      index_.emplace(std::move(cagra::deserialize<T, IdxT>(handle, is)));
+    }
+
+    is.close();
+  }
+
   const IdxT size() const
   {
     if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, IdxT>>::value) {
@@ -238,7 +255,27 @@ class ann_mg_index {
     init_nccl_clique();
   }
 
-  // deserialization
+  // index deserialization and distribution
+  ann_mg_index(const raft::resources& handle,
+               const std::vector<int>& dev_list,
+               const std::string& filename)
+    : mode_(INDEX_DUPLICATION),
+      root_rank_(0),
+      num_ranks_(dev_list.size()),
+      dev_ids_(dev_list),
+      nccl_comms_(dev_list.size())
+  {
+      init_device_resources();
+      init_nccl_clique();
+
+      for (int rank = 0; rank < num_ranks_; rank++) {
+        RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
+        auto& ann_if = ann_interfaces_.emplace_back();
+        ann_if.deserialize(dev_resources_[rank], filename);
+      }
+  }
+
+  // MG index deserialization
   ann_mg_index(const raft::resources& handle,
                const std::string& filename) {
       std::ifstream is(filename, std::ios::in | std::ios::binary);
@@ -641,6 +678,30 @@ ann_mg_index<cagra::index<T, IdxT>, T, IdxT> deserialize_cagra(const raft::resou
                                                                const std::string& filename)
 {
   return ann_mg_index<cagra::index<T, IdxT>, T, IdxT>(handle, filename);
+}
+
+template <typename T, typename IdxT>
+ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> distribute_flat(const raft::resources& handle,
+                                                                const std::vector<int>& dev_list,
+                                                                const std::string& filename)
+{
+  return ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>(handle, dev_list, filename);
+}
+
+template <typename T, typename IdxT>
+ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> distribute_pq(const raft::resources& handle,
+                                                         const std::vector<int>& dev_list,
+                                                         const std::string& filename)
+{
+  return ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>(handle, dev_list, filename);
+}
+
+template <typename T, typename IdxT>
+ann_mg_index<cagra::index<T, IdxT>, T, IdxT> distribute_cagra(const raft::resources& handle,
+                                                              const std::vector<int>& dev_list,
+                                                              const std::string& filename)
+{
+  return ann_mg_index<cagra::index<T, IdxT>, T, IdxT>(handle, dev_list, filename);
 }
 
 }  // namespace raft::neighbors::mg::detail

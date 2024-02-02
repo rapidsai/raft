@@ -209,6 +209,123 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       std::fill(indices_ann.begin(), indices_ann.end(), 0);
       std::fill(distances_ann.begin(), distances_ann.end(), 0);
     }
+
+    {
+      ivf_flat::index_params index_params;
+      index_params.n_lists                  = ps.nlist;
+      index_params.metric                   = ps.metric;
+      index_params.adaptive_centers         = ps.adaptive_centers;
+      index_params.add_data_on_build        = true;
+      index_params.kmeans_trainset_fraction = 1.0;
+      index_params.metric_arg               = 0;
+
+      ivf_flat::search_params search_params;
+      search_params.n_probes = ps.nprobe;
+
+      {
+        auto index_dataset = raft::make_device_matrix_view<const DataT, IdxT>(d_index_dataset.data(), ps.num_db_vecs, ps.dim);
+        auto index = ivf_flat::build<DataT, IdxT>(handle_, index_params, index_dataset);
+        ivf_flat::serialize<DataT, IdxT>(handle_, "local_ivf_flat_index", index);
+      }
+
+      auto query_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(h_query_dataset.data(), ps.num_queries, ps.dim);
+      auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(indices_ann.data(), ps.num_queries, ps.k);
+      auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(distances_ann.data(), ps.num_queries, ps.k);
+
+      auto distributed_index = raft::neighbors::mg::distribute_flat<DataT, IdxT>(handle_, device_ids, "local_ivf_flat_index");
+      raft::neighbors::mg::search<DataT, IdxT>(distributed_index, search_params, query_dataset, neighbors, distances);
+
+      resource::sync_stream(handle_);
+
+      double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
+      ASSERT_TRUE(eval_neighbours(indices_naive,
+                                  indices_ann,
+                                  distances_naive,
+                                  distances_ann,
+                                  ps.num_queries,
+                                  ps.k,
+                                  0.001,
+                                  min_recall));
+      std::fill(indices_ann.begin(), indices_ann.end(), 0);
+      std::fill(distances_ann.begin(), distances_ann.end(), 0);
+    }
+
+    {
+      ivf_pq::index_params index_params;
+      index_params.n_lists                  = ps.nlist;
+      index_params.metric                   = ps.metric;
+      index_params.add_data_on_build        = true;
+      index_params.kmeans_trainset_fraction = 1.0;
+      index_params.metric_arg               = 0;
+
+      ivf_pq::search_params search_params;
+      search_params.n_probes = ps.nprobe;
+
+      {
+        auto index_dataset = raft::make_device_matrix_view<const DataT, IdxT>(d_index_dataset.data(), ps.num_db_vecs, ps.dim);
+        auto index = ivf_pq::build<DataT, IdxT>(handle_, index_params, index_dataset);
+        ivf_pq::serialize<IdxT>(handle_, "local_ivf_pq_index", index);
+      }
+
+      auto query_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(h_query_dataset.data(), ps.num_queries, ps.dim);
+      auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(indices_ann.data(), ps.num_queries, ps.k);
+      auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(distances_ann.data(), ps.num_queries, ps.k);
+
+      auto distributed_index = raft::neighbors::mg::distribute_pq<DataT, IdxT>(handle_, device_ids, "local_ivf_pq_index");
+      raft::neighbors::mg::search<DataT, IdxT>(distributed_index, search_params, query_dataset, neighbors, distances);
+
+      resource::sync_stream(handle_);
+
+      double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
+      ASSERT_TRUE(eval_neighbours(indices_naive,
+                                  indices_ann,
+                                  distances_naive,
+                                  distances_ann,
+                                  ps.num_queries,
+                                  ps.k,
+                                  0.001,
+                                  min_recall));
+      std::fill(indices_ann.begin(), indices_ann.end(), 0);
+      std::fill(distances_ann.begin(), distances_ann.end(), 0);
+    }
+
+    {
+      cagra::index_params index_params;
+      index_params.intermediate_graph_degree      = 128;
+      index_params.graph_degree                   = 64;
+      index_params.build_algo                     = cagra::graph_build_algo::IVF_PQ;
+      index_params.nn_descent_niter               = 20;
+
+      cagra::search_params search_params;
+
+      {
+        auto index_dataset = raft::make_device_matrix_view<const DataT, IdxT>(d_index_dataset.data(), ps.num_db_vecs, ps.dim);
+        auto index = cagra::build<DataT, IdxT>(handle_, index_params, index_dataset);
+        cagra::serialize<DataT, IdxT>(handle_, "local_cagra_index", index);
+      }
+
+      auto query_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(h_query_dataset.data(), ps.num_queries, ps.dim);
+      auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(indices_ann.data(), ps.num_queries, ps.k);
+      auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(distances_ann.data(), ps.num_queries, ps.k);
+
+      auto distributed_index = raft::neighbors::mg::distribute_cagra<DataT, IdxT>(handle_, device_ids, "local_cagra_index");
+      raft::neighbors::mg::search<DataT, IdxT>(distributed_index, search_params, query_dataset, neighbors, distances);
+
+      resource::sync_stream(handle_);
+
+      double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
+      ASSERT_TRUE(eval_neighbours(indices_naive,
+                                  indices_ann,
+                                  distances_naive,
+                                  distances_ann,
+                                  ps.num_queries,
+                                  ps.k,
+                                  0.001,
+                                  min_recall));
+      std::fill(indices_ann.begin(), indices_ann.end(), 0);
+      std::fill(distances_ann.begin(), distances_ann.end(), 0);
+    }
+
   }
 
   void SetUp() override

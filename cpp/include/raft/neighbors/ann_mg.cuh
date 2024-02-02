@@ -140,4 +140,29 @@ detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT> deserialize_cagra(const raf
 {
   return mg::detail::deserialize_cagra<T, IdxT>(handle, filename);
 }
+
+template <typename T, typename IdxT>
+detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> distribute_flat(const raft::resources& handle,
+                                                                const std::vector<int>& dev_list,
+                                                                const std::string& filename)
+{
+  return mg::detail::distribute_flat<T, IdxT>(handle, dev_list, filename);
+}
+
+template <typename T, typename IdxT>
+detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> distribute_pq(const raft::resources& handle,
+                                                         const std::vector<int>& dev_list,
+                                                         const std::string& filename)
+{
+  return mg::detail::distribute_pq<T, IdxT>(handle, dev_list, filename);
+}
+
+template <typename T, typename IdxT>
+detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT> distribute_cagra(const raft::resources& handle,
+                                                              const std::vector<int>& dev_list,
+                                                              const std::string& filename)
+{
+  return mg::detail::distribute_cagra<T, IdxT>(handle, dev_list, filename);
+}
+
 }  // namespace raft::neighbors::mg
