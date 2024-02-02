@@ -738,7 +738,8 @@ inline void search(raft::resources const& handle,
                    float* distances,
                    IvfSampleFilterT sample_filter = IvfSampleFilterT())
 {
-  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, half> || std::is_same_v<T, uint8_t> ||
+                  std::is_same_v<T, int8_t>,
                 "Unsupported element type.");
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::search(n_queries = %u, n_probes = %u, k = %u, dim = %zu)",

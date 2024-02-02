@@ -111,7 +111,7 @@ inline void knn_merge_parts_impl(const value_t* inK,
 {
   auto grid = dim3(n_samples);
 
-  constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
+  constexpr int n_threads = (warp_q < 1024) ? 128 : 64;
   auto block              = dim3(n_threads);
 
   auto kInit = std::numeric_limits<value_t>::max();

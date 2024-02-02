@@ -57,6 +57,7 @@ option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
 option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
+option(BUILD_CAGRA_HNSWLIB "Build CAGRA+hnswlib interface" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -195,6 +196,10 @@ if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
   rapids_cpm_gbench()
 endif()
 
+if(BUILD_CAGRA_HNSWLIB)
+  include(cmake/thirdparty/get_hnswlib.cmake)
+endif()
+
 # ##################################################################################################
 # * raft ---------------------------------------------------------------------
 add_library(raft INTERFACE)
@@ -203,6 +208,9 @@ add_library(raft::raft ALIAS raft)
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
+if(BUILD_CAGRA_HNSWLIB)
+  target_link_libraries(raft INTERFACE hnswlib::hnswlib)
+endif()
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
@@ -338,6 +346,10 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim512_t32.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim1024_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim128_t8.cu
+    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim256_t16.cu
+    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim512_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim1024_t32.cu
     src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim128_t8.cu
     src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim512_t32.cu
@@ -350,6 +362,10 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/cagra/search_single_cta_float_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint32_dim512_t32.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint32_dim1024_t32.cu
+    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim128_t8.cu
+    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim256_t16.cu
+    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim512_t32.cu
+    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim1024_t32.cu
     src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim128_t8.cu
     src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim512_t32.cu
@@ -359,6 +375,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim512_t32.cu
     src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim1024_t32.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
+    src/neighbors/detail/ivf_flat_interleaved_scan_half_half_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
     src/neighbors/detail/ivf_flat_search.cu
@@ -370,6 +387,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
     src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
     src/neighbors/detail/refine_host_float_float.cpp
+    src/neighbors/detail/refine_host_half_float.cpp
     src/neighbors/detail/refine_host_int8_t_float.cpp
     src/neighbors/detail/refine_host_uint8_t_float.cpp
     src/neighbors/ivf_flat_build_float_int64_t.cu
@@ -382,15 +400,19 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/ivf_flat_search_int8_t_int64_t.cu
     src/neighbors/ivf_flat_search_uint8_t_int64_t.cu
     src/neighbors/ivfpq_build_float_int64_t.cu
+    src/neighbors/ivfpq_build_half_int64_t.cu
     src/neighbors/ivfpq_build_int8_t_int64_t.cu
     src/neighbors/ivfpq_build_uint8_t_int64_t.cu
     src/neighbors/ivfpq_extend_float_int64_t.cu
+    src/neighbors/ivfpq_extend_half_int64_t.cu
     src/neighbors/ivfpq_extend_int8_t_int64_t.cu
     src/neighbors/ivfpq_extend_uint8_t_int64_t.cu
     src/neighbors/ivfpq_search_float_int64_t.cu
+    src/neighbors/ivfpq_search_half_int64_t.cu
     src/neighbors/ivfpq_search_int8_t_int64_t.cu
     src/neighbors/ivfpq_search_uint8_t_int64_t.cu
     src/neighbors/refine_float_float.cu
+    src/neighbors/refine_half_float.cu
     src/neighbors/refine_int8_t_float.cu
     src/neighbors/refine_uint8_t_float.cu
     src/raft_runtime/cluster/cluster_cost.cuh
@@ -410,6 +432,8 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/neighbors/cagra_build.cu
     src/raft_runtime/neighbors/cagra_search.cu
     src/raft_runtime/neighbors/cagra_serialize.cu
+    src/raft_runtime/neighbors/eps_neighborhood.cu
+    $<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:src/raft_runtime/neighbors/hnsw.cpp>
     src/raft_runtime/neighbors/ivf_flat_build.cu
     src/raft_runtime/neighbors/ivf_flat_search.cu
     src/raft_runtime/neighbors/ivf_flat_serialize.cu
@@ -429,6 +453,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
+    src/spatial/knn/detail/ball_cover/registers_eps_pass_euclidean.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_2d_dist.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_2d_euclidean.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_2d_haversine.cu

@@ -51,7 +51,7 @@ jobs:
     with:
       build_type: pull-request
       enable_check_symbols: true
-      symbol_exclusions: (void (thrust::|cub::)|_ZN\d+raft_cutlass)
+      symbol_exclusions: _ZN\d+raft_cutlass
   conda-python-build:
     needs: conda-cpp-build
     secrets: inherit

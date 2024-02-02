@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
@@ -41,8 +42,8 @@ namespace raft::neighbors::ball_cover {
  */
 template <typename value_idx,
           typename value_t,
-          typename value_int  = std::uint32_t,
-          typename matrix_idx = std::uint32_t>
+          typename value_int  = std::int64_t,
+          typename matrix_idx = std::int64_t>
 class BallCoverIndex {
  public:
   explicit BallCoverIndex(raft::resources const& handle_,

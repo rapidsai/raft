@@ -54,6 +54,8 @@
 #include <thrust/extrema.h>
 #include <thrust/scan.h>
 
+#include <cuda_fp16.h>
+
 #include <memory>
 #include <variant>
 
@@ -1565,7 +1567,8 @@ void extend(raft::resources const& handle,
   RAFT_EXPECTS(new_indices != nullptr || index->size() == 0,
                "You must pass data indices when the index is non-empty.");
 
-  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, half> || std::is_same_v<T, uint8_t> ||
+                  std::is_same_v<T, int8_t>,
                 "Unsupported data type");
 
   rmm::mr::device_memory_resource* device_memory = raft::resource::get_workspace_resource(handle);
@@ -1740,7 +1743,8 @@ auto build(raft::resources const& handle,
   // params.pq_bits, params.pq_dim);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::build(%zu, %u)", size_t(n_rows), dim);
-  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, half> || std::is_same_v<T, uint8_t> ||
+                  std::is_same_v<T, int8_t>,
                 "Unsupported data type");
 
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
