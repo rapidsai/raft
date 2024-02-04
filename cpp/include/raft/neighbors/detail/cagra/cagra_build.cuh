@@ -296,7 +296,8 @@ index<T, IdxT> build(
   std::optional<experimental::nn_descent::index_params> nn_descent_params = std::nullopt,
   std::optional<float> refine_rate                                        = std::nullopt,
   std::optional<ivf_pq::index_params> pq_build_params                     = std::nullopt,
-  std::optional<ivf_pq::search_params> search_params                      = std::nullopt)
+  std::optional<ivf_pq::search_params> search_params                      = std::nullopt,
+  bool construct_index_with_dataset                                       = true)
 {
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
@@ -334,12 +335,22 @@ index<T, IdxT> build(
 
   auto cagra_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), graph_degree);
 
+  RAFT_LOG_INFO("optimizing graph");
   optimize<IdxT>(res, knn_graph->view(), cagra_graph.view());
 
   // free intermediate graph before trying to create the index
   knn_graph.reset();
 
+  RAFT_LOG_INFO("Graph optimized, creating index");
   // Construct an index from dataset and optimized knn graph.
-  return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
+  if (construct_index_with_dataset) {
+    return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
+  } else {
+    // We just add the graph. User is expected to update dataset separately. This branch is used
+    // if user needs special control of memory allocations for the dataset.
+    index<T, IdxT> idx(res, params.metric);
+    idx.update_graph(res, raft::make_const_mdspan(cagra_graph.view()));
+    return idx;
+  }
 }
 }  // namespace raft::neighbors::cagra::detail
