@@ -17,12 +17,6 @@
 
 #include "util.hpp"
 
-#ifndef BUILD_CPU_ONLY
-#include <cuda_fp16.h>
-#else
-typedef uint16_t half;
-#endif
-
 #include <errno.h>
 #include <sys/mman.h>
 #include <sys/stat.h>

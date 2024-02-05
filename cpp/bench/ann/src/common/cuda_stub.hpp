@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ ______________________________________________________________________________
 */
 
 #ifndef BUILD_CPU_ONLY
+#include <cuda_fp16.h>
 #include <cuda_runtime_api.h>
 #ifdef ANN_BENCH_LINK_CUDART
 #include <cstring>
@@ -41,6 +42,7 @@ ______________________________________________________________________________
 #else
 typedef void* cudaStream_t;
 typedef void* cudaEvent_t;
+typedef uint16_t half;
 #endif
 
 namespace raft::bench::ann {
