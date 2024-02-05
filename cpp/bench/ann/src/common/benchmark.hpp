@@ -38,11 +38,59 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
+
 namespace raft::bench::ann {
 
-std::mutex init_mutex;
-std::condition_variable cond_var;
-std::atomic_int processed_threads{0};
+/**
+ * A simple progress tracker that allows syncing threads multiple times and resets the global
+ * progress once the threads are done.
+ */
+struct progress_sync {
+  progress_sync() = default;
+  ~progress_sync() noexcept
+  {
+    done_.store(true);
+    cv_.notify_all();
+    auto rem = total_progress_.fetch_sub(thread_progress_);
+    if (rem == thread_progress_) {
+      // the last thread to exit clears the progress state.
+      done_.store(false);
+    }
+  }
+
+  /** Advance the progress counter by `n`. */
+  auto progress(int n)
+  {
+    thread_progress_ += n;
+    auto prev = total_progress_.fetch_add(n);
+    cv_.notify_all();
+    return prev;
+  }
+
+  /** Wait till the progress counter reaches `n` or finishes abnormally. */
+  auto wait_for_progress(int limit)
+  {
+    int cur = total_progress_.load();
+    if (cur >= limit) { return cur; }
+    auto done = done_.load();
+    if (done) { return cur; }
+    std::unique_lock lk(mutex_);
+    while (cur < limit && !done) {
+      using namespace std::chrono_literals;
+      cv_.wait_for(lk, 10ms);
+      cur  = total_progress_.load();
+      done = done_.load();
+    }
+    return cur;
+  }
+
+ private:
+  static inline std::atomic<int> total_progress_;
+  static inline std::atomic<bool> done_;
+  static inline std::mutex mutex_;
+  static inline std::condition_variable cv_;
+  int thread_progress_{0};
+};
 
 static inline std::unique_ptr<AnnBase> current_algo{nullptr};
 static inline std::unique_ptr<AlgoProperty> current_algo_props{nullptr};
@@ -202,7 +250,8 @@ void bench_search(::benchmark::State& state,
     std::stringstream msg;
     msg << "Not enough queries in benchmark set. Expected " << n_queries << ", actual "
         << dataset->query_set_size();
-    return state.SkipWithError(msg.str());
+    state.SkipWithError(msg.str());
+    return;
   }
 
   // Each thread start from a different offset, so that the queries that they process do not
@@ -222,9 +271,8 @@ void bench_search(::benchmark::State& state,
   /**
    * Make sure the first thread loads the algo and dataset
    */
-  if (state.thread_index() == 0) {
-    std::unique_lock lk(init_mutex);
-    cond_var.wait(lk, [] { return processed_threads.load(std::memory_order_acquire) == 0; });
+  progress_sync load_progress{};
+  if (load_progress.progress(1) == 0) {
     // algo is static to cache it between close search runs to save time on index loading
     static std::string index_file = "";
     if (index.file != index_file) {
@@ -265,21 +313,16 @@ void bench_search(::benchmark::State& state,
     }
     try {
       algo->set_search_param(*search_param);
-
     } catch (const std::exception& ex) {
       state.SkipWithError("An error occurred setting search parameters: " + std::string(ex.what()));
       return;
     }
 
     query_set = dataset->query_set(current_algo_props->query_memory_type);
-    processed_threads.store(state.threads(), std::memory_order_acq_rel);
-    cond_var.notify_all();
+    load_progress.progress(state.threads());
   } else {
-    std::unique_lock lk(init_mutex);
     // All other threads will wait for the first thread to initialize the algo.
-    cond_var.wait(lk, [&state] {
-      return processed_threads.load(std::memory_order_acquire) == state.threads();
-    });
+    load_progress.wait_for_progress(state.threads() * 2);
     // gbench ensures that all threads are synchronized at the start of the benchmark loop.
     // We are accessing shared variables (like current_algo, current_algo_probs) before the
     // benchmark loop, therefore the synchronization here is necessary.
@@ -297,7 +340,13 @@ void bench_search(::benchmark::State& state,
   {
     nvtx_case nvtx{state.name()};
 
-    auto algo = dynamic_cast<ANN<T>*>(current_algo.get())->copy();
+    std::unique_ptr<ANN<T>> algo{nullptr};
+    try {
+      dynamic_cast<ANN<T>*>(current_algo.get())->copy().swap(algo);
+    } catch (const std::exception& e) {
+      state.SkipWithError("Algo::copy: " + std::string(e.what()));
+      return;
+    }
     cuda_timer gpu_timer{algo};
     auto start = std::chrono::high_resolution_clock::now();
     for (auto _ : state) {
@@ -310,7 +359,8 @@ void bench_search(::benchmark::State& state,
                      neighbors->data + out_offset * k,
                      distances->data + out_offset * k);
       } catch (const std::exception& e) {
-        state.SkipWithError(std::string(e.what()));
+        state.SkipWithError("Benchmark loop: " + std::string(e.what()));
+        break;
       }
 
       // advance to the next batch
@@ -335,10 +385,6 @@ void bench_search(::benchmark::State& state,
   state.counters.insert({{"total_queries", queries_processed}});
 
   if (state.skipped()) { return; }
-
-  // assume thread has finished processing successfully at this point
-  // last thread to finish processing notifies all
-  if (processed_threads-- == 0) { cond_var.notify_all(); }
 
   // Each thread calculates recall on their partition of queries.
   // evaluate recall
