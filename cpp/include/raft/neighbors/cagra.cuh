@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -402,6 +402,83 @@ void search_with_filtering(raft::resources const& res,
 
   cagra::detail::search_main<T, internal_IdxT, CagraSampleFilterT, IdxT>(
     res, params, idx, queries_internal, neighbors_internal, distances_internal, sample_filter);
+}
+
+/**
+ * @brief Search ANN using the constructed index with the given sample filter.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   // memory space for a new dataset and graph
+ *   auto updated_dataset = raft::make_host_matrix<uint32_t, int64_t>(res, updated_dataset_size,
+ * dim); update_dataset(updated_dataset); auto updated_graph   = raft::make_host_matrix<float   ,
+ * int64_t>(res, updated_dataset_size, graph_degree);
+ *   // update graph
+ *   const uint32_t update_batch_size = 100;
+ *   cagra::add_node(res, update_dataset, index, update_batch_size, updated_graph);
+ *   // update index
+ *   index.update_graph(updated_graph);
+ *   index.update_dataset(updated_dataset);
+ * @endcode
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] handle raft resources
+ * @param[in] updated_dataset a host memory for updated dataset [new_dataset_size,
+ * original_index->dim()]
+ * @param[in] max_batch_size the batch size for processing new
+ * @param[out] updated_graph a host memory for updated graph [new_dataset_size,
+ * original_index->graph_degree()]
+ */
+template <class T, class IdxT>
+void add_node(raft::device_resources handle,
+              const raft::device_matrix_view<T, std::int64_t> updated_dataset,
+              const raft::neighbors::cagra::index<T, IdxT>& original_index,
+              const std::size_t max_batch_size,
+              raft::host_matrix_view<IdxT, std::int64_t> updated_graph)
+{
+  assert(updated_dataset.extent(0) >= original_index.size());
+
+  const auto num_new_nodes        = updated_dataset.extent(0) - original_index.size();
+  const auto initial_dataset_size = original_index.size();
+  const auto degree               = original_index.graph_degree();
+  const auto dim                  = original_index.dim();
+  const auto max_batch_size_      = max_batch_size == 0 ? num_new_nodes : max_batch_size;
+
+  raft::copy(updated_graph.data_handle(),
+             original_index.graph().data_handle(),
+             original_index.size() * original_index.graph_degree(),
+             raft::resource::get_cuda_stream(handle));
+
+  auto original_dataset_view = raft::make_device_matrix_view<const T, int64_t>(
+    original_index.dataset().data_handle(), initial_dataset_size, dim);
+
+  raft::neighbors::cagra::index<T, IdxT> internal_index(
+    handle, original_index.metric(), original_dataset_view, original_index.graph());
+
+  for (std::size_t additional_dataset_offset = 0; additional_dataset_offset < num_new_nodes;
+       additional_dataset_offset += max_batch_size_) {
+    const auto actual_batch_size =
+      std::min(num_new_nodes - additional_dataset_offset, max_batch_size_);
+    auto updated_graph_view = raft::make_host_matrix_view<IdxT, std::int64_t>(
+      updated_graph.data_handle(),
+      initial_dataset_size + additional_dataset_offset + actual_batch_size,
+      degree);
+    auto additional_datatset_view = raft::make_device_matrix_view<T, std::int64_t>(
+      updated_dataset.data_handle() + (initial_dataset_size + additional_dataset_offset) * dim,
+      actual_batch_size,
+      dim);
+    add_node_core<T, IdxT>(handle, internal_index, additional_datatset_view, updated_graph_view);
+
+    auto updated_datatset_view = raft::make_host_matrix_view<const T, std::int64_t>(
+      updated_dataset.data_handle(),
+      initial_dataset_size + additional_dataset_offset + actual_batch_size,
+      dim);
+    internal_index.update_dataset(handle, raft::make_const_mdspan<>(updated_datatset_view));
+    internal_index.update_graph(handle, raft::make_const_mdspan<>(updated_graph_view));
+  }
 }
 
 /** @} */  // end group cagra
