@@ -365,9 +365,8 @@ inline auto build(raft::resources const& handle,
     auto trainset_ratio = std::max<size_t>(
       1, n_rows / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
     auto n_rows_train = n_rows / trainset_ratio;
-    auto trainset     = make_device_matrix<T, IdxT>(handle, n_rows_train, index.dim());
-    raft::spatial::knn::detail::utils::subsample(
-      handle, dataset, n_rows, trainset.view(), random_seed);
+    auto trainset     = raft::spatial::knn::detail::utils::subsample<T, IdxT>(
+      handle, dataset, n_rows, n_rows_train, dim, random_seed);
     auto centers_view = raft::make_device_matrix_view<float, IdxT>(
       index.centers().data_handle(), index.n_lists(), index.dim());
     raft::cluster::kmeans_balanced_params kmeans_params;

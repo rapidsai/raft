@@ -588,11 +588,22 @@ auto get_subsample_indices(raft::resources const& res, IdxT n_samples, IdxT n_su
   -> raft::device_vector<IdxT, IdxT>
 {
   RAFT_EXPECTS(n_subsamples <= n_samples, "Cannot have more training samples than dataset vectors");
+  // size_t free, total;
+  // float GiB = 1073741824.0f;
+  // cudaMemGetInfo(&free, &total);
+  // RAFT_LOG_INFO(
+  //   "get_subsample_indices::data free mem %6.1f, used mem %6.1f", free / GiB, (total - free) /
+  //   GiB);
 
   auto data_indices = raft::make_device_vector<IdxT, IdxT>(res, n_samples);
+  // cudaMemGetInfo(&free, &total);
+  // RAFT_LOG_INFO("get_subsample_indices::train free mem %6.1f, used mem %6.1f",
+  //               free / GiB,
+  //               (total - free) / GiB);
+
+  auto train_indices = raft::make_device_vector<IdxT, IdxT>(res, n_subsamples);
   raft::linalg::map_offset(res, data_indices.view(), identity_op());
   raft::random::RngState rng(seed);
-  auto train_indices = raft::make_device_vector<IdxT, IdxT>(res, n_subsamples);
   raft::random::sample_without_replacement(res,
                                            rng,
                                            raft::make_const_mdspan(data_indices.view()),
@@ -628,5 +639,30 @@ void subsample(raft::resources const& res,
     auto dataset = raft::make_host_matrix_view<const T, IdxT>(input, n_samples, n_dim);
     raft::matrix::detail::gather(res, dataset, make_const_mdspan(train_indices.view()), output);
   }
+}
+
+/** Subsample the dataset to create a training set*/
+template <typename T, typename IdxT = int64_t>
+raft::device_matrix<T, IdxT> subsample(
+  raft::resources const& res, const T* input, IdxT n_samples, IdxT n_train, IdxT n_dim, int seed)
+{
+  raft::device_vector<IdxT, IdxT> train_indices =
+    get_subsample_indices<IdxT>(res, n_samples, n_train, seed);
+
+  auto output = raft::make_device_matrix<T, IdxT>(res, n_train, n_dim);
+  cudaPointerAttributes attr;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, input));
+  T* ptr = reinterpret_cast<T*>(attr.devicePointer);
+  if (ptr != nullptr) {
+    raft::matrix::gather(res,
+                         raft::make_device_matrix_view<const T, IdxT>(ptr, n_samples, n_dim),
+                         raft::make_const_mdspan(train_indices.view()),
+                         output.view());
+  } else {
+    auto dataset = raft::make_host_matrix_view<const T, IdxT>(input, n_samples, n_dim);
+    raft::matrix::detail::gather(
+      res, dataset, make_const_mdspan(train_indices.view()), output.view());
+  }
+  return output;
 }
 }  // namespace raft::spatial::knn::detail::utils

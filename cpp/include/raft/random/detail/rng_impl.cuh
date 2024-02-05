@@ -290,10 +290,21 @@ void sampleWithoutReplacement(RngState& rng_state,
 {
   ASSERT(sampledLen <= len, "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
 
+  // size_t free, total;
+  // float GiB = 1073741824.0f;
+  // cudaMemGetInfo(&free, &total);
+  // RAFT_LOG_INFO("sampleWithoutReplacement::start free mem %6.1f, used mem %6.1f",
+  //               free / GiB,
+  //               (total - free) / GiB);
   rmm::device_uvector<WeightsT> expWts(len, stream);
   rmm::device_uvector<WeightsT> sortedWts(len, stream);
   rmm::device_uvector<IdxT> inIdx(len, stream);
   rmm::device_uvector<IdxT> outIdxBuff(len, stream);
+
+  // cudaMemGetInfo(&free, &total);
+  // RAFT_LOG_INFO("sampleWithoutReplacement::buffers free mem %6.1f, used mem %6.1f",
+  //               free / GiB,
+  //               (total - free) / GiB);
   auto* inIdxPtr = inIdx.data();
   // generate modified weights
   SamplingParams<WeightsT, IdxT> params;

@@ -1730,12 +1730,13 @@ auto build(raft::resources const& handle,
 
     // Besides just sampling, we transform the input dataset into floats to make it easier
     // to use gemm operations from cublas.
-    auto trainset =
-      make_device_mdarray<float>(handle, device_mr, make_extents<IdxT>(n_rows_train, dim));
+    auto trainset = make_device_mdarray<float>(handle, device_mr, make_extents<IdxT>(0, 0));
 
     if constexpr (std::is_same_v<T, float>) {
-      raft::spatial::knn::detail::utils::subsample(
-        handle, dataset, n_rows, trainset.view(), random_seed);
+      // raft::spatial::knn::detail::utils::subsample(
+      //   handle, dataset, n_rows, trainset.view(), random_seed);
+      trainset = raft::spatial::knn::detail::utils::subsample<T, IdxT>(
+        handle, dataset, n_rows, n_rows_train, dim, random_seed);
     } else {
       // TODO(tfeher): Enable codebook generation with any type T, and then remove
       // trainset tmp.
@@ -1744,6 +1745,8 @@ auto build(raft::resources const& handle,
       raft::spatial::knn::detail::utils::subsample(
         handle, dataset, n_rows, trainset_tmp.view(), random_seed);
       cudaDeviceSynchronize();
+      trainset =
+        make_device_mdarray<float>(handle, device_mr, make_extents<IdxT>(n_rows_train, dim));
       raft::linalg::unaryOp(trainset.data_handle(),
                             trainset_tmp.data_handle(),
                             trainset.size(),
