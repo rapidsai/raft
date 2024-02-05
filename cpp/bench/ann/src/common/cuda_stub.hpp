@@ -40,6 +40,7 @@ ______________________________________________________________________________
 #include <dlfcn.h>
 #endif
 #else
+#include <cstdint>
 typedef void* cudaStream_t;
 typedef void* cudaEvent_t;
 typedef uint16_t half;

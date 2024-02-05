@@ -214,9 +214,7 @@ struct non_blocking_stream {
  private:
   cudaStream_t stream_{nullptr};
 };
-#endif
 
-#ifndef BUILD_CPU_ONLY
 namespace detail {
 inline std::vector<non_blocking_stream> global_stream_pool(0);
 inline std::mutex gsp_mutex;
@@ -239,7 +237,7 @@ inline auto get_stream_from_global_pool() -> cudaStream_t
   }
   return detail::global_stream_pool[benchmark_thread_id].view();
 #else
-  return 0;
+  return nullptr;
 #endif
 }
 
@@ -251,8 +249,10 @@ inline auto get_stream_from_global_pool() -> cudaStream_t
  */
 inline void reset_global_stream_pool()
 {
+#ifndef BUILD_CPU_ONLY
   std::lock_guard guard(detail::gsp_mutex);
   detail::global_stream_pool.resize(0);
+#endif
 }
 
 inline auto cuda_info()
