@@ -160,7 +160,8 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow)
                                                     index_params_.nn_descent_params,
                                                     index_params_.ivf_pq_refine_rate,
                                                     index_params_.ivf_pq_build_params,
-                                                    index_params_.ivf_pq_search_params)));
+                                                    index_params_.ivf_pq_search_params,
+                                                    false)));
 }
 
 inline std::string allocator_to_string(AllocatorType mem_type)
