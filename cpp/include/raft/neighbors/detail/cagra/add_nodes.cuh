@@ -80,7 +80,7 @@ void add_node_core(raft::device_resources handle,
   const std::size_t max_chunk_size = 1024;
 
   raft::neighbors::cagra::search_params params;
-  params.itopk_size = std::max(base_degree * 2lu, 256lu);  // TODO
+  params.itopk_size = std::max(base_degree * 2lu, 256lu);
 
   // Memory space for rank-based neighbor list
   auto neighbor_indices =
@@ -142,7 +142,7 @@ void add_node_core(raft::device_resources handle,
     auto neighbor_distances_view = raft::make_device_matrix_view<float, std::int64_t>(
       neighbor_distances.data_handle(), actual_batch_size, base_degree);
 
-    cagra::search(
+    raft::neighbors::cagra::search(
       handle, params, idx, queries_view, neighbor_indices_view, neighbor_distances_view);
 
     raft::copy(host_neighbor_indices.data_handle(),
@@ -171,7 +171,7 @@ void add_node_core(raft::device_resources handle,
     auto two_hop_neighbors_distances_view = raft::make_device_matrix_view<float, std::int64_t>(
       two_hop_neighbors_distances.data_handle(), actual_batch_size * base_degree, base_degree);
 
-    cagra::search(
+    raft::neighbors::cagra::search(
       handle, params, idx, queries_view, neighbor_indices_view, neighbor_distances_view);
 
     raft::copy(host_two_hop_neighbors_indices.data_handle(),

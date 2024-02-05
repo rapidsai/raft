@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "detail/cagra/add_nodes.cuh"
 #include "detail/cagra/cagra_build.cuh"
 #include "detail/cagra/cagra_search.cuh"
 #include "detail/cagra/graph_core.cuh"
@@ -470,7 +471,8 @@ void add_node(raft::device_resources handle,
       updated_dataset.data_handle() + (initial_dataset_size + additional_dataset_offset) * dim,
       actual_batch_size,
       dim);
-    add_node_core<T, IdxT>(handle, internal_index, additional_datatset_view, updated_graph_view);
+    raft::neighbors::cagra::detail::add_node_core<T, IdxT>(
+      handle, internal_index, additional_datatset_view, updated_graph_view);
 
     auto updated_datatset_view = raft::make_host_matrix_view<const T, std::int64_t>(
       updated_dataset.data_handle(),
