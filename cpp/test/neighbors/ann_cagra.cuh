@@ -727,6 +727,157 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
   rmm::device_uvector<DataT> search_queries;
 };
 
+template <typename DistanceT, typename DataT, typename IdxT>
+class AnnCagraAddNodesTest : public ::testing::TestWithParam<AnnCagraInputs> {
+ public:
+  AnnCagraAddNodesTest()
+    : stream_(resource::get_cuda_stream(handle_)),
+      ps(::testing::TestWithParam<AnnCagraInputs>::GetParam()),
+      database(0, stream_),
+      search_queries(0, stream_)
+  {
+  }
+
+ protected:
+  void testCagra()
+  {
+    size_t queries_size = ps.n_queries * ps.k;
+    std::vector<IdxT> indices_Cagra(queries_size);
+    std::vector<IdxT> indices_naive(queries_size);
+    std::vector<DistanceT> distances_Cagra(queries_size);
+    std::vector<DistanceT> distances_naive(queries_size);
+
+    {
+      rmm::device_uvector<DistanceT> distances_naive_dev(queries_size, stream_);
+      rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
+      naive_knn<DistanceT, DataT, IdxT>(handle_,
+                                        distances_naive_dev.data(),
+                                        indices_naive_dev.data(),
+                                        search_queries.data(),
+                                        database.data(),
+                                        ps.n_queries,
+                                        ps.n_rows,
+                                        ps.dim,
+                                        ps.k,
+                                        ps.metric);
+      update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
+      update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
+      resource::sync_stream(handle_);
+    }
+
+    {
+      rmm::device_uvector<DistanceT> distances_dev(queries_size, stream_);
+      rmm::device_uvector<IdxT> indices_dev(queries_size, stream_);
+
+      {
+        cagra::index_params index_params;
+        index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
+                                          // not used for knn_graph building.
+        index_params.build_algo = ps.build_algo;
+        cagra::search_params search_params;
+        search_params.algo        = ps.algo;
+        search_params.max_queries = ps.max_queries;
+        search_params.team_size   = ps.team_size;
+        search_params.itopk_size  = ps.itopk_size;
+
+        const double initial_dataset_ratio      = 0.95;
+        const std::size_t initial_database_size = ps.n_rows * initial_dataset_ratio;
+
+        auto initial_database_view = raft::make_device_matrix_view<const DataT, int64_t>(
+          (const DataT*)database.data(), initial_database_size, ps.dim);
+
+        cagra::index<DataT, IdxT> index(handle_);
+        if (ps.host_dataset) {
+          auto database_host = raft::make_host_matrix<DataT, int64_t>(ps.n_rows, ps.dim);
+          raft::copy(
+            database_host.data_handle(), database.data(), initial_database_view.size(), stream_);
+          auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
+            (const DataT*)database_host.data_handle(), initial_database_size, ps.dim);
+          index = cagra::build<DataT, IdxT>(handle_, index_params, database_host_view);
+        } else {
+          index = cagra::build<DataT, IdxT>(handle_, index_params, initial_database_view);
+        };
+
+        auto updated_graph = raft::make_host_matrix<IdxT, int64_t>(ps.n_rows, index.graph_degree());
+        auto updated_database_view = raft::make_device_matrix_view<const DataT, int64_t>(
+          (const DataT*)database.data(), ps.n_rows, ps.dim);
+
+        const std::size_t update_batch_size = 100;
+        raft::neighbors::cagra::add_nodes<DataT, IdxT>(
+          handle_, updated_database_view, index, update_batch_size, updated_graph.view());
+        index.update_graph(handle_, raft::make_const_mdspan(updated_graph.view()));
+        index.update_dataset(handle_, raft::make_const_mdspan(updated_database_view));
+
+        auto search_queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
+          search_queries.data(), ps.n_queries, ps.dim);
+        auto indices_out_view =
+          raft::make_device_matrix_view<IdxT, int64_t>(indices_dev.data(), ps.n_queries, ps.k);
+        auto dists_out_view = raft::make_device_matrix_view<DistanceT, int64_t>(
+          distances_dev.data(), ps.n_queries, ps.k);
+
+        cagra::search(
+          handle_, search_params, index, search_queries_view, indices_out_view, dists_out_view);
+        update_host(distances_Cagra.data(), distances_dev.data(), queries_size, stream_);
+        update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);
+        resource::sync_stream(handle_);
+      }
+
+      double min_recall = ps.min_recall;
+      EXPECT_TRUE(eval_neighbours(indices_naive,
+                                  indices_Cagra,
+                                  distances_naive,
+                                  distances_Cagra,
+                                  ps.n_queries,
+                                  ps.k,
+                                  0.003,
+                                  min_recall));
+      EXPECT_TRUE(eval_distances(handle_,
+                                 database.data(),
+                                 search_queries.data(),
+                                 indices_dev.data(),
+                                 distances_dev.data(),
+                                 ps.n_rows,
+                                 ps.dim,
+                                 ps.n_queries,
+                                 ps.k,
+                                 ps.metric,
+                                 1.0e-4));
+    }
+  }
+
+  void SetUp() override
+  {
+    database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
+    search_queries.resize(ps.n_queries * ps.dim, stream_);
+    raft::random::RngState r(1234ULL);
+    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
+      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
+      GenerateRoundingErrorFreeDataset(
+        handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
+    } else {
+      raft::random::uniformInt(
+        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
+      raft::random::uniformInt(
+        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20));
+    }
+    resource::sync_stream(handle_);
+  }
+
+  void TearDown() override
+  {
+    resource::sync_stream(handle_);
+    database.resize(0, stream_);
+    search_queries.resize(0, stream_);
+  }
+
+ private:
+  raft::resources handle_;
+  rmm::cuda_stream_view stream_;
+  AnnCagraInputs ps;
+  rmm::device_uvector<DataT> database;
+  rmm::device_uvector<DataT> search_queries;
+};
+
 inline std::vector<AnnCagraInputs> generate_inputs()
 {
   // TODO(tfeher): test MULTI_CTA kernel with search_width > 1 to allow multiple CTA per queries
