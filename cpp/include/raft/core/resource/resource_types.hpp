@@ -43,6 +43,8 @@ enum resource_type {
                            // CUDA-free builds
   THRUST_POLICY,           // thrust execution policy
   WORKSPACE_RESOURCE,      // rmm device memory resource
+  CUBLASLT_HANDLE,         // cublasLt handle
+  CUSTOM,                  // runtime-shared default-constructible resource
 
   LAST_KEY  // reserved for the last key
 };

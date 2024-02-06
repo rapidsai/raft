@@ -63,7 +63,6 @@ template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_
 void build_index(raft::resources const& handle,
                  BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index)
 {
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     raft::spatial::knn::detail::rbc_build_index(
       handle, index, spatial::knn::detail::HaversineFunc<value_t, int_t>());
@@ -255,9 +254,9 @@ void all_knn_query(raft::resources const& handle,
  *               looking in the closest landmark.
  * @param[in] n_query_pts number of query points
  */
-template <typename idx_t, typename value_t, typename int_t>
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::int64_t>
 void knn_query(raft::resources const& handle,
-               const BallCoverIndex<idx_t, value_t, int_t>& index,
+               const BallCoverIndex<idx_t, value_t, int_t, matrix_idx>& index,
                int_t k,
                const value_t* query,
                int_t n_query_pts,
@@ -293,6 +292,106 @@ void knn_query(raft::resources const& handle,
   } else {
     RAFT_FAIL("Metric not supported");
   }
+}
+
+/**
+ * @brief Computes epsilon neighborhood for the L2 distance metric using rbc
+ *
+ * @tparam value_t   IO and math type
+ * @tparam idx_t    Index type
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] index ball cover index which has been built
+ * @param[out] adj    adjacency matrix [row-major] [on device] [dim = m x n]
+ * @param[out] vd     vertex degree array [on device] [len = m + 1]
+ *                    `vd + m` stores the total number of edges in the adjacency
+ *                    matrix. Pass a nullptr if you don't need this info.
+ * @param[in]  query  first matrix [row-major] [on device] [dim = m x k]
+ * @param[in]  eps    defines epsilon neighborhood radius
+ */
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t = std::int64_t>
+void eps_nn(raft::resources const& handle,
+            const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
+            raft::device_matrix_view<bool, matrix_idx_t, row_major> adj,
+            raft::device_vector_view<idx_t, matrix_idx_t> vd,
+            raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
+            value_t eps)
+{
+  ASSERT(index.n == query.extent(1), "vector dimension needs to be the same for index and queries");
+  ASSERT(index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
+           index.metric == raft::distance::DistanceType::L2SqrtUnexpanded,
+         "Metric not supported");
+  ASSERT(index.is_index_trained(), "index must be previously trained");
+
+  // run query
+  raft::spatial::knn::detail::rbc_eps_nn_query(
+    handle,
+    index,
+    eps,
+    query.data_handle(),
+    query.extent(0),
+    adj.data_handle(),
+    vd.data_handle(),
+    spatial::knn::detail::EuclideanFunc<value_t, int_t>());
+}
+
+/**
+ * @brief Computes epsilon neighborhood for the L2 distance metric using rbc
+ *
+ * @tparam value_t   IO and math type
+ * @tparam idx_t    Index type
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] index ball cover index which has been built
+ * @param[out] adj_ia    adjacency matrix CSR row offsets
+ * @param[out] adj_ja    adjacency matrix CSR column indices, needs to be nullptr
+ *                       in first pass with max_k nullopt
+ * @param[out] vd     vertex degree array [on device] [len = m + 1]
+ *                    `vd + m` stores the total number of edges in the adjacency
+ *                    matrix. Pass a nullptr if you don't need this info.
+ * @param[in]  query  first matrix [row-major] [on device] [dim = m x k]
+ * @param[in]  eps    defines epsilon neighborhood radius
+ * @param[inout] max_k if nullopt (default), the user needs to make 2 subsequent calls:
+ *                     The first call computes row offsets in adj_ia, where adj_ia[m]
+ *                     contains the minimum required size for adj_ja.
+ *                     The second call fills in adj_ja based on adj_ia.
+ *                     If max_k != nullopt the algorithm only fills up neighbors up to a
+ *                     maximum number of max_k for each row in a single pass. Note
+ *                     that it is not guarantueed to return the nearest neighbors.
+ *                     Upon return max_k is overwritten with the actual max_k found during
+ *                     computation.
+ */
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t = std::int64_t>
+void eps_nn(raft::resources const& handle,
+            const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
+            raft::device_vector_view<idx_t, matrix_idx_t> adj_ia,
+            raft::device_vector_view<idx_t, matrix_idx_t> adj_ja,
+            raft::device_vector_view<idx_t, matrix_idx_t> vd,
+            raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
+            value_t eps,
+            std::optional<raft::host_scalar_view<int_t, matrix_idx_t>> max_k = std::nullopt)
+{
+  ASSERT(index.n == query.extent(1), "vector dimension needs to be the same for index and queries");
+  ASSERT(index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
+           index.metric == raft::distance::DistanceType::L2SqrtUnexpanded,
+         "Metric not supported");
+  ASSERT(index.is_index_trained(), "index must be previously trained");
+
+  int_t* max_k_ptr = nullptr;
+  if (max_k.has_value()) { max_k_ptr = max_k.value().data_handle(); }
+
+  // run query
+  raft::spatial::knn::detail::rbc_eps_nn_query(
+    handle,
+    index,
+    eps,
+    max_k_ptr,
+    query.data_handle(),
+    query.extent(0),
+    adj_ia.data_handle(),
+    adj_ja.data_handle(),
+    vd.data_handle(),
+    spatial::knn::detail::EuclideanFunc<value_t, int_t>());
 }
 
 /**
@@ -377,7 +476,7 @@ void knn_query(raft::resources const& handle,
             index,
             k,
             query.data_handle(),
-            query.extent(0),
+            (int_t)query.extent(0),
             inds.data_handle(),
             dists.data_handle(),
             perform_post_filtering,

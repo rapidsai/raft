@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,27 +20,7 @@ from sklearn.preprocessing import normalize
 
 from pylibraft.common import device_ndarray
 from pylibraft.neighbors import cagra
-
-
-# todo (dantegd): consolidate helper utils of ann methods
-def generate_data(shape, dtype):
-    if dtype == np.byte:
-        x = np.random.randint(-127, 128, size=shape, dtype=np.byte)
-    elif dtype == np.ubyte:
-        x = np.random.randint(0, 255, size=shape, dtype=np.ubyte)
-    else:
-        x = np.random.random_sample(shape).astype(dtype)
-
-    return x
-
-
-def calc_recall(ann_idx, true_nn_idx):
-    assert ann_idx.shape == true_nn_idx.shape
-    n = 0
-    for i in range(ann_idx.shape[0]):
-        n += np.intersect1d(ann_idx[i, :], true_nn_idx[i, :]).size
-    recall = n / ann_idx.size
-    return recall
+from pylibraft.test.ann_utils import calc_recall, generate_data
 
 
 def run_cagra_build_search_test(

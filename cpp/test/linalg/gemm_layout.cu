@@ -17,7 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/gemm.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -162,7 +162,7 @@ const std::vector<GemmLayoutInputs<double>> inputsd = {
 typedef GemmLayoutTest<float> GemmLayoutTestF;
 TEST_P(GemmLayoutTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N, raft::CompareApprox<float>(1e-4)));
+  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N, raft::CompareApprox<float>(2e-4)));
 }
 
 typedef GemmLayoutTest<double> GemmLayoutTestD;

@@ -133,8 +133,10 @@ void haversine_knn(value_idx* out_inds,
                    int k,
                    cudaStream_t stream)
 {
-  haversine_knn_kernel<<<n_query_rows, 128, 0, stream>>>(
-    out_inds, out_dists, index, query, n_index_rows, k);
+  // ensure kernel does not breach shared memory limits
+  constexpr int kWarpQ = sizeof(value_t) > 4 ? 512 : 1024;
+  haversine_knn_kernel<value_idx, value_t, kWarpQ>
+    <<<n_query_rows, 128, 0, stream>>>(out_inds, out_dists, index, query, n_index_rows, k);
 }
 
 }  // namespace detail
