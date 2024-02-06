@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 
 # raft build scripts
 
