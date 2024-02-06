@@ -51,3 +51,27 @@ groups:
     search:
       nprobe: [20, 30, 40, 50, 100, 200, 500, 1000]
       refine_ratio: [1, 2, 4]
+  100M:
+    build:
+      nlist: [50000]
+      M: [48]
+      ratio: [10]
+      usePrecomputed: [False, True]
+      useFloat16: [False, True]
+      use_raft: [False]
+      bitsPerCode: [8]
+    search:
+      nprobe: [20, 30, 40, 50, 100, 200, 500, 1000]
+      refine_ratio: [1]
+  100Mraft:
+    build:
+      nlist: [50000]
+      M: [48]
+      ratio: [10]
+      usePrecomputed: [False, True]
+      useFloat16: [False, True]
+      use_raft: [True]
+      bitsPerCode: [8, 6, 5, 4]
+    search:
+      nprobe: [20, 30, 40, 50, 100, 200, 500, 1000]
+      refine_ratio: [1]

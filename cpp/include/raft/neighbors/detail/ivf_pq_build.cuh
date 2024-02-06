@@ -1553,9 +1553,6 @@ void extend(raft::resources const& handle,
             const IdxT* new_indices,
             IdxT n_rows)
 {
-  // raft::print_device_vector("new_vectors", new_vectors, 100, std::cout);
-  // RAFT_EXPECTS(new_indices == nullptr, "new_indices is not null");
-  // raft::print_device_vector("new_indices", new_indices, 100, std::cout);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::extend(%zu, %u)", size_t(n_rows), index->dim());
 
@@ -1735,9 +1732,6 @@ auto build(raft::resources const& handle,
            IdxT n_rows,
            uint32_t dim) -> index<IdxT>
 {
-  // RAFT_LOG_INFO("index_params_ n_lists %u, kmeans_n_iters %u, kmeans_trainset_fraction %lf,
-  // pq_bits %u, pq_dim %u", params.n_lists, params.kmeans_n_iters, params.kmeans_trainset_fraction,
-  // params.pq_bits, params.pq_dim);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::build(%zu, %u)", size_t(n_rows), dim);
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
@@ -1881,7 +1875,6 @@ auto build(raft::resources const& handle,
 
   // add the data if necessary
   if (params.add_data_on_build) {
-    // RAFT_LOG_INFO("data being added in build stage");
     detail::extend<T, IdxT>(handle, &index, dataset, nullptr, n_rows);
   }
   return index;

@@ -148,7 +148,7 @@ class FaissGpu : public ANN<T> {
     AlgoProperty property;
     // to enable building big dataset which is larger than GPU memory
     property.dataset_memory_type = MemoryType::Host;
-    property.query_memory_type   = MemoryType::Host;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
 
@@ -274,7 +274,7 @@ void FaissGpu<T>::search(const T* queries,
       auto dataset_v       = raft::make_host_matrix_view<const T, faiss::idx_t>(
         this->dataset_, index_->ntotal, index_->d);
 
-      auto handle_ = gpu_resource_->getRaftHandle(device_);
+      raft::device_resources handle_ = gpu_resource_->getRaftHandle(device_);
 
       raft::copy(queries_host.data_handle(), queries, queries_host.size(), stream);
       raft::copy(candidates_host.data_handle(),
@@ -282,11 +282,9 @@ void FaissGpu<T>::search(const T* queries,
                  candidates_host.size(),
                  resource::get_cuda_stream(handle_));
 
-      // wait for the queries to copy to host in 'stream` and for IVF-PQ::search to finish
-      RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), resource::get_cuda_stream(handle_)));
-      RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), stream));
-      RAFT_CUDA_TRY(cudaEventSynchronize(handle_.get_sync_event()));
-
+      // wait for the queries to copy to host in 'stream`
+      handle_.sync_stream();
+      
       raft::runtime::neighbors::refine(handle_,
                                        dataset_v,
                                        queries_host.view(),
