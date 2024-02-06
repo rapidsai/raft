@@ -412,12 +412,14 @@ void search_with_filtering(raft::resources const& res,
  * @code{.cpp}
  *   using namespace raft::neighbors;
  *   // memory space for a new dataset and graph
- *   auto updated_dataset = raft::make_host_matrix<uint32_t, int64_t>(res, updated_dataset_size,
- * dim); update_dataset(updated_dataset); auto updated_graph   = raft::make_host_matrix<float   ,
- * int64_t>(res, updated_dataset_size, graph_degree);
+ *   auto updated_dataset = raft::make_host_matrix<uint32_t,int64_t>(res,updated_dataset_size,dim);
+ *   update_dataset(updated_dataset);
+ *   auto updated_graph   = raft::make_host_matrix<float,int64_t>(res, updated_dataset_size,
+ * graph_degree);
+ *
  *   // update graph
  *   const uint32_t update_batch_size = 100;
- *   cagra::add_node(res, update_dataset, index, update_batch_size, updated_graph);
+ *   cagra::add_nodes(res, update_dataset.view(), index, update_batch_size, updated_graph.view());
  *   // update index
  *   index.update_graph(updated_graph);
  *   index.update_dataset(updated_dataset);
@@ -434,11 +436,11 @@ void search_with_filtering(raft::resources const& res,
  * original_index->graph_degree()]
  */
 template <class T, class IdxT>
-void add_node(raft::device_resources handle,
-              const raft::device_matrix_view<T, std::int64_t> updated_dataset,
-              const raft::neighbors::cagra::index<T, IdxT>& original_index,
-              const std::size_t max_batch_size,
-              raft::host_matrix_view<IdxT, std::int64_t> updated_graph)
+void add_nodes(raft::device_resources handle,
+               const raft::device_matrix_view<const T, std::int64_t> updated_dataset,
+               const raft::neighbors::cagra::index<T, IdxT>& original_index,
+               const std::size_t max_batch_size,
+               raft::host_matrix_view<IdxT, std::int64_t> updated_graph)
 {
   assert(updated_dataset.extent(0) >= original_index.size());
 
