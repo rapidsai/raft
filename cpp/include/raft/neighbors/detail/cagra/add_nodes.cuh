@@ -63,24 +63,23 @@ void count_incoming_edges(CounterT* const count_ptr,
 }
 
 template <class T, class IdxT>
-void add_node_core(raft::device_resources handle,
+void add_node_core(raft::resources const& handle,
                    const raft::neighbors::cagra::index<T, IdxT>& idx,
-                   const raft::device_matrix_view<T, std::int64_t> additional_dataset_view,
+                   const raft::device_matrix_view<const T, std::int64_t> additional_dataset_view,
                    raft::host_matrix_view<IdxT, std::int64_t> updated_graph)
 {
   using DistanceT                 = float;
-  const auto degree               = idx.graph_degree();
-  const auto dim                  = idx.dim();
-  const auto old_size             = idx.dataset().extent(0);
-  const auto num_add              = additional_dataset_view.extent(0);
-  const auto new_size             = old_size + num_add;
+  const std::size_t degree        = idx.graph_degree();
+  const std::size_t dim           = idx.dim();
+  const std::size_t old_size      = idx.dataset().extent(0);
+  const std::size_t num_add       = additional_dataset_view.extent(0);
+  const std::size_t new_size      = old_size + num_add;
   const std::uint32_t base_degree = degree * 2;
 
   // Step 0: Calculate the number of incoming edges for each node
   auto dev_num_incoming_edges =
     raft::make_device_vector<std::uint32_t, std::uint64_t>(handle, new_size);
-  auto host_num_incoming_edges =
-    raft::make_host_vector<std::uint32_t, std::uint64_t>(handle, new_size);
+  auto host_num_incoming_edges = raft::make_host_vector<std::uint32_t, std::uint64_t>(new_size);
   count_incoming_edges(dev_num_incoming_edges.data_handle(),
                        idx.graph().data_handle(),
                        degree * old_size,
@@ -106,7 +105,7 @@ void add_node_core(raft::device_resources handle,
   auto queries = raft::make_device_matrix<T, std::int64_t>(handle, max_chunk_size, dim);
 
   auto host_neighbor_indices =
-    raft::make_host_matrix<IdxT, std::int64_t>(handle, max_chunk_size, base_degree);
+    raft::make_host_matrix<IdxT, std::int64_t>(max_chunk_size, base_degree);
 
   auto neighbors_vectors =
     raft::make_device_matrix<T, std::int64_t>(handle, max_chunk_size * base_degree, dim);
@@ -115,27 +114,13 @@ void add_node_core(raft::device_resources handle,
     raft::make_device_matrix<IdxT, std::int64_t>(handle, max_chunk_size * base_degree, base_degree);
 
   auto host_two_hop_neighbors_indices =
-    raft::make_host_matrix<IdxT, std::int64_t>(handle, max_chunk_size * base_degree, base_degree);
+    raft::make_host_matrix<IdxT, std::int64_t>(max_chunk_size * base_degree, base_degree);
 
   auto two_hop_neighbors_distances = raft::make_device_matrix<DistanceT, std::int64_t>(
     handle, max_chunk_size * base_degree, base_degree);
 
-  auto host_two_hop_neighbors_distances = raft::make_host_matrix<DistanceT, std::int64_t>(
-    handle, max_chunk_size * base_degree, base_degree);
-
-  // Memory for reverse edge addition
-  auto host_vec_a_indices = raft::make_host_matrix_view<IdxT, std::int64_t>(
-    host_two_hop_neighbors_indices.data_handle(), max_chunk_size * degree, degree);
-  auto host_vec_b_indices =
-    raft::make_host_matrix<IdxT, std::int64_t>(handle, max_chunk_size * degree, degree);
-  auto vec_a_indices = raft::make_device_matrix_view<IdxT, std::int64_t>(
-    two_hop_neighbors_indices.data_handle(), max_chunk_size * degree, degree);
-  auto vec_b_indices =
-    raft::make_device_matrix<IdxT, std::int64_t>(handle, max_chunk_size * degree, degree);
-  auto norm2_to_incomings = raft::make_device_matrix_view<float, std::int64_t>(
-    two_hop_neighbors_distances.data_handle(), max_chunk_size * degree, degree);
-  auto host_norm2_to_incomings = raft::make_host_matrix_view<float, std::int64_t>(
-    host_two_hop_neighbors_distances.data_handle(), max_chunk_size * degree, degree);
+  auto host_two_hop_neighbors_distances =
+    raft::make_host_matrix<DistanceT, std::int64_t>(max_chunk_size * base_degree, base_degree);
 
   for (std::size_t new_vec_id_offset = 0; new_vec_id_offset < num_add;
        new_vec_id_offset += max_chunk_size) {
@@ -177,14 +162,6 @@ void add_node_core(raft::device_resources handle,
       }
     }
 
-    const auto neighbors_vectors_view = raft::make_device_matrix_view<const T, std::int64_t>(
-      neighbors_vectors.data_handle(), actual_batch_size, dim);
-
-    auto two_hop_neighbors_indices_view = raft::make_device_matrix_view<IdxT, std::int64_t>(
-      two_hop_neighbors_indices.data_handle(), actual_batch_size * base_degree, base_degree);
-    auto two_hop_neighbors_distances_view = raft::make_device_matrix_view<float, std::int64_t>(
-      two_hop_neighbors_distances.data_handle(), actual_batch_size * base_degree, base_degree);
-
     raft::neighbors::cagra::search(
       handle, params, idx, queries_view, neighbor_indices_view, neighbor_distances_view);
 
@@ -224,7 +201,6 @@ void add_node_core(raft::device_resources handle,
                   return a.second < b.second;
                 });
 
-      const auto target_new_node_id = old_size + new_vec_id_offset + vec_i;
       for (std::size_t i = 0; i < degree; i++) {
         updated_graph.data_handle()[i + (old_size + new_vec_id_offset + vec_i) * degree] =
           detourable_node_count_list[i].first;

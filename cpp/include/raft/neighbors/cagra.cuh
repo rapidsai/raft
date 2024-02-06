@@ -412,7 +412,7 @@ void search(raft::resources const& res,
  * original_index->graph_degree()]
  */
 template <class T, class IdxT>
-void add_nodes(raft::device_resources handle,
+void add_nodes(raft::resources const& handle,
                const raft::device_matrix_view<const T, std::int64_t> updated_dataset,
                const raft::neighbors::cagra::index<T, IdxT>& original_index,
                const std::size_t max_batch_size,
@@ -420,11 +420,11 @@ void add_nodes(raft::device_resources handle,
 {
   assert(updated_dataset.extent(0) >= original_index.size());
 
-  const auto num_new_nodes        = updated_dataset.extent(0) - original_index.size();
-  const auto initial_dataset_size = original_index.size();
-  const auto degree               = original_index.graph_degree();
-  const auto dim                  = original_index.dim();
-  const auto max_batch_size_      = max_batch_size == 0 ? num_new_nodes : max_batch_size;
+  const std::size_t num_new_nodes        = updated_dataset.extent(0) - original_index.size();
+  const std::size_t initial_dataset_size = original_index.size();
+  const std::size_t degree               = original_index.graph_degree();
+  const std::size_t dim                  = original_index.dim();
+  const std::size_t max_batch_size_      = max_batch_size == 0 ? num_new_nodes : max_batch_size;
 
   raft::copy(updated_graph.data_handle(),
              original_index.graph().data_handle(),
@@ -445,7 +445,7 @@ void add_nodes(raft::device_resources handle,
       updated_graph.data_handle(),
       initial_dataset_size + additional_dataset_offset + actual_batch_size,
       degree);
-    auto additional_datatset_view = raft::make_device_matrix_view<T, std::int64_t>(
+    auto additional_datatset_view = raft::make_device_matrix_view<const T, std::int64_t>(
       updated_dataset.data_handle() + (initial_dataset_size + additional_dataset_offset) * dim,
       actual_batch_size,
       dim);
