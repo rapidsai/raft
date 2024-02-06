@@ -17,8 +17,20 @@
 #include <cstdint>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/neighbors/cagra.cuh>
+#include <raft/core/resources.hpp>
+#include <raft/neighbors/cagra_types.hpp>
 #include <rmm/device_buffer.hpp>
+
+// prototype declaration
+namespace raft::neighbors::cagra {
+template <typename T, typename IdxT>
+void search(raft::resources const& res,
+            const raft::neighbors::cagra::search_params& params,
+            const raft::neighbors::cagra::index<T, IdxT>& idx,
+            raft::device_matrix_view<const T, int64_t, raft::row_major> queries,
+            raft::device_matrix_view<IdxT, int64_t, raft::row_major> neighbors,
+            raft::device_matrix_view<float, int64_t, raft::row_major> distances);
+}
 
 namespace raft::neighbors::cagra::detail {
 template <class CounterT, class IdxT>
@@ -43,7 +55,9 @@ void count_incoming_edges(CounterT* const count_ptr,
   const std::uint32_t block_size = 256;
   const std::uint32_t grid_size  = 512;
 
+  // Initizalize counter
   RAFT_CUDA_TRY(cudaMemsetAsync(count_ptr, 0, sizeof(CounterT) * dataset_size, cuda_stream));
+
   count_incoming_edges_kernel<<<grid_size, block_size, 0, cuda_stream>>>(
     count_ptr, graph_ptr, num_entries);
 }
@@ -58,8 +72,8 @@ void add_node_core(raft::device_resources handle,
   const auto degree               = idx.graph_degree();
   const auto dim                  = idx.dim();
   const auto old_size             = idx.dataset().extent(0);
-  const auto num_added            = additional_dataset_view.extent(0);
-  const auto new_size             = old_size + num_added;
+  const auto num_add              = additional_dataset_view.extent(0);
+  const auto new_size             = old_size + num_add;
   const std::uint32_t base_degree = degree * 2;
 
   // Step 0: Calculate the number of incoming edges for each node
@@ -123,9 +137,9 @@ void add_node_core(raft::device_resources handle,
   auto host_norm2_to_incomings = raft::make_host_matrix_view<float, std::int64_t>(
     host_two_hop_neighbors_distances.data_handle(), max_chunk_size * degree, degree);
 
-  for (std::size_t new_vec_id_offset = 0; new_vec_id_offset < num_added;
+  for (std::size_t new_vec_id_offset = 0; new_vec_id_offset < num_add;
        new_vec_id_offset += max_chunk_size) {
-    const auto actual_batch_size = std::min(max_chunk_size, num_added - new_vec_id_offset);
+    const auto actual_batch_size = std::min(max_chunk_size, num_add - new_vec_id_offset);
     // Step 1: Obtain K (=base_degree) nearest neighbors of the new vectors by CAGRA search
     // Create queries
     for (std::size_t i = 0; i < actual_batch_size; i++) {
@@ -265,11 +279,11 @@ void add_node_core(raft::device_resources handle,
 
       // Create a neighbor list of a new node by interleaving the kNN neighbor list and reverse edge
       // list
-      std::uint32_t interleave_switch = 0, rank_base_i = 0, rev_edges_return_i = 0, num_added = 0;
+      std::uint32_t interleave_switch = 0, rank_base_i = 0, rev_edges_return_i = 0, num_add = 0;
       const auto rank_based_list_ptr =
         updated_graph.data_handle() + (old_size + new_vec_id_offset + vec_i) * degree;
       const auto rev_edges_return_list_ptr = rev_edges.data();
-      while (num_added < degree) {
+      while (num_add < degree) {
         const auto node_list_ptr =
           interleave_switch == 0 ? rank_based_list_ptr : rev_edges_return_list_ptr;
         auto& node_list_index          = interleave_switch == 0 ? rank_base_i : rev_edges_return_i;
@@ -278,15 +292,15 @@ void add_node_core(raft::device_resources handle,
           const auto candidate = node_list_ptr[node_list_index];
           // Check duplication
           bool dup = false;
-          for (std::uint32_t j = 0; j < num_added; j++) {
+          for (std::uint32_t j = 0; j < num_add; j++) {
             if (temp[j] == candidate) {
               dup = true;
               break;
             }
           }
           if (!dup) {
-            temp[num_added] = candidate;
-            num_added++;
+            temp[num_add] = candidate;
+            num_add++;
             break;
           }
         }
