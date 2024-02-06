@@ -40,8 +40,8 @@ dependencies:
 - numpydoc
 - pre-commit
 - pydata-sphinx-theme
-- pytest
 - pytest-cov
+- pytest==7.*
 - rapids-dask-dependency==24.4.*
 - recommonmark
 - rmm==24.4.*

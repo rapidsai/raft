@@ -31,6 +31,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/custom_resource.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -39,6 +40,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
+#include <raft/util/cache.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/device_loads_stores.cuh>
@@ -79,6 +81,12 @@ void select_clusters(raft::resources const& handle,
                      const float* cluster_centers,  // [n_lists, dim_ext]
                      rmm::mr::device_memory_resource* mr)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "ivf_pq::search::select_clusters(n_probes = %u, n_queries = %u, n_lists = %u, dim = %u)",
+    n_probes,
+    n_queries,
+    n_lists,
+    dim);
   auto stream = resource::get_cuda_stream(handle);
   /* NOTE[qc_distances]
 
@@ -160,8 +168,7 @@ void select_clusters(raft::resources const& handle,
                                             n_probes,
                                             cluster_dists.data(),
                                             clusters_to_probe,
-                                            true,
-                                            mr);
+                                            true);
 }
 
 /**
@@ -408,6 +415,46 @@ constexpr inline auto expected_probe_coresidency(uint32_t n_clusters,
   return 1 + (n_queries - 1) * n_probes / (2 * n_clusters);
 }
 
+struct search_kernel_key {
+  bool manage_local_topk;
+  uint32_t locality_hint;
+  double preferred_shmem_carveout;
+  uint32_t pq_bits;
+  uint32_t pq_dim;
+  uint32_t precomp_data_count;
+  uint32_t n_queries;
+  uint32_t n_probes;
+  uint32_t topk;
+};
+
+inline auto operator==(const search_kernel_key& a, const search_kernel_key& b) -> bool
+{
+  return a.manage_local_topk == b.manage_local_topk && a.locality_hint == b.locality_hint &&
+         a.preferred_shmem_carveout == b.preferred_shmem_carveout && a.pq_bits == b.pq_bits &&
+         a.pq_dim == b.pq_dim && a.precomp_data_count == b.precomp_data_count &&
+         a.n_queries == b.n_queries && a.n_probes == b.n_probes && a.topk == b.topk;
+}
+
+struct search_kernel_key_hash {
+  inline auto operator()(const search_kernel_key& x) const noexcept -> std::size_t
+  {
+    return (size_t{x.manage_local_topk} << 63) +
+           size_t{x.topk} * size_t{x.n_probes} * size_t{x.n_queries} +
+           size_t{x.precomp_data_count} * size_t{x.pq_dim} * size_t{x.pq_bits};
+  }
+};
+
+template <typename OutT, typename LutT, typename IvfSampleFilterT>
+struct search_kernel_cache {
+  /** Number of matmul invocations to cache. */
+  static constexpr size_t kDefaultSize = 100;
+  cache::lru<search_kernel_key,
+             search_kernel_key_hash,
+             std::equal_to<>,
+             selected<OutT, LutT, IvfSampleFilterT>>
+    value{kDefaultSize};
+};
+
 /**
  * The "main part" of the search, which assumes that outer-level `search` has already:
  *
@@ -432,6 +479,12 @@ void ivfpq_search_worker(raft::resources const& handle,
                          double preferred_shmem_carveout,
                          IvfSampleFilterT sample_filter)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "ivf_pq::search-worker(n_queries = %u, n_probes = %u, k = %u, dim = %zu)",
+    n_queries,
+    n_probes,
+    topK,
+    index.dim());
   auto stream = resource::get_cuda_stream(handle);
   auto mr     = resource::get_workspace_resource(handle);
 
@@ -534,17 +587,33 @@ void ivfpq_search_worker(raft::resources const& handle,
     } break;
   }
 
-  auto search_instance = compute_similarity_select<ScoreT, LutT, IvfSampleFilterT>(
-    resource::get_device_properties(handle),
-    manage_local_topk,
-    coresidency,
-    preferred_shmem_carveout,
-    index.pq_bits(),
-    index.pq_dim(),
-    precomp_data_count,
-    n_queries,
-    n_probes,
-    topK);
+  selected<ScoreT, LutT, IvfSampleFilterT> search_instance;
+  search_kernel_key search_key{manage_local_topk,
+                               coresidency,
+                               preferred_shmem_carveout,
+                               index.pq_bits(),
+                               index.pq_dim(),
+                               precomp_data_count,
+                               n_queries,
+                               n_probes,
+                               topK};
+  auto& cache =
+    resource::get_custom_resource<search_kernel_cache<ScoreT, LutT, IvfSampleFilterT>>(handle)
+      ->value;
+  if (!cache.get(search_key, &search_instance)) {
+    search_instance = compute_similarity_select<ScoreT, LutT, IvfSampleFilterT>(
+      resource::get_device_properties(handle),
+      manage_local_topk,
+      coresidency,
+      preferred_shmem_carveout,
+      index.pq_bits(),
+      index.pq_dim(),
+      precomp_data_count,
+      n_queries,
+      n_probes,
+      topK);
+    cache.set(search_key, search_instance);
+  }
 
   rmm::device_uvector<LutT> device_lut(search_instance.device_lut_size, stream, mr);
   std::optional<device_vector<float>> query_kths_buf{std::nullopt};
@@ -591,8 +660,7 @@ void ivfpq_search_worker(raft::resources const& handle,
                                              topK,
                                              topk_dists.data(),
                                              neighbors_uint32,
-                                             true,
-                                             mr);
+                                             true);
 
   // Postprocessing
   postprocess_distances(
@@ -695,7 +763,7 @@ inline auto get_max_batch_size(raft::resources const& res,
                                uint32_t max_samples) -> uint32_t
 {
   uint32_t max_batch_size         = n_queries;
-  uint32_t n_ctas_total           = getMultiProcessorCount() * 2;
+  uint32_t n_ctas_total           = resource::get_device_properties(res).multiProcessorCount * 2;
   uint32_t n_ctas_total_per_batch = n_ctas_total / max_batch_size;
   float utilization               = float(n_ctas_total_per_batch * max_batch_size) / n_ctas_total;
   if (n_ctas_total_per_batch > 1 || (n_ctas_total_per_batch == 1 && utilization < 0.6)) {
@@ -799,6 +867,8 @@ inline void search(raft::resources const& handle,
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
+    common::nvtx::range<common::nvtx::domain::raft> batch_scope(
+      "ivf_pq::search-batch(queries: %u - %u)", offset_q, offset_q + queries_batch);
 
     select_clusters(handle,
                     clusters_to_probe.data(),

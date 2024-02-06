@@ -225,9 +225,7 @@ endfunction()
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   ConfigureAnnBench(
-    NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp
-    LINKS
-    hnswlib::hnswlib
+    NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp LINKS hnswlib::hnswlib
   )
 
 endif()
@@ -276,12 +274,7 @@ endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
   ConfigureAnnBench(
-    NAME
-    RAFT_CAGRA_HNSWLIB
-    PATH
-    bench/ann/src/raft/raft_cagra_hnswlib.cu
-    LINKS
-    raft::compiled
+    NAME RAFT_CAGRA_HNSWLIB PATH bench/ann/src/raft/raft_cagra_hnswlib.cu LINKS raft::compiled
     hnswlib::hnswlib
   )
 endif()
@@ -336,10 +329,7 @@ endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)
   include(cmake/thirdparty/get_glog.cmake)
-  ConfigureAnnBench(
-    NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu
-    LINKS glog::glog ggnn::ggnn
-  )
+  ConfigureAnnBench(NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu LINKS glog::glog ggnn::ggnn)
 endif()
 
 # ##################################################################################################
