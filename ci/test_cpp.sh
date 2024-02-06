@@ -37,7 +37,6 @@ set +e
 
 # Run libraft gtests from libraft-tests package
 cd "$CONDA_PREFIX"/bin/gtests/libraft
-ls -a .
 ctest -j8 --output-on-failure --no-tests error
 
 rapids-logger "Test script exiting with value: $EXITCODE"
