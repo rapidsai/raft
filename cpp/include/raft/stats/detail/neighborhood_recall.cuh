@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/core/resource/cuda_stream.hpp>
 #include <cstddef>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
@@ -24,6 +23,7 @@
 #include <raft/core/math.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
 #include <cub/cub.cuh>
