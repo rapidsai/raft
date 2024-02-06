@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,9 +30,14 @@ TEST_P(AnnCagraFilterTestI8_U32, AnnCagraFilter)
   this->testCagraFilter();
   this->testCagraRemoved();
 }
+typedef AnnCagraAddNodesTest<float, std::int8_t, std::uint32_t> AnnCagraAddNodesTestI8_U32;
+TEST_P(AnnCagraAddNodesTestI8_U32, AnnCagra) { this->testCagra(); }
 
 INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestI8_U32, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestI8_U32, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(AnnCagraFilterTest, AnnCagraFilterTestI8_U32, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnCagraAddNodesTest,
+                        AnnCagraAddNodesTestI8_U32,
+                        ::testing::ValuesIn(inputs));
 
 }  // namespace raft::neighbors::cagra
