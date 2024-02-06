@@ -17,4 +17,6 @@ if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake)
   )
 endif()
 
+set(rapids-cmake-repo KyleFromNVIDIA/rapids-cmake)
+set(rapids-cmake-branch generated-resource-spec-build-error)
 include(${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake)
