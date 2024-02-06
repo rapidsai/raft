@@ -59,14 +59,13 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        {% if cuda_major != "11" %}
-        - cuda-cudart-dev
-        {% endif %}
         - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - cuda-cudart
         {% endif %}
         - librmm ={{ minor_version }}
         - spdlog {{ spdlog_version }}
@@ -129,6 +128,10 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - libcublas-dev
+        - libcurand-dev
+        - libcusolver-dev
+        - libcusparse-dev
         {% endif %}
     requirements:
       build:
@@ -166,6 +169,12 @@ outputs:
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major != "11" %}
+        - libcublas
+        - libcurand
+        - libcusolver
+        - libcusparse
+        {% endif %}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -219,6 +228,12 @@ outputs:
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major != "11" %}
+        - libcublas
+        - libcurand
+        - libcusolver
+        - libcusparse
+        {% endif %}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -235,6 +250,10 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - libcublas-dev
+        - libcurand-dev
+        - libcusolver-dev
+        - libcusparse-dev
         {% endif %}
     requirements:
       build:
@@ -263,7 +282,6 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
-        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -276,6 +294,12 @@ outputs:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - cuda-cudart
+        - libcublas
+        - libcurand
+        - libcusolver
+        - libcusparse
         {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
         - gmock {{ gtest_version }}
@@ -296,6 +320,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - libcublas-dev
         {% endif %}
     requirements:
       build:
@@ -326,6 +351,8 @@ outputs:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - libcublas
         {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
     about:

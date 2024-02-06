@@ -41,6 +41,7 @@ build:
     - {{ compiler('cuda11') }}
     {% else %}
     - {{ compiler('cuda') }}
+    - libcublas-dev
     {% endif %}
 
 requirements:
@@ -86,6 +87,8 @@ requirements:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
     - cudatoolkit
+    {% else %}
+    - libcublas
     {% endif %}
     - glog {{ glog_version }}
     - h5py {{ h5py_version }}
