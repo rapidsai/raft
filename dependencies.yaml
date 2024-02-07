@@ -32,6 +32,7 @@ files:
       - develop
       - nn_bench
       - nn_bench_python
+      - cupy
   test_cpp:
     output: none
     includes:
@@ -119,6 +120,15 @@ files:
       table: project
     includes:
       - nn_bench_python
+  py_test_raft_ann_bench:
+    output: pyproject
+    pyproject_dir: python/raft-ann-bench
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python_common
+      - test_pylibraft
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -237,10 +247,13 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
+          - pylibraft
           - matplotlib
           - pandas
           - pyyaml
           - pandas
+          - typer[all]>=0.9.0
+          - pydantic>=2.6.1
   cuda_version:
     specific:
       - output_types: conda

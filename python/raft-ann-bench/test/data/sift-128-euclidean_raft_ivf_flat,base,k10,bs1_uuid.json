@@ -1,0 +1,1654 @@
+{
+    "dataset": {
+      "name": "sift-128-euclidean",
+      "dims": 128,
+      "base_file": "sift-128-euclidean/base.fbin",
+      "query_file": "sift-128-euclidean/query.fbin",
+      "groundtruth_neighbors_file": "sift-128-euclidean/groundtruth.neighbors.ibin",
+      "distance": "euclidean"
+    },
+    "search_basic_param": {
+      "k": 10,
+      "batch_size": 1
+    },
+    "index": [
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 1024,
+          "ratio": 1,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist1024.ratio1.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist1024.ratio1.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 1024,
+          "ratio": 1,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist1024.ratio1.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist1024.ratio1.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 1024,
+          "ratio": 2,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist1024.ratio2.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist1024.ratio2.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 1024,
+          "ratio": 2,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist1024.ratio2.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist1024.ratio2.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 1024,
+          "ratio": 4,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist1024.ratio4.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist1024.ratio4.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 1024,
+          "ratio": 4,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist1024.ratio4.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist1024.ratio4.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 2048,
+          "ratio": 1,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist2048.ratio1.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist2048.ratio1.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 2048,
+          "ratio": 1,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist2048.ratio1.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist2048.ratio1.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 2048,
+          "ratio": 2,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist2048.ratio2.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist2048.ratio2.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 2048,
+          "ratio": 2,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist2048.ratio2.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist2048.ratio2.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 2048,
+          "ratio": 4,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist2048.ratio4.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist2048.ratio4.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 2048,
+          "ratio": 4,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist2048.ratio4.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist2048.ratio4.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 4096,
+          "ratio": 1,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist4096.ratio1.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist4096.ratio1.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 4096,
+          "ratio": 1,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist4096.ratio1.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist4096.ratio1.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 4096,
+          "ratio": 2,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist4096.ratio2.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist4096.ratio2.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 4096,
+          "ratio": 2,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist4096.ratio2.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist4096.ratio2.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 4096,
+          "ratio": 4,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist4096.ratio4.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist4096.ratio4.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 4096,
+          "ratio": 4,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist4096.ratio4.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist4096.ratio4.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 8192,
+          "ratio": 1,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist8192.ratio1.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist8192.ratio1.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 8192,
+          "ratio": 1,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist8192.ratio1.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist8192.ratio1.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 8192,
+          "ratio": 2,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist8192.ratio2.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist8192.ratio2.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 8192,
+          "ratio": 2,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist8192.ratio2.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist8192.ratio2.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 8192,
+          "ratio": 4,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist8192.ratio4.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist8192.ratio4.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 8192,
+          "ratio": 4,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist8192.ratio4.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist8192.ratio4.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 16384,
+          "ratio": 1,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist16384.ratio1.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist16384.ratio1.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 16384,
+          "ratio": 1,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist16384.ratio1.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist16384.ratio1.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 16384,
+          "ratio": 2,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist16384.ratio2.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist16384.ratio2.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 16384,
+          "ratio": 2,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist16384.ratio2.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist16384.ratio2.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 16384,
+          "ratio": 4,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist16384.ratio4.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist16384.ratio4.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 16384,
+          "ratio": 4,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist16384.ratio4.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist16384.ratio4.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 32000,
+          "ratio": 1,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist32000.ratio1.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist32000.ratio1.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 32000,
+          "ratio": 1,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist32000.ratio1.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist32000.ratio1.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 32000,
+          "ratio": 2,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist32000.ratio2.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist32000.ratio2.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 32000,
+          "ratio": 2,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist32000.ratio2.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist32000.ratio2.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 32000,
+          "ratio": 4,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist32000.ratio4.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist32000.ratio4.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 32000,
+          "ratio": 4,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist32000.ratio4.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist32000.ratio4.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 64000,
+          "ratio": 1,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist64000.ratio1.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist64000.ratio1.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 64000,
+          "ratio": 1,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist64000.ratio1.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist64000.ratio1.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 64000,
+          "ratio": 2,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist64000.ratio2.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist64000.ratio2.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 64000,
+          "ratio": 2,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist64000.ratio2.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist64000.ratio2.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 64000,
+          "ratio": 4,
+          "niter": 20
+        },
+        "name": "raft_ivf_flat.nlist64000.ratio4.niter20",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist64000.ratio4.niter20",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      },
+      {
+        "algo": "raft_ivf_flat",
+        "build_param": {
+          "nlist": 64000,
+          "ratio": 4,
+          "niter": 25
+        },
+        "name": "raft_ivf_flat.nlist64000.ratio4.niter25",
+        "file": "/data/benchmarks/datasets/sift-128-euclidean/index/raft_ivf_flat.nlist64000.ratio4.niter25",
+        "search_params": [
+          {
+            "nprobe": 1
+          },
+          {
+            "nprobe": 5
+          },
+          {
+            "nprobe": 10
+          },
+          {
+            "nprobe": 50
+          },
+          {
+            "nprobe": 100
+          },
+          {
+            "nprobe": 200
+          },
+          {
+            "nprobe": 500
+          },
+          {
+            "nprobe": 1000
+          },
+          {
+            "nprobe": 2000
+          }
+        ]
+      }
+    ]
+  }

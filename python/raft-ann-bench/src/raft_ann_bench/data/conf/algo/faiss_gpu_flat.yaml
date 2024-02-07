@@ -1,0 +1,5 @@
+name: faiss_gpu_flat
+groups:
+  base:
+    build:
+    search:

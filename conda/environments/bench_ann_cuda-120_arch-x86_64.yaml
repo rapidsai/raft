@@ -17,6 +17,7 @@ dependencies:
 - cuda-nvtx-dev
 - cuda-profiler-api
 - cuda-version=12.0
+- cupy>=12.0.0
 - cxx-compiler
 - cython>=3.0.0
 - gcc_linux-64=11.*
@@ -33,8 +34,11 @@ dependencies:
 - nlohmann_json>=3.11.2
 - openblas
 - pandas
+- pydantic>=2.6.1
+- pylibraft
 - pyyaml
 - rmm==24.4.*
 - scikit-build-core>=0.7.0
 - sysroot_linux-64==2.17
+- typer[all]>=0.9.0
 name: bench_ann_cuda-120_arch-x86_64
