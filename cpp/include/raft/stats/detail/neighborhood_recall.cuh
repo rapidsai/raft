@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include <raft/core/math.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
 #include <cub/cub.cuh>
@@ -108,7 +109,7 @@ void neighborhood_recall(
   auto constexpr kThreadsPerBlock = 32;
   auto const num_blocks           = indices.extent(0);
 
-  neighborhood_recall<<<num_blocks, kThreadsPerBlock>>>(
+  neighborhood_recall<<<num_blocks, kThreadsPerBlock, 0, raft::resource::get_cuda_stream(res)>>>(
     indices, ref_indices, distances, ref_distances, recall_score, eps);
 }
 
