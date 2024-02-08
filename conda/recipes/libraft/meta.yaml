@@ -43,6 +43,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         {% endif %}
         - librmm
     requirements:
@@ -60,6 +61,9 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cuda-version ={{ cuda_version }}
+        {% if cuda_major != "11" %}
+        - cuda-cudart-dev
+        {% endif %}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -128,6 +132,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         - libcublas-dev
         - libcurand-dev
         - libcusolver-dev
@@ -160,6 +165,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -170,6 +176,7 @@ outputs:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major != "11" %}
+        - cuda-cudart
         - libcublas
         - libcurand
         - libcusolver
@@ -191,6 +198,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         {% endif %}
     requirements:
       build:
@@ -219,6 +227,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -229,6 +238,7 @@ outputs:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major != "11" %}
+        - cuda-cudart
         - libcublas
         - libcurand
         - libcusolver
@@ -250,6 +260,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         - libcublas-dev
         - libcurand-dev
         - libcusolver-dev
@@ -282,6 +293,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -320,6 +332,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         - libcublas-dev
         {% endif %}
     requirements:
@@ -344,6 +357,7 @@ outputs:
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
         {% else %}
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         {% endif %}
@@ -352,6 +366,7 @@ outputs:
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% else %}
+        - cuda-cudart
         - libcublas
         {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
