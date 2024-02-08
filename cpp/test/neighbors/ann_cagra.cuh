@@ -501,7 +501,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
         // TODO: setting search_params.itopk_size here breaks the filter tests, but is required for
         // k>1024 skip these tests until fixed
-        if (ps.k >= 1024) return;
+        if (ps.k >= 1024) { GTEST_SKIP(); }
         // search_params.itopk_size   = ps.itopk_size;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
@@ -621,7 +621,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
         // TODO: setting search_params.itopk_size here breaks the filter tests, but is required for
         // k>1024 skip these tests until fixed
-        if (ps.k >= 1024) return;
+        if (ps.k >= 1024) { GTEST_SKIP(); }
         // search_params.itopk_size   = ps.itopk_size;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
