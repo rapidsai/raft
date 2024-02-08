@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@
 #include <raft/neighbors/sample_filter_types.hpp>  // none_ivf_sample_filter
 #include <raft/util/raft_explicit.hpp>             // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>                // rmm:cuda_stream_view
-
-#include <cuda_fp16.h>
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -69,8 +67,6 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
 
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
   float, float, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
-instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
-  half, half, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
   int8_t, int32_t, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(

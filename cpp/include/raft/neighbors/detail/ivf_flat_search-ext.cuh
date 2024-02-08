@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@
 #include <raft/neighbors/ivf_flat_types.hpp>       // raft::neighbors::ivf_flat::index
 #include <raft/neighbors/sample_filter_types.hpp>  // none_ivf_sample_filter
 #include <raft/util/raft_explicit.hpp>             // RAFT_EXPLICIT
-
-#include <cuda_fp16.h>
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -58,8 +56,6 @@ void search(raft::resources const& handle,
 
 instantiate_raft_neighbors_ivf_flat_detail_search(
   float, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
-instantiate_raft_neighbors_ivf_flat_detail_search(
-  half, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_search(
   int8_t, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_search(

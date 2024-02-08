@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,9 @@
 
 #include <cstdint>  // int64_t
 
-#include <raft/core/detail/macros.hpp>       // _RAFT_HAS_CUDA
 #include <raft/core/host_mdspan.hpp>         // raft::host_matrix_view
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
-
-#if defined(_RAFT_HAS_CUDA)
-#include <cuda_fp16.h>
-#endif
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -56,9 +51,5 @@ template <typename IdxT, typename DataT, typename DistanceT, typename ExtentsT>
 instantiate_raft_neighbors_refine(int64_t, float, float, int64_t);
 instantiate_raft_neighbors_refine(int64_t, int8_t, float, int64_t);
 instantiate_raft_neighbors_refine(int64_t, uint8_t, float, int64_t);
-
-#if defined(_RAFT_HAS_CUDA)
-instantiate_raft_neighbors_refine(int64_t, half, float, int64_t);
-#endif
 
 #undef instantiate_raft_neighbors_refine
