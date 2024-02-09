@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cub/block/block_scan.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>  // matrix::detail::select::warpsort::warp_sort_distributed
 
