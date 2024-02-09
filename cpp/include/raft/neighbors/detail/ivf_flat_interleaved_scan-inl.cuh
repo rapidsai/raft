@@ -20,6 +20,7 @@
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/matrix/detail/select_warpsort.cuh>
+#include <raft/neighbors/detail/ivf_common.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
@@ -35,6 +36,11 @@ namespace raft::neighbors::ivf_flat::detail {
 using namespace raft::spatial::knn::detail;  // NOLINT
 
 constexpr int kThreadsPerBlock = 128;
+
+auto RAFT_WEAK_FUNCTION is_local_topk_feasible(uint32_t k) -> bool
+{
+  return k <= matrix::detail::select::warpsort::kMaxCapacity;
+}
 
 /**
  * @brief Copy `n` elements per block from one place to another.
@@ -627,6 +633,22 @@ struct loadAndComputeDist<kUnroll, Lambda, 1, int8_t, int32_t> {
   }
 };
 
+// switch to dummy blocksort when Capacity is 0 this explicit dummy is chosen
+// to support access to warpsort constants like ::queue_t::kDummy
+template <int Capacity, bool Ascending, typename T, typename IdxT>
+struct flat_block_sort {
+  using type = matrix::detail::select::warpsort::
+    block_sort<matrix::detail::select::warpsort::warp_sort_filtered, Capacity, Ascending, T, IdxT>;
+};
+
+template <typename T, bool Ascending, typename IdxT>
+struct flat_block_sort<0, Ascending, T, IdxT> : neighbors::detail::dummy_block_sort_t<T, IdxT> {
+  using type = neighbors::detail::dummy_block_sort_t<T, IdxT>;
+};
+
+template <int Capacity, bool Ascending, typename T, typename IdxT>
+using block_sort_t = typename flat_block_sort<Capacity, Ascending, T, IdxT>::type;
+
 /**
  * Scan clusters for nearest neighbors of the query vectors.
  * See `ivfflat_interleaved_scan` for more information.
@@ -672,12 +694,15 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
                           const uint32_t queries_offset,
                           const uint32_t n_probes,
                           const uint32_t k,
+                          const uint32_t max_samples,
+                          const uint32_t* chunk_indices,
                           const uint32_t dim,
                           IvfSampleFilterT sample_filter,
                           IdxT* neighbors,
                           float* distances)
 {
   extern __shared__ __align__(256) uint8_t interleaved_scan_kernel_smem[];
+  constexpr bool kManageLocalTopK = Capacity > 0;
   // Using shared memory for the (part of the) query;
   // This allows to save on global memory bandwidth when reading index and query
   // data at the same time.
@@ -687,8 +712,13 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
   {
     const int query_id = blockIdx.y;
     query += query_id * dim;
-    neighbors += query_id * k * gridDim.x + blockIdx.x * k;
-    distances += query_id * k * gridDim.x + blockIdx.x * k;
+    if constexpr (kManageLocalTopK) {
+      neighbors += query_id * k * gridDim.x + blockIdx.x * k;
+      distances += query_id * k * gridDim.x + blockIdx.x * k;
+    } else {
+      distances += query_id * uint64_t(max_samples);
+      chunk_indices += (n_probes * query_id);
+    }
     coarse_index += query_id * n_probes;
   }
 
@@ -696,14 +726,8 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
   copy_vectorized(query_shared, query, std::min(dim, query_smem_elems));
   __syncthreads();
 
-  using block_sort_t = matrix::detail::select::warpsort::block_sort<
-    matrix::detail::select::warpsort::warp_sort_filtered,
-    Capacity,
-    Ascending,
-    float,
-    IdxT>;
-  block_sort_t queue(k);
-
+  using local_topk_t = block_sort_t<Capacity, Ascending, float, IdxT>;
+  local_topk_t queue(k);
   {
     using align_warp  = Pow2<WarpSize>;
     const int lane_id = align_warp::mod(threadIdx.x);
@@ -724,6 +748,13 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
       // The number of interleaved groups to be processed
       const uint32_t num_groups =
         align_warp::div(list_length + align_warp::Mask);  // ceildiv by power of 2
+
+      uint32_t sample_offset = 0;
+      if constexpr (!kManageLocalTopK) {
+        if (probe_id > 0) { sample_offset = chunk_indices[probe_id - 1]; }
+        assert(list_length == chunk_indices[probe_id] - sample_offset);
+        assert(sample_offset + list_length <= max_samples);
+      }
 
       constexpr int kUnroll        = WarpSize / Veclen;
       constexpr uint32_t kNumWarps = kThreadsPerBlock / WarpSize;
@@ -771,17 +802,33 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
         }
 
         // Enqueue one element per thread
-        const float val  = valid ? static_cast<float>(dist) : block_sort_t::queue_t::kDummy;
-        const size_t idx = valid ? static_cast<size_t>(list_indices_ptrs[list_id][vec_id]) : 0;
-        queue.add(val, idx);
+        const float val = valid ? static_cast<float>(dist) : local_topk_t::queue_t::kDummy;
+        if constexpr (kManageLocalTopK) {
+          const size_t idx = valid ? static_cast<size_t>(list_indices_ptrs[list_id][vec_id]) : 0;
+          queue.add(val, idx);
+        } else {
+          if (vec_id < list_length) distances[sample_offset + vec_id] = val;
+        }
+      }
+
+      // fill up unused slots for current query
+      if constexpr (!kManageLocalTopK) {
+        if (probe_id + 1 == n_probes) {
+          for (uint32_t i = threadIdx.x + sample_offset + list_length; i < max_samples;
+               i += blockDim.x) {
+            distances[i] = local_topk_t::queue_t::kDummy;
+          }
+        }
       }
     }
   }
 
   // finalize and store selected neighbours
-  __syncthreads();
-  queue.done(interleaved_scan_kernel_smem);
-  queue.store(distances, neighbors, post_process);
+  if constexpr (kManageLocalTopK) {
+    __syncthreads();
+    queue.done(interleaved_scan_kernel_smem);
+    queue.store(distances, neighbors, post_process);
+  }
 }
 
 /**
@@ -821,6 +868,8 @@ void launch_kernel(Lambda lambda,
                    const uint32_t queries_offset,
                    const uint32_t n_probes,
                    const uint32_t k,
+                   const uint32_t max_samples,
+                   const uint32_t* chunk_indices,
                    IvfSampleFilterT sample_filter,
                    IdxT* neighbors,
                    float* distances,
@@ -841,12 +890,17 @@ void launch_kernel(Lambda lambda,
   const int max_query_smem = 16384;
   int query_smem_elems =
     std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(index.dim()));
-  int smem_size              = query_smem_elems * sizeof(T);
-  constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
-  auto block_merge_mem =
-    raft::matrix::detail::select::warpsort::calc_smem_size_for_block_wide<AccT, IdxT>(
-      kThreadsPerBlock / kSubwarpSize, k);
-  smem_size += std::max<int>(smem_size, block_merge_mem);
+  int smem_size = query_smem_elems * sizeof(T);
+
+  if constexpr (Capacity > 0) {
+    constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
+    auto block_merge_mem =
+      raft::matrix::detail::select::warpsort::calc_smem_size_for_block_wide<AccT, IdxT>(
+        kThreadsPerBlock / kSubwarpSize, k);
+    smem_size += std::max<int>(smem_size, block_merge_mem);
+  } else {
+    smem_size += smem_size;
+  }
 
   // power-of-two less than cuda limit (for better addr alignment)
   constexpr uint32_t kMaxGridY = 32768;
@@ -868,6 +922,15 @@ void launch_kernel(Lambda lambda,
       block_dim.x,
       n_probes,
       smem_size);
+    RAFT_LOG_WARN(
+      "Executing interleaved_scan_kernel (%d, %d, 1) x (%d, 1, 1), n_probes = %d, smem_size = %d, "
+      "Capacity = %d",
+      grid_dim.x,
+      grid_dim.y,
+      block_dim.x,
+      n_probes,
+      smem_size,
+      Capacity);
     kKernel<<<grid_dim, block_dim, smem_size, stream>>>(lambda,
                                                         post_process,
                                                         query_smem_elems,
@@ -879,6 +942,8 @@ void launch_kernel(Lambda lambda,
                                                         queries_offset + query_offset,
                                                         n_probes,
                                                         k,
+                                                        max_samples,
+                                                        chunk_indices,
                                                         index.dim(),
                                                         sample_filter,
                                                         neighbors,
@@ -1010,16 +1075,22 @@ struct select_interleaved_scan_kernel {
    * two parameters and ends with both values equal to 1.
    */
   template <typename... Args>
-  static inline void run(int capacity, int veclen, bool select_min, Args&&... args)
+  static inline void run(int k_max, int veclen, bool select_min, Args&&... args)
   {
+    if constexpr (Capacity > 0) {
+      if (k_max == 0 || k_max > Capacity) {
+        return select_interleaved_scan_kernel<T, AccT, IdxT, IvfSampleFilterT, 0, Veclen>::run(
+          k_max, veclen, select_min, std::forward<Args>(args)...);
+      }
+    }
     if constexpr (Capacity > 1) {
-      if (capacity * 2 <= Capacity) {
+      if (k_max * 2 <= Capacity) {
         return select_interleaved_scan_kernel<T,
                                               AccT,
                                               IdxT,
                                               IvfSampleFilterT,
                                               Capacity / 2,
-                                              Veclen>::run(capacity,
+                                              Veclen>::run(k_max,
                                                            veclen,
                                                            select_min,
                                                            std::forward<Args>(args)...);
@@ -1028,15 +1099,10 @@ struct select_interleaved_scan_kernel {
     if constexpr (Veclen > 1) {
       if (veclen % Veclen != 0) {
         return select_interleaved_scan_kernel<T, AccT, IdxT, IvfSampleFilterT, Capacity, 1>::run(
-          capacity, 1, select_min, std::forward<Args>(args)...);
+          k_max, 1, select_min, std::forward<Args>(args)...);
       }
     }
-    // NB: this is the limitation of the warpsort structures that use a huge number of
-    //     registers (used in the main kernel here).
-    RAFT_EXPECTS(capacity == Capacity,
-                 "Capacity must be power-of-two not bigger than the maximum allowed size "
-                 "matrix::detail::select::warpsort::kMaxCapacity (%d).",
-                 matrix::detail::select::warpsort::kMaxCapacity);
+
     RAFT_EXPECTS(
       veclen == Veclen,
       "Veclen must be power-of-two not bigger than the maximum allowed size for this data type.");
@@ -1090,6 +1156,8 @@ void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                               const raft::distance::DistanceType metric,
                               const uint32_t n_probes,
                               const uint32_t k,
+                              const uint32_t max_samples,
+                              const uint32_t* chunk_indices,
                               const bool select_min,
                               IvfSampleFilterT sample_filter,
                               IdxT* neighbors,
@@ -1097,11 +1165,9 @@ void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                               uint32_t& grid_dim_x,
                               rmm::cuda_stream_view stream)
 {
-  const int capacity = bound_by_power_of_two(k);
-
   auto filter_adapter = raft::neighbors::filtering::ivf_to_sample_filter(
     index.inds_ptrs().data_handle(), sample_filter);
-  select_interleaved_scan_kernel<T, AccT, IdxT, decltype(filter_adapter)>::run(capacity,
+  select_interleaved_scan_kernel<T, AccT, IdxT, decltype(filter_adapter)>::run(k,
                                                                                index.veclen(),
                                                                                select_min,
                                                                                metric,
@@ -1112,6 +1178,8 @@ void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                                                                                queries_offset,
                                                                                n_probes,
                                                                                k,
+                                                                               max_samples,
+                                                                               chunk_indices,
                                                                                filter_adapter,
                                                                                neighbors,
                                                                                distances,
