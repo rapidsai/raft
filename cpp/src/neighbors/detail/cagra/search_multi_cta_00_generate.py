@@ -90,11 +90,9 @@ search_types = dict(
         "uint32_t",
         "float",
     ),  # data_t, vec_idx_t, distance_t
-    half_uint32=("half", "uint32_t", "float"),
     int8_uint32=("int8_t", "uint32_t", "float"),
     uint8_uint32=("uint8_t", "uint32_t", "float"),
     float_uint64=("float", "uint64_t", "float"),
-    half_uint64=("half", "uint64_t", "float"),
 )
 # knn
 for type_path, (data_t, idx_t, distance_t) in search_types.items():

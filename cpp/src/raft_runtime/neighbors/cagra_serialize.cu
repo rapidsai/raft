@@ -22,8 +22,6 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft_runtime/neighbors/cagra.hpp>
 
-#include <cuda_fp16.h>
-
 namespace raft::runtime::neighbors::cagra {
 
 #define RAFT_INST_CAGRA_SERIALIZE(DTYPE)                                                      \
@@ -77,7 +75,6 @@ namespace raft::runtime::neighbors::cagra {
   }
 
 RAFT_INST_CAGRA_SERIALIZE(float);
-RAFT_INST_CAGRA_SERIALIZE(half);
 RAFT_INST_CAGRA_SERIALIZE(int8_t);
 RAFT_INST_CAGRA_SERIALIZE(uint8_t);
 
