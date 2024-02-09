@@ -24,8 +24,8 @@
 #include <raft/linalg/norm.cuh>                                 // raft::linalg::norm
 #include <raft/linalg/unary_op.cuh>                             // raft::linalg::unary_op
 #include <raft/matrix/detail/select_k.cuh>                      // matrix::detail::select_k
-#include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>  // interleaved_scan
 #include <raft/neighbors/detail/ivf_common.cuh>                 // raft::neighbors::detail
+#include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>  // interleaved_scan
 #include <raft/neighbors/ivf_flat_types.hpp>                    // raft::neighbors::ivf_flat::index
 #include <raft/neighbors/sample_filter_types.hpp>               // none_ivf_sample_filter
 #include <raft/spatial/knn/detail/ann_utils.cuh>                // utils::mapping
@@ -51,8 +51,8 @@ void search_impl(raft::resources const& handle,
 {
   auto stream = resource::get_cuda_stream(handle);
 
-  std::size_t n_queries_probes   = std::size_t(n_queries) * std::size_t(n_probes);
- 
+  std::size_t n_queries_probes = std::size_t(n_queries) * std::size_t(n_probes);
+
   // The norm of query
   rmm::device_uvector<float> query_norm_dev(n_queries, stream, search_mr);
   // The distance value of cluster(list) and queries
@@ -71,7 +71,7 @@ void search_impl(raft::resources const& handle,
   rmm::device_uvector<uint32_t> num_samples(0, stream, search_mr);
   // Offsets per probe for each query
   rmm::device_uvector<uint32_t> chunk_index(0, stream, search_mr);
-  
+
   size_t float_query_size;
   if constexpr (std::is_integral_v<T>) {
     float_query_size = n_queries * index.dim();
@@ -149,7 +149,6 @@ void search_impl(raft::resources const& handle,
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), n_probes);
   RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), n_probes);
 
-
   uint32_t grid_dim_x = 0;
   if (n_probes > 1) {
     // query the gridDimX size to store probes topK output
@@ -177,32 +176,32 @@ void search_impl(raft::resources const& handle,
   auto distances_dev_ptr = distances;
   auto indices_dev_ptr   = neighbors;
 
-  uint32_t max_samples = 0u;
-  bool manage_local_topk         = is_local_topk_feasible(k);
+  uint32_t max_samples   = 0u;
+  bool manage_local_topk = is_local_topk_feasible(k);
   if (!manage_local_topk || grid_dim_x > 1) {
-
     if (!manage_local_topk) {
       num_samples.resize(n_queries, stream);
       chunk_index.resize(n_queries_probes, stream);
 
-      neighbors::detail::calc_chunk_indices::configure(n_probes, n_queries)(index.list_sizes().data_handle(),
-                                                      coarse_indices_dev.data(),
-                                                      chunk_index.data(),
-                                                      num_samples.data(),
-                                                      stream);
+      neighbors::detail::calc_chunk_indices::configure(n_probes, n_queries)(
+        index.list_sizes().data_handle(),
+        coarse_indices_dev.data(),
+        chunk_index.data(),
+        num_samples.data(),
+        stream);
       max_samples = thrust::reduce(resource::get_thrust_policy(handle),
-                                 num_samples.data(),
-                                 num_samples.data() + n_queries,
-                                 (uint32_t) k,
-                                 raft::max_op{});                                                      
-      
+                                   num_samples.data(),
+                                   num_samples.data() + n_queries,
+                                   (uint32_t)k,
+                                   raft::max_op{});
+
       // TODO round up max_samples for alignment
     }
 
     auto target_size = std::size_t(n_queries) * std::max(max_samples, grid_dim_x * k);
 
     refined_distances_dev.resize(target_size, stream);
-    if(manage_local_topk) refined_indices_dev.resize(target_size, stream);
+    if (manage_local_topk) refined_indices_dev.resize(target_size, stream);
 
     distances_dev_ptr = refined_distances_dev.data();
     indices_dev_ptr   = refined_indices_dev.data();
@@ -232,34 +231,31 @@ void search_impl(raft::resources const& handle,
   // Merge topk values from different blocks
   if (!manage_local_topk || grid_dim_x > 1) {
     matrix::detail::select_k<AccT, IdxT>(handle,
-                                           refined_distances_dev.data(),
-                                           refined_indices_dev.data(),
-                                           n_queries,
-                                           manage_local_topk ? k * grid_dim_x : max_samples,
-                                           k,
-                                           distances,
-                                           neighbors,
-                                           select_min,
-                                           search_mr,
-                                           true);   // TODO remove sorted after testing!
+                                         refined_distances_dev.data(),
+                                         refined_indices_dev.data(),
+                                         n_queries,
+                                         manage_local_topk ? k * grid_dim_x : max_samples,
+                                         k,
+                                         distances,
+                                         neighbors,
+                                         select_min,
+                                         true);  // TODO remove sorted after testing!
 
     if (!manage_local_topk) {
       // post process distances && neighbor IDs
       neighbors::detail::postprocess_distances(
         distances, distances, index.metric(), n_queries, k, 1.0, stream);
       neighbors::detail::postprocess_neighbors(neighbors,
-                                                neighbors,
-                                                index.inds_ptrs().data_handle(),
-                                                coarse_indices_dev.data(),
-                                                chunk_index.data(),
-                                                n_queries,
-                                                n_probes,
-                                                k,
-                                                stream);
-
+                                               neighbors,
+                                               index.inds_ptrs().data_handle(),
+                                               coarse_indices_dev.data(),
+                                               chunk_index.data(),
+                                               n_queries,
+                                               n_probes,
+                                               k,
+                                               stream);
     }
   }
-
 }
 
 /** See raft::neighbors::ivf_flat::search docs */
