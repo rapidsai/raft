@@ -63,7 +63,6 @@ header = """
 
 types = dict(
     float_float= ("float", "float"),
-    half_float= ("half", "float"),
     int8_t_float=("int8_t", "float"),
     uint8_t_float=("uint8_t", "float"),
 )
