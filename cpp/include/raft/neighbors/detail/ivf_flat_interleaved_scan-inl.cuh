@@ -922,15 +922,6 @@ void launch_kernel(Lambda lambda,
       block_dim.x,
       n_probes,
       smem_size);
-    RAFT_LOG_WARN(
-      "Executing interleaved_scan_kernel (%d, %d, 1) x (%d, 1, 1), n_probes = %d, smem_size = %d, "
-      "Capacity = %d",
-      grid_dim.x,
-      grid_dim.y,
-      block_dim.x,
-      n_probes,
-      smem_size,
-      Capacity);
     kKernel<<<grid_dim, block_dim, smem_size, stream>>>(lambda,
                                                         post_process,
                                                         query_smem_elems,

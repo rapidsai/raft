@@ -219,8 +219,6 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
-      // TODO remove warning
-      RAFT_LOG_WARN("MFR: postprocess_distances only scale + cast");
       linalg::unaryOp(
         out,
         in,
@@ -231,8 +229,6 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
-      // TODO remove warning
-      RAFT_LOG_WARN("MFR: postprocess_distances perform scale + sqrt_op + cast");
       linalg::unaryOp(out,
                       in,
                       len,
@@ -242,8 +238,6 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
                       stream);
     } break;
     case distance::DistanceType::InnerProduct: {
-      // TODO remove warning
-      RAFT_LOG_WARN("MFR: postprocess_distances perform strange scale + cast");
       linalg::unaryOp(
         out,
         in,
