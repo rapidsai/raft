@@ -131,7 +131,7 @@ void search_main(raft::resources const& res,
     factory<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>::create(
       res, params, index.dim(), index.graph_degree(), topk);
 
-  plan->check(topk);
+  plan->check(neighbors.extent(1));
 
   RAFT_LOG_DEBUG("Cagra search");
   const uint32_t max_queries = plan->max_queries;
