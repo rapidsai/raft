@@ -52,6 +52,11 @@ struct hnsw_dist_t<uint8_t> {
   using type = int;
 };
 
+template <>
+struct hnsw_dist_t<int8_t> {
+  using type = int;
+};
+
 template <typename T>
 class HnswLib : public ANN<T> {
  public:
@@ -135,7 +140,7 @@ void HnswLib<T>::build(const T* dataset, size_t nrow, cudaStream_t)
       space_ = std::make_shared<hnswlib::L2Space>(dim_);
     }
   } else if constexpr (std::is_same_v<T, uint8_t>) {
-    space_ = std::make_shared<hnswlib::L2SpaceI>(dim_);
+    space_ = std::make_shared<hnswlib::L2SpaceI<T>>(dim_);
   }
 
   appr_alg_ = std::make_shared<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(
@@ -205,7 +210,7 @@ void HnswLib<T>::load(const std::string& path_to_index)
       space_ = std::make_shared<hnswlib::L2Space>(dim_);
     }
   } else if constexpr (std::is_same_v<T, uint8_t>) {
-    space_ = std::make_shared<hnswlib::L2SpaceI>(dim_);
+    space_ = std::make_shared<hnswlib::L2SpaceI<T>>(dim_);
   }
 
   appr_alg_ = std::make_shared<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(

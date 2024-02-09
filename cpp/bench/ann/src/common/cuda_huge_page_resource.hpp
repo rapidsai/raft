@@ -41,14 +41,6 @@ class cuda_huge_page_resource final : public rmm::mr::device_memory_resource {
   cuda_huge_page_resource& operator=(cuda_huge_page_resource const&) = default;
   cuda_huge_page_resource& operator=(cuda_huge_page_resource&&)      = default;
 
-  /**
-   * @brief Query whether the resource supports use of non-null CUDA streams for
-   * allocation/deallocation. `cuda_huge_page_resource` does not support streams.
-   *
-   * @returns bool false
-   */
-  [[nodiscard]] bool supports_streams() const noexcept override { return false; }
-
  private:
   /**
    * @brief Allocates memory of size at least `bytes` using cudaMalloc.

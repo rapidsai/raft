@@ -16,18 +16,17 @@
 
 #include <raft/matrix/detail/select_k-inl.cuh>
 
-#define instantiate_raft_matrix_detail_select_k(T, IdxT)                            \
-  template void raft::matrix::detail::select_k(raft::resources const& handle,       \
-                                               const T* in_val,                     \
-                                               const IdxT* in_idx,                  \
-                                               size_t batch_size,                   \
-                                               size_t len,                          \
-                                               int k,                               \
-                                               T* out_val,                          \
-                                               IdxT* out_idx,                       \
-                                               bool select_min,                     \
-                                               rmm::mr::device_memory_resource* mr, \
-                                               bool sorted,                         \
+#define instantiate_raft_matrix_detail_select_k(T, IdxT)                      \
+  template void raft::matrix::detail::select_k(raft::resources const& handle, \
+                                               const T* in_val,               \
+                                               const IdxT* in_idx,            \
+                                               size_t batch_size,             \
+                                               size_t len,                    \
+                                               int k,                         \
+                                               T* out_val,                    \
+                                               IdxT* out_idx,                 \
+                                               bool select_min,               \
+                                               bool sorted,                   \
                                                raft::matrix::SelectAlgo algo)
 
 instantiate_raft_matrix_detail_select_k(double, int64_t);

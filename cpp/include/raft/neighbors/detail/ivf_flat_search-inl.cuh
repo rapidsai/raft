@@ -145,8 +145,7 @@ void search_impl(raft::resources const& handle,
                                            n_probes,
                                            coarse_distances_dev.data(),
                                            coarse_indices_dev.data(),
-                                           select_min,
-                                           search_mr);
+                                           select_min);
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), n_probes);
   RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), n_probes);
 
