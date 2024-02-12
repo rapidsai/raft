@@ -69,10 +69,6 @@ TEST(Raft, Spectral)
   raft::update_device(indices.data(), h_indices.data(), h_indices.size(), handle.get_stream());
   raft::update_device(values.data(), h_values.data(), h_values.size(), handle.get_stream());
 
-  raft::print_device_vector("  offsets", offsets.data(), offsets.size(), std::cout);
-  raft::print_device_vector("  indices", indices.data(), indices.size(), std::cout);
-  raft::print_device_vector("  values", values.data(), values.size(), std::cout);
-
   raft::spectral::matrix::sparse_matrix_t<int32_t, float> const matrix{
     handle,
     offsets.data(),
