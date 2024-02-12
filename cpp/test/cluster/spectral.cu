@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "../test_utils.cuh"
+
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
@@ -60,7 +62,7 @@ TEST(Raft, Spectral)
   rmm::device_uvector<float> eigenvectors(n_eigenvectors * expected_clustering.size(),
                                           handle.get_stream());
 
-  rmm::device_uvector<int32_t> exp_dev(expected_clustering.size());
+  rmm::device_uvector<int32_t> exp_dev(expected_clustering.size(), handle.get_stream());
 
   raft::update_device(
     exp_dev.data(), expected_clustering.data(), expected_clustering.size(), handle.get_stream());
@@ -98,7 +100,7 @@ TEST(Raft, Spectral)
                           exp_dev.size(),
                           1,
                           raft::Compare<int32_t>(),
-                          stream));
+                          handle.get_stream()));
 }
 
 }  // namespace cluster

@@ -74,8 +74,10 @@ void spmm(raft::resources const& handle,
 
   // WARNING: Do not remove the following copy unless you can, with certainty, say that
   // the underlying cuSPARSE issue affecting CUDA 12.2+ has been resolved.
-  raft::copy(
-    z.data_handle(), z_tmp.data_handle(), z_tmp.size(), raft::resource::get_cuda_stream(handle));
+  raft::copy(z.data_handle(),
+             z_tmp_view.data_handle(),
+             z_tmp_view.size(),
+             raft::resource::get_cuda_stream(handle));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(descr_x));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(descr_y));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(descr_z));
