@@ -24,6 +24,13 @@
 namespace raft {
 namespace cluster {
 
+/**
+ * Warning: There appears to be a CUDA 12.2 bug in cusparse that causes an
+ * alignment issue. We've fixed the bug in our code through a workaround
+ * (see raft/sparse/linalg/spmm.hpp for fix). This test is meant to fail
+ * in the case where the fix is accidentally reverted, so that it doesn't
+ * break any downstream libraries that depend on RAFT
+ */
 TEST(Raft, Spectral)
 {
   raft::handle_t handle;
