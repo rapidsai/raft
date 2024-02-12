@@ -35,6 +35,9 @@ ignore_missing_imports = true
 # If we don't specify this, then mypy will check excluded files if
 # they are imported by a checked file.
 follow_imports = "skip"
+exclude = [
+    "pylibraft/pylibraft/test",
+ ]
 
 [tool.codespell]
 # note: pre-commit passes explicit lists of files here, which this skip file list doesn't override -

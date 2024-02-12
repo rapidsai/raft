@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 
 #include <benchmark/benchmark.h>
 
+#include <rmm/cuda_device.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
@@ -43,7 +44,7 @@ namespace raft::bench {
 struct using_pool_memory_res {
  private:
   rmm::mr::device_memory_resource* orig_res_;
-  rmm::mr::cuda_memory_resource cuda_res_;
+  rmm::mr::cuda_memory_resource cuda_res_{};
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_res_;
 
  public:
@@ -54,7 +55,9 @@ struct using_pool_memory_res {
     rmm::mr::set_current_device_resource(&pool_res_);
   }
 
-  using_pool_memory_res() : orig_res_(rmm::mr::get_current_device_resource()), pool_res_(&cuda_res_)
+  using_pool_memory_res()
+    : orig_res_(rmm::mr::get_current_device_resource()),
+      pool_res_(&cuda_res_, rmm::percent_of_free_device_memory(50))
   {
     rmm::mr::set_current_device_resource(&pool_res_);
   }
@@ -114,7 +117,8 @@ class fixture {
   raft::device_resources handle;
   rmm::cuda_stream_view stream;
 
-  fixture(bool use_pool_memory_resource = false) : stream{resource::get_cuda_stream(handle)}
+  explicit fixture(bool use_pool_memory_resource = false)
+    : stream{resource::get_cuda_stream(handle)}
   {
     // Cache memory pool between test runs, since it is expensive to create.
     // This speeds up the time required to run the select_k bench by over 3x.

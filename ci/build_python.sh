@@ -1,9 +1,13 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
-source rapids-env-update
+rapids-configure-conda-channels
+
+source rapids-configure-sccache
+
+source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
 
@@ -15,11 +19,11 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 version=$(rapids-generate-version)
 git_commit=$(git rev-parse HEAD)
-export RAPIDS_PACKAGE_VERSION=${version} 
+export RAPIDS_PACKAGE_VERSION=${version}
 echo "${version}" > VERSION
 
 package_dir="python"
-for package_name in pylibraft raft-dask; do 
+for package_name in pylibraft raft-dask; do
   underscore_package_name=$(echo "${package_name}" | tr "-" "_")
   sed -i "/^__git_commit__/ s/= .*/= \"${git_commit}\"/g" "${package_dir}/${package_name}/${underscore_package_name}/_version.py"
 done
@@ -39,10 +43,10 @@ rapids-conda-retry mambabuild \
 
 # Build ann-bench for each cuda and python version
 rapids-conda-retry mambabuild \
---no-test \
---channel "${CPP_CHANNEL}" \
---channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
-conda/recipes/raft-ann-bench
+  --no-test \
+  --channel "${CPP_CHANNEL}" \
+  --channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
+  conda/recipes/raft-ann-bench
 
 # Build ann-bench-cpu only in CUDA 11 jobs since it only depends on python
 # version

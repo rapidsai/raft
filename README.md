@@ -287,7 +287,7 @@ You can also install the conda packages individually using the `mamba` command a
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
 ```
 
-If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-23.12/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
+If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.02/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
 
 ### Installing Python through Pip
 
@@ -352,5 +352,40 @@ If citing CAGRA, please consider the following bibtex:
       eprint={2308.15136},
       archivePrefix={arXiv},
       primaryClass={cs.DS}
+}
+```
+
+If citing the k-selection routines, please consider the following bibtex:
+
+```bibtex
+@proceedings{10.1145/3581784,
+    title = {SC '23: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
+    year = {2023},
+    isbn = {9798400701092},
+    publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+    abstract = {Started in 1988, the SC Conference has become the annual nexus for researchers and practitioners from academia, industry and government to share information and foster collaborations to advance the state of the art in High Performance Computing (HPC), Networking, Storage, and Analysis.},
+    location = {, Denver, CO, USA, }
+}
+```
+
+If citing the nearest neighbors descent API, please consider the following bibtex:
+```bibtex
+@inproceedings{10.1145/3459637.3482344,
+    author = {Wang, Hui and Zhao, Wan-Lei and Zeng, Xiangxiang and Yang, Jianye},
+    title = {Fast K-NN Graph Construction by GPU Based NN-Descent},
+    year = {2021},
+    isbn = {9781450384469},
+    publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+    url = {https://doi.org/10.1145/3459637.3482344},
+    doi = {10.1145/3459637.3482344},
+    abstract = {NN-Descent is a classic k-NN graph construction approach. It is still widely employed in machine learning, computer vision, and information retrieval tasks due to its efficiency and genericness. However, the current design only works well on CPU. In this paper, NN-Descent has been redesigned to adapt to the GPU architecture. A new graph update strategy called selective update is proposed. It reduces the data exchange between GPU cores and GPU global memory significantly, which is the processing bottleneck under GPU computation architecture. This redesign leads to full exploitation of the parallelism of the GPU hardware. In the meantime, the genericness, as well as the simplicity of NN-Descent, are well-preserved. Moreover, a procedure that allows to k-NN graph to be merged efficiently on GPU is proposed. It makes the construction of high-quality k-NN graphs for out-of-GPU-memory datasets tractable. Our approach is 100-250\texttimes{} faster than the single-thread NN-Descent and is 2.5-5\texttimes{} faster than the existing GPU-based approaches as we tested on million as well as billion scale datasets.},
+    booktitle = {Proceedings of the 30th ACM International Conference on Information \& Knowledge Management},
+    pages = {1929–1938},
+    numpages = {10},
+    keywords = {high-dimensional, nn-descent, gpu, k-nearest neighbor graph},
+    location = {Virtual Event, Queensland, Australia},
+    series = {CIKM '21}
 }
 ```

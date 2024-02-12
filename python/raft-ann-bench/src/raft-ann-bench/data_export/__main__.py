@@ -43,19 +43,40 @@ skip_build_cols = set(
 )
 
 skip_search_cols = (
-    set(["recall", "qps", "items_per_second", "Recall"]) | skip_build_cols
+    set(["recall", "qps", "latency", "items_per_second", "Recall", "Latency"])
+    | skip_build_cols
 )
+
+metrics = {
+    "k-nn": {
+        "description": "Recall",
+        "worst": float("-inf"),
+        "lim": [0.0, 1.03],
+    },
+    "throughput": {
+        "description": "Queries per second (1/s)",
+        "worst": float("-inf"),
+    },
+    "latency": {
+        "description": "Search Latency (s)",
+        "worst": float("inf"),
+    },
+}
 
 
 def read_file(dataset, dataset_path, method):
     dir = os.path.join(dataset_path, dataset, "result", method)
     for file in os.listdir(dir):
         if file.endswith(".json"):
-            with open(os.path.join(dir, file), "r") as f:
+            with open(
+                os.path.join(dir, file), "r", encoding="ISO-8859-1"
+            ) as f:
                 try:
                     data = json.load(f)
                     df = pd.DataFrame(data["benchmarks"])
-                    yield os.path.join(dir, file), file.split("-")[0], df
+                    filename_split = file.split(",")
+                    algo_name = (filename_split[0], filename_split[1])
+                    yield os.path.join(dir, file), algo_name, df
                 except Exception as e:
                     print(
                         "An error occurred processing file %s (%s). "
@@ -66,7 +87,10 @@ def read_file(dataset, dataset_path, method):
 def convert_json_to_csv_build(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "build"):
         try:
-            algo_name = algo_name.replace("_base", "")
+            if "base" in algo_name[1]:
+                algo_name = algo_name[0]
+            else:
+                algo_name = "_".join(algo_name)
             df["name"] = df["name"].str.split("/").str[0]
             write = pd.DataFrame(
                 {
@@ -78,12 +102,7 @@ def convert_json_to_csv_build(dataset, dataset_path):
             for name in df:
                 if name not in skip_build_cols:
                     write[name] = df[name]
-            filepath = os.path.normpath(file).split(os.sep)
-            filename = filepath[-1].split("-")[0] + ".csv"
-            write.to_csv(
-                os.path.join(f"{os.sep}".join(filepath[:-1]), filename),
-                index=False,
-            )
+            write.to_csv(file.replace(".json", ".csv"), index=False)
         except Exception as e:
             print(
                 "An error occurred processing file %s (%s). Skipping..."
@@ -92,22 +111,62 @@ def convert_json_to_csv_build(dataset, dataset_path):
             traceback.print_exc()
 
 
+def create_pointset(data, xn, yn):
+    xm, ym = (metrics[xn], metrics[yn])
+    rev_y = -1 if ym["worst"] < 0 else 1
+    rev_x = -1 if xm["worst"] < 0 else 1
+
+    y_idx = 3 if yn == "throughput" else 4
+    data.sort(key=lambda t: (rev_y * t[y_idx], rev_x * t[2]))
+
+    lines = []
+    last_x = xm["worst"]
+    comparator = (
+        (lambda xv, lx: xv > lx) if last_x < 0 else (lambda xv, lx: xv < lx)
+    )
+    for d in data:
+        if comparator(d[2], last_x):
+            last_x = d[2]
+            lines.append(d)
+    return lines
+
+
+def get_frontier(df, metric):
+    lines = create_pointset(df.values.tolist(), "k-nn", metric)
+    return pd.DataFrame(lines, columns=df.columns)
+
+
 def convert_json_to_csv_search(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "search"):
         try:
             build_file = os.path.join(
-                dataset_path, dataset, "result", "build", f"{algo_name}.csv"
+                dataset_path,
+                dataset,
+                "result",
+                "build",
+                f"{','.join(algo_name)}.csv",
             )
-            algo_name = algo_name.replace("_base", "")
+            print(build_file)
+            if "base" in algo_name[1]:
+                algo_name = algo_name[0]
+            else:
+                algo_name = "_".join(algo_name)
             df["name"] = df["name"].str.split("/").str[0]
-            write = pd.DataFrame(
-                {
-                    "algo_name": [algo_name] * len(df),
-                    "index_name": df["name"],
-                    "recall": df["Recall"],
-                    "qps": df["items_per_second"],
-                }
-            )
+            try:
+                write = pd.DataFrame(
+                    {
+                        "algo_name": [algo_name] * len(df),
+                        "index_name": df["name"],
+                        "recall": df["Recall"],
+                        "throughput": df["items_per_second"],
+                        "latency": df["Latency"],
+                    }
+                )
+            except Exception as e:
+                print(
+                    "Search file %s (%s) missing a key. Skipping..."
+                    % (file, e)
+                )
             for name in df:
                 if name not in skip_search_cols:
                     write[name] = df[name]
@@ -120,20 +179,29 @@ def convert_json_to_csv_search(dataset, dataset_path):
                 write["build cpu_time"] = None
                 write["build GPU"] = None
 
-                for col_idx in range(6, len(build_df.columns)):
-                    col_name = build_df.columns[col_idx]
-                    write[col_name] = None
+                try:
+                    for col_idx in range(6, len(build_df.columns)):
+                        col_name = build_df.columns[col_idx]
+                        write[col_name] = None
 
-                for s_index, search_row in write.iterrows():
-                    for b_index, build_row in build_df.iterrows():
-                        if search_row["index_name"] == build_row["index_name"]:
-                            write.iloc[s_index, write_ncols] = build_df.iloc[
-                                b_index, 2
-                            ]
-                            write.iloc[
-                                s_index, write_ncols + 1 :
-                            ] = build_df.iloc[b_index, 3:]
-                            break
+                    for s_index, search_row in write.iterrows():
+                        for b_index, build_row in build_df.iterrows():
+                            if (
+                                search_row["index_name"]
+                                == build_row["index_name"]
+                            ):
+                                write.iloc[
+                                    s_index, write_ncols
+                                ] = build_df.iloc[b_index, 2]
+                                write.iloc[
+                                    s_index, write_ncols + 1 :
+                                ] = build_df.iloc[b_index, 3:]
+                                break
+                except Exception as e:
+                    print(
+                        "Build file %s (%s) missing a key. Skipping..."
+                        % (build_file, e)
+                    )
             else:
                 warnings.warn(
                     f"Build CSV not found for {algo_name}, "
@@ -141,7 +209,13 @@ def convert_json_to_csv_search(dataset, dataset_path):
                     "appended in the Search CSV"
                 )
 
-            write.to_csv(file.replace(".json", ".csv"), index=False)
+            write.to_csv(file.replace(".json", ",raw.csv"), index=False)
+            throughput = get_frontier(write, "throughput")
+            throughput.to_csv(
+                file.replace(".json", ",throughput.csv"), index=False
+            )
+            latency = get_frontier(write, "latency")
+            latency.to_csv(file.replace(".json", ",latency.csv"), index=False)
         except Exception as e:
             print(
                 "An error occurred processing file %s (%s). Skipping..."

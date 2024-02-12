@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,56 +93,56 @@ auto inputs_random_many_infs =
                   select::params{1000, 10000, 256, true, false, false, true, 0.999});
 
 using ReferencedRandomFloatInt =
-  SelectK<float, uint32_t, with_ref<select::Algo::kPublicApi>::params_random>;
+  SelectK<float, uint32_t, with_ref<SelectAlgo::kAuto>::params_random>;
 TEST_P(ReferencedRandomFloatInt, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                          // NOLINT
   SelectK,
   ReferencedRandomFloatInt,
   testing::Combine(inputs_random_longlist,
-                   testing::Values(select::Algo::kRadix8bits,
-                                   select::Algo::kRadix11bits,
-                                   select::Algo::kRadix11bitsExtraPass,
-                                   select::Algo::kWarpImmediate,
-                                   select::Algo::kWarpFiltered,
-                                   select::Algo::kWarpDistributed,
-                                   select::Algo::kWarpDistributedShm)));
+                   testing::Values(SelectAlgo::kRadix8bits,
+                                   SelectAlgo::kRadix11bits,
+                                   SelectAlgo::kRadix11bitsExtraPass,
+                                   SelectAlgo::kWarpImmediate,
+                                   SelectAlgo::kWarpFiltered,
+                                   SelectAlgo::kWarpDistributed,
+                                   SelectAlgo::kWarpDistributedShm)));
 
 using ReferencedRandomDoubleSizeT =
-  SelectK<double, int64_t, with_ref<select::Algo::kPublicApi>::params_random>;
+  SelectK<double, int64_t, with_ref<SelectAlgo::kAuto>::params_random>;
 TEST_P(ReferencedRandomDoubleSizeT, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                             // NOLINT
   SelectK,
   ReferencedRandomDoubleSizeT,
   testing::Combine(inputs_random_longlist,
-                   testing::Values(select::Algo::kRadix8bits,
-                                   select::Algo::kRadix11bits,
-                                   select::Algo::kRadix11bitsExtraPass,
-                                   select::Algo::kWarpImmediate,
-                                   select::Algo::kWarpFiltered,
-                                   select::Algo::kWarpDistributed,
-                                   select::Algo::kWarpDistributedShm)));
+                   testing::Values(SelectAlgo::kRadix8bits,
+                                   SelectAlgo::kRadix11bits,
+                                   SelectAlgo::kRadix11bitsExtraPass,
+                                   SelectAlgo::kWarpImmediate,
+                                   SelectAlgo::kWarpFiltered,
+                                   SelectAlgo::kWarpDistributed,
+                                   SelectAlgo::kWarpDistributedShm)));
 
 using ReferencedRandomDoubleInt =
-  SelectK<double, uint32_t, with_ref<select::Algo::kRadix11bits>::params_random>;
+  SelectK<double, uint32_t, with_ref<SelectAlgo::kRadix11bits>::params_random>;
 TEST_P(ReferencedRandomDoubleInt, LargeSize) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                                 // NOLINT
   SelectK,
   ReferencedRandomDoubleInt,
   testing::Combine(inputs_random_largesize,
-                   testing::Values(select::Algo::kWarpAuto,
-                                   select::Algo::kRadix8bits,
-                                   select::Algo::kRadix11bits,
-                                   select::Algo::kRadix11bitsExtraPass)));
+                   testing::Values(SelectAlgo::kWarpAuto,
+                                   SelectAlgo::kRadix8bits,
+                                   SelectAlgo::kRadix11bits,
+                                   SelectAlgo::kRadix11bitsExtraPass)));
 
 using ReferencedRandomFloatIntkWarpsortAsGT =
-  SelectK<float, uint32_t, with_ref<select::Algo::kWarpImmediate>::params_random>;
+  SelectK<float, uint32_t, with_ref<SelectAlgo::kWarpImmediate>::params_random>;
 TEST_P(ReferencedRandomFloatIntkWarpsortAsGT, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                                       // NOLINT
   SelectK,
   ReferencedRandomFloatIntkWarpsortAsGT,
   testing::Combine(inputs_random_many_infs,
-                   testing::Values(select::Algo::kRadix8bits,
-                                   select::Algo::kRadix11bits,
-                                   select::Algo::kRadix11bitsExtraPass)));
+                   testing::Values(SelectAlgo::kRadix8bits,
+                                   SelectAlgo::kRadix11bits,
+                                   SelectAlgo::kRadix11bitsExtraPass)));
 
 }  // namespace raft::matrix

@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,4 +62,5 @@ class host_vector_policy {
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 };
+
 }  // namespace raft

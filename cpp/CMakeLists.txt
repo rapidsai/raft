@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.12")
-set(RAFT_VERSION "23.12.00")
+set(RAPIDS_VERSION "24.02")
+set(RAFT_VERSION "24.02.00")
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -57,6 +57,7 @@ option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
 option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
+option(BUILD_CAGRA_HNSWLIB "Build CAGRA+hnswlib interface" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -177,8 +178,8 @@ include(cmake/modules/ConfigureCUDA.cmake)
 rapids_cpm_init()
 
 if(NOT BUILD_CPU_ONLY)
-  # thrust before rmm/cuco so we get the right version of thrust/cub
-  include(cmake/thirdparty/get_thrust.cmake)
+  # CCCL before rmm/cuco so we get the right version of CCCL
+  include(cmake/thirdparty/get_cccl.cmake)
   include(cmake/thirdparty/get_rmm.cmake)
   include(cmake/thirdparty/get_cutlass.cmake)
 
@@ -195,6 +196,10 @@ if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
   rapids_cpm_gbench()
 endif()
 
+if(BUILD_CAGRA_HNSWLIB)
+  include(cmake/thirdparty/get_hnswlib.cmake)
+endif()
+
 # ##################################################################################################
 # * raft ---------------------------------------------------------------------
 add_library(raft INTERFACE)
@@ -203,10 +208,13 @@ add_library(raft::raft ALIAS raft)
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
+if(BUILD_CAGRA_HNSWLIB)
+  target_link_libraries(raft INTERFACE hnswlib::hnswlib)
+endif()
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
+  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass CCCL::CCCL)
 endif()
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -372,16 +380,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/refine_host_float_float.cpp
     src/neighbors/detail/refine_host_int8_t_float.cpp
     src/neighbors/detail/refine_host_uint8_t_float.cpp
-    src/neighbors/detail/selection_faiss_int32_t_float.cu
-    src/neighbors/detail/selection_faiss_int_double.cu
-    src/neighbors/detail/selection_faiss_long_float.cu
-    src/neighbors/detail/selection_faiss_size_t_double.cu
-    src/neighbors/detail/selection_faiss_size_t_float.cu
-    src/neighbors/detail/selection_faiss_uint32_t_float.cu
-    src/neighbors/detail/selection_faiss_int64_t_double.cu
-    src/neighbors/detail/selection_faiss_int64_t_half.cu
-    src/neighbors/detail/selection_faiss_uint32_t_double.cu
-    src/neighbors/detail/selection_faiss_uint32_t_half.cu
     src/neighbors/ivf_flat_build_float_int64_t.cu
     src/neighbors/ivf_flat_build_int8_t_int64_t.cu
     src/neighbors/ivf_flat_build_uint8_t_int64_t.cu
@@ -420,6 +418,8 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/neighbors/cagra_build.cu
     src/raft_runtime/neighbors/cagra_search.cu
     src/raft_runtime/neighbors/cagra_serialize.cu
+    src/raft_runtime/neighbors/eps_neighborhood.cu
+    $<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:src/raft_runtime/neighbors/hnsw.cpp>
     src/raft_runtime/neighbors/ivf_flat_build.cu
     src/raft_runtime/neighbors/ivf_flat_search.cu
     src/raft_runtime/neighbors/ivf_flat_serialize.cu
@@ -439,6 +439,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
+    src/spatial/knn/detail/ball_cover/registers_eps_pass_euclidean.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_2d_dist.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_2d_euclidean.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_2d_haversine.cu
@@ -637,16 +638,6 @@ Imported Targets:
 )
 
 set(code_string ${nvtx_export_string})
-
-string(
-  APPEND
-  code_string
-  [=[
-if(NOT TARGET raft::Thrust)
-  thrust_create_target(raft::Thrust FROM_OPTIONS)
-endif()
-]=]
-)
 
 string(
   APPEND

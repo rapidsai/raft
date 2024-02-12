@@ -1,0 +1,188 @@
+--- a/hnswlib/hnswalg.h
++++ b/hnswlib/hnswalg.h
+@@ -3,6 +3,7 @@
+ #include "visited_list_pool.h"
+ #include "hnswlib.h"
+ #include <atomic>
++#include <limits>
+ #include <random>
+ #include <stdlib.h>
+ #include <assert.h>
+@@ -16,6 +17,8 @@ namespace hnswlib {
+     template<typename dist_t>
+     class HierarchicalNSW : public AlgorithmInterface<dist_t> {
+     public:
++        bool base_layer_only{false};
++        int num_seeds=32;
+         static const tableint max_update_element_locks = 65536;
+         HierarchicalNSW(SpaceInterface<dist_t> *s) {
+         }
+@@ -56,7 +59,7 @@ namespace hnswlib {
+             visited_list_pool_ = new VisitedListPool(1, max_elements);
+ 
+             //initializations for special treatment of the first node
+-            enterpoint_node_ = -1;
++            enterpoint_node_ = std::numeric_limits<tableint>::max();
+             maxlevel_ = -1;
+ 
+             linkLists_ = (char **) malloc(sizeof(void *) * max_elements_);
+@@ -527,7 +530,7 @@ namespace hnswlib {
+                     tableint *datal = (tableint *) (data + 1);
+                     for (int i = 0; i < size; i++) {
+                         tableint cand = datal[i];
+-                        if (cand < 0 || cand > max_elements_)
++                        if (cand > max_elements_)
+                             throw std::runtime_error("cand error");
+                         dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
+ 
+@@ -1067,7 +1070,7 @@ namespace hnswlib {
+                             tableint *datal = (tableint *) (data + 1);
+                             for (int i = 0; i < size; i++) {
+                                 tableint cand = datal[i];
+-                                if (cand < 0 || cand > max_elements_)
++                                if (cand > max_elements_)
+                                     throw std::runtime_error("cand error");
+                                 dist_t d = fstdistfunc_(data_point, getDataByInternalId(cand), dist_func_param_);
+                                 if (d < curdist) {
+@@ -1119,28 +1122,41 @@ namespace hnswlib {
+             tableint currObj = enterpoint_node_;
+             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
+ 
+-            for (int level = maxlevel_; level > 0; level--) {
+-                bool changed = true;
+-                while (changed) {
+-                    changed = false;
+-                    unsigned int *data;
++            if (base_layer_only) {
++                // You can increase the number of seeds when testing large-scale dataset, num_seeds = 48 for 100M-scale
++                for (int i = 0; i < num_seeds; i++) {
++                    tableint obj = i * (max_elements_ / num_seeds);
++                    dist_t dist = fstdistfunc_(query_data, getDataByInternalId(obj), dist_func_param_);
++                    if (dist < curdist) {
++                        curdist = dist;
++                        currObj = obj;
++                    }
++                }
++            }
++            else{
++                for (int level = maxlevel_; level > 0; level--) {
++                    bool changed = true;
++                    while (changed) {
++                        changed = false;
++                        unsigned int *data;
+ 
+-                    data = (unsigned int *) get_linklist(currObj, level);
+-                    int size = getListCount(data);
+-                    metric_hops++;
+-                    metric_distance_computations+=size;
++                        data = (unsigned int *) get_linklist(currObj, level);
++                        int size = getListCount(data);
++                        metric_hops++;
++                        metric_distance_computations+=size;
+ 
+-                    tableint *datal = (tableint *) (data + 1);
+-                    for (int i = 0; i < size; i++) {
+-                        tableint cand = datal[i];
+-                        if (cand < 0 || cand > max_elements_)
+-                            throw std::runtime_error("cand error");
+-                        dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
++                        tableint *datal = (tableint *) (data + 1);
++                        for (int i = 0; i < size; i++) {
++                            tableint cand = datal[i];
++                            if (cand > max_elements_)
++                                throw std::runtime_error("cand error");
++                            dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
+ 
+-                        if (d < curdist) {
+-                            curdist = d;
+-                            currObj = cand;
+-                            changed = true;
++                            if (d < curdist) {
++                                curdist = d;
++                                currObj = cand;
++                                changed = true;
++                            }
+                         }
+                     }
+                 }
+diff --git a/hnswlib/space_l2.h b/hnswlib/space_l2.h
+index 4413537..c3240f3 100644
+--- a/hnswlib/space_l2.h
++++ b/hnswlib/space_l2.h
+@@ -252,13 +252,14 @@ namespace hnswlib {
+         ~L2Space() {}
+     };
+ 
++    template <typename T>
+     static int
+     L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
+ 
+         size_t qty = *((size_t *) qty_ptr);
+         int res = 0;
+-        unsigned char *a = (unsigned char *) pVect1;
+-        unsigned char *b = (unsigned char *) pVect2;
++        T *a = (T *) pVect1;
++        T *b = (T *) pVect2;
+ 
+         qty = qty >> 2;
+         for (size_t i = 0; i < qty; i++) {
+@@ -279,11 +280,12 @@ namespace hnswlib {
+         return (res);
+     }
+ 
++    template <typename T>
+     static int L2SqrI(const void* __restrict pVect1, const void* __restrict pVect2, const void* __restrict qty_ptr) {
+         size_t qty = *((size_t*)qty_ptr);
+         int res = 0;
+-        unsigned char* a = (unsigned char*)pVect1;
+-        unsigned char* b = (unsigned char*)pVect2;
++        T* a = (T*)pVect1;
++        T* b = (T*)pVect2;
+ 
+         for(size_t i = 0; i < qty; i++)
+         {
+@@ -294,6 +296,7 @@ namespace hnswlib {
+         return (res);
+     }
+ 
++    template <typename T>
+     class L2SpaceI : public SpaceInterface<int> {
+ 
+         DISTFUNC<int> fstdistfunc_;
+@@ -302,10 +305,10 @@ namespace hnswlib {
+     public:
+         L2SpaceI(size_t dim) {
+             if(dim % 4 == 0) {
+-                fstdistfunc_ = L2SqrI4x;
++                fstdistfunc_ = L2SqrI4x<T>;
+             }
+             else {
+-                fstdistfunc_ = L2SqrI;
++                fstdistfunc_ = L2SqrI<T>;
+             }
+             dim_ = dim;
+             data_size_ = dim * sizeof(unsigned char);
+diff --git a/hnswlib/visited_list_pool.h b/hnswlib/visited_list_pool.h
+index 5e1a4a5..4195ebd 100644
+--- a/hnswlib/visited_list_pool.h
++++ b/hnswlib/visited_list_pool.h
+@@ -3,6 +3,7 @@
+ #include <mutex>
+ #include <string.h>
+ #include <deque>
++#include <limits>
+ 
+ namespace hnswlib {
+     typedef unsigned short int vl_type;
+@@ -14,7 +15,7 @@ namespace hnswlib {
+         unsigned int numelements;
+ 
+         VisitedList(int numelements1) {
+-            curV = -1;
++            curV = std::numeric_limits<vl_type>::max();
+             numelements = numelements1;
+             mass = new vl_type[numelements];
+         }
+-- 
+2.43.0
+

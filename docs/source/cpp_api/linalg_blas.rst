@@ -32,7 +32,7 @@ namespace *raft::linalg*
 gemm
 ----
 
-``#include <raft/linalg/gemm.cuh>``
+``#include <raft/linalg/gemm.hpp>``
 
 namespace *raft::linalg*
 
@@ -52,4 +52,3 @@ namespace *raft::linalg*
     :project: RAFT
     :members:
     :content-only:
-

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/neighbors/detail/ivf_pq_codepacking.cuh>
@@ -29,7 +28,6 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/core/resource/detail/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
@@ -48,11 +46,10 @@
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <thrust/extrema.h>
 #include <thrust/scan.h>
@@ -1559,7 +1556,6 @@ void extend(raft::resources const& handle,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::extend(%zu, %u)", size_t(n_rows), index->dim());
 
-  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::extend");
   auto stream           = resource::get_cuda_stream(handle);
   const auto n_clusters = index->n_lists();
 
@@ -1569,13 +1565,7 @@ void extend(raft::resources const& handle,
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported data type");
 
-  rmm::mr::device_memory_resource* device_memory = nullptr;
-  auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-  if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq::extend: using pool memory resource"); }
-
-  rmm::mr::managed_memory_resource managed_memory_upstream;
-  rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
-    &managed_memory_upstream, 1024 * 1024);
+  rmm::mr::device_memory_resource* device_memory = raft::resource::get_workspace_resource(handle);
 
   // The spec defines how the clusters look like
   auto spec = list_spec<uint32_t, IdxT>{
@@ -1593,17 +1583,9 @@ void extend(raft::resources const& handle,
   size_t free_mem, total_mem;
   RAFT_CUDA_TRY(cudaMemGetInfo(&free_mem, &total_mem));
 
-  // Decide on an approximate threshold when we'd better start saving device memory by using
-  // managed allocations for large device buffers
-  rmm::mr::device_memory_resource* labels_mr  = device_memory;
-  rmm::mr::device_memory_resource* batches_mr = device_memory;
-  if (n_rows * (index->dim() * sizeof(T) + index->pq_dim() + sizeof(IdxT) + sizeof(uint32_t)) >
-      free_mem) {
-    labels_mr = &managed_memory;
-  }
   // Allocate a buffer for the new labels (classifying the new data)
-  rmm::device_uvector<uint32_t> new_data_labels(n_rows, stream, labels_mr);
-  if (labels_mr == device_memory) { free_mem -= sizeof(uint32_t) * n_rows; }
+  rmm::device_uvector<uint32_t> new_data_labels(n_rows, stream, device_memory);
+  free_mem -= sizeof(uint32_t) * n_rows;
 
   // Calculate the batch size for the input data if it's not accessible directly from the device
   constexpr size_t kReasonableMaxBatchSize = 65536;
@@ -1632,19 +1614,13 @@ void extend(raft::resources const& handle,
     while (size_factor * max_batch_size > free_mem && max_batch_size > 128) {
       max_batch_size >>= 1;
     }
-    if (size_factor * max_batch_size > free_mem) {
-      // if that still doesn't fit, resort to the UVM
-      batches_mr     = &managed_memory;
-      max_batch_size = kReasonableMaxBatchSize;
-    } else {
-      // If we're keeping the batches in device memory, update the available mem tracker.
-      free_mem -= size_factor * max_batch_size;
-    }
+    // If we're keeping the batches in device memory, update the available mem tracker.
+    free_mem -= size_factor * max_batch_size;
   }
 
   // Predict the cluster labels for the new data, in batches if necessary
   utils::batch_load_iterator<T> vec_batches(
-    new_vectors, n_rows, index->dim(), max_batch_size, stream, batches_mr);
+    new_vectors, n_rows, index->dim(), max_batch_size, stream, device_memory);
   // Release the placeholder memory, because we don't intend to allocate any more long-living
   // temporary buffers before we allocate the index data.
   // This memory could potentially speed up UVM accesses, if any.
@@ -1717,7 +1693,7 @@ void extend(raft::resources const& handle,
   // By this point, the index state is updated and valid except it doesn't contain the new data
   // Fill the extended index with the new data (possibly, in batches)
   utils::batch_load_iterator<IdxT> idx_batches(
-    new_indices, n_rows, 1, max_batch_size, stream, batches_mr);
+    new_indices, n_rows, 1, max_batch_size, stream, device_memory);
   for (const auto& vec_batch : vec_batches) {
     const auto& idx_batch = *idx_batches++;
     process_and_fill_codes(handle,
@@ -1728,7 +1704,7 @@ void extend(raft::resources const& handle,
                              : std::variant<IdxT, const IdxT*>(IdxT(idx_batch.offset())),
                            new_data_labels.data() + vec_batch.offset(),
                            IdxT(vec_batch.size()),
-                           batches_mr);
+                           device_memory);
   }
 }
 
@@ -1758,7 +1734,6 @@ auto build(raft::resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::build(%zu, %u)", size_t(n_rows), dim);
-  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::build");
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported data type");
 
@@ -1782,21 +1757,10 @@ auto build(raft::resources const& handle,
 
     auto* device_memory = resource::get_workspace_resource(handle);
     rmm::mr::managed_memory_resource managed_memory_upstream;
-    rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
-      &managed_memory_upstream, 1024 * 1024);
-
-    // If the trainset is small enough to comfortably fit into device memory, put it there.
-    // Otherwise, use the managed memory.
-    constexpr size_t kTolerableRatio                     = 4;
-    rmm::mr::device_memory_resource* big_memory_resource = &managed_memory;
-    if (sizeof(float) * n_rows_train * index.dim() * kTolerableRatio <
-        resource::get_workspace_free_bytes(handle)) {
-      big_memory_resource = device_memory;
-    }
 
     // Besides just sampling, we transform the input dataset into floats to make it easier
     // to use gemm operations from cublas.
-    rmm::device_uvector<float> trainset(n_rows_train * index.dim(), stream, big_memory_resource);
+    rmm::device_uvector<float> trainset(n_rows_train * index.dim(), stream, device_memory);
     // TODO: a proper sampling
     if constexpr (std::is_same_v<T, float>) {
       RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
@@ -1865,7 +1829,7 @@ auto build(raft::resources const& handle,
       handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
 
     // Trainset labels are needed for training PQ codebooks
-    rmm::device_uvector<uint32_t> labels(n_rows_train, stream, big_memory_resource);
+    rmm::device_uvector<uint32_t> labels(n_rows_train, stream, device_memory);
     auto centers_const_view = raft::make_device_matrix_view<const float, IdxT>(
       cluster_centers, index.n_lists(), index.dim());
     auto labels_view = raft::make_device_vector_view<uint32_t, IdxT>(labels.data(), n_rows_train);
@@ -1894,7 +1858,7 @@ auto build(raft::resources const& handle,
                          trainset.data(),
                          labels.data(),
                          params.kmeans_n_iters,
-                         &managed_memory);
+                         &managed_memory_upstream);
         break;
       case codebook_gen::PER_CLUSTER:
         train_per_cluster(handle,
@@ -1903,7 +1867,7 @@ auto build(raft::resources const& handle,
                           trainset.data(),
                           labels.data(),
                           params.kmeans_n_iters,
-                          &managed_memory);
+                          &managed_memory_upstream);
         break;
       default: RAFT_FAIL("Unreachable code");
     }
