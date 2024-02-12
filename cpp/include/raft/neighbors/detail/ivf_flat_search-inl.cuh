@@ -195,7 +195,7 @@ void search_impl(raft::resources const& handle,
                                    (uint32_t)k,
                                    raft::max_op{});
 
-      // TODO round up max_samples for alignment
+      max_samples = Pow2<128 / sizeof(AccT)>::roundUp(max_samples);
     }
 
     auto target_size = std::size_t(n_queries) * std::max(max_samples, grid_dim_x * k);
@@ -238,8 +238,7 @@ void search_impl(raft::resources const& handle,
                                          k,
                                          distances,
                                          neighbors,
-                                         select_min,
-                                         true);  // TODO remove sorted after testing!
+                                         select_min);
 
     if (!manage_local_topk) {
       // post process distances && neighbor IDs
