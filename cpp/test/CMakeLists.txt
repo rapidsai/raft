@@ -363,11 +363,9 @@ if(BUILD_TESTS)
     NEIGHBORS_ANN_CAGRA_TEST
     PATH
     test/neighbors/ann_cagra/test_float_uint32_t.cu
-    test/neighbors/ann_cagra/test_half_uint32_t.cu
     test/neighbors/ann_cagra/test_int8_t_uint32_t.cu
     test/neighbors/ann_cagra/test_uint8_t_uint32_t.cu
     test/neighbors/ann_cagra/test_float_int64_t.cu
-    test/neighbors/ann_cagra/test_half_int64_t.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim128_t8.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim256_t16.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim512_t32.cu
@@ -376,14 +374,6 @@ if(BUILD_TESTS)
     src/neighbors/detail/cagra/search_single_cta_float_uint64_dim256_t16.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint64_dim512_t32.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint64_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint64_dim1024_t32.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
     GPUS
