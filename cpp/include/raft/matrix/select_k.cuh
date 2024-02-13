@@ -112,7 +112,6 @@ void select_k(raft::resources const& handle,
                                    out_val.data_handle(),
                                    out_idx.data_handle(),
                                    select_min,
-                                   nullptr,
                                    sorted,
                                    algo);
 }
