@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,13 +32,14 @@ namespace raft::neighbors::cagra {
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/cagra_serialize.hpp>
  *
  * raft::resources handle;
  *
  * // create an output stream
  * std::ostream os(std::cout.rdbuf());
- * // create an index with `auto index = cagra::build(...);`
- * raft::serialize(handle, os, index);
+ * // create an index with `auto index = raft::cagra::build(...);`
+ * raft::cagra::serialize(handle, os, index);
  * @endcode
  *
  * @tparam T data element type
@@ -66,13 +67,14 @@ void serialize(raft::resources const& handle,
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/cagra_serialize.hpp>
  *
  * raft::resources handle;
  *
  * // create a string with a filepath
  * std::string filename("/path/to/index");
- * // create an index with `auto index = cagra::build(...);`
- * raft::serialize(handle, filename, index);
+ * // create an index with `auto index = raft::cagra::build(...);`
+ * raft::cagra::serialize(handle, filename, index);
  * @endcode
  *
  * @tparam T data element type
@@ -100,13 +102,14 @@ void serialize(raft::resources const& handle,
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/cagra_serialize.hpp>
  *
  * raft::resources handle;
  *
  * // create an output stream
  * std::ostream os(std::cout.rdbuf());
- * // create an index with `auto index = cagra::build(...);`
- * raft::serialize_to_hnswlib(handle, os, index);
+ * // create an index with `auto index = raft::cagra::build(...);`
+ * raft::cagra::serialize_to_hnswlib(handle, os, index);
  * @endcode
  *
  * @tparam T data element type
@@ -120,25 +123,26 @@ void serialize(raft::resources const& handle,
 template <typename T, typename IdxT>
 void serialize_to_hnswlib(raft::resources const& handle,
                           std::ostream& os,
-                          const index<T, IdxT>& index)
+                          const raft::neighbors::cagra::index<T, IdxT>& index)
 {
   detail::serialize_to_hnswlib<T, IdxT>(handle, os, index);
 }
 
 /**
- * Write the CAGRA built index as a base layer HNSW index to file
+ * Save a CAGRA build index in hnswlib base-layer-only serialized format
  *
  * Experimental, both the API and the serialization format are subject to change.
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/cagra_serialize.hpp>
  *
  * raft::resources handle;
  *
  * // create a string with a filepath
  * std::string filename("/path/to/index");
- * // create an index with `auto index = cagra::build(...);`
- * raft::serialize_to_hnswlib(handle, filename, index);
+ * // create an index with `auto index = raft::cagra::build(...);`
+ * raft::cagra::serialize_to_hnswlib(handle, filename, index);
  * @endcode
  *
  * @tparam T data element type
@@ -152,7 +156,7 @@ void serialize_to_hnswlib(raft::resources const& handle,
 template <typename T, typename IdxT>
 void serialize_to_hnswlib(raft::resources const& handle,
                           const std::string& filename,
-                          const index<T, IdxT>& index)
+                          const raft::neighbors::cagra::index<T, IdxT>& index)
 {
   detail::serialize_to_hnswlib<T, IdxT>(handle, filename, index);
 }
@@ -164,6 +168,7 @@ void serialize_to_hnswlib(raft::resources const& handle,
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/cagra_serialize.hpp>
  *
  * raft::resources handle;
  *
@@ -171,7 +176,7 @@ void serialize_to_hnswlib(raft::resources const& handle,
  * std::istream is(std::cin.rdbuf());
  * using T    = float; // data element type
  * using IdxT = int; // type of the index
- * auto index = raft::deserialize<T, IdxT>(handle, is);
+ * auto index = raft::cagra::deserialize<T, IdxT>(handle, is);
  * @endcode
  *
  * @tparam T data element type
@@ -195,6 +200,7 @@ index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
  *
  * @code{.cpp}
  * #include <raft/core/resources.hpp>
+ * #include <raft/neighbors/cagra_serialize.hpp>
  *
  * raft::resources handle;
  *
@@ -202,7 +208,7 @@ index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
  * std::string filename("/path/to/index");
  * using T    = float; // data element type
  * using IdxT = int; // type of the index
- * auto index = raft::deserialize<T, IdxT>(handle, filename);
+ * auto index = raft::cagra::deserialize<T, IdxT>(handle, filename);
  * @endcode
  *
  * @tparam T data element type

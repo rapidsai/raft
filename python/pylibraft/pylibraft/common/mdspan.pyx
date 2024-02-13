@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ from cpython.object cimport PyObject
 from cython.operator cimport dereference as deref
 from libc.stddef cimport size_t
 from libc.stdint cimport int8_t, int32_t, int64_t, uint8_t, uint32_t, uintptr_t
+from libcpp cimport bool
 
 from pylibraft.common.cpp.mdspan cimport (
     col_major,
@@ -160,6 +161,18 @@ cdef device_matrix_view[float, int64_t, row_major] \
     return make_device_matrix_view[float, int64_t, row_major](
         <float*><uintptr_t>cai.data, shape[0], shape[1])
 
+
+cdef device_matrix_view[bool, int64_t, row_major] \
+        get_dmv_bool(cai, check_shape) except *:
+    if cai.dtype != np.bool_:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[bool, int64_t, row_major](
+        <bool*><uintptr_t>cai.data, shape[0], shape[1])
+
+
 cdef device_matrix_view[uint8_t, int64_t, row_major] \
         get_dmv_uint8(cai, check_shape) except *:
     if cai.dtype != np.uint8:
@@ -290,13 +303,24 @@ cdef host_matrix_view[int64_t, int64_t, row_major] \
 
 cdef host_matrix_view[uint32_t, int64_t, row_major] \
         get_hmv_uint32(cai, check_shape) except *:
-    if cai.dtype != np.int64:
+    if cai.dtype != np.uint32:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
         raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
     shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
     return make_host_matrix_view[uint32_t, int64_t, row_major](
         <uint32_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef host_matrix_view[uint64_t, int64_t, row_major] \
+        get_hmv_uint64(cai, check_shape) except *:
+    if cai.dtype != np.uint64:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_host_matrix_view[uint64_t, int64_t, row_major](
+        <uint64_t*><uintptr_t>cai.data, shape[0], shape[1])
 
 
 cdef host_matrix_view[const_float, int64_t, row_major] \

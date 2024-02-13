@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, layout_right,
 template <class ElementType, class Extents, class Accessor>
 constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, layout_stride, Accessor> m)
 {
-  return m.is_exhaustive();
+  return is_row_major(m) || is_col_major(m);
 }
 
 template <class ElementType, class Extents, class Layout, class Accessor>
@@ -63,7 +63,7 @@ constexpr bool is_row_major(mdspan<ElementType, Extents, layout_right, Accessor>
 template <class ElementType, class Extents, class Accessor>
 constexpr bool is_row_major(mdspan<ElementType, Extents, layout_stride, Accessor> m)
 {
-  return m.is_exhaustive() && m.stride(1) == typename Extents::index_type(1);
+  return m.stride(1) == typename Extents::index_type(1) && m.stride(0) >= m.extent(1);
 }
 
 template <class ElementType, class Extents, class Layout, class Accessor>
@@ -87,7 +87,7 @@ constexpr bool is_col_major(mdspan<ElementType, Extents, layout_right, Accessor>
 template <class ElementType, class Extents, class Accessor>
 constexpr bool is_col_major(mdspan<ElementType, Extents, layout_stride, Accessor> m)
 {
-  return m.is_exhaustive() && m.stride(0) == typename Extents::index_type(1);
+  return m.stride(0) == typename Extents::index_type(1) && m.stride(1) >= m.extent(0);
 }
 
 template <class ElementType, class IndexType, size_t... Exts, class Layout, class Accessor>
