@@ -46,6 +46,14 @@ Commonly used datasets can be downloaded from two websites:
     ```
     Besides ground truth files for the whole billion-scale datasets, this site also provides ground truth files for the first 10M or 100M vectors of the base sets. This mean we can use these billion-scale datasets as million-scale datasets. To facilitate this, an optional parameter `subset_size` for dataset can be used. See the next step for further explanation.
 
+3. Synthetic dataset
+To generate a synthetic dataset with random data you can use the following command
+```bash
+python -m raft-ann-bench.generate_dataset --rows 1000000 --cols 128 --dtype float32 dataset/base.fbin
+```
+Here `rows` stands determines the number of dataset vectors, and `cols` refers to the number of features each vector has.
+By default random blobs are generated using [make_blobs](https://docs.rapids.ai/api/cuml/latest/api/#cuml.datasets.make_blobs), alternatively uniform random can be also used. Keep in mind that large number of dimensions and uniform random numbers will lead to a dataset that hard to search accurately using ANN methods.
+
 ## Generate ground truth
 
 If you have a dataset, but no corresponding ground truth file, then you can generate ground trunth using the `generate_groundtruth` utility. Example usage:
