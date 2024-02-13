@@ -40,12 +40,12 @@ class BenchLogLevel(enum.IntEnum):
     trace = 5
 
 
-class BenchSearchBasicParamConfig(_common.BaseModel):
+class BenchConfig_SearchBasicParam(_common.BaseModel):
     k: int
     batch_size: int
 
 
-class BenchIndexConfig(_common.BaseModel):
+class BenchConfig_Index(_common.BaseModel):
     name: str
     algo: str
     file: str
@@ -56,14 +56,14 @@ class BenchIndexConfig(_common.BaseModel):
 
 class BenchConfig(_common.BaseModel):
     dataset: _config.DatasetConfig
-    search_basic_param: BenchSearchBasicParamConfig
-    index: list[BenchIndexConfig]
+    search_basic_param: BenchConfig_SearchBasicParam
+    index: list[BenchConfig_Index]
 
 
 class BenchParams(_common.BaseModel):
     """Parameters for the benchmark executable.
 
-    See cpp/bench/ann/src/common/benchmark.hpp for details.
+    See `cpp/bench/ann/src/common/benchmark.hpp` for details.
     """
 
     # Custom parameters
@@ -125,7 +125,7 @@ class BenchBuilder(_common.BaseModel):
                 search_result_name=self._make_search_result_name(group_name),
                 config=BenchConfig(
                     dataset=self.dataset_config,
-                    search_basic_param=BenchSearchBasicParamConfig(
+                    search_basic_param=BenchConfig_SearchBasicParam(
                         k=self.k, batch_size=self.batch_size
                     ),
                     index=self._make_index_configs(group_name, algo_params),
@@ -136,8 +136,8 @@ class BenchBuilder(_common.BaseModel):
 
     def _make_index_configs(
         self, group_name: str, algo_params: _config.AlgoParams
-    ) -> list[BenchIndexConfig]:
-        """Get the valid parameters for the benchmark executable."""
+    ) -> list[BenchConfig_Index]:
+        """Generate BenchConfig_Index from build and search params."""
         index_configs = []
 
         build_params = _common.lists_to_dicts(algo_params.build or {})
@@ -148,12 +148,15 @@ class BenchBuilder(_common.BaseModel):
             if self._is_build_param_valid(bparam)
         ]
         for bparam in valid_build_params:
-            # Construct BenchIndexConfig
+            # Construct BenchConfig_Index
             valid_search_params = [
                 sparam
                 for sparam in search_params
                 if self._is_search_param_valid(
-                    sparam, bparam, self.k, self.batch_size
+                    build_param=bparam,
+                    search_param=sparam,
+                    k=self.k,
+                    batch_size=self.batch_size,
                 )
             ]
             index_name = self._make_index_name(
@@ -161,7 +164,7 @@ class BenchBuilder(_common.BaseModel):
             )
             index_file_prefix = self._make_index_file_prefix()
             index_configs.append(
-                BenchIndexConfig(
+                BenchConfig_Index(
                     name=index_name,
                     file=str(index_file_prefix / index_name),
                     algo=self.algo_config.name,
@@ -261,7 +264,7 @@ class BenchRunner(_common.BaseModel):
 
     This class is responsible for calling the benchmark executable.
     The arguments reflect the parameters of the benchmark executable in
-    cpp/bench/ann/src/common/benchmark.hpp
+    `cpp/bench/ann/src/common/benchmark.hpp`.
 
     Attributes
     ----------
@@ -270,9 +273,12 @@ class BenchRunner(_common.BaseModel):
     build_result_name (str): The name of the build result file.
     search_result_name (str): The name of the search result file.
     config (BenchConfig): The benchmark configuration.
+        See `cpp/bench/ann/src/common/conf.hpp` for details.
     params (BenchParams): The CLI parameters when the executable is called.
-    dry_run (bool): Whether to perform a dry run.
-    temp_dir (Union[str, pathlib.Path]): The temporary directory path.
+        See `cpp/bench/ann/src/common/benchmark.hpp` for details.
+    dry_run (bool): Whether to perform a dry run. Defaults to False.
+    temp_dir (Union[str, pathlib.Path]): The directory for storing temporary
+        files. Defaults to "".
     """
 
     executable_path: Union[str, pathlib.Path]

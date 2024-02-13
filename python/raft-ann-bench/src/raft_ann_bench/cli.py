@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import enum
 import logging
-from typing import Annotated, List, Optional
+from typing import Optional
 
 import typer
 
@@ -26,7 +26,7 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 runner_app = typer.Typer(pretty_exceptions_show_locals=False)
 app.add_typer(runner_app, name="run")
 
-
+# Remap the enum integer values to strings
 BenchLogLevelStr = enum.Enum(
     "BenchLogLevelStr",
     {kk: kk for kk in _runner.BenchLogLevel.__members__.keys()},
@@ -63,15 +63,33 @@ def main(ctx: typer.Context, verbose: bool = False):
 @runner_app.callback()
 def runner_main(
     ctx: typer.Context,
-    algorithms: str = typer.Option(),
-    dataset: str = typer.Option(),
-    k: int = 10,
-    batch_size: int = 1,
-    algorithm_config: Optional[str] = None,
-    algorithm_library_config: Optional[str] = None,
-    dataset_config: Optional[str] = None,
-    dry_run: bool = False,
+    dataset: str = typer.Option(..., help="Name of the dataset."),
+    algorithms: str = typer.Option(
+        ..., help="Comma-separated list of algorithm names."
+    ),
+    k: int = typer.Option(10, help="Number of nearest neighbors to retrieve."),
+    batch_size: int = typer.Option(
+        1, help="Number of queries to process in each batch."
+    ),
+    algorithm_config: Optional[str] = typer.Option(
+        None, help="Path to an additional algorithm configuration file."
+    ),
+    algorithm_library_config: Optional[str] = typer.Option(
+        None,
+        help="Path to an additional algorithm library configuration file.",
+    ),
+    dataset_config: Optional[str] = typer.Option(
+        None, help="Path to an additional dataset configuration file."
+    ),
+    dry_run: bool = typer.Option(False, help="If True, performs a dry run."),
 ):
+    """
+    Run the benchmark executable.
+
+    Notes that this main command will set up the necessary configurations
+    for running the subcommands `build` and `search`.
+    """
+
     algorithms = algorithms.split(",")
 
     all_dataset_configs = {
@@ -134,12 +152,27 @@ def runner_main(
 )
 def runner_build(
     ctx: typer.Context,
-    data_prefix: Optional[str] = None,
-    force: bool = False,
-    raft_log_level: BenchLogLevelStr = BenchLogLevelStr.info.value,
-    override_kv: Annotated[Optional[List[str]], typer.Option()] = None,
+    data_prefix: Optional[str] = typer.Option(
+        None, help="The prefix for the data files."
+    ),
+    force: bool = typer.Option(
+        False, help="Flag indicating whether to force overwrite."
+    ),
+    raft_log_level: BenchLogLevelStr = typer.Option(  # type: ignore
+        BenchLogLevelStr.info.value, help="The log level for the raft library."
+    ),
+    override_kv: list[str] = typer.Option(
+        None, help="The override key-value pairs."
+    ),
 ):
-    """Build parameters passed on to the ANN executable."""
+    """Pass on build parameters to the ANN executable.
+
+    In addition to the parameters specified here, the command also accepts
+    arbitrary key-value pairs as extra arguments. These key-value pairs will
+    be passed to the executable as is. See
+    `cpp/bench/ann/src/common/benchmark.hpp` for details.
+
+    """
     raft_log_level = getattr(_runner.BenchLogLevel, raft_log_level.value)
     data_prefix = data_prefix or _common.get_data_prefix()
 
@@ -174,15 +207,31 @@ def runner_build(
 )
 def runner_search(
     ctx: typer.Context,
-    data_prefix: Optional[str] = None,
-    index_prefix: Optional[str] = None,
-    mode: Optional[BenchSearchMode] = None,
-    threads: Optional[str] = None,
-    force: bool = False,
-    raft_log_level: BenchLogLevelStr = BenchLogLevelStr.info.value,
-    override_kv: Annotated[Optional[List[str]], typer.Option()] = None,
+    data_prefix: Optional[str] = typer.Option(
+        None, help="The prefix for the data files."
+    ),
+    index_prefix: Optional[str] = typer.Option(
+        None, help="The prefix for the index files."
+    ),
+    mode: BenchSearchMode = typer.Option(None, help="The search mode."),
+    threads: str = typer.Option(None, help="The number of threads to use."),
+    force: bool = typer.Option(
+        False, help="Flag indicating whether to force overwrite."
+    ),
+    raft_log_level: BenchLogLevelStr = typer.Option(  # type: ignore
+        BenchLogLevelStr.info.value, help="The log level for the raft library."
+    ),
+    override_kv: list[str] = typer.Option(
+        None, help="The override key-value pairs."
+    ),
 ):
-    """Search parameters passed on to the ANN executable."""
+    """Pass on search parameters to the ANN executable.
+
+    In addition to the parameters specified here, the command also accepts
+    arbitrary key-value pairs as extra arguments. These key-value pairs will
+    be passed to the executable as is. See
+    `cpp/bench/ann/src/common/benchmark.hpp` for details.
+    """
     raft_log_level = getattr(_runner.BenchLogLevel, raft_log_level.value)
     data_prefix = data_prefix or _common.get_data_prefix()
 

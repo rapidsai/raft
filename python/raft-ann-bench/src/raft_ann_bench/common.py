@@ -34,7 +34,10 @@ DEFAULT_DATASET_CONFIG_FILE = DEFAULT_CONFIG_DIR / "datasets.yaml"
 
 
 class BaseModel(pydantic.BaseModel):
-    """Use the same Pydantic BaseModel configuration for all models."""
+    """Use the same Pydantic BaseModel configuration for all data models.
+
+    In particular, we forbid data models to have extra fields.
+    """
 
     model_config = pydantic.ConfigDict(extra="forbid")
 
@@ -65,13 +68,12 @@ def reset_logger(level: int = logging.WARN):
     """
     Reset the logger for the current module with the specified log level.
 
-    This is a fix to account for `typer` modifying the root logger
-    when `typer` is imported.
+    This is a fix for `typer` modifying the root logger when it is imported.
 
     Args
     ----
     level (int): The log level to set for the logger. Defaults to
-    logging.WARN.
+        logging.WARN.
     """
     module_name = __name__.rsplit(".", 1)[0]
     module_logger = logging.getLogger(module_name)
@@ -86,7 +88,9 @@ def import_callable(name: str) -> Callable:
 
     Args
     ----
-    name (str): The name of the callable to import.
+    name (str): The name of the callable to import, in the form of
+        `root_module.parent_module.callable`. For example, to import this
+        callable, use `raft_ann_bench.common.import_callable`.
     """
     module_name, callable_name = name.rsplit(".", 1)
     module = importlib.import_module(module_name)
@@ -99,10 +103,10 @@ def import_callable(name: str) -> Callable:
 
 def lists_to_dicts(dict_of_lists: dict[str, list]) -> list[dict]:
     """Convert a dictionary of lists to a list of dictionaries."""
-    dict_keys = dict_of_lists.keys()
+    keys = dict_of_lists.keys()
     dict_value_tuples = itertools.product(*dict_of_lists.values())
 
     return [
-        {kk: vv for kk, vv in zip(dict_keys, vtuple)}
-        for vtuple in dict_value_tuples
+        {kk: vv for kk, vv in zip(keys, val_tuple)}
+        for val_tuple in dict_value_tuples
     ]

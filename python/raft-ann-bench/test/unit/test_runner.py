@@ -55,7 +55,7 @@ class TestBenchParams(unittest.TestCase):
             threads="4",
             raft_log_level=BenchLogLevel.debug.value,
             override_kv=["param1:value1", "param2:value2"],
-            arg=["--arg1=value1", "--arg2=value2"],
+            extra_args=["--arg1=value1", "--arg2=value2"],
         )
         args = params.to_args()
         self.assertEqual(
@@ -157,9 +157,9 @@ class TestBenchBuilder(unittest.TestCase):
         )
         expected_runner = BenchRunner(
             executable_path=executable,
-            build_result_name="{},{}".format(dataset, group),
+            build_result_name="{},{}".format(algo, group),
             search_result_name="{},{},k{},bs{}".format(
-                dataset, group, k, batch_size
+                algo, group, k, batch_size
             ),
             config=BenchConfig(**expected_config),
             params=params,

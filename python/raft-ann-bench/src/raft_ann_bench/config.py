@@ -23,11 +23,9 @@ from . import common as _common
 
 
 class AlgoLibConfig(_common.BaseModel):
-    """Configuration concerning an algorithm's library.
+    """Configuration concerning the algorithm's library.
 
-    # FIXME: should this be merged with AlgoConfig?
-
-    The following is a valid specification for the `faiss_gpu_flat` algorithm:
+    The following is a valid configuration for the `faiss_gpu_flat` algorithm:
 
         ```yaml
         executable: FAISS_GPU_FLAT_ANN_BENCH
@@ -39,30 +37,19 @@ class AlgoLibConfig(_common.BaseModel):
     requires_gpu: bool = False
 
 
-class AlgoConstraints(_common.BaseModel):
-    """Constraints for an algorithm.
-
-    A constraint should be a string describing a function in a Python module.
-    For example, `raft_ann_bench.has_gpu.has_gpu`.
-    """
-
-    build: Optional[str] = None
-    search: Optional[str] = None
-
-
 class AlgoParams(_common.BaseModel):
     """Parameters for an algorithm.
 
-    A valid configuration looks like the following, where the build or
-    search parameters must be lists:
+    The following is a valid parameter set. Note that
+    all parameters should be lists:
 
         ```yaml
         build:
-            param1: [value]
-            param2: [value]
+            param1: [value, ...]
+            param2: [value, ...]
         search:
-            param1: [value]
-            param2: [value]
+            param1: [value, ...]
+            param2: [value, ...]
         ```
     """
 
@@ -79,10 +66,21 @@ class AlgoParams(_common.BaseModel):
                 raise ValueError("All search parameters should be lists")
 
 
+class AlgoConfig_Constraints(_common.BaseModel):
+    """Constraints for an algorithm.
+
+    A constraint should be a string describing a callable in a Python module.
+    For example, `raft_ann_bench.common.has_gpu`.
+    """
+
+    build: Optional[str] = None
+    search: Optional[str] = None
+
+
 class AlgoConfig(_common.BaseModel):
     """Base class for all algorithm configurations.
 
-    A valid configuration looks like this:
+    The following is a valid configuration for the `faiss_cpu_flat` algorithm.
 
         ```yaml
         name: faiss_cpu_flat
@@ -97,8 +95,8 @@ class AlgoConfig(_common.BaseModel):
     """
 
     name: str
-    constraints: Optional[AlgoConstraints] = pydantic.Field(
-        default_factory=AlgoConstraints
+    constraints: Optional[AlgoConfig_Constraints] = pydantic.Field(
+        default_factory=AlgoConfig_Constraints
     )
     groups: dict[str, AlgoParams]
 
@@ -117,7 +115,7 @@ class DatasetConfig(_common.BaseModel):
     subset_size: Optional[int] = None
     subset_first_row: Optional[int] = None
     dtype: Optional[str] = None
-    # Extra. Used for build constraints
+    # Extra. Used for validation against build constraints
     dims: Optional[int] = None
 
 

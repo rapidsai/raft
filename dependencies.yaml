@@ -129,6 +129,7 @@ files:
     includes:
       - test_python_common
       - test_pylibraft
+      - test_raft_ann_bench
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -521,3 +522,8 @@ dependencies:
         packages:
           - scikit-learn
           - scipy
+  test_raft_ann_bench:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - typer-cli ~=0.0.13
