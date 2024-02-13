@@ -21,6 +21,8 @@
 #include <raft/neighbors/sample_filter_types.hpp>  // none_ivf_sample_filter
 #include <raft/util/raft_explicit.hpp>             // RAFT_EXPLICIT
 
+#include <cuda_fp16.h>
+
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::ivf_flat::detail {
@@ -56,6 +58,8 @@ void search(raft::resources const& handle,
 
 instantiate_raft_neighbors_ivf_flat_detail_search(
   float, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
+instantiate_raft_neighbors_ivf_flat_detail_search(
+  half, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_search(
   int8_t, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_search(
