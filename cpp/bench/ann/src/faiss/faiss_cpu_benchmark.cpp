@@ -50,10 +50,10 @@ void parse_build_param(const nlohmann::json& conf,
 {
   parse_base_build_param<T>(conf, param);
   param.M = conf.at("M");
-  if (conf.contains("usePrecomputed")) {
-    param.usePrecomputed = conf.at("usePrecomputed");
+  if (conf.contains("use_precomputed_table")) {
+    param.use_precomputed_table = conf.at("use_precomputed_table");
   } else {
-    param.usePrecomputed = false;
+    param.use_precomputed_table = false;
   }
   if (conf.contains("bitsPerCode")) {
     param.bitsPerCode = conf.at("bitsPerCode");

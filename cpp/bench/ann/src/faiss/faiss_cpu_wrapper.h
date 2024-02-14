@@ -234,11 +234,12 @@ class FaissCpuIVFPQ : public FaissCpu<T> {
   struct BuildParam : public FaissCpu<T>::BuildParam {
     int M;
     int bitsPerCode;
-    bool usePrecomputed;
+    bool use_precomputed_table;
   };
 
   FaissCpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)
   {
+    std::cout << "inside FaissCpuIVFPQ constructor" << std::endl;
     this->init_quantizer(dim);
     this->index_ = std::make_shared<faiss::IndexIVFPQ>(
       this->quantizer_.get(), dim, param.nlist, param.M, param.bitsPerCode, this->metric_type_);
