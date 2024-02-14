@@ -347,6 +347,7 @@ void bench_search(::benchmark::State& state,
       state.SkipWithError("Algo::copy: " + std::string(e.what()));
       return;
     }
+    // Initialize with algo, so that the timer.lap() object can sync with algo::get_sync_stream()
     cuda_timer gpu_timer{algo};
     auto start = std::chrono::high_resolution_clock::now();
     for (auto _ : state) {
