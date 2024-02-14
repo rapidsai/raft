@@ -95,7 +95,7 @@ TEST(Raft, Spectral)
                             eigenvalues.data(),
                             eigenvectors.data());
 
-  ASSERT_TRUE(devArrMatch(expected_clustering.data(),
+  ASSERT_TRUE(devArrMatch(clustering.data(),
                           exp_dev.data(),
                           exp_dev.size(),
                           1,
