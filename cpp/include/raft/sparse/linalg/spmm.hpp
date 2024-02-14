@@ -64,7 +64,9 @@ void spmm(raft::resources const& handle,
   // and incorrect results. This bug is fixed in CUDA 12.5+ so this workaround shouldn't be removed
   // until that version is supported.
   auto z_tmp = raft::make_device_matrix<ValueType, IndexType>(handle, z.extent(0), z.extent(1));
-  raft::copy(z_tmp.data_handle(), z.data_handle(), z.size(), raft::resource::get_cuda_stream(handle));
+  raft::copy(
+    z_tmp.data_handle(), z.data_handle(), z.size(), raft::resource::get_cuda_stream(handle));
+
   auto z_tmp_view =
     is_row_major ? raft::make_device_strided_matrix_view<ValueType, IndexType, layout_c_contiguous>(
                      z_tmp.data_handle(), z.extent(0), z.extent(1), z.stride(0))
