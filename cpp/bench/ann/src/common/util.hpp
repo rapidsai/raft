@@ -206,7 +206,7 @@ struct non_blocking_stream {
     if (stream_ != nullptr) { cudaStreamDestroy(stream_); }
   }
   non_blocking_stream(non_blocking_stream const&) = delete;
-  non_blocking_stream(non_blocking_stream&& other) { std::swap(stream_, other.stream_); }
+  non_blocking_stream(non_blocking_stream&& other) noexcept { std::swap(stream_, other.stream_); }
   auto operator=(non_blocking_stream const&) -> non_blocking_stream& = delete;
   auto operator=(non_blocking_stream&&) -> non_blocking_stream&      = delete;
   [[nodiscard]] auto view() const noexcept -> cudaStream_t { return stream_; }
