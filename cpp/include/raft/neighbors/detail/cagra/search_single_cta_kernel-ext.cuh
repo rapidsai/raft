@@ -18,8 +18,6 @@
 #include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
 
-#include <cuda_fp16.h>
-
 namespace raft::neighbors::cagra::detail {
 namespace single_cta_search {
 
@@ -98,14 +96,6 @@ instantiate_single_cta_select_and_run(
   16, 256, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_single_cta_select_and_run(
   32, 512, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
-instantiate_single_cta_select_and_run(
-  32, 1024, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
-instantiate_single_cta_select_and_run(
-  8, 128, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
-instantiate_single_cta_select_and_run(
-  16, 256, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
-instantiate_single_cta_select_and_run(
-  32, 512, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_single_cta_select_and_run(
   32, 1024, int8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_single_cta_select_and_run(
