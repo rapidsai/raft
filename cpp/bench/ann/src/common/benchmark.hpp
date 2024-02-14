@@ -24,10 +24,8 @@
 #include <raft/core/logger.hpp>
 
 #include <algorithm>
-#include <atomic>
 #include <chrono>
 #include <cmath>
-#include <condition_variable>
 #include <cstdint>
 #include <fstream>
 #include <limits>
@@ -40,77 +38,6 @@
 #include <vector>
 
 namespace raft::bench::ann {
-
-/**
- * A simple progress tracker that allows syncing threads multiple times and resets the global
- * progress once the threads are done.
- */
-struct progress_sync {
-  progress_sync() = default;
-  ~progress_sync() noexcept
-  {
-    {
-      // Lock makes sure the notified threads see the updates to `done_`.
-      std::unique_lock lk(mutex_);
-      done_.store(true, std::memory_order_relaxed);
-      cv_.notify_all();
-    }
-    // This is the only place where the order of the updates to thread_progress_ and done_ is
-    // important. They are not guarded by the mutex, and `done_` must not be reset to `true` by
-    // other threads after the `total_progress_` is zero.
-    // Hence the default memory order (std::memory_order_seq_cst).
-    auto rem = total_progress_.fetch_sub(thread_progress_);
-    if (rem == thread_progress_) {
-      // the last thread to exit clears the progress state.
-      done_.store(false);
-    }
-  }
-
-  /**
-   * Advance the progress counter by `n` and return the previous `progress` value.
-   *
-   * This can be used to track which thread arrives on the call site first.
-   *
-   * @return the previous progress counter value (before incrementing it by `n`).
-   */
-  auto fetch_progress(int n)
-  {
-    thread_progress_ += n;
-    // Lock makes sure the notified threads see the updates to `total_progress_`.
-    std::unique_lock lk(mutex_);
-    auto prev = total_progress_.fetch_add(n, std::memory_order_relaxed);
-    cv_.notify_all();
-    return prev;
-  }
-
-  /**
-   * Wait till the progress counter reaches `n` or finishes abnormally.
-   *
-   * @return the latest observed value of the progress counter.
-   */
-  auto wait_for_progress(int limit)
-  {
-    int cur = total_progress_.load(std::memory_order_relaxed);
-    if (cur >= limit) { return cur; }
-    auto done = done_.load(std::memory_order_relaxed);
-    if (done) { return cur; }
-    std::unique_lock lk(mutex_);
-    while (cur < limit && !done) {
-      using namespace std::chrono_literals;
-      cv_.wait_for(lk, 10ms);
-      cur  = total_progress_.load(std::memory_order_relaxed);
-      done = done_.load(std::memory_order_relaxed);
-    }
-    return cur;
-  }
-
- private:
-  static inline std::atomic<int> total_progress_;
-  static inline std::atomic<bool> done_;
-  static inline std::mutex mutex_;
-  static inline std::condition_variable cv_;
-  int thread_progress_{0};
-};
 
 static inline std::unique_ptr<AnnBase> current_algo{nullptr};
 static inline std::unique_ptr<AlgoProperty> current_algo_props{nullptr};
