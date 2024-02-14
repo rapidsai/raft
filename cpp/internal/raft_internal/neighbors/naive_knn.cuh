@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
@@ -90,8 +92,7 @@ void naive_knn(raft::resources const& handle,
                uint32_t k,
                raft::distance::DistanceType type)
 {
-  rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource();
-
+  auto mr     = resource::get_workspace_resource(handle);
   auto stream = raft::resource::get_cuda_stream(handle);
   dim3 block_dim(16, 32, 1);
   // maximum reasonable grid size in `y` direction
@@ -118,8 +119,7 @@ void naive_knn(raft::resources const& handle,
                                           static_cast<int>(k),
                                           dist_topk + offset * k,
                                           indices_topk + offset * k,
-                                          type != raft::distance::DistanceType::InnerProduct,
-                                          mr);
+                                          type != raft::distance::DistanceType::InnerProduct);
   }
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }

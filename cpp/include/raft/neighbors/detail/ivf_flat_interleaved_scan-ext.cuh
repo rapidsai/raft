@@ -22,6 +22,8 @@
 #include <raft/util/raft_explicit.hpp>             // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>                // rmm:cuda_stream_view
 
+#include <cuda_fp16.h>
+
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::ivf_flat::detail {
@@ -67,6 +69,8 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
 
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
   float, float, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
+instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
+  half, half, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
   int8_t, int32_t, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
