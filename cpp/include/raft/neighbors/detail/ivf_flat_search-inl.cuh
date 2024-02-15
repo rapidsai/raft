@@ -24,7 +24,7 @@
 #include <raft/linalg/norm.cuh>                                 // raft::linalg::norm
 #include <raft/linalg/unary_op.cuh>                             // raft::linalg::unary_op
 #include <raft/matrix/detail/select_k.cuh>                      // matrix::detail::select_k
-#include <raft/neighbors/detail/ivf_common.cuh>                 // raft::neighbors::detail
+#include <raft/neighbors/detail/ivf_common.cuh>                 // raft::neighbors::detail::ivf
 #include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>  // interleaved_scan
 #include <raft/neighbors/ivf_flat_types.hpp>                    // raft::neighbors::ivf_flat::index
 #include <raft/neighbors/sample_filter_types.hpp>               // none_ivf_sample_filter
@@ -43,6 +43,7 @@ void search_impl(raft::resources const& handle,
                  uint32_t queries_offset,
                  uint32_t k,
                  uint32_t n_probes,
+                 uint32_t max_samples,
                  bool select_min,
                  IdxT* neighbors,
                  AccT* distances,
@@ -176,29 +177,21 @@ void search_impl(raft::resources const& handle,
   auto distances_dev_ptr = distances;
   auto indices_dev_ptr   = neighbors;
 
-  uint32_t max_samples   = 0u;
   bool manage_local_topk = is_local_topk_feasible(k);
   if (!manage_local_topk || grid_dim_x > 1) {
     if (!manage_local_topk) {
       num_samples.resize(n_queries, stream);
       chunk_index.resize(n_queries_probes, stream);
 
-      neighbors::detail::calc_chunk_indices::configure(n_probes, n_queries)(
+      neighbors::detail::ivf::calc_chunk_indices::configure(n_probes, n_queries)(
         index.list_sizes().data_handle(),
         coarse_indices_dev.data(),
         chunk_index.data(),
         num_samples.data(),
         stream);
-      max_samples = thrust::reduce(resource::get_thrust_policy(handle),
-                                   num_samples.data(),
-                                   num_samples.data() + n_queries,
-                                   (uint32_t)k,
-                                   raft::max_op{});
-
-      max_samples = Pow2<128 / sizeof(AccT)>::roundUp(max_samples);
     }
 
-    auto target_size = std::size_t(n_queries) * std::max(max_samples, grid_dim_x * k);
+    auto target_size = std::size_t(n_queries) * (manage_local_topk ? grid_dim_x * k : max_samples);
 
     refined_distances_dev.resize(target_size, stream);
     if (manage_local_topk) refined_indices_dev.resize(target_size, stream);
@@ -242,17 +235,17 @@ void search_impl(raft::resources const& handle,
 
     if (!manage_local_topk) {
       // post process distances && neighbor IDs
-      neighbors::detail::postprocess_distances(
+      neighbors::detail::ivf::postprocess_distances(
         distances, distances, index.metric(), n_queries, k, 1.0, stream);
-      neighbors::detail::postprocess_neighbors(neighbors,
-                                               neighbors,
-                                               index.inds_ptrs().data_handle(),
-                                               coarse_indices_dev.data(),
-                                               chunk_index.data(),
-                                               n_queries,
-                                               n_probes,
-                                               k,
-                                               stream);
+      neighbors::detail::ivf::postprocess_neighbors(neighbors,
+                                                    neighbors,
+                                                    index.inds_ptrs().data_handle(),
+                                                    coarse_indices_dev.data(),
+                                                    chunk_index.data(),
+                                                    n_queries,
+                                                    n_probes,
+                                                    k,
+                                                    stream);
     }
   }
 }
@@ -278,14 +271,32 @@ inline void search(raft::resources const& handle,
   if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
-  auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
+  auto n_probes          = std::min<uint32_t>(params.n_probes, index.n_lists());
+  bool manage_local_topk = is_local_topk_feasible(k);
+
+  uint32_t max_samples = 0;
+  if (!manage_local_topk) {
+    IdxT ms = Pow2<128 / sizeof(float)>::roundUp(index.accum_sorted_sizes()(n_probes));
+    RAFT_EXPECTS(ms <= IdxT(std::numeric_limits<uint32_t>::max()),
+                 "The maximum sample size is too big.");
+    max_samples = ms;
+  }
 
   // a batch size heuristic: try to keep the workspace within the specified size
-  constexpr uint32_t kExpectedWsSize = 1024 * 1024 * 1024;
+  constexpr uint64_t kExpectedWsSize = 1024 * 1024 * 1024;
+  uint64_t max_ws_size = std::min(resource::get_workspace_free_bytes(handle), kExpectedWsSize);
+
+  uint64_t ws_size_per_query =
+    // fixed
+    4ull * (2 * n_probes + index.n_lists() + index.dim() + 1)
+        // fused
+        + manage_local_topk
+      ? ((sizeof(IdxT) + 4) * n_probes * k)
+      // non-fused
+      : (4ull * (max_samples + n_probes + 1));
+
   const uint32_t max_queries =
-    std::min<uint32_t>(n_queries,
-                       raft::div_rounding_up_safe<uint64_t>(
-                         kExpectedWsSize, 16ull * uint64_t{n_probes} * k + 4ull * index.dim()));
+    std::min<uint32_t>(n_queries, raft::div_rounding_up_safe(max_ws_size, ws_size_per_query));
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
@@ -297,6 +308,7 @@ inline void search(raft::resources const& handle,
                                                   offset_q,
                                                   k,
                                                   n_probes,
+                                                  max_samples,
                                                   raft::distance::is_min_close(index.metric()),
                                                   neighbors + offset_q * k,
                                                   distances + offset_q * k,

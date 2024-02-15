@@ -642,8 +642,9 @@ struct flat_block_sort {
 };
 
 template <typename T, bool Ascending, typename IdxT>
-struct flat_block_sort<0, Ascending, T, IdxT> : neighbors::detail::dummy_block_sort_t<T, IdxT> {
-  using type = neighbors::detail::dummy_block_sort_t<T, IdxT>;
+struct flat_block_sort<0, Ascending, T, IdxT>
+  : neighbors::detail::ivf::dummy_block_sort_t<T, IdxT> {
+  using type = neighbors::detail::ivf::dummy_block_sort_t<T, IdxT>;
 };
 
 template <int Capacity, bool Ascending, typename T, typename IdxT>

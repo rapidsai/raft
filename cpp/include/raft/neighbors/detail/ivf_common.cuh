@@ -20,7 +20,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>  // matrix::detail::select::warpsort::warp_sort_distributed
 
-namespace raft::neighbors::detail {
+namespace raft::neighbors::detail::ivf {
 
 /**
  * Default value returned by `search` when the `n_probes` is too small and top-k is too large.
@@ -250,4 +250,4 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
   }
 }
 
-}  // namespace raft::neighbors::detail
+}  // namespace raft::neighbors::detail::ivf
