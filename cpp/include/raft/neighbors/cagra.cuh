@@ -395,7 +395,8 @@ void search(raft::resources const& res,
  *
  *   // update graph
  *   const uint32_t update_batch_size = 100;
- *   cagra::add_nodes(res, update_dataset.view(), index, update_batch_size, updated_graph.view());
+ *   cagra::add_graph_nodes(res, update_dataset.view(), index, update_batch_size,
+ * updated_graph.view());
  *   // update index
  *   index.update_graph(updated_graph);
  *   index.update_dataset(updated_dataset);
@@ -412,11 +413,11 @@ void search(raft::resources const& res,
  * original_index->graph_degree()]
  */
 template <class T, class IdxT>
-void add_nodes(raft::resources const& handle,
-               const raft::device_matrix_view<const T, std::int64_t> updated_dataset,
-               const raft::neighbors::cagra::index<T, IdxT>& original_index,
-               const std::size_t max_batch_size,
-               raft::host_matrix_view<IdxT, std::int64_t> updated_graph)
+void add_graph_nodes(raft::resources const& handle,
+                     const raft::device_matrix_view<const T, std::int64_t> updated_dataset,
+                     const raft::neighbors::cagra::index<T, IdxT>& original_index,
+                     const std::size_t max_batch_size,
+                     raft::host_matrix_view<IdxT, std::int64_t> updated_graph)
 {
   assert(updated_dataset.extent(0) >= original_index.size());
 
