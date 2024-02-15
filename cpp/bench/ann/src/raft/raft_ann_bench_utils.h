@@ -62,11 +62,7 @@ class configured_raft_resources {
    * It's used by the copy constructor.
    */
   explicit configured_raft_resources(const std::shared_ptr<device_mr_t>& mr)
-    : mr_{mr},
-      workspace_dev_mr_{},
-      workspace_mr_(&workspace_dev_mr_, 128 * 1024 * 1024ull),
-      res_{rmm::cuda_stream_view(get_stream_from_global_pool()),
-           std::shared_ptr<rmm::mr::device_memory_resource>(&workspace_mr_, raft::void_op{})}
+    : mr_{mr}, res_{rmm::cuda_stream_view(get_stream_from_global_pool())}
   {
   }
 
@@ -121,11 +117,6 @@ class configured_raft_resources {
    * used by anyone directly.
    */
   std::shared_ptr<device_mr_t> mr_;
-  /**
-   * Each benchmark wrapper has its own copy of the workspace resource to avoid mutex congestion.
-   */
-  rmm::mr::cuda_memory_resource workspace_dev_mr_;
-  device_mr_t workspace_mr_;
   /**
    * Until we make the use of copies of raft::resources thread-safe, each benchmark wrapper must
    * have its own copy of it.
