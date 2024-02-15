@@ -23,5 +23,4 @@ ucxx_version:
   - "0.37.*"
 
 cmake_version:
-cmake_version:
   - ">=3.26.4"
