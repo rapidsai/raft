@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,9 +137,42 @@ void reset_index(const raft::resources& res, index<T, IdxT>* index)
 {
   auto stream = resource::get_cuda_stream(res);
 
+  utils::memzero(
+    index->accum_sorted_sizes().data_handle(), index->accum_sorted_sizes().size(), stream);
   utils::memzero(index->list_sizes().data_handle(), index->list_sizes().size(), stream);
   utils::memzero(index->data_ptrs().data_handle(), index->data_ptrs().size(), stream);
   utils::memzero(index->inds_ptrs().data_handle(), index->inds_ptrs().size(), stream);
 }
+
+/**
+ * @brief Helper exposing the re-computation of list sizes and related arrays if IVF lists have been
+ * modified.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   raft::resources res;
+ *   // use default index parameters
+ *   ivf_flat::index_params index_params;
+ *   // initialize an empty index
+ *   ivf_flat::index<int64_t> index(res, index_params, D);
+ *   ivf_flat::helpers::reset_index(res, &index);
+ *   // recompute the internal state of the index
+ *   ivf_flat::recompute_internal_state(res, &index);
+ * @endcode
+ *
+ * @tparam T
+ * @tparam IdxT
+ *
+ * @param[in] res raft resource
+ * @param[inout] index pointer to IVF-FLAT index
+ */
+template <typename T, typename IdxT>
+void recompute_internal_state(const raft::resources& res, index<T, IdxT>* index)
+{
+  auto& list = index->lists()[0];
+  ivf_flat::detail::recompute_internal_state(res, *index);
+}
+
 /** @} */
 }  // namespace raft::neighbors::ivf_flat::helpers

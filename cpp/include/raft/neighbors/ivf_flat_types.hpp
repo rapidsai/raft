@@ -241,9 +241,11 @@ struct index : ann::index {
     return accum_sorted_sizes_.view();
   }
 
-
   /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return accum_sorted_sizes()(n_lists()); }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
+  {
+    return accum_sorted_sizes()(n_lists());
+  }
 
   /** Dimensionality of the data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
@@ -376,7 +378,7 @@ struct index : ann::index {
   device_vector<T*, uint32_t> data_ptrs_;
   device_vector<IdxT*, uint32_t> inds_ptrs_;
   host_vector<IdxT, uint32_t> accum_sorted_sizes_;
-  
+
   static auto calculate_veclen(uint32_t dim) -> uint32_t
   {
     // TODO: consider padding the dimensions and fixing veclen to its maximum possible value as a

@@ -1157,9 +1157,11 @@ void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                               uint32_t& grid_dim_x,
                               rmm::cuda_stream_view stream)
 {
+  const int capacity = bound_by_power_of_two(k);
+
   auto filter_adapter = raft::neighbors::filtering::ivf_to_sample_filter(
     index.inds_ptrs().data_handle(), sample_filter);
-  select_interleaved_scan_kernel<T, AccT, IdxT, decltype(filter_adapter)>::run(k,
+  select_interleaved_scan_kernel<T, AccT, IdxT, decltype(filter_adapter)>::run(capacity,
                                                                                index.veclen(),
                                                                                select_min,
                                                                                metric,

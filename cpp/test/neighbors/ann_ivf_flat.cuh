@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -354,7 +354,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
       ivf::resize_list(handle_, lists[label], list_device_spec, list_size, 0);
     }
 
-    idx.recompute_internal_state(handle_);
+    helpers::recompute_internal_state(handle_, &idx);
 
     using interleaved_group = Pow2<kIndexGroupSize>;
 
