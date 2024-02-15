@@ -800,7 +800,7 @@ class AnnCagraAddNodesTest : public ::testing::TestWithParam<AnnCagraInputs> {
           (const DataT*)database.data(), ps.n_rows, ps.dim);
 
         const std::size_t update_batch_size = 100;
-        raft::neighbors::cagra::add_nodes<DataT, IdxT>(
+        raft::neighbors::cagra::add_graph_nodes<DataT, IdxT>(
           handle_, updated_database_view, index, update_batch_size, updated_graph.view());
         index.update_graph(handle_, raft::make_const_mdspan(updated_graph.view()));
         index.update_dataset(handle_, raft::make_const_mdspan(updated_database_view));
