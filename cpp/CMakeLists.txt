@@ -555,15 +555,21 @@ rapids_find_generate_module(
   INSTALL_EXPORT_SET raft-distributed-exports
 )
 
-rapids_export_package(BUILD ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python)
-rapids_export_package(INSTALL ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python)
+rapids_export_package(
+  BUILD ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python
+)
+rapids_export_package(
+  INSTALL ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx
+                                                                              ucxx::python
+)
 rapids_export_package(BUILD NCCL raft-distributed-exports)
 rapids_export_package(INSTALL NCCL raft-distributed-exports)
 
 # ucx is a requirement for raft_distributed, but its config is not safe to be
 # found multiple times, so rather than exporting a package dependency on it
-# above we rely on rapids_export_package(ucxx) to trigger bringing it in
-# transitively
+# above we rely on consumers to find it themselves. Once
+# https://github.com/rapidsai/ucxx/issues/173 is resolved we can export it
+# above again.
 target_link_libraries(raft_distributed INTERFACE ucx::ucp ucxx::ucxx NCCL::NCCL)
 
 # ##################################################################################################
