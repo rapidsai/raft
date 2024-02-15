@@ -356,12 +356,12 @@ struct nvtx_case {
 };
 
 /**
- * A simple progress tracker that allows syncing threads multiple times and resets the global
+ * A progress tracker that allows syncing threads multiple times and resets the global
  * progress once the threads are done.
  */
-struct progress_sync {
-  progress_sync() = default;
-  ~progress_sync() noexcept
+struct progress_barrier {
+  progress_barrier() = default;
+  ~progress_barrier() noexcept
   {
     {
       // Lock makes sure the notified threads see the updates to `done_`.
@@ -387,7 +387,7 @@ struct progress_sync {
    *
    * @return the previous progress counter value (before incrementing it by `n`).
    */
-  auto fetch_progress(int n)
+  auto arrive(int n)
   {
     thread_progress_ += n;
     // Lock makes sure the notified threads see the updates to `total_progress_`.
@@ -402,7 +402,7 @@ struct progress_sync {
    *
    * @return the latest observed value of the progress counter.
    */
-  auto wait_for_progress(int limit)
+  auto wait(int limit)
   {
     int cur = total_progress_.load(std::memory_order_relaxed);
     if (cur >= limit) { return cur; }
