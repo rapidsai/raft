@@ -20,5 +20,5 @@ if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; the
 else
     python -m pytest ./python/raft-dask/raft_dask/test
     python -m pytest ./python/raft-dask/raft_dask/test --run_ucx
-    # python -m pytest ./python/raft-dask/raft_dask/test --run_ucxx  # UCXX wheels not available yet
+    python -m pytest ./python/raft-dask/raft_dask/test --run_ucxx
 fi
