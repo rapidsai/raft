@@ -579,9 +579,7 @@ class PredicatedTileIteratorReducedVec {
         thread_start_row_ += ThreadMap::Count::kGroup * ThreadMap::Shape::kGroup *
                              ThreadMap::Count::kRow * ThreadMap::Shape::kRow;
 
-        if (state_[2] == ThreadMap::Count::kCluster) {
-          state_[2] = 0;
-        }
+        if (state_[2] == ThreadMap::Count::kCluster) { state_[2] = 0; }
       }
     }
     return *this;
