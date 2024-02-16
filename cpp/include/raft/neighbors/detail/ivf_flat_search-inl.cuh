@@ -183,7 +183,7 @@ void search_impl(raft::resources const& handle,
       num_samples.resize(n_queries, stream);
       chunk_index.resize(n_queries_probes, stream);
 
-      neighbors::detail::ivf::calc_chunk_indices::configure(n_probes, n_queries)(
+      ivf::detail::calc_chunk_indices::configure(n_probes, n_queries)(
         index.list_sizes().data_handle(),
         coarse_indices_dev.data(),
         chunk_index.data(),
@@ -235,17 +235,17 @@ void search_impl(raft::resources const& handle,
 
     if (!manage_local_topk) {
       // post process distances && neighbor IDs
-      neighbors::detail::ivf::postprocess_distances(
+      ivf::detail::postprocess_distances(
         distances, distances, index.metric(), n_queries, k, 1.0, stream);
-      neighbors::detail::ivf::postprocess_neighbors(neighbors,
-                                                    neighbors,
-                                                    index.inds_ptrs().data_handle(),
-                                                    coarse_indices_dev.data(),
-                                                    chunk_index.data(),
-                                                    n_queries,
-                                                    n_probes,
-                                                    k,
-                                                    stream);
+      ivf::detail::postprocess_neighbors(neighbors,
+                                         neighbors,
+                                         index.inds_ptrs().data_handle(),
+                                         coarse_indices_dev.data(),
+                                         chunk_index.data(),
+                                         n_queries,
+                                         n_probes,
+                                         k,
+                                         stream);
     }
   }
 }
