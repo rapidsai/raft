@@ -116,6 +116,9 @@ struct search_params : ann::search_params {
   uint32_t num_random_samplings = 1;
   /** Bit mask used for initial random seed node selection. */
   uint64_t rand_xor_mask = 0x128394;
+
+  /** Distance metric */
+  distance::DistanceType metric = distance::L2Expanded;
 };
 
 static_assert(std::is_aggregate_v<index_params>);

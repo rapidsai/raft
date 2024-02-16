@@ -48,6 +48,7 @@ namespace multi_cta_search {
     size_t min_iterations,                                                                  \
     size_t max_iterations,                                                                  \
     SAMPLE_FILTER_T sample_filter,                                                          \
+    distance::DistanceType metric,                                                           \
     cudaStream_t stream);
 
 instantiate_kernel_selection(
@@ -92,6 +93,7 @@ namespace single_cta_search {
     size_t min_iterations,                                                                  \
     size_t max_iterations,                                                                  \
     SAMPLE_FILTER_T sample_filter,                                                          \
+    distance::DistanceType metric,                                                          \
     cudaStream_t stream);
 
 instantiate_single_cta_select_and_run(

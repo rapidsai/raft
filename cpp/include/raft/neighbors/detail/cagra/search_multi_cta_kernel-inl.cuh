@@ -153,7 +153,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const uint32_t min_iteration,
   const uint32_t max_iteration,
   uint32_t* const num_executed_iterations, /* stats */
-  SAMPLE_FILTER_T sample_filter)
+  SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric)
 {
   const auto num_queries       = gridDim.y;
   const auto query_id          = blockIdx.y;
@@ -240,6 +241,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
     num_seeds,
     local_visited_hashmap_ptr,
     hash_bitlen,
+    metric,
     block_id,
     num_blocks);
   __syncthreads();
@@ -286,7 +288,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
       hash_bitlen,
       parent_indices_buffer,
       result_indices_buffer,
-      search_width);
+      search_width,
+      metric);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 
@@ -483,6 +486,7 @@ void select_and_run(  // raft::resources const& res,
   size_t min_iterations,
   size_t max_iterations,
   SAMPLE_FILTER_T sample_filter,
+  distance::DistanceType metric,
   cudaStream_t stream)
 {
   auto kernel =
@@ -527,7 +531,8 @@ void select_and_run(  // raft::resources const& res,
                                                        min_iterations,
                                                        max_iterations,
                                                        num_executed_iterations,
-                                                       sample_filter);
+                                                       sample_filter,
+                                                       metric);
 }
 
 }  // namespace multi_cta_search

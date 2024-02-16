@@ -241,6 +241,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
       min_iterations,
       max_iterations,
       sample_filter,
+      this->metric,
       stream);
   }
 };

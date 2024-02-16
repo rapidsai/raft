@@ -54,6 +54,7 @@ void select_and_run(raft::device_matrix_view<const DATA_T, int64_t, layout_strid
                     size_t min_iterations,
                     size_t max_iterations,
                     SAMPLE_FILTER_T sample_filter,
+                    distance::DistanceType metric,
                     cudaStream_t stream) RAFT_EXPLICIT;
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -84,6 +85,7 @@ void select_and_run(raft::device_matrix_view<const DATA_T, int64_t, layout_strid
     size_t min_iterations,                                                                  \
     size_t max_iterations,                                                                  \
     SAMPLE_FILTER_T sample_filter,                                                          \
+    distance::DistanceType metric,                                                          \
     cudaStream_t stream);
 
 instantiate_kernel_selection(

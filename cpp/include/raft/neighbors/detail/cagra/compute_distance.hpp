@@ -201,6 +201,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   const uint32_t num_seeds,
   INDEX_T* const visited_hash_ptr,
   const uint32_t hash_bitlen,
+  raft::distance::DistanceType metric,
   const uint32_t block_id   = 0,
   const uint32_t num_blocks = 1)
 {
@@ -228,7 +229,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         }
       }
 
-      const auto norm2 = dist_op(dataset_ptr + dataset_ld * seed_index, dataset_dim, valid_i);
+      const auto norm2 = dist_op(dataset_ptr + dataset_ld * seed_index, dataset_dim, valid_i, metric);
 
       if (valid_i && (norm2 < best_norm2_team_local)) {
         best_norm2_team_local = norm2;
@@ -272,7 +273,8 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
                                                   const std::uint32_t hash_bitlen,
                                                   const INDEX_T* const parent_indices,
                                                   const INDEX_T* const internal_topk_list,
-                                                  const std::uint32_t search_width)
+                                                  const std::uint32_t search_width,
+                                                  raft::distance::DistanceType metric)
 {
   constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
   const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
@@ -315,7 +317,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
     DISTANCE_T norm2 =
-      dist_op(dataset_ptr + child_id * dataset_ld, dataset_dim, child_id != invalid_index);
+      dist_op(dataset_ptr + child_id * dataset_ld, dataset_dim, child_id != invalid_index, metric);
 
     // Store the distance
     const unsigned lane_id = threadIdx.x % TEAM_SIZE;

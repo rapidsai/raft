@@ -104,7 +104,8 @@ RAFT_KERNEL random_pickup_kernel(const DATA_T* const dataset_ptr,  // [dataset_s
                                  DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
                                  const std::uint32_t ldr,                 // (*) ldr >= num_pickup
                                  INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
-                                 const std::uint32_t hash_bitlen)
+                                 const std::uint32_t hash_bitlen,
+                                 distance::DistanceType metric)
 {
   const auto ldb               = hashmap::get_size(hash_bitlen);
   const auto global_team_index = (blockIdx.x * blockDim.x + threadIdx.x) / TEAM_SIZE;
@@ -138,7 +139,7 @@ RAFT_KERNEL random_pickup_kernel(const DATA_T* const dataset_ptr,  // [dataset_s
       seed_index = device::xorshift64((global_team_index ^ rand_xor_mask) * (i + 1)) % dataset_size;
     }
 
-    const auto norm2 = dist_op(dataset_ptr + (dataset_ld * seed_index), dataset_dim, true);
+    const auto norm2 = dist_op(dataset_ptr + (dataset_ld * seed_index), dataset_dim, true, metric);
 
     if (norm2 < best_norm2_team_local) {
       best_norm2_team_local = norm2;
@@ -181,6 +182,7 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
                    const std::size_t ldr,                   // (*) ldr >= num_pickup
                    INDEX_T* const visited_hashmap_ptr,      // [num_queries, 1 << bitlen]
                    const std::uint32_t hash_bitlen,
+                   distance::DistanceType metric,
                    cudaStream_t const cuda_stream = 0)
 {
   const auto block_size                = 256u;
@@ -207,7 +209,8 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
                                                         result_distances_ptr,
                                                         ldr,
                                                         visited_hashmap_ptr,
-                                                        hash_bitlen);
+                                                        hash_bitlen,
+                                                        metric);
 }
 
 template <class INDEX_T>
@@ -334,7 +337,8 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   INDEX_T* const result_indices_ptr,       // [num_queries, ldd]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,                 // (*) ldd >= search_width * graph_degree
-  SAMPLE_FILTER_T sample_filter)
+  SAMPLE_FILTER_T sample_filter,
+  distance::DistanceType metric)
 {
   const uint32_t ldb        = hashmap::get_size(hash_bitlen);
   const auto tid            = threadIdx.x + blockDim.x * blockIdx.x;
@@ -381,7 +385,7 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
     visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id);
 
   const auto norm2 =
-    dist_op(dataset_ptr + (dataset_ld * child_id), dataset_dim, compute_distance_flag);
+    dist_op(dataset_ptr + (dataset_ld * child_id), dataset_dim, compute_distance_flag, metric);
 
   if (compute_distance_flag) {
     if (threadIdx.x % TEAM_SIZE == 0) {
@@ -430,6 +434,7 @@ void compute_distance_to_child_nodes(
   DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,                 // (*) ldd >= search_width * graph_degree
   SAMPLE_FILTER_T sample_filter,
+  distance::DistanceType metric,
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
@@ -460,7 +465,8 @@ void compute_distance_to_child_nodes(
                                                         result_indices_ptr,
                                                         result_distances_ptr,
                                                         ldd,
-                                                        sample_filter);
+                                                        sample_filter,
+                                                        metric);
 }
 
 template <class INDEX_T>
@@ -844,6 +850,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
       result_buffer_allocation_size,
       hashmap.data(),
       hash_bitlen,
+      this->metric,
       stream);
 
     unsigned iter = 0;
@@ -916,6 +923,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
         result_distances.data() + itopk_size,
         result_buffer_allocation_size,
         sample_filter,
+        this->metric,
         stream);
 
       iter++;
