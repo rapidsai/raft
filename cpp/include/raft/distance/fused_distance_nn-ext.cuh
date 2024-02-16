@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,20 +67,12 @@ void fusedDistanceNNMinReduce(OutT* min,
     float metric_arg,                                                               \
     cudaStream_t stream)
 
-instantiate_raft_distance_fusedDistanceNNMinReduce(double, double, int);
-instantiate_raft_distance_fusedDistanceNNMinReduce(double, double, int64_t);
 instantiate_raft_distance_fusedDistanceNNMinReduce(float, float, int);
 instantiate_raft_distance_fusedDistanceNNMinReduce(float, float, int64_t);
 
 // We can't have comma's in the macro expansion, so we use the COMMA macro:
 #define COMMA ,
 
-instantiate_raft_distance_fusedDistanceNNMinReduce(double,
-                                                   raft::KeyValuePair<int COMMA double>,
-                                                   int);
-instantiate_raft_distance_fusedDistanceNNMinReduce(double,
-                                                   raft::KeyValuePair<int64_t COMMA double>,
-                                                   int64_t);
 instantiate_raft_distance_fusedDistanceNNMinReduce(float, raft::KeyValuePair<int COMMA float>, int);
 instantiate_raft_distance_fusedDistanceNNMinReduce(float,
                                                    raft::KeyValuePair<int64_t COMMA float>,

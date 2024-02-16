@@ -57,18 +57,6 @@ void fused_distance_nn_min_arg(raft::resources const& handle,
                                bool isRowMajor,
                                float metric_arg);
 
-void fused_distance_nn_min_arg(raft::resources const& handle,
-                               int* min,
-                               const double* x,
-                               const double* y,
-                               int m,
-                               int n,
-                               int k,
-                               bool sqrt,
-                               raft::distance::DistanceType metric,
-                               bool isRowMajor,
-                               float metric_arg);
-
 /** @} */  // end group fused_distance_nn_min_arg_runtime
 
 }  // end namespace raft::runtime::distance

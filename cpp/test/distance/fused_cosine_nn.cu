@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
+
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/kvp.hpp>

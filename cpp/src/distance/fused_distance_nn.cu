@@ -36,20 +36,12 @@
     float metric_arg,                                                         \
     cudaStream_t stream)
 
-instantiate_raft_distance_fusedDistanceNNMinReduce(double, double, int);
-instantiate_raft_distance_fusedDistanceNNMinReduce(double, double, int64_t);
 instantiate_raft_distance_fusedDistanceNNMinReduce(float, float, int);
 instantiate_raft_distance_fusedDistanceNNMinReduce(float, float, int64_t);
 
 // We can't have comma's in the macro expansion, so we use the COMMA macro:
 #define COMMA ,
 
-instantiate_raft_distance_fusedDistanceNNMinReduce(double,
-                                                   raft::KeyValuePair<int COMMA double>,
-                                                   int);
-instantiate_raft_distance_fusedDistanceNNMinReduce(double,
-                                                   raft::KeyValuePair<int64_t COMMA double>,
-                                                   int64_t);
 instantiate_raft_distance_fusedDistanceNNMinReduce(float, raft::KeyValuePair<int COMMA float>, int);
 instantiate_raft_distance_fusedDistanceNNMinReduce(float,
                                                    raft::KeyValuePair<int64_t COMMA float>,

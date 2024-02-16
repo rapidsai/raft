@@ -321,11 +321,8 @@ class PredicatedTileIteratorReducedVec {
   /// Parameters structure containing reference and precomputed state.
   Params params_;
 
-  /// Byte-level pointer
-  // uint8_t* byte_pointer_;
   /// Byte-level pointer first tile offset of this threadblock.
   volatile uint8_t* first_tile_byte_pointer_;
-  // uint8_t* first_tile_byte_pointer_;
 
   /// Array of boolean values to contain steady-state predicates
   Mask mask_;
@@ -421,8 +418,6 @@ class PredicatedTileIteratorReducedVec {
     first_tile_byte_pointer_ = reinterpret_cast<volatile uint8_t*>(pointer) +
                                LongIndex(block_offset.row()) * LongIndex(params_.stride);
 
-    // first_tile_byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
-    //                            LongIndex(block_offset.row()) * LongIndex(params_.stride);
     // Initialize internal state counter
     state_[0] = state_[1] = state_[2] = 0;
   }
@@ -467,13 +462,6 @@ class PredicatedTileIteratorReducedVec {
   /// Destructor
   CUTLASS_DEVICE
   ~PredicatedTileIteratorReducedVec() {}
-
-  /// Adds a pointer offset in units of Element
-  CUTLASS_HOST_DEVICE
-  void add_pointer_offset(LongIndex pointer_offset)
-  {
-    // byte_pointer_ += pointer_offset * sizeof_bits<Element>::value / 8;
-  }
 
   /// Performs reduction and Stores a reduced output to memory
   CUTLASS_DEVICE
@@ -574,14 +562,12 @@ class PredicatedTileIteratorReducedVec {
   PredicatedTileIteratorReducedVec& operator++()
   {
     ++state_[0];
-    // if (!ScatterD) { byte_pointer_ += params_.advance_row; }
 
     thread_start_row_ += ThreadMap::Shape::kRow;
 
     if (state_[0] == ThreadMap::Count::kRow) {
       state_[0] = 0;
       ++state_[1];
-      // byte_pointer_ += params_.advance_group;
 
       thread_start_row_ +=
         (ThreadMap::Shape::kGroup - 1) * ThreadMap::Shape::kRow * ThreadMap::Count::kRow;
@@ -589,14 +575,12 @@ class PredicatedTileIteratorReducedVec {
       if (state_[1] == ThreadMap::Count::kGroup) {
         state_[1] = 0;
         ++state_[2];
-        // byte_pointer_ += params_.advance_cluster;
 
         thread_start_row_ += ThreadMap::Count::kGroup * ThreadMap::Shape::kGroup *
                              ThreadMap::Count::kRow * ThreadMap::Shape::kRow;
 
         if (state_[2] == ThreadMap::Count::kCluster) {
           state_[2] = 0;
-          // byte_pointer_ += params_.advance_tile;
         }
       }
     }

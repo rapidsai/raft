@@ -114,24 +114,4 @@ void fused_distance_nn_min_arg(raft::resources const& handle,
   }
 }
 
-void fused_distance_nn_min_arg(raft::resources const& handle,
-                               int* min,
-                               const double* x,
-                               const double* y,
-                               int m,
-                               int n,
-                               int k,
-                               bool sqrt,
-                               raft::distance::DistanceType metric,
-                               bool isRowMajor,
-                               float metric_arg)
-{
-  switch (metric) {
-    case raft::distance::DistanceType::CosineExpanded:
-      compute_fused_cosine_nn_min_arg<double, int>(handle, min, x, y, m, n, k, sqrt);
-      break;
-    default: assert("only cosine metric is supported with fusedDistanceNN\n"); break;
-  }
-}
-
 }  // end namespace raft::runtime::distance

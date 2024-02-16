@@ -205,7 +205,6 @@ struct FusedDistanceNNPersistent {
               void const* ptr_B,
               void const* ptr_C,
               void* ptr_Vector,
-              // volatile void* ptr_Tensor,
               void* ptr_Tensor,
               typename LayoutA::Stride::Index lda,
               typename LayoutB::Stride::Index ldb,
