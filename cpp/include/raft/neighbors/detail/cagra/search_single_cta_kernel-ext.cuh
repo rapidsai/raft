@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cstdint>
 #include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
 
@@ -98,6 +99,14 @@ instantiate_single_cta_select_and_run(
   16, 256, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_single_cta_select_and_run(
   32, 512, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  32, 1024, float, uint64_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  8, 128, float, uint64_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  16, 256, float, uint64_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  32, 512, float, uint64_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_single_cta_select_and_run(
   32, 1024, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_single_cta_select_and_run(

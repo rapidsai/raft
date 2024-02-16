@@ -95,6 +95,14 @@ instantiate_kernel_selection(
 instantiate_kernel_selection(
   32, 512, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_kernel_selection(
+  32, 1024, float, uint64_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
+  8, 128, float, uint64_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
+  16, 256, float, uint64_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
+  32, 512, float, uint64_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
   32, 1024, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
 instantiate_kernel_selection(
   8, 128, half, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
