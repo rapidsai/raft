@@ -30,8 +30,6 @@
 #include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
-#include <thrust/reduce.h>
-
 #include <algorithm>  // std::max
 #include <memory>
 #include <optional>

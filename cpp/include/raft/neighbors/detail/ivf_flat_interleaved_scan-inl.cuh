@@ -941,8 +941,12 @@ void launch_kernel(Lambda lambda,
                                                         neighbors,
                                                         distances);
     queries += grid_dim_y * index.dim();
-    neighbors += grid_dim_y * grid_dim_x * k;
-    distances += grid_dim_y * grid_dim_x * k;
+    if constexpr (Capacity > 0) {
+      neighbors += grid_dim_y * grid_dim_x * k;
+      distances += grid_dim_y * grid_dim_x * k;
+    } else {
+      neighbors += grid_dim_y * max_samples;
+    }
     coarse_index += grid_dim_y * n_probes;
   }
 }
@@ -1094,7 +1098,12 @@ struct select_interleaved_scan_kernel {
           k_max, 1, select_min, std::forward<Args>(args)...);
       }
     }
-
+    // NB: this is the limitation of the warpsort structures that use a huge number of
+    //     registers (used in the main kernel here).
+    RAFT_EXPECTS(Capacity == 0 || k_max == Capacity,
+                 "Capacity must be either 0 or a power-of-two not bigger than the maximum "
+                 "allowed size matrix::detail::select::warpsort::kMaxCapacity (%d).",
+                 matrix::detail::select::warpsort::kMaxCapacity);
     RAFT_EXPECTS(
       veclen == Veclen,
       "Veclen must be power-of-two not bigger than the maximum allowed size for this data type.");

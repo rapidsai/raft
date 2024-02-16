@@ -219,7 +219,7 @@ void search_impl(raft::resources const& handle,
     stream);
 
   RAFT_LOG_TRACE_VEC(distances_dev_ptr, 2 * k);
-  RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k);
+  if (indices_dev_ptr != nullptr) { RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k); }
 
   // Merge topk values from different blocks
   if (!manage_local_topk || grid_dim_x > 1) {
