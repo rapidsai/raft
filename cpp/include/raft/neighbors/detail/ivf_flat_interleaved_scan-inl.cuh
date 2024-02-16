@@ -896,7 +896,7 @@ void launch_kernel(Lambda lambda,
   if constexpr (Capacity > 0) {
     constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
     auto block_merge_mem =
-      raft::matrix::detail::select::warpsort::calc_smem_size_for_block_wide<AccT, IdxT>(
+      raft::matrix::detail::select::warpsort::calc_smem_size_for_block_wide<float, IdxT>(
         kThreadsPerBlock / kSubwarpSize, k);
     smem_size += std::max<int>(smem_size, block_merge_mem);
   } else {
