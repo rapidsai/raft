@@ -58,10 +58,13 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   if constexpr (std::is_same_v<T, uint8_t>) {}
 
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
-  if (algo == "raft_ivf_flat") {
-    typename raft::bench::ann::RaftIvfFlatGpu<T, int64_t>::BuildParam param;
-    parse_build_param<T, int64_t>(conf, param);
-    ann = std::make_unique<raft::bench::ann::RaftIvfFlatGpu<T, int64_t>>(metric, dim, param);
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, uint8_t> ||
+                std::is_same_v<T, int8_t>) {
+    if (algo == "raft_ivf_flat") {
+      typename raft::bench::ann::RaftIvfFlatGpu<T, int64_t>::BuildParam param;
+      parse_build_param<T, int64_t>(conf, param);
+      ann = std::make_unique<raft::bench::ann::RaftIvfFlatGpu<T, int64_t>>(metric, dim, param);
+    }
   }
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
@@ -95,11 +98,14 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
   }
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
-  if (algo == "raft_ivf_flat") {
-    auto param =
-      std::make_unique<typename raft::bench::ann::RaftIvfFlatGpu<T, int64_t>::SearchParam>();
-    parse_search_param<T, int64_t>(conf, *param);
-    return param;
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, uint8_t> ||
+                std::is_same_v<T, int8_t>) {
+    if (algo == "raft_ivf_flat") {
+      auto param =
+        std::make_unique<typename raft::bench::ann::RaftIvfFlatGpu<T, int64_t>::SearchParam>();
+      parse_search_param<T, int64_t>(conf, *param);
+      return param;
+    }
   }
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
@@ -124,6 +130,7 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
 };  // namespace raft::bench::ann
 
 REGISTER_ALGO_INSTANCE(float);
+REGISTER_ALGO_INSTANCE(half);
 REGISTER_ALGO_INSTANCE(std::int8_t);
 REGISTER_ALGO_INSTANCE(std::uint8_t);
 
