@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,22 @@
 
 #pragma once
 
+#if defined(__GNUC__) && __has_include(<cxxabi.h>) && __has_include(<execinfo.h>)
+#define ENABLE_COLLECT_CALLSTACK
+#endif
+
 #include <cstdio>
-#include <execinfo.h>
 #include <iostream>
 #include <memory>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#ifdef ENABLE_COLLECT_CALLSTACK
+#include <cxxabi.h>
+#include <execinfo.h>
+#include <sstream>
+#endif
 
 namespace raft {
 
@@ -64,25 +72,67 @@ class exception : public std::exception {
   // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
   void collect_call_stack() noexcept
   {
-#ifdef __GNUC__
+#ifdef ENABLE_COLLECT_CALLSTACK
+    constexpr int kSkipFrames    = 1;
     constexpr int kMaxStackDepth = 64;
     void* stack[kMaxStackDepth];  // NOLINT
     auto depth = backtrace(stack, kMaxStackDepth);
     std::ostringstream oss;
-    oss << std::endl << "Obtained " << depth << " stack frames" << std::endl;
+    oss << std::endl << "Obtained " << (depth - kSkipFrames) << " stack frames" << std::endl;
     char** strings = backtrace_symbols(stack, depth);
     if (strings == nullptr) {
       oss << "But no stack trace could be found!" << std::endl;
       msg_ += oss.str();
       return;
     }
-    ///@todo: support for demangling of C++ symbol names
-    for (int i = 0; i < depth; ++i) {
-      oss << "#" << i << " in " << strings[i] << std::endl;
+    // Courtesy: https://panthema.net/2008/0901-stacktrace-demangled/
+    for (int i = kSkipFrames; i < depth; i++) {
+      oss << "#" << i << " in ";  // beginning of the backtrace line
+
+      char* mangled_name  = nullptr;
+      char* offset_begin  = nullptr;
+      char* offset_end    = nullptr;
+      auto backtrace_line = strings[i];
+
+      // Find parentheses and +address offset surrounding mangled name
+      // e.g. ./module(function+0x15c) [0x8048a6d]
+      for (char* p = backtrace_line; *p != 0; p++) {
+        if (*p == '(') {
+          mangled_name = p;
+        } else if (*p == '+') {
+          offset_begin = p;
+        } else if (*p == ')') {
+          offset_end = p;
+          break;
+        }
+      }
+
+      // Attempt to demangle the symbol
+      if (mangled_name != nullptr && offset_begin != nullptr && offset_end != nullptr &&
+          mangled_name + 1 < offset_begin) {
+        // Split the backtrace_line
+        *mangled_name++ = 0;
+        *offset_begin++ = 0;
+        *offset_end++   = 0;
+
+        // Demangle the name part
+        int status      = 0;
+        char* real_name = abi::__cxa_demangle(mangled_name, nullptr, nullptr, &status);
+
+        if (status == 0) {  // Success: substitute the real name
+          oss << backtrace_line << ": " << real_name << " +" << offset_begin << offset_end;
+        } else {  // Couldn't demangle
+          oss << backtrace_line << ": " << mangled_name << " +" << offset_begin << offset_end;
+        }
+        free(real_name);
+      } else {  // Couldn't match the symbol name
+        oss << backtrace_line;
+      }
+      oss << std::endl;
     }
     free(strings);
     msg_ += oss.str();
-#endif  // __GNUC__
+#endif
   }
 };
 
