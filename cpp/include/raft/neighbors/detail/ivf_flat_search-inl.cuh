@@ -227,7 +227,7 @@ void search_impl(raft::resources const& handle,
                                          refined_distances_dev.data(),
                                          refined_indices_dev.data(),
                                          n_queries,
-                                         manage_local_topk ? k * grid_dim_x : max_samples,
+                                         manage_local_topk ? (k * grid_dim_x) : max_samples,
                                          k,
                                          distances,
                                          neighbors,
@@ -236,7 +236,7 @@ void search_impl(raft::resources const& handle,
     if (!manage_local_topk) {
       // post process distances && neighbor IDs
       ivf::detail::postprocess_distances(
-        distances, distances, index.metric(), n_queries, k, 1.0, stream);
+        distances, distances, index.metric(), n_queries, k, 0, stream);
       ivf::detail::postprocess_neighbors(neighbors,
                                          neighbors,
                                          index.inds_ptrs().data_handle(),
@@ -276,7 +276,8 @@ inline void search(raft::resources const& handle,
 
   uint32_t max_samples = 0;
   if (!manage_local_topk) {
-    IdxT ms = Pow2<128 / sizeof(float)>::roundUp(index.accum_sorted_sizes()(n_probes));
+    IdxT ms =
+      Pow2<128 / sizeof(float)>::roundUp(std::max<IdxT>(index.accum_sorted_sizes()(n_probes), k));
     RAFT_EXPECTS(ms <= IdxT(std::numeric_limits<uint32_t>::max()),
                  "The maximum sample size is too big.");
     max_samples = ms;
@@ -286,14 +287,9 @@ inline void search(raft::resources const& handle,
   constexpr uint64_t kExpectedWsSize = 1024 * 1024 * 1024;
   uint64_t max_ws_size = std::min(resource::get_workspace_free_bytes(handle), kExpectedWsSize);
 
-  uint64_t ws_size_per_query =
-    // fixed
-    4ull * (2 * n_probes + index.n_lists() + index.dim() + 1)
-        // fused
-        + manage_local_topk
-      ? ((sizeof(IdxT) + 4) * n_probes * k)
-      // non-fused
-      : (4ull * (max_samples + n_probes + 1));
+  uint64_t ws_size_per_query = 4ull * (2 * n_probes + index.n_lists() + index.dim() + 1) +
+                               (manage_local_topk ? ((sizeof(IdxT) + 4) * n_probes * k)
+                                                  : (4ull * (max_samples + n_probes + 1)));
 
   const uint32_t max_queries =
     std::min<uint32_t>(n_queries, raft::div_rounding_up_safe(max_ws_size, ws_size_per_query));

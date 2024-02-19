@@ -642,8 +642,9 @@ struct flat_block_sort {
 };
 
 template <typename T, bool Ascending, typename IdxT>
-struct flat_block_sort<0, Ascending, T, IdxT> : ivf::detail::dummy_block_sort_t<T, IdxT> {
-  using type = ivf::detail::dummy_block_sort_t<T, IdxT>;
+struct flat_block_sort<0, Ascending, T, IdxT>
+  : ivf::detail::dummy_block_sort_t<T, IdxT, Ascending> {
+  using type = ivf::detail::dummy_block_sort_t<T, IdxT, Ascending>;
 };
 
 template <int Capacity, bool Ascending, typename T, typename IdxT>
@@ -944,7 +945,8 @@ void launch_kernel(Lambda lambda,
       neighbors += grid_dim_y * grid_dim_x * k;
       distances += grid_dim_y * grid_dim_x * k;
     } else {
-      neighbors += grid_dim_y * max_samples;
+      distances += grid_dim_y * max_samples;
+      chunk_indices += grid_dim_y * n_probes;
     }
     coarse_index += grid_dim_y * n_probes;
   }

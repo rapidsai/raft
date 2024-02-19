@@ -30,9 +30,10 @@ namespace raft::neighbors::ivf::detail {
 template <typename IdxT>
 constexpr static IdxT kOutOfBoundsRecord = std::numeric_limits<IdxT>::max();
 
-template <typename T, typename IdxT>
+template <typename T, typename IdxT, bool Ascending = true>
 struct dummy_block_sort_t {
-  using queue_t = matrix::detail::select::warpsort::warp_sort_distributed<WarpSize, true, T, IdxT>;
+  using queue_t =
+    matrix::detail::select::warpsort::warp_sort_distributed<WarpSize, Ascending, T, IdxT>;
   template <typename... Args>
   __device__ dummy_block_sort_t(int k, Args...){};
 };
@@ -215,36 +216,52 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
                            float scaling_factor,
                            rmm::cuda_stream_view stream)
 {
-  size_t len = size_t(n_queries) * size_t(topk);
+  constexpr bool needs_cast = !std::is_same<ScoreInT, ScoreOutT>::value;
+  size_t len                = size_t(n_queries) * size_t(topk);
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        raft::compose_op(raft::mul_const_op<ScoreOutT>{scaling_factor * scaling_factor},
-                         raft::cast_op<ScoreOutT>{}),
-        stream);
+      if (scaling_factor != 0) {
+        linalg::unaryOp(
+          out,
+          in,
+          len,
+          raft::compose_op(raft::mul_const_op<ScoreOutT>{scaling_factor * scaling_factor},
+                           raft::cast_op<ScoreOutT>{}),
+          stream);
+      } else if (needs_cast) {
+        linalg::unaryOp(out, in, len, raft::cast_op<ScoreOutT>{}, stream);
+      }
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
-      linalg::unaryOp(out,
-                      in,
-                      len,
-                      raft::compose_op{raft::mul_const_op<ScoreOutT>{scaling_factor},
-                                       raft::sqrt_op{},
-                                       raft::cast_op<ScoreOutT>{}},
-                      stream);
+      if (scaling_factor != 0) {
+        linalg::unaryOp(out,
+                        in,
+                        len,
+                        raft::compose_op{raft::mul_const_op<ScoreOutT>{scaling_factor},
+                                         raft::sqrt_op{},
+                                         raft::cast_op<ScoreOutT>{}},
+                        stream);
+      } else if (needs_cast) {
+        linalg::unaryOp(
+          out, in, len, raft::compose_op{raft::sqrt_op{}, raft::cast_op<ScoreOutT>{}}, stream);
+      } else {
+        linalg::unaryOp(out, in, len, raft::sqrt_op{}, stream);
+      }
     } break;
     case distance::DistanceType::InnerProduct: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        raft::compose_op(raft::mul_const_op<ScoreOutT>{-scaling_factor * scaling_factor},
-                         raft::cast_op<ScoreOutT>{}),
-        stream);
+      if (scaling_factor != 0) {
+        linalg::unaryOp(
+          out,
+          in,
+          len,
+          raft::compose_op(raft::mul_const_op<ScoreOutT>{-scaling_factor * scaling_factor},
+                           raft::cast_op<ScoreOutT>{}),
+          stream);
+      } else if (needs_cast) {
+        linalg::unaryOp(out, in, len, raft::cast_op<ScoreOutT>{}, stream);
+      }
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }
