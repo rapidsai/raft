@@ -443,7 +443,6 @@ dependencies:
           - ucx>=1.13.0
           - ucx-proc=*=gpu
           - &ucx_py_conda ucx-py==0.37.*
-          - distributed-ucxx==0.37.*
       - output_types: pyproject
         packages:
           - &pylibraft_conda pylibraft==24.4.*
@@ -469,6 +468,9 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          # UCXX is not currently a hard-dependency thus only installed during tests,
+          # this will change in the future and removed from here.
+          - distributed-ucxx==0.37.*
           - pytest==7.*
           - pytest-cov
   test_pylibraft:
