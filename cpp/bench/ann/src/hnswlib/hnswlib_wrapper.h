@@ -75,15 +75,11 @@ class HnswLib : public ANN<T> {
 
   HnswLib(Metric metric, int dim, const BuildParam& param);
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) override;
+  void build(const T* dataset, size_t nrow) override;
 
   void set_search_param(const AnnSearchParam& param) override;
-  void search(const T* query,
-              int batch_size,
-              int k,
-              size_t* indices,
-              float* distances,
-              cudaStream_t stream = 0) const override;
+  void search(
+    const T* query, int batch_size, int k, size_t* indices, float* distances) const override;
 
   void save(const std::string& path_to_index) const override;
   void load(const std::string& path_to_index) override;
@@ -131,7 +127,7 @@ HnswLib<T>::HnswLib(Metric metric, int dim, const BuildParam& param) : ANN<T>(me
 }
 
 template <typename T>
-void HnswLib<T>::build(const T* dataset, size_t nrow, cudaStream_t)
+void HnswLib<T>::build(const T* dataset, size_t nrow)
 {
   if constexpr (std::is_same_v<T, float>) {
     if (metric_ == Metric::kInnerProduct) {
@@ -179,7 +175,7 @@ void HnswLib<T>::set_search_param(const AnnSearchParam& param_)
 
 template <typename T>
 void HnswLib<T>::search(
-  const T* query, int batch_size, int k, size_t* indices, float* distances, cudaStream_t) const
+  const T* query, int batch_size, int k, size_t* indices, float* distances) const
 {
   auto f = [&](int i) {
     // hnsw can only handle a single vector at a time.
