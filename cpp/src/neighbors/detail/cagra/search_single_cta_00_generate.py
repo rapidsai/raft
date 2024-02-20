@@ -93,9 +93,11 @@ mxdim_team = [(128, 8), (256, 16), (512, 32), (1024, 32)]
 
 search_types = dict(
     float_uint32=("float", "uint32_t", "float"),  # data_t, idx_t, distance_t
+    half_uint32=("half", "uint32_t", "float"),
     int8_uint32=("int8_t", "uint32_t", "float"),
     uint8_uint32=("uint8_t", "uint32_t", "float"),
     float_uint64=("float", "uint64_t", "float"),
+    half_uint64=("half", "uint64_t", "float"),
 )
 
 # knn

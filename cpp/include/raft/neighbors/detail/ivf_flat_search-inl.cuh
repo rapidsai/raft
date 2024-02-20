@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,8 +135,7 @@ void search_impl(raft::resources const& handle,
                                            n_probes,
                                            coarse_distances_dev.data(),
                                            coarse_indices_dev.data(),
-                                           select_min,
-                                           search_mr);
+                                           select_min);
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), n_probes);
   RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), n_probes);
 
@@ -199,8 +198,7 @@ void search_impl(raft::resources const& handle,
                                          k,
                                          distances,
                                          neighbors,
-                                         select_min,
-                                         search_mr);
+                                         select_min);
   }
 }
 

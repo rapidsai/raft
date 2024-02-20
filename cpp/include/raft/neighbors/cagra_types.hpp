@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,7 +145,7 @@ struct index : ann::index {
   /** Total length of the index (number of vectors). */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
-    return dataset_view_.extent(0);
+    return dataset_view_.extent(0) ? dataset_view_.extent(0) : graph_view_.extent(0);
   }
 
   /** Dimensionality of the data. */
@@ -278,6 +278,14 @@ struct index : ann::index {
       dataset_view_ = make_device_strided_matrix_view<const T, int64_t>(
         dataset.data_handle(), dataset.extent(0), dataset.extent(1), dataset.extent(1));
     }
+  }
+
+  /** Set the dataset reference explicitly to a device matrix view with padding. */
+  void update_dataset(raft::resources const&,
+                      raft::device_matrix_view<const T, int64_t, layout_stride> dataset)
+  {
+    RAFT_EXPECTS(dataset.stride(0) * sizeof(T) % 16 == 0, "Incorrect data padding.");
+    dataset_view_ = dataset;
   }
 
   /**
