@@ -15,11 +15,11 @@
  */
 #pragma once
 
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include "device_common.hpp"
 #include "hashmap.hpp"
-#include "raft/distance/distance_types.hpp"
 #include "utils.hpp"
 #include <type_traits>
 
