@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,11 +74,31 @@ struct AlgoProperty {
 class AnnBase {
  public:
   inline AnnBase(Metric metric, int dim) : metric_(metric), dim_(dim) {}
-  virtual ~AnnBase() = default;
+  virtual ~AnnBase() noexcept = default;
 
  protected:
   Metric metric_;
   int dim_;
+};
+
+/**
+ * The GPU-based algorithms, which do not perform CPU synchronization at the end of their build or
+ * search methods, must implement this interface.
+ *
+ * The `cuda_timer` / `cuda_lap`  from `util.hpp` uses this stream to record GPU times with events
+ * and, if necessary, also synchronize (via events) between iterations.
+ *
+ * If the algo does not implement this interface, GPU timings are disabled.
+ */
+class AnnGPU {
+ public:
+  /**
+   * Return the main cuda stream for this algorithm.
+   * If any work is done in multiple streams, they should synchornize with the main stream at the
+   * end.
+   */
+  [[nodiscard]] virtual auto get_sync_stream() const noexcept -> cudaStream_t = 0;
+  virtual ~AnnGPU() noexcept                                                  = default;
 };
 
 template <typename T>
@@ -91,18 +111,15 @@ class ANN : public AnnBase {
   };
 
   inline ANN(Metric metric, int dim) : AnnBase(metric, dim) {}
+  virtual ~ANN() noexcept override = default;
 
-  virtual void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) = 0;
+  virtual void build(const T* dataset, size_t nrow) = 0;
 
   virtual void set_search_param(const AnnSearchParam& param) = 0;
   // TODO: this assumes that an algorithm can always return k results.
   // This is not always possible.
-  virtual void search(const T* queries,
-                      int batch_size,
-                      int k,
-                      size_t* neighbors,
-                      float* distances,
-                      cudaStream_t stream = 0) const = 0;
+  virtual void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const = 0;
 
   virtual void save(const std::string& file) const = 0;
   virtual void load(const std::string& file)       = 0;
