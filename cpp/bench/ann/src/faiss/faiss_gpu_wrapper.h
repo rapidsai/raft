@@ -89,21 +89,8 @@ class OmpSingleThreadScope {
 
 namespace raft::bench::ann {
 
-struct copyable_event {
-  copyable_event() { RAFT_CUDA_TRY(cudaEventCreate(&value_, cudaEventDisableTiming)); }
-  ~copyable_event() { RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(value_)); }
-  copyable_event(copyable_event&&)            = default;
-  copyable_event& operator=(copyable_event&&) = default;
-  copyable_event(const copyable_event& res) : copyable_event{} {}
-  copyable_event& operator=(const copyable_event& other) = delete;
-  operator cudaEvent_t() const noexcept { return value_; }
-
- private:
-  cudaEvent_t value_{nullptr};
-};
-
 template <typename T>
-class FaissGpu : public ANN<T> {
+class FaissGpu : public ANN<T>, public AnnGPU {
  public:
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
@@ -128,7 +115,7 @@ class FaissGpu : public ANN<T> {
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
+  void build(const T* dataset, size_t nrow) final;
 
   virtual void set_search_param(const FaissGpu<T>::AnnSearchParam& param) {}
 
@@ -136,12 +123,13 @@ class FaissGpu : public ANN<T> {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const final;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const final;
+
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    return gpu_resource_->getDefaultStream(device_);
+  }
 
   AlgoProperty get_preference() const override
   {
@@ -160,12 +148,6 @@ class FaissGpu : public ANN<T> {
 
   template <typename GpuIndex, typename CpuIndex>
   void load_(const std::string& file);
-
-  void stream_wait(cudaStream_t stream) const
-  {
-    RAFT_CUDA_TRY(cudaEventRecord(sync_, gpu_resource_->getDefaultStream(device_)));
-    RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_));
-  }
 
   /** [NOTE Multithreading]
    *
@@ -189,24 +171,12 @@ class FaissGpu : public ANN<T> {
   faiss::MetricType metric_type_;
   int nlist_;
   int device_;
-  copyable_event sync_{};
   double training_sample_fraction_;
   std::shared_ptr<faiss::SearchParameters> search_params_;
   std::shared_ptr<faiss::IndexRefineSearchParameters> refine_search_params_{nullptr};
   const T* dataset_;
   float refine_ratio_ = 1.0;
 };
-
-template <typename T>
-auto FaissGpu<T>::metric_faiss_to_raft(faiss::MetricType metric) const
-  -> raft::distance::DistanceType
-{
-  switch (metric) {
-    case faiss::MetricType::METRIC_L2: return raft::distance::DistanceType::L2Expanded;
-    case faiss::MetricType::METRIC_INNER_PRODUCT:
-    default: throw std::runtime_error("FAISS supports only metric type of inner product and L2");
-  }
-}
 
 template <typename T>
 void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
@@ -238,16 +208,11 @@ void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
   index_->train(nrow, dataset);  // faiss::gpu::GpuIndexFlat::train() will do nothing
   assert(index_->is_trained);
   index_->add(nrow, dataset);
-  stream_wait(stream);
 }
 
 template <typename T>
-void FaissGpu<T>::search(const T* queries,
-                         int batch_size,
-                         int k,
-                         size_t* neighbors,
-                         float* distances,
-                         cudaStream_t stream) const
+void FaissGpu<T>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   using IdxT = faiss::idx_t;
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
@@ -311,7 +276,6 @@ void FaissGpu<T>::search(const T* queries,
                    reinterpret_cast<faiss::idx_t*>(neighbors),
                    this->search_params_.get());
   }
-  stream_wait(stream);
 }
 
 template <typename T>
