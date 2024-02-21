@@ -738,7 +738,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},
     {256},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {true},
     {0.995});
@@ -754,7 +754,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},
     {256},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {true},
     {99. / 100}
@@ -773,7 +773,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},
     {64},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {true},
     {0.995});
@@ -789,7 +789,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0, 4, 8, 16, 32},  // team_size
     {64},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {false},
     {0.995});
@@ -806,7 +806,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},  // team_size
     {32, 64, 128, 256, 512, 768},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {true},
     {0.995});
@@ -823,7 +823,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},  // team_size
     {64},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false, true},
     {false},
     {0.995});
@@ -840,7 +840,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
                                                    {0},
                                                    {4096},  // itopk_size
                                                    {1},
-                                                   {raft::distance::DistanceType::L2Expanded},
+                                                   {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
                                                    {false},
                                                    {false},
                                                    {0.995});

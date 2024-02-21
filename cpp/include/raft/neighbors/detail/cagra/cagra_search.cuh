@@ -129,7 +129,7 @@ void search_main(raft::resources const& res,
   using CagraSampleFilterT_s = typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type;
   std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>> plan =
     factory<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>::create(
-      res, params, index.dim(), index.graph_degree(), topk);
+      res, params, index.dim(), index.graph_degree(), topk, index.metric());
 
   plan->check(topk);
 

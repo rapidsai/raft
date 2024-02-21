@@ -94,7 +94,7 @@ struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, fal
               norm2 += diff * diff;
             } else {
               diff *= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
-              norm2 += diff;
+              norm2 -= diff;
             }
           }
         }
@@ -168,7 +168,7 @@ struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, tru
               norm2 += diff * diff;
             } else {
               diff *= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
-              norm2 += diff;
+              norm2 -= diff;
             }
         }
       }

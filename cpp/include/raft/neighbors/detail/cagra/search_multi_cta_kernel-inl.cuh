@@ -34,6 +34,7 @@
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
+#include "raft/distance/distance_types.hpp"
 #include "search_plan.cuh"
 #include "topk_for_cagra/topk_core.cuh"  // TODO replace with raft topk if possible
 #include "utils.hpp"
@@ -329,6 +330,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
         result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
         result_indices_buffer[i]   = invalid_index;
       }
+      if (metric == distance::InnerProduct) result_distances_buffer[i] *= -1;
     }
 
     __syncthreads();

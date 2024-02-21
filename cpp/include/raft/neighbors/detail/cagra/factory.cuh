@@ -38,9 +38,10 @@ class factory {
     search_params const& params,
     int64_t dim,
     int64_t graph_degree,
-    uint32_t topk)
+    uint32_t topk,
+    distance::DistanceType metric)
   {
-    search_plan_impl_base plan(params, dim, graph_degree, topk);
+    search_plan_impl_base plan(params, dim, graph_degree, topk, metric);
     switch (plan.dataset_block_dim) {
       case 128:
         switch (plan.team_size) {
