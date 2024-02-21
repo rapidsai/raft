@@ -264,7 +264,7 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
       index_t bit_position = index % (8 * sizeof(bitmap_t));
 
       if (((element >> bit_position) & 1) == 0) {
-        element |= (static_cast<index_t>(1) >> bit_position);
+        element |= (static_cast<index_t>(1) << bit_position);
         num_ones--;
       }
     }
