@@ -23,6 +23,7 @@
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>  // ops::l2_exp_distance_op
 #include <raft/distance/detail/fused_distance_nn/cutlass_base.cuh>
 #include <raft/distance/detail/fused_distance_nn/fused_cosine_nn.cuh>
+#include <raft/distance/detail/fused_distance_nn/fused_l2_nn.cuh>
 #include <raft/distance/detail/fused_distance_nn/helper_structs.cuh>
 #include <raft/distance/detail/fused_distance_nn/simt_kernel.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
@@ -76,11 +77,17 @@ void fusedDistanceNNImpl(OutT* min,
   }
 
   switch (metric) {
-    case DistanceType::CosineExpanded:
+    case raft::distance::DistanceType::CosineExpanded:
       fusedCosineNN<DataT, OutT, IdxT, P, ReduceOpT, KVPReduceOpT>(
         min, x, y, xn, yn, m, n, k, workspace, redOp, pairRedOp, sqrt, stream);
       break;
-    default: assert("only cosine metric is supported with fusedDistanceNN\n"); break;
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2Expanded:
+      // initOutBuffer is take care by fusedDistanceNNImpl() so we set it false to fusedL2NNImpl.
+      fusedL2NNImpl<DataT, OutT, IdxT, P, ReduceOpT, KVPReduceOpT>(
+        min, x, y, xn, yn, m, n, k, workspace, redOp, pairRedOp, sqrt, false, stream);
+      break;
+    default: assert("only cosine/l2 metric is supported with fusedDistanceNN\n"); break;
   }
 }
 

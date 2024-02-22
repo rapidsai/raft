@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include <raft/core/kvp.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
