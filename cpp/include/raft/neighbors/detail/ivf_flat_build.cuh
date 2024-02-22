@@ -26,6 +26,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/neighbors/detail/ivf_common.cuh>
 #include <raft/neighbors/ivf_flat_codepacker.hpp>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
@@ -41,64 +42,6 @@
 namespace raft::neighbors::ivf_flat::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
-
-/**
- * Update the state of the dependent index members.
- */
-template <typename T, typename IdxT>
-void recompute_internal_state(const raft::resources& res, index<T, IdxT>& index)
-{
-  auto stream  = resource::get_cuda_stream(res);
-  auto tmp_res = resource::get_workspace_resource(res);
-  rmm::device_uvector<uint32_t> sorted_sizes(index.n_lists(), stream, tmp_res);
-
-  // Actualize the list pointers
-  auto this_lists     = index.lists();
-  auto this_data_ptrs = index.data_ptrs();
-  auto this_inds_ptrs = index.inds_ptrs();
-  for (uint32_t label = 0; label < this_lists.size(); label++) {
-    auto& list          = this_lists[label];
-    const auto data_ptr = list ? list->data.data_handle() : nullptr;
-    const auto inds_ptr = list ? list->indices.data_handle() : nullptr;
-    copy(&this_data_ptrs(label), &data_ptr, 1, stream);
-    copy(&this_inds_ptrs(label), &inds_ptr, 1, stream);
-  }
-
-  // Sort the cluster sizes in the descending order.
-  int begin_bit             = 0;
-  int end_bit               = sizeof(uint32_t) * 8;
-  size_t cub_workspace_size = 0;
-  cub::DeviceRadixSort::SortKeysDescending(nullptr,
-                                           cub_workspace_size,
-                                           index.list_sizes().data_handle(),
-                                           sorted_sizes.data(),
-                                           index.n_lists(),
-                                           begin_bit,
-                                           end_bit,
-                                           stream);
-  rmm::device_buffer cub_workspace(cub_workspace_size, stream, tmp_res);
-  cub::DeviceRadixSort::SortKeysDescending(cub_workspace.data(),
-                                           cub_workspace_size,
-                                           index.list_sizes().data_handle(),
-                                           sorted_sizes.data(),
-                                           index.n_lists(),
-                                           begin_bit,
-                                           end_bit,
-                                           stream);
-  // copy the results to CPU
-  std::vector<uint32_t> sorted_sizes_host(index.n_lists());
-  copy(sorted_sizes_host.data(), sorted_sizes.data(), index.n_lists(), stream);
-  resource::sync_stream(res);
-
-  // accumulate the sorted cluster sizes
-  auto accum_sorted_sizes = index.accum_sorted_sizes();
-  accum_sorted_sizes(0)   = 0;
-  for (uint32_t label = 0; label < sorted_sizes_host.size(); label++) {
-    accum_sorted_sizes(label + 1) = accum_sorted_sizes(label) + sorted_sizes_host[label];
-  }
-
-  index.check_consistency();
-}
 
 template <typename T, typename IdxT>
 auto clone(const raft::resources& res, const index<T, IdxT>& source) -> index<T, IdxT>
@@ -133,7 +76,7 @@ auto clone(const raft::resources& res, const index<T, IdxT>& source) -> index<T,
   target.lists() = source.lists();
 
   // Make sure the device pointers point to the new lists
-  recompute_internal_state(res, target);
+  ivf::detail::recompute_internal_state(res, target);
 
   return target;
 }
@@ -320,7 +263,7 @@ void extend(raft::resources const& handle,
     }
   }
   // Update the pointers and the sizes
-  recompute_internal_state(handle, *index);
+  ivf::detail::recompute_internal_state(handle, *index);
   // Copy the old sizes, so we can start from the current state of the index;
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
   raft::copy(list_sizes_ptr, old_list_sizes_dev.data_handle(), n_lists, stream);
@@ -502,7 +445,7 @@ inline void fill_refinement_index(raft::resources const& handle,
     ivf::resize_list(handle, lists[label], list_device_spec, n_candidates, uint32_t(0));
   }
   // Update the pointers and the sizes
-  recompute_internal_state(handle, *refinement_index);
+  ivf::detail::recompute_internal_state(handle, *refinement_index);
 
   RAFT_CUDA_TRY(cudaMemsetAsync(list_sizes_ptr, 0, n_lists * sizeof(uint32_t), stream));
 

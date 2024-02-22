@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cub/block/block_scan.cuh>
+#include <cub/cub.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>  // matrix::detail::select::warpsort::warp_sort_distributed
 
@@ -265,6 +265,59 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
       }
     } break;
     default: RAFT_FAIL("Unexpected metric.");
+  }
+}
+
+/** Update the state of the dependent index members. */
+template <typename Index>
+void recompute_internal_state(const raft::resources& res, Index& index)
+{
+  auto stream  = resource::get_cuda_stream(res);
+  auto tmp_res = resource::get_workspace_resource(res);
+  rmm::device_uvector<uint32_t> sorted_sizes(index.n_lists(), stream, tmp_res);
+
+  // Actualize the list pointers
+  auto data_ptrs = index.data_ptrs();
+  auto inds_ptrs = index.inds_ptrs();
+  for (uint32_t label = 0; label < index.n_lists(); label++) {
+    auto& list          = index.lists()[label];
+    const auto data_ptr = list ? list->data.data_handle() : nullptr;
+    const auto inds_ptr = list ? list->indices.data_handle() : nullptr;
+    copy(&data_ptrs(label), &data_ptr, 1, stream);
+    copy(&inds_ptrs(label), &inds_ptr, 1, stream);
+  }
+
+  // Sort the cluster sizes in the descending order.
+  int begin_bit             = 0;
+  int end_bit               = sizeof(uint32_t) * 8;
+  size_t cub_workspace_size = 0;
+  cub::DeviceRadixSort::SortKeysDescending(nullptr,
+                                           cub_workspace_size,
+                                           index.list_sizes().data_handle(),
+                                           sorted_sizes.data(),
+                                           index.n_lists(),
+                                           begin_bit,
+                                           end_bit,
+                                           stream);
+  rmm::device_buffer cub_workspace(cub_workspace_size, stream, tmp_res);
+  cub::DeviceRadixSort::SortKeysDescending(cub_workspace.data(),
+                                           cub_workspace_size,
+                                           index.list_sizes().data_handle(),
+                                           sorted_sizes.data(),
+                                           index.n_lists(),
+                                           begin_bit,
+                                           end_bit,
+                                           stream);
+  // copy the results to CPU
+  std::vector<uint32_t> sorted_sizes_host(index.n_lists());
+  copy(sorted_sizes_host.data(), sorted_sizes.data(), index.n_lists(), stream);
+  resource::sync_stream(res);
+
+  // accumulate the sorted cluster sizes
+  auto accum_sorted_sizes = index.accum_sorted_sizes();
+  accum_sorted_sizes(0)   = 0;
+  for (uint32_t label = 0; label < sorted_sizes_host.size(); label++) {
+    accum_sorted_sizes(label + 1) = accum_sorted_sizes(label) + sorted_sizes_host[label];
   }
 }
 

@@ -154,7 +154,7 @@ auto deserialize(raft::resources const& handle, std::istream& is) -> index<T, Id
   }
   resource::sync_stream(handle);
 
-  recompute_internal_state(handle, index_);
+  ivf::detail::recompute_internal_state(handle, index_);
 
   return index_;
 }
