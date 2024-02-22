@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,16 @@ namespace raft::resource {
  * @{
  */
 
+class memory_resource : public resource {
+ public:
+  explicit memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr) : mr_(mr) {}
+  ~memory_resource() override = default;
+  auto get_resource() -> void* override { return mr_.get(); }
+
+ private:
+  std::shared_ptr<rmm::mr::device_memory_resource> mr_;
+};
+
 class limiting_memory_resource : public resource {
  public:
   limiting_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr,
@@ -64,6 +74,29 @@ class limiting_memory_resource : public resource {
       return rmm::mr::limiting_resource_adaptor(p, limit);
     }
   }
+};
+
+/**
+ * Factory that knows how to construct a specific raft::resource to populate
+ * the resources instance.
+ */
+class large_workspace_resource_factory : public resource_factory {
+ public:
+  explicit large_workspace_resource_factory(
+    std::shared_ptr<rmm::mr::device_memory_resource> mr = {nullptr})
+    : mr_{mr ? mr
+             : std::shared_ptr<rmm::mr::device_memory_resource>{
+                 rmm::mr::get_current_device_resource(), void_op{}}}
+  {
+  }
+  auto get_resource_type() -> resource_type override
+  {
+    return resource_type::LARGE_MEMORY_RESOURCE;
+  }
+  auto make_resource() -> resource* override { return new memory_resource(mr_); }
+
+ private:
+  std::shared_ptr<rmm::mr::device_memory_resource> mr_;
 };
 
 /**
@@ -239,6 +272,21 @@ inline void set_workspace_to_global_resource(
 {
   res.add_resource_factory(std::make_shared<workspace_resource_factory>(
     workspace_resource_factory::default_plain_resource(), allocation_limit, std::nullopt));
+};
+
+inline auto get_large_workspace_resource(resources const& res) -> rmm::mr::device_memory_resource*
+{
+  if (!res.has_resource_factory(resource_type::LARGE_MEMORY_RESOURCE)) {
+    res.add_resource_factory(std::make_shared<large_workspace_resource_factory>());
+  }
+  return res.get_resource<rmm::mr::device_memory_resource>(resource_type::LARGE_MEMORY_RESOURCE);
+};
+
+inline void set_large_workspace_resource(resources const& res,
+                                         std::shared_ptr<rmm::mr::device_memory_resource> mr = {
+                                           nullptr})
+{
+  res.add_resource_factory(std::make_shared<large_workspace_resource_factory>(mr));
 };
 
 /** @} */

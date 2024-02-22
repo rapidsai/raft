@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -176,8 +176,11 @@ class device_matrix_view_from_host {
     device_ptr = reinterpret_cast<T*>(attr.devicePointer);
     if (device_ptr == NULL) {
       // allocate memory and copy over
-      device_mem_.emplace(
-        raft::make_device_matrix<T, IdxT>(res, host_view.extent(0), host_view.extent(1)));
+      // NB: We use the temporary "large" workspace resource here; this structure is supposed to
+      // live on stack and not returned to a user.
+      // The user may opt to set this resource to managed memory to allow large allocations.
+      device_mem_.emplace(make_device_mdarray<T, IdxT>(
+        res, resource::get_large_workspace_resource(res), host_view.extents()));
       raft::copy(device_mem_->data_handle(),
                  host_view.data_handle(),
                  host_view.extent(0) * host_view.extent(1),

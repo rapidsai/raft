@@ -42,9 +42,10 @@ enum resource_type {
   STREAM_VIEW,             // view of a cuda stream or a placeholder in
                            // CUDA-free builds
   THRUST_POLICY,           // thrust execution policy
-  WORKSPACE_RESOURCE,      // rmm device memory resource
+  WORKSPACE_RESOURCE,      // rmm device memory resource for small temporary allocations
   CUBLASLT_HANDLE,         // cublasLt handle
   CUSTOM,                  // runtime-shared default-constructible resource
+  LARGE_MEMORY_RESOURCE,   // rmm device memory resource for somewhat large temporary allocations
 
   LAST_KEY  // reserved for the last key
 };
