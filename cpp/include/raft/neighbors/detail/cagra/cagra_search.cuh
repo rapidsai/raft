@@ -187,6 +187,7 @@ void search_main(raft::resources const& res,
                                      distances.extent(0),
                                      distances.extent(1),
                                      kScale,
+                                     true,
                                      resource::get_cuda_stream(res));
 }
 /** @} */  // end group cagra

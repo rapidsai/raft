@@ -899,8 +899,6 @@ void launch_kernel(Lambda lambda,
       raft::matrix::detail::select::warpsort::calc_smem_size_for_block_wide<float, IdxT>(
         kThreadsPerBlock / kSubwarpSize, k);
     smem_size += std::max<int>(smem_size, block_merge_mem);
-  } else {
-    smem_size += smem_size;
   }
 
   // power-of-two less than cuda limit (for better addr alignment)

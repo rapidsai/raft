@@ -214,6 +214,7 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
                            uint32_t n_queries,
                            uint32_t topk,
                            float scaling_factor,
+                           bool account_for_max_close,
                            rmm::cuda_stream_view stream)
 {
   constexpr bool needs_cast = !std::is_same<ScoreInT, ScoreOutT>::value;
@@ -221,7 +222,7 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
-      if (scaling_factor != 0) {
+      if (scaling_factor != 1.0) {
         linalg::unaryOp(
           out,
           in,
@@ -235,7 +236,7 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
-      if (scaling_factor != 0) {
+      if (scaling_factor != 1.0) {
         linalg::unaryOp(out,
                         in,
                         len,
@@ -251,13 +252,13 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
       }
     } break;
     case distance::DistanceType::InnerProduct: {
-      if (scaling_factor != 0) {
+      float factor = (account_for_max_close ? -1.0 : 1.0) * scaling_factor * scaling_factor;
+      if (factor != 1.0) {
         linalg::unaryOp(
           out,
           in,
           len,
-          raft::compose_op(raft::mul_const_op<ScoreOutT>{-scaling_factor * scaling_factor},
-                           raft::cast_op<ScoreOutT>{}),
+          raft::compose_op(raft::mul_const_op<ScoreOutT>{factor}, raft::cast_op<ScoreOutT>{}),
           stream);
       } else if (needs_cast) {
         linalg::unaryOp(out, in, len, raft::cast_op<ScoreOutT>{}, stream);

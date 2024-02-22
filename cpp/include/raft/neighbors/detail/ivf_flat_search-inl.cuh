@@ -65,9 +65,9 @@ void search_impl(raft::resources const& handle,
 
   // Optional structures if postprocessing is required
   // The topk distance value of candidate vectors from each cluster(list)
-  rmm::device_uvector<AccT> refined_distances_dev(0, stream, search_mr);
+  rmm::device_uvector<AccT> distances_tmp_dev(0, stream, search_mr);
   // The topk index of candidate vectors from each cluster(list)
-  rmm::device_uvector<IdxT> refined_indices_dev(0, stream, search_mr);
+  rmm::device_uvector<IdxT> indices_tmp_dev(0, stream, search_mr);
   // Number of samples for each query
   rmm::device_uvector<uint32_t> num_samples(0, stream, search_mr);
   // Offsets per probe for each query
@@ -193,11 +193,11 @@ void search_impl(raft::resources const& handle,
 
     auto target_size = std::size_t(n_queries) * (manage_local_topk ? grid_dim_x * k : max_samples);
 
-    refined_distances_dev.resize(target_size, stream);
-    if (manage_local_topk) refined_indices_dev.resize(target_size, stream);
+    distances_tmp_dev.resize(target_size, stream);
+    if (manage_local_topk) indices_tmp_dev.resize(target_size, stream);
 
-    distances_dev_ptr = refined_distances_dev.data();
-    indices_dev_ptr   = refined_indices_dev.data();
+    distances_dev_ptr = distances_tmp_dev.data();
+    indices_dev_ptr   = indices_tmp_dev.data();
   }
 
   ivfflat_interleaved_scan<T, typename utils::config<T>::value_t, IdxT, IvfSampleFilterT>(
@@ -224,8 +224,8 @@ void search_impl(raft::resources const& handle,
   // Merge topk values from different blocks
   if (!manage_local_topk || grid_dim_x > 1) {
     matrix::detail::select_k<AccT, IdxT>(handle,
-                                         refined_distances_dev.data(),
-                                         refined_indices_dev.data(),
+                                         distances_tmp_dev.data(),
+                                         indices_tmp_dev.data(),
                                          n_queries,
                                          manage_local_topk ? (k * grid_dim_x) : max_samples,
                                          k,
@@ -236,7 +236,7 @@ void search_impl(raft::resources const& handle,
     if (!manage_local_topk) {
       // post process distances && neighbor IDs
       ivf::detail::postprocess_distances(
-        distances, distances, index.metric(), n_queries, k, 0, stream);
+        distances, distances, index.metric(), n_queries, k, 1.0, false, stream);
       ivf::detail::postprocess_neighbors(neighbors,
                                          neighbors,
                                          index.inds_ptrs().data_handle(),
