@@ -103,6 +103,18 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
     set(row * cols_ + col, &new_value);
   }
 
+  /**
+   * @brief Get the total number of rows
+   * @return index_t The total number of rows
+   */
+  inline index_t get_n_rows() const { return rows_; }
+
+  /**
+   * @brief Get the total number of columns
+   * @return index_t The total number of columns
+   */
+  inline index_t get_n_cols() const { return cols_; }
+
  private:
   index_t rows_;
   index_t cols_;

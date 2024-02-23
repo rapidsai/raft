@@ -411,14 +411,17 @@ TEST_P(BitmapToCSRTestL, Result) { Run(); }
 template <typename index_t>
 const std::vector<BitmapToCSRInputs<index_t>> bitmaptocsr_inputs = {
   {0, 0, 0.2},
-  {10, 32, 0.2},
+  {10, 32, 0.4},
+  {10, 3, 0.2},
   {32, 1024, 0.4},
+  {1024, 1048576, 0.01},
   {1024, 1024, 0.4},
   {64 * 1024 + 10, 2, 0.3},  // 64K + 10 is slightly over maximum of blockDim.y
   {16, 16, 0.3},             // No peeling-remainder
   {17, 16, 0.3},             // Check peeling-remainder
   {18, 16, 0.3},             // Check peeling-remainder
   {32 + 9, 33, 0.2},         // Check peeling-remainder
+  {2, 33, 0.2},              // Check peeling-remainder
 };
 
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,

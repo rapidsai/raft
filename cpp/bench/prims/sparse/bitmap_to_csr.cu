@@ -43,8 +43,8 @@ inline auto operator<<(std::ostream& os, const bench_param<index_t>& params) -> 
 }
 
 template <typename bitmap_t, typename index_t, typename value_t = float>
-struct BitmapToCsrTest : public fixture {
-  BitmapToCsrTest(const bench_param<index_t>& p)
+struct BitmapToCsrBench : public fixture {
+  BitmapToCsrBench(const bench_param<index_t>& p)
     : fixture(true),
       params(p),
       handle(stream),
@@ -128,7 +128,7 @@ struct BitmapToCsrTest : public fixture {
   rmm::device_uvector<value_t> values_d;
 
   index_t nnz;
-};  // struct BitmapToCsrTest
+};  // struct BitmapToCsrBench
 
 template <typename index_t>
 const std::vector<bench_param<index_t>> getInputs()
@@ -150,6 +150,6 @@ const std::vector<bench_param<index_t>> getInputs()
   return param_vec;
 }
 
-RAFT_BENCH_REGISTER((BitmapToCsrTest<uint32_t, int, float>), "", getInputs<int>());
+RAFT_BENCH_REGISTER((BitmapToCsrBench<uint32_t, int, float>), "", getInputs<int>());
 
 }  // namespace raft::bench::sparse
