@@ -17,13 +17,13 @@ dependencies:
 - cuda-nvtx-dev
 - cuda-profiler-api
 - cuda-python>=12.0,<13.0a0
-- cuda-version=12.0
+- cuda-version=12.2
 - cupy>=12.0.0
 - cxx-compiler
 - cython>=3.0.0
 - dask-cuda==24.4.*
 - doxygen>=1.8.20
-- gcc_linux-64=11.*
+- gcc_linux-aarch64=11.*
 - gmock>=1.13.0
 - graphviz
 - gtest>=1.13.0
@@ -40,8 +40,8 @@ dependencies:
 - numpydoc
 - pre-commit
 - pydata-sphinx-theme
-- pytest
 - pytest-cov
+- pytest==7.*
 - rapids-dask-dependency==24.4.*
 - recommonmark
 - rmm==24.4.*
@@ -50,8 +50,8 @@ dependencies:
 - scipy
 - sphinx-copybutton
 - sphinx-markdown-tables
-- sysroot_linux-64==2.17
+- sysroot_linux-aarch64==2.17
 - ucx-proc=*=gpu
 - ucx-py==0.37.*
 - ucx>=1.13.0
-name: all_cuda-120_arch-x86_64
+name: all_cuda-122_arch-aarch64
