@@ -218,6 +218,7 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
                            rmm::cuda_stream_view stream)
 {
   constexpr bool needs_cast = !std::is_same<ScoreInT, ScoreOutT>::value;
+  const bool needs_copy     = ((void*)in) != ((void*)out);
   size_t len                = size_t(n_queries) * size_t(topk);
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
@@ -230,7 +231,7 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
           raft::compose_op(raft::mul_const_op<ScoreOutT>{scaling_factor * scaling_factor},
                            raft::cast_op<ScoreOutT>{}),
           stream);
-      } else if (needs_cast) {
+      } else if (needs_cast || needs_copy) {
         linalg::unaryOp(out, in, len, raft::cast_op<ScoreOutT>{}, stream);
       }
     } break;
@@ -260,7 +261,7 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
           len,
           raft::compose_op(raft::mul_const_op<ScoreOutT>{factor}, raft::cast_op<ScoreOutT>{}),
           stream);
-      } else if (needs_cast) {
+      } else if (needs_cast || needs_copy) {
         linalg::unaryOp(out, in, len, raft::cast_op<ScoreOutT>{}, stream);
       }
     } break;
