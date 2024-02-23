@@ -158,7 +158,7 @@ void reset_index(const raft::resources& res, index<T, IdxT>* index)
  *   ivf_flat::index<int64_t> index(res, index_params, D);
  *   ivf_flat::helpers::reset_index(res, &index);
  *   // recompute the internal state of the index
- *   ivf_flat::recompute_internal_state(res, &index);
+ *   ivf_flat::helpers::recompute_internal_state(res, &index);
  * @endcode
  *
  * @tparam T
@@ -171,7 +171,7 @@ template <typename T, typename IdxT>
 void recompute_internal_state(const raft::resources& res, index<T, IdxT>* index)
 {
   auto& list = index->lists()[0];
-  ivf_flat::detail::recompute_internal_state(res, *index);
+  ivf::detail::recompute_internal_state(res, *index);
 }
 
 /** @} */
