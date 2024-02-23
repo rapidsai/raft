@@ -100,11 +100,18 @@ void build_knn_graph(raft::resources const& res,
   uint32_t gpu_top_k     = node_degree * refine_rate.value_or(2.0f);
   gpu_top_k              = std::min<IdxT>(std::max(gpu_top_k, top_k), dataset.extent(0));
   const auto num_queries = dataset.extent(0);
+  rmm::mr::device_memory_resource* workspace_mr = raft::resource::get_workspace_resource(res);
   // Heuristic: how much of the workspace we can spare for the queries.
   // The rest is going to be used by ivf_pq::search
   const auto workspace_queries_bytes = raft::resource::get_workspace_free_bytes(res) / 5;
-  const auto max_batch_size =
+  auto max_batch_size =
     std::min<size_t>(workspace_queries_bytes / sizeof(DataT) / dataset.extent(1), 4096);
+  // Heuristic: if the workspace is too small for a decent batch size, switch to use the large
+  // resource with a default batch size.
+  if (max_batch_size < 128) {
+    max_batch_size = 1024;
+    workspace_mr   = raft::resource::get_large_workspace_resource(res);
+  }
   RAFT_LOG_DEBUG(
     "IVF-PQ search node_degree: %d, top_k: %d,  gpu_top_k: %d,  max_batch_size:: %d, n_probes: %u",
     node_degree,
@@ -138,7 +145,7 @@ void build_knn_graph(raft::resources const& res,
     dataset.extent(1),
     max_batch_size,
     resource::get_cuda_stream(res),
-    raft::resource::get_workspace_resource(res));
+    workspace_mr);
 
   size_t next_report_offset = 0;
   size_t d_report_offset    = dataset.extent(0) / 100;  // Report progress in 1% steps.

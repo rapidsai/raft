@@ -18,6 +18,7 @@
 
 #include <raft/core/logger.hpp>  // RAFT_LOG_TRACE
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>        // workspace resource
 #include <raft/core/resources.hpp>                              // raft::resources
 #include <raft/distance/distance_types.hpp>                     // is_min_close, DistanceType
 #include <raft/linalg/gemm.cuh>                                 // raft::linalg::gemm
@@ -28,7 +29,7 @@
 #include <raft/neighbors/ivf_flat_types.hpp>                    // raft::neighbors::ivf_flat::index
 #include <raft/neighbors/sample_filter_types.hpp>               // none_ivf_sample_filter
 #include <raft/spatial/knn/detail/ann_utils.cuh>                // utils::mapping
-#include <rmm/mr/device/per_device_resource.hpp>                // rmm::device_memory_resource
+#include <rmm/mr/device/device_memory_resource.hpp>             // rmm::device_memory_resource
 
 namespace raft::neighbors::ivf_flat::detail {
 
@@ -220,17 +221,20 @@ inline void search(raft::resources const& handle,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());
 
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
 
   // a batch size heuristic: try to keep the workspace within the specified size
-  constexpr uint32_t kExpectedWsSize = 1024 * 1024 * 1024;
+  uint64_t expected_ws_size = 1024 * 1024 * 1024ull;
+  if (mr == nullptr) {
+    mr               = resource::get_workspace_resource(handle);
+    expected_ws_size = resource::get_workspace_free_bytes(handle);
+  }
   const uint32_t max_queries =
     std::min<uint32_t>(n_queries,
                        raft::div_rounding_up_safe<uint64_t>(
-                         kExpectedWsSize, 16ull * uint64_t{n_probes} * k + 4ull * index.dim()));
+                         expected_ws_size, 16ull * uint64_t{n_probes} * k + 4ull * index.dim()));
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);

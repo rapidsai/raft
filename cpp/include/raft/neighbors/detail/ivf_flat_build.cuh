@@ -22,6 +22,7 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
@@ -179,7 +180,8 @@ void extend(raft::resources const& handle,
   RAFT_EXPECTS(new_indices != nullptr || index->size() == 0,
                "You must pass data indices when the index is non-empty.");
 
-  auto new_labels = raft::make_device_vector<LabelT, IdxT>(handle, n_rows);
+  auto new_labels = raft::make_device_mdarray<LabelT>(
+    handle, resource::get_large_workspace_resource(handle), raft::make_extents<IdxT>(n_rows));
   raft::cluster::kmeans_balanced_params kmeans_params;
   kmeans_params.metric = index->metric();
   auto orig_centroids_view =
@@ -210,7 +212,8 @@ void extend(raft::resources const& handle,
   }
 
   auto* list_sizes_ptr    = index->list_sizes().data_handle();
-  auto old_list_sizes_dev = raft::make_device_vector<uint32_t, IdxT>(handle, n_lists);
+  auto old_list_sizes_dev = raft::make_device_mdarray<uint32_t>(
+    handle, resource::get_workspace_resource(handle), raft::make_extents<IdxT>(n_lists));
   copy(old_list_sizes_dev.data_handle(), list_sizes_ptr, n_lists, stream);
 
   // Calculate the centers and sizes on the new data, starting from the original values
@@ -364,7 +367,8 @@ inline auto build(raft::resources const& handle,
     auto trainset_ratio = std::max<size_t>(
       1, n_rows / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
     auto n_rows_train = n_rows / trainset_ratio;
-    rmm::device_uvector<T> trainset(n_rows_train * index.dim(), stream);
+    rmm::device_uvector<T> trainset(
+      n_rows_train * index.dim(), stream, raft::resource::get_large_workspace_resource(handle));
     // TODO: a proper sampling
     RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
                                     sizeof(T) * index.dim(),
@@ -424,7 +428,8 @@ inline void fill_refinement_index(raft::resources const& handle,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::fill_refinement_index(%zu, %u)", size_t(n_queries));
 
-  rmm::device_uvector<LabelT> new_labels(n_queries * n_candidates, stream);
+  rmm::device_uvector<LabelT> new_labels(
+    n_queries * n_candidates, stream, raft::resource::get_workspace_resource(handle));
   auto new_labels_view =
     raft::make_device_vector_view<LabelT, IdxT>(new_labels.data(), n_queries * n_candidates);
   linalg::map_offset(
