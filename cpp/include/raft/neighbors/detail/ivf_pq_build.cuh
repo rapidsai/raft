@@ -1586,8 +1586,7 @@ void extend(raft::resources const& handle,
     n_rows + (kIndexGroupSize - 1) * std::min<IdxT>(n_clusters, n_rows));
 
   // Available device memory
-  size_t free_mem, total_mem;
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_mem, &total_mem));
+  size_t free_mem = raft::resource::get_workspace_free_bytes(handle);
 
   // We try to use the workspace memory by default here.
   // If the workspace limit is too small, we change the resource for batch data to the

@@ -177,7 +177,7 @@ class workspace_resource_factory : public resource_factory {
     // Note, the workspace does not claim all this memory from the start, so it's still usable by
     // the main resource as well.
     // This limit is merely an order for algorithm internals to plan the batching accordingly.
-    return total_size / 2;
+    return total_size / 4;
   }
 };
 
