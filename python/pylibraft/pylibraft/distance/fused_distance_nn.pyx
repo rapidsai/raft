@@ -85,7 +85,10 @@ SUPPORTED_DISTANCES = ["euclidean", "l2", "cosine", "sqeuclidean"]
 def fused_distance_nn_argmin(X, Y, out=None, sqrt=True, metric="euclidean",
                              handle=None):
     """
-    Compute the 1-nearest neighbors between X and Y using the L2 distance
+    Compute the 1-nearest neighbors between X and Y using the distance metrics
+
+    Valid values for metric:
+        ["euclidean", "l2", "cosine", "sqeuclidean"]
 
     Parameters
     ----------
