@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cooperative_groups.h>
+#include <cooperative_groups/reduce.h>
 
 #include <raft/core/detail/mdspan_util.cuh>  // detail::popc
 #include <raft/core/resource/cuda_stream.hpp>
@@ -31,6 +32,8 @@
 #include <thrust/iterator/discard_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
+
+namespace cg = cooperative_groups;
 
 namespace raft {
 namespace sparse {
@@ -51,13 +54,16 @@ RAFT_KERNEL __launch_bounds__(calc_nnz_by_rows_tpb) calc_nnz_by_rows_kernel(cons
   constexpr bitmap_t ONE            = bitmap_t(1u);
   constexpr index_t BITS_PER_BITMAP = sizeof(bitmap_t) * 8;
 
+  auto block = cg::this_thread_block();
+  auto tile  = cg::tiled_partition<32>(block);
+
   int lane_id = threadIdx.x & 0x1f;
 
   for (index_t row = blockIdx.x; row < num_rows; row += gridDim.x) {
     index_t offset = 0;
     index_t s_bit  = row * num_cols;
     index_t e_bit  = s_bit + num_cols;
-    auto l_sum     = 0;
+    index_t l_sum  = 0;
 
     while (offset < num_cols) {
       index_t bitmap_idx = lane_id + (s_bit + offset) / BITS_PER_BITMAP;
@@ -79,7 +85,7 @@ RAFT_KERNEL __launch_bounds__(calc_nnz_by_rows_tpb) calc_nnz_by_rows_kernel(cons
       offset += BITS_PER_BITMAP * warpSize;
     }
 
-    l_sum = __reduce_add_sync(0xffffffff, l_sum);
+    l_sum = cg::reduce(tile, l_sum, cg::plus<index_t>());
 
     if (lane_id == 0) { *(nnz_per_row + row) += static_cast<nnz_t>(l_sum); }
   }
@@ -146,14 +152,15 @@ RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
 
   int lane_id = threadIdx.x & 0x1f;
 
+#pragma unroll
   for (index_t row = blockIdx.x; row < num_rows; row += gridDim.x) {
-    index_t offset     = 0;
     index_t g_sum      = 0;
     index_t s_bit      = row * num_cols;
     index_t e_bit      = s_bit + num_cols;
     index_t indptr_row = indptr[row];
 
-    while (offset < num_cols) {
+#pragma unroll
+    for (index_t offset = 0; offset < num_cols; offset += BITS_PER_BITMAP * warpSize) {
       index_t bitmap_idx = lane_id + (s_bit + offset) / BITS_PER_BITMAP;
       bitmap_t l_bitmap  = bitmap_t(0);
       index_t l_offset   = offset + lane_id * BITS_PER_BITMAP - (s_bit % BITS_PER_BITMAP);
@@ -178,7 +185,6 @@ RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
           l_sum++;
         }
       }
-      offset += BITS_PER_BITMAP * warpSize;
       g_sum = __shfl_sync(0xffffffff, l_sum, warpSize - 1);
     }
   }
