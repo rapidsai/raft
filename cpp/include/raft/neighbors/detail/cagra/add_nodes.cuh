@@ -128,8 +128,8 @@ void add_node_core(raft::resources const& handle,
     // Step 1: Obtain K (=base_degree) nearest neighbors of the new vectors by CAGRA search
     // Create queries
     for (std::size_t i = 0; i < actual_batch_size; i++) {
-      raft::copy(queries.data_handle() + i * dim,
-                 additional_dataset_view.data_handle() + (new_vec_id_offset + i) * dim,
+      raft::copy(&queries(i, 0),
+                 &additional_dataset_view(new_vec_id_offset + i, dim),
                  dim,
                  raft::resource::get_cuda_stream(handle));
     }
