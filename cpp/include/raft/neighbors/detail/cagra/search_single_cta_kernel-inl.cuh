@@ -781,7 +781,12 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
     unsigned j  = i + (top_k * query_id);
     unsigned ii = i;
     if (TOPK_BY_BITONIC_SORT) { ii = device::swizzling(i); }
-    if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[ii]; }
+    const INDEX_T invalid_index = utils::get_max_value<INDEX_T>();
+    if (result_distances_ptr != nullptr) { 
+      if (metric == distance::InnerProduct && result_indices_buffer[ii] != invalid_index) {
+        result_distances_ptr[j] = -result_distances_buffer[ii]; 
+      } else {
+      result_distances_ptr[j] = result_distances_buffer[ii]; }}
     constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
 
     result_indices_ptr[j] =

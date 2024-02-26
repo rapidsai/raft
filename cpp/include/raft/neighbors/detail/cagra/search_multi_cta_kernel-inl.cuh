@@ -330,7 +330,6 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
         result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
         result_indices_buffer[i]   = invalid_index;
       }
-      if (metric == distance::InnerProduct) result_distances_buffer[i] *= -1;
     }
 
     __syncthreads();
@@ -343,7 +342,13 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
 
   for (uint32_t i = threadIdx.x; i < itopk_size; i += blockDim.x) {
     uint32_t j = i + (itopk_size * (cta_id + (num_cta_per_query * query_id)));
-    if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[i]; }
+    const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+    if (result_distances_ptr != nullptr) {
+      if (metric == distance::InnerProduct && result_indices_buffer[i] != invalid_index) {
+        result_distances_ptr[j] = -result_distances_buffer[i]; 
+      } else {
+      result_distances_ptr[j] = result_distances_buffer[i]; }}
     constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
 
     result_indices_ptr[j] =
