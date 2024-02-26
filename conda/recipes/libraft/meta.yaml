@@ -30,6 +30,7 @@ outputs:
         - PARALLEL_LEVEL
         - RAPIDS_ARTIFACTS_DIR
         - SCCACHE_BUCKET
+        - SCCACHE_RECACHE
         - SCCACHE_IDLE_TIMEOUT
         - SCCACHE_REGION
         - SCCACHE_S3_KEY_PREFIX=libraft-aarch64 # [aarch64]
