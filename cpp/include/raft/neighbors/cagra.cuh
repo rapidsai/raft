@@ -406,7 +406,7 @@ void search_with_filtering(raft::resources const& res,
 }
 
 /**
- * @brief Search ANN using the constructed index with the given sample filter.
+ * @brief Add new vectors to the index.
  *
  * Usage example:
  * @code{.cpp}
