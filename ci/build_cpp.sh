@@ -5,8 +5,8 @@ set -euo pipefail
 
 rapids-configure-conda-channels
 
+export SCCACHE_RECACHE=1
 source rapids-configure-sccache
-
 source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
