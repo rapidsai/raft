@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+
 namespace raft {
 
 /**
