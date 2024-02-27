@@ -16,18 +16,13 @@
 
 #pragma once
 
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
-#include <raft/neighbors/detail/ivf_pq_codepacking.cuh>
-#include <raft/neighbors/ivf_list.hpp>
-#include <raft/neighbors/ivf_pq_types.hpp>
-
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
@@ -38,7 +33,11 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/matrix/linewise_op.cuh>
+#include <raft/neighbors/detail/ivf_pq_codepacking.cuh>
+#include <raft/neighbors/ivf_list.hpp>
+#include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/random/rng.cuh>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
@@ -46,15 +45,13 @@
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
-#include <raft/core/resource/device_memory_resource.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 
+#include <cuda_fp16.h>
 #include <thrust/extrema.h>
 #include <thrust/scan.h>
-
-#include <cuda_fp16.h>
 
 #include <memory>
 #include <variant>

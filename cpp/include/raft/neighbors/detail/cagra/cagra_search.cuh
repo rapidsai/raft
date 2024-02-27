@@ -16,21 +16,21 @@
 
 #pragma once
 
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/neighbors/detail/ivf_pq_search.cuh>
-#include <raft/neighbors/sample_filter_types.hpp>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
+#include "factory.cuh"
+#include "search_plan.cuh"
+#include "search_single_cta.cuh"
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
-#include <rmm/cuda_stream_view.hpp>
+#include <raft/neighbors/detail/ivf_pq_search.cuh>
+#include <raft/neighbors/sample_filter_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 
-#include "factory.cuh"
-#include "search_plan.cuh"
-#include "search_single_cta.cuh"
+#include <rmm/cuda_stream_view.hpp>
 
 namespace raft::neighbors::cagra::detail {
 

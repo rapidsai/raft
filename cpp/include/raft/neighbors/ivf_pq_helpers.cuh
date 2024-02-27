@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include <cstdio>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
-
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/resources.hpp>
-
 #include <raft/spatial/knn/detail/ann_utils.cuh>
+
+#include <cstdio>
 
 namespace raft::neighbors::ivf_pq::helpers {
 using namespace raft::spatial::knn::detail;  // NOLINT

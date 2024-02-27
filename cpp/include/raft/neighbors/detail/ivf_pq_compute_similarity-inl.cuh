@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@
 #include <raft/util/device_atomics.cuh>                       // raft::atomicMin
 #include <raft/util/pow2_utils.cuh>                           // raft::Pow2
 #include <raft/util/vectorized.cuh>                           // raft::TxN_t
-#include <rmm/cuda_stream_view.hpp>                           // rmm::cuda_stream_view
+
+#include <rmm/cuda_stream_view.hpp>  // rmm::cuda_stream_view
 
 namespace raft::neighbors::ivf_pq::detail {
 

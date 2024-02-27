@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,16 +20,15 @@
 #pragma once
 
 #include "detail/common.hpp"
-#include <unordered_set>
 
 #include <raft/core/device_csr_matrix.hpp>
-
 #include <raft/distance/distance_types.hpp>
-
 #include <raft/sparse/distance/detail/bin_distance.cuh>
 #include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <raft/sparse/distance/detail/l2_distance.cuh>
 #include <raft/sparse/distance/detail/lp_distance.cuh>
+
+#include <unordered_set>
 
 namespace raft {
 namespace sparse {

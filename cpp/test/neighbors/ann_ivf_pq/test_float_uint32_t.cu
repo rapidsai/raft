@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,9 @@
 //
 // TODO: consider removing this test or consider adding an instantiation to the
 // library.
+
+#ifdef RAFT_ENABLE_ANN_IVF_PQ_TEST_FLOAT_UINT32
+
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #include "../ann_ivf_pq.cuh"
@@ -35,3 +38,5 @@ INSTANTIATE(f32_f32_u32, defaults() + var_n_probes() + var_k() + special_cases()
 TEST_BUILD_SEARCH(f32_f32_u32_filter)
 INSTANTIATE(f32_f32_u32_filter, defaults());
 }  // namespace raft::neighbors::ivf_pq
+
+#endif
