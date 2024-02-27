@@ -25,7 +25,7 @@
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-#include <thrust/optional.h>
+
 namespace raft {
 
 /**
@@ -116,11 +116,11 @@ struct device_resources_manager {
     // this initial size for the pool in bytes. Must be a multiple of 256.
     // If nullopt, use half of the available memory on the current
     // device.
-    thrust::optional<std::size_t> init_mem_pool_size{thrust::nullopt};
+    std::optional<std::size_t> init_mem_pool_size{std::nullopt};
     // If set to any non-zero value, create a memory pool with this
     // maximum size. If nullopt, use up to the entire available memory of the
     // device
-    thrust::optional<std::size_t> max_mem_pool_size{std::size_t{}};
+    std::optional<std::size_t> max_mem_pool_size{std::size_t{}};
     // Limit on workspace memory for the returned device_resources object
     std::optional<std::size_t> workspace_allocation_limit{std::nullopt};
     // Optional specification of separate workspace memory resources for each
@@ -360,7 +360,7 @@ struct device_resources_manager {
       if (memory_limit) {
         params_.max_mem_pool_size.emplace(*memory_limit);
       } else {
-        params_.max_mem_pool_size = thrust::nullopt;
+        params_.max_mem_pool_size = std::nullopt;
       }
     }
   }
@@ -377,7 +377,7 @@ struct device_resources_manager {
       if (init_memory) {
         params_.init_mem_pool_size.emplace(*init_memory);
       } else {
-        params_.init_mem_pool_size = thrust::nullopt;
+        params_.init_mem_pool_size = std::nullopt;
       }
     }
   }
