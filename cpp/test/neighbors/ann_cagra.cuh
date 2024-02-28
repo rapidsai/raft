@@ -795,15 +795,16 @@ class AnnCagraAddNodesTest : public ::testing::TestWithParam<AnnCagraInputs> {
           index = cagra::build<DataT, IdxT>(handle_, index_params, initial_database_view);
         };
 
-        auto updated_graph = raft::make_host_matrix<IdxT, int64_t>(ps.n_rows, index.graph_degree());
-        auto updated_database_view = raft::make_device_matrix_view<const DataT, int64_t>(
-          (const DataT*)database.data(), ps.n_rows, ps.dim);
+        auto additional_dataset =
+          raft::make_host_matrix<DataT, int64_t>(ps.n_rows - initial_database_size, index.dim());
+        raft::copy(additional_dataset.data_handle(),
+                   static_cast<DataT*>(database.data()) + initial_database_view.size(),
+                   additional_dataset.size(),
+                   stream_);
 
         const std::size_t update_batch_size = 100;
-        raft::neighbors::cagra::add_graph_nodes<DataT, IdxT>(
-          handle_, updated_database_view, index, update_batch_size, updated_graph.view());
-        index.update_graph(handle_, raft::make_const_mdspan(updated_graph.view()));
-        index.update_dataset(handle_, raft::make_const_mdspan(updated_database_view));
+        raft::neighbors::cagra::extend<DataT, IdxT>(
+          handle_, additional_dataset.view(), index, update_batch_size);
 
         auto search_queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
           search_queries.data(), ps.n_queries, ps.dim);
