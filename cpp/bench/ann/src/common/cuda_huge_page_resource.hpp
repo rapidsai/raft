@@ -18,7 +18,6 @@
 #include <raft/core/error.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/detail/error.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
 #include <sys/mman.h>
