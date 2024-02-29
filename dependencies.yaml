@@ -10,6 +10,8 @@ files:
       - build_pylibraft
       - cuda
       - cuda_version
+      - depends_on_cupy
+      - depends_on_distributed_ucxx
       - develop
       - checks
       - build_wheels
@@ -19,8 +21,6 @@ files:
       - run_pylibraft
       - test_python_common
       - test_pylibraft
-      - test_raft_dask
-      - cupy
   bench_ann:
     output: conda
     matrix:
@@ -45,8 +45,8 @@ files:
       - py_version
       - test_python_common
       - test_pylibraft
-      - test_raft_dask
-      - cupy
+      - depends_on_cupy
+      - depends_on_distributed_ucxx
   checks:
     output: none
     includes:
@@ -56,7 +56,7 @@ files:
     output: none
     includes:
       - cuda_version
-      - cupy
+      - depends_on_cupy
       - docs
       - py_version
       - test_pylibraft
@@ -84,7 +84,7 @@ files:
     includes:
       - test_python_common
       - test_pylibraft
-      - cupy
+      - depends_on_cupy
   py_build_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -107,7 +107,7 @@ files:
       key: test
     includes:
       - test_python_common
-      - test_raft_dask
+      - depends_on_distributed_ucxx
   py_build_raft_ann_bench:
     output: pyproject
     pyproject_dir: python/raft-ann-bench
@@ -341,7 +341,7 @@ dependencies:
               - *libcusparse_dev114
               - *libcusparse114
 
-  cupy:
+  depends_on_cupy:
     common:
       - output_types: conda
         packages:
@@ -479,10 +479,25 @@ dependencies:
         packages:
           - scikit-learn
           - scipy
-  test_raft_dask:
+  depends_on_distributed_ucxx:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: conda
         packages:
           # UCXX is not currently a hard-dependency thus only installed during tests,
-          # this will change in the future and removed from here.
-          - distributed-ucxx==0.37.*
+          # this will change in the future.
+          - &distributed_ucxx_conda distributed-ucxx==0.37.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - distributed-ucxx-cu12==0.37.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - distributed-ucxx-cu11==0.37.*
+          - {matrix: null, packages: [*distributed_ucxx_conda]}
