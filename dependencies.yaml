@@ -19,6 +19,7 @@ files:
       - run_pylibraft
       - test_python_common
       - test_pylibraft
+      - test_raft_dask
       - cupy
   bench_ann:
     output: conda
@@ -44,6 +45,7 @@ files:
       - py_version
       - test_python_common
       - test_pylibraft
+      - test_raft_dask
       - cupy
   checks:
     output: none
@@ -105,6 +107,7 @@ files:
       key: test
     includes:
       - test_python_common
+      - test_raft_dask
   py_build_raft_ann_bench:
     output: pyproject
     pyproject_dir: python/raft-ann-bench
@@ -468,9 +471,6 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          # UCXX is not currently a hard-dependency thus only installed during tests,
-          # this will change in the future and removed from here.
-          - distributed-ucxx==0.37.*
           - pytest==7.*
           - pytest-cov
   test_pylibraft:
@@ -479,3 +479,10 @@ dependencies:
         packages:
           - scikit-learn
           - scipy
+  test_raft_dask:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          # UCXX is not currently a hard-dependency thus only installed during tests,
+          # this will change in the future and removed from here.
+          - distributed-ucxx==0.37.*
