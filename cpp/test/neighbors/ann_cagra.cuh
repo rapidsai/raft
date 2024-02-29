@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "raft/neighbors/cagra_types.hpp"
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
 
 #include "../test_utils.cuh"
@@ -222,6 +223,9 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagra()
   {
+    // TODO (tarang-jain): remove when NN Descent index building support InnerProduct
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT) GTEST_SKIP();
+
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
@@ -254,6 +258,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         cagra::index_params index_params;
         index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
                                           // not used for knn_graph building.
+        RAFT_LOG_INFO("index_params.metric %d", index_params.metric);
         index_params.build_algo = ps.build_algo;
         cagra::search_params search_params;
         search_params.algo        = ps.algo;
@@ -369,6 +374,8 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagraSort()
   {
+    // TODO (tarang-jain): remove when NN Descent index building support InnerProduct
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT) GTEST_SKIP();
     {
       // Step 1: Build a sorted KNN graph by CAGRA knn build
       auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
@@ -454,6 +461,9 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagraFilter()
   {
+    // TODO (tarang-jain): remove when NN Descent index building support InnerProduct
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT) GTEST_SKIP();
+
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
@@ -574,6 +584,9 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
   void testCagraRemoved()
   {
+    // TODO (tarang-jain): remove when NN Descent index building support InnerProduct
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT) GTEST_SKIP();
+
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);

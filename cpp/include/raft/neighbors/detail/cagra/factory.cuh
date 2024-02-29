@@ -75,17 +75,17 @@ class factory {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>>(
         new single_cta_search::
           search<TEAM_SIZE, DATASET_BLOCK_DIM, T, IdxT, DistanceT, CagraSampleFilterT>(
-            res, plan, plan.dim, plan.graph_degree, plan.topk));
+            res, plan, plan.dim, plan.graph_degree, plan.topk, plan.metric));
     } else if (plan.algo == search_algo::MULTI_CTA) {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>>(
         new multi_cta_search::
           search<TEAM_SIZE, DATASET_BLOCK_DIM, T, IdxT, DistanceT, CagraSampleFilterT>(
-            res, plan, plan.dim, plan.graph_degree, plan.topk));
+            res, plan, plan.dim, plan.graph_degree, plan.topk, plan.metric));
     } else {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>>(
         new multi_kernel_search::
           search<TEAM_SIZE, DATASET_BLOCK_DIM, T, IdxT, DistanceT, CagraSampleFilterT>(
-            res, plan, plan.dim, plan.graph_degree, plan.topk));
+            res, plan, plan.dim, plan.graph_degree, plan.topk, plan.metric));
     }
   }
 };

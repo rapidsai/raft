@@ -33,6 +33,7 @@
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
+#include "raft/distance/distance_types.hpp"
 #include "search_plan.cuh"
 #include "search_single_cta_kernel.cuh"
 #include "topk_by_radix.cuh"
@@ -91,9 +92,10 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
          search_params params,
          int64_t dim,
          int64_t graph_degree,
-         uint32_t topk)
+         uint32_t topk,
+         distance::DistanceType metric)
     : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(
-        res, params, dim, graph_degree, topk)
+        res, params, dim, graph_degree, topk, metric)
   {
     set_params(res);
   }
