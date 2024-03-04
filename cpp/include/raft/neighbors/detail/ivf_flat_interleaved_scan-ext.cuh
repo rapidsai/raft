@@ -22,9 +22,13 @@
 #include <raft/util/raft_explicit.hpp>             // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>                // rmm:cuda_stream_view
 
+#include <cuda_fp16.h>
+
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::ivf_flat::detail {
+
+auto RAFT_WEAK_FUNCTION is_local_topk_feasible(uint32_t k) -> bool;
 
 template <typename T, typename AccT, typename IdxT, typename IvfSampleFilterT>
 void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& index,
@@ -35,6 +39,8 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
                               const raft::distance::DistanceType metric,
                               const uint32_t n_probes,
                               const uint32_t k,
+                              const uint32_t max_samples,
+                              const uint32_t* chunk_indices,
                               const bool select_min,
                               IvfSampleFilterT sample_filter,
                               IdxT* neighbors,
@@ -58,6 +64,8 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
     const raft::distance::DistanceType metric,                                                  \
     const uint32_t n_probes,                                                                    \
     const uint32_t k,                                                                           \
+    const uint32_t max_samples,                                                                 \
+    const uint32_t* chunk_indices,                                                              \
     const bool select_min,                                                                      \
     IvfSampleFilterT sample_filter,                                                             \
     IdxT* neighbors,                                                                            \
@@ -67,6 +75,8 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
 
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
   float, float, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
+instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
+  half, half, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
   int8_t, int32_t, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(

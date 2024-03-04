@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/neighbors/detail/ivf_pq_search.cuh>
+#include <raft/neighbors/detail/ivf_common.cuh>
 #include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
@@ -131,7 +131,7 @@ void search_main(raft::resources const& res,
     factory<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>::create(
       res, params, index.dim(), index.graph_degree(), topk);
 
-  plan->check(neighbors.extent(1));
+  plan->check(topk);
 
   RAFT_LOG_DEBUG("Cagra search");
   const uint32_t max_queries = plan->max_queries;
@@ -181,13 +181,14 @@ void search_main(raft::resources const& res,
   // and divide the values by kDivisor. Here we restore the original scale.
   constexpr float kScale = spatial::knn::detail::utils::config<T>::kDivisor /
                            spatial::knn::detail::utils::config<DistanceT>::kDivisor;
-  ivf_pq::detail::postprocess_distances(dist_out,
-                                        dist_in,
-                                        index.metric(),
-                                        distances.extent(0),
-                                        distances.extent(1),
-                                        kScale,
-                                        resource::get_cuda_stream(res));
+  ivf::detail::postprocess_distances(dist_out,
+                                     dist_in,
+                                     index.metric(),
+                                     distances.extent(0),
+                                     distances.extent(1),
+                                     kScale,
+                                     true,
+                                     resource::get_cuda_stream(res));
 }
 /** @} */  // end group cagra
 
