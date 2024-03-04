@@ -31,6 +31,8 @@
     const raft::distance::DistanceType metric,                                                  \
     const uint32_t n_probes,                                                                    \
     const uint32_t k,                                                                           \
+    const uint32_t max_samples,                                                                 \
+    const uint32_t* chunk_indices,                                                              \
     const bool select_min,                                                                      \
     IvfSampleFilterT sample_filter,                                                             \
     IdxT* neighbors,                                                                            \
