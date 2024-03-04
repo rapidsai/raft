@@ -348,9 +348,6 @@ void select_k(raft::resources const& handle,
  *   Output indices [in_val.get_n_row(), k] corresponding to the selected elements in `out_val`.
  * @param[in] select_min
  *   Flag indicating whether to select the k smallest (true) or largest (false) elements.
- * @param[in] mr
- *   An optional memory resource to use across the calls (you can provide a large enough
- *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT>
 void select_k(raft::resources const& handle,
@@ -358,8 +355,7 @@ void select_k(raft::resources const& handle,
               std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx,
               raft::device_matrix_view<T, IdxT, raft::row_major> out_val,
               raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,
-              bool select_min,
-              rmm::mr::device_memory_resource* mr = nullptr)
+              bool select_min)
 {
   auto csr_view = in_val.structure_view();
   auto nnz      = csr_view.get_nnz();
@@ -370,7 +366,7 @@ void select_k(raft::resources const& handle,
   auto len        = csr_view.get_n_cols();
   auto k          = IdxT(out_val.extent(1));
 
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+  auto mr = resource::get_workspace_resource(handle);
   RAFT_EXPECTS(out_val.extent(1) <= int64_t(std::numeric_limits<int>::max()),
                "output k must fit the int type.");
 
@@ -385,9 +381,9 @@ void select_k(raft::resources const& handle,
 
   auto stream = raft::resource::get_cuda_stream(handle);
 
-  rmm::device_uvector<IdxT> offsets(batch_size + 1, stream);
-  rmm::device_uvector<T> keys(nnz, stream);
-  rmm::device_uvector<IdxT> values(nnz, stream);
+  rmm::device_uvector<IdxT> offsets(batch_size + 1, stream, mr);
+  rmm::device_uvector<T> keys(nnz, stream, mr);
+  rmm::device_uvector<IdxT> values(nnz, stream, mr);
 
   raft::copy(offsets.data(), csr_view.get_indptr().data(), batch_size + 1, stream);
   raft::copy(keys.data(), in_val.get_elements().data(), nnz, stream);

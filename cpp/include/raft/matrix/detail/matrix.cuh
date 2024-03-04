@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <raft/core/resource/device_properties.hpp>
 
 namespace raft {
 namespace matrix {
@@ -349,9 +350,8 @@ void segmented_copy(raft::resources const& handle,
 
   idx_t tpb = max_len_per_row >= 256 ? SEGMENTED_COPY_TPB_256 : SEGMENTED_COPY_TPB_32;
 
-  int dev_id, sm_count, blocks_per_sm;
-  cudaGetDevice(&dev_id);
-  cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, dev_id);
+  int blocks_per_sm;
+  int sm_count = resource::get_device_properties(handle).multiProcessorCount;
 
   if (tpb == SEGMENTED_COPY_TPB_32) {
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(

@@ -51,8 +51,7 @@ void select_k(raft::resources const& handle,
               std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx,
               raft::device_matrix_view<T, IdxT, raft::row_major> out_val,
               raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,
-              bool select_min,
-              rmm::mr::device_memory_resource* mr = nullptr) RAFT_EXPLICIT;
+              bool select_min) RAFT_EXPLICIT;
 }  // namespace raft::matrix::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -89,8 +88,7 @@ instantiate_raft_matrix_detail_select_k(double, uint32_t);
     std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx, \
     raft::device_matrix_view<T, IdxT, raft::row_major> out_val,       \
     raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,    \
-    bool select_min,                                                  \
-    rmm::mr::device_memory_resource* mr)
+    bool select_min)
 
 instantiate_raft_matrix_detail_select_k(__half, uint32_t);
 instantiate_raft_matrix_detail_select_k(__half, int64_t);

@@ -40,8 +40,7 @@ instantiate_raft_matrix_detail_select_k(float, int64_t);
     std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx, \
     raft::device_matrix_view<T, IdxT, raft::row_major> out_val,       \
     raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,    \
-    bool select_min,                                                  \
-    rmm::mr::device_memory_resource* mr)
+    bool select_min)
 
 instantiate_raft_matrix_detail_select_k(float, uint64_t);
 
