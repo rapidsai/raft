@@ -222,9 +222,10 @@ template <typename IdxT = uint32_t,
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void optimize(raft::resources const& res,
               mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
-              raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)
+              raft::host_matrix_view<IdxT, int64_t, row_major> new_graph,
+              const bool use_MST = false)
 {
-  detail::optimize(res, knn_graph, new_graph);
+  detail::optimize(res, knn_graph, new_graph, use_MST);
 }
 
 /**

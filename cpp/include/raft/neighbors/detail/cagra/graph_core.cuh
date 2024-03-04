@@ -149,15 +149,23 @@ RAFT_KERNEL kern_prune(const IdxT* const knn_graph,  // [graph_chunk_size, graph
   const uint64_t iA = nid;
   if (iA >= graph_size) { return; }
 
-  // count number of detours (A->D->B)
+  // Count number of detours for the edge A->B
   for (uint32_t kAD = 0; kAD < graph_degree - 1; kAD++) {
-    const uint64_t iD = knn_graph[kAD + (graph_degree * iA)];
+    const uint64_t iD = knn_graph[kAD + ((uint64_t)graph_degree * iA)];
     for (uint32_t kDB = threadIdx.x; kDB < graph_degree; kDB += blockDim.x) {
       const uint64_t iB_candidate = knn_graph[kDB + ((uint64_t)graph_degree * iD)];
+      if (iB_candidate >= graph_size) {
+        continue;  // Skip if ID of node-B candidate is invalid
+      }
       for (uint32_t kAB = kAD + 1; kAB < graph_degree; kAB++) {
-        // if ( kDB < kAB )
+        const uint64_t iB = knn_graph[kAB + ((uint64_t)graph_degree * iA)];
+        if (iB >= graph_size) {
+          // If ID of node-B is invalid, always increase # detours of edge A->B.
+          atomicAdd(smem_num_detour + kAB, 1);
+          continue;
+        }
+        // if (kDB < kAB)
         {
-          const uint64_t iB = knn_graph[kAB + (graph_degree * iA)];
           if (iB == iB_candidate) {
             atomicAdd(smem_num_detour + kAB, 1);
             break;
@@ -189,18 +197,34 @@ RAFT_KERNEL kern_prune(const IdxT* const knn_graph,  // [graph_chunk_size, graph
 
 template <class IdxT>
 RAFT_KERNEL kern_make_rev_graph(const IdxT* const dest_nodes,     // [graph_size]
-                                IdxT* const rev_graph,            // [size, degree]
+                                IdxT* const rev_graph,            // [graph_size, degree]
                                 uint32_t* const rev_graph_count,  // [graph_size]
                                 const uint32_t graph_size,
-                                const uint32_t degree)
+                                const uint32_t degree,
+                                uint32_t reverse = 0)
 {
   const uint32_t tid  = threadIdx.x + (blockDim.x * blockIdx.x);
   const uint32_t tnum = blockDim.x * gridDim.x;
 
-  for (uint32_t src_id = tid; src_id < graph_size; src_id += tnum) {
+  for (uint32_t i = tid; i < graph_size; i += tnum) {
+    uint32_t src_id = i;
+    if (reverse) {
+      src_id = graph_size - 1 - i;
+    }
     const IdxT dest_id = dest_nodes[src_id];
     if (dest_id >= graph_size) continue;
+    if (rev_graph_count[dest_id] >= degree) continue;
 
+    // Check if the same node already exists.
+    bool flag_match = false;
+    for (uint32_t k = 0; k < min(rev_graph_count[dest_id], degree); k++) {
+      if (rev_graph[k + ((uint64_t)degree * dest_id)] == src_id) {
+        flag_match = true;
+        break;
+      }
+    }
+    if (flag_match) continue;
+    
     const uint32_t pos = atomicAdd(rev_graph_count + dest_id, 1);
     if (pos < degree) { rev_graph[pos + ((uint64_t)degree * dest_id)] = src_id; }
   }
@@ -314,12 +338,22 @@ void sort_knn_graph(raft::resources const& res,
   RAFT_LOG_DEBUG("# Sorting kNN graph time: %.1lf sec\n", time_sort_end - time_sort_start);
 }
 
+uint32_t get_root_label(uint32_t i, const uint32_t *label)
+{
+  uint32_t l = label[i];
+  while (l != label[l]) {
+    l = label[l];
+  }
+  return l;
+}
+
 template <typename IdxT = uint32_t,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void optimize(raft::resources const& res,
               mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
-              raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)
+              raft::host_matrix_view<IdxT, int64_t, row_major> new_graph,
+              const bool use_MST = false)
 {
   RAFT_LOG_DEBUG(
     "# Pruning kNN graph (size=%lu, degree=%lu)\n", knn_graph.extent(0), knn_graph.extent(1));
@@ -334,13 +368,249 @@ void optimize(raft::resources const& res,
   auto output_graph_ptr              = new_graph.data_handle();
   const IdxT graph_size              = new_graph.extent(0);
 
+  // MST optimization
+  auto mst_graph_num_edges = raft::make_host_vector<uint32_t, int64_t>(graph_size);
+  auto mst_graph_num_edges_ptr = mst_graph_num_edges.data_handle();
+#pragma omp parallel for
+  for (uint64_t i = 0; i < graph_size; i++) {
+    mst_graph_num_edges_ptr[i] = 0;
+  }
+  if (use_MST) {
+    fprintf( stderr, "# Making approximate MST graph on CPU\n" ); // debug
+
+    const uint32_t mst_graph_degree = output_graph_degree;
+
+    auto mst_graph = raft::make_host_matrix<IdxT, int64_t>(graph_size, mst_graph_degree);
+    auto outgoing_max_edges = raft::make_host_vector<IdxT, int64_t>(graph_size);
+    auto incoming_max_edges = raft::make_host_vector<IdxT, int64_t>(graph_size);
+    auto outgoing_num_edges = raft::make_host_vector<IdxT, int64_t>(graph_size);
+    auto incoming_num_edges = raft::make_host_vector<IdxT, int64_t>(graph_size);
+    auto label = raft::make_host_vector<IdxT, int64_t>(graph_size);
+    auto cluster_size = raft::make_host_vector<IdxT, int64_t>(graph_size);
+    auto candidate_edges = raft::make_host_vector<IdxT, int64_t>(graph_size);
+
+    auto mst_graph_ptr = mst_graph.data_handle();
+    auto outgoing_max_edges_ptr = outgoing_max_edges.data_handle();
+    auto incoming_max_edges_ptr = incoming_max_edges.data_handle();
+    auto outgoing_num_edges_ptr = outgoing_num_edges.data_handle();
+    auto incoming_num_edges_ptr = incoming_num_edges.data_handle();
+    auto label_ptr = label.data_handle();
+    auto cluster_size_ptr = cluster_size.data_handle();
+    auto candidate_edges_ptr = candidate_edges.data_handle();
+    
+#pragma omp parallel for
+    for (uint64_t i = 0; i < graph_size; i++) {
+      for (uint64_t k = 0; k < mst_graph_degree; k++) {
+	mst_graph_ptr[(mst_graph_degree * i) + k] = graph_size;
+      }
+      outgoing_max_edges_ptr[i] = 2;
+      incoming_max_edges_ptr[i] = mst_graph_degree - outgoing_max_edges_ptr[i];
+      outgoing_num_edges_ptr[i] = 0;
+      incoming_num_edges_ptr[i] = 0;
+      label_ptr[i] = i;
+      cluster_size_ptr[i] = 1;
+    }
+
+    uint32_t num_clusters = 0;
+    uint32_t num_clusters_pre = 0;
+    uint32_t cluster_size_min = graph_size;
+    uint32_t cluster_size_max = 0;
+    for (uint64_t k = 0; k <= input_graph_degree; k++) {
+      int num_alternate = 0;
+      int num_failure = 0;
+
+      if (k == input_graph_degree) {
+	// If the number of clusters does not converge to 1, then edges are
+	// made from all nodes not belonging to the main cluster to any node
+	// in the main cluster.
+	uint32_t main_cluster_label = graph_size;
+#pragma omp parallel for
+	for (uint64_t i = 0; i < graph_size; i++) {
+	  if ((cluster_size_ptr[i] == cluster_size_max) && (main_cluster_label > i)) {
+	    main_cluster_label = i;
+	  }
+	}
+#pragma omp parallel for
+	for (uint64_t i = 0; i < graph_size; i++) {
+	  candidate_edges_ptr[i] = graph_size;
+	  if (label_ptr[i] == main_cluster_label) continue;
+	  uint64_t j = i;
+	  while (label_ptr[j] != main_cluster_label) {
+	    constexpr uint32_t ofst = 97;
+	    j = (j + ofst) % graph_size;
+	  }
+	  candidate_edges_ptr[i] = j;
+	}
+      } else {
+	// Copy rank-k edges from the input knn graph to 'candidate_edges'
+#pragma omp parallel for
+	for (uint64_t i = 0; i < graph_size; i++) {
+	  candidate_edges_ptr[i] = input_graph_ptr[k + (input_graph_degree * i)];
+	}
+      }
+
+#pragma omp parallel for reduction(+:num_altenate,num_failure)
+      for (uint64_t i = 0; i < graph_size; i++) {
+	if ( outgoing_num_edges_ptr[i] >= outgoing_max_edges_ptr[i] ) continue;
+	uint64_t j = candidate_edges_ptr[i];
+	if ( j >= graph_size ) continue;
+	if ( label_ptr[i] == label_ptr[j] ) continue;
+
+	// Try to add an edge to destination node with different label.
+	if ( incoming_num_edges_ptr[j] < incoming_max_edges_ptr[j] ) {
+	  // Use atomic to avoid conflicts, since 'incoming_num_edges_ptr[j]'
+	  // can be updated by other threads.
+	  uint32_t ki;
+#pragma omp atomic capture
+	  ki = incoming_num_edges_ptr[j]++;
+	  if (ki < incoming_max_edges_ptr[j]) {
+	    auto ko = outgoing_num_edges_ptr[i]++;
+	    mst_graph_ptr[(mst_graph_degree * (i  ))   + ko] = j;  // OUT
+	    mst_graph_ptr[(mst_graph_degree * (j+1))-1 - ki] = i;  // IN
+	    continue;
+	  }
+	}
+
+	// Try to add an edge to an alternate node instead
+	bool success = false;
+	for (uint64_t kk = 0; kk < std::min(incoming_num_edges_ptr[j], incoming_max_edges_ptr[j]); kk++) {
+	  uint64_t l = mst_graph_ptr[(mst_graph_degree * (j+1))-1 - kk];  // IN
+	  if ( l >= graph_size ) continue;
+	  if ( label_ptr[i] == label_ptr[l] ) continue;
+	  if ( incoming_num_edges_ptr[l] >= incoming_max_edges_ptr[l] ) continue;
+	  // Use atomic to avoid conflicts, since 'incoming_num_edges_ptr[l]'
+	  // can be updated by other threads.
+	  uint32_t ki;
+#pragma omp atomic capture
+	  ki = incoming_num_edges_ptr[l]++;
+	  if (ki < incoming_max_edges_ptr[l]) {
+	    auto ko = outgoing_num_edges_ptr[i]++;
+	    mst_graph_ptr[(mst_graph_degree * (i  ))   + ko] = l;  // OUT
+	    mst_graph_ptr[(mst_graph_degree * (l+1))-1 - ki] = i;  // IN
+	    success = true;
+	    break;
+	  }
+	}
+	if (success) {
+	  num_alternate += 1;
+	} else {
+	  num_failure += 1;
+	}
+      }
+
+      // [CPU] Adjust number of incoming edges
+#pragma omp parallel for
+      for (uint64_t i = 0; i < graph_size; i++) {
+	if (incoming_num_edges_ptr[i] > incoming_max_edges_ptr[i]) {
+	  incoming_num_edges_ptr[i] = incoming_max_edges_ptr[i];
+	}
+      }
+
+      // [CPU] Labeling
+      uint32_t flag_update = 1;
+      while (flag_update) {
+	flag_update = 0;
+#pragma omp parallel for reduction(+:flag_update)
+	for (uint64_t i = 0; i < graph_size; i++) {
+	  for (uint64_t kk = 0; kk < mst_graph_degree; kk++ ) {
+	    uint64_t j = mst_graph_ptr[(mst_graph_degree * i) + kk];
+	    if ( j >= graph_size ) continue;
+	    if ( label_ptr[i] > label_ptr[j] ) {
+	      flag_update += 1;
+	      label_ptr[i] = label_ptr[j];
+	    }
+	  }
+	}
+      }
+
+      // [CPU] Calculate the number of clusters and the size of each cluster
+      num_clusters = 0;
+#pragma omp parallel for reduction(+:num_clusters)
+      for (uint64_t i = 0; i < graph_size; i++) {
+	uint64_t ri = get_root_label(i, label_ptr);
+	if (ri == i) {
+	  num_clusters += 1;
+	} else {
+#pragma omp atomic update
+	  cluster_size_ptr[ri] += cluster_size_ptr[i];
+	  cluster_size_ptr[i] = 0;
+	}
+      }
+
+      // [CPU] Calculate the min/max size of clusters.
+      cluster_size_min = graph_size;
+      cluster_size_max = 0;
+#pragma omp parallel for reduction(max:cluster_size_max) reduction(min:cluster_size_min)
+      for (uint64_t i = 0; i < graph_size; i++) {
+	if (cluster_size_ptr[i] == 0) continue;
+	cluster_size_max = max(cluster_size_max, cluster_size_ptr[i]);
+	cluster_size_min = min(cluster_size_min, cluster_size_ptr[i]);
+      }
+
+      // [CPU] Calculate the total number of outgoing/incoming edges
+      uint64_t total_outgoing_edges = 0;
+      uint64_t total_incoming_edges = 0;
+#pragma omp parallel for reduction(+:total_outgoing_edges, total_incoming_edges)
+      for (uint64_t i = 0; i < graph_size; i++) {
+	total_outgoing_edges += outgoing_num_edges_ptr[i];
+	total_incoming_edges += incoming_num_edges_ptr[i];
+      }
+
+      // [CPU] Increase the limit of outgoing edges as needed
+#pragma omp parallel for
+      for (uint64_t i = 0; i < graph_size; i++) {
+	if (outgoing_num_edges_ptr[i] < outgoing_max_edges_ptr[i]) continue;
+	if (outgoing_num_edges_ptr[i] + incoming_num_edges_ptr[i] == mst_graph_degree) continue;
+	assert(outgoing_num_edges_ptr[i] + incoming_num_edges_ptr[i] < mst_graph_degree);
+	outgoing_max_edges_ptr[i] += 1;
+	incoming_max_edges_ptr[i] = mst_graph_degree - outgoing_max_edges_ptr[i];
+      }
+
+      // Stats
+      if ( num_clusters != num_clusters_pre ) {
+	fprintf( stderr, "# k=%lu", k );
+	fprintf( stderr, ", num_clusters=%u", num_clusters );
+	fprintf( stderr, ", cluster_size: min=%u, max=%u", cluster_size_min, cluster_size_max );
+	fprintf( stderr, ", edges: out=%lu, in=%lu",
+		 total_outgoing_edges, total_incoming_edges );
+	if ( num_alternate + num_failure > 0 ) {
+	  fprintf( stderr, ", alternate=%d", num_alternate );
+	  if ( num_failure > 0 ) {
+	    fprintf( stderr, ", failure=%d", num_failure );
+	  }
+	}
+	fprintf( stderr, "\n" );
+      }
+      assert( num_clusters > 0 );
+      assert( total_outgoing_edges == total_incoming_edges );
+      if ( num_clusters == 1 ) {
+	break;
+      }
+      num_clusters_pre = num_clusters;
+    }
+
+    // The edges that make up the MST are stored as edges in the output graph.
+#pragma omp parallel for
+    for (uint64_t i = 0; i < graph_size; i++) {
+      uint64_t k = 0;
+      for (uint64_t kk = 0; kk < mst_graph_degree; kk++) {
+	uint64_t j = mst_graph_ptr[(mst_graph_degree * i) + kk];
+	if (j >= graph_size) continue;
+	output_graph_ptr[(output_graph_degree * i) + k] = j;
+	k += 1;
+      }
+      mst_graph_num_edges_ptr[i] = k;
+    }
+  } // if (use_MST)
+  
+  auto pruned_graph = raft::make_host_matrix<uint32_t, int64_t>(graph_size, output_graph_degree);
+  auto pruned_graph_ptr = pruned_graph.data_handle();
   {
     //
     // Prune kNN graph
     //
     auto d_detour_count =
       raft::make_device_matrix<uint8_t, int64_t>(res, graph_size, input_graph_degree);
-
     RAFT_CUDA_TRY(cudaMemsetAsync(d_detour_count.data_handle(),
                                   0xff,
                                   graph_size * input_graph_degree * sizeof(uint8_t),
@@ -429,7 +699,7 @@ void optimize(raft::resources const& res,
         if (max_detour < num_detour) { max_detour = num_detour; /* stats */ }
         for (uint64_t k = 0; k < input_graph_degree; k++) {
           if (detour_count.data_handle()[k + (input_graph_degree * i)] != num_detour) { continue; }
-          output_graph_ptr[pk + (output_graph_degree * i)] =
+          pruned_graph_ptr[pk + (output_graph_degree * i)] =
             input_graph_ptr[k + (input_graph_degree * i)];
           pk += 1;
           if (pk >= output_graph_degree) break;
@@ -451,9 +721,18 @@ void optimize(raft::resources const& res,
       (double)num_full / graph_size * 100);
   }
 
-  auto rev_graph       = raft::make_host_matrix<IdxT, int64_t>(graph_size, output_graph_degree);
   auto rev_graph_count = raft::make_host_vector<uint32_t, int64_t>(graph_size);
-
+#pragma omp parallel for
+  for (uint64_t i = 0; i < graph_size; i++) {
+    rev_graph_count.data_handle()[i] = 0;
+  }
+  
+  auto rev_graph = raft::make_host_matrix<IdxT, int64_t>(graph_size, output_graph_degree);
+  auto rev_graph_ptr = rev_graph.data_handle();
+#pragma omp parallel for
+  for (uint64_t i = 0; i < (uint64_t)graph_size * output_graph_degree; i++) {
+    rev_graph_ptr[i] = graph_size;
+  }
   {
     //
     // Make reverse graph
@@ -461,15 +740,19 @@ void optimize(raft::resources const& res,
     const double time_make_start = cur_time();
 
     device_matrix_view_from_host<IdxT, int64_t> d_rev_graph(res, rev_graph.view());
-    RAFT_CUDA_TRY(cudaMemsetAsync(d_rev_graph.data_handle(),
-                                  0xff,
+    // **** USE raft::copy ****
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_rev_graph.data_handle(),
+                                  rev_graph_ptr,
                                   graph_size * output_graph_degree * sizeof(IdxT),
+				  cudaMemcpyDefault,
                                   resource::get_cuda_stream(res)));
 
     auto d_rev_graph_count = raft::make_device_vector<uint32_t, int64_t>(res, graph_size);
-    RAFT_CUDA_TRY(cudaMemsetAsync(d_rev_graph_count.data_handle(),
-                                  0x00,
+    // **** USE raft::copy ****
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_rev_graph_count.data_handle(),
+                                  rev_graph_count.data_handle(),
                                   graph_size * sizeof(uint32_t),
+				  cudaMemcpyDefault,
                                   resource::get_cuda_stream(res)));
 
     auto dest_nodes   = raft::make_host_vector<IdxT, int64_t>(graph_size);
@@ -478,7 +761,7 @@ void optimize(raft::resources const& res,
     for (uint64_t k = 0; k < output_graph_degree; k++) {
 #pragma omp parallel for
       for (uint64_t i = 0; i < graph_size; i++) {
-        dest_nodes.data_handle()[i] = output_graph_ptr[k + (output_graph_degree * i)];
+        dest_nodes.data_handle()[i] = pruned_graph_ptr[k + (output_graph_degree * i)];
       }
       resource::sync_stream(res);
 
@@ -494,7 +777,7 @@ void optimize(raft::resources const& res,
         d_rev_graph.data_handle(),
         d_rev_graph_count.data_handle(),
         graph_size,
-        output_graph_degree);
+        output_graph_degree, (k % 2));
       RAFT_LOG_DEBUG("# Making reverse graph on GPUs: %lu / %u    \r", k, output_graph_degree);
     }
 
@@ -512,43 +795,66 @@ void optimize(raft::resources const& res,
                graph_size,
                resource::get_cuda_stream(res));
 
+    resource::sync_stream(res);
     const double time_make_end = cur_time();
     RAFT_LOG_DEBUG("# Making reverse graph time: %.1lf sec", time_make_end - time_make_start);
   }
 
   {
     //
-    // Replace some edges with reverse edges
+    // Merge forward and reverse edges
     //
     const double time_replace_start = cur_time();
 
-    const uint64_t num_protected_edges = output_graph_degree / 2;
-    RAFT_LOG_DEBUG("# num_protected_edges: %lu", num_protected_edges);
+#pragma omp parallel for
+    for (uint64_t i = 0; i < graph_size; i++) {
+      auto my_out_graph = output_graph_ptr + (output_graph_degree * i);
+      auto my_fwd_graph = pruned_graph_ptr + (output_graph_degree * i);
+      auto my_rev_graph = rev_graph_ptr + (output_graph_degree * i);
 
-    constexpr int _omp_chunk = 1024;
-#pragma omp parallel for schedule(dynamic, _omp_chunk)
-    for (uint64_t j = 0; j < graph_size; j++) {
-      uint64_t k = std::min(rev_graph_count.data_handle()[j], output_graph_degree);
-      while (k) {
-        k--;
-        uint64_t i = rev_graph.data_handle()[k + (output_graph_degree * j)];
-
-        uint64_t pos =
-          pos_in_array<IdxT>(i, output_graph_ptr + (output_graph_degree * j), output_graph_degree);
-        if (pos < num_protected_edges) { continue; }
-        uint64_t num_shift = pos - num_protected_edges;
-        if (pos == output_graph_degree) {
-          num_shift = output_graph_degree - num_protected_edges - 1;
-        }
-        shift_array<IdxT>(output_graph_ptr + num_protected_edges + (output_graph_degree * j),
-                          num_shift);
-        output_graph_ptr[num_protected_edges + (output_graph_degree * j)] = i;
+      uint32_t k = mst_graph_num_edges_ptr[i];
+      uint32_t kf = 0;
+      uint32_t kr = 0;
+      while (kf < output_graph_degree || kr < output_graph_degree) {
+	if (kf < output_graph_degree) {
+	  if (my_fwd_graph[kf] < graph_size) {
+	    auto flag_match = false;
+	    for (uint32_t kk = 0; kk < k; kk++) {
+	      if (my_out_graph[kk] == my_fwd_graph[kf]) {
+		flag_match = true;
+		break;
+	      }
+	    }
+	    if (!flag_match) {
+	      my_out_graph[k] = my_fwd_graph[kf];
+	      k += 1;
+	    }
+	  }
+	  kf += 1;
+	  if (k >= output_graph_degree) break;
+	}
+	if (kr < output_graph_degree) {
+	  if (my_rev_graph[kr] < graph_size) {
+	    auto flag_match = false;
+	    for (uint32_t kk = 0; kk < k; kk++) {
+	      if (my_out_graph[kk] == my_rev_graph[kr]) {
+		flag_match = true;
+		break;
+	      }
+	    }
+	    if (!flag_match) {
+	      my_out_graph[k] = my_rev_graph[kr];
+	      k += 1;
+	    }
+	  }
+	  kr += 1;
+	  if (k >= output_graph_degree) break;
+	}
       }
-      if ((omp_get_thread_num() == 0) && ((j % _omp_chunk) == 0)) {
-        RAFT_LOG_DEBUG("# Replacing reverse edges: %lu / %lu    ", j, graph_size);
-      }
+      assert(k == output_graph_degree);
+      assert(kf <= output_graph_degree);
+      assert(kr <= output_graph_degree);
     }
-    RAFT_LOG_DEBUG("\n");
 
     const double time_replace_end = cur_time();
     RAFT_LOG_DEBUG("# Replacing edges time: %.1lf sec", time_replace_end - time_replace_start);
