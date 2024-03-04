@@ -101,9 +101,10 @@ if(BUILD_TESTS)
     PATH
     test/cluster/kmeans.cu
     test/cluster/kmeans_balanced.cu
+    test/cluster/kmeans_find_k.cu
     test/cluster/cluster_solvers.cu
     test/cluster/linkage.cu
-    test/cluster/kmeans_find_k.cu
+    test/cluster/spectral.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )

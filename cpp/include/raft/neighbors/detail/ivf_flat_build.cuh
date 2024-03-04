@@ -26,6 +26,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/neighbors/detail/ivf_common.cuh>
 #include <raft/neighbors/ivf_flat_codepacker.hpp>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
@@ -75,7 +76,7 @@ auto clone(const raft::resources& res, const index<T, IdxT>& source) -> index<T,
   target.lists() = source.lists();
 
   // Make sure the device pointers point to the new lists
-  target.recompute_internal_state(res);
+  ivf::detail::recompute_internal_state(res, target);
 
   return target;
 }
@@ -262,7 +263,7 @@ void extend(raft::resources const& handle,
     }
   }
   // Update the pointers and the sizes
-  index->recompute_internal_state(handle);
+  ivf::detail::recompute_internal_state(handle, *index);
   // Copy the old sizes, so we can start from the current state of the index;
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
   raft::copy(list_sizes_ptr, old_list_sizes_dev.data_handle(), n_lists, stream);
@@ -355,29 +356,36 @@ inline auto build(raft::resources const& handle,
   RAFT_EXPECTS(n_rows >= params.n_lists, "number of rows can't be less than n_lists");
 
   index<T, IdxT> index(handle, params, dim);
+  utils::memzero(
+    index.accum_sorted_sizes().data_handle(), index.accum_sorted_sizes().size(), stream);
   utils::memzero(index.list_sizes().data_handle(), index.list_sizes().size(), stream);
   utils::memzero(index.data_ptrs().data_handle(), index.data_ptrs().size(), stream);
   utils::memzero(index.inds_ptrs().data_handle(), index.inds_ptrs().size(), stream);
 
   // Train the kmeans clustering
   {
-    int random_seed     = 137;
     auto trainset_ratio = std::max<size_t>(
       1, n_rows / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
     auto n_rows_train = n_rows / trainset_ratio;
-    auto trainset     = make_device_matrix<T, IdxT>(handle, n_rows_train, index.dim());
-    raft::spatial::knn::detail::utils::subsample(
-      handle, dataset, n_rows, trainset.view(), random_seed);
+    rmm::device_uvector<T> trainset(n_rows_train * index.dim(), stream);
+    // TODO: a proper sampling
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
+                                    sizeof(T) * index.dim(),
+                                    dataset,
+                                    sizeof(T) * index.dim() * trainset_ratio,
+                                    sizeof(T) * index.dim(),
+                                    n_rows_train,
+                                    cudaMemcpyDefault,
+                                    stream));
+    auto trainset_const_view =
+      raft::make_device_matrix_view<const T, IdxT>(trainset.data(), n_rows_train, index.dim());
     auto centers_view = raft::make_device_matrix_view<float, IdxT>(
       index.centers().data_handle(), index.n_lists(), index.dim());
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = params.kmeans_n_iters;
     kmeans_params.metric  = index.metric();
-    raft::cluster::kmeans_balanced::fit(handle,
-                                        kmeans_params,
-                                        make_const_mdspan(trainset.view()),
-                                        centers_view,
-                                        utils::mapping<float>{});
+    raft::cluster::kmeans_balanced::fit(
+      handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
   }
 
   // add the data if necessary
@@ -437,7 +445,7 @@ inline void fill_refinement_index(raft::resources const& handle,
     ivf::resize_list(handle, lists[label], list_device_spec, n_candidates, uint32_t(0));
   }
   // Update the pointers and the sizes
-  refinement_index->recompute_internal_state(handle);
+  ivf::detail::recompute_internal_state(handle, *refinement_index);
 
   RAFT_CUDA_TRY(cudaMemsetAsync(list_sizes_ptr, 0, n_lists * sizeof(uint32_t), stream));
 
