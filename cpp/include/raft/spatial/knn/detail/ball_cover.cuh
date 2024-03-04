@@ -167,6 +167,10 @@ void construct_landmark_1nn(raft::resources const& handle,
                                            index.get_R_indptr().data_handle(),
                                            index.n_landmarks + 1,
                                            resource::get_cuda_stream(handle));
+
+  // reorder X to allow aligned access
+  raft::matrix::copy_rows<value_t, value_idx>(
+    handle, index.get_X(), index.get_X_reordered(), index.get_R_1nn_cols());
 }
 
 /**
@@ -339,12 +343,6 @@ void perform_rbc_query(raft::resources const& handle,
 /**
  * Perform eps-select
  *
- * a. Map 1 row to each warp/block
- * b. Add closest k R points to heap
- * c. Iterate through batches of R, having each thread in the warp load a set
- * of distances y from R (only if d(q, r) < 3 * distance to closest r) and
- * marking the distance to be computed between x, y only
- * if knn[k].distance >= d(x_i, R_k) + d(R_k, y)
  */
 template <typename value_idx,
           typename value_t,
@@ -357,7 +355,7 @@ void perform_rbc_eps_nn_query(
   const value_t* query,
   value_int n_query_pts,
   value_t eps,
-  const value_t* landmark_dists,
+  const value_t* landmarks,
   dist_func dfunc,
   bool* adj,
   value_idx* vd)
@@ -369,7 +367,7 @@ void perform_rbc_eps_nn_query(
   resource::sync_stream(handle);
 
   rbc_eps_pass<value_idx, value_t, value_int, matrix_idx>(
-    handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj, vd);
+    handle, index, query, n_query_pts, eps, landmarks, dfunc, adj, vd);
 
   resource::sync_stream(handle);
 }
@@ -386,14 +384,14 @@ void perform_rbc_eps_nn_query(
   value_int n_query_pts,
   value_t eps,
   value_int* max_k,
-  const value_t* landmark_dists,
+  const value_t* landmarks,
   dist_func dfunc,
   value_idx* adj_ia,
   value_idx* adj_ja,
   value_idx* vd)
 {
   rbc_eps_pass<value_idx, value_t, value_int, matrix_idx>(
-    handle, index, query, n_query_pts, eps, max_k, landmark_dists, dfunc, adj_ia, adj_ja, vd);
+    handle, index, query, n_query_pts, eps, max_k, landmarks, dfunc, adj_ia, adj_ja, vd);
 
   resource::sync_stream(handle);
 }
@@ -418,6 +416,14 @@ void rbc_build_index(raft::resources const& handle,
                      BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                      distance_func dfunc)
 {
+  {
+    /** flush the L2 cache - Hopper at 50MB */
+    size_t l2_cache_size = 50 * 1024 * 1024;
+    auto scratch_buf_    = rmm::device_buffer(l2_cache_size * 3, resource::get_cuda_stream(handle));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      scratch_buf_.data(), 0, scratch_buf_.size(), resource::get_cuda_stream(handle)));
+  }
+
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
   rmm::device_uvector<value_idx> R_knn_inds(index.m, resource::get_cuda_stream(handle));
@@ -666,15 +672,9 @@ void rbc_eps_nn_query(raft::resources const& handle,
 {
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
-  auto R_dists =
-    raft::make_device_matrix<value_t, matrix_idx>(handle, index.n_landmarks, n_query_pts);
-
-  // find all landmarks that might have points in range
-  compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data_handle());
-
   // query all points and write to adj
   perform_rbc_eps_nn_query(
-    handle, index, query, n_query_pts, eps, R_dists.data_handle(), dfunc, adj, vd);
+    handle, index, query, n_query_pts, eps, index.get_R().data_handle(), dfunc, adj, vd);
 }
 
 template <typename value_idx = std::int64_t,
@@ -695,12 +695,6 @@ void rbc_eps_nn_query(raft::resources const& handle,
 {
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
-  auto R_dists =
-    raft::make_device_matrix<value_t, matrix_idx>(handle, index.n_landmarks, n_query_pts);
-
-  // find all landmarks that might have points in range
-  compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data_handle());
-
   // query all points and write to adj
   perform_rbc_eps_nn_query(handle,
                            index,
@@ -708,7 +702,7 @@ void rbc_eps_nn_query(raft::resources const& handle,
                            n_query_pts,
                            eps,
                            max_k,
-                           R_dists.data_handle(),
+                           index.get_R().data_handle(),
                            dfunc,
                            adj_ia,
                            adj_ja,
