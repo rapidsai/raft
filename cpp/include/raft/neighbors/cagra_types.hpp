@@ -280,6 +280,14 @@ struct index : ann::index {
     }
   }
 
+  /** Set the dataset reference explicitly to a device matrix view with padding. */
+  void update_dataset(raft::resources const&,
+                      raft::device_matrix_view<const T, int64_t, layout_stride> dataset)
+  {
+    RAFT_EXPECTS(dataset.stride(0) * sizeof(T) % 16 == 0, "Incorrect data padding.");
+    dataset_view_ = dataset;
+  }
+
   /**
    * Replace the dataset with a new dataset.
    *
