@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
-
-#include <thrust/reduce.h>
 
 #include <algorithm>  // std::max
 #include <memory>
@@ -222,8 +220,31 @@ struct index : ann::index {
     }
   }
 
+  /**
+   * Accumulated list sizes, sorted in descending order [n_lists + 1].
+   * The last value contains the total length of the index.
+   * The value at index zero is always zero.
+   *
+   * That is, the content of this span is as if the `list_sizes` was sorted and then accumulated.
+   *
+   * This span is used during search to estimate the maximum size of the workspace.
+   */
+  inline auto accum_sorted_sizes() noexcept -> host_vector_view<IdxT, uint32_t>
+  {
+    return accum_sorted_sizes_.view();
+  }
+  [[nodiscard]] inline auto accum_sorted_sizes() const noexcept
+    -> host_vector_view<const IdxT, uint32_t>
+  {
+    return accum_sorted_sizes_.view();
+  }
+
   /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return total_size_; }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
+  {
+    return accum_sorted_sizes()(n_lists());
+  }
+
   /** Dimensionality of the data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
   {
@@ -257,9 +278,10 @@ struct index : ann::index {
       list_sizes_{make_device_vector<uint32_t, uint32_t>(res, n_lists)},
       data_ptrs_{make_device_vector<T*, uint32_t>(res, n_lists)},
       inds_ptrs_{make_device_vector<IdxT*, uint32_t>(res, n_lists)},
-      total_size_{0}
+      accum_sorted_sizes_{make_host_vector<IdxT, uint32_t>(n_lists + 1)}
   {
     check_consistency();
+    accum_sorted_sizes_(n_lists) = 0;
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
@@ -298,33 +320,6 @@ struct index : ann::index {
     return conservative_memory_allocation_;
   }
 
-  /**
-   * Update the state of the dependent index members.
-   */
-  void recompute_internal_state(raft::resources const& res)
-  {
-    auto stream = resource::get_cuda_stream(res);
-
-    // Actualize the list pointers
-    auto this_lists     = lists();
-    auto this_data_ptrs = data_ptrs();
-    auto this_inds_ptrs = inds_ptrs();
-    for (uint32_t label = 0; label < this_lists.size(); label++) {
-      auto& list          = this_lists[label];
-      const auto data_ptr = list ? list->data.data_handle() : nullptr;
-      const auto inds_ptr = list ? list->indices.data_handle() : nullptr;
-      copy(&this_data_ptrs(label), &data_ptr, 1, stream);
-      copy(&this_inds_ptrs(label), &inds_ptr, 1, stream);
-    }
-    auto this_list_sizes = list_sizes().data_handle();
-    total_size_          = thrust::reduce(resource::get_thrust_policy(res),
-                                 this_list_sizes,
-                                 this_list_sizes + this_lists.size(),
-                                 0,
-                                 raft::add_op{});
-    check_consistency();
-  }
-
   void allocate_center_norms(raft::resources const& res)
   {
     switch (metric_) {
@@ -349,6 +344,20 @@ struct index : ann::index {
     return lists_;
   }
 
+  /** Throw an error if the index content is inconsistent. */
+  void check_consistency()
+  {
+    auto n_lists = lists_.size();
+    RAFT_EXPECTS(dim() % veclen_ == 0, "dimensionality is not a multiple of the veclen");
+    RAFT_EXPECTS(list_sizes_.extent(0) == n_lists, "inconsistent list size");
+    RAFT_EXPECTS(data_ptrs_.extent(0) == n_lists, "inconsistent list size");
+    RAFT_EXPECTS(inds_ptrs_.extent(0) == n_lists, "inconsistent list size");
+    RAFT_EXPECTS(                                       //
+      (centers_.extent(0) == list_sizes_.extent(0)) &&  //
+        (!center_norms_.has_value() || centers_.extent(0) == center_norms_->extent(0)),
+      "inconsistent number of lists (clusters)");
+  }
+
  private:
   /**
    * TODO: in theory, we can lift this to the template parameter and keep it at hardware maximum
@@ -366,21 +375,7 @@ struct index : ann::index {
   // Computed members
   device_vector<T*, uint32_t> data_ptrs_;
   device_vector<IdxT*, uint32_t> inds_ptrs_;
-  IdxT total_size_;
-
-  /** Throw an error if the index content is inconsistent. */
-  void check_consistency()
-  {
-    auto n_lists = lists_.size();
-    RAFT_EXPECTS(dim() % veclen_ == 0, "dimensionality is not a multiple of the veclen");
-    RAFT_EXPECTS(list_sizes_.extent(0) == n_lists, "inconsistent list size");
-    RAFT_EXPECTS(data_ptrs_.extent(0) == n_lists, "inconsistent list size");
-    RAFT_EXPECTS(inds_ptrs_.extent(0) == n_lists, "inconsistent list size");
-    RAFT_EXPECTS(                                       //
-      (centers_.extent(0) == list_sizes_.extent(0)) &&  //
-        (!center_norms_.has_value() || centers_.extent(0) == center_norms_->extent(0)),
-      "inconsistent number of lists (clusters)");
-  }
+  host_vector<IdxT, uint32_t> accum_sorted_sizes_;
 
   static auto calculate_veclen(uint32_t dim) -> uint32_t
   {
