@@ -416,14 +416,6 @@ void rbc_build_index(raft::resources const& handle,
                      BallCoverIndex<value_idx, value_t, value_int, matrix_idx>& index,
                      distance_func dfunc)
 {
-  {
-    /** flush the L2 cache - Hopper at 50MB */
-    size_t l2_cache_size = 50 * 1024 * 1024;
-    auto scratch_buf_    = rmm::device_buffer(l2_cache_size * 3, resource::get_cuda_stream(handle));
-    RAFT_CUDA_TRY(cudaMemsetAsync(
-      scratch_buf_.data(), 0, scratch_buf_.size(), resource::get_cuda_stream(handle)));
-  }
-
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
   rmm::device_uvector<value_idx> R_knn_inds(index.m, resource::get_cuda_stream(handle));
