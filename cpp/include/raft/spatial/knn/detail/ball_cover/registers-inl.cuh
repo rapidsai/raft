@@ -661,7 +661,7 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_reordered,
         const value_t dist =
           (i >= R_size) ? std::numeric_limits<value_idx>::max() : dfunc(x_ptr, y_ptr, n_cols);
         const bool in_range = (dist <= eps2);
-        if (write_pass) {
+        if constexpr (write_pass) {
           const int mask = raft::ballot(in_range);
           if (in_range) {
             auto index      = R_1nn_cols[R_start_offset + i];
@@ -683,7 +683,7 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_reordered,
         const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
         const value_t dist   = dfunc(x_ptr, y_ptr, n_cols);
         const bool in_range  = (dist <= eps2);
-        if (write_pass) {
+        if constexpr (write_pass) {
           const int mask = raft::ballot(in_range);
           if (in_range) {
             auto index      = R_1nn_cols[R_start_offset + i];
@@ -700,7 +700,7 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_reordered,
     } while (k_offset < WarpSize);
   }
 
-  if (!write_pass) {
+  if constexpr (!write_pass) {
     value_idx row_sum = raft::warpReduce(column_index_offset);
     if (lid == 0) adj_ia[query_id] = row_sum;
   }
@@ -801,7 +801,7 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass_xd(const value_t* X_reordered,
         const value_t dist =
           (i >= R_size) ? std::numeric_limits<value_idx>::max() : dfunc(local_x_ptr, y_ptr, dim);
         const bool in_range = (dist <= eps2);
-        if (write_pass) {
+        if constexpr (write_pass) {
           const int mask = raft::ballot(in_range);
           if (in_range) {
             auto index      = R_1nn_cols[R_start_offset + i];
@@ -823,7 +823,7 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass_xd(const value_t* X_reordered,
         const value_t* y_ptr = X_reordered + (dim * (R_start_offset + i));
         const value_t dist   = dfunc(local_x_ptr, y_ptr, dim);
         const bool in_range  = (dist <= eps2);
-        if (write_pass) {
+        if constexpr (write_pass) {
           const int mask = raft::ballot(in_range);
           if (in_range) {
             auto index      = R_1nn_cols[R_start_offset + i];
@@ -840,7 +840,7 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass_xd(const value_t* X_reordered,
     } while (k_offset < WarpSize);
   }
 
-  if (!write_pass) {
+  if constexpr (!write_pass) {
     value_idx row_sum = raft::warpReduce(column_index_offset);
     if (lid == 0) adj_ia[query_id] = row_sum;
   }
