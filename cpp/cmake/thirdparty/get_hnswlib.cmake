@@ -47,7 +47,11 @@ function(find_and_configure_hnswlib)
      "$<INSTALL_INTERFACE:include>")
 
     if(NOT PKG_EXCLUDE_FROM_ALL)
-      install(TARGETS hnswlib EXPORT hnswlib-exports)
+      install(
+        TARGETS hnswlib
+        COMPONENT hnswlib
+        EXPORT hnswlib-exports
+      )
       install(DIRECTORY "${hnswlib_SOURCE_DIR}/hnswlib/" DESTINATION include/hnswlib)
 
       # write install export rules

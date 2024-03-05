@@ -2,4 +2,5 @@
 # Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 ./build.sh libraft --allgpuarch --no-nvtx -n
+cmake --install cpp/build --component hnswlib
 cmake --install cpp/build --component raft
