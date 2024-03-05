@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>  // matrix::detail::select::warpsort::warp_sort_distributed
+
+#include <cub/cub.cuh>
 
 namespace raft::neighbors::ivf::detail {
 
