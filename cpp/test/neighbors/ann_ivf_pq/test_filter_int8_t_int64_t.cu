@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Enable instantiation of search with filter
 #include "../ann_ivf_pq.cuh"
+#include "ivf_pq_compute_similarity_filters_test-ext.cuh"
+#include "ivf_pq_search_test-ext.cuh"
 
 namespace raft::neighbors::ivf_pq {
 

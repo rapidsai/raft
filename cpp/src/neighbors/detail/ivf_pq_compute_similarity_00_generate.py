@@ -14,7 +14,7 @@
 
 header = """
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ header = """
 
 #include <raft/neighbors/detail/ivf_pq_compute_similarity-inl.cuh>
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>
+#include <raft/neighbors/sample_filter.cuh>
 
 #define instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(OutT, LutT, IvfSampleFilterT) \\
     template auto raft::neighbors::ivf_pq::detail::compute_similarity_select<OutT, LutT, IvfSampleFilterT>( \\
@@ -89,20 +90,50 @@ trailer = """
 #undef instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select
 """
 
+none_filter_int64 = "raft::neighbors::filtering::ivf_to_sample_filter" \
+                    "<int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>"
+none_filter_int32 = "raft::neighbors::filtering::ivf_to_sample_filter" \
+                    "<uint32_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>"
+bitset_filter32 = "raft::neighbors::filtering::ivf_to_sample_filter" \
+                  "<uint32_t COMMA raft::neighbors::filtering::bitset_filter<uint32_t COMMA uint32_t>>"
+bitset_filter64 = "raft::neighbors::filtering::ivf_to_sample_filter" \
+                  "<int64_t COMMA raft::neighbors::filtering::bitset_filter<uint32_t COMMA int64_t>>"
+
 types = dict(
-    half_fp8_false=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>"),
-    half_fp8_true=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>"),
-    half_half=("half", "half"),
-    float_half=("float", "half"),
-    float_float= ("float", "float"),
-    float_fp8_false=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>"),
-    float_fp8_true=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>"),
+    half_fp8_false=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>", none_filter_int64),
+    half_fp8_true=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>", none_filter_int64),
+    half_half=("half", "half", none_filter_int64),
+    float_half=("float", "half", none_filter_int64),
+    float_float= ("float", "float", none_filter_int64),
+    float_fp8_false=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>", none_filter_int64),
+    float_fp8_true=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>", none_filter_int64),
+    half_fp8_false_filt32=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>", none_filter_int32),
+    half_fp8_true_filt32=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>", none_filter_int32),
+    half_half_filt32=("half", "half", none_filter_int32),
+    float_half_filt32=("float", "half", none_filter_int32),
+    float_float_filt32= ("float", "float", none_filter_int32),
+    float_fp8_false_filt32=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>", none_filter_int32),
+    float_fp8_true_filt32=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>", none_filter_int32),
+    half_fp8_false_bitset32=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>", bitset_filter32),
+    half_fp8_true_bitset32=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>", bitset_filter32),
+    half_half_bitset32=("half", "half", bitset_filter32),
+    float_half_bitset32=("float", "half", bitset_filter32),
+    float_float_bitset32= ("float", "float", bitset_filter32),
+    float_fp8_false_bitset32=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>", bitset_filter32),
+    float_fp8_true_bitset32=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>", bitset_filter32),
+    half_fp8_false_bitset64=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>", bitset_filter64),
+    half_fp8_true_bitset64=("half", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>", bitset_filter64),
+    half_half_bitset64=("half", "half", bitset_filter64),
+    float_half_bitset64=("float", "half", bitset_filter64),
+    float_float_bitset64= ("float", "float", bitset_filter64),
+    float_fp8_false_bitset64=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>", bitset_filter64),
+    float_fp8_true_bitset64=("float", "raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>", bitset_filter64)
 )
 
-for path_key, (OutT, LutT) in types.items():
+for path_key, (OutT, LutT, FilterT) in types.items():
     path = f"ivf_pq_compute_similarity_{path_key}.cu"
     with open(path, "w") as f:
         f.write(header)
-        f.write(f"instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select({OutT}, {LutT}, raft::neighbors::filtering::ivf_to_sample_filter<int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>);\n")
+        f.write(f"instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select({OutT}, {LutT}, {FilterT});\n")
         f.write(trailer)
     print(f"src/neighbors/detail/{path}")
