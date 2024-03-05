@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+# Support invoking test_cpp.sh outside the script directory
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
+
 . /opt/conda/etc/profile.d/conda.sh
 
 rapids-logger "Generate C++ testing dependencies"
@@ -31,13 +34,9 @@ rapids-mamba-retry install \
 rapids-logger "Check GPU usage"
 nvidia-smi
 
-EXITCODE=0
-trap "EXITCODE=1" ERR
-set +e
-
+export GTEST_OUTPUT=xml:${RAPIDS_TESTS_DIR}/
 # Run libraft gtests from libraft-tests package
-cd "$CONDA_PREFIX"/bin/gtests/libraft
-ctest -j8 --output-on-failure --no-tests=error
+./ci/run_ctests.sh -j8 && EXITCODE=$? || EXITCODE=$?;
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
