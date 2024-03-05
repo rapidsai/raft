@@ -40,9 +40,9 @@ namespace raft::core {
 template <typename bitmap_t = uint32_t, typename index_t = uint32_t>
 struct bitmap_view : public bitset_view<bitmap_t, index_t> {
   static constexpr index_t bitmap_element_size = sizeof(bitmap_t) * 8;
-  //  static_assert((std::is_same<bitmap_t, uint32_t>::value ||
-  //                 std::is_same<bitmap_t, uint64_t>::value),
-  //                "The bitmap_t must be uint32_t or uint64_t.");
+  static_assert((std::is_same<bitmap_t, uint32_t>::value ||
+                 std::is_same<bitmap_t, uint64_t>::value),
+                "The bitmap_t must be uint32_t or uint64_t.");
   /**
    * @brief Create a bitmap view from a device raw pointer.
    *

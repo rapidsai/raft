@@ -151,5 +151,6 @@ const std::vector<bench_param<index_t>> getInputs()
 }
 
 RAFT_BENCH_REGISTER((BitmapToCsrBench<uint32_t, int, float>), "", getInputs<int>());
+RAFT_BENCH_REGISTER((BitmapToCsrBench<uint64_t, int, double>), "", getInputs<int>());
 
 }  // namespace raft::bench::sparse
