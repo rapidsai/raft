@@ -70,6 +70,7 @@ namespace raft::neighbors::cagra::detail::multi_cta_search {
     size_t min_iterations,                                                                  \\
     size_t max_iterations,                                                                  \\
     SAMPLE_FILTER_T sample_filter,                                                          \\
+    distance::DistanceType metric,                                                          \\
     cudaStream_t stream);
 
 """

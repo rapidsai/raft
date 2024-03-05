@@ -29,6 +29,8 @@
 #include <rmm/cuda_stream_view.hpp>
 
 #include "factory.cuh"
+#include "raft/distance/distance_types.hpp"
+#include "raft/util/cudart_utils.hpp"
 #include "search_plan.cuh"
 #include "search_single_cta.cuh"
 
@@ -129,7 +131,7 @@ void search_main(raft::resources const& res,
   using CagraSampleFilterT_s = typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type;
   std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>> plan =
     factory<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>::create(
-      res, params, index.dim(), index.graph_degree(), topk);
+      res, params, index.dim(), index.graph_degree(), topk, index.metric());
 
   plan->check(topk);
 
@@ -171,10 +173,12 @@ void search_main(raft::resources const& res,
             _num_executed_iterations,
             topk,
             set_offset(sample_filter, qid));
+    raft::print_device_vector("topk_distances_ptr", _topk_distances_ptr, 10, std::cout);
   }
 
   static_assert(std::is_same_v<DistanceT, float>,
                 "only float distances are supported at the moment");
+  if (index.metric() != distance::InnerProduct) {
   float* dist_out          = distances.data_handle();
   const DistanceT* dist_in = distances.data_handle();
   // We're converting the data from T to DistanceT during distance computation

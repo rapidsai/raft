@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include "device_common.hpp"
@@ -61,7 +62,8 @@ struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, fal
 
   __device__ DISTANCE_T operator()(const DATA_T* const dataset_ptr,
                                    const std::uint32_t dataset_dim,
-                                   const bool valid)
+                                   const bool valid,
+                                   raft::distance::DistanceType metric)
   {
     const unsigned lane_id  = threadIdx.x % TEAM_SIZE;
     constexpr unsigned vlen = get_vlen<LOAD_T, DATA_T>();
@@ -87,8 +89,13 @@ struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, fal
             const uint32_t kv = k + v;
             // if (kv >= dataset_dim) break;
             DISTANCE_T diff = query_buffer[device::swizzling(kv)];
-            diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
-            norm2 += diff * diff;
+            if (metric == raft::distance::L2Expanded) {
+              diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
+              norm2 += diff * diff;
+            } else {
+              diff *= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
+              norm2 -= diff;
+            }
           }
         }
       }
@@ -130,7 +137,8 @@ struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, tru
 
   __device__ DISTANCE_T operator()(const DATA_T* const dataset_ptr,
                                    const std::uint32_t dataset_dim,
-                                   const bool valid)
+                                   const bool valid,
+                                   raft::distance::DistanceType metric)
   {
     const unsigned lane_id  = threadIdx.x % TEAM_SIZE;
     constexpr unsigned vlen = get_vlen<LOAD_T, DATA_T>();
@@ -155,8 +163,13 @@ struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, tru
           DISTANCE_T diff;
           const unsigned ev = (vlen * e) + v;
           diff              = query_frags[ev];
-          diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
-          norm2 += diff * diff;
+          if (metric == raft::distance::L2Expanded) {
+              diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
+              norm2 += diff * diff;
+            } else {
+              diff *= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
+              norm2 -= diff;
+            }
         }
       }
     }
@@ -188,6 +201,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   const uint32_t num_seeds,
   INDEX_T* const visited_hash_ptr,
   const uint32_t hash_bitlen,
+  raft::distance::DistanceType metric,
   const uint32_t block_id   = 0,
   const uint32_t num_blocks = 1)
 {
@@ -215,7 +229,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         }
       }
 
-      const auto norm2 = dist_op(dataset_ptr + dataset_ld * seed_index, dataset_dim, valid_i);
+      const auto norm2 = dist_op(dataset_ptr + dataset_ld * seed_index, dataset_dim, valid_i, metric);
 
       if (valid_i && (norm2 < best_norm2_team_local)) {
         best_norm2_team_local = norm2;
@@ -259,7 +273,8 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
                                                   const std::uint32_t hash_bitlen,
                                                   const INDEX_T* const parent_indices,
                                                   const INDEX_T* const internal_topk_list,
-                                                  const std::uint32_t search_width)
+                                                  const std::uint32_t search_width,
+                                                  raft::distance::DistanceType metric)
 {
   constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
   const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
@@ -302,7 +317,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
     DISTANCE_T norm2 =
-      dist_op(dataset_ptr + child_id * dataset_ld, dataset_dim, child_id != invalid_index);
+      dist_op(dataset_ptr + child_id * dataset_ld, dataset_dim, child_id != invalid_index, metric);
 
     // Store the distance
     const unsigned lane_id = threadIdx.x % TEAM_SIZE;

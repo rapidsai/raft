@@ -487,7 +487,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
                 const std::uint32_t hash_bitlen,
                 const std::uint32_t small_hash_bitlen,
                 const std::uint32_t small_hash_reset_interval,
-                SAMPLE_FILTER_T sample_filter)
+                SAMPLE_FILTER_T sample_filter,
+                raft::distance::DistanceType metric)
 {
   using LOAD_T        = device::LOAD_128BIT_T;
   const auto query_id = blockIdx.y;
@@ -580,7 +581,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
     local_seed_ptr,
     num_seeds,
     local_visited_hashmap_ptr,
-    hash_bitlen);
+    hash_bitlen,
+    metric);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 
@@ -719,7 +721,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
       hash_bitlen,
       parent_list_buffer,
       result_indices_buffer,
-      search_width);
+      search_width,
+      metric);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
@@ -778,7 +781,12 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
     unsigned j  = i + (top_k * query_id);
     unsigned ii = i;
     if (TOPK_BY_BITONIC_SORT) { ii = device::swizzling(i); }
-    if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[ii]; }
+    const INDEX_T invalid_index = utils::get_max_value<INDEX_T>();
+    if (result_distances_ptr != nullptr) { 
+      if (metric == distance::InnerProduct && result_indices_buffer[ii] != invalid_index) {
+        result_distances_ptr[j] = -result_distances_buffer[ii]; 
+      } else {
+      result_distances_ptr[j] = result_distances_buffer[ii]; }}
     constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
 
     result_indices_ptr[j] =
@@ -918,6 +926,7 @@ void select_and_run(  // raft::resources const& res,
   size_t min_iterations,
   size_t max_iterations,
   SAMPLE_FILTER_T sample_filter,
+  distance::DistanceType metric,
   cudaStream_t stream)
 {
   auto kernel =
@@ -958,7 +967,8 @@ void select_and_run(  // raft::resources const& res,
                                                          hash_bitlen,
                                                          small_hash_bitlen,
                                                          small_hash_reset_interval,
-                                                         sample_filter);
+                                                         sample_filter,
+                                                         metric);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 }  // namespace single_cta_search

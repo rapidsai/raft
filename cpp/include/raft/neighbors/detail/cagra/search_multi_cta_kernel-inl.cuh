@@ -34,6 +34,7 @@
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
+#include "raft/distance/distance_types.hpp"
 #include "search_plan.cuh"
 #include "topk_for_cagra/topk_core.cuh"  // TODO replace with raft topk if possible
 #include "utils.hpp"
@@ -153,7 +154,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const uint32_t min_iteration,
   const uint32_t max_iteration,
   uint32_t* const num_executed_iterations, /* stats */
-  SAMPLE_FILTER_T sample_filter)
+  SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric)
 {
   const auto num_queries       = gridDim.y;
   const auto query_id          = blockIdx.y;
@@ -240,6 +242,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
     num_seeds,
     local_visited_hashmap_ptr,
     hash_bitlen,
+    metric,
     block_id,
     num_blocks);
   __syncthreads();
@@ -286,7 +289,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
       hash_bitlen,
       parent_indices_buffer,
       result_indices_buffer,
-      search_width);
+      search_width,
+      metric);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 
@@ -338,7 +342,13 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
 
   for (uint32_t i = threadIdx.x; i < itopk_size; i += blockDim.x) {
     uint32_t j = i + (itopk_size * (cta_id + (num_cta_per_query * query_id)));
-    if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[i]; }
+    const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+    if (result_distances_ptr != nullptr) {
+      if (metric == distance::InnerProduct && result_indices_buffer[i] != invalid_index) {
+        result_distances_ptr[j] = -result_distances_buffer[i]; 
+      } else {
+      result_distances_ptr[j] = result_distances_buffer[i]; }}
     constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
 
     result_indices_ptr[j] =
@@ -483,6 +493,7 @@ void select_and_run(  // raft::resources const& res,
   size_t min_iterations,
   size_t max_iterations,
   SAMPLE_FILTER_T sample_filter,
+  distance::DistanceType metric,
   cudaStream_t stream)
 {
   auto kernel =
@@ -527,7 +538,8 @@ void select_and_run(  // raft::resources const& res,
                                                        min_iterations,
                                                        max_iterations,
                                                        num_executed_iterations,
-                                                       sample_filter);
+                                                       sample_filter,
+                                                       metric);
 }
 
 }  // namespace multi_cta_search
