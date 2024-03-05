@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/core/bitmap.hpp>
+#include <raft/core/bitmap.cuh>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/sparse/convert/detail/adj_to_csr.cuh>
 #include <raft/sparse/convert/detail/bitmap_to_csr.cuh>
@@ -132,12 +132,18 @@ void bitmap_to_csr(raft::resources const& handle,
                "Number of columns in bitmap must be equal to "
                "number of columns in csr");
 
+  RAFT_EXPECTS(csr_view.get_nnz() >= bitmap.get_nnz(handle),
+               "Number of elements in csr must be equal or larger than "
+               "number of non-zero bits in bitmap");
+
   detail::bitmap_to_csr(handle,
                         bitmap.data(),
                         csr_view.get_n_rows(),
                         csr_view.get_n_cols(),
+                        csr_view.get_nnz(),
                         csr_view.get_indptr().data(),
-                        csr_view.get_indices().data());
+                        csr_view.get_indices().data(),
+                        csr.get_elements().data());
 }
 
 };  // end NAMESPACE convert

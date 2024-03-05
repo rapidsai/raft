@@ -118,8 +118,14 @@ void calc_nnz_by_rows(raft::resources const& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
+/*
+  Execute the exclusive_scan within one warp with no inter-warp communication.
+  This function calculates the exclusive prefix sum of `value` across threads within the same warp.
+  Each thread in the warp will end up with the sum of all the values of the threads with lower IDs
+  in the same warp, with the first thread always getting a sum of 0.
+*/
 template <typename value_t>
-__device__ inline value_t warp_exclusive(value_t value)
+RAFT_DEVICE_INLINE_FUNCTION value_t warp_exclusive_scan(value_t value)
 {
   int lane_id           = threadIdx.x & 0x1f;
   value_t shifted_value = __shfl_up_sync(0xffffffff, value, 1, warpSize);
@@ -177,7 +183,8 @@ RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
         l_bitmap >>= ((bitmap_idx + 1) * BITS_PER_BITMAP - e_bit);
       }
 
-      index_t l_sum = g_sum + warp_exclusive(static_cast<index_t>(raft::detail::popc(l_bitmap)));
+      index_t l_sum =
+        g_sum + warp_exclusive_scan(static_cast<index_t>(raft::detail::popc(l_bitmap)));
 
       for (int i = 0; i < BITS_PER_BITMAP; i++) {
         if (l_bitmap & (ONE << i)) {
@@ -218,16 +225,18 @@ void fill_indices_by_rows(raft::resources const& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename bitmap_t, typename index_t>
+template <typename bitmap_t, typename index_t, typename nnz_t, typename value_t>
 void bitmap_to_csr(raft::resources const& handle,
                    const bitmap_t* bitmap,
                    index_t num_rows,
                    index_t num_cols,
+                   nnz_t nnz,
                    index_t* indptr,
-                   index_t* indices)
+                   index_t* indices,
+                   value_t* values)
 {
   const index_t total = num_rows * num_cols;
-  if (total == 0) { return; }
+  if (total == 0 || nnz == 0) { return; }
 
   auto thrust_policy = resource::get_thrust_policy(handle);
   auto stream        = resource::get_cuda_stream(handle);
@@ -237,6 +246,7 @@ void bitmap_to_csr(raft::resources const& handle,
   calc_nnz_by_rows(handle, bitmap, num_rows, num_cols, indptr);
   thrust::exclusive_scan(thrust_policy, indptr, indptr + num_rows + 1, indptr);
   fill_indices_by_rows(handle, bitmap, indptr, num_rows, num_cols, indices);
+  thrust::fill_n(thrust_policy, values, nnz, value_t{1});
 }
 
 };  // end NAMESPACE detail

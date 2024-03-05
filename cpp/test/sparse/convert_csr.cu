@@ -16,7 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/core/bitmap.hpp>
+#include <raft/core/bitmap.cuh>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cuda_utils.cuh>
 
@@ -227,7 +227,7 @@ struct BitmapToCSRInputs {
   float sparsity;
 };
 
-template <typename bitmap_t, typename index_t>
+template <typename bitmap_t, typename index_t, typename value_t>
 class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_t>> {
  public:
   BitmapToCSRTest()
@@ -238,7 +238,8 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
       indptr_d(0, stream),
       values_d(0, stream),
       indptr_expected_d(0, stream),
-      indices_expected_d(0, stream)
+      indices_expected_d(0, stream),
+      values_expected_d(0, stream)
   {
   }
 
@@ -341,8 +342,13 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
     bitmap_d.resize(bitmap_h.size(), stream);
     indptr_d.resize(params.n_rows + 1, stream);
     indices_d.resize(nnz, stream);
+
     indptr_expected_d.resize(params.n_rows + 1, stream);
     indices_expected_d.resize(nnz, stream);
+    values_expected_d.resize(nnz, stream);
+
+    thrust::fill_n(resource::get_thrust_policy(handle), values_expected_d.data(), nnz, value_t{1});
+
     values_d.resize(nnz, stream);
 
     update_device(indices_expected_d.data(), indices_h.data(), indices_h.size(), stream);
@@ -359,7 +365,7 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
 
     auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
       indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
-    auto csr = raft::make_device_csr_matrix_view<float, index_t>(values_d.data(), csr_view);
+    auto csr = raft::make_device_csr_matrix_view<value_t, index_t>(values_d.data(), csr_view);
 
     convert::bitmap_to_csr<bitmap_t, index_t>(handle, bitmap, csr);
 
@@ -382,6 +388,9 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
     resource::sync_stream(handle);
 
     ASSERT_TRUE(csr_compare(indptr_h, indices_h, indptr_expected_h, indices_expected_h));
+
+    ASSERT_TRUE(raft::devArrMatch<value_t>(
+      values_d.data(), values_expected_d.data(), nnz, raft::Compare<value_t>(), stream));
   }
 
  protected:
@@ -400,12 +409,13 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
 
   rmm::device_uvector<index_t> indptr_expected_d;
   rmm::device_uvector<index_t> indices_expected_d;
+  rmm::device_uvector<float> values_expected_d;
 };
 
-using BitmapToCSRTestI = BitmapToCSRTest<uint32_t, int>;
+using BitmapToCSRTestI = BitmapToCSRTest<uint32_t, int, float>;
 TEST_P(BitmapToCSRTestI, Result) { Run(); }
 
-using BitmapToCSRTestL = BitmapToCSRTest<uint32_t, int64_t>;
+using BitmapToCSRTestL = BitmapToCSRTest<uint32_t, int64_t, float>;
 TEST_P(BitmapToCSRTestL, Result) { Run(); }
 
 template <typename index_t>
