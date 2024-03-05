@@ -159,7 +159,7 @@ auto deserialize(raft::resources const& handle_, std::istream& is) -> index<IdxT
 
   resource::sync_stream(handle_);
 
-  recompute_internal_state(handle_, index);
+  ivf::detail::recompute_internal_state(handle_, index);
 
   return index;
 }

@@ -354,7 +354,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
       ivf::resize_list(handle_, lists[label], list_device_spec, list_size, 0);
     }
 
-    idx.recompute_internal_state(handle_);
+    helpers::recompute_internal_state(handle_, &idx);
 
     using interleaved_group = Pow2<kIndexGroupSize>;
 
@@ -607,6 +607,23 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
   {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
   {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
   {10000, 131072, 8, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false},
+
+  // various combinations with k>raft::matrix::detail::select::warpsort::kMaxCapacity
+  {1000, 10000, 16, 1024, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {1000, 10000, 2053, 512, 50, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 10000, 2049, 2048, 70, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 10000, 16, 4000, 100, 2048, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {10, 10000, 16, 4000, 100, 2048, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {10, 10000, 16, 4000, 120, 2048, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {20, 100000, 16, 257, 20, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {1000, 100000, 16, 259, 20, 1024, raft::distance::DistanceType::L2Expanded, true, true},
+  {10000, 131072, 8, 280, 20, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {100000, 1024, 32, 257, 64, 64, raft::distance::DistanceType::L2Expanded, false},
+  {100000, 1024, 32, 257, 64, 64, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {100000, 1024, 32, 257, 64, 64, raft::distance::DistanceType::InnerProduct, false},
+  {100000, 1024, 16, 300, 20, 60, raft::distance::DistanceType::L2Expanded, false},
+  {100000, 1024, 16, 500, 20, 60, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {100000, 1024, 16, 700, 20, 60, raft::distance::DistanceType::InnerProduct, false},
 
   // host input data
   {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded, false, true},
