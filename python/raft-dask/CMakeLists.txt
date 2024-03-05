@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -17,6 +17,7 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 set(raft_dask_version 24.04.00)
 
 include(../../fetch_rapids.cmake)
+include(rapids-cpm)
 include(rapids-cuda)
 rapids_cuda_init_architectures(raft-dask-python)
 
@@ -30,6 +31,11 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
        OFF
 )
 
+rapids_cpm_init()
+# Once https://github.com/rapidsai/ucxx/issues/173 is resolved we can remove this.
+find_package(ucx REQUIRED)
+include(cmake/thirdparty/get_ucxx.cmake)
+
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
   find_package(raft ${raft_dask_version} REQUIRED COMPONENTS distributed)
@@ -38,8 +44,6 @@ else()
 endif()
 
 if(NOT raft_FOUND)
-  find_package(ucx REQUIRED)
-
   # raft-dask doesn't actually use raft libraries, it just needs the headers, so we can turn off all
   # library compilation and we don't need to install anything here.
   set(BUILD_TESTS OFF)
@@ -49,6 +53,7 @@ if(NOT raft_FOUND)
   set(RAFT_COMPILE_DIST_LIBRARY OFF)
   set(RAFT_COMPILE_NN_LIBRARY OFF)
   set(CUDA_STATIC_RUNTIME ON)
+  set(RAFT_DASK_UCXX_STATIC ON)
 
   add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
   list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR}/cmake/find_modules)

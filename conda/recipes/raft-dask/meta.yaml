@@ -59,6 +59,8 @@ requirements:
     - ucx {{ ucx_version }}
     - ucx-proc=*=gpu
     - ucx-py {{ ucx_py_version }}
+    - libucxx {{ ucxx_version }}
+    - ucxx {{ ucxx_version }}
   run:
     {% if cuda_major == "11" %}
     - cudatoolkit
@@ -76,6 +78,7 @@ requirements:
     - ucx {{ ucx_version }}
     - ucx-proc=*=gpu
     - ucx-py {{ ucx_py_version }}
+    - ucxx {{ ucxx_version }}
 
 tests:
   requirements:
