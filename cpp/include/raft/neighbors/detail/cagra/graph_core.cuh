@@ -805,16 +805,14 @@ void optimize(raft::resources const& res,
     // Merge forward and reverse edges
     //
     const double time_replace_start = cur_time();
-
 #pragma omp parallel for
     for (uint64_t i = 0; i < graph_size; i++) {
-      auto my_out_graph = output_graph_ptr + (output_graph_degree * i);
       auto my_fwd_graph = pruned_graph_ptr + (output_graph_degree * i);
       auto my_rev_graph = rev_graph_ptr + (output_graph_degree * i);
-
-      uint32_t k = mst_graph_num_edges_ptr[i];
+      auto my_out_graph = output_graph_ptr + (output_graph_degree * i);
       uint32_t kf = 0;
       uint32_t kr = 0;
+      uint32_t k = mst_graph_num_edges_ptr[i];
       while (kf < output_graph_degree || kr < output_graph_degree) {
 	if (kf < output_graph_degree) {
 	  if (my_fwd_graph[kf] < graph_size) {
@@ -872,6 +870,46 @@ void optimize(raft::resources const& res,
     }
     RAFT_LOG_DEBUG("# Average number of replaced edges per node: %.2f",
                    (double)num_replaced_edges / graph_size);
+  }
+
+  // Check number of incoming edges
+  if ( true ) {
+    auto in_edge_count = raft::make_host_vector<uint32_t, int64_t>(graph_size);
+    auto in_edge_count_ptr = in_edge_count.data_handle();
+#pragma omp parallel for
+    for (uint64_t i = 0; i < graph_size; i++) {
+      in_edge_count_ptr[i] = 0;
+    }
+#pragma omp parallel for
+    for (uint64_t i = 0; i < graph_size; i++) {
+      for (uint64_t k = 0; k < output_graph_degree; k++) {
+        const uint64_t j = output_graph_ptr[k + (output_graph_degree * i)];
+        if (j >= graph_size) continue;
+#pragma omp atomic
+        in_edge_count_ptr[j] += 1;
+      }
+    }
+    auto hist = raft::make_host_vector<uint32_t, int64_t>(output_graph_degree);
+    auto hist_ptr = hist.data_handle();
+    for (uint64_t k = 0; k < output_graph_degree; k++) {
+      hist_ptr[k] = 0;
+    }
+#pragma omp parallel for
+    for (uint64_t i = 0; i < graph_size; i++) {
+      uint32_t count = in_edge_count_ptr[i];
+      if (count >= output_graph_degree) continue;
+#pragma omp atomic
+      hist_ptr[count] += 1;
+    }
+    fprintf(stderr, "# Histogram for # incoming edges\n");
+    uint32_t sum_hist = 0;
+    for ( uint64_t k = 0; k < output_graph_degree; k++ ) {
+      sum_hist += hist_ptr[k];
+      fprintf(stderr, "# %3lu, %8u, %lf, (%8u, %lf)\n",
+              k,
+              hist_ptr[k],(double) hist_ptr[k] / graph_size,
+              sum_hist, (double) sum_hist / graph_size );
+    }
   }
 }
 
