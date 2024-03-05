@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ auto deserialize(raft::resources const& handle_, std::istream& is) -> index<IdxT
 
   resource::sync_stream(handle_);
 
-  recompute_internal_state(handle_, index);
+  ivf::detail::recompute_internal_state(handle_, index);
 
   return index;
 }

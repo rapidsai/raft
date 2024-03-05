@@ -28,6 +28,8 @@
 
 namespace raft::neighbors::ivf_flat::detail {
 
+auto RAFT_WEAK_FUNCTION is_local_topk_feasible(uint32_t k) -> bool;
+
 template <typename T, typename AccT, typename IdxT, typename IvfSampleFilterT>
 void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& index,
                               const T* queries,
@@ -37,6 +39,8 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
                               const raft::distance::DistanceType metric,
                               const uint32_t n_probes,
                               const uint32_t k,
+                              const uint32_t max_samples,
+                              const uint32_t* chunk_indices,
                               const bool select_min,
                               IvfSampleFilterT sample_filter,
                               IdxT* neighbors,
@@ -60,6 +64,8 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
     const raft::distance::DistanceType metric,                                                  \
     const uint32_t n_probes,                                                                    \
     const uint32_t k,                                                                           \
+    const uint32_t max_samples,                                                                 \
+    const uint32_t* chunk_indices,                                                              \
     const bool select_min,                                                                      \
     IvfSampleFilterT sample_filter,                                                             \
     IdxT* neighbors,                                                                            \
