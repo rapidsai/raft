@@ -80,8 +80,5 @@ instantiate_raft_neighbors_ivf_pq_search_with_filtering(
 instantiate_raft_neighbors_ivf_pq_search_with_filtering(
   int8_t, int64_t, raft::neighbors::filtering::bitset_filter<uint32_t COMMA int64_t>);
 
-// instantiate_raft_neighbors_ivf_pq_search_with_filtering(
-//   float, int64_t, raft::neighbors::filtering::bitset_filter<uint32_t COMMA int64_t>);
-
 #undef COMMA
 #undef instantiate_raft_neighbors_ivf_pq_search_with_filtering
