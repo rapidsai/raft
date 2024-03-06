@@ -17,10 +17,6 @@
 
 #include "../../cagra_types.hpp"
 
-// reuse helper code
-#include <raft/neighbors/detail/ivf_pq_build.cuh>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -28,12 +24,10 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
+#include <raft/neighbors/detail/ivf_pq_build.cuh>  // pq_bits-bitfield
+#include <raft/spatial/knn/detail/ann_utils.cuh>   // utils::mapping etc
 #include <raft/util/integer_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
-
-#ifdef __cpp_lib_bitops
-#include <bit>
-#endif
 
 // A temporary stub till https://github.com/rapidsai/raft/pull/2077 is re-merged
 namespace raft::util {
@@ -81,48 +75,6 @@ auto subsample(raft::resources const& res,
 
 namespace raft::neighbors::cagra::detail {
 
-struct compression_params {
-  /**
-   * The bit length of the vector element after compression by PQ.
-   *
-   * Possible values: [4, 5, 6, 7, 8].
-   *
-   * Hint: the smaller the 'pq_bits', the smaller the index size and the better the search
-   * performance, but the lower the recall.
-   */
-  uint32_t pq_bits = 8;
-  /**
-   * The dimensionality of the vector after compression by PQ.
-   * When zero, an optimal value is selected using a heuristic.
-   *
-   * NB: `pq_dim * pq_bits` must be a multiple of 8.
-   *
-   * Hint: a smaller 'pq_dim' results in a smaller index size and better search performance, but
-   * lower recall. If 'pq_bits' is 8, 'pq_dim' can be set to any number, but multiple of 8 are
-   * desirable for good performance. If 'pq_bits' is not 8, 'pq_dim' should be a multiple of 8.
-   * For good performance, it is desirable that 'pq_dim' is a multiple of 32. Ideally, 'pq_dim'
-   * should be also a divisor of the dataset dim.
-   */
-  uint32_t pq_dim = 0;
-  /**
-   * Vector Quantization (VQ) codebook size - number of "coarse cluster centers".
-   * When zero, an optimal value is selected using a heuristic.
-   */
-  uint32_t vq_n_centers = 0;
-  /** The number of iterations searching for kmeans centers (both VQ & PQ phases). */
-  uint32_t kmeans_n_iters = 25;
-  /**
-   * The fraction of data to use during iterative kmeans building (VQ phase).
-   * When zero, an optimal value is selected using a heuristic.
-   */
-  double vq_kmeans_trainset_fraction = 0;
-  /**
-   * The fraction of data to use during iterative kmeans building (PQ phase).
-   * When zero, an optimal value is selected using a heuristic.
-   */
-  double pq_kmeans_trainset_fraction = 0;
-};
-
 template <typename DatasetT>
 auto fill_missing_params_heuristics(const compression_params& params, const DatasetT& dataset)
   -> compression_params
@@ -146,86 +98,32 @@ auto fill_missing_params_heuristics(const compression_params& params, const Data
   return r;
 }
 
-template <typename DataT, typename IdxT>
-struct compressed_dataset {
-  using raw_codes_type = uint8_t;
-  /** Vector Quantization codebook - "coarse cluster centers". */
-  device_matrix<DataT, uint32_t, row_major> vq_code_book;
-  /** Product Quantization codebook - "fine cluster centers".  */
-  device_matrix<DataT, uint32_t, row_major> pq_code_book;
-  /** Compressed dataset.  */
-  device_matrix<raw_codes_type, IdxT, row_major> dataset;
-
-  /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return dataset.extent(0); }
-  /** Dimensionality of the data. */
-  [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
-  {
-    return vq_code_book.extent(1);
-  }
-  /** The number of "coarse cluster centers" */
-  [[nodiscard]] constexpr inline auto vq_n_centers() const noexcept -> uint32_t
-  {
-    return vq_code_book.extent(0);
-  }
-  /** The bit length of an encoded vector element after compression by PQ. */
-  [[nodiscard]] constexpr inline auto pq_bits() const noexcept -> uint32_t
-  {
-    auto pq_width = pq_n_centers();
-#ifdef __cpp_lib_bitops
-    return std::countr_zero(pq_width);
-#else
-    uint32_t pq_bits = 0;
-    while (pq_width > 1) {
-      pq_bits++;
-      pq_width >>= 1;
-    }
-    return pq_bits;
-#endif
-  }
-  /** The dimensionality of an encoded vector after compression by PQ. */
-  [[nodiscard]] constexpr inline auto pq_dim() const noexcept -> uint32_t
-  {
-    return raft::div_rounding_up_unsafe(dim(), pq_len());
-  }
-  /** Dimensionality of a subspaces, i.e. the number of vector components mapped to a subspace */
-  [[nodiscard]] constexpr inline auto pq_len() const noexcept -> uint32_t
-  {
-    return pq_code_book.extent(1);
-  }
-  /** The number of vectors in a PQ codebook (`1 << pq_bits`). */
-  [[nodiscard]] constexpr inline auto pq_n_centers() const noexcept -> uint32_t
-  {
-    return pq_code_book.extent(0);
-  }
-};
-
-/** Fix the internal indexing type to avoid integer underflows/overflows */
-using ix_t = int64_t;
-
-template <typename DataT, typename DatasetT>
+template <typename T, typename DatasetT>
 auto transform_data(const raft::resources& res, DatasetT dataset)
-  -> device_mdarray<DataT, typename DatasetT::extents_type, typename DatasetT::layout_type>
+  -> device_mdarray<T, typename DatasetT::extents_type, typename DatasetT::layout_type>
 {
   using index_type       = typename DatasetT::index_type;
   using extents_type     = typename DatasetT::extents_type;
   using layout_type      = typename DatasetT::layout_type;
-  using out_mdarray_type = device_mdarray<DataT, extents_type, layout_type>;
+  using out_mdarray_type = device_mdarray<T, extents_type, layout_type>;
   if constexpr (std::is_same_v<out_mdarray_type, std::decay<DatasetT>>) { return dataset; }
 
-  auto result = raft::make_device_mdarray<DataT, index_type, layout_type>(res, dataset.extents());
+  auto result = raft::make_device_mdarray<T, index_type, layout_type>(res, dataset.extents());
 
   linalg::map(res,
               result.view(),
-              spatial::knn::detail::utils::mapping<DataT>{},
+              spatial::knn::detail::utils::mapping<T>{},
               raft::make_const_mdspan(dataset.view()));
 
   return result;
 }
 
-template <typename DatasetT, typename DataT = typename DatasetT::value_type>
+/** Fix the internal indexing type to avoid integer underflows/overflows */
+using ix_t = int64_t;
+
+template <typename MathT, typename DatasetT>
 auto train_vq(const raft::resources& res, const compression_params& params, const DatasetT& dataset)
-  -> device_matrix<DataT, uint32_t, row_major>
+  -> device_matrix<MathT, uint32_t, row_major>
 {
   const ix_t n_rows       = dataset.extent(0);
   const ix_t vq_n_centers = params.vq_n_centers;
@@ -234,22 +132,22 @@ auto train_vq(const raft::resources& res, const compression_params& params, cons
 
   // Subsample the dataset and transform into the required type if necessary
   auto vq_trainset = raft::util::subsample(res, dataset, n_rows_train);
-  auto vq_centers  = raft::make_device_matrix<DataT, uint32_t, row_major>(res, vq_n_centers, dim);
+  auto vq_centers  = raft::make_device_matrix<MathT, uint32_t, row_major>(res, vq_n_centers, dim);
 
   using kmeans_in_type = typename DatasetT::value_type;
   raft::cluster::kmeans_balanced_params kmeans_params;
   kmeans_params.n_iters = params.kmeans_n_iters;
   kmeans_params.metric  = raft::distance::DistanceType::L2Expanded;
   auto vq_centers_view =
-    raft::make_device_matrix_view<DataT, ix_t>(vq_centers.data_handle(), vq_n_centers, dim);
+    raft::make_device_matrix_view<MathT, ix_t>(vq_centers.data_handle(), vq_n_centers, dim);
   auto vq_trainset_view = raft::make_device_matrix_view<const kmeans_in_type, ix_t>(
     vq_trainset.data_handle(), n_rows_train, dim);
-  raft::cluster::kmeans_balanced::fit<kmeans_in_type, DataT, ix_t>(
+  raft::cluster::kmeans_balanced::fit<kmeans_in_type, MathT, ix_t>(
     res,
     kmeans_params,
     vq_trainset_view,
     vq_centers_view,
-    spatial::knn::detail::utils::mapping<DataT>{});
+    spatial::knn::detail::utils::mapping<MathT>{});
 
   return vq_centers;
 }
@@ -286,12 +184,12 @@ auto predict_vq(const raft::resources& res, const DatasetT& dataset, const VqCen
   return vq_labels;
 }
 
-template <typename DatasetT, typename DataT>
+template <typename MathT, typename DatasetT>
 auto train_pq(const raft::resources& res,
               const compression_params& params,
               const DatasetT& dataset,
-              const device_matrix_view<const DataT, uint32_t, row_major>& vq_centers)
-  -> device_matrix<DataT, uint32_t, row_major>
+              const device_matrix_view<const MathT, uint32_t, row_major>& vq_centers)
+  -> device_matrix<MathT, uint32_t, row_major>
 {
   const ix_t n_rows       = dataset.extent(0);
   const ix_t dim          = dataset.extent(1);
@@ -302,7 +200,7 @@ auto train_pq(const raft::resources& res,
   const ix_t n_rows_train = n_rows * params.pq_kmeans_trainset_fraction;
 
   // Subsample the dataset and transform into the required type if necessary
-  auto pq_trainset = transform_data<DataT>(res, raft::util::subsample(res, dataset, n_rows_train));
+  auto pq_trainset = transform_data<MathT>(res, raft::util::subsample(res, dataset, n_rows_train));
 
   // Subtract VQ centers
   {
@@ -311,7 +209,7 @@ auto train_pq(const raft::resources& res,
     linalg::map_offset(
       res,
       pq_trainset.view(),
-      [labels = vq_labels.view(), centers = vq_centers, dim] __device__(index_type off, DataT x) {
+      [labels = vq_labels.view(), centers = vq_centers, dim] __device__(index_type off, MathT x) {
         index_type i = off / dim;
         index_type j = off % dim;
         return x - centers(labels(i), j);
@@ -319,7 +217,7 @@ auto train_pq(const raft::resources& res,
       raft::make_const_mdspan(pq_trainset.view()));
   }
 
-  auto pq_centers = raft::make_device_matrix<DataT, uint32_t, row_major>(res, pq_n_centers, pq_len);
+  auto pq_centers = raft::make_device_matrix<MathT, uint32_t, row_major>(res, pq_n_centers, pq_len);
 
   // Train PQ centers
   {
@@ -328,12 +226,12 @@ auto train_pq(const raft::resources& res,
     kmeans_params.metric  = raft::distance::DistanceType::L2Expanded;
 
     auto pq_centers_view =
-      raft::make_device_matrix_view<DataT, ix_t>(pq_centers.data_handle(), pq_n_centers, pq_len);
+      raft::make_device_matrix_view<MathT, ix_t>(pq_centers.data_handle(), pq_n_centers, pq_len);
 
-    auto pq_trainset_view = raft::make_device_matrix_view<const DataT, ix_t>(
+    auto pq_trainset_view = raft::make_device_matrix_view<const MathT, ix_t>(
       pq_trainset.data_handle(), n_rows_train * pq_dim, pq_len);
 
-    raft::cluster::kmeans_balanced::fit<DataT, DataT, ix_t>(
+    raft::cluster::kmeans_balanced::fit<MathT, MathT, ix_t>(
       res, kmeans_params, pq_trainset_view, pq_centers_view);
   }
 
@@ -415,23 +313,22 @@ __launch_bounds__(BlockSize) RAFT_KERNEL
   for (uint32_t j = 0; j < pq_dim; j++) {
     // find PQ label
     uint8_t code = compute_code<kSubWarpSize>(dataset, vq_centers, pq_centers, row_ix, j, vq_label);
-    // TODO: this writes in global memory bytewise, which is very slow.
+    // TODO: this writes in global memory one byte per warp, which is very slow.
     //  It's better to keep the codes in the shared memory or registers and dump them at once.
     if (lane_id == 0) { code_view[j] = code; }
   }
 }
 
-template <typename DatasetT, typename MathT, typename IdxT>
+template <typename MathT, typename IdxT, typename DatasetT>
 auto process_and_fill_codes(const raft::resources& res,
                             const compression_params& params,
                             const DatasetT& dataset,
                             device_matrix_view<const MathT, uint32_t, row_major> vq_centers,
                             device_matrix_view<const MathT, uint32_t, row_major> pq_centers)
-  -> device_matrix<typename compressed_dataset<MathT, IdxT>::raw_codes_type, IdxT, row_major>
+  -> device_matrix<uint8_t, IdxT, row_major>
 {
   using data_t     = typename DatasetT::value_type;
   using cdataset_t = compressed_dataset<MathT, IdxT>;
-  using codes_t    = typename cdataset_t::raw_codes_type;
   using label_t    = uint32_t;
 
   const ix_t n_rows       = dataset.extent(0);
@@ -439,12 +336,11 @@ auto process_and_fill_codes(const raft::resources& res,
   const ix_t pq_dim       = params.pq_dim;
   const ix_t pq_bits      = params.pq_bits;
   const ix_t pq_n_centers = ix_t{1} << pq_bits;
-  const ix_t pq_len       = raft::div_rounding_up_safe(dim, pq_dim);
   // NB: codes must be aligned at least to sizeof(label_t) to be able to read labels.
   const ix_t codes_rowlen =
     sizeof(label_t) * (1 + raft::div_rounding_up_safe<ix_t>(pq_dim * pq_bits, 8 * sizeof(label_t)));
 
-  auto codes = raft::make_device_matrix<codes_t, IdxT, row_major>(res, n_rows, codes_rowlen);
+  auto codes = raft::make_device_matrix<uint8_t, IdxT, row_major>(res, n_rows, codes_rowlen);
 
   auto stream = raft::resource::get_cuda_stream(res);
 
@@ -487,34 +383,26 @@ auto process_and_fill_codes(const raft::resources& res,
   return codes;
 }
 
-template <typename DatasetT,
-          typename DataT = typename DatasetT::value_type,
-          typename IdxT  = typename DatasetT::index_type>
+template <typename DatasetT, typename MathT, typename IdxT>
 auto compress(const raft::resources& res, const compression_params& params, const DatasetT& dataset)
-  -> compressed_dataset<DataT, IdxT>
+  -> compressed_dataset<MathT, IdxT>
 {
   // Use a heuristic to impute missing parameters.
   auto ps = fill_missing_params_heuristics(params, dataset);
 
-  // Relevant constants
-  const ix_t n_rows = dataset.extent(0);
-  const ix_t dim    = dataset.extent(1);
-  const ix_t pq_dim = ps.pq_dim;
-
   // Train codes
-  auto vq_code_book = train_vq<DatasetT, DataT>(res, ps, dataset);
+  auto vq_code_book = train_vq<MathT>(res, ps, dataset);
   auto pq_code_book =
-    train_pq<DatasetT, DataT>(res, ps, dataset, raft::make_const_mdspan(vq_code_book.view()));
+    train_pq<MathT>(res, ps, dataset, raft::make_const_mdspan(vq_code_book.view()));
 
   // Encode dataset
-  auto codes =
-    process_and_fill_codes<DatasetT, DataT, IdxT>(res,
-                                                  ps,
-                                                  dataset,
-                                                  raft::make_const_mdspan(vq_code_book.view()),
-                                                  raft::make_const_mdspan(pq_code_book.view()));
+  auto codes = process_and_fill_codes<MathT, IdxT>(res,
+                                                   ps,
+                                                   dataset,
+                                                   raft::make_const_mdspan(vq_code_book.view()),
+                                                   raft::make_const_mdspan(pq_code_book.view()));
 
-  return compressed_dataset<DataT, IdxT>{vq_code_book, pq_code_book, codes};
+  return compressed_dataset<MathT, IdxT>{vq_code_book, pq_code_book, codes};
 }
 
 }  // namespace raft::neighbors::cagra::detail

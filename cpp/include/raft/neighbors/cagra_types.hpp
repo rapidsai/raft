@@ -35,6 +35,11 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+
+#ifdef __cpp_lib_bitops
+#include <bit>
+#endif
+
 namespace raft::neighbors::cagra {
 /**
  * @addtogroup cagra
@@ -61,6 +66,43 @@ struct index_params : ann::index_params {
   graph_build_algo build_algo = graph_build_algo::IVF_PQ;
   /** Number of Iterations to run if building with NN_DESCENT */
   size_t nn_descent_niter = 20;
+};
+
+/** Parameters for CAGRA-Q compression. */
+struct compression_params {
+  /**
+   * The bit length of the vector element after compression by PQ.
+   *
+   * Possible values: [4, 5, 6, 7, 8].
+   *
+   * Hint: the smaller the 'pq_bits', the smaller the index size and the better the search
+   * performance, but the lower the recall.
+   */
+  uint32_t pq_bits = 8;
+  /**
+   * The dimensionality of the vector after compression by PQ.
+   * When zero, an optimal value is selected using a heuristic.
+   *
+   * TODO: at the moment `dim` must be a multiple `pq_dim`.
+   */
+  uint32_t pq_dim = 0;
+  /**
+   * Vector Quantization (VQ) codebook size - number of "coarse cluster centers".
+   * When zero, an optimal value is selected using a heuristic.
+   */
+  uint32_t vq_n_centers = 0;
+  /** The number of iterations searching for kmeans centers (both VQ & PQ phases). */
+  uint32_t kmeans_n_iters = 25;
+  /**
+   * The fraction of data to use during iterative kmeans building (VQ phase).
+   * When zero, an optimal value is selected using a heuristic.
+   */
+  double vq_kmeans_trainset_fraction = 0;
+  /**
+   * The fraction of data to use during iterative kmeans building (PQ phase).
+   * When zero, an optimal value is selected using a heuristic.
+   */
+  double pq_kmeans_trainset_fraction = 0;
 };
 
 enum class search_algo {
@@ -354,6 +396,71 @@ struct index : ann::index {
   raft::device_matrix<IdxT, int64_t, row_major> graph_;
   raft::device_matrix_view<const T, int64_t, layout_stride> dataset_view_;
   raft::device_matrix_view<const IdxT, int64_t, row_major> graph_view_;
+};
+
+/**
+ * @brief CAGRA-Q compressed dataset.
+ *
+ * @tparam MathT the type of elements in the codebooks
+ * @tparam IdxT type of the vector indices (represent dataset.extent(0))
+ *
+ */
+template <typename MathT, typename IdxT>
+struct compressed_dataset {
+  /** Vector Quantization codebook - "coarse cluster centers". */
+  device_matrix<MathT, uint32_t, row_major> vq_code_book;
+  /** Product Quantization codebook - "fine cluster centers".  */
+  device_matrix<MathT, uint32_t, row_major> pq_code_book;
+  /** Compressed dataset.  */
+  device_matrix<uint8_t, IdxT, row_major> dataset;
+
+  /** Total length of the index. */
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return dataset.extent(0); }
+  /** Row length of the encoded data in bytes. */
+  [[nodiscard]] constexpr inline auto encoded_row_length() const noexcept -> uint32_t
+  {
+    return dataset.extent(1);
+  }
+  /** Dimensionality of the data. */
+  [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
+  {
+    return vq_code_book.extent(1);
+  }
+  /** The number of "coarse cluster centers" */
+  [[nodiscard]] constexpr inline auto vq_n_centers() const noexcept -> uint32_t
+  {
+    return vq_code_book.extent(0);
+  }
+  /** The bit length of an encoded vector element after compression by PQ. */
+  [[nodiscard]] constexpr inline auto pq_bits() const noexcept -> uint32_t
+  {
+    auto pq_width = pq_n_centers();
+#ifdef __cpp_lib_bitops
+    return std::countr_zero(pq_width);
+#else
+    uint32_t pq_bits = 0;
+    while (pq_width > 1) {
+      pq_bits++;
+      pq_width >>= 1;
+    }
+    return pq_bits;
+#endif
+  }
+  /** The dimensionality of an encoded vector after compression by PQ. */
+  [[nodiscard]] constexpr inline auto pq_dim() const noexcept -> uint32_t
+  {
+    return raft::div_rounding_up_unsafe(dim(), pq_len());
+  }
+  /** Dimensionality of a subspaces, i.e. the number of vector components mapped to a subspace */
+  [[nodiscard]] constexpr inline auto pq_len() const noexcept -> uint32_t
+  {
+    return pq_code_book.extent(1);
+  }
+  /** The number of vectors in a PQ codebook (`1 << pq_bits`). */
+  [[nodiscard]] constexpr inline auto pq_n_centers() const noexcept -> uint32_t
+  {
+    return pq_code_book.extent(0);
+  }
 };
 
 /** @} */
