@@ -16,13 +16,15 @@
 
 #pragma once
 
-#include <cstdint>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <cstdint>
 
 namespace raft::neighbors::ball_cover {
 

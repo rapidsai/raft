@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,13 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/detail/ivf_pq_search.cuh>
 #include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
-
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/resource/device_memory_resource.hpp>
-#include <raft/core/resources.hpp>
 
 #include <rmm/mr/device/device_memory_resource.hpp>
 

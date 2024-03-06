@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,23 @@
 
 #pragma once
 
-#include <math.h>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <stdio.h>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/spectral/cluster_solvers.cuh>
+#include <raft/spectral/detail/spectral_util.cuh>
+#include <raft/spectral/eigen_solvers.cuh>
+#include <raft/spectral/matrix_wrappers.hpp>
 
 #include <cuda.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
-#include <tuple>
+#include <math.h>
+#include <stdio.h>
 
-#include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/spectral/cluster_solvers.cuh>
-#include <raft/spectral/detail/spectral_util.cuh>
-#include <raft/spectral/eigen_solvers.cuh>
-#include <raft/spectral/matrix_wrappers.hpp>
+#include <tuple>
 
 namespace raft {
 namespace spectral {

@@ -29,7 +29,7 @@
  *
  **************************************************************************************************/
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,12 +60,11 @@ Changes:
 #include <cutlass/cutlass.h>
 #include <cutlass/fast_math.h>
 #include <cutlass/gemm/gemm.h>
-#include <cutlass/matrix_coord.h>
-#include <cutlass/semaphore.h>
-
 #include <cutlass/gemm/kernel/gemm_grouped_problem_visitor.h>
 #include <cutlass/gemm/kernel/gemm_transpose_operands.h>
 #include <cutlass/layout/matrix.h>
+#include <cutlass/matrix_coord.h>
+#include <cutlass/semaphore.h>
 #include <cutlass/trace.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
