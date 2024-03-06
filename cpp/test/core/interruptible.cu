@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-#include <cstddef>
-#include <gtest/gtest.h>
-#include <iostream>
-#include <memory>
-#include <omp.h>
 #include <raft/common/nvtx.hpp>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/interruptible.hpp>
+
 #include <rmm/cuda_stream.hpp>
+
+#include <gtest/gtest.h>
+#include <omp.h>
+
+#include <cstddef>
+#include <iostream>
+#include <memory>
 #include <thread>
 #include <vector>
 

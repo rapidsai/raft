@@ -17,7 +17,9 @@
 #pragma once
 
 #include "hashmap.hpp"
+
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 // #include "search_single_cta.cuh"
 // #include "topk_for_cagra/topk_core.cuh"
 

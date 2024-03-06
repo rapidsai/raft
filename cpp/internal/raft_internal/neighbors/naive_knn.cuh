@@ -23,7 +23,6 @@
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-#include <raft/core/resource/cuda_stream.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>

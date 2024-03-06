@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include "search_multi_kernel.cuh"
 #include "search_plan.cuh"
 #include "search_single_cta.cuh"
+
 #include <raft/neighbors/sample_filter_types.hpp>
 
 namespace raft::neighbors::cagra::detail {

@@ -15,13 +15,14 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
+
 #include <raft/core/bitmap.cuh>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/util/cuda_utils.cuh>
-
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
+#include <raft/util/cuda_utils.cuh>
+
+#include <gtest/gtest.h>
 
 #include <iostream>
 

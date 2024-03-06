@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,30 +14,25 @@
  * limitations under the License.
  */
 
-#include <bits/stdc++.h>
-#include <raft/core/resource/cuda_stream.hpp>
-
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
-#include <iostream>
-#include <rmm/device_uvector.hpp>
-#include <vector>
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/mst/mst.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_buffer.hpp>
-
-#include <gtest/gtest.h>
-
-#include <bits/stdc++.h>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/memory.h>
 #include <thrust/reduce.h>
 
+#include <bits/stdc++.h>
+#include <gtest/gtest.h>
+
 #include <cstddef>
+#include <iostream>
 #include <vector>
 
 template <typename vertex_t, typename edge_t, typename weight_t>

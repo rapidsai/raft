@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <cstdint>  // int64_t
-
 #include <raft/core/detail/macros.hpp>       // _RAFT_HAS_CUDA
 #include <raft/core/host_mdspan.hpp>         // raft::host_matrix_view
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
+
+#include <cstdint>  // int64_t
 
 #if defined(_RAFT_HAS_CUDA)
 #include <cuda_fp16.h>

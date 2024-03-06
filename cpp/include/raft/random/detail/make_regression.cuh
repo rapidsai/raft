@@ -20,8 +20,6 @@
 
 #pragma once
 
-#include <algorithm>
-
 #include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -32,7 +30,10 @@
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <algorithm>
 
 namespace raft::random {
 namespace detail {

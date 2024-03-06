@@ -16,10 +16,12 @@
 
 #pragma once
 
-#include "../../ball_cover_types.hpp"   // BallCoverIndex
-#include "registers_types.cuh"          // DistFunc
-#include <cstdint>                      // uint32_t
+#include "../../ball_cover_types.hpp"  // BallCoverIndex
+#include "registers_types.cuh"         // DistFunc
+
 #include <raft/util/raft_explicit.hpp>  //RAFT_EXPLICIT
+
+#include <cstdint>  // uint32_t
 
 #if defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 

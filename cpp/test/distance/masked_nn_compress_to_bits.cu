@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,7 @@
 
 #include "../test_utils.cuh"
 #include "../test_utils.h"
-#include <cstdio>
-#include <gtest/gtest.h>
-#include <iostream>
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
@@ -30,6 +28,11 @@
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/integer_utils.hpp>
 #include <raft/util/itertools.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cstdio>
+#include <iostream>
 
 namespace raft::distance::masked_nn::compress_to_bits {
 

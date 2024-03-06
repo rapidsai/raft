@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <iostream>
 #include <raft/util/integer_utils.hpp>
+
+#include <gtest/gtest.h>
+
+#include <iostream>
 
 namespace raft {
 

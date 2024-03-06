@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,19 @@
 
 #pragma once
 
-#include <limits>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
-#include <stdint.h>
-
 #include <raft/distance/detail/compress_to_bits.cuh>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/detail/masked_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
+
+#include <stdint.h>
+
+#include <limits>
 
 namespace raft {
 namespace distance {

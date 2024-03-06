@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
  */
 #pragma once
 
-#include <algorithm>                                        // std::min
-#include <cstdint>                                          // size_t
 #include <raft/core/error.hpp>                              // RAFT_EXPECTS
 #include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
-#include <type_traits>                                      // std::integral_constant
+
+#include <algorithm>    // std::min
+#include <cstdint>      // size_t
+#include <type_traits>  // std::integral_constant
 namespace raft::distance::detail {
 
 /**

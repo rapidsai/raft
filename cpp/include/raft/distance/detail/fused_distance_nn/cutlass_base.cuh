@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,21 +26,21 @@
 #define cutlass raft_cutlass
 #endif
 
-#include <cutlass/cutlass.h>
-#include <cutlass/gemm/device/gemm.h>
-#include <cutlass/gemm/device/gemm_grouped.h>
-#include <cutlass/gemm/device/gemm_universal_adapter.h>
-#include <rmm/device_uvector.hpp>
-
-#include <cutlass/layout/matrix.h>
-#include <cutlass/layout/tensor.h>
-#include <cutlass/matrix_coord.h>
-#include <cutlass/tensor_view.h>
-
 #include <raft/distance/detail/fused_distance_nn/epilogue_elementwise.cuh>  // FusedDistanceNNEpilogueElementwise
 #include <raft/distance/detail/fused_distance_nn/gemm.h>                    // FusedDistanceNNGemm
 #include <raft/util/cudart_utils.hpp>   // getMultiProcessorCount
 #include <raft/util/cutlass_utils.cuh>  // RAFT_CUTLASS_TRY
+
+#include <rmm/device_uvector.hpp>
+
+#include <cutlass/cutlass.h>
+#include <cutlass/gemm/device/gemm.h>
+#include <cutlass/gemm/device/gemm_grouped.h>
+#include <cutlass/gemm/device/gemm_universal_adapter.h>
+#include <cutlass/layout/matrix.h>
+#include <cutlass/layout/tensor.h>
+#include <cutlass/matrix_coord.h>
+#include <cutlass/tensor_view.h>
 
 namespace raft {
 namespace distance {
