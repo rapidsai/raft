@@ -15,13 +15,16 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/linalg/spmm.hpp>
 #include <raft/util/cuda_utils.cuh>
+
 #include <thrust/fill.h>
+
+#include <gtest/gtest.h>
 
 namespace raft {
 namespace sparse {
