@@ -17,11 +17,11 @@
 #pragma once
 
 #include "base_strategy.cuh"
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 
 #include <cuco/static_map.cuh>
-
 #include <thrust/copy.h>
 #include <thrust/iterator/counting_iterator.h>
 

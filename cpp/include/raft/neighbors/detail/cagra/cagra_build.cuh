@@ -17,10 +17,6 @@
 
 #include "../../cagra_types.hpp"
 #include "graph_core.cuh"
-#include <chrono>
-#include <cstdio>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <vector>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -28,14 +24,18 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/nn_descent.cuh>
 #include <raft/neighbors/refine.cuh>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
+#include <chrono>
+#include <cstdio>
+#include <vector>
 
 namespace raft::neighbors::cagra::detail {
 

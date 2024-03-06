@@ -16,23 +16,15 @@
 
 #pragma once
 
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/device_properties.hpp>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
-#include <raft/neighbors/detail/ivf_common.cuh>
-#include <raft/neighbors/detail/ivf_pq_compute_similarity.cuh>
-#include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>
-#include <raft/neighbors/ivf_pq_types.hpp>
-#include <raft/neighbors/sample_filter_types.hpp>
-
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/custom_resource.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
@@ -40,6 +32,12 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
+#include <raft/neighbors/detail/ivf_common.cuh>
+#include <raft/neighbors/detail/ivf_pq_compute_similarity.cuh>
+#include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>
+#include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cache.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
@@ -51,7 +49,6 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cub/cub.cuh>
-
 #include <cuda_fp16.h>
 
 #include <optional>

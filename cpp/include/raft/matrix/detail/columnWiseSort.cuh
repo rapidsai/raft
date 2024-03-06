@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,13 @@
 
 #pragma once
 
-#include <cstddef>
+#include <raft/util/cuda_utils.cuh>
+
 #include <cub/cub.cuh>
+
+#include <cstddef>
 #include <limits>
 #include <map>
-#include <raft/util/cuda_utils.cuh>
 
 #define INST_BLOCK_SORT(keyIn, keyOut, valueInOut, rows, columns, blockSize, elemPT, stream)     \
   devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT><<<rows, blockSize, 0, stream>>>( \

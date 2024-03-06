@@ -15,20 +15,6 @@
  */
 #pragma once
 
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
-#include <algorithm>
-#include <cassert>
-#include <iostream>
-#include <memory>
-#include <numeric>
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/device_properties.hpp>
-#include <raft/core/resources.hpp>
-
-#include <vector>
-
 #include "bitonic.hpp"
 #include "compute_distance.hpp"
 #include "device_common.hpp"
@@ -37,9 +23,22 @@
 #include "search_plan.cuh"
 #include "topk_for_cagra/topk_core.cuh"  // TODO replace with raft topk if possible
 #include "utils.hpp"
+
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_properties.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
+
+#include <algorithm>
+#include <cassert>
+#include <iostream>
+#include <memory>
+#include <numeric>
+#include <vector>
 
 namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {

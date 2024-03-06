@@ -16,23 +16,23 @@
 
 #pragma once
 
-#include "common.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
-
 #include "../../ball_cover_types.hpp"
 #include "../haversine_distance.cuh"
+#include "common.cuh"
 #include "registers_types.cuh"  // DistFunc
 
-#include <cstdint>
-#include <limits.h>
-
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/neighbors/detail/faiss_select/key_value_block_select.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <thrust/count.h>
 #include <thrust/fill.h>
 #include <thrust/scan.h>
+
+#include <limits.h>
+
+#include <cstdint>
 
 namespace raft {
 namespace spatial {

@@ -25,7 +25,8 @@
 #include <raft/util/device_atomics.cuh>            // raft::atomicMin
 #include <raft/util/pow2_utils.cuh>                // raft::Pow2
 #include <raft/util/vectorized.cuh>                // raft::TxN_t
-#include <rmm/cuda_stream_view.hpp>                // rmm::cuda_stream_view
+
+#include <rmm/cuda_stream_view.hpp>  // rmm::cuda_stream_view
 
 namespace raft::neighbors::ivf_pq::detail {
 

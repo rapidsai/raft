@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,17 +30,16 @@ operation.
 
 #pragma once
 
+#include "./predicated_tile_iterator_normvec.h"
+
 #include <cutlass/array.h>
 #include <cutlass/cutlass.h>
-#include <cutlass/numeric_types.h>
-
-#include <cutlass/gemm/gemm.h>
-
-#include "./predicated_tile_iterator_normvec.h"
 #include <cutlass/epilogue/threadblock/default_epilogue_tensor_op.h>
 #include <cutlass/epilogue/threadblock/default_epilogue_volta_tensor_op.h>
 #include <cutlass/epilogue/threadblock/epilogue.h>
 #include <cutlass/epilogue/threadblock/epilogue_with_broadcast.h>
+#include <cutlass/gemm/gemm.h>
+#include <cutlass/numeric_types.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 

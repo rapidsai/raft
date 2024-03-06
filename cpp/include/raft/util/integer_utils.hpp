@@ -1,7 +1,7 @@
 /*
  * Copyright 2019 BlazingDB, Inc.
  *     Copyright 2019 Eyal Rozenberg <eyalroz@blazingdb.com>
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@
  *
  */
 
-#include <limits>
 #include <raft/core/detail/macros.hpp>
+
+#include <limits>
 #include <stdexcept>
 #include <type_traits>
 
