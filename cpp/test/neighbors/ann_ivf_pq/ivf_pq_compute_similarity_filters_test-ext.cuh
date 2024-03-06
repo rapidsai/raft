@@ -16,14 +16,16 @@
 
 #pragma once
 
-#include <cuda_fp16.h>                       // __half
 #include <raft/core/detail/macros.hpp>       // RAFT_WEAK_FUNCTION
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/neighbors/detail/ivf_pq_compute_similarity.cuh>
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>  // raft::neighbors::ivf_pq::detail::fp_8bit
 #include <raft/neighbors/sample_filter.cuh>          // none_ivf_sample_filter
 #include <raft/neighbors/sample_filter_types.hpp>    // none_ivf_sample_filter
-#include <rmm/cuda_stream_view.hpp>                  // rmm::cuda_stream_view
+
+#include <rmm/cuda_stream_view.hpp>  // rmm::cuda_stream_view
+
+#include <cuda_fp16.h>  // __half
 
 #define instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(                 \
   OutT, LutT, IvfSampleFilterT)                                                             \
