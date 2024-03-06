@@ -294,11 +294,11 @@ TEST(Raft, WorkspaceResource)
 
   // Replace the resource
   resource::set_workspace_resource(handle, pool_mr, max_size);
-  rmm::device_async_resource_ref new_mr{resource::get_workspace_resource(handle)};
+  auto new_mr = resource::get_workspace_resource(handle);
 
   // By this point, the orig_mr likely points to a non-existent resource; don't dereference!
-  ASSERT_NE(orig_mr, new_mr);
-  ASSERT_EQ(rmm::device_async_resource_ref{pool_mr.get()}, new_mr);
+  ASSERT_NE(orig_mr, rmm::device_async_resource_ref{new_mr});
+  ASSERT_EQ(rmm::device_async_resource_ref{pool_mr.get()}, new_mr->get_upstream_resource());
   // We can safely reset pool_mr, because the shared_ptr to the pool memory stays in the resource
   pool_mr.reset();
 
