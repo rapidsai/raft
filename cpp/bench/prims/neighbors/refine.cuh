@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <raft_internal/neighbors/refine_helper.cuh>
-
 #include <common/benchmark.hpp>
 
 #include <raft/core/device_mdspan.hpp>
@@ -26,6 +24,8 @@
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/refine.cuh>
 #include <raft/random/rng.cuh>
+
+#include <raft_internal/neighbors/refine_helper.cuh>
 
 #include <rmm/cuda_device.hpp>
 #include <rmm/cuda_stream_view.hpp>

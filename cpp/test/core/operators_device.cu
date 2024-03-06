@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <cmath>
+#include "../test_utils.cuh"
+
+#include <raft/core/kvp.hpp>
+#include <raft/core/operators.hpp>
+
+#include <rmm/cuda_stream.hpp>
+#include <rmm/device_scalar.hpp>
 
 #include <gtest/gtest.h>
 
-#include "../test_utils.cuh"
-#include <raft/core/kvp.hpp>
-#include <raft/core/operators.hpp>
-#include <rmm/cuda_stream.hpp>
-#include <rmm/device_scalar.hpp>
+#include <algorithm>
+#include <cmath>
 
 template <typename OutT, typename OpT, typename... Args>
 RAFT_KERNEL eval_op_on_device_kernel(OutT* out, OpT op, Args... args)

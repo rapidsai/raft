@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "../test_utils.cuh"
+
 #include <raft/core/device_mdarray.hpp>  // raft::make_device_matrix
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -24,14 +26,14 @@
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#include <raft_internal/neighbors/naive_knn.cuh>
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
-#include <raft_internal/neighbors/naive_knn.cuh>
-
-#include "../test_utils.cuh"
 #include <gtest/gtest.h>
+
 #include <iostream>
 
 namespace raft::neighbors {

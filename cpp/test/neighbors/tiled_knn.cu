@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 #include "../test_utils.cuh"
 #include "./ann_utils.cuh"
 #include "./knn_utils.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance.cuh>  // raft::distance::pairwise_distance
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
 #include <raft/core/host_coo_matrix.hpp>
 #include <raft/core/host_csr_matrix.hpp>
 #include <raft/core/resources.hpp>
+
+#include <gtest/gtest.h>
+
 #include <type_traits>
 
 namespace raft {

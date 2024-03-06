@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,16 @@
 
 #pragma once
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <ctime>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/spectral/detail/warn_dbg.hpp>
+#include <raft/spectral/matrix_wrappers.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/device_atomics.cuh>
 
 #include <cuda.h>
 #include <thrust/binary_search.h>
@@ -45,13 +48,10 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <raft/core/resources.hpp>
-#include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/spectral/detail/warn_dbg.hpp>
-#include <raft/spectral/matrix_wrappers.hpp>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/device_atomics.cuh>
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <ctime>
 
 namespace raft {
 namespace cluster {

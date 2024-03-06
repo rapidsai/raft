@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,23 +26,23 @@
 #define cutlass raft_cutlass
 #endif
 
+#include "pairwise_distance_epilogue_elementwise.h"
+#include "pairwise_distance_gemm.h"
+
+#include <raft/distance/detail/distance_ops/cutlass.cuh>
+#include <raft/util/cutlass_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
-#include <type_traits>
 
 #include <cutlass/cutlass.h>
 #include <cutlass/gemm/device/gemm.h>
 #include <cutlass/gemm/device/gemm_universal_adapter.h>
-
 #include <cutlass/layout/matrix.h>
 #include <cutlass/layout/tensor.h>
 #include <cutlass/matrix_coord.h>
 #include <cutlass/tensor_view.h>
 
-#include <raft/distance/detail/distance_ops/cutlass.cuh>
-#include <raft/util/cutlass_utils.cuh>
-
-#include "./pairwise_distance_epilogue_elementwise.h"
-#include "./pairwise_distance_gemm.h"
+#include <type_traits>
 
 namespace raft {
 namespace distance {
