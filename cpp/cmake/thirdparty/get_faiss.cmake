@@ -51,6 +51,7 @@ function(find_and_configure_faiss)
                 OPTIONS
                 "FAISS_ENABLE_GPU ${PKG_ENABLE_GPU}"
                 "FAISS_ENABLE_PYTHON OFF"
+                "FAISS_ENABLE_RAFT ON"
                 "FAISS_OPT_LEVEL ${RAFT_FAISS_OPT_LEVEL}"
                 "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
                 "BUILD_TESTING OFF"
@@ -102,8 +103,8 @@ if(NOT RAFT_FAISS_GIT_REPOSITORY)
 endif()
 
 find_and_configure_faiss(VERSION    1.7.4
-        REPOSITORY  ${RAFT_FAISS_GIT_REPOSITORY}
-        PINNED_TAG  ${RAFT_FAISS_GIT_TAG}
+        REPOSITORY  https://github.com/divyegala/faiss
+        PINNED_TAG  raft-cagra-hnsw
         BUILD_STATIC_LIBS ${RAFT_USE_FAISS_STATIC}
         EXCLUDE_FROM_ALL ${RAFT_EXCLUDE_FAISS_FROM_ALL}
         ENABLE_GPU ${RAFT_FAISS_ENABLE_GPU})

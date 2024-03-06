@@ -153,7 +153,7 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t strea
   auto& params = index_params_.cagra_params;
 
   index_ = std::make_shared<raft::neighbors::cagra::index<T, IdxT>>(
-    std::move(raft::neighbors::cagra::detail::build(handle_,
+    std::move(raft::neighbors::cagra::detail::build<T, IdxT>(handle_,
                                                     params,
                                                     dataset_view,
                                                     index_params_.nn_descent_params,

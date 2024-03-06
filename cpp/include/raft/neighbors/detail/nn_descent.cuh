@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <raft/common/nvtx.hpp>
 
 #include <cuda_runtime.h>
 #include <mma.h>
@@ -1373,6 +1374,8 @@ void build(raft::resources const& res,
            mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
            index<IdxT>& idx)
 {
+  raft::common::nvtx::range<raft::common::nvtx::domain::raft> fun_scope(
+    "detail::nn_descent::build");
   RAFT_EXPECTS(dataset.extent(0) < std::numeric_limits<int>::max() - 1,
                "The dataset size for GNND should be less than %d",
                std::numeric_limits<int>::max() - 1);

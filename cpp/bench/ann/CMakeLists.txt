@@ -18,6 +18,7 @@
 option(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_GPU_CAGRA "Include faiss' cagra algorithm wrapper in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT "Include faiss' cpu brute-force algorithm in benchmark" ON)
 
 option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT "Include faiss' cpu ivf flat algorithm in benchmark"
@@ -50,6 +51,7 @@ if(BUILD_CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_GPU_CAGRA OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA OFF)
@@ -64,6 +66,7 @@ else()
     set(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT OFF)
     set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT OFF)
     set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ OFF)
+    set(RAFT_ANN_BENCH_USE_FAISS_GPU_CAGRA OFF)
     set(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT OFF)
     set(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ OFF)
     set(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT OFF)
@@ -76,6 +79,7 @@ set(RAFT_ANN_BENCH_USE_FAISS OFF)
 if(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT
    OR RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ
    OR RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT
+   OR RAFT_ANN_BENCH_USE_FAISS_GPU_CAGRA
    OR RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT
    OR RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ
    OR RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT
@@ -317,6 +321,13 @@ endif()
 if(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ)
   ConfigureAnnBench(
     NAME FAISS_GPU_IVF_PQ PATH bench/ann/src/faiss/faiss_gpu_benchmark.cu LINKS
+    ${RAFT_FAISS_TARGETS}
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_GPU_CAGRA)
+  ConfigureAnnBench(
+    NAME FAISS_GPU_CAGRA PATH bench/ann/src/faiss/faiss_gpu_benchmark.cu LINKS
     ${RAFT_FAISS_TARGETS}
   )
 endif()

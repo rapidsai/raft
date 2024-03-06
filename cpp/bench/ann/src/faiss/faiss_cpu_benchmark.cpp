@@ -71,11 +71,27 @@ void parse_build_param(const nlohmann::json& conf,
 }
 
 template <typename T>
+void parse_build_param(const nlohmann::json& conf,
+                       typename raft::bench::ann::FaissCpuHNSW<T>::BuildParam& param)
+{
+  param.ef_construction = conf.at("efConstruction");
+  param.M               = conf.at("M");
+}
+
+template <typename T>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::FaissCpu<T>::SearchParam& param)
 {
   param.nprobe = conf.at("nprobe");
   if (conf.contains("refine_ratio")) { param.refine_ratio = conf.at("refine_ratio"); }
+  if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
+}
+
+template <typename T>
+void parse_search_param(const nlohmann::json& conf,
+                        typename raft::bench::ann::FaissCpuHNSW<T>::SearchParam& param)
+{
+  param.ef = conf.at("ef");
   if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
 }
 
@@ -124,6 +140,8 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
       ann = make_algo<T, raft::bench::ann::FaissCpuIVFSQ>(metric, dim, conf);
     } else if (algo == "faiss_cpu_flat") {
       ann = std::make_unique<raft::bench::ann::FaissCpuFlat<T>>(metric, dim);
+    } else if (algo == "faiss_cpu_hnsw") {
+      ann = make_algo<T, raft::bench::ann::FaissCpuHNSW>(metric, dim, conf);
     }
   }
 
@@ -144,6 +162,10 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
     return param;
   } else if (algo == "faiss_cpu_flat") {
     auto param = std::make_unique<typename raft::bench::ann::FaissCpu<T>::SearchParam>();
+    return param;
+  } else if (algo == "faiss_cpu_hnsw") {
+    auto param = std::make_unique<typename raft::bench::ann::FaissCpuHNSW<T>::SearchParam>();
+    parse_search_param<T>(conf, *param);
     return param;
   }
   // else

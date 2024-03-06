@@ -181,7 +181,7 @@ void serialize_to_hnswlib(raft::resources const& res,
   resource::sync_stream(res);
 
   // Write one dataset and graph row at a time
-  for (std::size_t i = 0; i < index_.size(); i++) {
+  for (int64_t i = 0; i < index_.size(); i++) {
     auto graph_degree = static_cast<int>(index_.graph_degree());
     os.write(reinterpret_cast<char*>(&graph_degree), sizeof(int));
 
@@ -206,7 +206,7 @@ void serialize_to_hnswlib(raft::resources const& res,
     os.write(reinterpret_cast<char*>(&i), sizeof(std::size_t));
   }
 
-  for (std::size_t i = 0; i < index_.size(); i++) {
+  for (int64_t i = 0; i < index_.size(); i++) {
     // zeroes
     auto zero = 0;
     os.write(reinterpret_cast<char*>(&zero), sizeof(int));

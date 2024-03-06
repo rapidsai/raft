@@ -18,6 +18,7 @@
 #include "raft_ann_bench_param_parser.h"
 #include "raft_cagra_hnswlib_wrapper.h"
 
+#include <cstdint>
 #include <rmm/cuda_device.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 

@@ -336,10 +336,19 @@ void bench_search(::benchmark::State& state,
 
   // Each thread calculates recall on their partition of queries.
   // evaluate recall
+  // std::cout << "max k: " << dataset->max_k() << std::endl;
   if (dataset->max_k() >= k) {
     const std::int32_t* gt          = dataset->gt_set();
     const std::uint32_t max_k       = dataset->max_k();
     buf<std::size_t> neighbors_host = neighbors->move(MemoryType::Host);
+
+    // std::cout << "first 5 n: ";
+    for(int ll = 0; ll < 5; ++ll) std::cout << neighbors_host.data[ll] << " ";
+    std::cout << std::endl;
+    // std::cout << "first 5 gt n: ";
+    for(int ll = 0; ll < 5; ++ll) std::cout << gt[ll] << " ";
+    std::cout << std::endl;
+
     std::size_t rows                = std::min(queries_processed, query_set_size);
     std::size_t match_count         = 0;
     std::size_t total_count         = rows * static_cast<size_t>(k);

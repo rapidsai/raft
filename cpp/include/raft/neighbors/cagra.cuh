@@ -19,6 +19,7 @@
 #include "detail/cagra/cagra_build.cuh"
 #include "detail/cagra/cagra_search.cuh"
 #include "detail/cagra/graph_core.cuh"
+#include "raft/core/resource/cuda_stream.hpp"
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_device_accessor.hpp>

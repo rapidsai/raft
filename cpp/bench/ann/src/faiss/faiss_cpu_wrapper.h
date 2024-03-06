@@ -16,11 +16,12 @@
 #pragma once
 
 #include "../common/ann_types.hpp"
-#include "../common/thread_pool.hpp"
+#include "faiss/impl/HNSW.h"
 
 #include <raft/core/logger.hpp>
 
 #include <faiss/IndexFlat.h>
+#include <faiss/IndexHNSW.h>
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexRefine.h>
@@ -73,7 +74,7 @@ class FaissCpu : public ANN<T> {
     static_assert(std::is_same_v<T, float>, "faiss support only float type");
   }
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
+  virtual void build(const T* dataset, size_t nrow, cudaStream_t stream = 0);
 
   void set_search_param(const AnnSearchParam& param) override;
 
@@ -88,12 +89,12 @@ class FaissCpu : public ANN<T> {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
+  virtual void search(const T* queries,
               int batch_size,
               int k,
               size_t* neighbors,
               float* distances,
-              cudaStream_t stream = 0) const final;
+              cudaStream_t stream = 0) const;
 
   AlgoProperty get_preference() const override
   {
@@ -117,9 +118,6 @@ class FaissCpu : public ANN<T> {
   faiss::MetricType metric_type_;
   int nlist_;
   double training_sample_fraction_;
-
-  int num_threads_;
-  std::shared_ptr<FixedThreadPool> thread_pool_;
 };
 
 template <typename T>
@@ -150,12 +148,14 @@ void FaissCpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
   index_->train(nrow, dataset);  // faiss::IndexFlat::train() will do nothing
   assert(index_->is_trained);
   index_->add(nrow, dataset);
+  std::cout << "finished adding" << std::endl;
   index_refine_ = std::make_shared<faiss::IndexRefineFlat>(this->index_.get(), dataset);
 }
 
 template <typename T>
 void FaissCpu<T>::set_search_param(const AnnSearchParam& param)
 {
+  std::cout << "should not be here" << std::endl;
   auto search_param = dynamic_cast<const SearchParam&>(param);
   int nprobe        = search_param.nprobe;
   assert(nprobe <= nlist_);
@@ -165,9 +165,13 @@ void FaissCpu<T>::set_search_param(const AnnSearchParam& param)
     this->index_refine_.get()->k_factor = search_param.refine_ratio;
   }
 
-  if (!thread_pool_ || num_threads_ != search_param.num_threads) {
-    num_threads_ = search_param.num_threads;
-    thread_pool_ = std::make_shared<FixedThreadPool>(num_threads_);
+  if (param.metric_objective == Objective::LATENCY) {
+    // Let FAISS use its internal threading model with user defined `numThreads`
+    omp_set_num_threads(search_param.num_threads);
+  }
+  else if (param.metric_objective == Objective::THROUGHPUT) {
+    // FAISS is not allowed to internally parallelize
+    omp_set_num_threads(1);
   }
 }
 
@@ -182,12 +186,7 @@ void FaissCpu<T>::search(const T* queries,
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
 
-  thread_pool_->submit(
-    [&](int i) {
-      // Use thread pool for batch size = 1. FAISS multi-threads internally for batch size > 1.
-      index_->search(batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors));
-    },
-    1);
+  index_->search(batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors));
 }
 
 template <typename T>
@@ -306,16 +305,6 @@ class FaissCpuFlat : public FaissCpu<T> {
     this->index_ = std::make_shared<faiss::IndexFlat>(dim, this->metric_type_);
   }
 
-  // class FaissCpu is more like a IVF class, so need special treating here
-  void set_search_param(const typename ANN<T>::AnnSearchParam& param) override
-  {
-    auto search_param = dynamic_cast<const typename FaissCpu<T>::SearchParam&>(param);
-    if (!this->thread_pool_ || this->num_threads_ != search_param.num_threads) {
-      this->num_threads_ = search_param.num_threads;
-      this->thread_pool_ = std::make_shared<FixedThreadPool>(this->num_threads_);
-    }
-  };
-
   void save(const std::string& file) const override
   {
     this->template save_<faiss::IndexFlat>(file);
@@ -328,4 +317,70 @@ class FaissCpuFlat : public FaissCpu<T> {
   }
 };
 
+template <typename T>
+class FaissCpuHNSW : public FaissCpu<T> {
+ public:
+  struct BuildParam {
+    int M;
+    int ef_construction;
+  };
+
+  using typename ANN<T>::AnnSearchParam;
+  struct SearchParam : public AnnSearchParam {
+    int ef;
+    int num_threads;
+  };
+
+  FaissCpuHNSW(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, typename FaissCpu<T>::BuildParam())
+  {
+    this->index_ = std::make_shared<faiss::IndexHNSWFlat>(
+      param.M, dim, this->metric_type_);
+    dynamic_cast<faiss::IndexHNSWFlat*>(this->index_.get())->hnsw.efConstruction = param.ef_construction;
+  }
+
+  void save(const std::string& file) const override
+  {
+    this->template save_<faiss::IndexHNSWFlat>(file);
+  }
+  void load(const std::string& file) override { this->template load_<faiss::IndexHNSWFlat>(file); }
+
+  std::unique_ptr<ANN<T>> copy()
+  {
+    return std::make_unique<FaissCpuHNSW<T>>(*this);  // use copy constructor
+  }
+
+  void set_search_param(const AnnSearchParam& param) override {
+  auto search_param = dynamic_cast<const SearchParam&>(param);
+    if (search_param.metric_objective == Objective::LATENCY) {
+      // Let FAISS use its internal threading model with user defined `numThreads`
+      omp_set_num_threads(search_param.num_threads);
+    }
+    else if (search_param.metric_objective == Objective::THROUGHPUT) {
+      // FAISS is not allowed to internally parallelize
+      omp_set_num_threads(1);
+    }
+    search_params_.efSearch = search_param.ef;
+  }
+
+void build(const T* dataset, size_t nrow, cudaStream_t stream) override
+{
+  this->index_->train(nrow, dataset);  // faiss::IndexHNSWFlat::train() will do nothing
+  assert(index_->is_trained);
+  this->index_->add(nrow, dataset);
+  std::cout << "finished adding" << std::endl;
+}
+
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              size_t* neighbors,
+              float* distances,
+              cudaStream_t stream = 0) const override {
+     
+  this->index_->search(batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors), &search_params_);
+  }
+
+  private:
+  faiss::SearchParametersHNSW search_params_;
+};
 }  // namespace raft::bench::ann

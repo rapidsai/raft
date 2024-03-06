@@ -1,4 +1,4 @@
-name: raft_cagra_hnswlib
+name: faiss_gpu_cagra_hnsw
 constraints:
   build: raft-ann-bench.constraints.raft_cagra_build_constraints
   search: raft-ann-bench.constraints.hnswlib_search_constraints
