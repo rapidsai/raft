@@ -29,7 +29,8 @@
     const raft::neighbors::ivf_pq::index_params& params,                                 \
     const T* dataset,                                                                    \
     IdxT n_rows,                                                                         \
-    uint32_t dim) -> raft::neighbors::ivf_pq::index<IdxT>;
+    uint32_t dim)                                                                        \
+    ->raft::neighbors::ivf_pq::index<IdxT>;
 
 instantiate_raft_neighbors_ivf_pq_build(float, uint32_t);
 
