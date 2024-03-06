@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include "kernel.cuh"
+
 #include <raft/distance/detail/pairwise_matrix/kernel_sm60.cuh>  // pairwise_matrix_sm60_wrapper
 #include <raft/linalg/contractions.cuh>                          // raft::linalg::Policy4x4
 #include <raft/util/arch.cuh>  // raft::util::arch::SM_compute_arch

@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include <functional>
 #include <raft/core/operators.hpp>
 #include <raft/util/cudart_utils.hpp>
+
+#include <functional>
 
 namespace raft {
 namespace matrix {

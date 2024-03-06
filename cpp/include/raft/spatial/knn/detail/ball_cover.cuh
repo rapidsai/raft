@@ -16,27 +16,21 @@
 
 #pragma once
 
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
-#include <raft/core/resources.hpp>
-
 #include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
 #include "haversine_distance.cuh"
 
-#include <cstdint>
-#include <limits.h>
-
-#include <raft/util/cuda_utils.cuh>
-
-#include <raft/neighbors/detail/faiss_select/key_value_block_select.cuh>
-
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/matrix/copy.cuh>
 #include <raft/neighbors/brute_force.cuh>
+#include <raft/neighbors/detail/faiss_select/key_value_block_select.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/convert/csr.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -50,6 +44,10 @@
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/tuple.h>
+
+#include <limits.h>
+
+#include <cstdint>
 
 namespace raft {
 namespace spatial {

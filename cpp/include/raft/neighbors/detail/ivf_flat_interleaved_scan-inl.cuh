@@ -29,6 +29,7 @@
 #include <raft/util/integer_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
+
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft::neighbors::ivf_flat::detail {

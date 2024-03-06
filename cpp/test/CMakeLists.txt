@@ -319,6 +319,7 @@ if(BUILD_TESTS)
     test/sparse/sddmm.cu
     test/sparse/sort.cu
     test/sparse/spgemmi.cu
+    test/sparse/spmm.cu
     test/sparse/symmetrize.cu
   )
 
