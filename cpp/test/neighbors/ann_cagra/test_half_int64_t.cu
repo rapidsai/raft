@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
 #include "../ann_cagra.cuh"
 #include "search_kernel_uint64_t.cuh"
+
+#include <gtest/gtest.h>
 
 namespace raft::neighbors::cagra {
 

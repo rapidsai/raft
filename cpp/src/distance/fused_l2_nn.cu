@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include <cstdint>            // int64_t
 #include <raft/core/kvp.hpp>  // raft::KeyValuePair
 #include <raft/distance/fused_l2_nn-inl.cuh>
+
+#include <cstdint>  // int64_t
 
 #define instantiate_raft_distance_fusedL2NNMinReduce(DataT, OutT, IdxT)                   \
   template void raft::distance::fusedL2NNMinReduce<DataT, OutT, IdxT>(OutT * min,         \

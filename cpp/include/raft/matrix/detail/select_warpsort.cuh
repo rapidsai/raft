@@ -27,12 +27,12 @@
 #include <raft/util/integer_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+
 #include <algorithm>
 #include <functional>
 #include <type_traits>
-
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
 
 /*
   Three APIs of different scopes are provided:

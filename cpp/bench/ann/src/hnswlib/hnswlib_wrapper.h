@@ -15,6 +15,11 @@
  */
 #pragma once
 
+#include "../common/ann_types.hpp"
+#include "../common/thread_pool.hpp"
+
+#include <hnswlib/hnswlib.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -30,10 +35,6 @@
 #include <thread>
 #include <utility>
 #include <vector>
-
-#include "../common/ann_types.hpp"
-#include "../common/thread_pool.hpp"
-#include <hnswlib/hnswlib.h>
 
 namespace raft::bench::ann {
 

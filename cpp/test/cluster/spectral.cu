@@ -16,12 +16,14 @@
 
 #include "../test_utils.cuh"
 
-#include <gtest/gtest.h>
-#include <iostream>
-#include <memory>
 #include <raft/core/handle.hpp>
 #include <raft/spectral/modularity_maximization.cuh>
 #include <raft/spectral/partition.cuh>
+
+#include <gtest/gtest.h>
+
+#include <iostream>
+#include <memory>
 
 namespace raft {
 namespace cluster {

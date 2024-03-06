@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+#include "../common/ann_types.hpp"
+#include "ggnn_wrapper.cuh"
+
+#define JSON_DIAGNOSTICS 1
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -21,11 +27,6 @@
 #include <string>
 #include <type_traits>
 #include <utility>
-
-#include "../common/ann_types.hpp"
-#include "ggnn_wrapper.cuh"
-#define JSON_DIAGNOSTICS 1
-#include <nlohmann/json.hpp>
 
 namespace raft::bench::ann {
 

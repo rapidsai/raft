@@ -26,10 +26,10 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <cuda_fp16.hpp>
+
 #include <memory>
 #include <optional>
-
-#include <cuda_fp16.hpp>
 
 namespace raft::spatial::knn::detail::utils {
 
