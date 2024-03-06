@@ -52,7 +52,11 @@ function(find_and_configure_hnswlib)
         COMPONENT hnswlib
         EXPORT hnswlib-exports
       )
-      install(DIRECTORY "${hnswlib_SOURCE_DIR}/hnswlib/" DESTINATION include/hnswlib)
+      install(
+        DIRECTORY "${hnswlib_SOURCE_DIR}/hnswlib/"
+        COMPONENT hnswlib
+        DESTINATION include/hnswlib
+      )
 
       # write install export rules
       rapids_export(
