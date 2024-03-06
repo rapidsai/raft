@@ -29,6 +29,7 @@
 
 #include <array>
 #include <mutex>
+#include <rmm/resource_ref.hpp>
 #include <set>
 
 namespace raft {
@@ -112,19 +113,14 @@ TEST(DeviceResourcesManager, ObeysSetters)
     auto const& pool = res.get_stream_pool();
     EXPECT_EQ(streams_per_pool, pool.get_pool_size());
 
-    auto* mr = dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(
-      rmm::mr::get_current_device_resource());
-    auto* workspace_mr =
-      dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(
-        dynamic_cast<rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>*>(
-          res.get_workspace_resource())
-          ->get_upstream());
+    rmm::device_async_resource_ref mr{rmm::mr::get_current_device_resource()};
+    rmm::device_async_resource_ref workspace_mr{dynamic_cast<rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>*>(
+          res.get_workspace_resource())->get_upstream_resource()};
     if (upstream_mrs[i % devices.size()] != nullptr) {
       // Expect that the current memory resource is a pool memory resource as requested
-      EXPECT_NE(mr, nullptr);
       // Expect that the upstream workspace memory resource is a pool memory
       // resource as requested
-      EXPECT_NE(workspace_mr, nullptr);
+      EXPECT_EQ(mr, workspace_mr);
     }
 
     {
