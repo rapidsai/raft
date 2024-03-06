@@ -16,17 +16,21 @@
 
 #pragma once
 
-#include <cstdint>                                 // uintX_t
 #include <raft/neighbors/ivf_flat_types.hpp>       // raft::neighbors::ivf_flat::index
 #include <raft/neighbors/sample_filter_types.hpp>  // none_ivf_sample_filter
 #include <raft/util/raft_explicit.hpp>             // RAFT_EXPLICIT
-#include <rmm/cuda_stream_view.hpp>                // rmm:cuda_stream_view
+
+#include <rmm/cuda_stream_view.hpp>  // rmm:cuda_stream_view
 
 #include <cuda_fp16.h>
+
+#include <cstdint>  // uintX_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::ivf_flat::detail {
+
+auto RAFT_WEAK_FUNCTION is_local_topk_feasible(uint32_t k) -> bool;
 
 template <typename T, typename AccT, typename IdxT, typename IvfSampleFilterT>
 void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& index,
@@ -37,6 +41,8 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
                               const raft::distance::DistanceType metric,
                               const uint32_t n_probes,
                               const uint32_t k,
+                              const uint32_t max_samples,
+                              const uint32_t* chunk_indices,
                               const bool select_min,
                               IvfSampleFilterT sample_filter,
                               IdxT* neighbors,
@@ -60,6 +66,8 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
     const raft::distance::DistanceType metric,                                                  \
     const uint32_t n_probes,                                                                    \
     const uint32_t k,                                                                           \
+    const uint32_t max_samples,                                                                 \
+    const uint32_t* chunk_indices,                                                              \
     const bool select_min,                                                                      \
     IvfSampleFilterT sample_filter,                                                             \
     IdxT* neighbors,                                                                            \

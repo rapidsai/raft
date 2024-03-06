@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,10 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
-
-#include <raft_internal/neighbors/naive_knn.cuh>
-
 #include <raft/stats/neighborhood_recall.cuh>
 #include <raft/util/itertools.hpp>
+
+#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <gtest/gtest.h>
 

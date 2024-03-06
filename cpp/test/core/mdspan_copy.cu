@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,15 @@
  */
 
 #include "../test_utils.h"
-#include <cstdint>
-#include <gtest/gtest.h>
+
 #include <raft/core/copy.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cstdint>
 
 namespace raft {
 TEST(MDSpanCopy, Mdspan3DDeviceDeviceCuda)

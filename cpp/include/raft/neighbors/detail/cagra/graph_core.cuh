@@ -15,28 +15,30 @@
  */
 #pragma once
 
-#include <cassert>
-#include <climits>
-#include <cuda_fp16.h>
-#include <float.h>
-#include <iostream>
-#include <memory>
-#include <omp.h>
+#include "utils.hpp"
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
-#include <random>
-#include <sys/time.h>
-
 #include <raft/util/bitonic_sort.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/warp_primitives.cuh>
 
-#include "utils.hpp"
+#include <cuda_fp16.h>
+
+#include <float.h>
+#include <omp.h>
+#include <sys/time.h>
+
+#include <cassert>
+#include <climits>
+#include <iostream>
+#include <memory>
+#include <random>
 
 namespace raft::neighbors::cagra::detail {
 namespace graph {

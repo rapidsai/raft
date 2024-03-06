@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <iostream>
-#include <memory>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_id.hpp>
 #include <raft/core/resources.hpp>
-
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/modularity_maximization.cuh>
+
+#include <gtest/gtest.h>
+
+#include <iostream>
+#include <memory>
 
 namespace raft {
 namespace spectral {
