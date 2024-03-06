@@ -17,8 +17,10 @@
 #include <cstdint>
 #include <optional>
 #ifndef RAFT_DISABLE_CUDA
-#include <cuda_runtime.h>
 #include <raft/util/cuda_rt_essentials.hpp>
+
+#include <cuda_runtime.h>
+
 #include <type_traits>
 #else
 #include <raft/core/logger.hpp>

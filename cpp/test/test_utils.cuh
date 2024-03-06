@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,19 @@
 
 #include "test_utils.h"
 
-#include <gtest/gtest.h>
-#include <iostream>
-#include <memory>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/exec_policy.hpp>
+
 #include <thrust/for_each.h>
 
+#include <gtest/gtest.h>
+
 #include <fstream>
+#include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>

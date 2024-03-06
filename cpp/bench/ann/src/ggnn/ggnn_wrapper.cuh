@@ -19,8 +19,9 @@
 #include "../common/ann_types.hpp"
 #include "../common/util.hpp"
 
-#include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
 
 #include <memory>
 #include <stdexcept>

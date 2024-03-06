@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include <cstdio>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
-
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/resources.hpp>
-
 #include <raft/spatial/knn/detail/ann_utils.cuh>
+
+#include <cstdio>
 
 namespace raft::neighbors::ivf_pq::helpers {
 using namespace raft::spatial::knn::detail;  // NOLINT
@@ -733,7 +732,7 @@ void set_centers(raft::resources const& res,
  *   ivf::resize_list(res, list, spec, new_size, 0);
  *   raft::update_device(index.list_sizes(), &new_size, 1, stream);
  *   // recompute the internal state of the index
- *   ivf_pq::recompute_internal_state(res, &index);
+ *   ivf_pq::helpers::recompute_internal_state(res, &index);
  * @endcode
  *
  * @tparam IdxT
@@ -745,7 +744,7 @@ template <typename IdxT>
 void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
 {
   auto& list = index->lists()[0];
-  ivf_pq::detail::recompute_internal_state(res, *index);
+  ivf::detail::recompute_internal_state(res, *index);
 }
 
 /**

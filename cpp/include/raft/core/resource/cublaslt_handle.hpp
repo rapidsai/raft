@@ -15,10 +15,11 @@
  */
 #pragma once
 
-#include <cublasLt.h>
 #include <raft/core/cublas_macros.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
+
+#include <cublasLt.h>
 
 #include <memory>
 

@@ -27,6 +27,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/neighbors/detail/ivf_common.cuh>
 #include <raft/neighbors/ivf_flat_codepacker.hpp>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
@@ -76,7 +77,7 @@ auto clone(const raft::resources& res, const index<T, IdxT>& source) -> index<T,
   target.lists() = source.lists();
 
   // Make sure the device pointers point to the new lists
-  target.recompute_internal_state(res);
+  ivf::detail::recompute_internal_state(res, target);
 
   return target;
 }
@@ -265,7 +266,7 @@ void extend(raft::resources const& handle,
     }
   }
   // Update the pointers and the sizes
-  index->recompute_internal_state(handle);
+  ivf::detail::recompute_internal_state(handle, *index);
   // Copy the old sizes, so we can start from the current state of the index;
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
   raft::copy(list_sizes_ptr, old_list_sizes_dev.data_handle(), n_lists, stream);
@@ -358,6 +359,8 @@ inline auto build(raft::resources const& handle,
   RAFT_EXPECTS(n_rows >= params.n_lists, "number of rows can't be less than n_lists");
 
   index<T, IdxT> index(handle, params, dim);
+  utils::memzero(
+    index.accum_sorted_sizes().data_handle(), index.accum_sorted_sizes().size(), stream);
   utils::memzero(index.list_sizes().data_handle(), index.list_sizes().size(), stream);
   utils::memzero(index.data_ptrs().data_handle(), index.data_ptrs().size(), stream);
   utils::memzero(index.inds_ptrs().data_handle(), index.inds_ptrs().size(), stream);
@@ -447,7 +450,7 @@ inline void fill_refinement_index(raft::resources const& handle,
     ivf::resize_list(handle, lists[label], list_device_spec, n_candidates, uint32_t(0));
   }
   // Update the pointers and the sizes
-  refinement_index->recompute_internal_state(handle);
+  ivf::detail::recompute_internal_state(handle, *refinement_index);
 
   RAFT_CUDA_TRY(cudaMemsetAsync(list_sizes_ptr, 0, n_lists * sizeof(uint32_t), stream));
 

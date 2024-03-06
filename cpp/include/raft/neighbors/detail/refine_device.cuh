@@ -50,6 +50,7 @@ void refine_device(raft::resources const& handle,
   matrix_idx dim          = dataset.extent(1);
   uint32_t k              = static_cast<uint32_t>(indices.extent(1));
 
+  // TODO: this restriction could be lifted with some effort
   RAFT_EXPECTS(k <= raft::matrix::detail::select::warpsort::kMaxCapacity,
                "k must be less than topk::kMaxCapacity (%d).",
                raft::matrix::detail::select::warpsort::kMaxCapacity);
@@ -98,6 +99,8 @@ void refine_device(raft::resources const& handle,
            refinement_index.metric(),
            1,
            k,
+           0,
+           nullptr,
            raft::distance::is_min_close(metric),
            raft::neighbors::filtering::none_ivf_sample_filter(),
            indices.data_handle(),

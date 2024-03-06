@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
 #include "../test_utils.h"
+
 #include <raft/core/math.hpp>
+
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_scalar.hpp>
 
 #include <cuda/std/type_traits>
+
+#include <gtest/gtest.h>
 
 #ifdef _RAFT_HAS_CUDA
 #include <cuda_bf16.h>

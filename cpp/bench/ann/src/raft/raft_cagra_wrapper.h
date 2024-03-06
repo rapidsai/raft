@@ -15,11 +15,11 @@
  */
 #pragma once
 
-#include <cassert>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <optional>
+#include "../common/ann_types.hpp"
+#include "../common/cuda_huge_page_resource.hpp"
+#include "../common/cuda_pinned_resource.hpp"
+#include "raft_ann_bench_utils.h"
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
@@ -33,20 +33,18 @@
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
-#include <stdexcept>
-#include <string>
-#include <type_traits>
-
-#include "../common/ann_types.hpp"
-#include "raft_ann_bench_utils.h"
-#include <raft/util/cudart_utils.hpp>
-
-#include "../common/cuda_huge_page_resource.hpp"
-#include "../common/cuda_pinned_resource.hpp"
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+
+#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
 
 namespace raft::bench::ann {
 

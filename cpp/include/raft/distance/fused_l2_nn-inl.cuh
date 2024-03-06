@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,17 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
-#include <limits>
 #include <raft/core/resources.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn_helpers.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
+
+#include <cub/cub.cuh>
+
 #include <stdint.h>
+
+#include <limits>
 #include <type_traits>
 
 namespace raft {

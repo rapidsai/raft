@@ -16,21 +16,22 @@
 
 #pragma once
 
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/neighbors/detail/ivf_pq_search.cuh>
-#include <raft/neighbors/sample_filter_types.hpp>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
+#include "factory.cuh"
+#include "search_plan.cuh"
+#include "search_single_cta.cuh"
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
-#include <rmm/cuda_stream_view.hpp>
+#include <raft/neighbors/detail/ivf_common.cuh>
+#include <raft/neighbors/detail/ivf_pq_search.cuh>
+#include <raft/neighbors/sample_filter_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 
-#include "factory.cuh"
-#include "search_plan.cuh"
-#include "search_single_cta.cuh"
+#include <rmm/cuda_stream_view.hpp>
 
 namespace raft::neighbors::cagra::detail {
 
@@ -181,13 +182,14 @@ void search_main(raft::resources const& res,
   // and divide the values by kDivisor. Here we restore the original scale.
   constexpr float kScale = spatial::knn::detail::utils::config<T>::kDivisor /
                            spatial::knn::detail::utils::config<DistanceT>::kDivisor;
-  ivf_pq::detail::postprocess_distances(dist_out,
-                                        dist_in,
-                                        index.metric(),
-                                        distances.extent(0),
-                                        distances.extent(1),
-                                        kScale,
-                                        resource::get_cuda_stream(res));
+  ivf::detail::postprocess_distances(dist_out,
+                                     dist_in,
+                                     index.metric(),
+                                     distances.extent(0),
+                                     distances.extent(1),
+                                     kScale,
+                                     true,
+                                     resource::get_cuda_stream(res));
 }
 /** @} */  // end group cagra
 

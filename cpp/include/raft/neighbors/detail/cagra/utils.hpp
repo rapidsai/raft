@@ -15,15 +15,18 @@
  */
 #pragma once
 
-#include <cfloat>
-#include <cstdint>
-#include <cuda.h>
-#include <cuda_fp16.h>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/util/integer_utils.hpp>
+
 #include <rmm/mr/device/device_memory_resource.hpp>
+
+#include <cuda.h>
+#include <cuda_fp16.h>
+
+#include <cfloat>
+#include <cstdint>
 #include <type_traits>
 
 namespace raft::neighbors::cagra::detail {
