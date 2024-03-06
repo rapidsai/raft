@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 # raft empty project template build script
 
@@ -13,7 +13,7 @@ BUILD_TYPE=Release
 BUILD_DIR=build/
 
 RAFT_REPO_REL=""
-EXTRA_CMAKE_ARGS=""
+EXTRA_CMAKE_ARGS="--trace"
 set -e
 
 
