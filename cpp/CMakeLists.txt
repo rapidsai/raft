@@ -179,8 +179,8 @@ rapids_cpm_init()
 
 if(NOT BUILD_CPU_ONLY)
   # CCCL before rmm/cuco so we get the right version of CCCL
-  include(cmake/thirdparty/get_cccl.cmake)
   include(cmake/thirdparty/get_rmm.cmake)
+  include(cmake/thirdparty/get_cccl.cmake)
   include(cmake/thirdparty/get_cutlass.cmake)
 
   include(${rapids-cmake-dir}/cpm/cuco.cmake)
