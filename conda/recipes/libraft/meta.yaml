@@ -300,6 +300,7 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
+        - benchmark {{ gbench_version }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
       run:
@@ -314,6 +315,7 @@ outputs:
         - libcusparse
         {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
+        - benchmark {{ gbench_version }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
     about:
