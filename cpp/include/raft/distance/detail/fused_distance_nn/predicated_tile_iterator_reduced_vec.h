@@ -29,7 +29,7 @@
  *
  **************************************************************************************************/
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@ gmem.
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
+
 #include <cutlass/arch/arch.h>
 #include <cutlass/arch/memory.h>
 #include <cutlass/array.h>

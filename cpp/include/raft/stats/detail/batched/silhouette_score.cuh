@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,16 @@
 #pragma once
 
 #include "../silhouette_score.cuh"
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cuda_stream_pool.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
+
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+
 #include <thrust/device_vector.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>

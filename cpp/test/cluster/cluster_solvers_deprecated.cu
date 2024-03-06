@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <iostream>
-#include <memory>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
-
 #include <raft/spectral/cluster_solvers_deprecated.cuh>
+
+#include <gtest/gtest.h>
+
+#include <iostream>
+#include <memory>
 
 namespace raft {
 namespace spectral {

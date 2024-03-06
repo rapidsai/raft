@@ -16,12 +16,10 @@
 
 #pragma once
 
-#include <raft/neighbors/detail/ivf_flat_build.cuh>
-#include <raft/neighbors/ivf_flat_types.hpp>
-
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
-
+#include <raft/neighbors/detail/ivf_flat_build.cuh>
+#include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 namespace raft::neighbors::ivf_flat::helpers {
