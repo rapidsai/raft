@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 #include <common/benchmark.hpp>
-#include <raft/sparse/convert/csr.cuh>
-#include <rmm/device_uvector.hpp>
 
 #include <raft/core/device_resources.hpp>
-#include <raft/util/itertools.hpp>
-
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/util/itertools.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 #include <sstream>
 #include <vector>

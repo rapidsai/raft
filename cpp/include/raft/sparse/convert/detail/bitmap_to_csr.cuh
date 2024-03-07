@@ -16,9 +16,6 @@
 
 #pragma once
 
-#include <cooperative_groups.h>
-#include <cooperative_groups/reduce.h>
-
 #include <raft/core/detail/mdspan_util.cuh>  // detail::popc
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -27,11 +24,16 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cooperative_groups.h>
+#include <cooperative_groups/reduce.h>
 #include <thrust/copy.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/discard_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
+
+#undef NDEBUG
+#include <assert.h>
 
 namespace cg = cooperative_groups;
 
@@ -143,12 +145,13 @@ RAFT_DEVICE_INLINE_FUNCTION value_t warp_exclusive_scan(value_t value)
 // Threads per block in fill_indices_by_rows_kernel.
 static const constexpr int fill_indices_by_rows_tpb = 32;
 
-template <typename bitmap_t, typename index_t>
+template <typename bitmap_t, typename index_t, typename nnz_t>
 RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
   fill_indices_by_rows_kernel(const bitmap_t* bitmap,
                               const index_t* indptr,
                               index_t num_rows,
                               index_t num_cols,
+                              nnz_t nnz,
                               index_t bitmap_num,
                               index_t* indices)
 {
@@ -157,6 +160,13 @@ RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
   constexpr index_t BITS_PER_BITMAP = sizeof(bitmap_t) * 8;
 
   int lane_id = threadIdx.x & 0x1f;
+
+  // Ensure the HBM allocated for CSR values is sufficient to handle all non-zero bitmap bits.
+  // An assert will trigger if the allocated HBM is insufficient.
+  if (nnz < indptr[num_rows]) {
+    int csr_nnz_is_too_small = 0;
+    assert(csr_nnz_is_too_small);
+  }
 
 #pragma unroll
   for (index_t row = blockIdx.x; row < num_rows; row += gridDim.x) {
@@ -197,12 +207,13 @@ RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
   }
 }
 
-template <typename bitmap_t, typename index_t>
+template <typename bitmap_t, typename index_t, typename nnz_t>
 void fill_indices_by_rows(raft::resources const& handle,
                           const bitmap_t* bitmap,
                           const index_t* indptr,
                           index_t num_rows,
                           index_t num_cols,
+                          nnz_t nnz,
                           index_t* indices)
 {
   auto stream              = resource::get_cuda_stream(handle);
@@ -214,39 +225,57 @@ void fill_indices_by_rows(raft::resources const& handle,
   cudaGetDevice(&dev_id);
   cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, dev_id);
   cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-    &blocks_per_sm, fill_indices_by_rows_kernel<bitmap_t, index_t>, fill_indices_by_rows_tpb, 0);
+    &blocks_per_sm,
+    fill_indices_by_rows_kernel<bitmap_t, index_t, nnz_t>,
+    fill_indices_by_rows_tpb,
+    0);
 
   index_t max_active_blocks = sm_count * blocks_per_sm;
   auto grid                 = std::min(max_active_blocks, num_rows);
   auto block                = fill_indices_by_rows_tpb;
 
-  fill_indices_by_rows_kernel<bitmap_t, index_t>
-    <<<grid, block, 0, stream>>>(bitmap, indptr, num_rows, num_cols, bitmap_num, indices);
+  fill_indices_by_rows_kernel<bitmap_t, index_t, nnz_t>
+    <<<grid, block, 0, stream>>>(bitmap, indptr, num_rows, num_cols, nnz, bitmap_num, indices);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename bitmap_t, typename index_t, typename nnz_t, typename value_t>
 void bitmap_to_csr(raft::resources const& handle,
-                   const bitmap_t* bitmap,
-                   index_t num_rows,
-                   index_t num_cols,
-                   nnz_t nnz,
-                   index_t* indptr,
-                   index_t* indices,
-                   value_t* values)
+                   raft::core::bitmap_view<bitmap_t, index_t> bitmap,
+                   raft::device_csr_matrix_view<value_t, index_t, index_t, nnz_t> csr)
 {
-  const index_t total = num_rows * num_cols;
-  if (total == 0 || nnz == 0) { return; }
+  auto csr_view = csr.structure_view();
+
+  if (csr_view.get_n_rows() == 0 || csr_view.get_n_cols() == 0 || csr_view.get_nnz() == 0) {
+    return;
+  }
+
+  RAFT_EXPECTS(bitmap.get_n_rows() == csr_view.get_n_rows(),
+               "Number of rows in bitmap must be equal to "
+               "number of rows in csr");
+
+  RAFT_EXPECTS(bitmap.get_n_cols() == csr_view.get_n_cols(),
+               "Number of columns in bitmap must be equal to "
+               "number of columns in csr");
 
   auto thrust_policy = resource::get_thrust_policy(handle);
   auto stream        = resource::get_cuda_stream(handle);
 
-  RAFT_CUDA_TRY(cudaMemsetAsync(indptr, 0, (num_rows + 1) * sizeof(index_t), stream));
+  index_t* indptr  = csr_view.get_indptr().data();
+  index_t* indices = csr_view.get_indices().data();
 
-  calc_nnz_by_rows(handle, bitmap, num_rows, num_cols, indptr);
-  thrust::exclusive_scan(thrust_policy, indptr, indptr + num_rows + 1, indptr);
-  fill_indices_by_rows(handle, bitmap, indptr, num_rows, num_cols, indices);
-  thrust::fill_n(thrust_policy, values, nnz, value_t{1});
+  RAFT_CUDA_TRY(cudaMemsetAsync(indptr, 0, (csr_view.get_n_rows() + 1) * sizeof(index_t), stream));
+
+  calc_nnz_by_rows(handle, bitmap.data(), csr_view.get_n_rows(), csr_view.get_n_cols(), indptr);
+  thrust::exclusive_scan(thrust_policy, indptr, indptr + csr_view.get_n_rows() + 1, indptr);
+  fill_indices_by_rows(handle,
+                       bitmap.data(),
+                       indptr,
+                       csr_view.get_n_rows(),
+                       csr_view.get_n_cols(),
+                       csr_view.get_nnz(),
+                       indices);
+  thrust::fill_n(thrust_policy, csr.get_elements().data(), csr_view.get_nnz(), value_t{1});
 }
 
 };  // end NAMESPACE detail

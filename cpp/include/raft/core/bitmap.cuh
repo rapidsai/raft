@@ -117,75 +117,17 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
    * @brief Get the total number of rows
    * @return index_t The total number of rows
    */
-  inline _RAFT_HOST_DEVICE index_t get_n_rows() const { return rows_; }
+  RAFT_INLINE_FUNCTION index_t get_n_rows() const { return rows_; }
 
   /**
    * @brief Get the total number of columns
    * @return index_t The total number of columns
    */
-  inline _RAFT_HOST_DEVICE index_t get_n_cols() const { return cols_; }
-
-  /**
-   * @brief Returns the number of non-zero bits in nnz_gpu_scalar.
-   *
-   * @param[in] res RAFT resources
-   * @param[out] nnz_gpu_scalar Device scalar to store the nnz
-   */
-  void get_nnz(const raft::resources& res, raft::device_scalar_view<index_t> nnz_gpu_scalar)
-  {
-    auto n_elements_ = raft::ceildiv(rows_ * cols_, bitmap_element_size);
-    auto nnz_gpu = raft::make_device_vector_view<index_t, index_t>(nnz_gpu_scalar.data_handle(), 1);
-    auto bitmap_matrix_view = raft::make_device_matrix_view<const bitmap_t, index_t, col_major>(
-      bitmap_ptr_, n_elements_, 1);
-
-    bitmap_t n_last_element = ((rows_ * cols_) % bitmap_element_size);
-    bitmap_t last_element_mask =
-      n_last_element ? (bitmap_t)((bitmap_t{1} << n_last_element) - bitmap_t{1}) : ~bitmap_t{0};
-    raft::linalg::coalesced_reduction(
-      res,
-      bitmap_matrix_view,
-      nnz_gpu,
-      index_t{0},
-      false,
-      [last_element_mask, n_elements_] __device__(bitmap_t element, index_t index) {
-        index_t result = 0;
-        if constexpr (bitmap_element_size == 64) {
-          if (index == n_elements_ - 1)
-            result = index_t(raft::detail::popc(element & last_element_mask));
-          else
-            result = index_t(raft::detail::popc(element));
-        } else {  // Needed because popc is not overloaded for 16 and 8 bit elements
-          if (index == n_elements_ - 1)
-            result = index_t(raft::detail::popc(uint32_t{element} & last_element_mask));
-          else
-            result = index_t(raft::detail::popc(uint32_t{element}));
-        }
-
-        return result;
-      });
-  }
-
-  /**
-   * @brief Returns the number of non-zero bits.
-   *
-   * @param res RAFT resources
-   * @return index_t Number of non-zero bits
-   */
-  auto get_nnz(const raft::resources& res) -> index_t
-  {
-    auto nnz_gpu_scalar = raft::make_device_scalar<index_t>(res, 0.0);
-    get_nnz(res, nnz_gpu_scalar.view());
-    index_t nnz_gpu = 0;
-    raft::update_host(&nnz_gpu, nnz_gpu_scalar.data_handle(), 1, resource::get_cuda_stream(res));
-    resource::sync_stream(res);
-    return nnz_gpu;
-  }
+  RAFT_INLINE_FUNCTION index_t get_n_cols() const { return cols_; }
 
  private:
   index_t rows_;
   index_t cols_;
-
-  bitmap_t* bitmap_ptr_;
 };
 
 /** @} */
