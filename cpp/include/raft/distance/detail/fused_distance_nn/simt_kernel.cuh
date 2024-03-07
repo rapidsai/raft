@@ -16,12 +16,13 @@
 
 #pragma once
 
-#include <cstddef>                                          // size_t
-#include <limits>                                           // std::numeric_limits
 #include <raft/core/kvp.hpp>                                // raft::KeyValuePair
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>     // ops::l2_exp_distance_op
 #include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
 #include <raft/linalg/contractions.cuh>                     // Policy
+
+#include <cstddef>  // size_t
+#include <limits>   // std::numeric_limits
 
 namespace raft {
 namespace distance {

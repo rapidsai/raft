@@ -17,7 +17,7 @@
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
+
 #include <raft/core/kvp.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/fused_distance_nn.cuh>
@@ -26,6 +26,8 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
 
 namespace raft {
 namespace distance {

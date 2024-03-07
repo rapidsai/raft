@@ -15,6 +15,7 @@
  */
 
 #include "fused_distance_min_arg.hpp"
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -22,6 +23,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/norm.cuh>
+
 #include <thrust/for_each.h>
 #include <thrust/tuple.h>
 

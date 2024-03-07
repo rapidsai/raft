@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/core/kvp.hpp>                      // raft::KeyValuePair
-#include <raft/core/resources.hpp>                // raft::resources
+#include <raft/core/kvp.hpp>                            // raft::KeyValuePair
+#include <raft/core/resources.hpp>                      // raft::resources
 #include <raft/distance/fused_distance_nn_helpers.cuh>  // include initialize and reduce operations
-#include <raft/util/raft_explicit.hpp>            // RAFT_EXPLICIT
+#include <raft/util/raft_explicit.hpp>                  // RAFT_EXPLICIT
 
 #include <cstdint>  // int64_t
 

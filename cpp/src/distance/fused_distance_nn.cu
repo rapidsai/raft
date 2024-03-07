@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include <cstdint>            // int64_t
 #include <raft/core/kvp.hpp>  // raft::KeyValuePair
 #include <raft/distance/fused_distance_nn-inl.cuh>
+
+#include <cstdint>  // int64_t
 
 #define instantiate_raft_distance_fusedDistanceNNMinReduce(DataT, OutT, IdxT) \
   template void raft::distance::fusedDistanceNNMinReduce<DataT, OutT, IdxT>(  \

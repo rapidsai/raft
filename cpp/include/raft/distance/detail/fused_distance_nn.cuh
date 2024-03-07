@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <cstddef>                                       // size_t
-#include <limits>                                        // std::numeric_limits
 #include <raft/core/kvp.hpp>                             // raft::KeyValuePair
 #include <raft/core/operators.hpp>                       // raft::identity_op
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>  // ops::l2_exp_distance_op
@@ -31,6 +29,9 @@
 #include <raft/linalg/contractions.cuh>  // Policy
 #include <raft/util/arch.cuh>            // raft::util::arch::SM_*
 #include <raft/util/cuda_utils.cuh>      // raft::ceildiv, raft::shfl
+
+#include <cstddef>  // size_t
+#include <limits>   // std::numeric_limits
 
 namespace raft {
 namespace distance {
