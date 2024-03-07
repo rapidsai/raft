@@ -39,7 +39,6 @@ namespace raft::core {
  */
 template <typename bitmap_t = uint32_t, typename index_t = uint32_t>
 struct bitmap_view : public bitset_view<bitmap_t, index_t> {
-  static constexpr index_t bitmap_element_size = sizeof(bitmap_t) * 8;
   static_assert((std::is_same<bitmap_t, uint32_t>::value ||
                  std::is_same<bitmap_t, uint64_t>::value),
                 "The bitmap_t must be uint32_t or uint64_t.");
@@ -51,10 +50,7 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
    * @param cols Number of col in the matrix.
    */
   _RAFT_HOST_DEVICE bitmap_view(bitmap_t* bitmap_ptr, index_t rows, index_t cols)
-    : bitset_view<bitmap_t, index_t>(bitmap_ptr, rows * cols),
-      bitmap_ptr_{bitmap_ptr},
-      rows_(rows),
-      cols_(cols)
+    : bitset_view<bitmap_t, index_t>(bitmap_ptr, rows * cols), rows_(rows), cols_(cols)
   {
   }
 
@@ -68,10 +64,7 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
   _RAFT_HOST_DEVICE bitmap_view(raft::device_vector_view<bitmap_t, index_t> bitmap_span,
                                 index_t rows,
                                 index_t cols)
-    : bitset_view<bitmap_t, index_t>(bitmap_span, rows * cols),
-      bitmap_ptr_{bitmap_span.data_handle()},
-      rows_(rows),
-      cols_(cols)
+    : bitset_view<bitmap_t, index_t>(bitmap_span, rows * cols), rows_(rows), cols_(cols)
   {
   }
 

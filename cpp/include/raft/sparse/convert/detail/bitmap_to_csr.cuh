@@ -32,7 +32,6 @@
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
 
-#undef NDEBUG
 #include <assert.h>
 
 namespace cg = cooperative_groups;
@@ -162,11 +161,9 @@ RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
   int lane_id = threadIdx.x & 0x1f;
 
   // Ensure the HBM allocated for CSR values is sufficient to handle all non-zero bitmap bits.
-  // An assert will trigger if the allocated HBM is insufficient.
-  if (nnz < indptr[num_rows]) {
-    int csr_nnz_is_too_small = 0;
-    assert(csr_nnz_is_too_small);
-  }
+  // An assert will trigger if the allocated HBM is insufficient when `NDEBUG` isn't defined.
+  // Note: Assertion is active only if `NDEBUG` is undefined.
+  if (lane_id == 0) { assert(nnz < indptr[num_rows]); }
 
 #pragma unroll
   for (index_t row = blockIdx.x; row < num_rows; row += gridDim.x) {
