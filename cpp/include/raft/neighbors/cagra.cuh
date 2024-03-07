@@ -17,7 +17,6 @@
 #pragma once
 
 #include "detail/cagra/cagra_build.cuh"
-#include "detail/cagra/cagra_build_q.cuh"
 #include "detail/cagra/cagra_search.cuh"
 #include "detail/cagra/graph_core.cuh"
 
@@ -278,26 +277,6 @@ index<T, IdxT> build(raft::resources const& res,
                      mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
 {
   return detail::build<T, IdxT, Accessor>(res, params, dataset);
-}
-
-/**
- * @brief Compress a dataset for use in CAGRA-Q search in place of the original data.
- *
- * @tparam DatasetT a row-major mdspan or mdarray (device or host).
- * @tparam MathT a type of the codebook elements and internal math ops.
- * @tparam IdxT type of the indices in the source dataset
- *
- * @param[in] res
- * @param[in] params VQ and PQ parameters for compressing the data
- * @param[in] dataset a row-major mdspan or mdarray (device or host) [n_rows, dim].
- */
-template <typename DatasetT,
-          typename MathT = typename DatasetT::value_type,
-          typename IdxT  = typename DatasetT::index_type>
-auto compress(const raft::resources& res, const compression_params& params, const DatasetT& dataset)
-  -> compressed_dataset<MathT, IdxT>
-{
-  return detail::compress<DatasetT, MathT, IdxT>(res, params, dataset);
 }
 
 /**

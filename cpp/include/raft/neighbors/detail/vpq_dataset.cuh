@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "../../cagra_types.hpp"
+#include "../dataset.hpp"
 
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_mdarray.hpp>
@@ -73,15 +73,14 @@ auto subsample(raft::resources const& res,
 
 }  // namespace raft::util
 
-namespace raft::neighbors::cagra::detail {
+namespace raft::neighbors::detail {
 
 template <typename DatasetT>
-auto fill_missing_params_heuristics(const compression_params& params, const DatasetT& dataset)
-  -> compression_params
+auto fill_missing_params_heuristics(const vpq_params& params, const DatasetT& dataset) -> vpq_params
 {
-  compression_params r = params;
-  double n_rows        = dataset.extent(0);
-  size_t dim           = dataset.extent(1);
+  vpq_params r  = params;
+  double n_rows = dataset.extent(0);
+  size_t dim    = dataset.extent(1);
   if (r.pq_dim == 0) { r.pq_dim = raft::div_rounding_up_safe(dim, size_t{4}); }
   if (r.pq_bits == 0) { r.pq_bits = 8; }
   if (r.vq_n_centers == 0) { r.vq_n_centers = raft::round_up_safe<uint32_t>(std::sqrt(n_rows), 8); }
@@ -122,7 +121,7 @@ auto transform_data(const raft::resources& res, DatasetT dataset)
 using ix_t = int64_t;
 
 template <typename MathT, typename DatasetT>
-auto train_vq(const raft::resources& res, const compression_params& params, const DatasetT& dataset)
+auto train_vq(const raft::resources& res, const vpq_params& params, const DatasetT& dataset)
   -> device_matrix<MathT, uint32_t, row_major>
 {
   const ix_t n_rows       = dataset.extent(0);
@@ -186,7 +185,7 @@ auto predict_vq(const raft::resources& res, const DatasetT& dataset, const VqCen
 
 template <typename MathT, typename DatasetT>
 auto train_pq(const raft::resources& res,
-              const compression_params& params,
+              const vpq_params& params,
               const DatasetT& dataset,
               const device_matrix_view<const MathT, uint32_t, row_major>& vq_centers)
   -> device_matrix<MathT, uint32_t, row_major>
@@ -321,14 +320,14 @@ __launch_bounds__(BlockSize) RAFT_KERNEL
 
 template <typename MathT, typename IdxT, typename DatasetT>
 auto process_and_fill_codes(const raft::resources& res,
-                            const compression_params& params,
+                            const vpq_params& params,
                             const DatasetT& dataset,
                             device_matrix_view<const MathT, uint32_t, row_major> vq_centers,
                             device_matrix_view<const MathT, uint32_t, row_major> pq_centers)
   -> device_matrix<uint8_t, IdxT, row_major>
 {
   using data_t     = typename DatasetT::value_type;
-  using cdataset_t = compressed_dataset<MathT, IdxT>;
+  using cdataset_t = vpq_dataset<MathT, IdxT>;
   using label_t    = uint32_t;
 
   const ix_t n_rows       = dataset.extent(0);
@@ -384,8 +383,8 @@ auto process_and_fill_codes(const raft::resources& res,
 }
 
 template <typename DatasetT, typename MathT, typename IdxT>
-auto compress(const raft::resources& res, const compression_params& params, const DatasetT& dataset)
-  -> compressed_dataset<MathT, IdxT>
+auto vpq_build(const raft::resources& res, const vpq_params& params, const DatasetT& dataset)
+  -> vpq_dataset<MathT, IdxT>
 {
   // Use a heuristic to impute missing parameters.
   auto ps = fill_missing_params_heuristics(params, dataset);
@@ -402,7 +401,8 @@ auto compress(const raft::resources& res, const compression_params& params, cons
                                                    raft::make_const_mdspan(vq_code_book.view()),
                                                    raft::make_const_mdspan(pq_code_book.view()));
 
-  return compressed_dataset<MathT, IdxT>{vq_code_book, pq_code_book, codes};
+  return vpq_dataset<MathT, IdxT>{
+    std::move(vq_code_book), std::move(pq_code_book), std::move(codes)};
 }
 
-}  // namespace raft::neighbors::cagra::detail
+}  // namespace raft::neighbors::detail
