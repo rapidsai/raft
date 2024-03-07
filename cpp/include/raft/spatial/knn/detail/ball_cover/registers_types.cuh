@@ -17,7 +17,8 @@
 #pragma once
 
 #include "../haversine_distance.cuh"  // compute_haversine
-#include <cstdint>                    // uint32_t
+
+#include <cstdint>  // uint32_t
 
 namespace raft {
 namespace spatial {

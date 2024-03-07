@@ -23,8 +23,9 @@
  *
  */
 
-#include <cstdint>  // int64_t
 #include <raft/spatial/knn/detail/ball_cover/registers-inl.cuh>
+
+#include <cstdint>  // int64_t
 
 #define instantiate_raft_spatial_knn_detail_rbc_eps_pass(                                  \
   Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdist_func)                               \

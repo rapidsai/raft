@@ -18,13 +18,14 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ball_cover_types.hpp>
 #include <raft/spatial/knn/detail/ball_cover.cuh>
 #include <raft/spatial/knn/detail/ball_cover/common.cuh>
+
 #include <thrust/transform.h>
+
+#include <cstdint>
 
 namespace raft::neighbors::ball_cover {
 

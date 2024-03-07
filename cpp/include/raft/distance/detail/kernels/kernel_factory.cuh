@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include "gram_matrix.cuh"
 #include "kernel_matrices.cuh"
+
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 
