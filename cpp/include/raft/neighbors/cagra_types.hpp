@@ -256,7 +256,7 @@ struct index : ann::index {
         mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph)
     : ann::index(),
       metric_(metric),
-      dataset_(construct_aligned_dataset(res, dataset, uint32_t{16})),
+      dataset_(upcast_dataset_ptr(construct_aligned_dataset(res, dataset, 16))),
       graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
@@ -275,14 +275,14 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, int64_t, row_major> dataset)
   {
-    construct_aligned_dataset(res, dataset, 16).swap(dataset_);
+    upcast_dataset_ptr(construct_aligned_dataset(res, dataset, 16)).swap(dataset_);
   }
 
   /** Set the dataset reference explicitly to a device matrix view with padding. */
   void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, int64_t, layout_stride> dataset)
   {
-    construct_aligned_dataset(res, dataset, 16).swap(dataset_);
+    upcast_dataset_ptr(construct_aligned_dataset(res, dataset, 16)).swap(dataset_);
   }
 
   /**
@@ -293,7 +293,15 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::host_matrix_view<const T, int64_t, row_major> dataset)
   {
-    construct_aligned_dataset(res, dataset, 16).swap(dataset_);
+    upcast_dataset_ptr(construct_aligned_dataset(res, dataset, 16)).swap(dataset_);
+  }
+
+  /** Replace the dataset with a new dataset. */
+  template <typename DatasetT>
+  auto update_dataset(raft::resources const& res, DatasetT&& dataset)
+    -> std::enable_if_t<std::is_base_of_v<neighbors::dataset<int64_t>, DatasetT>>
+  {
+    upcast_dataset_ptr(std::make_unique<DatasetT>(std::move(dataset))).swap(dataset_);
   }
 
   /**

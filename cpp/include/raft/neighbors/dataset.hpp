@@ -34,28 +34,32 @@ namespace raft::neighbors {
 /** Two-dimensional dataset; maybe owning, maybe compressed, maybe strided. */
 template <typename IdxT>
 struct dataset {
+  using index_type = IdxT;
   /**  Size of the dataset. */
-  [[nodiscard]] virtual auto n_rows() const noexcept -> IdxT;
+  [[nodiscard]] virtual auto n_rows() const noexcept -> index_type = 0;
   /** Dimensionality of the dataset. */
-  [[nodiscard]] virtual auto dim() const noexcept -> uint32_t;
+  [[nodiscard]] virtual auto dim() const noexcept -> uint32_t = 0;
   /** Whether the object owns the data. */
-  [[nodiscard]] virtual auto is_owning() const noexcept -> bool;
-  virtual ~dataset() noexcept = default;
+  [[nodiscard]] virtual auto is_owning() const noexcept -> bool = 0;
+  virtual ~dataset() noexcept                                   = default;
 };
 
 template <typename IdxT>
 struct empty_dataset : public dataset<IdxT> {
+  using index_type = IdxT;
   uint32_t suggested_dim;
   explicit empty_dataset(uint32_t dim) noexcept : suggested_dim(0) {}
-  [[nodiscard]] auto n_rows() const noexcept -> IdxT final { return 0; }
+  [[nodiscard]] auto n_rows() const noexcept -> index_type final { return 0; }
   [[nodiscard]] auto dim() const noexcept -> uint32_t final { return suggested_dim; }
   [[nodiscard]] auto is_owning() const noexcept -> bool final { return true; }
 };
 
 template <typename DataT, typename IdxT>
 struct strided_dataset : public dataset<IdxT> {
-  using view_type = device_matrix_view<const DataT, IdxT, layout_stride>;
-  [[nodiscard]] auto n_rows() const noexcept -> IdxT final { return view().extent(0); }
+  using index_type = IdxT;
+  using value_type = DataT;
+  using view_type  = device_matrix_view<const value_type, index_type, layout_stride>;
+  [[nodiscard]] auto n_rows() const noexcept -> index_type final { return view().extent(0); }
   [[nodiscard]] auto dim() const noexcept -> uint32_t final
   {
     return static_cast<uint32_t>(view().extent(1));
@@ -71,7 +75,9 @@ struct strided_dataset : public dataset<IdxT> {
 
 template <typename DataT, typename IdxT>
 struct non_owning_dataset : public strided_dataset<DataT, IdxT> {
-  using typename strided_dataset<DataT, IdxT>::view_type;
+  using index_type = IdxT;
+  using value_type = DataT;
+  using typename strided_dataset<value_type, index_type>::view_type;
   view_type data;
   explicit non_owning_dataset(view_type data) noexcept : data(data) {}
   [[nodiscard]] auto is_owning() const noexcept -> bool final { return false; }
@@ -80,8 +86,11 @@ struct non_owning_dataset : public strided_dataset<DataT, IdxT> {
 
 template <typename DataT, typename IdxT, typename LayoutPolicy, typename ContainerPolicy>
 struct owning_dataset : public strided_dataset<DataT, IdxT> {
-  using typename strided_dataset<DataT, IdxT>::view_type;
-  using storage_type = mdarray<DataT, matrix_extent<IdxT>, LayoutPolicy, ContainerPolicy>;
+  using index_type = IdxT;
+  using value_type = DataT;
+  using typename strided_dataset<value_type, index_type>::view_type;
+  using storage_type =
+    mdarray<value_type, matrix_extent<index_type>, LayoutPolicy, ContainerPolicy>;
   using mapping_type = typename view_type::mapping_type;
   storage_type data;
   mapping_type view_mapping;
@@ -153,15 +162,24 @@ auto construct_strided_dataset(const raft::resources& res,
 
 template <typename SrcT>
 auto construct_aligned_dataset(const raft::resources& res, const SrcT& src, uint32_t align_bytes)
-  -> std::unique_ptr<dataset<typename SrcT::index_type>>
+  -> std::unique_ptr<strided_dataset<typename SrcT::value_type, typename SrcT::index_type>>
 {
   using value_type       = typename SrcT::value_type;
   using index_type       = typename SrcT::index_type;
-  using out_type         = dataset<index_type>;
+  using out_type         = strided_dataset<value_type, index_type>;
   constexpr size_t kSize = sizeof(value_type);
   uint32_t required_stride =
     raft::round_up_safe<size_t>(src.extent(1) * kSize, align_bytes) / kSize;
   return std::unique_ptr<out_type>{construct_strided_dataset(res, src, required_stride).release()};
+}
+
+template <typename DatasetT>
+auto upcast_dataset_ptr(std::unique_ptr<DatasetT>&& src)
+  -> std::unique_ptr<dataset<typename DatasetT::index_type>>
+{
+  using out_type = dataset<typename DatasetT::index_type>;
+  static_assert(std::is_base_of_v<out_type, DatasetT>, "The source must be a child of `dataset`");
+  return std::unique_ptr<out_type>{src.release()};
 }
 
 /** Parameters for VPQ compression. */
