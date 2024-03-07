@@ -456,6 +456,12 @@ RAFT_KERNEL block_rbc_kernel_registers(const value_t* X_reordered,
   }
 }
 
+template <typename value_t>
+__device__ value_t squared(const value_t& a)
+{
+  return a * a;
+}
+
 template <typename value_idx = std::int64_t,
           typename value_t,
           int tpb            = 128,
@@ -478,20 +484,21 @@ RAFT_KERNEL block_rbc_kernel_eps_dense(const value_t* X_reordered,
                                        value_idx* vd)
 {
   constexpr int num_warps = tpb / WarpSize;
+  constexpr int max_lid   = WarpSize - 1;
 
   // process 1 query per warp
   const uint32_t lid = raft::laneId();
 
   // this should help the compiler to prevent branches
-  const int warp_id  = raft::shfl(threadIdx.x / WarpSize, 0);
-  const int query_id = raft::shfl(blockIdx.x * num_warps + warp_id, 0);
+  const int query_id = raft::shfl(blockIdx.x * num_warps + (threadIdx.x / WarpSize), 0);
 
   // this is an early out for a full warp
   if (query_id >= n_queries) return;
 
-  unsigned long long int column_count = 0;
+  value_idx column_count = 0;
 
   const value_t* x_ptr = X + (n_cols * query_id);
+  adj += query_id * m;
 
   // we omit the sqrt() in the inner distance compute
   const value_t eps2 = eps * eps;
@@ -499,71 +506,73 @@ RAFT_KERNEL block_rbc_kernel_eps_dense(const value_t* X_reordered,
 #pragma nounroll
   for (uint32_t cur_k0 = 0; cur_k0 < n_landmarks; cur_k0 += WarpSize) {
     // Pre-compute landmark_dist & triangularization checks for 32 iterations
-    // prune all R's that can't be within eps
-    const uint32_t lane_k     = cur_k0 + lid;
-    const value_t lane_R_dist = lane_k < n_landmarks
-                                  ? raft::sqrt(dfunc(x_ptr, R + lane_k * n_cols, n_cols))
-                                  : std::numeric_limits<value_idx>::max();
-    const int lane_check =
-      lane_k < n_landmarks ? static_cast<int>(lane_R_dist - R_radius[lane_k] <= eps) : 0;
+    const uint32_t lane_k        = cur_k0 + lid;
+    const value_t lane_R_dist_sq = lane_k < n_landmarks ? dfunc(x_ptr, R + lane_k * n_cols, n_cols)
+                                                        : std::numeric_limits<value_idx>::max();
+    const int lane_check         = lane_k < n_landmarks
+                                     ? static_cast<int>(lane_R_dist_sq <= squared(eps + R_radius[lane_k]))
+                                     : 0;
 
     int lane_mask = raft::ballot(lane_check);
     if (lane_mask == 0) continue;
 
-    uint32_t k_offset = __ffs(lane_mask) - 1;
+    // reverse to use __clz instead of __ffs
+    lane_mask         = __brev(lane_mask);
+    uint32_t k_offset = __clz(lane_mask);
     do {
       const uint32_t cur_k = cur_k0 + k_offset;
 
-      // update lane_mask for next iteration - erase bits up to k_offset
-      lane_mask &= -(1 << k_offset + 1);
-
       // The whole warp should iterate through the elements in the current R
       const value_idx R_start_offset = R_indptr[cur_k];
-      const uint32_t R_size          = R_indptr[cur_k + 1] - R_start_offset;
+
+      // update lane_mask for next iteration - erase bits up to k_offset
+      lane_mask &= (1 << max_lid - k_offset) - 1;
+
+      const uint32_t R_size = R_indptr[cur_k + 1] - R_start_offset;
 
       // we have precomputed the query<->landmark distance
-      const value_t cur_R_dist = raft::shfl(lane_R_dist, k_offset);
+      const value_t cur_R_dist = raft::sqrt(raft::shfl(lane_R_dist_sq, k_offset));
 
       const uint32_t limit = Pow2<WarpSize>::roundDown(R_size);
-      int i                = limit + lid;
+      uint32_t i           = limit + lid;
 
       // look ahead for next k_offset
-      k_offset = lane_mask != 0 ? __ffs(lane_mask) - 1 : WarpSize;
+      k_offset = __clz(lane_mask);
 
       // R_1nn_dists are sorted ascendingly for each landmark
       // Iterating backwards, after pruning the first point w.r.t. triangle
       // inequality all subsequent points can be pruned as well
-      bool skip_following =
-        i < R_size ? (cur_R_dist - R_1nn_dists[R_start_offset + i] > eps) : false;
+      const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
       {
-        const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
+        const value_t min_warp_dist =
+          limit < R_size ? R_1nn_dists[R_start_offset + limit] : cur_R_dist;
         const value_t dist =
-          (i >= R_size) ? std::numeric_limits<value_idx>::max() : dfunc(x_ptr, y_ptr, n_cols);
+          (i < R_size) ? dfunc(x_ptr, y_ptr, n_cols) : std::numeric_limits<value_idx>::max();
         const bool in_range = (dist <= eps2);
         if (in_range) {
           auto index = R_1nn_cols[R_start_offset + i];
           column_count++;
-          adj[query_id * m + index] = true;
+          adj[index] = true;
         }
+        // abort in case subsequent points cannot possibly be in reach
+        i *= (cur_R_dist - min_warp_dist <= eps);
       }
 
-      skip_following = raft::any(skip_following);
-      if (skip_following) continue;
-
-      i -= WarpSize;
-      for (; i >= 0 && !skip_following; i -= WarpSize) {
-        skip_following       = (cur_R_dist - R_1nn_dists[R_start_offset + i] > eps);
-        const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
-        const value_t dist   = dfunc(x_ptr, y_ptr, n_cols);
-        const bool in_range  = (dist <= eps2);
+      while (i >= WarpSize) {
+        y_ptr -= WarpSize * n_cols;
+        i -= WarpSize;
+        const value_t min_warp_dist = R_1nn_dists[R_start_offset + i - lid];
+        const value_t dist          = dfunc(x_ptr, y_ptr, n_cols);
+        const bool in_range         = (dist <= eps2);
         if (in_range) {
           auto index = R_1nn_cols[R_start_offset + i];
           column_count++;
-          adj[query_id * m + index] = true;
+          adj[index] = true;
         }
-        skip_following = raft::any(skip_following);
+        // abort in case subsequent points cannot possibly be in reach
+        i *= (cur_R_dist - min_warp_dist <= eps);
       }
-    } while (k_offset < WarpSize);
+    } while (lane_mask);
   }
 
   if (vd != nullptr) {
@@ -595,22 +604,26 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_reordered,
                                           value_idx* adj_ja)
 {
   constexpr int num_warps = tpb / WarpSize;
+  constexpr int max_lid   = WarpSize - 1;
 
   // process 1 query per warp
   const uint32_t lid      = raft::laneId();
   const uint32_t lid_mask = (1 << lid) - 1;
 
   // this should help the compiler to prevent branches
-  const int warp_id  = raft::shfl(threadIdx.x / WarpSize, 0);
-  const int query_id = raft::shfl(blockIdx.x * num_warps + warp_id, 0);
+  const int query_id = raft::shfl(blockIdx.x * num_warps + (threadIdx.x / WarpSize), 0);
 
   // this is an early out for a full warp
   if (query_id >= n_queries) return;
 
-  unsigned long long int column_index_offset = write_pass ? adj_ia[query_id] : 0;
+  uint32_t column_index_offset = 0;
 
-  // we have no neighbors to fill for this query
-  if (write_pass && adj_ia[query_id + 1] == column_index_offset) return;
+  if constexpr (write_pass) {
+    value_idx offset = adj_ia[query_id];
+    // we have no neighbors to fill for this query
+    if (offset == adj_ia[query_id + 1]) return;
+    adj_ja += offset;
+  }
 
   const value_t* x_ptr = X + (n_cols * query_id);
 
@@ -620,96 +633,91 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_reordered,
 #pragma nounroll
   for (uint32_t cur_k0 = 0; cur_k0 < n_landmarks; cur_k0 += WarpSize) {
     // Pre-compute landmark_dist & triangularization checks for 32 iterations
-    // prune all R's that can't be within eps
-    const uint32_t lane_k     = cur_k0 + lid;
-    const value_t lane_R_dist = lane_k < n_landmarks
-                                  ? raft::sqrt(dfunc(x_ptr, R + lane_k * n_cols, n_cols))
-                                  : std::numeric_limits<value_idx>::max();
-    const int lane_check =
-      lane_k < n_landmarks ? static_cast<int>(lane_R_dist - R_radius[lane_k] <= eps) : 0;
+    const uint32_t lane_k        = cur_k0 + lid;
+    const value_t lane_R_dist_sq = lane_k < n_landmarks ? dfunc(x_ptr, R + lane_k * n_cols, n_cols)
+                                                        : std::numeric_limits<value_idx>::max();
+    const int lane_check         = lane_k < n_landmarks
+                                     ? static_cast<int>(lane_R_dist_sq <= squared(eps + R_radius[lane_k]))
+                                     : 0;
 
     int lane_mask = raft::ballot(lane_check);
     if (lane_mask == 0) continue;
 
-    uint32_t k_offset = __ffs(lane_mask) - 1;
+    // reverse to use __clz instead of __ffs
+    lane_mask         = __brev(lane_mask);
+    uint32_t k_offset = __clz(lane_mask);
     do {
       const uint32_t cur_k = cur_k0 + k_offset;
 
-      // update lane_mask for next iteration - erase bits up to k_offset
-      lane_mask &= -(1 << k_offset + 1);
-
       // The whole warp should iterate through the elements in the current R
       const value_idx R_start_offset = R_indptr[cur_k];
-      const uint32_t R_size          = R_indptr[cur_k + 1] - R_start_offset;
+
+      // update lane_mask for next iteration - erase bits up to k_offset
+      lane_mask &= (1 << max_lid - k_offset) - 1;
+
+      const uint32_t R_size = R_indptr[cur_k + 1] - R_start_offset;
 
       // we have precomputed the query<->landmark distance
-      const value_t cur_R_dist = raft::shfl(lane_R_dist, k_offset);
+      const value_t cur_R_dist = raft::sqrt(raft::shfl(lane_R_dist_sq, k_offset));
 
       const uint32_t limit = Pow2<WarpSize>::roundDown(R_size);
-      int i                = limit + lid;
+      uint32_t i           = limit + lid;
 
       // look ahead for next k_offset
-      k_offset = lane_mask != 0 ? __ffs(lane_mask) - 1 : WarpSize;
+      k_offset = __clz(lane_mask);
 
       // R_1nn_dists are sorted ascendingly for each landmark
       // Iterating backwards, after pruning the first point w.r.t. triangle
       // inequality all subsequent points can be pruned as well
-      bool skip_following =
-        i < R_size ? (cur_R_dist - R_1nn_dists[R_start_offset + i] > eps) : false;
+      const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
       {
-        const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
+        const value_t min_warp_dist =
+          limit < R_size ? R_1nn_dists[R_start_offset + limit] : cur_R_dist;
         const value_t dist =
-          (i >= R_size) ? std::numeric_limits<value_idx>::max() : dfunc(x_ptr, y_ptr, n_cols);
+          (i < R_size) ? dfunc(x_ptr, y_ptr, n_cols) : std::numeric_limits<value_idx>::max();
         const bool in_range = (dist <= eps2);
         if constexpr (write_pass) {
           const int mask = raft::ballot(in_range);
           if (in_range) {
-            auto index      = R_1nn_cols[R_start_offset + i];
-            auto row_pos    = column_index_offset + __popc(mask & lid_mask);
-            adj_ja[row_pos] = index;
+            const uint32_t index   = R_1nn_cols[R_start_offset + i];
+            const uint32_t row_pos = __popc(mask & lid_mask);
+            adj_ja[row_pos]        = index;
           }
-          column_index_offset += __popc(mask);
+          adj_ja += __popc(mask);
         } else {
           column_index_offset += (in_range);
         }
+        // abort in case subsequent points cannot possibly be in reach
+        i *= (cur_R_dist - min_warp_dist <= eps);
       }
 
-      skip_following = raft::any(skip_following);
-      if (skip_following) continue;
-
-      i -= WarpSize;
-      for (; i >= 0 && !skip_following; i -= WarpSize) {
-        skip_following       = (cur_R_dist - R_1nn_dists[R_start_offset + i] > eps);
-        const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
-        const value_t dist   = dfunc(x_ptr, y_ptr, n_cols);
-        const bool in_range  = (dist <= eps2);
+      while (i >= WarpSize) {
+        y_ptr -= WarpSize * n_cols;
+        i -= WarpSize;
+        const value_t min_warp_dist = R_1nn_dists[R_start_offset + i - lid];
+        const value_t dist          = dfunc(x_ptr, y_ptr, n_cols);
+        const bool in_range         = (dist <= eps2);
         if constexpr (write_pass) {
           const int mask = raft::ballot(in_range);
           if (in_range) {
-            auto index      = R_1nn_cols[R_start_offset + i];
-            auto row_pos    = column_index_offset + __popc(mask & lid_mask);
-            adj_ja[row_pos] = index;
+            const uint32_t index   = R_1nn_cols[R_start_offset + i];
+            const uint32_t row_pos = __popc(mask & lid_mask);
+            adj_ja[row_pos]        = index;
           }
-          column_index_offset += __popc(mask);
+          adj_ja += __popc(mask);
         } else {
           column_index_offset += (in_range);
         }
-
-        skip_following = raft::any(skip_following);
+        // abort in case subsequent points cannot possibly be in reach
+        i *= (cur_R_dist - min_warp_dist <= eps);
       }
-    } while (k_offset < WarpSize);
+    } while (lane_mask);
   }
 
   if constexpr (!write_pass) {
     value_idx row_sum = raft::warpReduce(column_index_offset);
     if (lid == 0) adj_ia[query_id] = row_sum;
   }
-}
-
-template <typename value_t>
-__device__ value_t squared(const value_t& a)
-{
-  return a * a;
 }
 
 template <typename value_idx = std::int64_t,
@@ -881,21 +889,22 @@ RAFT_KERNEL block_rbc_kernel_eps_max_k(const value_t* X_reordered,
                                        value_idx* tmp)
 {
   constexpr int num_warps = tpb / WarpSize;
+  constexpr int max_lid   = WarpSize - 1;
 
   // process 1 query per warp
   const uint32_t lid      = raft::laneId();
   const uint32_t lid_mask = (1 << lid) - 1;
 
   // this should help the compiler to prevent branches
-  const int warp_id  = raft::shfl(threadIdx.x / WarpSize, 0);
-  const int query_id = raft::shfl(blockIdx.x * num_warps + warp_id, 0);
+  const int query_id = raft::shfl(blockIdx.x * num_warps + (threadIdx.x / WarpSize), 0);
 
   // this is an early out for a full warp
   if (query_id >= n_queries) return;
 
-  unsigned long long int column_count = 0;
+  value_idx column_count = 0;
 
   const value_t* x_ptr = X + (n_cols * query_id);
+  tmp += query_id * max_k;
 
   // we omit the sqrt() in the inner distance compute
   const value_t eps2 = eps * eps;
@@ -903,81 +912,83 @@ RAFT_KERNEL block_rbc_kernel_eps_max_k(const value_t* X_reordered,
 #pragma nounroll
   for (uint32_t cur_k0 = 0; cur_k0 < n_landmarks; cur_k0 += WarpSize) {
     // Pre-compute landmark_dist & triangularization checks for 32 iterations
-    // prune all R's that can't be within eps
-    const uint32_t lane_k     = cur_k0 + lid;
-    const value_t lane_R_dist = lane_k < n_landmarks
-                                  ? raft::sqrt(dfunc(x_ptr, R + lane_k * n_cols, n_cols))
-                                  : std::numeric_limits<value_idx>::max();
-    const int lane_check =
-      lane_k < n_landmarks ? static_cast<int>(lane_R_dist - R_radius[lane_k] <= eps) : 0;
+    const uint32_t lane_k        = cur_k0 + lid;
+    const value_t lane_R_dist_sq = lane_k < n_landmarks ? dfunc(x_ptr, R + lane_k * n_cols, n_cols)
+                                                        : std::numeric_limits<value_idx>::max();
+    const int lane_check         = lane_k < n_landmarks
+                                     ? static_cast<int>(lane_R_dist_sq <= squared(eps + R_radius[lane_k]))
+                                     : 0;
 
     int lane_mask = raft::ballot(lane_check);
     if (lane_mask == 0) continue;
 
-    uint32_t k_offset = __ffs(lane_mask) - 1;
+    // reverse to use __clz instead of __ffs
+    lane_mask         = __brev(lane_mask);
+    uint32_t k_offset = __clz(lane_mask);
     do {
       const uint32_t cur_k = cur_k0 + k_offset;
 
-      // update lane_mask for next iteration - erase bits up to k_offset
-      lane_mask &= -(1 << k_offset + 1);
-
       // The whole warp should iterate through the elements in the current R
       const value_idx R_start_offset = R_indptr[cur_k];
-      const uint32_t R_size          = R_indptr[cur_k + 1] - R_start_offset;
+
+      // update lane_mask for next iteration - erase bits up to k_offset
+      lane_mask &= (1 << max_lid - k_offset) - 1;
+
+      const uint32_t R_size = R_indptr[cur_k + 1] - R_start_offset;
 
       // we have precomputed the query<->landmark distance
-      const value_t cur_R_dist = raft::shfl(lane_R_dist, k_offset);
+      const value_t cur_R_dist = raft::sqrt(raft::shfl(lane_R_dist_sq, k_offset));
 
       const uint32_t limit = Pow2<WarpSize>::roundDown(R_size);
-      int i                = limit + lid;
+      uint32_t i           = limit + lid;
 
       // look ahead for next k_offset
-      k_offset = lane_mask != 0 ? __ffs(lane_mask) - 1 : WarpSize;
+      k_offset = __clz(lane_mask);
 
       // R_1nn_dists are sorted ascendingly for each landmark
       // Iterating backwards, after pruning the first point w.r.t. triangle
       // inequality all subsequent points can be pruned as well
-      bool skip_following =
-        i < R_size ? (cur_R_dist - R_1nn_dists[R_start_offset + i] > eps) : false;
+      const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
       {
-        const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
+        const value_t min_warp_dist =
+          limit < R_size ? R_1nn_dists[R_start_offset + limit] : cur_R_dist;
         const value_t dist =
-          (i >= R_size) ? std::numeric_limits<value_idx>::max() : dfunc(x_ptr, y_ptr, n_cols);
+          (i < R_size) ? dfunc(x_ptr, y_ptr, n_cols) : std::numeric_limits<value_idx>::max();
         const bool in_range = (dist <= eps2);
         const int mask      = raft::ballot(in_range);
         if (in_range) {
           auto row_pos = column_count + __popc(mask & lid_mask);
           // we still continue to look for more hits to return valid vd
           if (row_pos < max_k) {
-            auto index                      = R_1nn_cols[R_start_offset + i];
-            tmp[query_id * max_k + row_pos] = index;
+            auto index   = R_1nn_cols[R_start_offset + i];
+            tmp[row_pos] = index;
           }
         }
         column_count += __popc(mask);
+        // abort in case subsequent points cannot possibly be in reach
+        i *= (cur_R_dist - min_warp_dist <= eps);
       }
 
-      skip_following = raft::any(skip_following);
-      if (skip_following) continue;
-
-      i -= WarpSize;
-      for (; i >= 0 && !skip_following; i -= WarpSize) {
-        skip_following       = (cur_R_dist - R_1nn_dists[R_start_offset + i] > eps);
-        const value_t* y_ptr = X_reordered + (n_cols * (R_start_offset + i));
-        const value_t dist   = dfunc(x_ptr, y_ptr, n_cols);
-        const bool in_range  = (dist <= eps2);
-        const int mask       = raft::ballot(in_range);
+      while (i >= WarpSize) {
+        y_ptr -= WarpSize * n_cols;
+        i -= WarpSize;
+        const value_t min_warp_dist = R_1nn_dists[R_start_offset + i - lid];
+        const value_t dist          = dfunc(x_ptr, y_ptr, n_cols);
+        const bool in_range         = (dist <= eps2);
+        const int mask              = raft::ballot(in_range);
         if (in_range) {
           auto row_pos = column_count + __popc(mask & lid_mask);
           // we still continue to look for more hits to return valid vd
           if (row_pos < max_k) {
-            auto index                      = R_1nn_cols[R_start_offset + i];
-            tmp[query_id * max_k + row_pos] = index;
+            auto index   = R_1nn_cols[R_start_offset + i];
+            tmp[row_pos] = index;
           }
         }
         column_count += __popc(mask);
-        skip_following = raft::any(skip_following);
+        // abort in case subsequent points cannot possibly be in reach
+        i *= (cur_R_dist - min_warp_dist <= eps);
       }
-    } while (k_offset < WarpSize);
+    } while (lane_mask);
   }
 
   if (lid == 0) vd[query_id] = column_count;
