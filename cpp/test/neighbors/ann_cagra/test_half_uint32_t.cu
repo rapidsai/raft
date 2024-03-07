@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
 #include "../ann_cagra.cuh"
+
+#include <gtest/gtest.h>
 
 namespace raft::neighbors::cagra {
 

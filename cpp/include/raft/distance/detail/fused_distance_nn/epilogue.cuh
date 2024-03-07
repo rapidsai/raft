@@ -29,7 +29,7 @@
  *
  **************************************************************************************************/
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,19 +60,17 @@ operation.
 
 #pragma once
 
+#include <raft/distance/detail/fused_distance_nn/custom_epilogue_with_broadcast.h>
+#include <raft/distance/detail/fused_distance_nn/predicated_tile_iterator_normvec_smem.h>
+#include <raft/distance/detail/fused_distance_nn/predicated_tile_iterator_reduced_vec.h>
+
 #include <cutlass/array.h>
 #include <cutlass/cutlass.h>
-#include <cutlass/numeric_types.h>
-
-#include <cutlass/gemm/gemm.h>
-
 #include <cutlass/epilogue/threadblock/default_epilogue_tensor_op.h>
 #include <cutlass/epilogue/threadblock/default_epilogue_volta_tensor_op.h>
 #include <cutlass/epilogue/threadblock/epilogue.h>
-#include <raft/distance/detail/fused_distance_nn/custom_epilogue_with_broadcast.h>
-
-#include <raft/distance/detail/fused_distance_nn/predicated_tile_iterator_normvec_smem.h>
-#include <raft/distance/detail/fused_distance_nn/predicated_tile_iterator_reduced_vec.h>
+#include <cutlass/gemm/gemm.h>
+#include <cutlass/numeric_types.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 

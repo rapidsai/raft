@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <cstdint>  // int64_t
-
 #include <raft/core/device_mdspan.hpp>       // raft::device_matrix_view
 #include <raft/core/host_mdspan.hpp>         // // raft::host_matrix_view
 #include <raft/core/resources.hpp>           // raft::resources
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
+
+#include <cstdint>  // int64_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

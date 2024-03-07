@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 #pragma once
 
 #include "../haversine_distance.cuh"  // compute_haversine
-#include <cstdint>                    // uint32_t
+
+#include <cstdint>  // uint32_t
 
 namespace raft {
 namespace spatial {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 #include <raft/distance/detail/kernels/rbf_fin_op.cuh>  // rbf_fin_op
 #include <raft/distance/distance_types.hpp>             // raft::distance::DistanceType
 #include <raft/util/raft_explicit.hpp>                  // RAFT_EXPLICIT
-#include <rmm/device_uvector.hpp>                       // rmm::device_uvector
+
+#include <rmm/device_uvector.hpp>  // rmm::device_uvector
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

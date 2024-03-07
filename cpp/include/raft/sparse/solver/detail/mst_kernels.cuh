@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,9 @@
 #pragma once
 
 #include <raft/sparse/solver/detail/mst_utils.cuh>
+#include <raft/util/device_atomics.cuh>
 
 #include <limits>
-
-#include <raft/util/device_atomics.cuh>
 
 namespace raft::sparse::solver::detail {
 
