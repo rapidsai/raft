@@ -16,15 +16,14 @@
 
 #pragma once
 
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/core/serialize.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_pq_types.hpp>
-
-#include <raft/core/host_mdarray.hpp>
-#include <raft/core/logger.hpp>
-#include <raft/core/resources.hpp>
-#include <raft/core/serialize.hpp>
 
 #include <fstream>
 #include <memory>

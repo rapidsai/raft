@@ -16,14 +16,17 @@
 
 #pragma once
 
-#include <cstdint>      // uint32_t
-#include <cuda_fp16.h>  // __half
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/matrix/select_k_types.hpp>
-#include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
+#include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
+
 #include <rmm/cuda_stream_view.hpp>                  // rmm:cuda_stream_view
 #include <rmm/mr/device/device_memory_resource.hpp>  // rmm::mr::device_memory_resource
+
+#include <cuda_fp16.h>  // __half
+
+#include <cstdint>  // uint32_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

@@ -17,21 +17,22 @@
 #pragma once
 
 #include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/util/cache_util.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/exec_policy.hpp>
 
+#include <cuda_runtime.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <cusolverDn.h>
+
 #include <algorithm>
 #include <cstddef>
-#include <cuda_runtime.h>
-#include <cusolverDn.h>
-#include <raft/core/resources.hpp>
-#include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace matrix {

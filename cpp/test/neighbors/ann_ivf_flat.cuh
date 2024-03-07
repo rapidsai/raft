@@ -17,40 +17,40 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
-#include <raft/linalg/map.cuh>
-#include <raft/neighbors/ivf_flat_types.hpp>
-#include <raft/neighbors/ivf_list.hpp>
-#include <raft/neighbors/sample_filter.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/fast_int_div.cuh>
-#include <thrust/functional.h>
-
-#include <raft_internal/neighbors/naive_knn.cuh>
-
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_flat_helpers.cuh>
+#include <raft/neighbors/ivf_flat_types.hpp>
+#include <raft/neighbors/ivf_list.hpp>
+#include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/fast_int_div.cuh>
+
+#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <thrust/functional.h>
+#include <thrust/sequence.h>
 
 #include <gtest/gtest.h>
-
-#include <rmm/device_uvector.hpp>
-#include <thrust/sequence.h>
 
 #include <cstddef>
 #include <iostream>
