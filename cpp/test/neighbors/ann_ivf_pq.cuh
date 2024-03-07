@@ -17,11 +17,9 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
-
-#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/map_reduce.cuh>
@@ -32,15 +30,17 @@
 #include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 
+#include <raft_internal/neighbors/naive_knn.cuh>
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
 #include <rmm/device_vector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 
-#include <gtest/gtest.h>
-
 #include <cub/cub.cuh>
 #include <thrust/sequence.h>
+
+#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cstddef>

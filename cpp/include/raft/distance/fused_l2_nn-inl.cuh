@@ -19,14 +19,17 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
-#include <limits>
 #include <raft/core/resources.hpp>
 #include <raft/distance/detail/fused_distance_nn/fused_l2_nn.cuh>
 #include <raft/distance/fused_distance_nn_helpers.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
+
+#include <cub/cub.cuh>
+
 #include <stdint.h>
+
+#include <limits>
 #include <type_traits>
 
 namespace raft {

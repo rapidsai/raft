@@ -17,24 +17,24 @@
 #pragma once
 
 #include "ann_types.hpp"
-#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/cagra/utils.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <thrust/fill.h>
+
 #include <memory>
 #include <optional>
 #include <string>
-#include <thrust/fill.h>
 #include <type_traits>
-
-#include <raft/core/logger.hpp>
 namespace raft::neighbors::cagra {
 /**
  * @addtogroup cagra

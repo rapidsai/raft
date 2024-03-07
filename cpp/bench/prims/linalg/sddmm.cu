@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 #include <common/benchmark.hpp>
-#include <cusparse_v2.h>
+
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/linalg/sddmm.hpp>
 #include <raft/util/itertools.hpp>
 
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resources.hpp>
+#include <cusparse_v2.h>
 
 #include <random>
 #include <sstream>

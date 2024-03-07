@@ -15,7 +15,7 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
+
 #include <raft/core/kvp.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -23,6 +23,8 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
 
 namespace raft {
 namespace distance {

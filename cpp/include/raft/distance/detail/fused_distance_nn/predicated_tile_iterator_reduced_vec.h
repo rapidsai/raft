@@ -64,6 +64,7 @@ gmem.
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
+
 #include <cutlass/arch/arch.h>
 #include <cutlass/arch/memory.h>
 #include <cutlass/array.h>

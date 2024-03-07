@@ -43,6 +43,17 @@
 #include <raft/util/cudart_utils.hpp>   // getMultiProcessorCount
 #include <raft/util/cutlass_utils.cuh>  // RAFT_CUTLASS_TRY
 
+#include <rmm/device_uvector.hpp>
+
+#include <cutlass/cutlass.h>
+#include <cutlass/gemm/device/gemm.h>
+#include <cutlass/gemm/device/gemm_grouped.h>
+#include <cutlass/gemm/device/gemm_universal_adapter.h>
+#include <cutlass/layout/matrix.h>
+#include <cutlass/layout/tensor.h>
+#include <cutlass/matrix_coord.h>
+#include <cutlass/tensor_view.h>
+
 namespace raft {
 namespace distance {
 namespace detail {

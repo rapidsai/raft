@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 #include "test_span.hpp"
-#include <gtest/gtest.h>
-#include <numeric>  // iota
+
 #include <raft/core/device_span.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -27,6 +26,10 @@
 #include <thrust/host_vector.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/memory.h>
+
+#include <gtest/gtest.h>
+
+#include <numeric>  // iota
 
 namespace raft {
 struct TestStatus {

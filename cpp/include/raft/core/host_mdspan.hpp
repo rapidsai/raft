@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <cstdint>
+#include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/memory_type.hpp>
 
-#include <raft/core/host_device_accessor.hpp>
+#include <cstdint>
 
 namespace raft {
 

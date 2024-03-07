@@ -15,19 +15,20 @@
  */
 #pragma once
 
-#include <cassert>
-#include <memory>
+#include "../common/ann_types.hpp"
+#include "raft_ann_bench_utils.h"
+
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/brute_force_serialize.cuh>
+
+#include <cassert>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-
-#include "../common/ann_types.hpp"
-#include "raft_ann_bench_utils.h"
 
 namespace raft_temp {
 
