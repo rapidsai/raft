@@ -517,9 +517,11 @@ RAFT_KERNEL block_rbc_kernel_eps_dense(const value_t* X_reordered,
     if (lane_mask == 0) continue;
 
     // reverse to use __clz instead of __ffs
-    lane_mask         = __brev(lane_mask);
-    uint32_t k_offset = __clz(lane_mask);
+    lane_mask = __brev(lane_mask);
     do {
+      // look for next k_offset
+      const uint32_t k_offset = __clz(lane_mask);
+
       const uint32_t cur_k = cur_k0 + k_offset;
 
       // The whole warp should iterate through the elements in the current R
@@ -535,9 +537,6 @@ RAFT_KERNEL block_rbc_kernel_eps_dense(const value_t* X_reordered,
 
       const uint32_t limit = Pow2<WarpSize>::roundDown(R_size);
       uint32_t i           = limit + lid;
-
-      // look ahead for next k_offset
-      k_offset = __clz(lane_mask);
 
       // R_1nn_dists are sorted ascendingly for each landmark
       // Iterating backwards, after pruning the first point w.r.t. triangle
@@ -644,9 +643,11 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_reordered,
     if (lane_mask == 0) continue;
 
     // reverse to use __clz instead of __ffs
-    lane_mask         = __brev(lane_mask);
-    uint32_t k_offset = __clz(lane_mask);
+    lane_mask = __brev(lane_mask);
     do {
+      // look for next k_offset
+      const uint32_t k_offset = __clz(lane_mask);
+
       const uint32_t cur_k = cur_k0 + k_offset;
 
       // The whole warp should iterate through the elements in the current R
@@ -662,9 +663,6 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_reordered,
 
       const uint32_t limit = Pow2<WarpSize>::roundDown(R_size);
       uint32_t i           = limit + lid;
-
-      // look ahead for next k_offset
-      k_offset = __clz(lane_mask);
 
       // R_1nn_dists are sorted ascendingly for each landmark
       // Iterating backwards, after pruning the first point w.r.t. triangle
@@ -790,9 +788,11 @@ RAFT_KERNEL __launch_bounds__(tpb)
     if (lane_mask == 0) continue;
 
     // reverse to use __clz instead of __ffs
-    lane_mask         = __brev(lane_mask);
-    uint32_t k_offset = __clz(lane_mask);
+    lane_mask = __brev(lane_mask);
     do {
+      // look for next k_offset
+      const uint32_t k_offset = __clz(lane_mask);
+
       const uint32_t cur_k = cur_k0 + k_offset;
 
       // The whole warp should iterate through the elements in the current R
@@ -808,9 +808,6 @@ RAFT_KERNEL __launch_bounds__(tpb)
 
       const uint32_t limit = Pow2<WarpSize>::roundDown(R_size);
       uint32_t i           = limit + lid;
-
-      // look ahead for next k_offset
-      k_offset = __clz(lane_mask);
 
       // R_1nn_dists are sorted ascendingly for each landmark
       // Iterating backwards, after pruning the first point w.r.t. triangle
@@ -923,9 +920,11 @@ RAFT_KERNEL block_rbc_kernel_eps_max_k(const value_t* X_reordered,
     if (lane_mask == 0) continue;
 
     // reverse to use __clz instead of __ffs
-    lane_mask         = __brev(lane_mask);
-    uint32_t k_offset = __clz(lane_mask);
+    lane_mask = __brev(lane_mask);
     do {
+      // look for next k_offset
+      const uint32_t k_offset = __clz(lane_mask);
+
       const uint32_t cur_k = cur_k0 + k_offset;
 
       // The whole warp should iterate through the elements in the current R
@@ -941,9 +940,6 @@ RAFT_KERNEL block_rbc_kernel_eps_max_k(const value_t* X_reordered,
 
       const uint32_t limit = Pow2<WarpSize>::roundDown(R_size);
       uint32_t i           = limit + lid;
-
-      // look ahead for next k_offset
-      k_offset = __clz(lane_mask);
 
       // R_1nn_dists are sorted ascendingly for each landmark
       // Iterating backwards, after pruning the first point w.r.t. triangle
