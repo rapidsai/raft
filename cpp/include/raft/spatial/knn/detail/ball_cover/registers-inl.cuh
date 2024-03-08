@@ -484,7 +484,6 @@ RAFT_KERNEL block_rbc_kernel_eps_dense(const value_t* X_reordered,
                                        value_idx* vd)
 {
   constexpr int num_warps = tpb / WarpSize;
-  constexpr int max_lid   = WarpSize - 1;
 
   // process 1 query per warp
   const uint32_t lid = raft::laneId();
@@ -528,7 +527,7 @@ RAFT_KERNEL block_rbc_kernel_eps_dense(const value_t* X_reordered,
       const value_idx R_start_offset = R_indptr[cur_k];
 
       // update lane_mask for next iteration - erase bits up to k_offset
-      lane_mask &= (1 << max_lid - k_offset) - 1;
+      lane_mask &= (0x7fffffff >> k_offset);
 
       const uint32_t R_size = R_indptr[cur_k + 1] - R_start_offset;
 
@@ -603,7 +602,6 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_reordered,
                                           value_idx* adj_ja)
 {
   constexpr int num_warps = tpb / WarpSize;
-  constexpr int max_lid   = WarpSize - 1;
 
   // process 1 query per warp
   const uint32_t lid      = raft::laneId();
@@ -654,7 +652,7 @@ RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_reordered,
       const value_idx R_start_offset = R_indptr[cur_k];
 
       // update lane_mask for next iteration - erase bits up to k_offset
-      lane_mask &= (1 << max_lid - k_offset) - 1;
+      lane_mask &= (0x7fffffff >> k_offset);
 
       const uint32_t R_size = R_indptr[cur_k + 1] - R_start_offset;
 
@@ -743,7 +741,6 @@ RAFT_KERNEL __launch_bounds__(tpb)
                                    value_idx* adj_ja)
 {
   constexpr int num_warps = tpb / WarpSize;
-  constexpr int max_lid   = WarpSize - 1;
 
   // process 1 query per warp
   const uint32_t lid      = raft::laneId();
@@ -799,7 +796,7 @@ RAFT_KERNEL __launch_bounds__(tpb)
       const value_idx R_start_offset = R_indptr[cur_k];
 
       // update lane_mask for next iteration - erase bits up to k_offset
-      lane_mask &= (1 << max_lid - k_offset) - 1;
+      lane_mask &= (0x7fffffff >> k_offset);
 
       const uint32_t R_size = R_indptr[cur_k + 1] - R_start_offset;
 
@@ -886,7 +883,6 @@ RAFT_KERNEL block_rbc_kernel_eps_max_k(const value_t* X_reordered,
                                        value_idx* tmp)
 {
   constexpr int num_warps = tpb / WarpSize;
-  constexpr int max_lid   = WarpSize - 1;
 
   // process 1 query per warp
   const uint32_t lid      = raft::laneId();
@@ -931,7 +927,7 @@ RAFT_KERNEL block_rbc_kernel_eps_max_k(const value_t* X_reordered,
       const value_idx R_start_offset = R_indptr[cur_k];
 
       // update lane_mask for next iteration - erase bits up to k_offset
-      lane_mask &= (1 << max_lid - k_offset) - 1;
+      lane_mask &= (0x7fffffff >> k_offset);
 
       const uint32_t R_size = R_indptr[cur_k + 1] - R_start_offset;
 
