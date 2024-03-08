@@ -125,7 +125,7 @@ auto construct_strided_dataset(const raft::resources& res,
   RAFT_EXPECTS(src.extent(1) <= required_stride,
                "The input row length must be not larger than the desired stride.");
   const bool device_accessible = get_device_for_address(src.data_handle()) >= 0;
-  const bool row_major         = src.stride(1) == 0;
+  const bool row_major         = src.stride(1) == 1;
   const bool stride_matches    = required_stride == src.stride(0);
 
   if (device_accessible && row_major && stride_matches) {
