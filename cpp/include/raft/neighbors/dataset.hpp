@@ -264,6 +264,14 @@ struct vpq_dataset : public dataset<IdxT> {
   /** The bit length of an encoded vector element after compression by PQ. */
   [[nodiscard]] constexpr inline auto pq_bits() const noexcept -> uint32_t
   {
+    /*
+    NOTE: pq_bits and the book size
+
+    Normally, we'd store `pq_bits` as a part of the index.
+    However, we know there's an invariant `pq_n_centers = 1 << pq_bits`, i.e. the codebook size is
+    the same as the number of possible code values. Hence, we don't store the pq_bits and derive it
+    from the array dimensions instead.
+     */
     auto pq_width = pq_n_centers();
 #ifdef __cpp_lib_bitops
     return std::countr_zero(pq_width);
