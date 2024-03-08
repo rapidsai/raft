@@ -110,13 +110,13 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
    * @brief Get the total number of rows
    * @return index_t The total number of rows
    */
-  RAFT_INLINE_FUNCTION index_t get_n_rows() const { return rows_; }
+  inline _RAFT_HOST_DEVICE index_t get_n_rows() const { return rows_; }
 
   /**
    * @brief Get the total number of columns
    * @return index_t The total number of columns
    */
-  RAFT_INLINE_FUNCTION index_t get_n_cols() const { return cols_; }
+  inline _RAFT_HOST_DEVICE index_t get_n_cols() const { return cols_; }
 
  private:
   index_t rows_;
