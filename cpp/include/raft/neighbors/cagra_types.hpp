@@ -162,13 +162,18 @@ struct index : ann::index {
   }
 
   /** Dataset [size, dim] */
-  [[nodiscard]] inline auto dataset() const noexcept
+  [[nodiscard]] inline auto dataset_view() const noexcept
     -> device_matrix_view<const T, int64_t, layout_stride>
   {
     auto p = dynamic_cast<strided_dataset<T, int64_t>*>(dataset_.get());
     if (p != nullptr) { return p->view(); }
     auto d = dataset_->dim();
     return make_device_strided_matrix_view<const T, int64_t>(nullptr, 0, d, d);
+  }
+
+  [[nodiscard]] inline auto dataset() const noexcept -> const neighbors::dataset<int64_t>&
+  {
+    return *dataset_;
   }
 
   /** neighborhood graph [size, graph-degree] */
@@ -302,6 +307,13 @@ struct index : ann::index {
     -> std::enable_if_t<std::is_base_of_v<neighbors::dataset<int64_t>, DatasetT>>
   {
     upcast_dataset_ptr(std::make_unique<DatasetT>(std::move(dataset))).swap(dataset_);
+  }
+
+  template <typename DatasetT>
+  auto update_dataset(raft::resources const& res, std::unique_ptr<DatasetT>&& dataset)
+    -> std::enable_if_t<std::is_base_of_v<neighbors::dataset<int64_t>, DatasetT>>
+  {
+    upcast_dataset_ptr(std::move(dataset)).swap(dataset_);
   }
 
   /**

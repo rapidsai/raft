@@ -111,8 +111,8 @@ void search_main(raft::resources const& res,
                  CagraSampleFilterT sample_filter = CagraSampleFilterT())
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
-                 static_cast<size_t>(index.dataset().extent(0)),
-                 static_cast<size_t>(index.dataset().extent(1)));
+                 static_cast<size_t>(index.dataset_view().extent(0)),
+                 static_cast<size_t>(index.dataset_view().extent(1)));
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
@@ -151,11 +151,11 @@ void search_main(raft::resources const& res,
         : nullptr;
     uint32_t* _num_executed_iterations = nullptr;
 
-    auto dataset_internal =
-      make_device_strided_matrix_view<const T, int64_t, row_major>(index.dataset().data_handle(),
-                                                                   index.dataset().extent(0),
-                                                                   index.dataset().extent(1),
-                                                                   index.dataset().stride(0));
+    auto dataset_internal = make_device_strided_matrix_view<const T, int64_t, row_major>(
+      index.dataset_view().data_handle(),
+      index.dataset_view().extent(0),
+      index.dataset_view().extent(1),
+      index.dataset_view().stride(0));
     auto graph_internal = raft::make_device_matrix_view<const internal_IdxT, int64_t, row_major>(
       reinterpret_cast<const internal_IdxT*>(index.graph().data_handle()),
       index.graph().extent(0),
