@@ -222,7 +222,7 @@ struct vpq_params {
 /**
  * @brief VPQ compressed dataset.
  *
- * Twice quantized data:
+ * The dataset is compressed using two level quantization
  *
  *   1. Vector Quantization
  *   2. Product Quantization of residuals
