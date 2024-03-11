@@ -44,13 +44,13 @@ struct dummy_block_sort_t {
  * in chunk_indices. Essentially this is a segmented inclusive scan of the cluster sizes. The total
  * number of samples per query (sum of the cluster sizes that we probe) is returned in n_samples.
  */
-template <int BlockDim>
+template <int BlockDim, typename IdxT>
 __launch_bounds__(BlockDim) RAFT_KERNEL
   calc_chunk_indices_kernel(uint32_t n_probes,
                             const uint32_t* cluster_sizes,      // [n_clusters]
                             const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                             uint32_t* chunk_indices,            // [n_queries, n_probes]
-                            uint32_t* n_samples                 // [n_queries]
+                            IdxT* n_samples                     // [n_queries]
   )
 {
   using block_scan = cub::BlockScan<uint32_t, BlockDim>;
@@ -75,6 +75,7 @@ __launch_bounds__(BlockDim) RAFT_KERNEL
   if (threadIdx.x == 0) { n_samples[blockIdx.x] = total; }
 }
 
+template <typename IdxT>
 struct calc_chunk_indices {
  public:
   struct configured {
@@ -86,7 +87,7 @@ struct calc_chunk_indices {
     inline void operator()(const uint32_t* cluster_sizes,
                            const uint32_t* clusters_to_probe,
                            uint32_t* chunk_indices,
-                           uint32_t* n_samples,
+                           IdxT* n_samples,
                            rmm::cuda_stream_view stream)
     {
       void* args[] =  // NOLINT
@@ -107,7 +108,7 @@ struct calc_chunk_indices {
     if constexpr (BlockDim >= WarpSize * 2) {
       if (BlockDim >= n_probes * 2) { return try_block_dim<(BlockDim / 2)>(n_probes, n_queries); }
     }
-    return {reinterpret_cast<void*>(calc_chunk_indices_kernel<BlockDim>),
+    return {reinterpret_cast<void*>(calc_chunk_indices_kernel<BlockDim, IdxT>),
             dim3(BlockDim, 1, 1),
             dim3(n_queries, 1, 1),
             n_probes};

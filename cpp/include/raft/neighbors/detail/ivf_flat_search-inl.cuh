@@ -70,7 +70,7 @@ void search_impl(raft::resources const& handle,
   // The topk index of candidate vectors from each cluster(list)
   rmm::device_uvector<IdxT> indices_tmp_dev(0, stream, search_mr);
   // Number of samples for each query
-  rmm::device_uvector<uint32_t> num_samples(0, stream, search_mr);
+  rmm::device_uvector<IdxT> num_samples(0, stream, search_mr);
   // Offsets per probe for each query
   rmm::device_uvector<uint32_t> chunk_index(0, stream, search_mr);
 
@@ -184,7 +184,7 @@ void search_impl(raft::resources const& handle,
       num_samples.resize(n_queries, stream);
       chunk_index.resize(n_queries_probes, stream);
 
-      ivf::detail::calc_chunk_indices::configure(n_probes, n_queries)(
+      ivf::detail::calc_chunk_indices<IdxT>::configure(n_probes, n_queries)(
         index.list_sizes().data_handle(),
         coarse_indices_dev.data(),
         chunk_index.data(),
@@ -232,7 +232,10 @@ void search_impl(raft::resources const& handle,
                                          k,
                                          distances,
                                          neighbors,
-                                         select_min);
+                                         select_min,
+                                         false,
+                                         matrix::SelectAlgo::kAuto,
+                                         num_samples.data());
 
     if (!manage_local_topk) {
       // post process distances && neighbor IDs

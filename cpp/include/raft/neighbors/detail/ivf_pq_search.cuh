@@ -306,11 +306,12 @@ void ivfpq_search_worker(raft::resources const& handle,
     neighbors_uint32 = neighbors_uint32_buf.data();
   }
 
-  ivf::detail::calc_chunk_indices::configure(n_probes, n_queries)(index.list_sizes().data_handle(),
-                                                                  clusters_to_probe,
-                                                                  chunk_index.data(),
-                                                                  num_samples.data(),
-                                                                  stream);
+  ivf::detail::calc_chunk_indices<uint32_t>::configure(n_probes, n_queries)(
+    index.list_sizes().data_handle(),
+    clusters_to_probe,
+    chunk_index.data(),
+    num_samples.data(),
+    stream);
 
   auto coresidency = expected_probe_coresidency(index.n_lists(), n_probes, n_queries);
 
@@ -447,7 +448,10 @@ void ivfpq_search_worker(raft::resources const& handle,
                                              topK,
                                              topk_dists.data(),
                                              neighbors_uint32,
-                                             true);
+                                             true,
+                                             false,
+                                             matrix::SelectAlgo::kAuto,
+                                             num_samples.data());
 
   // Postprocessing
   ivf::detail::postprocess_distances(
