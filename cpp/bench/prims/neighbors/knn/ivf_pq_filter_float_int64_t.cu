@@ -17,7 +17,7 @@
 #include "../knn.cuh"
 
 #include <raft_internal/neighbors/ivf_pq_compute_similarity_filters_test-ext.cuh>
-#include <raft_internal/neighbors/test/neighborsivf_pq_search_test-ext.cuh>
+#include <raft_internal/neighbors/ivf_pq_search_test-ext.cuh>
 namespace raft::bench::spatial {
 
 KNN_REGISTER(float, int64_t, ivf_pq_filter_knn, kInputsFilter, kNoCopyOnly, kScopeFull);
