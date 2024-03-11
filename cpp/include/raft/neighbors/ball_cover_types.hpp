@@ -69,6 +69,7 @@ class BallCoverIndex {
       R_1nn_dists(raft::make_device_vector<value_t, matrix_idx>(handle, m_)),
       R_closest_landmark_dists(raft::make_device_vector<value_t, matrix_idx>(handle, m_)),
       R(raft::make_device_matrix<value_t, matrix_idx>(handle, sqrt(m_), n_)),
+      X_reordered(raft::make_device_matrix<value_t, matrix_idx>(handle, m_, n_)),
       R_radius(raft::make_device_vector<value_t, matrix_idx>(handle, sqrt(m_))),
       index_trained(false)
   {
@@ -93,6 +94,8 @@ class BallCoverIndex {
       R_1nn_dists(raft::make_device_vector<value_t, matrix_idx>(handle, X_.extent(0))),
       R_closest_landmark_dists(raft::make_device_vector<value_t, matrix_idx>(handle, X_.extent(0))),
       R(raft::make_device_matrix<value_t, matrix_idx>(handle, sqrt(X_.extent(0)), X_.extent(1))),
+      X_reordered(
+        raft::make_device_matrix<value_t, matrix_idx>(handle, X_.extent(0), X_.extent(1))),
       R_radius(raft::make_device_vector<value_t, matrix_idx>(handle, sqrt(X_.extent(0)))),
       index_trained(false)
   {
@@ -122,6 +125,10 @@ class BallCoverIndex {
   {
     return R_closest_landmark_dists.view();
   }
+  auto get_X_reordered() const -> raft::device_matrix_view<const value_t, matrix_idx, row_major>
+  {
+    return X_reordered.view();
+  }
 
   raft::device_vector_view<value_idx, matrix_idx> get_R_indptr() { return R_indptr.view(); }
   raft::device_vector_view<value_idx, matrix_idx> get_R_1nn_cols() { return R_1nn_cols.view(); }
@@ -131,6 +138,10 @@ class BallCoverIndex {
   raft::device_vector_view<value_t, matrix_idx> get_R_closest_landmark_dists()
   {
     return R_closest_landmark_dists.view();
+  }
+  raft::device_matrix_view<value_t, matrix_idx, row_major> get_X_reordered()
+  {
+    return X_reordered.view();
   }
   raft::device_matrix_view<const value_t, matrix_idx, row_major> get_X() const { return X; }
 
@@ -162,6 +173,7 @@ class BallCoverIndex {
   raft::device_vector<value_t, matrix_idx> R_radius;
 
   raft::device_matrix<value_t, matrix_idx, row_major> R;
+  raft::device_matrix<value_t, matrix_idx, row_major> X_reordered;
 
  protected:
   bool index_trained;
