@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 
 #include "../test_utils.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/stats/sum.cuh>
@@ -81,8 +81,8 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
   rmm::device_uvector<T> data, sum_act;
 };
 
-const std::vector<SumInputs<float>> inputsf = {{0.05f, 1024, 32, 1234ULL},
-                                               {0.05f, 1024, 256, 1234ULL}};
+const std::vector<SumInputs<float>> inputsf = {
+  {0.05f, 4, 5, 1234ULL}, {0.05f, 1024, 32, 1234ULL}, {0.05f, 1024, 256, 1234ULL}};
 
 const std::vector<SumInputs<double>> inputsd = {{0.05, 1024, 32, 1234ULL},
                                                 {0.05, 1024, 256, 1234ULL}};

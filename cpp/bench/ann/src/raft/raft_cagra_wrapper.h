@@ -15,11 +15,11 @@
  */
 #pragma once
 
-#include <cassert>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <optional>
+#include "../common/ann_types.hpp"
+#include "../common/cuda_huge_page_resource.hpp"
+#include "../common/cuda_pinned_resource.hpp"
+#include "raft_ann_bench_utils.h"
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
@@ -33,26 +33,24 @@
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
-#include <stdexcept>
-#include <string>
-#include <type_traits>
-
-#include "../common/ann_types.hpp"
-#include "raft_ann_bench_utils.h"
-#include <raft/util/cudart_utils.hpp>
-
-#include "../common/cuda_huge_page_resource.hpp"
-#include "../common/cuda_pinned_resource.hpp"
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+
+#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
 
 namespace raft::bench::ann {
 
 enum class AllocatorType { HostPinned, HostHugePage, Device };
 template <typename T, typename IdxT>
-class RaftCagra : public ANN<T> {
+class RaftCagra : public ANN<T>, public AnnGPU {
  public:
   using typename ANN<T>::AnnSearchParam;
 
@@ -90,7 +88,7 @@ class RaftCagra : public ANN<T> {
     index_params_.ivf_pq_build_params->metric = parse_metric_type(metric);
   }
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
+  void build(const T* dataset, size_t nrow) final;
 
   void set_search_param(const AnnSearchParam& param) override;
 
@@ -98,12 +96,13 @@ class RaftCagra : public ANN<T> {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const override;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    return handle_.get_sync_stream();
+  }
 
   // to enable dataset access from GPU memory
   AlgoProperty get_preference() const override
@@ -145,7 +144,7 @@ class RaftCagra : public ANN<T> {
 };
 
 template <typename T, typename IdxT>
-void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow)
 {
   auto dataset_view =
     raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
@@ -161,8 +160,6 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t strea
                                                     index_params_.ivf_pq_build_params,
                                                     index_params_.ivf_pq_search_params,
                                                     false)));
-
-  handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
 
 inline std::string allocator_to_string(AllocatorType mem_type)
@@ -185,7 +182,7 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
   if (search_param.graph_mem != graph_mem_) {
     // Move graph to correct memory space
     graph_mem_ = search_param.graph_mem;
-    RAFT_LOG_INFO("moving graph to new memory space: %s", allocator_to_string(graph_mem_).c_str());
+    RAFT_LOG_DEBUG("moving graph to new memory space: %s", allocator_to_string(graph_mem_).c_str());
     // We create a new graph and copy to it from existing graph
     auto mr        = get_mr(graph_mem_);
     auto new_graph = make_device_mdarray<IdxT, int64_t>(
@@ -209,19 +206,16 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
     index_->update_dataset(handle_, make_const_mdspan(dataset_->view()));
 
     // Allocate space using the correct memory resource.
-    RAFT_LOG_INFO("moving dataset to new memory space: %s",
-                  allocator_to_string(dataset_mem_).c_str());
+    RAFT_LOG_DEBUG("moving dataset to new memory space: %s",
+                   allocator_to_string(dataset_mem_).c_str());
 
     auto mr = get_mr(dataset_mem_);
     raft::neighbors::cagra::detail::copy_with_padding(handle_, *dataset_, *input_dataset_v_, mr);
 
-    index_->update_dataset(handle_, make_const_mdspan(dataset_->view()));
+    auto dataset_view = raft::make_device_strided_matrix_view<const T, int64_t>(
+      dataset_->data_handle(), dataset_->extent(0), this->dim_, dataset_->extent(1));
+    index_->update_dataset(handle_, dataset_view);
 
-    // Ideally, instead of dataset_.view(), we should pass a strided matrix view to update.
-    // See Issue https://github.com/rapidsai/raft/issues/1972 for details.
-    // auto dataset_view = make_device_strided_matrix_view<const T, int64_t>(
-    //   dataset_.data_handle(), dataset_.extent(0), this->dim_, dataset_.extent(1));
-    // index_->update_dataset(handle_, dataset_view);
     need_dataset_update_ = false;
   }
 }
@@ -264,16 +258,12 @@ std::unique_ptr<ANN<T>> RaftCagra<T, IdxT>::copy()
 }
 
 template <typename T, typename IdxT>
-void RaftCagra<T, IdxT>::search(const T* queries,
-                                int batch_size,
-                                int k,
-                                size_t* neighbors,
-                                float* distances,
-                                cudaStream_t stream) const
+void RaftCagra<T, IdxT>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   IdxT* neighbors_IdxT;
   rmm::device_uvector<IdxT> neighbors_storage(0, resource::get_cuda_stream(handle_));
-  if constexpr (std::is_same<IdxT, size_t>::value) {
+  if constexpr (std::is_same_v<IdxT, size_t>) {
     neighbors_IdxT = neighbors;
   } else {
     neighbors_storage.resize(batch_size * k, resource::get_cuda_stream(handle_));
@@ -288,14 +278,12 @@ void RaftCagra<T, IdxT>::search(const T* queries,
   raft::neighbors::cagra::search(
     handle_, search_params_, *index_, queries_view, neighbors_view, distances_view);
 
-  if (!std::is_same<IdxT, size_t>::value) {
+  if constexpr (!std::is_same_v<IdxT, size_t>) {
     raft::linalg::unaryOp(neighbors,
                           neighbors_IdxT,
                           batch_size * k,
                           raft::cast_op<size_t>(),
                           raft::resource::get_cuda_stream(handle_));
   }
-
-  handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
 }  // namespace raft::bench::ann

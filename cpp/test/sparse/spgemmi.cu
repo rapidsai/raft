@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/cusparse_handle.hpp>
-
 #include "../test_utils.cuh"
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cusparse_handle.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 
 #include <iostream>
 #include <limits>

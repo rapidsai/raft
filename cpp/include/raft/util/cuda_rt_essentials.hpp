@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,9 @@
 // The scope is necessarily limited to ensure that compilation times are
 // minimized. Please make sure not to include large / expensive files from here.
 
-#include <cuda_runtime.h>
 #include <raft/core/error.hpp>
+
+#include <cuda_runtime.h>
 
 #include <cstdio>
 

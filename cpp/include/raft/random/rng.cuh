@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,13 @@
 #include "detail/rng_impl.cuh"
 #include "detail/rng_impl_deprecated.cuh"  // necessary for now (to be removed)
 #include "rng_state.hpp"
-#include <cassert>
-#include <optional>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+
+#include <cassert>
+#include <optional>
 #include <type_traits>
 #include <variant>
 

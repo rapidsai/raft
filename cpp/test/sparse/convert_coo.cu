@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/core/resource/cuda_stream.hpp>
+#include "../test_utils.cuh"
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/csr.hpp>
-
 #include <raft/util/cudart_utils.hpp>
 
-#include "../test_utils.cuh"
+#include <gtest/gtest.h>
 
 #include <iostream>
 #include <limits>

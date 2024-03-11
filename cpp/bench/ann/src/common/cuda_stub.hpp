@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
 
 /*
 The content of this header is governed by two preprocessor definitions:
@@ -21,26 +20,33 @@ The content of this header is governed by two preprocessor definitions:
   - BUILD_CPU_ONLY - whether none of the CUDA functions are used.
   - ANN_BENCH_LINK_CUDART - dynamically link against this string if defined.
 
-______________________________________________________________________________
+___________________________________________________________________________________
 |BUILD_CPU_ONLY | ANN_BENCH_LINK_CUDART |         cudart      | cuda_runtime_api.h |
-|         |                       |  found    |  needed |      included      |
-|---------|-----------------------|-----------|---------|--------------------|
-|   ON    |    <not defined>      |  false    |  false  |       NO           |
-|   ON    |   "cudart.so.xx.xx"   |  false    |  false  |       NO           |
-|  OFF    |     <nod defined>     |   true    |   true  |      YES           |
-|  OFF    |   "cudart.so.xx.xx"   | <runtime> |   true  |      YES           |
-------------------------------------------------------------------------------
+|               |                       |  found    |  needed |      included      |
+|---------------|-----------------------|-----------|---------|--------------------|
+|   ON          |    <not defined>      |  false    |  false  |       NO           |
+|   ON          |   "cudart.so.xx.xx"   |  false    |  false  |       NO           |
+|  OFF          |     <not defined>     |   true    |   true  |      YES           |
+|  OFF          |   "cudart.so.xx.xx"   | <runtime> |   true  |      YES           |
+------------------------------------------------------------------------------------
 */
 
+#pragma once
+
 #ifndef BUILD_CPU_ONLY
+#include <cuda_fp16.h>
 #include <cuda_runtime_api.h>
 #ifdef ANN_BENCH_LINK_CUDART
-#include <cstring>
 #include <dlfcn.h>
+
+#include <cstring>
 #endif
 #else
+#include <cstdint>
+
 typedef void* cudaStream_t;
 typedef void* cudaEvent_t;
+typedef uint16_t half;
 #endif
 
 namespace raft::bench::ann {
