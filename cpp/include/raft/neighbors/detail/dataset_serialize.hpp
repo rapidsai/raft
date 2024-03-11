@@ -124,7 +124,7 @@ void deserialize(raft::resources const& res,
                  std::unique_ptr<empty_dataset<IdxT>>& out)
 {
   auto suggested_dim = deserialize_scalar<uint32_t>(res, is);
-  return std::make_unique<empty_dataset<IdxT>>(suggested_dim).swap(out);
+  out                = std::make_unique<empty_dataset<IdxT>>(suggested_dim);
 }
 
 template <typename DataT, typename IdxT>
@@ -132,17 +132,18 @@ void deserialize(raft::resources const& res,
                  std::istream& is,
                  std::unique_ptr<strided_dataset<DataT, IdxT>>& out)
 {
-  using out_mdarray_type          = device_mdarray<DataT, matrix_extent<IdxT>, layout_stride>;
-  using out_layout_type           = typename out_mdarray_type::layout_type;
-  using out_container_policy_type = typename out_mdarray_type::container_policy_type;
-  using out_owning_type = owning_dataset<DataT, IdxT, out_layout_type, out_container_policy_type>;
-
   auto n_rows      = deserialize_scalar<IdxT>(res, is);
   auto dim         = deserialize_scalar<uint32_t>(res, is);
   auto stride      = deserialize_scalar<uint32_t>(res, is);
   auto out_extents = make_extents<IdxT>(n_rows, dim);
   auto out_layout  = make_strided_layout(out_extents, std::array<IdxT, 2>{stride, 1});
-  auto out_array   = out_mdarray_type{res, out_layout, out_container_policy_type{}};
+  auto out_array   = make_device_matrix<DataT, IdxT>(res, n_rows, stride);
+
+  using out_mdarray_type          = decltype(out_array);
+  using out_layout_type           = typename out_mdarray_type::layout_type;
+  using out_container_policy_type = typename out_mdarray_type::container_policy_type;
+  using out_owning_type = owning_dataset<DataT, IdxT, out_layout_type, out_container_policy_type>;
+
   auto host_arrray = make_host_mdarray<DataT, IdxT>(out_extents);
   deserialize_mdspan(res, is, host_arrray.view());
   RAFT_CUDA_TRY(cudaMemcpy2DAsync(out_array.data_handle(),
@@ -153,9 +154,8 @@ void deserialize(raft::resources const& res,
                                   n_rows,
                                   cudaMemcpyDefault,
                                   resource::get_cuda_stream(res)));
-  return std::unique_ptr<strided_dataset<DataT, IdxT>>{
-    new out_owning_type{std::move(out_array), out_layout}}
-    .swap(out);
+
+  out = std::make_unique<out_owning_type>(std::move(out_array), out_layout);
 }
 
 template <typename MathT, typename IdxT>
@@ -178,9 +178,8 @@ void deserialize(raft::resources const& res,
   deserialize_mdspan(res, is, pq_code_book.view());
   deserialize_mdspan(res, is, data.view());
 
-  return std::unique_ptr<vpq_dataset<MathT, IdxT>>{
-    new vpq_dataset{std::move(vq_code_book), std::move(pq_code_book), std::move(data)}}
-    .swap(out);
+  out = std::make_unique<vpq_dataset<MathT, IdxT>>(
+    std::move(vq_code_book), std::move(pq_code_book), std::move(data));
 }
 
 template <typename IdxT>
@@ -190,29 +189,34 @@ void deserialize(raft::resources const& res, std::istream& is, std::unique_ptr<d
     case kSerializeEmptyDataset: {
       std::unique_ptr<empty_dataset<IdxT>> p;
       deserialize(res, is, p);
-      return upcast_dataset_ptr(std::move(p)).swap(out);
+      out = std::move(p);
+      return;
     }
     case kSerializeStridedDataset:
       switch (deserialize_scalar<cudaDataType_t>(res, is)) {
         case CUDA_R_32F: {
           std::unique_ptr<strided_dataset<float, IdxT>> p;
           deserialize(res, is, p);
-          return upcast_dataset_ptr(std::move(p)).swap(out);
+          out = std::move(p);
+          return;
         }
         case CUDA_R_16F: {
           std::unique_ptr<strided_dataset<half, IdxT>> p;
           deserialize(res, is, p);
-          return upcast_dataset_ptr(std::move(p)).swap(out);
+          out = std::move(p);
+          return;
         }
         case CUDA_R_8I: {
           std::unique_ptr<strided_dataset<int8_t, IdxT>> p;
           deserialize(res, is, p);
-          return upcast_dataset_ptr(std::move(p)).swap(out);
+          out = std::move(p);
+          return;
         }
         case CUDA_R_8U: {
           std::unique_ptr<strided_dataset<uint8_t, IdxT>> p;
           deserialize(res, is, p);
-          return upcast_dataset_ptr(std::move(p)).swap(out);
+          out = std::move(p);
+          return;
         }
         default: break;
       }
@@ -221,12 +225,14 @@ void deserialize(raft::resources const& res, std::istream& is, std::unique_ptr<d
         case CUDA_R_32F: {
           std::unique_ptr<vpq_dataset<float, IdxT>> p;
           deserialize(res, is, p);
-          return upcast_dataset_ptr(std::move(p)).swap(out);
+          out = std::move(p);
+          return;
         }
         case CUDA_R_16F: {
           std::unique_ptr<vpq_dataset<half, IdxT>> p;
           deserialize(res, is, p);
-          return upcast_dataset_ptr(std::move(p)).swap(out);
+          out = std::move(p);
+          return;
         }
         default: break;
       }

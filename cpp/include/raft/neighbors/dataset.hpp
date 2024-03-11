@@ -118,7 +118,6 @@ auto construct_strided_dataset(const raft::resources& res,
   using value_type   = typename SrcT::value_type;
   using index_type   = typename SrcT::index_type;
   using layout_type  = typename SrcT::layout_type;
-  using out_type     = strided_dataset<value_type, index_type>;
   static_assert(extents_type::rank() == 2, "The input must be a matrix.");
   static_assert(std::is_same_v<layout_type, layout_right> ||
                   std::is_same_v<layout_type, layout_right_padded<value_type>> ||
@@ -133,9 +132,9 @@ auto construct_strided_dataset(const raft::resources& res,
 
   if (device_accessible && row_major && stride_matches) {
     // Everything matches: make a non-owning dataset
-    return std::unique_ptr<out_type>{new non_owning_dataset<value_type, index_type>{
+    return std::make_unique<non_owning_dataset<value_type, index_type>>(
       make_device_strided_matrix_view<const value_type, index_type>(
-        src.data_handle(), src.extent(0), src.extent(1), required_stride)}};
+        src.data_handle(), src.extent(0), src.extent(1), required_stride));
   }
   // Something is wrong: have to make a copy and produce an owning dataset
   auto out_layout =
@@ -161,7 +160,7 @@ auto construct_strided_dataset(const raft::resources& res,
                                   cudaMemcpyDefault,
                                   resource::get_cuda_stream(res)));
 
-  return std::unique_ptr<out_type>{new out_owning_type{std::move(out_array), out_layout}};
+  return std::make_unique<out_owning_type>(std::move(out_array), out_layout);
 }
 
 template <typename SrcT>
@@ -169,21 +168,10 @@ auto construct_aligned_dataset(const raft::resources& res, const SrcT& src, uint
   -> std::unique_ptr<strided_dataset<typename SrcT::value_type, typename SrcT::index_type>>
 {
   using value_type       = typename SrcT::value_type;
-  using index_type       = typename SrcT::index_type;
-  using out_type         = strided_dataset<value_type, index_type>;
   constexpr size_t kSize = sizeof(value_type);
   uint32_t required_stride =
     raft::round_up_safe<size_t>(src.extent(1) * kSize, std::lcm(align_bytes, kSize)) / kSize;
-  return std::unique_ptr<out_type>{construct_strided_dataset(res, src, required_stride).release()};
-}
-
-template <typename DatasetT>
-auto upcast_dataset_ptr(std::unique_ptr<DatasetT>&& src)
-  -> std::unique_ptr<dataset<typename DatasetT::index_type>>
-{
-  using out_type = dataset<typename DatasetT::index_type>;
-  static_assert(std::is_base_of_v<out_type, DatasetT>, "The source must be a child of `dataset`");
-  return std::unique_ptr<out_type>{src.release()};
+  return construct_strided_dataset(res, src, required_stride);
 }
 
 /** Parameters for VPQ compression. */
