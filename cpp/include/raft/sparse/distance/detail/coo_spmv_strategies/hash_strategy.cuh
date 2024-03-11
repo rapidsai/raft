@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@
 #pragma once
 
 #include "base_strategy.cuh"
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 
 #include <cuco/static_map.cuh>
-
 #include <thrust/copy.h>
 #include <thrust/iterator/counting_iterator.h>
 
@@ -43,11 +43,11 @@ namespace detail {
 template <typename value_idx, typename value_t, int tpb>
 class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
  public:
-  using insert_type =
-    typename cuco::static_map<value_idx, value_t, cuda::thread_scope_block>::device_mutable_view;
+  using insert_type = typename cuco::legacy::
+    static_map<value_idx, value_t, cuda::thread_scope_block>::device_mutable_view;
   using smem_type = typename insert_type::slot_type*;
   using find_type =
-    typename cuco::static_map<value_idx, value_t, cuda::thread_scope_block>::device_view;
+    typename cuco::legacy::static_map<value_idx, value_t, cuda::thread_scope_block>::device_view;
 
   hash_strategy(const distances_config_t<value_idx, value_t>& config_,
                 float capacity_threshold_ = 0.5,

@@ -15,8 +15,7 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
-#include <memory>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -25,7 +24,12 @@
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/spatial/knn/epsilon_neighborhood.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
+
+#include <memory>
 
 namespace raft {
 namespace spatial {

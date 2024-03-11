@@ -156,14 +156,6 @@ cdef class IndexParams:
         repeated calls to `extend` (extending the database).
         To disable this behavior and use as little GPU memory for the
         database as possible, set this flat to `True`.
-    max_train_points_per_pq_code : int, default = 256
-        The max number of data points to use per PQ code during PQ codebook
-        training. Using more data points per PQ code may increase the
-        quality of PQ codebook but may also increase the build time. The
-        parameter is applied to both PQ codebook generation methods, i.e.,
-        PER_SUBSPACE and PER_CLUSTER. In both cases, we will use
-        pq_book_size * max_train_points_per_pq_code training points to
-        train each codebook.
     """
     def __init__(self, *,
                  n_lists=1024,
@@ -175,8 +167,7 @@ cdef class IndexParams:
                  codebook_kind="subspace",
                  force_random_rotation=False,
                  add_data_on_build=True,
-                 conservative_memory_allocation=False,
-                 max_train_points_per_pq_code=256):
+                 conservative_memory_allocation=False):
         self.params.n_lists = n_lists
         self.params.metric = _get_metric(metric)
         self.params.metric_arg = 0
@@ -194,8 +185,6 @@ cdef class IndexParams:
         self.params.add_data_on_build = add_data_on_build
         self.params.conservative_memory_allocation = \
             conservative_memory_allocation
-        self.params.max_train_points_per_pq_code = \
-            max_train_points_per_pq_code
 
     @property
     def n_lists(self):
@@ -237,9 +226,6 @@ cdef class IndexParams:
     def conservative_memory_allocation(self):
         return self.params.conservative_memory_allocation
 
-    @property
-    def max_train_points_per_pq_code(self):
-        return self.params.max_train_points_per_pq_code
 
 cdef class Index:
     # We store a pointer to the index because it dose not have a trivial

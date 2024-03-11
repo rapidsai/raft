@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include <raft/neighbors/ann_types.hpp>
-#include <raft/neighbors/ivf_list_types.hpp>
-
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ann_types.hpp>
+#include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
 #include <thrust/fill.h>
@@ -105,14 +104,6 @@ struct index_params : ann::index_params {
    * flag to `true` if you prefer to use as little GPU memory for the database as possible.
    */
   bool conservative_memory_allocation = false;
-  /**
-   * The max number of data points to use per PQ code during PQ codebook training. Using more data
-   * points per PQ code may increase the quality of PQ codebook but may also increase the build
-   * time. The parameter is applied to both PQ codebook generation methods, i.e., PER_SUBSPACE and
-   * PER_CLUSTER. In both cases, we will use `pq_book_size * max_train_points_per_pq_code` training
-   * points to train each codebook.
-   */
-  uint32_t max_train_points_per_pq_code = 256;
 };
 
 struct search_params : ann::search_params {

@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-#include <raft_internal/matrix/select_k.cuh>
-
 #include <common/benchmark.hpp>
 
 #include <raft/core/device_resources.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/matrix/detail/select_radix.cuh>
+#include <raft/matrix/detail/select_warpsort.cuh>
+#include <raft/matrix/select_k.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
 
-#include <raft/matrix/detail/select_radix.cuh>
-#include <raft/matrix/detail/select_warpsort.cuh>
-#include <raft/matrix/select_k.cuh>
+#include <raft_internal/matrix/select_k.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>

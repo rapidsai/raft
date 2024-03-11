@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include <cstddef>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
+
+#include <cstddef>
 #ifndef RAFT_DISABLE_CUDA
 #include <thrust/host_vector.h>
 #include <thrust/mr/allocator.h>

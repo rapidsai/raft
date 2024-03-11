@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 
 #pragma once
 
+#include <raft/comms/comms.hpp>
+#include <raft/comms/detail/std_comms.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
-#include <raft/comms/comms.hpp>
-#include <raft/comms/detail/std_comms.hpp>
-
-#include <iostream>
 #include <nccl.h>
 #include <ucp/api/ucp.h>
+
+#include <iostream>
 
 namespace raft {
 namespace comms {

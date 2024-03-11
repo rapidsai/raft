@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 #pragma once
 
 #include "../haversine_distance.cuh"  // compute_haversine
-#include <cstdint>                    // uint32_t
+
+#include <cstdint>  // uint32_t
 
 namespace raft {
 namespace spatial {
@@ -57,6 +58,21 @@ struct EuclideanFunc : public DistFunc<value_t, value_int> {
     }
 
     return raft::sqrt(sum_sq);
+  }
+};
+
+template <typename value_t, typename value_int = std::uint32_t>
+struct EuclideanSqFunc : public DistFunc<value_t, value_int> {
+  __device__ __host__ __forceinline__ value_t operator()(const value_t* a,
+                                                         const value_t* b,
+                                                         const value_int n_dims) override
+  {
+    value_t sum_sq = 0;
+    for (value_int i = 0; i < n_dims; ++i) {
+      value_t diff = a[i] - b[i];
+      sum_sq += diff * diff;
+    }
+    return sum_sq;
   }
 };
 
