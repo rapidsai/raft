@@ -16,8 +16,9 @@
 
 #include "../ann_ivf_pq.cuh"
 #include "ivf_pq_build_test-ext.cuh"
-#include "ivf_pq_compute_similarity_filters_test-ext.cuh"
-#include "ivf_pq_search_test-ext.cuh"
+
+#include <raft_internal/neighbors/ivf_pq_compute_similarity_filters_test-ext.cuh>
+#include <raft_internal/neighbors/ivf_pq_search_test-ext.cuh>
 
 namespace raft::neighbors::ivf_pq {
 

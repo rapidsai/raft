@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "ivf_pq_compute_similarity_filters_test-ext.cuh"
-
 #include <raft/neighbors/ivf_pq-inl.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>  // raft::neighbors::ivf_pq::index
 #include <raft/neighbors/sample_filter.cuh>
+
+#include <raft_internal/neighbors/ivf_pq_compute_similarity_filters_test-ext.cuh>
 
 #define instantiate_raft_neighbors_ivf_pq_search(T, IdxT)            \
   template void raft::neighbors::ivf_pq::search<T, IdxT>(            \

@@ -15,7 +15,8 @@
  */
 
 #include "../ann_ivf_pq.cuh"
-#include "ivf_pq_search_test-ext.cuh"
+
+#include <raft_internal/neighbors/ivf_pq_search_test-ext.cuh>
 namespace raft::neighbors::ivf_pq {
 
 using f32_i08_i64 = ivf_pq_test<float, int8_t, int64_t>;

@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include "ivf_pq_compute_similarity_filters_test-ext.cuh"
-
 #include <raft/core/device_mdspan.hpp>  // raft::device_matrix_view
 #include <raft/core/resources.hpp>      // raft::resources
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>  // raft::neighbors::ivf_pq::index
 #include <raft/neighbors/sample_filter.cuh>
 #include <raft/neighbors/sample_filter_types.hpp>
+
+#include <raft_internal/neighbors/ivf_pq_compute_similarity_filters_test-ext.cuh>
 
 #include <cstdint>  // int64_t
 
