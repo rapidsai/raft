@@ -23,6 +23,7 @@
 #include <raft/util/integer_utils.hpp>  // rounding up
 
 #include <memory>
+#include <numeric>
 #include <type_traits>
 
 #ifdef __cpp_lib_bitops
@@ -48,7 +49,7 @@ template <typename IdxT>
 struct empty_dataset : public dataset<IdxT> {
   using index_type = IdxT;
   uint32_t suggested_dim;
-  explicit empty_dataset(uint32_t dim) noexcept : suggested_dim(0) {}
+  explicit empty_dataset(uint32_t dim) noexcept : suggested_dim(dim) {}
   [[nodiscard]] auto n_rows() const noexcept -> index_type final { return 0; }
   [[nodiscard]] auto dim() const noexcept -> uint32_t final { return suggested_dim; }
   [[nodiscard]] auto is_owning() const noexcept -> bool final { return true; }
@@ -67,7 +68,8 @@ struct strided_dataset : public dataset<IdxT> {
   /** Leading dimension of the dataset. */
   [[nodiscard]] constexpr auto stride() const noexcept -> uint32_t
   {
-    return static_cast<uint32_t>(view().stride(0));
+    auto v = view();
+    return static_cast<uint32_t>(v.stride(0) > 0 ? v.stride(0) : v.extent(1));
   }
   /** Get the view of the data. */
   [[nodiscard]] virtual auto view() const noexcept -> view_type;
@@ -79,7 +81,7 @@ struct non_owning_dataset : public strided_dataset<DataT, IdxT> {
   using value_type = DataT;
   using typename strided_dataset<value_type, index_type>::view_type;
   view_type data;
-  explicit non_owning_dataset(view_type data) noexcept : data(data) {}
+  explicit non_owning_dataset(view_type v) noexcept : data(v) {}
   [[nodiscard]] auto is_owning() const noexcept -> bool final { return false; }
   [[nodiscard]] auto view() const noexcept -> view_type final { return data; };
 };
@@ -94,8 +96,8 @@ struct owning_dataset : public strided_dataset<DataT, IdxT> {
   using mapping_type = typename view_type::mapping_type;
   storage_type data;
   mapping_type view_mapping;
-  owning_dataset(storage_type&& data, mapping_type view_mapping) noexcept
-    : data{data}, view_mapping{view_mapping}
+  owning_dataset(storage_type&& store, mapping_type view_mapping) noexcept
+    : data{std::move(store)}, view_mapping{view_mapping}
   {
   }
 
@@ -124,9 +126,10 @@ auto construct_strided_dataset(const raft::resources& res,
                 "The input must be row-major");
   RAFT_EXPECTS(src.extent(1) <= required_stride,
                "The input row length must be not larger than the desired stride.");
+  const uint32_t src_stride    = src.stride(0) > 0 ? src.stride(0) : src.extent(1);
   const bool device_accessible = get_device_for_address(src.data_handle()) >= 0;
-  const bool row_major         = src.stride(1) == 1;
-  const bool stride_matches    = required_stride == src.stride(0);
+  const bool row_major         = src.stride(1) <= 1;
+  const bool stride_matches    = required_stride == src_stride;
 
   if (device_accessible && row_major && stride_matches) {
     // Everything matches: make a non-owning dataset
@@ -135,14 +138,15 @@ auto construct_strided_dataset(const raft::resources& res,
         src.data_handle(), src.extent(0), src.extent(1), required_stride)}};
   }
   // Something is wrong: have to make a copy and produce an owning dataset
-  using out_mdarray_type = device_mdarray<value_type, matrix_extent<index_type>, layout_stride>;
-  using out_layout_type  = typename out_mdarray_type::layout_type;
+  auto out_layout =
+    make_strided_layout(src.extents(), std::array<index_type, 2>{required_stride, 1});
+  auto out_array = make_device_matrix<value_type, index_type>(res, src.extent(0), required_stride);
+
+  using out_mdarray_type          = decltype(out_array);
+  using out_layout_type           = typename out_mdarray_type::layout_type;
   using out_container_policy_type = typename out_mdarray_type::container_policy_type;
   using out_owning_type =
     owning_dataset<value_type, index_type, out_layout_type, out_container_policy_type>;
-  auto out_layout =
-    make_strided_layout(src.extents(), std::array<index_type, 2>{required_stride, 1});
-  auto out_array = out_mdarray_type{res, out_layout, out_container_policy_type{}};
 
   RAFT_CUDA_TRY(cudaMemsetAsync(out_array.data_handle(),
                                 0,
@@ -151,7 +155,7 @@ auto construct_strided_dataset(const raft::resources& res,
   RAFT_CUDA_TRY(cudaMemcpy2DAsync(out_array.data_handle(),
                                   sizeof(value_type) * required_stride,
                                   src.data_handle(),
-                                  sizeof(value_type) * src.extent(1),
+                                  sizeof(value_type) * src_stride,
                                   sizeof(value_type) * src.extent(1),
                                   src.extent(0),
                                   cudaMemcpyDefault,
@@ -169,7 +173,7 @@ auto construct_aligned_dataset(const raft::resources& res, const SrcT& src, uint
   using out_type         = strided_dataset<value_type, index_type>;
   constexpr size_t kSize = sizeof(value_type);
   uint32_t required_stride =
-    raft::round_up_safe<size_t>(src.extent(1) * kSize, align_bytes) / kSize;
+    raft::round_up_safe<size_t>(src.extent(1) * kSize, std::lcm(align_bytes, kSize)) / kSize;
   return std::unique_ptr<out_type>{construct_strided_dataset(res, src, required_stride).release()};
 }
 
@@ -243,7 +247,9 @@ struct vpq_dataset : public dataset<IdxT> {
   vpq_dataset(device_matrix<MathT, uint32_t, row_major>&& vq_code_book,
               device_matrix<MathT, uint32_t, row_major>&& pq_code_book,
               device_matrix<uint8_t, IdxT, row_major>&& data)
-    : vq_code_book{vq_code_book}, pq_code_book{pq_code_book}, data{data}
+    : vq_code_book{std::move(vq_code_book)},
+      pq_code_book{std::move(pq_code_book)},
+      data{std::move(data)}
   {
   }
 
