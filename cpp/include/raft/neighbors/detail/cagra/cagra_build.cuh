@@ -350,9 +350,8 @@ index<T, IdxT> build(
       idx.update_graph(res, raft::make_const_mdspan(cagra_graph.view()));
       idx.update_dataset(
         res,
-        // TODO: ATM, only float math type is supported in kmeans training.
-        //       Later, we can do runtime dispatching of the math type.
-        neighbors::vpq_build<decltype(dataset), float, int64_t>(res, *params.compression, dataset));
+        // TODO: hardcoding codebook math to `half`, we can do runtime dispatching later
+        neighbors::vpq_build<decltype(dataset), half, int64_t>(res, *params.compression, dataset));
       return idx;
     }
     return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));

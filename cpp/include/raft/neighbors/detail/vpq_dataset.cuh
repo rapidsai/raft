@@ -382,6 +382,25 @@ auto process_and_fill_codes(const raft::resources& res,
   return codes;
 }
 
+template <typename NewMathT, typename OldMathT, typename IdxT>
+auto vpq_convert_math_type(const raft::resources& res, vpq_dataset<OldMathT, IdxT>&& src)
+  -> vpq_dataset<NewMathT, IdxT>
+{
+  auto vq_code_book = make_device_mdarray<NewMathT>(res, src.vq_code_book.extents());
+  auto pq_code_book = make_device_mdarray<NewMathT>(res, src.pq_code_book.extents());
+
+  linalg::map(res,
+              vq_code_book.view(),
+              spatial::knn::detail::utils::mapping<NewMathT>{},
+              raft::make_const_mdspan(src.vq_code_book.view()));
+  linalg::map(res,
+              pq_code_book.view(),
+              spatial::knn::detail::utils::mapping<NewMathT>{},
+              raft::make_const_mdspan(src.pq_code_book.view()));
+  return vpq_dataset<NewMathT, IdxT>{
+    std::move(vq_code_book), std::move(pq_code_book), std::move(src.data)};
+}
+
 template <typename DatasetT, typename MathT, typename IdxT>
 auto vpq_build(const raft::resources& res, const vpq_params& params, const DatasetT& dataset)
   -> vpq_dataset<MathT, IdxT>

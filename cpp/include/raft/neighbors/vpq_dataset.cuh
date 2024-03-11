@@ -40,7 +40,12 @@ template <typename DatasetT,
 auto vpq_build(const raft::resources& res, const vpq_params& params, const DatasetT& dataset)
   -> vpq_dataset<MathT, IdxT>
 {
-  return detail::vpq_build<DatasetT, MathT, IdxT>(res, params, dataset);
+  if constexpr (std::is_same_v<MathT, half>) {
+    return detail::vpq_convert_math_type<half, float, IdxT>(
+      res, detail::vpq_build<DatasetT, float, IdxT>(res, params, dataset));
+  } else {
+    return detail::vpq_build<DatasetT, MathT, IdxT>(res, params, dataset);
+  }
 }
 
 }  // namespace raft::neighbors
