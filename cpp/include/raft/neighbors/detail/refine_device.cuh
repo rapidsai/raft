@@ -88,6 +88,30 @@ void refine_device(raft::resources const& handle,
                                                            n_queries,
                                                            n_candidates);
   uint32_t grid_dim_x = 1;
+
+  // the neighbor ids will be computed in uint32_t as offset
+  rmm::device_uvector<uint32_t> neighbors_uint32_buf(0, resource::get_cuda_stream(handle));
+  // Number of samples for each query
+  rmm::device_uvector<uint32_t> num_samples(n_queries, resource::get_cuda_stream(handle));
+  // Offsets per probe for each query
+  rmm::device_uvector<uint32_t> chunk_index(n_queries, resource::get_cuda_stream(handle));
+
+  ivf::detail::calc_chunk_indices<uint32_t>::configure(1, n_queries)(
+    refinement_index.list_sizes().data_handle(),
+    fake_coarse_idx.data(),
+    chunk_index.data(),
+    num_samples.data(),
+    resource::get_cuda_stream(handle));
+
+  uint32_t* neighbors_uint32 = nullptr;
+  if constexpr (sizeof(idx_t) == sizeof(uint32_t)) {
+    neighbors_uint32 = reinterpret_cast<uint32_t*>(indices.data_handle());
+  } else {
+    neighbors_uint32_buf.resize(std::size_t(n_queries) * std::size_t(k),
+                                resource::get_cuda_stream(handle));
+    neighbors_uint32 = neighbors_uint32_buf.data();
+  }
+
   raft::neighbors::ivf_flat::detail::ivfflat_interleaved_scan<
     data_t,
     typename raft::spatial::knn::detail::utils::config<data_t>::value_t,
@@ -100,13 +124,24 @@ void refine_device(raft::resources const& handle,
            1,
            k,
            0,
-           nullptr,
+           chunk_index.data(),
            raft::distance::is_min_close(metric),
            raft::neighbors::filtering::none_ivf_sample_filter(),
-           indices.data_handle(),
+           neighbors_uint32,
            distances.data_handle(),
            grid_dim_x,
            resource::get_cuda_stream(handle));
+
+  // postprocessing -- neighbors from position to actual id
+  ivf::detail::postprocess_neighbors(indices.data_handle(),
+                                     neighbors_uint32,
+                                     refinement_index.inds_ptrs().data_handle(),
+                                     fake_coarse_idx.data(),
+                                     chunk_index.data(),
+                                     n_queries,
+                                     1,
+                                     k,
+                                     resource::get_cuda_stream(handle));
 }
 
 }  // namespace raft::neighbors::detail

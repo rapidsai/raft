@@ -700,7 +700,7 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
                           const uint32_t* chunk_indices,
                           const uint32_t dim,
                           IvfSampleFilterT sample_filter,
-                          IdxT* neighbors,
+                          uint32_t* neighbors,
                           float* distances)
 {
   extern __shared__ __align__(256) uint8_t interleaved_scan_kernel_smem[];
@@ -752,11 +752,9 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
         align_warp::div(list_length + align_warp::Mask);  // ceildiv by power of 2
 
       uint32_t sample_offset = 0;
-      if constexpr (!kManageLocalTopK) {
-        if (probe_id > 0) { sample_offset = chunk_indices[probe_id - 1]; }
-        assert(list_length == chunk_indices[probe_id] - sample_offset);
-        assert(sample_offset + list_length <= max_samples);
-      }
+      if (probe_id > 0) { sample_offset = chunk_indices[probe_id - 1]; }
+      assert(list_length == chunk_indices[probe_id] - sample_offset);
+      assert(sample_offset + list_length <= max_samples);
 
       constexpr int kUnroll        = WarpSize / Veclen;
       constexpr uint32_t kNumWarps = kThreadsPerBlock / WarpSize;
@@ -806,8 +804,7 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
         // Enqueue one element per thread
         const float val = valid ? static_cast<float>(dist) : local_topk_t::queue_t::kDummy;
         if constexpr (kManageLocalTopK) {
-          const size_t idx = valid ? static_cast<size_t>(list_indices_ptrs[list_id][vec_id]) : 0;
-          queue.add(val, idx);
+          queue.add(val, sample_offset + vec_id);
         } else {
           if (vec_id < list_length) distances[sample_offset + vec_id] = val;
         }
@@ -873,7 +870,7 @@ void launch_kernel(Lambda lambda,
                    const uint32_t max_samples,
                    const uint32_t* chunk_indices,
                    IvfSampleFilterT sample_filter,
-                   IdxT* neighbors,
+                   uint32_t* neighbors,
                    float* distances,
                    uint32_t& grid_dim_x,
                    rmm::cuda_stream_view stream)
@@ -1161,7 +1158,7 @@ void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                               const uint32_t* chunk_indices,
                               const bool select_min,
                               IvfSampleFilterT sample_filter,
-                              IdxT* neighbors,
+                              uint32_t* neighbors,
                               float* distances,
                               uint32_t& grid_dim_x,
                               rmm::cuda_stream_view stream)
