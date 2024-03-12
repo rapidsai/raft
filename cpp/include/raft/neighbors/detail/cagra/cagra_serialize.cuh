@@ -249,9 +249,7 @@ auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
   idx.update_graph(res, raft::make_const_mdspan(graph.view()));
   bool has_dataset = deserialize_scalar<bool>(res, is);
   if (has_dataset) {
-    std::unique_ptr<dataset<int64_t>> dataset;
-    neighbors::detail::deserialize(res, is, dataset);
-    idx.update_dataset(res, std::move(dataset));
+    idx.update_dataset(res, neighbors::detail::deserialize_dataset<int64_t>(res, is));
   }
   return idx;
 }
