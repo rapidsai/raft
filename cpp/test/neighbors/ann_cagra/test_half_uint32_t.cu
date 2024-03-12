@@ -33,8 +33,14 @@ TEST_P(AnnCagraFilterTestH_U32, AnnCagraFilter)
   this->testCagraRemoved();
 }
 
+typedef AnnCagraAddNodesTest<float, half, std::uint32_t> AnnCagraAddNodesTestH_U32;
+TEST_P(AnnCagraAddNodesTestH_U32, AnnCagraAddNodes) { this->testCagra(); }
+
 INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestH_U32, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestH_U32, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(AnnCagraFilterTest, AnnCagraFilterTestH_U32, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnCagraAddNodesTest,
+                        AnnCagraAddNodesTestH_U32,
+                        ::testing::ValuesIn(inputs));
 
 }  // namespace raft::neighbors::cagra

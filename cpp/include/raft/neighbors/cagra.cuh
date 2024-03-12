@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "detail/cagra/add_nodes.cuh"
 #include "detail/cagra/cagra_build.cuh"
 #include "detail/cagra/cagra_search.cuh"
 #include "detail/cagra/graph_core.cuh"
@@ -403,6 +404,118 @@ void search_with_filtering(raft::resources const& res,
 
   cagra::detail::search_main<T, internal_IdxT, CagraSampleFilterT, IdxT>(
     res, params, idx, queries_internal, neighbors_internal, distances_internal, sample_filter);
+}
+
+/**
+ * @brief Add new vectors to the index.
+ *
+ * See [cagra::extend](#cagra::extend) for usage example
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] handle raft resources
+ * @param[in] updated_dataset_view updated dataset (initial + additional dataset)
+ * @param[in] index CAGRA index
+ * @param[out] updated_graph_view updated graph
+ * @param[in] max_batch_size the batch size for graph update
+ */
+template <class T, class IdxT>
+void add_graph_nodes(raft::resources const& handle,
+                     const raft::device_matrix_view<T, std::int64_t> updated_dataset_view,
+                     const raft::neighbors::cagra::index<T, IdxT>& index,
+                     raft::host_matrix_view<IdxT, std::int64_t> updated_graph_view,
+                     const std::size_t max_batch_size)
+{
+  assert(updated_dataset.extent(0) >= original_index.size());
+
+  const std::size_t initial_dataset_size = index.size();
+  const std::size_t new_dataset_size     = updated_dataset_view.extent(0);
+  const std::size_t num_new_nodes        = new_dataset_size - initial_dataset_size;
+  const std::size_t degree               = index.graph_degree();
+  const std::size_t dim                  = index.dim();
+  const std::size_t max_batch_size_      = max_batch_size == 0 ? num_new_nodes : max_batch_size;
+
+  raft::copy(updated_graph_view.data_handle(),
+             index.graph().data_handle(),
+             initial_dataset_size * degree,
+             raft::resource::get_cuda_stream(handle));
+
+  auto dataset_view = raft::make_device_matrix_view<const T, int64_t>(
+    index.dataset().data_handle(), initial_dataset_size, dim);
+
+  raft::neighbors::cagra::index<T, IdxT> internal_index(
+    handle, index.metric(), dataset_view, index.graph());
+
+  for (std::size_t additional_dataset_offset = 0; additional_dataset_offset < num_new_nodes;
+       additional_dataset_offset += max_batch_size_) {
+    const auto actual_batch_size =
+      std::min(num_new_nodes - additional_dataset_offset, max_batch_size_);
+    auto updated_graph = raft::make_host_matrix_view<IdxT, std::int64_t>(
+      updated_graph_view.data_handle(),
+      initial_dataset_size + additional_dataset_offset + actual_batch_size,
+      degree);
+    auto updated_dataset = raft::make_device_matrix_view<const T, std::int64_t>(
+      updated_dataset_view.data_handle() + (initial_dataset_size + additional_dataset_offset) * dim,
+      actual_batch_size,
+      dim);
+    raft::neighbors::cagra::detail::add_node_core<T, IdxT>(
+      handle, internal_index, updated_dataset, updated_graph);
+
+    internal_index.update_dataset(handle, raft::make_const_mdspan(updated_dataset));
+    internal_index.update_graph(handle, raft::make_const_mdspan(updated_graph));
+  }
+}
+
+/**
+ * @brief Add new vectors to a CAGRA index
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   // memory space for a new dataset and graph
+ *   auto additional_dataset = raft::make_host_matrix<uint32_t,int64_t>(res,add_size,dim);
+ *
+ *   cagra::extend(res, index, additional_dataset.view());
+ * @endcode
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] handle raft resources
+ * @param[in] additional_dataset additional dataset
+ * @param[in,out] index CAGRA index
+ * @param[in] max_batch_size the batch size for graph update
+ */
+template <class T, class IdxT>
+void extend(raft::resources const& handle,
+            const raft::host_matrix_view<const T, std::int64_t> additional_dataset,
+            raft::neighbors::cagra::index<T, IdxT>& index,
+            const std::size_t max_batch_size = 0)
+{
+  const std::size_t num_new_nodes        = additional_dataset.extent(0);
+  const std::size_t initial_dataset_size = index.size();
+  const std::size_t new_dataset_size     = initial_dataset_size + num_new_nodes;
+  const std::size_t degree               = index.graph_degree();
+  const std::size_t dim                  = index.dim();
+
+  auto updated_graph = raft::make_host_matrix<IdxT, std::int64_t>(new_dataset_size, degree);
+
+  auto updated_dataset = raft::make_device_matrix<T, std::int64_t>(handle, new_dataset_size, dim);
+
+  raft::copy(updated_dataset.data_handle(),
+             index.dataset().data_handle(),
+             initial_dataset_size * dim,
+             raft::resource::get_cuda_stream(handle));
+  raft::copy(updated_dataset.data_handle() + initial_dataset_size * dim,
+             additional_dataset.data_handle(),
+             num_new_nodes * dim,
+             raft::resource::get_cuda_stream(handle));
+
+  add_graph_nodes(handle, updated_dataset.view(), index, updated_graph.view(), max_batch_size);
+
+  index.update_dataset(handle, raft::make_const_mdspan(updated_dataset.view()));
+  index.update_graph(handle, raft::make_const_mdspan(updated_graph.view()));
 }
 
 /** @} */  // end group cagra
