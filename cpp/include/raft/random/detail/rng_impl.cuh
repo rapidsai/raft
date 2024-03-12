@@ -17,11 +17,17 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/math.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/detail/cub_wrappers.cuh>
 #include <raft/util/scatter.cuh>
+
+#include <rmm/device_scalar.hpp>
+
+#include <cub/cub.cuh>
 
 namespace raft {
 namespace random {
@@ -278,6 +284,7 @@ std::enable_if_t<std::is_integral_v<OutType>> discrete(RngState& rng_state,
                      len);
 }
 
+/** Note the memory space requirements are O(4*len) */
 template <typename DataT, typename WeightsT, typename IdxT = int>
 void sampleWithoutReplacement(RngState& rng_state,
                               DataT* out,
@@ -337,6 +344,158 @@ void affine_transform_params(RngState const& rng_state, IdxT n, IdxT& a, IdxT& b
   }
   // the bias term 'b' can be any number in the range of [0, n)
   b = mt_rng() % n;
+}
+
+/** @brief Sample without replacement from range 0..N-1.
+ *
+ * Elements are sampled uniformly.
+ * The algorithm will allocate a workspace of size O(4*n_samples) internally.
+ *
+ * We use max N random numbers. Depending on how large n_samples is w.r.t to N, we
+ * either use rejection sampling, sort the [0..N-1] values using random keys.
+ *
+ * @tparam IdxT type of indices that we sample
+ * @tparam MatIdxT extent type of the returned mdarray
+ *
+ * @param res RAFT resource handle
+ * @param RngState state random number generator state
+ * @param N number of elements to sample from. We will sample values in range 0..N-1
+ * @param n_samples number of samples to return
+ *
+ * @return device mdarray with the random samples
+ */
+template <typename IdxT, typename MatIdxT = IdxT>
+auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT n_samples)
+  -> raft::device_vector<IdxT, MatIdxT>
+{
+  RAFT_EXPECTS(n_samples <= N, "Cannot have more training samples than dataset vectors");
+
+  // Number of samples we'll need to sample (with replacement), to expect 'k'
+  // unique samples from 'n' is given by the following equation: log(1 - k/n)/log(1 - 1/n) ref:
+  // https://stats.stackexchange.com/questions/296005/the-expected-number-of-unique-elements-drawn-with-replacement
+  IdxT n_excess_samples =
+    n_samples < N
+      ? std::ceil(raft::log(1 - double(n_samples) / double(N)) / (raft::log(1 - 1 / double(N))))
+      : N;
+
+  // There is a variance of n_excess_samples, we take 10% more elements.
+  n_excess_samples += std::max<IdxT>(0.1 * n_samples, 100);
+
+  // n_excess_sampless will be larger than N around k = 0.64*N. When we reach N, then instead of
+  // doing rejection sampling, we simply shuffle the range [0..N-1] using N random numbers.
+  n_excess_samples = std::min<IdxT>(n_excess_samples, N);
+  auto rnd_idx     = raft::make_device_vector<IdxT, IdxT>(res, n_excess_samples);
+
+  RAFT_LOG_INFO("We will draw %zu random samples", (size_t)rnd_idx.size());
+  auto linear_idx = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
+  raft::linalg::map_offset(res, linear_idx.view(), identity_op());
+
+  uniformInt(res, state, rnd_idx.data_handle(), rnd_idx.size(), IdxT(0), IdxT(N));
+
+  if (rnd_idx.size() <= 100) {
+    print_vector("rnd_idx", rnd_idx.data_handle(), rnd_idx.size(), std::cout);
+  }
+  // Sort indices according to rnd keys
+  size_t workspace_size = 0;
+  auto stream           = resource::get_cuda_stream(res);
+  cub::DeviceMergeSort::SortPairs(nullptr,
+                                  workspace_size,
+                                  rnd_idx.data_handle(),
+                                  linear_idx.data_handle(),
+                                  rnd_idx.size(),
+                                  raft::less_op{},
+                                  stream);
+  float GiB = 1073741824.0f;
+  RAFT_LOG_INFO("worksize sort %6.1f GiB", workspace_size / GiB);
+  auto workspace = raft::make_device_vector<char, IdxT>(res, workspace_size);
+  cub::DeviceMergeSort::SortPairs(workspace.data_handle(),
+                                  workspace_size,
+                                  rnd_idx.data_handle(),
+                                  linear_idx.data_handle(),
+                                  rnd_idx.size(),
+                                  raft::less_op{},
+                                  stream);
+
+  if (rnd_idx.size() <= 100) {
+    print_vector("rnd   _idx sorted", rnd_idx.data_handle(), rnd_idx.size(), std::cout);
+  }
+  if (rnd_idx.size() <= 100) {
+    print_vector("linear_idx sorted", linear_idx.data_handle(), linear_idx.size(), std::cout);
+  }
+  if (rnd_idx.size() == static_cast<size_t>(N)) {
+    // We shuffled the linear_idx array by sorting it according to rnd_idx.
+    // We return the first n_samples elements.
+    if (n_samples == N) { return linear_idx; }
+    rnd_idx = raft::make_device_vector<IdxT, IdxT>(res, n_samples);
+    raft::copy(rnd_idx.data_handle(), linear_idx.data_handle(), n_samples, stream);
+    return rnd_idx;
+  }
+  // Else we do a rejection sampling (or excess sampling): we generated more random indices than
+  // needed and reject the duplicates.
+  auto keys_out   = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
+  auto values_out = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
+  rmm::device_scalar<IdxT> num_selected(stream);
+  size_t worksize2 = 0;
+  cub::DeviceSelect::UniqueByKey(nullptr,
+                                 worksize2,
+                                 rnd_idx.data_handle(),
+                                 linear_idx.data_handle(),
+                                 keys_out.data_handle(),
+                                 values_out.data_handle(),
+                                 num_selected.data(),
+                                 rnd_idx.size(),
+                                 stream);
+
+  RAFT_LOG_INFO("worksize unique %6.1f GiB", worksize2 / GiB);
+
+  if (worksize2 > workspace.size()) {
+    workspace      = raft::make_device_vector<char, IdxT>(res, worksize2);
+    workspace_size = workspace.size();
+  }
+
+  cub::DeviceSelect::UniqueByKey(workspace.data_handle(),
+                                 workspace_size,
+                                 rnd_idx.data_handle(),
+                                 linear_idx.data_handle(),
+                                 keys_out.data_handle(),
+                                 values_out.data_handle(),
+                                 num_selected.data(),
+                                 rnd_idx.size(),
+                                 stream);
+
+  IdxT selected = num_selected.value(stream);
+
+  if (rnd_idx.size() <= 100) {
+    print_vector("unique keys (rnd_idx)", keys_out.data_handle(), selected, std::cout);
+    print_vector("unique vals (linear idx)", values_out.data_handle(), selected, std::cout);
+  }
+  if (selected < n_samples) {
+    RAFT_LOG_WARN("Subsampling returned with less unique indices (%zu) than requested (%zu)",
+                  (size_t)selected,
+                  (size_t)n_samples);
+  }
+  RAFT_LOG_INFO(
+    "We have %zu unique idices out of %zu samples", (size_t)selected, (size_t)rnd_idx.size());
+  RAFT_LOG_INFO(
+    "Subsampling unique indices (%zu) requested (%zu)", (size_t)selected, (size_t)n_samples);
+
+  // After duplicates are removed, we need to shuffle back to random order
+
+  cub::DeviceMergeSort::SortPairs(workspace.data_handle(),
+                                  workspace_size,
+                                  values_out.data_handle(),
+                                  keys_out.data_handle(),
+                                  n_samples,
+                                  raft::less_op{},
+                                  stream);
+  if (rnd_idx.size() <= 100) {
+    print_vector("re sorted keys ", keys_out.data_handle(), selected, std::cout);
+    print_vector("re sorted vals ", values_out.data_handle(), selected, std::cout);
+  }
+
+  values_out = raft::make_device_vector<IdxT, IdxT>(res, n_samples);
+  raft::copy(values_out.data_handle(), keys_out.data_handle(), n_samples, stream);
+  return values_out;
 }
 
 };  // end namespace detail
