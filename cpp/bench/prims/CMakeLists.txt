@@ -74,94 +74,96 @@ function(ConfigureBench)
 endfunction()
 
 if(BUILD_PRIMS_BENCH)
-  ConfigureBench(
-    NAME CORE_BENCH PATH bench/prims/core/bitset.cu bench/prims/core/copy.cu bench/prims/main.cpp
-  )
+  # ConfigureBench(
+  #   NAME CORE_BENCH PATH bench/prims/core/bitset.cu bench/prims/core/copy.cu bench/prims/main.cpp
+  # )
+
+  # ConfigureBench(
+  #   NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
+  #   bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
+  # )
+
+  # ConfigureBench(
+  #   NAME TUNE_DISTANCE PATH bench/prims/distance/tune_pairwise/kernel.cu
+  #   bench/prims/distance/tune_pairwise/bench.cu bench/prims/main.cpp
+  # )
+
+  # ConfigureBench(
+  #   NAME
+  #   DISTANCE_BENCH
+  #   PATH
+  #   bench/prims/distance/distance_cosine.cu
+  #   bench/prims/distance/distance_exp_l2.cu
+  #   bench/prims/distance/distance_l1.cu
+  #   bench/prims/distance/distance_unexp_l2.cu
+  #   bench/prims/distance/fused_l2_nn.cu
+  #   bench/prims/distance/masked_nn.cu
+  #   bench/prims/distance/kernels.cu
+  #   bench/prims/main.cpp
+  #   OPTIONAL
+  #   LIB
+  #   EXPLICIT_INSTANTIATE_ONLY
+  # )
+
+  # ConfigureBench(
+  #   NAME
+  #   LINALG_BENCH
+  #   PATH
+  #   bench/prims/linalg/add.cu
+  #   bench/prims/linalg/map_then_reduce.cu
+  #   bench/prims/linalg/matrix_vector_op.cu
+  #   bench/prims/linalg/norm.cu
+  #   bench/prims/linalg/normalize.cu
+  #   bench/prims/linalg/reduce_cols_by_key.cu
+  #   bench/prims/linalg/reduce_rows_by_key.cu
+  #   bench/prims/linalg/reduce.cu
+  #   bench/prims/linalg/sddmm.cu
+  #   bench/prims/main.cpp
+  # )
+
+  # ConfigureBench(
+  #   NAME
+  #   MATRIX_BENCH
+  #   PATH
+  #   bench/prims/matrix/argmin.cu
+  #   bench/prims/matrix/gather.cu
+  #   bench/prims/matrix/select_k.cu
+  #   bench/prims/matrix/main.cpp
+  #   OPTIONAL
+  #   LIB
+  #   EXPLICIT_INSTANTIATE_ONLY
+  # )
 
   ConfigureBench(
-    NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
-    bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME RANDOM_BENCH PATH 
+    # bench/prims/random/make_blobs.cu bench/prims/random/permute.cu
+    # bench/prims/random/rng.cu
+     bench/prims/random/subsample.cu bench/prims/main.cpp
   )
 
-  ConfigureBench(
-    NAME TUNE_DISTANCE PATH bench/prims/distance/tune_pairwise/kernel.cu
-    bench/prims/distance/tune_pairwise/bench.cu bench/prims/main.cpp
-  )
+  # ConfigureBench(NAME SPARSE_BENCH PATH bench/prims/sparse/convert_csr.cu bench/prims/main.cpp)
 
-  ConfigureBench(
-    NAME
-    DISTANCE_BENCH
-    PATH
-    bench/prims/distance/distance_cosine.cu
-    bench/prims/distance/distance_exp_l2.cu
-    bench/prims/distance/distance_l1.cu
-    bench/prims/distance/distance_unexp_l2.cu
-    bench/prims/distance/fused_l2_nn.cu
-    bench/prims/distance/masked_nn.cu
-    bench/prims/distance/kernels.cu
-    bench/prims/main.cpp
-    OPTIONAL
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureBench(
-    NAME
-    LINALG_BENCH
-    PATH
-    bench/prims/linalg/add.cu
-    bench/prims/linalg/map_then_reduce.cu
-    bench/prims/linalg/matrix_vector_op.cu
-    bench/prims/linalg/norm.cu
-    bench/prims/linalg/normalize.cu
-    bench/prims/linalg/reduce_cols_by_key.cu
-    bench/prims/linalg/reduce_rows_by_key.cu
-    bench/prims/linalg/reduce.cu
-    bench/prims/linalg/sddmm.cu
-    bench/prims/main.cpp
-  )
-
-  ConfigureBench(
-    NAME
-    MATRIX_BENCH
-    PATH
-    bench/prims/matrix/argmin.cu
-    bench/prims/matrix/gather.cu
-    bench/prims/matrix/select_k.cu
-    bench/prims/matrix/main.cpp
-    OPTIONAL
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureBench(
-    NAME RANDOM_BENCH PATH bench/prims/random/make_blobs.cu bench/prims/random/permute.cu
-    bench/prims/random/rng.cu bench/prims/main.cpp
-  )
-
-  ConfigureBench(NAME SPARSE_BENCH PATH bench/prims/sparse/convert_csr.cu bench/prims/main.cpp)
-
-  ConfigureBench(
-    NAME
-    NEIGHBORS_BENCH
-    PATH
-    bench/prims/neighbors/knn/brute_force_float_int64_t.cu
-    bench/prims/neighbors/knn/brute_force_float_uint32_t.cu
-    bench/prims/neighbors/knn/cagra_float_uint32_t.cu
-    bench/prims/neighbors/knn/ivf_flat_filter_float_int64_t.cu
-    bench/prims/neighbors/knn/ivf_flat_float_int64_t.cu
-    bench/prims/neighbors/knn/ivf_flat_int8_t_int64_t.cu
-    bench/prims/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_float_int64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_filter_float_int64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_int8_t_int64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_uint8_t_int64_t.cu
-    bench/prims/neighbors/refine_float_int64_t.cu
-    bench/prims/neighbors/refine_uint8_t_int64_t.cu
-    bench/prims/main.cpp
-    OPTIONAL
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
+  # ConfigureBench(
+  #   NAME
+  #   NEIGHBORS_BENCH
+  #   PATH
+  #   bench/prims/neighbors/knn/brute_force_float_int64_t.cu
+  #   bench/prims/neighbors/knn/brute_force_float_uint32_t.cu
+  #   bench/prims/neighbors/knn/cagra_float_uint32_t.cu
+  #   bench/prims/neighbors/knn/ivf_flat_filter_float_int64_t.cu
+  #   bench/prims/neighbors/knn/ivf_flat_float_int64_t.cu
+  #   bench/prims/neighbors/knn/ivf_flat_int8_t_int64_t.cu
+  #   bench/prims/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
+  #   bench/prims/neighbors/knn/ivf_pq_float_int64_t.cu
+  #   bench/prims/neighbors/knn/ivf_pq_filter_float_int64_t.cu
+  #   bench/prims/neighbors/knn/ivf_pq_int8_t_int64_t.cu
+  #   bench/prims/neighbors/knn/ivf_pq_uint8_t_int64_t.cu
+  #   bench/prims/neighbors/refine_float_int64_t.cu
+  #   bench/prims/neighbors/refine_uint8_t_int64_t.cu
+  #   bench/prims/main.cpp
+  #   OPTIONAL
+  #   LIB
+  #   EXPLICIT_INSTANTIATE_ONLY
+  # )
 
 endif()
