@@ -1,4 +1,4 @@
-name: faiss_gpu_ivf_flat
+name: faiss_cpu_ivf_flat
 groups:
   base:
     build:

@@ -45,6 +45,11 @@ void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::FaissGpuIVFFlat<T>::BuildParam& param)
 {
   parse_base_build_param<T>(conf, param);
+  if (conf.contains("use_raft")) {
+    param.use_raft = conf.at("use_raft");
+  } else {
+    param.use_raft = false;
+  }
 }
 
 template <typename T>
@@ -62,6 +67,16 @@ void parse_build_param(const nlohmann::json& conf,
     param.useFloat16 = conf.at("useFloat16");
   } else {
     param.useFloat16 = false;
+  }
+  if (conf.contains("use_raft")) {
+    param.use_raft = conf.at("use_raft");
+  } else {
+    param.use_raft = false;
+  }
+  if (conf.contains("bitsPerCode")) {
+    param.bitsPerCode = conf.at("bitsPerCode");
+  } else {
+    param.bitsPerCode = 8;
   }
 }
 
@@ -160,5 +175,15 @@ REGISTER_ALGO_INSTANCE(std::uint8_t);
 
 #ifdef ANN_BENCH_BUILD_MAIN
 #include "../common/benchmark.hpp"
-int main(int argc, char** argv) { return raft::bench::ann::run_main(argc, argv); }
+int main(int argc, char** argv)
+{
+  rmm::mr::cuda_memory_resource cuda_mr;
+  // Construct a resource that uses a coalescing best-fit pool allocator
+  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr};
+  rmm::mr::set_current_device_resource(
+    &pool_mr);  // Updates the current device resource pointer to `pool_mr`
+  rmm::mr::device_memory_resource* mr =
+    rmm::mr::get_current_device_resource();  // Points to `pool_mr`
+  return raft::bench::ann::run_main(argc, argv);
+}
 #endif

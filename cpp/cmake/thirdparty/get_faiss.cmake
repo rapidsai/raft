@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ function(find_and_configure_faiss)
                 EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
                 OPTIONS
                 "FAISS_ENABLE_GPU ${PKG_ENABLE_GPU}"
+                "FAISS_ENABLE_RAFT ON"
                 "FAISS_ENABLE_PYTHON OFF"
                 "FAISS_OPT_LEVEL ${RAFT_FAISS_OPT_LEVEL}"
                 "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
@@ -90,15 +91,16 @@ endfunction()
 if(NOT RAFT_FAISS_GIT_TAG)
     # TODO: Remove this once faiss supports FAISS_USE_CUDA_TOOLKIT_STATIC
     # (https://github.com/facebookresearch/faiss/pull/2446)
-    set(RAFT_FAISS_GIT_TAG fea/statically-link-ctk)
+    set(RAFT_FAISS_GIT_TAG main)
+    # set(RAFT_FAISS_GIT_TAG fea/statically-link-ctk)
     # set(RAFT_FAISS_GIT_TAG bde7c0027191f29c9dadafe4f6e68ca0ee31fb30)
 endif()
 
 if(NOT RAFT_FAISS_GIT_REPOSITORY)
     # TODO: Remove this once faiss supports FAISS_USE_CUDA_TOOLKIT_STATIC
     # (https://github.com/facebookresearch/faiss/pull/2446)
-    set(RAFT_FAISS_GIT_REPOSITORY https://github.com/cjnolet/faiss.git)
-    # set(RAFT_FAISS_GIT_REPOSITORY https://github.com/facebookresearch/faiss.git)
+    # set(RAFT_FAISS_GIT_REPOSITORY https://github.com/cjnolet/faiss.git)
+    set(RAFT_FAISS_GIT_REPOSITORY https://github.com/facebookresearch/faiss.git)
 endif()
 
 find_and_configure_faiss(VERSION    1.7.4
