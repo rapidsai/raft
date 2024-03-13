@@ -51,6 +51,7 @@ class ExcessSamplingTest : public ::testing::TestWithParam<inputs> {
  public:
   ExcessSamplingTest()
     : params(::testing::TestWithParam<inputs>::GetParam()),
+      stream(resource::get_cuda_stream(res)),
       state{137ULL},
       in(make_device_vector<T, int64_t>(res, params.n_samples)),
       out(make_device_vector<T, int64_t>(res, 0)),
@@ -89,7 +90,7 @@ class ExcessSamplingTest : public ::testing::TestWithParam<inputs> {
   raft::resources res;
   cudaStream_t stream;
   RngState state;
-  device_vector<T, int64_t> out, in;
+  device_vector<T, int64_t> in, out;
   host_vector<T, int64_t> h_out;
 };
 

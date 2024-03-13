@@ -30,10 +30,10 @@ namespace raft::matrix::detail {
 /** Select rows randomly from input and copy to output. */
 template <typename T, typename IdxT = int64_t>
 void sample_rows(raft::resources const& res,
+                 random::RngState random_state,
                  const T* input,
                  IdxT n_rows_input,
-                 raft::device_matrix_view<T, IdxT> output,
-                 random::RngState random_state)
+                 raft::device_matrix_view<T, IdxT> output)
 {
   IdxT n_dim     = output.extent(1);
   IdxT n_samples = output.extent(0);

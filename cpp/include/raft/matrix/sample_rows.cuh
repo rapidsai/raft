@@ -32,9 +32,7 @@ void sample_rows(raft::resources const& res,
                  mdspan<const T, matrix_extent<IdxT>, row_major, accessor> dataset,
                  raft::device_matrix_view<T, IdxT> output)
 {
-  detail::sample_rows(res, input, n_rows_input, output, random_state);
-
-  detail::sample_rows(res, dataset.data_handle(), dataset.extent(0), output, random_state);
+  detail::sample_rows<T, IdxT>(res, random_state, dataset.data_handle(), dataset.extent(0), output);
 }
 
 /** Subsample the dataset to create a training set*/
@@ -46,7 +44,7 @@ raft::device_matrix<T, IdxT> sample_rows(
   IdxT n_samples)
 {
   auto output = raft::make_device_matrix<T, IdxT>(res, n_samples, dataset.extent(1));
-  detail::sample_rows(res, random_state, dataset, output.view());
+  sample_rows(res, random_state, dataset, output.view());
   return output;
 }
 
