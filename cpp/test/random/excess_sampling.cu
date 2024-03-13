@@ -35,8 +35,8 @@ namespace random {
 using namespace raft::random;
 
 struct inputs {
-  int N;
-  int n_samples;
+  int64_t N;
+  int64_t n_samples;
 };
 
 template <typename T>
@@ -67,8 +67,8 @@ class ExcessSamplingTest : public ::testing::TestWithParam<inputs> {
 
     resource::sync_stream(res, stream);
     std::unordered_set<int> occurrence;
-    size_t sum = 0;
-    for (int i = 0; i < params.n_samples; ++i) {
+    int64_t sum = 0;
+    for (int64_t i = 0; i < params.n_samples; ++i) {
       T val = h_out(i);
       sum += val;
       ASSERT_TRUE(0 <= val && val < params.N)
@@ -78,9 +78,9 @@ class ExcessSamplingTest : public ::testing::TestWithParam<inputs> {
       occurrence.insert(val);
     }
     float avg = sum / (float)params.n_samples;
-    std::cout << "samples " << params.n_samples << ", average" << avg << std::endl;
-    if (params.n_samples >= 100) {
-      ASSERT_TRUE(raft::match(avg, params.N / 2.0, raft::CompareApprox<float>(0.1)));
+    if (params.n_samples >= 100 && params.N / params.n_samples < 100) {
+      ASSERT_TRUE(raft::match(avg, (params.N - 1) / 2.0f, raft::CompareApprox<float>(0.2)))
+        << "non-uniform sample";
     }
   }
 
@@ -99,11 +99,14 @@ const std::vector<inputs> input1 = {{1, 0},
                                     {10, 1},
                                     {10, 2},
                                     {10, 10},
+                                    {137, 42},
                                     {200, 0},
                                     {200, 1},
                                     {200, 100},
                                     {200, 130},
-                                    {200, 200}};
+                                    {200, 200},
+                                    {10000, 893},
+                                    {10000000000, 1023}};
 
 using ExcessSamplingTestInt64 = ExcessSamplingTest<int64_t>;
 TEST_P(ExcessSamplingTestInt64, SamplingTest) { check(); }

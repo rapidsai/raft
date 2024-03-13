@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ struct sample_inputs {
   int method;
 };  // struct sample_inputs
 
+// Sample with replacement. We use this as a baseline.
 template <typename IdxT>
 auto bernoulli_subsample(raft::resources const& res, IdxT n_samples, IdxT n_subsamples, int seed)
   -> raft::device_vector<IdxT, IdxT>
@@ -65,10 +66,7 @@ struct sample : public fixture {
   {
     raft::random::RngState r(123456ULL);
     loop_on_state(state, [this, &r]() {
-      if (params.method == 0) {
-        this->out = raft::spatial::knn::detail::utils::get_subsample_indices<T>(
-          this->res, this->params.n_samples, this->params.n_train, 137);
-      } else if (params.method == 1) {
+      if (params.method == 1) {
         this->out =
           bernoulli_subsample<T>(this->res, this->params.n_samples, this->params.n_train, 137);
       } else if (params.method == 2) {
@@ -76,9 +74,6 @@ struct sample : public fixture {
           this->res, r, this->params.n_samples, this->params.n_train);
       }
     });
-    if (this->params.n_train <= 100) {
-      print_vector("samples", this->out.data_handle(), this->params.n_train, std::cout);
-    }
   }
 
  private:
@@ -87,19 +82,11 @@ struct sample : public fixture {
   raft::device_vector<T, int64_t> out, in;
 };  // struct sample
 
-const std::vector<sample_inputs> input_vecs = {{100, 20, 2},
-                                               {10, 5, 2},
-                                               {20, 10, 2},
-                                               {20, 15, 2},
-                                               {100, 50, 2},
-                                               {1000, 500, 2},
-                                               {1000, 600, 2},
-                                               {1000, 700, 2},
-                                               {10000, 5000, 2},
-                                               {100000, 50000, 2},
+const std::vector<sample_inputs> input_vecs = {{100000000, 10000000, 1},
+                                               {100000000, 50000000, 1},
+                                               {100000000, 100000000, 1},
                                                {100000000, 10000000, 2},
                                                {100000000, 50000000, 2},
-                                               {1000, 900, 2},
                                                {100000000, 100000000, 2}};
 
 RAFT_BENCH_REGISTER(sample<int64_t>, "", input_vecs);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -297,21 +297,10 @@ void sampleWithoutReplacement(RngState& rng_state,
 {
   ASSERT(sampledLen <= len, "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
 
-  // size_t free, total;
-  // float GiB = 1073741824.0f;
-  // cudaMemGetInfo(&free, &total);
-  // RAFT_LOG_INFO("sampleWithoutReplacement::start free mem %6.1f, used mem %6.1f",
-  //               free / GiB,
-  //               (total - free) / GiB);
   rmm::device_uvector<WeightsT> expWts(len, stream);
   rmm::device_uvector<WeightsT> sortedWts(len, stream);
   rmm::device_uvector<IdxT> inIdx(len, stream);
   rmm::device_uvector<IdxT> outIdxBuff(len, stream);
-
-  // cudaMemGetInfo(&free, &total);
-  // RAFT_LOG_INFO("sampleWithoutReplacement::buffers free mem %6.1f, used mem %6.1f",
-  //               free / GiB,
-  //               (total - free) / GiB);
   auto* inIdxPtr = inIdx.data();
   // generate modified weights
   SamplingParams<WeightsT, IdxT> params;
@@ -386,15 +375,11 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
   n_excess_samples = std::min<IdxT>(n_excess_samples, N);
   auto rnd_idx     = raft::make_device_vector<IdxT, IdxT>(res, n_excess_samples);
 
-  RAFT_LOG_INFO("We will draw %zu random samples", (size_t)rnd_idx.size());
   auto linear_idx = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
   raft::linalg::map_offset(res, linear_idx.view(), identity_op());
 
   uniformInt(res, state, rnd_idx.data_handle(), rnd_idx.size(), IdxT(0), IdxT(N));
 
-  if (rnd_idx.size() <= 100) {
-    print_vector("rnd_idx", rnd_idx.data_handle(), rnd_idx.size(), std::cout);
-  }
   // Sort indices according to rnd keys
   size_t workspace_size = 0;
   auto stream           = resource::get_cuda_stream(res);
@@ -405,8 +390,6 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
                                   rnd_idx.size(),
                                   raft::less_op{},
                                   stream);
-  float GiB = 1073741824.0f;
-  RAFT_LOG_INFO("worksize sort %6.1f GiB", workspace_size / GiB);
   auto workspace = raft::make_device_vector<char, IdxT>(res, workspace_size);
   cub::DeviceMergeSort::SortPairs(workspace.data_handle(),
                                   workspace_size,
@@ -416,12 +399,6 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
                                   raft::less_op{},
                                   stream);
 
-  if (rnd_idx.size() <= 100) {
-    print_vector("rnd   _idx sorted", rnd_idx.data_handle(), rnd_idx.size(), std::cout);
-  }
-  if (rnd_idx.size() <= 100) {
-    print_vector("linear_idx sorted", linear_idx.data_handle(), linear_idx.size(), std::cout);
-  }
   if (rnd_idx.size() == static_cast<size_t>(N)) {
     // We shuffled the linear_idx array by sorting it according to rnd_idx.
     // We return the first n_samples elements.
@@ -446,8 +423,6 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
                                  rnd_idx.size(),
                                  stream);
 
-  RAFT_LOG_INFO("worksize unique %6.1f GiB", worksize2 / GiB);
-
   if (worksize2 > workspace.size()) {
     workspace      = raft::make_device_vector<char, IdxT>(res, worksize2);
     workspace_size = workspace.size();
@@ -465,22 +440,13 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
 
   IdxT selected = num_selected.value(stream);
 
-  if (rnd_idx.size() <= 100) {
-    print_vector("unique keys (rnd_idx)", keys_out.data_handle(), selected, std::cout);
-    print_vector("unique vals (linear idx)", values_out.data_handle(), selected, std::cout);
-  }
   if (selected < n_samples) {
-    RAFT_LOG_WARN("Subsampling returned with less unique indices (%zu) than requested (%zu)",
-                  (size_t)selected,
-                  (size_t)n_samples);
+    RAFT_LOG_DEBUG("Subsampling returned with less unique indices (%zu) than requested (%zu)",
+                   (size_t)selected,
+                   (size_t)n_samples);
   }
-  RAFT_LOG_INFO(
-    "We have %zu unique idices out of %zu samples", (size_t)selected, (size_t)rnd_idx.size());
-  RAFT_LOG_INFO(
-    "Subsampling unique indices (%zu) requested (%zu)", (size_t)selected, (size_t)n_samples);
 
   // After duplicates are removed, we need to shuffle back to random order
-
   cub::DeviceMergeSort::SortPairs(workspace.data_handle(),
                                   workspace_size,
                                   values_out.data_handle(),
@@ -488,10 +454,6 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
                                   n_samples,
                                   raft::less_op{},
                                   stream);
-  if (rnd_idx.size() <= 100) {
-    print_vector("re sorted keys ", keys_out.data_handle(), selected, std::cout);
-    print_vector("re sorted vals ", values_out.data_handle(), selected, std::cout);
-  }
 
   values_out = raft::make_device_vector<IdxT, IdxT>(res, n_samples);
   raft::copy(values_out.data_handle(), keys_out.data_handle(), n_samples, stream);
