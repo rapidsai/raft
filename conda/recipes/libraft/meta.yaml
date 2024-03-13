@@ -280,7 +280,11 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
+        # We must include both libraft and libraft-static to prevent the test
+        # builds from packaging those libraries. However, tests only depend on
+        # the shared library in libraft.
         - {{ pin_subpackage('libraft', exact=True) }}
+        - {{ pin_subpackage('libraft-static', exact=True) }}
         - cuda-version ={{ cuda_version }}
         {% if cuda_major == "11" %}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
@@ -300,6 +304,7 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
+        - benchmark {{ gbench_version }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
       run:
@@ -314,6 +319,7 @@ outputs:
         - libcusparse
         {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
+        - benchmark {{ gbench_version }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
     about:
