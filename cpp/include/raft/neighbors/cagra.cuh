@@ -346,33 +346,8 @@ void search_with_filtering(raft::resources const& res,
   auto distances_internal = raft::make_device_matrix_view<float, int64_t, row_major>(
     distances.data_handle(), distances.extent(0), distances.extent(1));
 
-  // n_rows has the same type as the dataset index (the array extents type)
-  using ds_idx_type = decltype(idx.dataset().n_rows());
-  // Dispatch search parameters based on the dataset kind.
-  if (auto* strided_dset = dynamic_cast<const strided_dataset<T, ds_idx_type>*>(&idx.dataset());
-      strided_dset != nullptr) {
-    // Search using a plain (strided) row-major dataset
-    return cagra::detail::search_main<T, internal_IdxT, CagraSampleFilterT, IdxT>(
-      res, params, idx, queries_internal, neighbors_internal, distances_internal, sample_filter);
-  } else if (auto* vpq_dset =
-               dynamic_cast<const strided_dataset<float, ds_idx_type>*>(&idx.dataset());
-             vpq_dset != nullptr) {
-    // Search using a compressed dataset
-    RAFT_FAIL("FP32 VPQ dataset support is coming soon");
-  } else if (auto* vpq_dset =
-               dynamic_cast<const strided_dataset<half, ds_idx_type>*>(&idx.dataset());
-             vpq_dset != nullptr) {
-    // Search using a compressed dataset
-    RAFT_FAIL("FP16 VPQ dataset support is coming soon");
-  } else if (auto* empty_dset = dynamic_cast<const empty_dataset<ds_idx_type>*>(&idx.dataset());
-             empty_dset != nullptr) {
-    // Forgot to add a dataset.
-    RAFT_FAIL(
-      "Attempted to search without a dataset. Please call index.update_dataset(...) first.");
-  } else {
-    // This is a logic error.
-    RAFT_FAIL("Unrecognized dataset format");
-  }
+  return cagra::detail::search_main<T, internal_IdxT, CagraSampleFilterT, IdxT>(
+    res, params, idx, queries_internal, neighbors_internal, distances_internal, sample_filter);
 }
 
 /**
