@@ -56,7 +56,8 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
 
   void check()
   {
-    out = raft::matrix::sample_rows<T, int64_t>(res, state, make_const_mdspan(in.view()));
+    out = raft::matrix::sample_rows<T, int64_t>(
+      res, state, make_const_mdspan(in.view()), params.n_samples);
     ASSERT_TRUE(out.extent(0) == params.n_samples);
     ASSERT_TRUE(out.extent(1) == params.dim);
     // TODO(tfeher): check sampled values

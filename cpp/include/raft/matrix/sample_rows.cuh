@@ -29,7 +29,7 @@ namespace raft::matrix {
 template <typename T, typename IdxT = int64_t, typename accessor>
 void sample_rows(raft::resources const& res,
                  random::RngState random_state,
-                 mdspan<const T, matrix_extent<int64_t>, row_major, accessor> dataset,
+                 mdspan<const T, matrix_extent<IdxT>, row_major, accessor> dataset,
                  raft::device_matrix_view<T, IdxT> output)
 {
   detail::sample_rows(res, input, n_rows_input, output, random_state);
@@ -42,11 +42,11 @@ template <typename T, typename IdxT = int64_t, typename accessor>
 raft::device_matrix<T, IdxT> sample_rows(
   raft::resources const& res,
   random::RngState random_state,
-  mdspan<const T, matrix_extent<int64_t>, row_major, accessor> dataset,
+  mdspan<const T, matrix_extent<IdxT>, row_major, accessor> dataset,
   IdxT n_samples)
 {
   auto output = raft::make_device_matrix<T, IdxT>(res, n_samples, dataset.extent(1));
-  detail::sample_rows(res, random_state, dataset.data_handle(), dataset.extent(0), output);
+  detail::sample_rows(res, random_state, dataset, output.view());
   return output;
 }
 
