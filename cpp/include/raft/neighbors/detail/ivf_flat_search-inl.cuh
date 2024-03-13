@@ -298,7 +298,6 @@ inline void search(raft::resources const& handle,
   const uint32_t max_queries =
     std::min<uint32_t>(n_queries, raft::div_rounding_up_safe(expected_ws_size, ws_size_per_query));
 
-
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
 
