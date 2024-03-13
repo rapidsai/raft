@@ -1,6 +1,6 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
 
-> [!NOTE]
+> [!IMPORTANT]
 > The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). We will continue to support the vector search algorithms in RAFT during this move, but will no longer update them after the RAPIDS 24.06 (June) release. We plan to complete the migration by RAPIDS 24.08 (August) release.
 
 ![RAFT tech stack](img/raft-tech-stack-vss.png)
