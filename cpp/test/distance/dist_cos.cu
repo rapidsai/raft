@@ -29,10 +29,12 @@ class DistanceExpCosXequalY
   : public DistanceTestSameBuffer<raft::distance::DistanceType::CosineExpanded, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
+  {0.001f, 128, (65536 + 128) * 128, 8, true, 1234ULL},
   {0.001f, 1024, 1024, 32, true, 1234ULL},
   {0.001f, 1024, 32, 1024, true, 1234ULL},
   {0.001f, 32, 1024, 1024, true, 1234ULL},
   {0.003f, 1024, 1024, 1024, true, 1234ULL},
+  {0.001f, (65536 + 128) * 128, 128, 8, false, 1234ULL},
   {0.001f, 1024, 1024, 32, false, 1234ULL},
   {0.001f, 1024, 32, 1024, false, 1234ULL},
   {0.001f, 32, 1024, 1024, false, 1234ULL},
