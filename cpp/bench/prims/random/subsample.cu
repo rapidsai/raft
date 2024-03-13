@@ -27,6 +27,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_scalar.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <cub/cub.cuh>
 
@@ -37,6 +38,12 @@ struct sample_inputs {
   int n_train;
   int method;
 };  // struct sample_inputs
+
+inline auto operator<<(std::ostream& os, const sample_inputs& p) -> std::ostream&
+{
+  os << p.n_samples << "#" << p.n_train << "#" << p.method;
+  return os;
+}
 
 // Sample with replacement. We use this as a baseline.
 template <typename IdxT>
@@ -56,14 +63,22 @@ template <typename T>
 struct sample : public fixture {
   sample(const sample_inputs& p)
     : params(p),
+      old_mr(rmm::mr::get_current_device_resource()),
+      pool_mr(rmm::mr::get_current_device_resource(), 2 * GiB),
       in(make_device_vector<T, int64_t>(res, p.n_samples)),
       out(make_device_vector<T, int64_t>(res, p.n_train))
   {
+    rmm::mr::set_current_device_resource(&pool_mr);
     raft::random::RngState r(123456ULL);
   }
 
+  ~sample() { rmm::mr::set_current_device_resource(old_mr); }
   void run_benchmark(::benchmark::State& state) override
   {
+    std::ostringstream label_stream;
+    label_stream << params;
+    state.SetLabel(label_stream.str());
+
     raft::random::RngState r(123456ULL);
     loop_on_state(state, [this, &r]() {
       if (params.method == 1) {
@@ -77,7 +92,10 @@ struct sample : public fixture {
   }
 
  private:
+  float GiB = 1073741824.0f;
   raft::device_resources res;
+  rmm::mr::device_memory_resource* old_mr;
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr;
   sample_inputs params;
   raft::device_vector<T, int64_t> out, in;
 };  // struct sample

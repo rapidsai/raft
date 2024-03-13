@@ -816,10 +816,10 @@ void sampleWithoutReplacement(raft::resources const& handle,
 /** @brief Sample without replacement from range 0..N-1.
  *
  * Elements are sampled uniformly.
- * The algorithm will allocate a workspace of size O(4*n_samples) internally.
+ * The algorithm will allocate a workspace of size 4*n_samples*sizeof(IdxT) internally.
  *
  * We use max N random numbers. Depending on how large n_samples is w.r.t to N, we
- * either use rejection sampling, sort the [0..N-1] values using random keys.
+ * either use rejection sampling, or sort the [0..N-1] values using random keys.
  *
  * @tparam IdxT type of indices that we sample
  * @tparam MatIdxT extent type of the returned mdarray
