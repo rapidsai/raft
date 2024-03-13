@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2024, NVIDIA CORPORATION.
 
 import os
 import sys
@@ -36,6 +36,8 @@ extensions = [
     "sphinx_copybutton"
 ]
 
+
+
 breathe_default_project = "RAFT"
 breathe_projects = {
     "RAFT": "../../cpp/doxygen/_xml/",
@@ -61,6 +63,14 @@ master_doc = "index"
 project = "raft"
 copyright = "2023, NVIDIA Corporation"
 author = "NVIDIA Corporation"
+
+rst_prolog = """
+
+.. attention::
+
+  The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called `cuVS <https://github.com/rapidsai/cuvs>`_. We will continue to support the vector search algorithms in RAFT during this move, will no longer update them after the RAPIDS 24.06 (June) release. We plan to complete the migration by RAPIDS 24.08 (August) release.
+
+"""
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

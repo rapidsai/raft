@@ -1,10 +1,6 @@
 RAPIDS RAFT: Reusable Accelerated Functions and Tools for Vector Search and More
 ================================================================================
 
-.. note::
-
-  The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called `cuVS <https://github.com/rapidsai/cuvs>`_. We will continue to support the vector search algorithms in RAFT during this move, will no longer update them after the RAPIDS 24.06 (June) release. We plan to complete the migration by RAPIDS 24.08 (August) release.
-
 .. image:: ../../img/raft-tech-stack-vss.png
   :width: 800
   :alt: RAFT Tech Stack
