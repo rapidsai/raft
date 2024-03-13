@@ -61,6 +61,21 @@ struct EuclideanFunc : public DistFunc<value_t, value_int> {
   }
 };
 
+template <typename value_t, typename value_int = std::uint32_t>
+struct EuclideanSqFunc : public DistFunc<value_t, value_int> {
+  __device__ __host__ __forceinline__ value_t operator()(const value_t* a,
+                                                         const value_t* b,
+                                                         const value_int n_dims) override
+  {
+    value_t sum_sq = 0;
+    for (value_int i = 0; i < n_dims; ++i) {
+      value_t diff = a[i] - b[i];
+      sum_sq += diff * diff;
+    }
+    return sum_sq;
+  }
+};
+
 };  // namespace detail
 };  // namespace knn
 };  // namespace spatial
