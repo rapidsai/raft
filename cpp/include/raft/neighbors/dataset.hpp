@@ -108,6 +108,24 @@ struct owning_dataset : public strided_dataset<DataT, IdxT> {
   };
 };
 
+/**
+ * @brief Contstruct a strided matrix from any mdarray or mdspan.
+ *
+ * This function constructs a non-owning view if the input satisfied two conditions:
+ *
+ *   1) The data is accessible from the current device
+ *   2) The memory layout is the same as expected (row-major matrix with the required stride)
+ *
+ * Otherwise, this function constructs an owning device matrix and copies the data.
+ * When the data is copied, padding elements are filled with zeroes.
+ *
+ * @tparam SrcT the source mdarray or mdspan
+ *
+ * @param[in] res raft resources handle
+ * @param[in] src the source mdarray or mdspan
+ * @param[in] required_stride the leading dimension (in elements)
+ * @return maybe owning current-device-accessible strided matrix
+ */
 template <typename SrcT>
 auto construct_strided_dataset(const raft::resources& res,
                                const SrcT& src,
@@ -125,8 +143,11 @@ auto construct_strided_dataset(const raft::resources& res,
                 "The input must be row-major");
   RAFT_EXPECTS(src.extent(1) <= required_stride,
                "The input row length must be not larger than the desired stride.");
+  cudaPointerAttributes ptr_attrs;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&ptr_attrs, src.data_handle()));
+  auto* device_ptr             = reinterpret_cast<value_type*>(ptr_attrs.devicePointer);
   const uint32_t src_stride    = src.stride(0) > 0 ? src.stride(0) : src.extent(1);
-  const bool device_accessible = get_device_for_address(src.data_handle()) >= 0;
+  const bool device_accessible = device_ptr != nullptr;
   const bool row_major         = src.stride(1) <= 1;
   const bool stride_matches    = required_stride == src_stride;
 
@@ -134,7 +155,7 @@ auto construct_strided_dataset(const raft::resources& res,
     // Everything matches: make a non-owning dataset
     return std::make_unique<non_owning_dataset<value_type, index_type>>(
       make_device_strided_matrix_view<const value_type, index_type>(
-        src.data_handle(), src.extent(0), src.extent(1), required_stride));
+        device_ptr, src.extent(0), src.extent(1), required_stride));
   }
   // Something is wrong: have to make a copy and produce an owning dataset
   auto out_layout =
@@ -163,8 +184,23 @@ auto construct_strided_dataset(const raft::resources& res,
   return std::make_unique<out_owning_type>(std::move(out_array), out_layout);
 }
 
+/**
+ * @brief Contstruct a strided matrix from any mdarray or mdspan.
+ *
+ * A variant `construct_strided_dataset` that allows specifying the byte alignment instead of the
+ * explicit stride length.
+ *
+ * @tparam SrcT the source mdarray or mdspan
+ *
+ * @param[in] res raft resources handle
+ * @param[in] src the source mdarray or mdspan
+ * @param[in] align_bytes the required byte alignment for the dataset rows.
+ * @return maybe owning current-device-accessible strided matrix
+ */
 template <typename SrcT>
-auto construct_aligned_dataset(const raft::resources& res, const SrcT& src, uint32_t align_bytes)
+auto construct_aligned_dataset(const raft::resources& res,
+                               const SrcT& src,
+                               uint32_t align_bytes = 16)
   -> std::unique_ptr<strided_dataset<typename SrcT::value_type, typename SrcT::index_type>>
 {
   using value_type       = typename SrcT::value_type;
