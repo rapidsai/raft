@@ -16,13 +16,16 @@
 
 #pragma once
 
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace raft::matrix {
+namespace raft::matrix::detail {
 
 /** Select rows randomly from input and copy to output. */
 template <typename T, typename IdxT = int64_t>
@@ -30,7 +33,7 @@ void sample_rows(raft::resources const& res,
                  const T* input,
                  IdxT n_rows_input,
                  raft::device_matrix_view<T, IdxT> output,
-                 RngState random_state)
+                 random::RngState random_state)
 {
   IdxT n_dim     = output.extent(1);
   IdxT n_samples = output.extent(0);
@@ -51,4 +54,4 @@ void sample_rows(raft::resources const& res,
     raft::matrix::detail::gather(res, dataset, make_const_mdspan(train_indices.view()), output);
   }
 }
-}  // namespace raft::matrix
+}  // namespace raft::matrix::detail

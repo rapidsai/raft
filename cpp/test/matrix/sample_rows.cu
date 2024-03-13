@@ -21,6 +21,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/sample_rows.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
@@ -36,7 +37,7 @@ struct inputs {
 
 ::std::ostream& operator<<(::std::ostream& os, const inputs p)
 {
-  os << p.N << "#" << p.k << "#" << p.n_samples;
+  os << p.N << "#" << p.dim << "#" << p.n_samples;
   return os;
 }
 
@@ -46,8 +47,8 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
   SampleRowsTest()
     : params(::testing::TestWithParam<inputs>::GetParam()),
       state{137ULL},
-      in(make_device_vector<T, int64_t>(res, params.N, params.dim)),
-      out(make_device_vector<T, int64_t>(res, 0, 0))
+      in(make_device_matrix<T, int64_t>(res, params.N, params.dim)),
+      out(make_device_matrix<T, int64_t>(res, 0, 0))
 
   {
     raft::random::uniform(res, state, in.data_handle(), in.size(), T(-1.0), T(1.0));
@@ -55,16 +56,18 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
 
   void check()
   {
-    out = raft::random::excess_subsample<T, int64_t>(res, state, params.N, params.n_samples);
+    out = raft::matrix::sample_rows<T, int64_t>(res, state, make_const_mdspan(in.view()));
     ASSERT_TRUE(out.extent(0) == params.n_samples);
-    ASSERT_TRUE(out.extent(1) == params.dim)
+    ASSERT_TRUE(out.extent(1) == params.dim);
+    // TODO(tfeher): check sampled values
+    // TODO(tfeher): check host / device input
   }
 
  protected:
   inputs params;
   raft::resources res;
   cudaStream_t stream;
-  RngState state;
+  random::RngState state;
   device_matrix<T, int64_t> out, in;
 };
 
