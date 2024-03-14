@@ -17,6 +17,9 @@
 #pragma once
 
 #include <raft/core/operators.hpp>
+#include <raft/core/pinned_mdarray.hpp>
+#include <raft/core/pinned_mdspan.hpp>
+#include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <functional>
