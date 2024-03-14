@@ -144,7 +144,7 @@ RAFT_DEVICE_INLINE_FUNCTION value_t warp_exclusive_scan(value_t value)
 // Threads per block in fill_indices_by_rows_kernel.
 static const constexpr int fill_indices_by_rows_tpb = 32;
 
-template <typename bitmap_t, typename index_t, typename nnz_t>
+template <typename bitmap_t, typename index_t, typename nnz_t, bool check_nnz>
 RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
   fill_indices_by_rows_kernel(const bitmap_t* bitmap,
                               const index_t* indptr,
@@ -163,7 +163,9 @@ RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
   // Ensure the HBM allocated for CSR values is sufficient to handle all non-zero bitmap bits.
   // An assert will trigger if the allocated HBM is insufficient when `NDEBUG` isn't defined.
   // Note: Assertion is active only if `NDEBUG` is undefined.
-  if (lane_id == 0) { assert(nnz < indptr[num_rows]); }
+  if constexpr (check_nnz) {
+    if (lane_id == 0) { assert(nnz < indptr[num_rows]); }
+  }
 
 #pragma unroll
   for (index_t row = blockIdx.x; row < num_rows; row += gridDim.x) {
@@ -204,7 +206,7 @@ RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
   }
 }
 
-template <typename bitmap_t, typename index_t, typename nnz_t>
+template <typename bitmap_t, typename index_t, typename nnz_t, bool check_nnz = false>
 void fill_indices_by_rows(raft::resources const& handle,
                           const bitmap_t* bitmap,
                           const index_t* indptr,
@@ -223,7 +225,7 @@ void fill_indices_by_rows(raft::resources const& handle,
   cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, dev_id);
   cudaOccupancyMaxActiveBlocksPerMultiprocessor(
     &blocks_per_sm,
-    fill_indices_by_rows_kernel<bitmap_t, index_t, nnz_t>,
+    fill_indices_by_rows_kernel<bitmap_t, index_t, nnz_t, check_nnz>,
     fill_indices_by_rows_tpb,
     0);
 
@@ -231,15 +233,18 @@ void fill_indices_by_rows(raft::resources const& handle,
   auto grid                 = std::min(max_active_blocks, num_rows);
   auto block                = fill_indices_by_rows_tpb;
 
-  fill_indices_by_rows_kernel<bitmap_t, index_t, nnz_t>
+  fill_indices_by_rows_kernel<bitmap_t, index_t, nnz_t, check_nnz>
     <<<grid, block, 0, stream>>>(bitmap, indptr, num_rows, num_cols, nnz, bitmap_num, indices);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename bitmap_t, typename index_t, typename nnz_t, typename value_t>
+template <typename bitmap_t,
+          typename index_t,
+          typename csr_matrix_t,
+          typename = std::enable_if_t<raft::is_device_csr_matrix_v<csr_matrix_t>>>
 void bitmap_to_csr(raft::resources const& handle,
                    raft::core::bitmap_view<bitmap_t, index_t> bitmap,
-                   raft::device_csr_matrix_view<value_t, index_t, index_t, nnz_t> csr)
+                   csr_matrix_t& csr)
 {
   auto csr_view = csr.structure_view();
 
@@ -265,14 +270,28 @@ void bitmap_to_csr(raft::resources const& handle,
 
   calc_nnz_by_rows(handle, bitmap.data(), csr_view.get_n_rows(), csr_view.get_n_cols(), indptr);
   thrust::exclusive_scan(thrust_policy, indptr, indptr + csr_view.get_n_rows() + 1, indptr);
-  fill_indices_by_rows(handle,
-                       bitmap.data(),
-                       indptr,
-                       csr_view.get_n_rows(),
-                       csr_view.get_n_cols(),
-                       csr_view.get_nnz(),
-                       indices);
-  thrust::fill_n(thrust_policy, csr.get_elements().data(), csr_view.get_nnz(), value_t{1});
+
+  if constexpr (is_device_csr_sparsity_owning_v<csr_matrix_t>) {
+    index_t nnz = 0;
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
+      &nnz, indptr + csr_view.get_n_rows(), sizeof(index_t), cudaMemcpyDeviceToHost, stream));
+    resource::sync_stream(handle);
+    csr.initialize_sparsity(nnz);
+  }
+  constexpr bool check_nnz = is_device_csr_sparsity_preserving_v<csr_matrix_t>;
+  fill_indices_by_rows<bitmap_t, index_t, typename csr_matrix_t::nnz_type, check_nnz>(
+    handle,
+    bitmap.data(),
+    indptr,
+    csr_view.get_n_rows(),
+    csr_view.get_n_cols(),
+    csr_view.get_nnz(),
+    indices);
+
+  thrust::fill_n(thrust_policy,
+                 csr.get_elements().data(),
+                 csr_view.get_nnz(),
+                 typename csr_matrix_t::element_t(1));
 }
 
 };  // end NAMESPACE detail

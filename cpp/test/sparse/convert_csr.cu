@@ -366,9 +366,9 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
 
     auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
       indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
-    auto csr = raft::make_device_csr_matrix_view<value_t, index_t>(values_d.data(), csr_view);
+    auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
 
-    convert::bitmap_to_csr<bitmap_t, index_t>(handle, bitmap, csr);
+    convert::bitmap_to_csr(handle, bitmap, csr);
 
     resource::sync_stream(handle);
 
@@ -389,9 +389,8 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
     resource::sync_stream(handle);
 
     ASSERT_TRUE(csr_compare(indptr_h, indices_h, indptr_expected_h, indices_expected_h));
-
     ASSERT_TRUE(raft::devArrMatch<value_t>(
-      values_d.data(), values_expected_d.data(), nnz, raft::Compare<value_t>(), stream));
+      csr.get_elements().data(), values_expected_d.data(), nnz, raft::Compare<value_t>(), stream));
   }
 
  protected:
