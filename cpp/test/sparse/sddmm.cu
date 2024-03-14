@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
-#include <iostream>
-#include <limits>
+#include "../test_utils.cuh"
 
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/sparse/linalg/sddmm.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <thrust/reduce.h>
 
-#include "../test_utils.cuh"
+#include <gtest/gtest.h>
+
+#include <iostream>
+#include <limits>
 
 namespace raft {
 namespace sparse {

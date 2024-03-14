@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,19 @@
  */
 
 #include "../test_utils.cuh"
-#include <cstdint>
-#include <gtest/gtest.h>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/weighted_mean.cuh>
 #include <raft/util/cuda_utils.cuh>
+
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+
+#include <gtest/gtest.h>
+
+#include <cstdint>
 
 namespace raft {
 namespace stats {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>
+
+#include <stdint.h>
 
 namespace raft {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #include "../test_utils.cuh"
 #include "matrix_vector_op.cuh"
-#include <gtest/gtest.h>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -24,6 +24,8 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
 
 namespace raft {
 namespace linalg {

@@ -25,20 +25,19 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
+#include <functional>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <atomic>
-#include <condition_variable>
-#include <filesystem>
-#include <functional>
-#include <optional>
 
 namespace raft::bench::ann {
 

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <cstdint>  // uint32_t
 #include <raft/matrix/detail/select_k-inl.cuh>
+
+#include <cstdint>  // uint32_t
 
 #define instantiate_raft_matrix_detail_select_k(T, IdxT)                      \
   template void raft::matrix::detail::select_k(raft::resources const& handle, \

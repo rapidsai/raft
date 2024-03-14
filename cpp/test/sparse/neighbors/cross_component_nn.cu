@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,28 +24,28 @@
 //
 // TODO: edge case testing. Reference: https://github.com/rapidsai/raft/issues/1669
 
-#include <gtest/gtest.h>
+#include "../../test_utils.cuh"
+
 #include <raft/core/resource/cuda_stream.hpp>
-
-#include <cub/cub.cuh>
-
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <vector>
-
-#include <raft/sparse/linalg/symmetrize.cuh>
-#include <raft/sparse/mst/mst.cuh>
-#include <raft/sparse/neighbors/knn_graph.cuh>
-#include <raft/sparse/selection/cross_component_nn.cuh>
-
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/single_linkage.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/mst/mst.cuh>
+#include <raft/sparse/neighbors/knn_graph.cuh>
+#include <raft/sparse/selection/cross_component_nn.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
-#include "../../test_utils.cuh"
+#include <cub/cub.cuh>
+
+#include <gtest/gtest.h>
+
+#include <vector>
 
 namespace raft {
 namespace sparse {

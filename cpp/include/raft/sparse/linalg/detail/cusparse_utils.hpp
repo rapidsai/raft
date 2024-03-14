@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <type_traits>
-
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/linalg/linalg_types.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/input_validation.hpp>
+
+#include <type_traits>
 
 namespace raft {
 namespace sparse {
