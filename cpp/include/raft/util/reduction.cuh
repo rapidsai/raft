@@ -157,11 +157,11 @@ DI std::pair<T, i_t> blockRankedReduce(T val,
     val = values[lane];
     idx = indices[lane];
   } else {
-    // get the min if it is a max op, get the max if it is a min op
-    val = reduce_op(std::numeric_limits<T>::min(), std::numeric_limits<T>::max()) ==
-              std::numeric_limits<T>::min()
+    // get the lowest if it is a max op, get the max if it is a lowest op
+    val = reduce_op(std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max()) ==
+              std::numeric_limits<T>::lowest()
             ? std::numeric_limits<T>::max()
-            : std::numeric_limits<T>::min();
+            : std::numeric_limits<T>::lowest();
     idx = -1;
   }
   __syncthreads();
