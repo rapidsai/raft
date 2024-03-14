@@ -66,12 +66,12 @@ void serialize(raft::resources const& res,
   serialize_scalar(res, os, index_.metric());
   serialize_mdspan(res, os, index_.graph());
 
-  include_dataset &= (index_.dataset().n_rows() > 0);
+  include_dataset &= (index_.data().n_rows() > 0);
 
   serialize_scalar(res, os, include_dataset);
   if (include_dataset) {
     RAFT_LOG_INFO("Saving CAGRA index with dataset");
-    neighbors::detail::serialize(res, os, index_.dataset());
+    neighbors::detail::serialize(res, os, index_.data());
   } else {
     RAFT_LOG_DEBUG("Saving CAGRA index WITHOUT dataset");
   }
@@ -147,7 +147,7 @@ void serialize_to_hnswlib(raft::resources const& res,
   std::size_t efConstruction = 500;
   os.write(reinterpret_cast<char*>(&efConstruction), sizeof(std::size_t));
 
-  auto dataset = index_.dataset_view();
+  auto dataset = index_.dataset();
   // Remove padding before saving the dataset
   auto host_dataset = make_host_matrix<T, int64_t>(dataset.extent(0), dataset.extent(1));
   RAFT_CUDA_TRY(cudaMemcpy2DAsync(host_dataset.data_handle(),

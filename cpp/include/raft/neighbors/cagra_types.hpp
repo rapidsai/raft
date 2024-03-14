@@ -63,7 +63,11 @@ struct index_params : ann::index_params {
   graph_build_algo build_algo = graph_build_algo::IVF_PQ;
   /** Number of Iterations to run if building with NN_DESCENT */
   size_t nn_descent_niter = 20;
-  /** Specify compression params if compression is desired. */
+  /**
+   * Specify compression params if compression is desired.
+   *
+   * NOTE: this is experimental new API, consider it unsafe.
+   */
   std::optional<vpq_params> compression = std::nullopt;
 };
 
@@ -161,8 +165,13 @@ struct index : ann::index {
     return graph_view_.extent(1);
   }
 
-  /** Dataset [size, dim] */
-  [[nodiscard]] inline auto dataset_view() const noexcept
+  /**
+   * DEPRECATED: please use data() instead.
+   *   If you need to query dataset dimensions, use the dim() and size() of the cagra index.
+   *   The data_handle() is not always available: you need to do a dynamic_cast to the expected
+   *   dataset type at runtime.
+   */
+  [[nodiscard]] [[deprecated("Use data()")]] inline auto dataset() const noexcept
     -> device_matrix_view<const T, int64_t, layout_stride>
   {
     auto p = dynamic_cast<strided_dataset<T, int64_t>*>(dataset_.get());
@@ -171,7 +180,8 @@ struct index : ann::index {
     return make_device_strided_matrix_view<const T, int64_t>(nullptr, 0, d, d);
   }
 
-  [[nodiscard]] inline auto dataset() const noexcept -> const neighbors::dataset<int64_t>&
+  /** Dataset [size, dim] */
+  [[nodiscard]] inline auto data() const noexcept -> const neighbors::dataset<int64_t>&
   {
     return *dataset_;
   }
@@ -261,7 +271,7 @@ struct index : ann::index {
         mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph)
     : ann::index(),
       metric_(metric),
-      dataset_(construct_aligned_dataset(res, dataset, 16)),
+      dataset_(make_aligned_dataset(res, dataset, 16)),
       graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
@@ -280,14 +290,14 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, int64_t, row_major> dataset)
   {
-    dataset_ = construct_aligned_dataset(res, dataset, 16);
+    dataset_ = make_aligned_dataset(res, dataset, 16);
   }
 
   /** Set the dataset reference explicitly to a device matrix view with padding. */
   void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, int64_t, layout_stride> dataset)
   {
-    dataset_ = construct_aligned_dataset(res, dataset, 16);
+    dataset_ = make_aligned_dataset(res, dataset, 16);
   }
 
   /**
@@ -298,7 +308,7 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::host_matrix_view<const T, int64_t, row_major> dataset)
   {
-    dataset_ = construct_aligned_dataset(res, dataset, 16);
+    dataset_ = make_aligned_dataset(res, dataset, 16);
   }
 
   /** Replace the dataset with a new dataset. */

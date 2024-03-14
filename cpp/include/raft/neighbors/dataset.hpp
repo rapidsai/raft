@@ -127,9 +127,7 @@ struct owning_dataset : public strided_dataset<DataT, IdxT> {
  * @return maybe owning current-device-accessible strided matrix
  */
 template <typename SrcT>
-auto construct_strided_dataset(const raft::resources& res,
-                               const SrcT& src,
-                               uint32_t required_stride)
+auto make_strided_dataset(const raft::resources& res, const SrcT& src, uint32_t required_stride)
   -> std::unique_ptr<strided_dataset<typename SrcT::value_type, typename SrcT::index_type>>
 {
   using extents_type = typename SrcT::extents_type;
@@ -187,7 +185,7 @@ auto construct_strided_dataset(const raft::resources& res,
 /**
  * @brief Contstruct a strided matrix from any mdarray or mdspan.
  *
- * A variant `construct_strided_dataset` that allows specifying the byte alignment instead of the
+ * A variant `make_strided_dataset` that allows specifying the byte alignment instead of the
  * explicit stride length.
  *
  * @tparam SrcT the source mdarray or mdspan
@@ -198,16 +196,14 @@ auto construct_strided_dataset(const raft::resources& res,
  * @return maybe owning current-device-accessible strided matrix
  */
 template <typename SrcT>
-auto construct_aligned_dataset(const raft::resources& res,
-                               const SrcT& src,
-                               uint32_t align_bytes = 16)
+auto make_aligned_dataset(const raft::resources& res, const SrcT& src, uint32_t align_bytes = 16)
   -> std::unique_ptr<strided_dataset<typename SrcT::value_type, typename SrcT::index_type>>
 {
   using value_type       = typename SrcT::value_type;
   constexpr size_t kSize = sizeof(value_type);
   uint32_t required_stride =
     raft::round_up_safe<size_t>(src.extent(1) * kSize, std::lcm(align_bytes, kSize)) / kSize;
-  return construct_strided_dataset(res, src, required_stride);
+  return make_strided_dataset(res, src, required_stride);
 }
 
 /** Parameters for VPQ compression. */
