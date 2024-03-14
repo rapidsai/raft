@@ -32,7 +32,7 @@
 
 namespace raft::neighbors::cagra::detail {
 
-constexpr int serialization_version = 3;
+constexpr int serialization_version = 4;
 
 /**
  * Save the index to file.
