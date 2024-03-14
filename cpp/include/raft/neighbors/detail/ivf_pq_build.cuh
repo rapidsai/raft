@@ -32,6 +32,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/detail/sample_rows.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/matrix/linewise_op.cuh>
 #include <raft/neighbors/detail/ivf_common.cuh>
@@ -1664,7 +1665,7 @@ auto build(raft::resources const& handle,
   utils::memzero(index.inds_ptrs().data_handle(), index.inds_ptrs().size(), stream);
 
   {
-    int random_seed     = 137;
+    raft::random::RngState random_state{137};
     auto trainset_ratio = std::max<size_t>(
       1,
       size_t(n_rows) / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
@@ -1679,20 +1680,18 @@ auto build(raft::resources const& handle,
       make_device_mdarray<float>(handle, device_mr, make_extents<IdxT>(n_rows_train, dim));
 
     if constexpr (std::is_same_v<T, float>) {
-      raft::spatial::knn::detail::utils::subsample(
-        handle, dataset, n_rows, trainset.view(), random_seed);
+      raft::matrix::detail::sample_rows(handle, random_state, dataset, n_rows, trainset.view());
     } else {
       // TODO(tfeher): Enable codebook generation with any type T, and then remove
       // trainset tmp.
       auto trainset_tmp =
         make_device_mdarray<T>(handle, &managed_mr, make_extents<IdxT>(n_rows_train, dim));
-      raft::spatial::knn::detail::utils::subsample(
-        handle, dataset, n_rows, trainset_tmp.view(), random_seed);
-      cudaDeviceSynchronize();
+      raft::matrix::detail::sample_rows(handle, random_state, dataset, n_rows, trainset_tmp.view());
+
       raft::linalg::unaryOp(trainset.data_handle(),
                             trainset_tmp.data_handle(),
                             trainset.size(),
-                            utils::mapping<float>{},  // raft::cast_op<float>(),
+                            utils::mapping<float>{},
                             raft::resource::get_cuda_stream(handle));
     }
 

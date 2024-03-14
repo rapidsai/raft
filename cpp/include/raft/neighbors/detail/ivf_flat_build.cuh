@@ -26,11 +26,13 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/matrix/detail/sample_rows.cuh>
 #include <raft/neighbors/detail/ivf_common.cuh>
 #include <raft/neighbors/ivf_flat_codepacker.hpp>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
+#include <raft/random/rng.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/pow2_utils.cuh>
@@ -364,13 +366,13 @@ inline auto build(raft::resources const& handle,
 
   // Train the kmeans clustering
   {
-    int random_seed     = 137;
+    raft::random::RngState random_state{137};
     auto trainset_ratio = std::max<size_t>(
       1, n_rows / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
     auto n_rows_train = n_rows / trainset_ratio;
     auto trainset     = make_device_matrix<T, IdxT>(handle, n_rows_train, index.dim());
-    raft::spatial::knn::detail::utils::subsample(
-      handle, dataset, n_rows, trainset.view(), random_seed);
+    raft::matrix::detail::sample_rows(handle, random_state, dataset, n_rows, trainset.view());
+
     auto centers_view = raft::make_device_matrix_view<float, IdxT>(
       index.centers().data_handle(), index.n_lists(), index.dim());
     raft::cluster::kmeans_balanced_params kmeans_params;
