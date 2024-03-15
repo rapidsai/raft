@@ -52,21 +52,20 @@ class ExcessSamplingTest : public ::testing::TestWithParam<inputs> {
   ExcessSamplingTest()
     : params(::testing::TestWithParam<inputs>::GetParam()),
       stream(resource::get_cuda_stream(res)),
-      state{137ULL},
-      in(make_device_vector<T, int64_t>(res, params.n_samples)),
-      out(make_device_vector<T, int64_t>(res, 0)),
-      h_out(make_host_vector<T, int64_t>(res, params.n_samples))
-
+      state{137ULL}
   {
   }
 
   void check()
   {
-    out = raft::random::excess_subsample<T, int64_t>(res, state, params.N, params.n_samples);
+    device_vector<T, int64_t> out =
+      raft::random::excess_subsample<T, int64_t>(res, state, params.N, params.n_samples);
     ASSERT_TRUE(out.extent(0) == params.n_samples);
-    raft::copy(h_out.data_handle(), out.data_handle(), out.size(), stream);
 
+    auto h_out = make_host_vector<T, int64_t>(res, params.n_samples);
+    raft::copy(h_out.data_handle(), out.data_handle(), out.size(), stream);
     resource::sync_stream(res, stream);
+
     std::unordered_set<int> occurrence;
     int64_t sum = 0;
     for (int64_t i = 0; i < params.n_samples; ++i) {
@@ -90,8 +89,6 @@ class ExcessSamplingTest : public ::testing::TestWithParam<inputs> {
   raft::resources res;
   cudaStream_t stream;
   RngState state;
-  device_vector<T, int64_t> in, out;
-  host_vector<T, int64_t> h_out;
 };
 
 const std::vector<inputs> input1 = {{1, 0},
