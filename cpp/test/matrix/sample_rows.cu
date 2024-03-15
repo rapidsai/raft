@@ -85,14 +85,14 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
     std::unordered_set<int> occurrence;
 
     for (int64_t i = 0; i < params.n_samples; ++i) {
-      int val = (int)out_h(i, 0) / 1000;
+      T val = out_h(i, 0) / 1000;
       ASSERT_TRUE(0 <= val && val < params.N)
         << "out-of-range index @i=" << i << " val=" << val << " params=" << params;
-      ASSERT_TRUE(occurrence.find(val) == occurrence.end())
+      EXPECT_TRUE(occurrence.find(val) == occurrence.end())
         << "repeated index @i=" << i << " idx=" << val << " params=" << params;
       occurrence.insert(val);
       for (int64_t k = 0; k < params.dim; k++) {
-        ASSERT_TRUE(raft::match((int64_t)(out_h(i, k)), val * 1000 + k, raft::Compare<int64_t>()));
+        ASSERT_TRUE(raft::match(out_h(i, k), val * 1000 + k, raft::CompareApprox<T>(1e-6)));
       }
     }
   }
@@ -116,7 +116,8 @@ inline std::vector<inputs> generate_inputs()
   input1.insert(input1.end(), input2.begin(), input2.end());
 
   input2 = raft::util::itertools::product<inputs>(
-    {100000}, {1, 42}, {1, 137, 1000, 10000, 100000}, {false});
+    {100000}, {1, 42}, {1, 137, 1000, 10000, 50000, 62000, 100000}, {false});
+
   input1.insert(input1.end(), input2.begin(), input2.end());
 
   int n = input1.size();

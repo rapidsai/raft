@@ -813,9 +813,11 @@ void sampleWithoutReplacement(raft::resources const& handle,
     rng_state, out, outIdx, in, wts, sampledLen, len, resource::get_cuda_stream(handle));
 }
 
-/** @brief Sample without replacement from range 0..N-1.
+/** @brief Sample from range 0..N-1.
  *
- * Elements are sampled uniformly.
+ * Elements are sampled uniformly. The method aims to sample without replacement,
+ * but there is a small probability of a few having duplicate elements.
+ *
  * The algorithm will allocate a workspace of size 4*n_samples*sizeof(IdxT) internally.
  *
  * We use max N random numbers. Depending on how large n_samples is w.r.t to N, we

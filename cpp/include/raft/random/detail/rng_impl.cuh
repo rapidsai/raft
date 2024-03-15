@@ -19,6 +19,8 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/math.hpp>
+#include <raft/core/operators.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -444,6 +446,8 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
     RAFT_LOG_DEBUG("Subsampling returned with less unique indices (%zu) than requested (%zu)",
                    (size_t)selected,
                    (size_t)n_samples);
+
+    // We continue to select n_samples elements, this will now contains a few duplicates.
   }
 
   // After duplicates are removed, we need to shuffle back to random order

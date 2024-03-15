@@ -379,12 +379,10 @@ void gather(raft::resources const& res,
   const size_t max_batch_size = 32768;
   // Gather the vector on the host in tmp buffers. We use two buffers to overlap H2D sync
   // and gathering the data.
-  raft::common::nvtx::push_range("gather::alloc_buffers");
   auto out_tmp1 = raft::make_pinned_matrix<T, IdxT>(res, max_batch_size, n_dim);
   auto out_tmp2 = raft::make_pinned_matrix<T, IdxT>(res, max_batch_size, n_dim);
   auto view1    = out_tmp1.view();
   auto view2    = out_tmp2.view();
-  raft::common::nvtx::pop_range();
 
   gather_buff(dataset, make_const_mdspan(indices_host.view()), (IdxT)0, view1);
 #pragma omp parallel

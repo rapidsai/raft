@@ -18,10 +18,6 @@
 
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/linalg/map.cuh>
-#include <raft/matrix/gather.cuh>
-#include <raft/random/rng.cuh>
-#include <raft/random/sample_without_replacement.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/integer_utils.hpp>

@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/linalg/map.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/integer_utils.hpp>
