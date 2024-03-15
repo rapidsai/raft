@@ -107,7 +107,10 @@ const std::vector<MeanInputs<float>> inputsf = {
   {0.15f, -1.f, 1030, 1, false, false, 1234ULL},   {0.15f, -1.f, 1030, 60, true, false, 1234ULL},
   {2.0f, -1.f, 31, 120, false, false, 1234ULL},    {2.0f, -1.f, 1, 130, true, false, 1234ULL},
   {0.15f, -1.f, 1030, 1, false, true, 1234ULL},    {0.15f, -1.f, 1030, 60, true, true, 1234ULL},
-  {2.0f, -1.f, 31, 120, false, true, 1234ULL},     {2.0f, -1.f, 1, 130, true, true, 1234ULL}};
+  {2.0f, -1.f, 31, 120, false, true, 1234ULL},     {2.0f, -1.f, 1, 130, false, true, 1234ULL},
+  {2.0f, -1.f, 1, 1, false, false, 1234ULL},       {2.0f, -1.f, 1, 1, false, true, 1234ULL},
+  {2.0f, -1.f, 7, 23, false, false, 1234ULL},      {2.0f, -1.f, 7, 23, false, true, 1234ULL},
+  {2.0f, -1.f, 17, 5, false, false, 1234ULL},      {2.0f, -1.f, 17, 5, false, true, 1234ULL}};
 
 const std::vector<MeanInputs<double>> inputsd = {
   {0.15, 1.0, 1024, 32, true, false, 1234ULL},    {0.15, 1.0, 1024, 64, true, false, 1234ULL},
@@ -118,10 +121,13 @@ const std::vector<MeanInputs<double>> inputsd = {
   {0.15, 1.0, 1024, 128, true, true, 1234ULL},    {0.15, 1.0, 1024, 256, true, true, 1234ULL},
   {0.15, -1.0, 1024, 32, false, true, 1234ULL},   {0.15, -1.0, 1024, 64, false, true, 1234ULL},
   {0.15, -1.0, 1024, 128, false, true, 1234ULL},  {0.15, -1.0, 1024, 256, false, true, 1234ULL},
-  {0.15, -1.f, 1030, 1, false, false, 1234ULL},   {0.15, -1.f, 1030, 60, true, false, 1234ULL},
-  {2.0, -1.f, 31, 120, false, false, 1234ULL},    {2.0, -1.f, 1, 130, true, false, 1234ULL},
-  {0.15, -1.f, 1030, 1, false, true, 1234ULL},    {0.15, -1.f, 1030, 60, true, true, 1234ULL},
-  {2.0, -1.f, 31, 120, false, true, 1234ULL},     {2.0, -1.f, 1, 130, true, true, 1234ULL}};
+  {0.15, -1.0, 1030, 1, false, false, 1234ULL},   {0.15, -1.0, 1030, 60, true, false, 1234ULL},
+  {2.0, -1.0, 31, 120, false, false, 1234ULL},    {2.0, -1.0, 1, 130, true, false, 1234ULL},
+  {0.15, -1.0, 1030, 1, false, true, 1234ULL},    {0.15, -1.0, 1030, 60, true, true, 1234ULL},
+  {2.0, -1.0, 31, 120, false, true, 1234ULL},     {2.0, -1.0, 1, 130, false, true, 1234ULL},
+  {2.0, -1.0, 1, 1, false, false, 1234ULL},       {2.0, -1.0, 1, 1, false, true, 1234ULL},
+  {2.0, -1.0, 7, 23, false, false, 1234ULL},      {2.0, -1.0, 7, 23, false, true, 1234ULL},
+  {2.0, -1.0, 17, 5, false, false, 1234ULL},      {2.0, -1.0, 17, 5, false, true, 1234ULL}};
 
 typedef MeanTest<float> MeanTestF;
 TEST_P(MeanTestF, Result)
