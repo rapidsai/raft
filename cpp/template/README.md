@@ -8,7 +8,7 @@ Once the minimum requirements are satisfied, this example template application c
 
 This directory (`RAFT_SOURCE/cpp/template`) can be copied directly in order to build a new application with RAFT.
 
-RAFT can be integrated into an existing CMake project by copying the contents in the `configure rapids-cmake` and `configure raft` sections of the provided `CMakeLists.txt` into your project, along with `cmake/thirdparty/get_raft.cmake`. 
+RAFT can be integrated into an existing CMake project by copying the contents in the `configure rapids-cmake` and `configure raft` sections of the provided `CMakeLists.txt` into your project, along with `cmake/thirdparty/get_raft.cmake`.
 
 Make sure to link against the appropriate Cmake targets. Use `raft::raft`to add make the headers available and `raft::compiled` when utilizing the shared library.
 
