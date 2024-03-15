@@ -27,6 +27,7 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/failure_callback_resource_adaptor.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <memory>
@@ -70,13 +71,14 @@ inline auto rmm_oom_callback(std::size_t bytes, void*) -> bool
  */
 class shared_raft_resources {
  public:
-  using pool_mr_type = rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>;
-  using mr_type      = rmm::mr::failure_callback_resource_adaptor<pool_mr_type>;
+  using pool_mr_type  = rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>;
+  using mr_type       = rmm::mr::failure_callback_resource_adaptor<pool_mr_type>;
+  using large_mr_type = rmm::mr::managed_memory_resource;
 
   shared_raft_resources()
   try : orig_resource_{rmm::mr::get_current_device_resource()},
     pool_resource_(orig_resource_, 1024 * 1024 * 1024ull),
-    resource_(&pool_resource_, rmm_oom_callback, nullptr) {
+    resource_(&pool_resource_, rmm_oom_callback, nullptr), large_mr_() {
     rmm::mr::set_current_device_resource(&resource_);
   } catch (const std::exception& e) {
     auto cuda_status = cudaGetLastError();
@@ -99,10 +101,16 @@ class shared_raft_resources {
 
   ~shared_raft_resources() noexcept { rmm::mr::set_current_device_resource(orig_resource_); }
 
+  auto get_large_memory_resource() noexcept
+  {
+    return static_cast<rmm::mr::device_memory_resource*>(&large_mr_);
+  }
+
  private:
   rmm::mr::device_memory_resource* orig_resource_;
   pool_mr_type pool_resource_;
   mr_type resource_;
+  large_mr_type large_mr_;
 };
 
 /**
@@ -123,6 +131,12 @@ class configured_raft_resources {
   explicit configured_raft_resources(const std::shared_ptr<shared_raft_resources>& shared_res)
     : shared_res_{shared_res}, res_{rmm::cuda_stream_view(get_stream_from_global_pool())}
   {
+    // set the large workspace resource to the raft handle, but without the deleter
+    // (this resource is managed by the shared_res).
+    raft::resource::set_large_workspace_resource(
+      res_,
+      std::shared_ptr<rmm::mr::device_memory_resource>(shared_res_->get_large_memory_resource(),
+                                                       raft::void_op{}));
   }
 
   /** Default constructor creates all resources anew. */
