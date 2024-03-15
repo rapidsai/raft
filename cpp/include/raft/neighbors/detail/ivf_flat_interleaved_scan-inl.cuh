@@ -690,7 +690,6 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
                           const uint32_t query_smem_elems,
                           const T* query,
                           const uint32_t* coarse_index,
-                          const IdxT* const* list_indices_ptrs,
                           const T* const* list_data_ptrs,
                           const uint32_t* list_sizes,
                           const uint32_t queries_offset,
@@ -719,8 +718,8 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
       distances += query_id * k * gridDim.x + blockIdx.x * k;
     } else {
       distances += query_id * uint64_t(max_samples);
-      chunk_indices += (n_probes * query_id);
     }
+    chunk_indices += (n_probes * query_id);
     coarse_index += query_id * n_probes;
   }
 
@@ -728,7 +727,7 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
   copy_vectorized(query_shared, query, std::min(dim, query_smem_elems));
   __syncthreads();
 
-  using local_topk_t = block_sort_t<Capacity, Ascending, float, IdxT>;
+  using local_topk_t = block_sort_t<Capacity, Ascending, float, uint32_t>;
   local_topk_t queue(k);
   {
     using align_warp  = Pow2<WarpSize>;
@@ -924,7 +923,6 @@ void launch_kernel(Lambda lambda,
                                                         query_smem_elems,
                                                         queries,
                                                         coarse_index,
-                                                        index.inds_ptrs().data_handle(),
                                                         index.data_ptrs().data_handle(),
                                                         index.list_sizes().data_handle(),
                                                         queries_offset + query_offset,

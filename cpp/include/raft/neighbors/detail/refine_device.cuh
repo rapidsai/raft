@@ -96,7 +96,7 @@ void refine_device(raft::resources const& handle,
   // Offsets per probe for each query
   rmm::device_uvector<uint32_t> chunk_index(n_queries, resource::get_cuda_stream(handle));
 
-  ivf::detail::calc_chunk_indices<uint32_t>::configure(1, n_queries)(
+  ivf::detail::calc_chunk_indices::configure(1, n_queries)(
     refinement_index.list_sizes().data_handle(),
     fake_coarse_idx.data(),
     chunk_index.data(),

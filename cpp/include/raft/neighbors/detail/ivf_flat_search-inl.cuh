@@ -181,12 +181,11 @@ void search_impl(raft::resources const& handle,
   num_samples.resize(n_queries, stream);
   chunk_index.resize(n_queries_probes, stream);
 
-  ivf::detail::calc_chunk_indices<uint32_t>::configure(n_probes, n_queries)(
-    index.list_sizes().data_handle(),
-    coarse_indices_dev.data(),
-    chunk_index.data(),
-    num_samples.data(),
-    stream);
+  ivf::detail::calc_chunk_indices::configure(n_probes, n_queries)(index.list_sizes().data_handle(),
+                                                                  coarse_indices_dev.data(),
+                                                                  chunk_index.data(),
+                                                                  num_samples.data(),
+                                                                  stream);
 
   auto distances_dev_ptr = distances;
 

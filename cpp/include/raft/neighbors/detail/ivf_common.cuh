@@ -44,13 +44,13 @@ struct dummy_block_sort_t {
  * in chunk_indices. Essentially this is a segmented inclusive scan of the cluster sizes. The total
  * number of samples per query (sum of the cluster sizes that we probe) is returned in n_samples.
  */
-template <int BlockDim, typename IdxT>
+template <int BlockDim>
 __launch_bounds__(BlockDim) RAFT_KERNEL
   calc_chunk_indices_kernel(uint32_t n_probes,
                             const uint32_t* cluster_sizes,      // [n_clusters]
                             const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                             uint32_t* chunk_indices,            // [n_queries, n_probes]
-                            IdxT* n_samples                     // [n_queries]
+                            uint32_t* n_samples                 // [n_queries]
   )
 {
   using block_scan = cub::BlockScan<uint32_t, BlockDim>;
@@ -75,7 +75,6 @@ __launch_bounds__(BlockDim) RAFT_KERNEL
   if (threadIdx.x == 0) { n_samples[blockIdx.x] = total; }
 }
 
-template <typename IdxT>
 struct calc_chunk_indices {
  public:
   struct configured {
@@ -87,7 +86,7 @@ struct calc_chunk_indices {
     inline void operator()(const uint32_t* cluster_sizes,
                            const uint32_t* clusters_to_probe,
                            uint32_t* chunk_indices,
-                           IdxT* n_samples,
+                           uint32_t* n_samples,
                            rmm::cuda_stream_view stream)
     {
       void* args[] =  // NOLINT
@@ -108,7 +107,7 @@ struct calc_chunk_indices {
     if constexpr (BlockDim >= WarpSize * 2) {
       if (BlockDim >= n_probes * 2) { return try_block_dim<(BlockDim / 2)>(n_probes, n_queries); }
     }
-    return {reinterpret_cast<void*>(calc_chunk_indices_kernel<BlockDim, IdxT>),
+    return {reinterpret_cast<void*>(calc_chunk_indices_kernel<BlockDim>),
             dim3(BlockDim, 1, 1),
             dim3(n_queries, 1, 1),
             n_probes};
@@ -148,11 +147,11 @@ __device__ inline auto find_chunk_ix(uint32_t& sample_ix,  // NOLINT
   return ix_min;
 }
 
-template <int BlockDim, typename IdxT1, typename IdxT2 = uint32_t>
+template <int BlockDim, typename IdxT>
 __launch_bounds__(BlockDim) RAFT_KERNEL
-  postprocess_neighbors_kernel(IdxT1* neighbors_out,               // [n_queries, topk]
-                               const IdxT2* neighbors_in,          // [n_queries, topk]
-                               const IdxT1* const* db_indices,     // [n_clusters][..]
+  postprocess_neighbors_kernel(IdxT* neighbors_out,                // [n_queries, topk]
+                               const uint32_t* neighbors_in,       // [n_queries, topk]
+                               const IdxT* const* db_indices,      // [n_clusters][..]
                                const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                                const uint32_t* chunk_indices,      // [n_queries, n_probes]
                                uint32_t n_queries,
@@ -171,7 +170,7 @@ __launch_bounds__(BlockDim) RAFT_KERNEL
   const uint32_t chunk_ix = find_chunk_ix(data_ix, n_probes, chunk_indices);
   const bool valid        = chunk_ix < n_probes;
   neighbors_out[k] =
-    valid ? db_indices[clusters_to_probe[chunk_ix]][data_ix] : kOutOfBoundsRecord<IdxT1>;
+    valid ? db_indices[clusters_to_probe[chunk_ix]][data_ix] : kOutOfBoundsRecord<IdxT>;
 }
 
 /**
@@ -181,10 +180,10 @@ __launch_bounds__(BlockDim) RAFT_KERNEL
  * probed clusters / defined by the `chunk_indices`.
  * We assume the searched sample sizes (for a single query) fit into `uint32_t`.
  */
-template <typename IdxT1, typename IdxT2 = uint32_t>
-void postprocess_neighbors(IdxT1* neighbors_out,               // [n_queries, topk]
-                           const IdxT2* neighbors_in,          // [n_queries, topk]
-                           const IdxT1* const* db_indices,     // [n_clusters][..]
+template <typename IdxT>
+void postprocess_neighbors(IdxT* neighbors_out,                // [n_queries, topk]
+                           const uint32_t* neighbors_in,       // [n_queries, topk]
+                           const IdxT* const* db_indices,      // [n_clusters][..]
                            const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                            const uint32_t* chunk_indices,      // [n_queries, n_probes]
                            uint32_t n_queries,
@@ -194,7 +193,7 @@ void postprocess_neighbors(IdxT1* neighbors_out,               // [n_queries, to
 {
   constexpr int kPNThreads = 256;
   const int pn_blocks      = raft::div_rounding_up_unsafe<size_t>(n_queries * topk, kPNThreads);
-  postprocess_neighbors_kernel<kPNThreads, IdxT1, IdxT2>
+  postprocess_neighbors_kernel<kPNThreads, IdxT>
     <<<pn_blocks, kPNThreads, 0, stream>>>(neighbors_out,
                                            neighbors_in,
                                            db_indices,
