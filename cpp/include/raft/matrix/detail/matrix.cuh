@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/util/cache_util.cuh>
@@ -33,7 +34,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <raft/core/resource/device_properties.hpp>
 
 namespace raft {
 namespace matrix {

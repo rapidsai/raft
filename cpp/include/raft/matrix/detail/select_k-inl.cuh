@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <type_traits>
-
 #include "select_radix.cuh"
 #include "select_warpsort.cuh"
 
@@ -34,6 +32,8 @@
 #include <raft/matrix/select_k_types.hpp>
 
 #include <cub/cub.cuh>
+
+#include <type_traits>
 
 namespace raft::matrix::detail {
 

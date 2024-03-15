@@ -15,7 +15,6 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
 
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
@@ -27,6 +26,8 @@
 #include <raft/random/make_blobs.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
+
+#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cmath>
