@@ -50,14 +50,14 @@ RAFT_KERNEL sumKernelRowMajor(Type* mu, const Type* data, IdxType D, IdxType N)
 template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
 RAFT_KERNEL sumKahanKernelRowMajor(Type* mu, const Type* data, IdxType D, IdxType N)
 {
-  const int RowsPerBlkPerIter = TPB / ColsPerBlk;
-  IdxType thisColId           = threadIdx.x % ColsPerBlk;
-  IdxType thisRowId           = threadIdx.x / ColsPerBlk;
-  IdxType colId               = thisColId + ((IdxType)blockIdx.y * ColsPerBlk);
-  IdxType rowId               = thisRowId + ((IdxType)blockIdx.x * RowsPerBlkPerIter);
-  Type thread_sum             = Type(0);
-  Type thread_c               = Type(0);
-  const IdxType stride        = RowsPerBlkPerIter * gridDim.x;
+  constexpr int RowsPerBlkPerIter = TPB / ColsPerBlk;
+  IdxType thisColId               = threadIdx.x % ColsPerBlk;
+  IdxType thisRowId               = threadIdx.x / ColsPerBlk;
+  IdxType colId                   = thisColId + ((IdxType)blockIdx.y * ColsPerBlk);
+  IdxType rowId                   = thisRowId + ((IdxType)blockIdx.x * RowsPerBlkPerIter);
+  Type thread_sum                 = Type(0);
+  Type thread_c                   = Type(0);
+  const IdxType stride            = RowsPerBlkPerIter * gridDim.x;
   for (IdxType i = rowId; i < N; i += stride) {
     // KahanBabushkaNeumaierSum
     const Type cur_value = (colId < D) ? data[i * D + colId] : Type(0);
