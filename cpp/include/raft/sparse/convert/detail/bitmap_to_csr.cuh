@@ -291,7 +291,7 @@ void bitmap_to_csr(raft::resources const& handle,
   thrust::fill_n(thrust_policy,
                  csr.get_elements().data(),
                  csr_view.get_nnz(),
-                 typename csr_matrix_t::element_t(1));
+                 typename csr_matrix_t::element_type(1));
 }
 
 };  // end NAMESPACE detail
