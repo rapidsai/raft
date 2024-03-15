@@ -106,16 +106,17 @@ void adj_to_csr(raft::resources const& handle,
 }
 
 /**
- * @brief Converts a bitmap matrix into unsorted CSR format matrix.
+ * @brief  Converts a bitmap matrix to a Compressed Sparse Row (CSR) format matrix.
  *
- * @tparam       bitmap_t       Underlying type of the bitmap.
- * @tparam       index_t        Indexing type used.
- * @tparam       csr_matrix_t   Type of CSR Matrix, must be raft::device_csr_matrix
+ * @tparam       bitmap_t       The data type of the elements in the bitmap matrix.
+ * @tparam       index_t        The data type used for indexing the elements in the matrices.
+ * @tparam       csr_matrix_t   Specifies the CSR matrix type, constrained to
+ * raft::device_csr_matrix.
  *
- * @param[in]    handle         RAFT handle, containing the CUDA stream on which to schedule work
- * @param[in]    bitmap         Bitmap view, need to be converted to CSR Matrix.
- * @param[out]   csr            A CSR Matrix, containing the result of converting. Each of 1 in
- * bitmap will be a non-zero element of csr.
+ * @param[in]    handle         The RAFT handle containing the CUDA stream for operations.
+ * @param[in]    bitmap         The bitmap matrix view, to be converted to CSR format.
+ * @param[out]   csr            Output parameter where the resulting CSR matrix is stored. In the
+ * bitmap, each '1' bit corresponds to a non-zero element in the CSR matrix.
  */
 template <typename bitmap_t,
           typename index_t,

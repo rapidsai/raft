@@ -226,6 +226,7 @@ struct BitmapToCSRInputs {
   index_t n_rows;
   index_t n_cols;
   float sparsity;
+  bool owning;
 };
 
 template <typename bitmap_t, typename index_t, typename value_t>
@@ -364,33 +365,40 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
     auto bitmap =
       raft::core::bitmap_view<bitmap_t, index_t>(bitmap_d.data(), params.n_rows, params.n_cols);
 
-    auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
-      indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
-    auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
+    if (params.owning) {
+      auto csr =
+        raft::make_device_csr_matrix<value_t, index_t>(handle, params.n_rows, params.n_cols, nnz);
+      auto csr_view = csr.structure_view();
 
-    convert::bitmap_to_csr(handle, bitmap, csr);
+      convert::bitmap_to_csr(handle, bitmap, csr);
+      raft::copy(indptr_d.data(), csr_view.get_indptr().data(), indptr_d.size(), stream);
+      raft::copy(indices_d.data(), csr_view.get_indices().data(), indices_d.size(), stream);
+      raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
+    } else {
+      auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
+        indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
+      auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
 
+      convert::bitmap_to_csr(handle, bitmap, csr);
+      raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
+    }
     resource::sync_stream(handle);
-
-    ASSERT_EQ(csr_view.get_indptr().size(), indptr_expected_d.size());
-    ASSERT_EQ(csr_view.get_indices().size(), indices_expected_d.size());
-    ASSERT_EQ(csr_view.get_nnz(), nnz);
 
     std::vector<index_t> indices_h(indices_expected_d.size(), 0);
     std::vector<index_t> indices_expected_h(indices_expected_d.size(), 0);
-    update_host(indices_h.data(), csr_view.get_indices().data(), indices_h.size(), stream);
+    update_host(indices_h.data(), indices_d.data(), indices_h.size(), stream);
     update_host(indices_expected_h.data(), indices_expected_d.data(), indices_h.size(), stream);
 
     std::vector<index_t> indptr_h(indptr_expected_d.size(), 0);
     std::vector<index_t> indptr_expected_h(indptr_expected_d.size(), 0);
-    update_host(indptr_h.data(), csr_view.get_indptr().data(), indptr_h.size(), stream);
+    update_host(indptr_h.data(), indptr_d.data(), indptr_h.size(), stream);
     update_host(indptr_expected_h.data(), indptr_expected_d.data(), indptr_h.size(), stream);
 
     resource::sync_stream(handle);
 
     ASSERT_TRUE(csr_compare(indptr_h, indices_h, indptr_expected_h, indices_expected_h));
     ASSERT_TRUE(raft::devArrMatch<value_t>(
-      csr.get_elements().data(), values_expected_d.data(), nnz, raft::Compare<value_t>(), stream));
+      values_expected_d.data(), values_d.data(), nnz, raft::Compare<value_t>(), stream));
   }
 
  protected:
@@ -420,18 +428,30 @@ TEST_P(BitmapToCSRTestL, Result) { Run(); }
 
 template <typename index_t>
 const std::vector<BitmapToCSRInputs<index_t>> bitmaptocsr_inputs = {
-  {0, 0, 0.2},
-  {10, 32, 0.4},
-  {10, 3, 0.2},
-  {32, 1024, 0.4},
-  {1024, 1048576, 0.01},
-  {1024, 1024, 0.4},
-  {64 * 1024 + 10, 2, 0.3},  // 64K + 10 is slightly over maximum of blockDim.y
-  {16, 16, 0.3},             // No peeling-remainder
-  {17, 16, 0.3},             // Check peeling-remainder
-  {18, 16, 0.3},             // Check peeling-remainder
-  {32 + 9, 33, 0.2},         // Check peeling-remainder
-  {2, 33, 0.2},              // Check peeling-remainder
+  {0, 0, 0.2, false},
+  {10, 32, 0.4, false},
+  {10, 3, 0.2, false},
+  {32, 1024, 0.4, false},
+  {1024, 1048576, 0.01, false},
+  {1024, 1024, 0.4, false},
+  {64 * 1024 + 10, 2, 0.3, false},  // 64K + 10 is slightly over maximum of blockDim.y
+  {16, 16, 0.3, false},             // No peeling-remainder
+  {17, 16, 0.3, false},             // Check peeling-remainder
+  {18, 16, 0.3, false},             // Check peeling-remainder
+  {32 + 9, 33, 0.2, false},         // Check peeling-remainder
+  {2, 33, 0.2, false},              // Check peeling-remainder
+  {0, 0, 0.2, true},
+  {10, 32, 0.4, true},
+  {10, 3, 0.2, true},
+  {32, 1024, 0.4, true},
+  {1024, 1048576, 0.01, true},
+  {1024, 1024, 0.4, true},
+  {64 * 1024 + 10, 2, 0.3, true},  // 64K + 10 is slightly over maximum of blockDim.y
+  {16, 16, 0.3, true},             // No peeling-remainder
+  {17, 16, 0.3, true},             // Check peeling-remainder
+  {18, 16, 0.3, true},             // Check peeling-remainder
+  {32 + 9, 33, 0.2, true},         // Check peeling-remainder
+  {2, 33, 0.2, true},              // Check peeling-remainder
 };
 
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
