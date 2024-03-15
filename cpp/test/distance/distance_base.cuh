@@ -339,7 +339,7 @@ void naiveDistance(DataType* dist,
                    DataType metric_arg = 2.0f,
                    cudaStream_t stream = 0)
 {
-  static const dim3 TPB(16, 32, 1);
+  static const dim3 TPB(4, 256, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {
