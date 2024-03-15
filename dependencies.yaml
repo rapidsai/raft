@@ -443,7 +443,7 @@ dependencies:
           - ucx-py==0.37.*
       - output_types: conda
         packages:
-          - ucx>=1.13.0
+          - ucx>=1.15.0,<1.16.0
           - ucx-proc=*=gpu
           - &ucx_py_conda ucx-py==0.37.*
       - output_types: pyproject
