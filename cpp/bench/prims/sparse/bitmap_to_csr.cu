@@ -107,7 +107,7 @@ struct BitmapToCsrBench : public fixture {
 
     auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
       indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
-    auto csr = raft::make_device_csr_matrix_view<value_t, index_t>(values_d.data(), csr_view);
+    auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
 
     raft::sparse::convert::bitmap_to_csr<bitmap_t, index_t>(handle, bitmap, csr);
 
