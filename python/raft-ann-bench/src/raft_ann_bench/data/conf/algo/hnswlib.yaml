@@ -1,0 +1,10 @@
+name: hnswlib
+constraints:
+  search: raft-ann-bench.constraints.hnswlib_search_constraints
+groups:
+  base:
+    build:
+      M: [12, 16, 24, 36]
+      efConstruction: [64, 128, 256, 512]
+    search:
+      ef: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800]

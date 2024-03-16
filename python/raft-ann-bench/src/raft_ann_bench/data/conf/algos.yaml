@@ -1,0 +1,42 @@
+faiss_gpu_flat:
+  executable: FAISS_GPU_FLAT_ANN_BENCH
+  requires_gpu: true
+faiss_gpu_ivf_flat:
+  executable: FAISS_GPU_IVF_FLAT_ANN_BENCH
+  requires_gpu: true
+faiss_gpu_ivf_pq:
+  executable: FAISS_GPU_IVF_PQ_ANN_BENCH
+  requires_gpu: true
+faiss_gpu_ivf_sq:
+  executable: FAISS_GPU_IVF_PQ_ANN_BENCH
+  requires_gpu: true
+faiss_cpu_flat:
+  executable: FAISS_CPU_FLAT_ANN_BENCH
+  requires_gpu: false
+faiss_cpu_ivf_flat:
+  executable: FAISS_CPU_IVF_FLAT_ANN_BENCH
+  requires_gpu: false
+faiss_cpu_ivf_pq:
+  executable: FAISS_CPU_IVF_PQ_ANN_BENCH
+  requires_gpu: false
+raft_ivf_flat:
+  executable: RAFT_IVF_FLAT_ANN_BENCH
+  requires_gpu: true
+raft_ivf_pq:
+  executable: RAFT_IVF_PQ_ANN_BENCH
+  requires_gpu: true
+raft_cagra:
+  executable: RAFT_CAGRA_ANN_BENCH
+  requires_gpu: true
+raft_brute_force:
+  executable: RAFT_BRUTE_FORCE_ANN_BENCH
+  requires_gpu: true
+ggnn:
+  executable: GGNN_ANN_BENCH
+  requires_gpu: true
+hnswlib:
+  executable: HNSWLIB_ANN_BENCH
+  requires_gpu: false
+raft_cagra_hnswlib:
+  executable: RAFT_CAGRA_HNSWLIB_ANN_BENCH
+  requires_gpu: true

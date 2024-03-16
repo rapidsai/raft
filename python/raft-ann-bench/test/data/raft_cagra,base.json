@@ -1,0 +1,11 @@
+{
+  "context": {
+    "executable": "/opt/conda/bin/ann/RAFT_CAGRA_ANN_BENCH"
+  },
+  "benchmarks": [
+    {
+      "name": "raft_cagra.graph_degree32.intermediate_graph_degree32.graph_build_algoNN_DESCENT/process_time/real_time",
+      "family_index": 0
+    }
+  ]
+}
