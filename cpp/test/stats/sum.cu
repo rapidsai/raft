@@ -33,7 +33,8 @@ template <typename T>
 struct SumInputs {
   T tolerance;
   int rows, cols;
-  unsigned long long int seed;
+  bool rowMajor;
+  T value = T(1);
 };
 
 template <typename T>
@@ -56,20 +57,34 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
   }
 
  protected:
-  void SetUp() override
+  void runTest()
   {
     int len = rows * cols;
 
-    T data_h[len];
+    std::vector<T> data_h(len);
     for (int i = 0; i < len; i++) {
-      data_h[i] = T(1);
+      data_h[i] = T(params.value);
     }
 
-    raft::update_device(data.data(), data_h, len, stream);
-    sum(handle,
-        raft::make_device_matrix_view<const T>(data.data(), rows, cols),
-        raft::make_device_vector_view(sum_act.data(), cols));
+    raft::update_device(data.data(), data_h.data(), len, stream);
+
+    if (params.rowMajor) {
+      using layout = raft::row_major;
+      sum(handle,
+          raft::make_device_matrix_view<const T, int, layout>(data.data(), rows, cols),
+          raft::make_device_vector_view(sum_act.data(), cols));
+    } else {
+      using layout = raft::col_major;
+      sum(handle,
+          raft::make_device_matrix_view<const T, int, layout>(data.data(), rows, cols),
+          raft::make_device_vector_view(sum_act.data(), cols));
+    }
     resource::sync_stream(handle, stream);
+
+    double expected = double(params.rows) * params.value;
+
+    ASSERT_TRUE(raft::devArrMatch(
+      T(expected), sum_act.data(), params.cols, raft::CompareApprox<T>(params.tolerance)));
   }
 
  protected:
@@ -81,27 +96,49 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
   rmm::device_uvector<T> data, sum_act;
 };
 
-const std::vector<SumInputs<float>> inputsf = {
-  {0.05f, 4, 5, 1234ULL}, {0.05f, 1024, 32, 1234ULL}, {0.05f, 1024, 256, 1234ULL}};
+const std::vector<SumInputs<float>> inputsf = {{0.0001f, 4, 5, true, 1},
+                                               {0.0001f, 1024, 32, true, 1},
+                                               {0.0001f, 1024, 256, true, 1},
+                                               {0.0001f, 100000000, 1, true, 0.001},
+                                               {0.0001f, 1, 30, true, 0.001},
+                                               {0.0001f, 1, 1, true, 0.001},
+                                               {0.0001f, 17, 5, true, 0.001},
+                                               {0.0001f, 7, 23, true, 0.001},
+                                               {0.0001f, 3, 97, true, 0.001},
+                                               {0.0001f, 4, 5, false, 1},
+                                               {0.0001f, 1024, 32, false, 1},
+                                               {0.0001f, 1024, 256, false, 1},
+                                               {0.0001f, 100000000, 1, false, 0.001},
+                                               {0.0001f, 1, 30, false, 0.001},
+                                               {0.0001f, 1, 1, false, 0.001},
+                                               {0.0001f, 17, 5, false, 0.001},
+                                               {0.0001f, 7, 23, false, 0.001},
+                                               {0.0001f, 3, 97, false, 0.001}};
 
-const std::vector<SumInputs<double>> inputsd = {{0.05, 1024, 32, 1234ULL},
-                                                {0.05, 1024, 256, 1234ULL}};
+const std::vector<SumInputs<double>> inputsd = {{0.000001, 1024, 32, true, 1},
+                                                {0.000001, 1024, 256, true, 1},
+                                                {0.000001, 1024, 256, true, 1},
+                                                {0.000001, 100000000, 1, true, 0.001},
+                                                {0.000001, 1, 30, true, 0.0001},
+                                                {0.000001, 1, 1, true, 0.0001},
+                                                {0.000001, 17, 5, true, 0.0001},
+                                                {0.000001, 7, 23, true, 0.0001},
+                                                {0.000001, 3, 97, true, 0.0001},
+                                                {0.000001, 1024, 32, false, 1},
+                                                {0.000001, 1024, 256, false, 1},
+                                                {0.000001, 1024, 256, false, 1},
+                                                {0.000001, 100000000, 1, false, 0.001},
+                                                {0.000001, 1, 30, false, 0.0001},
+                                                {0.000001, 1, 1, false, 0.0001},
+                                                {0.000001, 17, 5, false, 0.0001},
+                                                {0.000001, 7, 23, false, 0.0001},
+                                                {0.000001, 3, 97, false, 0.0001}};
 
 typedef SumTest<float> SumTestF;
-TEST_P(SumTestF, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(
-    float(params.rows), sum_act.data(), params.cols, raft::CompareApprox<float>(params.tolerance)));
-}
-
 typedef SumTest<double> SumTestD;
-TEST_P(SumTestD, Result)
-{
-  ASSERT_TRUE(raft::devArrMatch(double(params.rows),
-                                sum_act.data(),
-                                params.cols,
-                                raft::CompareApprox<double>(params.tolerance)));
-}
+
+TEST_P(SumTestF, Result) { runTest(); }
+TEST_P(SumTestD, Result) { runTest(); }
 
 INSTANTIATE_TEST_CASE_P(SumTests, SumTestF, ::testing::ValuesIn(inputsf));
 
