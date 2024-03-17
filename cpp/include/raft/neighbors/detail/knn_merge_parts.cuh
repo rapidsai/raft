@@ -17,12 +17,12 @@
 #pragma once
 
 #include <raft/core/error.hpp>
+#include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
+#include <raft/neighbors/detail/faiss_select/Select.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <cstdint>
-#include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
-#include <raft/neighbors/detail/faiss_select/Select.cuh>
 
 namespace raft::neighbors::detail {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include <cstddef>                           // size_t
-#include <cstdint>                           // int_Xt
 #include <raft/distance/distance_types.hpp>  // DistanceType
 #include <raft/spatial/knn/detail/fused_l2_knn-inl.cuh>
+
+#include <cstddef>  // size_t
+#include <cstdint>  // int_Xt
 
 #define instantiate_raft_spatial_knn_detail_fusedL2Knn(Mvalue_idx, Mvalue_t, MusePrevTopKs)  \
   template void raft::spatial::knn::detail::fusedL2Knn<Mvalue_idx, Mvalue_t, MusePrevTopKs>( \

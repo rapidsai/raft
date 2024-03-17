@@ -20,8 +20,10 @@
 #include "dataset.hpp"
 #include "util.hpp"
 
-#include <benchmark/benchmark.h>
 #include <raft/core/logger.hpp>
+
+#include <benchmark/benchmark.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <chrono>
@@ -34,7 +36,6 @@
 #include <numeric>
 #include <sstream>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 namespace raft::bench::ann {

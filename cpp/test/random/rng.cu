@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-#include <memory>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <sys/timeb.h>
-
 #include "../test_utils.cuh"
-#include <cub/cub.cuh>
-#include <gtest/gtest.h>
+
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
-
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <cub/cub.cuh>
+
+#include <gtest/gtest.h>
+#include <sys/timeb.h>
+
+#include <memory>
 
 namespace raft {
 namespace random {

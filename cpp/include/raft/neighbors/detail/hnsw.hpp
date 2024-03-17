@@ -18,13 +18,13 @@
 
 #include "hnsw_types.hpp"
 
-#include <cstdint>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
+#include <hnswlib/hnswlib.h>
 #include <omp.h>
 
-#include <hnswlib/hnswlib.h>
+#include <cstdint>
 
 namespace raft::neighbors::hnsw::detail {
 

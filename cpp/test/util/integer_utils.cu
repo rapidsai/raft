@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,13 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/integer_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
+
+#include <gtest/gtest.h>
 
 namespace raft {
 namespace util {
