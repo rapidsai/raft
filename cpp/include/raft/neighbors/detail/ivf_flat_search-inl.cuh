@@ -246,7 +246,7 @@ void search_impl(raft::resources const& handle,
                                              select_min,
                                              false,
                                              matrix::SelectAlgo::kAuto,
-                                             num_samples.data());
+                                             manage_local_topk ? nullptr : num_samples.data());
   }
   if (!manage_local_topk) {
     // post process distances && neighbor IDs

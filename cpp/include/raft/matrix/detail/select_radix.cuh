@@ -604,7 +604,7 @@ RAFT_KERNEL radix_kernel(const T* in,
   // that we only iterate valid elements.
   if (len_i != nullptr) {
     const IdxT max_len = max(len_i[batch_id], k);
-    if (max_len < previous_len) previous_len = len_i[batch_id];
+    if (max_len < previous_len) previous_len = max_len;
   }
 
   // "current_len > buf_len" means current pass will skip writing buffer
@@ -1074,7 +1074,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
     // that we only iterate valid elements.
     if (len_i != nullptr) {
       const IdxT max_len = max(len_i[batch_id], k);
-      if (max_len < previous_len) previous_len = len_i[batch_id];
+      if (max_len < previous_len) previous_len = max_len;
     }
 
     filter_and_histogram_for_one_block<T, IdxT, BitsPerPass>(in_buf,

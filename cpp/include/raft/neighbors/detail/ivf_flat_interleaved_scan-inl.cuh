@@ -940,8 +940,8 @@ void launch_kernel(Lambda lambda,
       distances += grid_dim_y * grid_dim_x * k;
     } else {
       distances += grid_dim_y * max_samples;
-      chunk_indices += grid_dim_y * n_probes;
     }
+    chunk_indices += grid_dim_y * n_probes;
     coarse_index += grid_dim_y * n_probes;
   }
 }
