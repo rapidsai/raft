@@ -1684,8 +1684,7 @@ auto build(raft::resources const& handle,
     if constexpr (std::is_same_v<T, float>) {
       raft::matrix::detail::sample_rows(handle, random_state, dataset, n_rows, trainset.view());
     } else {
-      // TODO(tfeher): Enable codebook generation with any type T, and then remove
-      // trainset tmp.
+      // TODO(tfeher): Enable codebook generation with any type T, and then remove trainset tmp.
       auto trainset_tmp = make_device_mdarray<T>(
         handle, &managed_mr, make_extents<internal_extents_t>(n_rows_train, dim));
       raft::matrix::detail::sample_rows(handle, random_state, dataset, n_rows, trainset_tmp.view());
