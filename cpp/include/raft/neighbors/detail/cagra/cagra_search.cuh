@@ -90,8 +90,8 @@ void search_main_core(
   CagraSampleFilterT sample_filter = CagraSampleFilterT())
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
-                 static_cast<size_t>(index.dataset_view().extent(0)),
-                 static_cast<size_t>(index.dataset_view().extent(1)));
+                 static_cast<size_t>(index.data().n_rows()),
+                 static_cast<size_t>(index.data().dim()));
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
@@ -254,15 +254,10 @@ void search_main(raft::resources const& res,
     reinterpret_cast<const InternalIdxT*>(graph.data_handle()), graph.extent(0), graph.extent(1));
 
   // n_rows has the same type as the dataset index (the array extents type)
-  using ds_idx_type = decltype(index.dataset().n_rows());
+  using ds_idx_type = decltype(index.data().n_rows());
   // Dispatch search parameters based on the dataset kind.
-  if (auto* strided_dset = dynamic_cast<const strided_dataset<T, ds_idx_type>*>(&index.dataset());
+  if (auto* strided_dset = dynamic_cast<const strided_dataset<T, ds_idx_type>*>(&index.data());
       strided_dset != nullptr) {
-    const auto& internal_dataset = make_device_strided_matrix_view<const T, int64_t, row_major>(
-      index.dataset_view().data_handle(),
-      index.dataset_view().extent(0),
-      index.dataset_view().extent(1),
-      index.dataset_view().stride(0));
     // Set TEAM_SIZE and DATASET_BLOCK_SIZE to zero tentatively since these parameters cannot be
     // determined here. They are set just before kernel launch.
     using dataset_desc_t = standard_dataset_descriptor_t<T, InternalIdxT, 0, 0, DistanceT>;
@@ -275,15 +270,15 @@ void search_main(raft::resources const& res,
     search_main_core<dataset_desc_t, CagraSampleFilterT>(
       res, params, dataset_desc, graph_internal, queries, neighbors, distances, sample_filter);
   } else if (auto* vpq_dset =
-               dynamic_cast<const vpq_dataset<float, ds_idx_type>*>(&index.dataset());
+               dynamic_cast<const vpq_dataset<float, ds_idx_type>*>(&index.data());
              vpq_dset != nullptr) {
     // Search using a compressed dataset
     RAFT_FAIL("FP32 VPQ dataset support is coming soon");
-  } else if (auto* vpq_dset = dynamic_cast<const vpq_dataset<half, ds_idx_type>*>(&index.dataset());
+  } else if (auto* vpq_dset = dynamic_cast<const vpq_dataset<half, ds_idx_type>*>(&index.data());
              vpq_dset != nullptr) {
     lauch_vpq_search_main_core<T, half, ds_idx_type, InternalIdxT, DistanceT, CagraSampleFilterT>(
       res, vpq_dset, params, graph_internal, queries, neighbors, distances, sample_filter);
-  } else if (auto* empty_dset = dynamic_cast<const empty_dataset<ds_idx_type>*>(&index.dataset());
+  } else if (auto* empty_dset = dynamic_cast<const empty_dataset<ds_idx_type>*>(&index.data());
              empty_dset != nullptr) {
     // Forgot to add a dataset.
     RAFT_FAIL(
