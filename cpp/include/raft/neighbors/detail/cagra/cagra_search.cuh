@@ -269,8 +269,7 @@ void search_main(raft::resources const& res,
 
     search_main_core<dataset_desc_t, CagraSampleFilterT>(
       res, params, dataset_desc, graph_internal, queries, neighbors, distances, sample_filter);
-  } else if (auto* vpq_dset =
-               dynamic_cast<const vpq_dataset<float, ds_idx_type>*>(&index.data());
+  } else if (auto* vpq_dset = dynamic_cast<const vpq_dataset<float, ds_idx_type>*>(&index.data());
              vpq_dset != nullptr) {
     // Search using a compressed dataset
     RAFT_FAIL("FP32 VPQ dataset support is coming soon");
