@@ -266,6 +266,7 @@ if(BUILD_TESTS)
     test/matrix/matrix.cu
     test/matrix/norm.cu
     test/matrix/reverse.cu
+    test/matrix/sample_rows.cu
     test/matrix/slice.cu
     test/matrix/triangular.cu
     test/sparse/spectral_matrix.cu
@@ -293,6 +294,7 @@ if(BUILD_TESTS)
     test/random/rng_int.cu
     test/random/rmat_rectangular_generator.cu
     test/random/sample_without_replacement.cu
+    test/random/excess_sampling.cu
   )
 
   ConfigureTest(

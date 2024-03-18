@@ -136,7 +136,7 @@ if(BUILD_PRIMS_BENCH)
 
   ConfigureBench(
     NAME RANDOM_BENCH PATH bench/prims/random/make_blobs.cu bench/prims/random/permute.cu
-    bench/prims/random/rng.cu bench/prims/main.cpp
+   bench/prims/random/rng.cu bench/prims/random/subsample.cu bench/prims/main.cpp
   )
 
   ConfigureBench(NAME SPARSE_BENCH PATH bench/prims/sparse/convert_csr.cu bench/prims/main.cpp)
