@@ -123,29 +123,22 @@ __device__ inline void topk_by_bitonic_sort(float* distances,  // [num_elements]
 //
 // multiple CTAs per single query
 //
-template <unsigned TEAM_SIZE,
-          unsigned MAX_ELEMENTS,
-          unsigned DATASET_BLOCK_DIM,
-          class DATA_T,
-          class DISTANCE_T,
-          class INDEX_T,
-          class LOAD_T,
-          class SAMPLE_FILTER_T>
+template <std::uint32_t MAX_ELEMENTS, class DATASET_DESCRIPTOR_T, class SAMPLE_FILTER_T>
 __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
-  INDEX_T* const result_indices_ptr,       // [num_queries, num_cta_per_query, itopk_size]
-  DISTANCE_T* const result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
-  const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
-  const size_t dataset_dim,
-  const size_t dataset_size,
-  const size_t dataset_ld,
-  const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
-  const INDEX_T* const knn_graph,   // [dataset_size, graph_degree]
+  typename DATASET_DESCRIPTOR_T::INDEX_T* const
+    result_indices_ptr,  // [num_queries, num_cta_per_query, itopk_size]
+  typename DATASET_DESCRIPTOR_T::DISTANCE_T* const
+    result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
+  DATASET_DESCRIPTOR_T dataset_desc,
+  const typename DATASET_DESCRIPTOR_T::DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
+  const typename DATASET_DESCRIPTOR_T::INDEX_T* const knn_graph,   // [dataset_size, graph_degree]
   const uint32_t graph_degree,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
+  const typename DATASET_DESCRIPTOR_T::INDEX_T* seed_ptr,  // [num_queries, num_seeds]
   const uint32_t num_seeds,
-  INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+  typename DATASET_DESCRIPTOR_T::INDEX_T* const
+    visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const uint32_t hash_bitlen,
   const uint32_t itopk_size,
   const uint32_t search_width,
@@ -154,6 +147,13 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   uint32_t* const num_executed_iterations, /* stats */
   SAMPLE_FILTER_T sample_filter)
 {
+  constexpr std::uint32_t TEAM_SIZE         = DATASET_DESCRIPTOR_T::TEAM_SIZE;
+  constexpr std::uint32_t DATASET_BLOCK_DIM = DATASET_DESCRIPTOR_T::DATASET_BLOCK_DIM;
+  using DATA_T                              = typename DATASET_DESCRIPTOR_T::DATA_T;
+  using INDEX_T                             = typename DATASET_DESCRIPTOR_T::INDEX_T;
+  using DISTANCE_T                          = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
+  using QUERY_T                             = typename DATASET_DESCRIPTOR_T::QUERY_T;
+
   const auto num_queries       = gridDim.y;
   const auto query_id          = blockIdx.y;
   const auto num_cta_per_query = gridDim.x;
@@ -188,14 +188,20 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   assert(result_buffer_size_32 <= MAX_ELEMENTS);
 
   const auto query_smem_buffer_length =
-    raft::ceildiv<uint32_t>(dataset_dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
-  auto query_buffer          = reinterpret_cast<float*>(smem);
+    raft::ceildiv<uint32_t>(dataset_desc.dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
+  auto query_buffer          = reinterpret_cast<QUERY_T*>(smem);
   auto result_indices_buffer = reinterpret_cast<INDEX_T*>(query_buffer + query_smem_buffer_length);
   auto result_distances_buffer =
     reinterpret_cast<DISTANCE_T*>(result_indices_buffer + result_buffer_size_32);
   auto parent_indices_buffer =
     reinterpret_cast<INDEX_T*>(result_distances_buffer + result_buffer_size_32);
-  auto terminate_flag = reinterpret_cast<uint32_t*>(parent_indices_buffer + search_width);
+  auto distance_work_buffer_ptr =
+    reinterpret_cast<std::uint8_t*>(parent_indices_buffer + search_width);
+  auto terminate_flag = reinterpret_cast<uint32_t*>(distance_work_buffer_ptr +
+                                                    DATASET_DESCRIPTOR_T::smem_buffer_size_in_byte);
+
+  // Set smem working buffer for the distance calculation
+  dataset_desc.set_smem_ptr(distance_work_buffer_ptr);
 
 #if 0
     /* debug */
@@ -204,10 +210,10 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
         result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
     }
 #endif
-  const DATA_T* const query_ptr = queries_ptr + (dataset_dim * query_id);
+  const DATA_T* const query_ptr = queries_ptr + (dataset_desc.dim * query_id);
   for (unsigned i = threadIdx.x; i < query_smem_buffer_length; i += blockDim.x) {
     unsigned j = device::swizzling(i);
-    if (i < dataset_dim) {
+    if (i < dataset_desc.dim) {
       query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
     } else {
       query_buffer[j] = 0.0;
@@ -224,23 +230,19 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const INDEX_T* const local_seed_ptr = seed_ptr ? seed_ptr + (num_seeds * query_id) : nullptr;
   uint32_t block_id                   = cta_id + (num_cta_per_query * query_id);
   uint32_t num_blocks                 = num_cta_per_query * num_queries;
-  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, LOAD_T>(
-    result_indices_buffer,
-    result_distances_buffer,
-    query_buffer,
-    dataset_ptr,
-    dataset_dim,
-    dataset_size,
-    dataset_ld,
-    result_buffer_size,
-    num_distilation,
-    rand_xor_mask,
-    local_seed_ptr,
-    num_seeds,
-    local_visited_hashmap_ptr,
-    hash_bitlen,
-    block_id,
-    num_blocks);
+  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM>(result_indices_buffer,
+                                                                         result_distances_buffer,
+                                                                         query_buffer,
+                                                                         dataset_desc,
+                                                                         result_buffer_size,
+                                                                         num_distilation,
+                                                                         rand_xor_mask,
+                                                                         local_seed_ptr,
+                                                                         num_seeds,
+                                                                         local_visited_hashmap_ptr,
+                                                                         hash_bitlen,
+                                                                         block_id,
+                                                                         num_blocks);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 
@@ -272,13 +274,11 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
     _CLK_START();
     // constexpr unsigned max_n_frags = 16;
     constexpr unsigned max_n_frags = 0;
-    device::compute_distance_to_child_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, max_n_frags, LOAD_T>(
+    device::compute_distance_to_child_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, max_n_frags>(
       result_indices_buffer + itopk_size,
       result_distances_buffer + itopk_size,
       query_buffer,
-      dataset_ptr,
-      dataset_dim,
-      dataset_ld,
+      dataset_desc,
       knn_graph,
       graph_degree,
       local_visited_hashmap_ptr,
@@ -398,54 +398,21 @@ void set_value_batch(T* const dev_ptr,
     <<<grid_size, block_size, 0, cuda_stream>>>(dev_ptr, ld, val, count, batch_size);
 }
 
-template <unsigned TEAM_SIZE,
-          unsigned DATASET_BLOCK_DIM,
-          typename DATA_T,
-          typename INDEX_T,
-          typename DISTANCE_T,
-          typename SAMPLE_FILTER_T>
+template <typename DATASET_DESCRIPTOR_T, typename SAMPLE_FILTER_T>
 struct search_kernel_config {
   // Search kernel function type. Note that the actual values for the template value
   // parameters do not matter, because they are not part of the function signature. The
   // second to fourth value parameters will be selected by the choose_* functions below.
-  using kernel_t = decltype(&search_kernel<TEAM_SIZE,
-                                           128,
-                                           DATASET_BLOCK_DIM,
-                                           DATA_T,
-                                           DISTANCE_T,
-                                           INDEX_T,
-                                           device::LOAD_128BIT_T,
-                                           SAMPLE_FILTER_T>);
+  using kernel_t = decltype(&search_kernel<128, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>);
 
   static auto choose_buffer_size(unsigned result_buffer_size, unsigned block_size) -> kernel_t
   {
     if (result_buffer_size <= 64) {
-      return search_kernel<TEAM_SIZE,
-                           64,
-                           DATASET_BLOCK_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T,
-                           SAMPLE_FILTER_T>;
+      return search_kernel<64, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
     } else if (result_buffer_size <= 128) {
-      return search_kernel<TEAM_SIZE,
-                           128,
-                           DATASET_BLOCK_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T,
-                           SAMPLE_FILTER_T>;
+      return search_kernel<128, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
     } else if (result_buffer_size <= 256) {
-      return search_kernel<TEAM_SIZE,
-                           256,
-                           DATASET_BLOCK_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T,
-                           SAMPLE_FILTER_T>;
+      return search_kernel<256, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
     }
     THROW("Result buffer size %u larger than max buffer size %u", result_buffer_size, 256);
   }
@@ -453,26 +420,24 @@ struct search_kernel_config {
 
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
-          typename DATA_T,
-          typename INDEX_T,
-          typename DISTANCE_T,
+          typename DATASET_DESCRIPTOR_T,
           typename SAMPLE_FILTER_T>
-void select_and_run(  // raft::resources const& res,
-  raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
-  raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
-  INDEX_T* const topk_indices_ptr,       // [num_queries, topk]
-  DISTANCE_T* const topk_distances_ptr,  // [num_queries, topk]
-  const DATA_T* const queries_ptr,       // [num_queries, dataset_dim]
+void select_and_run(
+  DATASET_DESCRIPTOR_T dataset_desc,
+  raft::device_matrix_view<const typename DATASET_DESCRIPTOR_T::INDEX_T, int64_t, row_major> graph,
+  typename DATASET_DESCRIPTOR_T::INDEX_T* const topk_indices_ptr,       // [num_queries, topk]
+  typename DATASET_DESCRIPTOR_T::DISTANCE_T* const topk_distances_ptr,  // [num_queries, topk]
+  const typename DATASET_DESCRIPTOR_T::DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
   const uint32_t num_queries,
-  const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
-  uint32_t* const num_executed_iterations,  // [num_queries,]
+  const typename DATASET_DESCRIPTOR_T::INDEX_T* dev_seed_ptr,  // [num_queries, num_seeds]
+  uint32_t* const num_executed_iterations,                     // [num_queries,]
   uint32_t topk,
   // multi_cta_search (params struct)
   uint32_t block_size,  //
   uint32_t result_buffer_size,
   uint32_t smem_size,
   int64_t hash_bitlen,
-  INDEX_T* hashmap_ptr,
+  typename DATASET_DESCRIPTOR_T::INDEX_T* hashmap_ptr,
   uint32_t num_cta_per_query,
   uint32_t num_random_samplings,
   uint64_t rand_xor_mask,
@@ -484,20 +449,24 @@ void select_and_run(  // raft::resources const& res,
   SAMPLE_FILTER_T sample_filter,
   cudaStream_t stream)
 {
-  auto kernel =
-    search_kernel_config<TEAM_SIZE,
-                         DATASET_BLOCK_DIM,
-                         DATA_T,
-                         INDEX_T,
-                         DISTANCE_T,
-                         SAMPLE_FILTER_T>::choose_buffer_size(result_buffer_size, block_size);
+  const auto dataset_desc_ =
+    set_compute_template_params<DATASET_BLOCK_DIM, TEAM_SIZE>(dataset_desc);
 
-  RAFT_CUDA_TRY(
-    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+  using dataset_desc_t = typename std::remove_const<decltype(dataset_desc_)>::type;
+  auto kernel          = search_kernel_config<dataset_desc_t, SAMPLE_FILTER_T>::choose_buffer_size(
+    result_buffer_size, block_size);
+
+  RAFT_CUDA_TRY(cudaFuncSetAttribute(kernel,
+                                     cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                     smem_size + dataset_desc_t::smem_buffer_size_in_byte));
   // Initialize hash table
   const uint32_t hash_size = hashmap::get_size(hash_bitlen);
-  set_value_batch(
-    hashmap_ptr, hash_size, utils::get_max_value<INDEX_T>(), hash_size, num_queries, stream);
+  set_value_batch(hashmap_ptr,
+                  hash_size,
+                  utils::get_max_value<typename DATASET_DESCRIPTOR_T::INDEX_T>(),
+                  hash_size,
+                  num_queries,
+                  stream);
 
   dim3 block_dims(block_size, 1, 1);
   dim3 grid_dims(num_cta_per_query, num_queries, 1);
@@ -508,10 +477,7 @@ void select_and_run(  // raft::resources const& res,
                  smem_size);
   kernel<<<grid_dims, block_dims, smem_size, stream>>>(topk_indices_ptr,
                                                        topk_distances_ptr,
-                                                       dataset.data_handle(),
-                                                       dataset.extent(1),
-                                                       dataset.extent(0),
-                                                       dataset.stride(0),
+                                                       dataset_desc_,
                                                        queries_ptr,
                                                        graph.data_handle(),
                                                        graph.extent(1),

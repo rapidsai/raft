@@ -36,152 +36,54 @@ _RAFT_DEVICE constexpr unsigned get_vlen()
   return utils::size_of<LOAD_T>() / utils::size_of<DATA_T>();
 }
 
-template <class LOAD_T, class DATA_T, unsigned VLEN>
+template <std::uint32_t VECLEN>
+struct code_book_load_t_core {
+  using type = void;
+};
+template <>
+struct code_book_load_t_core<1> {
+  using type = std::uint8_t;
+};
+template <>
+struct code_book_load_t_core<2> {
+  using type = std::uint16_t;
+};
+template <>
+struct code_book_load_t_core<4> {
+  using type = std::uint32_t;
+};
+template <>
+struct code_book_load_t_core<8> {
+  using type = LOAD_64BIT_T;
+};
+template <>
+struct code_book_load_t_core<16> {
+  using type = LOAD_128BIT_T;
+};
+
+template <class T, std::uint32_t vlen>
+struct code_book_load_t {
+  using type = typename code_book_load_t_core<utils::size_of<T>() * vlen>::type;
+};
+
+template <class DATA_T, unsigned VLEN>
 struct data_load_t {
   union {
-    LOAD_T load;
+    typename code_book_load_t<DATA_T, VLEN>::type load;
     DATA_T data[VLEN];
   };
 };
 
-template <class LOAD_T,
-          class DATA_T,
-          class DISTANCE_T,
-          std::uint32_t DATASET_BLOCK_DIM,
-          std::uint32_t TEAM_SIZE,
-          bool use_reg_fragment>
-struct distance_op;
-template <class LOAD_T,
-          class DATA_T,
-          class DISTANCE_T,
-          std::uint32_t DATASET_BLOCK_DIM,
-          std::uint32_t TEAM_SIZE>
-struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, false> {
-  const float* const query_buffer;
-  __device__ distance_op(const float* const query_buffer) : query_buffer(query_buffer) {}
-
-  __device__ DISTANCE_T operator()(const DATA_T* const dataset_ptr,
-                                   const std::uint32_t dataset_dim,
-                                   const bool valid)
-  {
-    const unsigned lane_id  = threadIdx.x % TEAM_SIZE;
-    constexpr unsigned vlen = get_vlen<LOAD_T, DATA_T>();
-    constexpr unsigned reg_nelem =
-      (DATASET_BLOCK_DIM + (TEAM_SIZE * vlen) - 1) / (TEAM_SIZE * vlen);
-    data_load_t<LOAD_T, DATA_T, vlen> dl_buff[reg_nelem];
-
-    DISTANCE_T norm2 = 0;
-    if (valid) {
-      for (uint32_t elem_offset = 0; elem_offset < dataset_dim; elem_offset += DATASET_BLOCK_DIM) {
-#pragma unroll
-        for (uint32_t e = 0; e < reg_nelem; e++) {
-          const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
-          if (k >= dataset_dim) break;
-          dl_buff[e].load = *reinterpret_cast<const LOAD_T*>(dataset_ptr + k);
-        }
-#pragma unroll
-        for (uint32_t e = 0; e < reg_nelem; e++) {
-          const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
-          if (k >= dataset_dim) break;
-#pragma unroll
-          for (uint32_t v = 0; v < vlen; v++) {
-            const uint32_t kv = k + v;
-            // if (kv >= dataset_dim) break;
-            DISTANCE_T diff = query_buffer[device::swizzling(kv)];
-            diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
-            norm2 += diff * diff;
-          }
-        }
-      }
-    }
-    for (uint32_t offset = TEAM_SIZE / 2; offset > 0; offset >>= 1) {
-      norm2 += __shfl_xor_sync(0xffffffff, norm2, offset);
-    }
-    return norm2;
-  }
-};
-template <class LOAD_T,
-          class DATA_T,
-          class DISTANCE_T,
-          std::uint32_t DATASET_BLOCK_DIM,
-          std::uint32_t TEAM_SIZE>
-struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, true> {
-  static constexpr unsigned N_FRAGS = (DATASET_BLOCK_DIM + TEAM_SIZE - 1) / TEAM_SIZE;
-  float query_frags[N_FRAGS];
-
-  __device__ distance_op(const float* const query_buffer)
-  {
-    constexpr unsigned vlen = get_vlen<LOAD_T, DATA_T>();
-    constexpr unsigned reg_nelem =
-      (DATASET_BLOCK_DIM + (TEAM_SIZE * vlen) - 1) / (TEAM_SIZE * vlen);
-    const std::uint32_t lane_id = threadIdx.x % TEAM_SIZE;
-    // Pre-load query vectors into registers when register usage is not too large.
-#pragma unroll
-    for (unsigned e = 0; e < reg_nelem; e++) {
-      const unsigned k = (lane_id + (TEAM_SIZE * e)) * vlen;
-      // if (k >= dataset_dim) break;
-#pragma unroll
-      for (unsigned v = 0; v < vlen; v++) {
-        const unsigned kv = k + v;
-        const unsigned ev = (vlen * e) + v;
-        query_frags[ev]   = query_buffer[device::swizzling(kv)];
-      }
-    }
-  }
-
-  __device__ DISTANCE_T operator()(const DATA_T* const dataset_ptr,
-                                   const std::uint32_t dataset_dim,
-                                   const bool valid)
-  {
-    const unsigned lane_id  = threadIdx.x % TEAM_SIZE;
-    constexpr unsigned vlen = get_vlen<LOAD_T, DATA_T>();
-    constexpr unsigned reg_nelem =
-      (DATASET_BLOCK_DIM + (TEAM_SIZE * vlen) - 1) / (TEAM_SIZE * vlen);
-    data_load_t<LOAD_T, DATA_T, vlen> dl_buff[reg_nelem];
-
-    DISTANCE_T norm2 = 0;
-    if (valid) {
-#pragma unroll
-      for (unsigned e = 0; e < reg_nelem; e++) {
-        const unsigned k = (lane_id + (TEAM_SIZE * e)) * vlen;
-        if (k >= dataset_dim) break;
-        dl_buff[e].load = *reinterpret_cast<const LOAD_T*>(dataset_ptr + k);
-      }
-#pragma unroll
-      for (unsigned e = 0; e < reg_nelem; e++) {
-        const unsigned k = (lane_id + (TEAM_SIZE * e)) * vlen;
-        if (k >= dataset_dim) break;
-#pragma unroll
-        for (unsigned v = 0; v < vlen; v++) {
-          DISTANCE_T diff;
-          const unsigned ev = (vlen * e) + v;
-          diff              = query_frags[ev];
-          diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
-          norm2 += diff * diff;
-        }
-      }
-    }
-    for (uint32_t offset = TEAM_SIZE / 2; offset > 0; offset >>= 1) {
-      norm2 += __shfl_xor_sync(0xffffffff, norm2, offset);
-    }
-    return norm2;
-  }
-};
-
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
-          class LOAD_T,
-          class DATA_T,
+          class DATASET_DESCRIPTOR_T,
           class DISTANCE_T,
           class INDEX_T>
 _RAFT_DEVICE void compute_distance_to_random_nodes(
   INDEX_T* const result_indices_ptr,       // [num_pickup]
   DISTANCE_T* const result_distances_ptr,  // [num_pickup]
-  const float* const query_buffer,
-  const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
-  const std::size_t dataset_dim,
-  const std::size_t dataset_size,
-  const std::size_t dataset_ld,
+  const typename DATASET_DESCRIPTOR_T::QUERY_T* const query_buffer,
+  const DATASET_DESCRIPTOR_T& dataset_desc,
   const std::size_t num_pickup,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
@@ -194,9 +96,6 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
 {
   uint32_t max_i = num_pickup;
   if (max_i % (32 / TEAM_SIZE)) { max_i += (32 / TEAM_SIZE) - (max_i % (32 / TEAM_SIZE)); }
-
-  distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, false> dist_op(
-    query_buffer);
 
   for (uint32_t i = threadIdx.x / TEAM_SIZE; i < max_i; i += blockDim.x / TEAM_SIZE) {
     const bool valid_i = (i < num_pickup);
@@ -212,11 +111,11 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         if (seed_ptr && (gid < num_seeds)) {
           seed_index = seed_ptr[gid];
         } else {
-          seed_index = device::xorshift64(gid ^ rand_xor_mask) % dataset_size;
+          seed_index = device::xorshift64(gid ^ rand_xor_mask) % dataset_desc.size;
         }
       }
 
-      const auto norm2 = dist_op(dataset_ptr + dataset_ld * seed_index, dataset_dim, valid_i);
+      const auto norm2 = dataset_desc.compute_similarity(query_buffer, seed_index, valid_i);
 
       if (valid_i && (norm2 < best_norm2_team_local)) {
         best_norm2_team_local = norm2;
@@ -240,27 +139,25 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
           unsigned MAX_N_FRAGS,
-          class LOAD_T,
-          class DATA_T,
+          class DATASET_DESCRIPTOR_T,
           class DISTANCE_T,
           class INDEX_T>
-_RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_indices_ptr,
-                                                  DISTANCE_T* const result_child_distances_ptr,
-                                                  // query
-                                                  const float* const query_buffer,
-                                                  // [dataset_dim, dataset_size]
-                                                  const DATA_T* const dataset_ptr,
-                                                  const std::size_t dataset_dim,
-                                                  const std::size_t dataset_ld,
-                                                  // [knn_k, dataset_size]
-                                                  const INDEX_T* const knn_graph,
-                                                  const std::uint32_t knn_k,
-                                                  // hashmap
-                                                  INDEX_T* const visited_hashmap_ptr,
-                                                  const std::uint32_t hash_bitlen,
-                                                  const INDEX_T* const parent_indices,
-                                                  const INDEX_T* const internal_topk_list,
-                                                  const std::uint32_t search_width)
+_RAFT_DEVICE void compute_distance_to_child_nodes(
+  INDEX_T* const result_child_indices_ptr,
+  DISTANCE_T* const result_child_distances_ptr,
+  // query
+  const typename DATASET_DESCRIPTOR_T::QUERY_T* const query_buffer,
+  // [dataset_dim, dataset_size]
+  const DATASET_DESCRIPTOR_T& dataset_desc,
+  // [knn_k, dataset_size]
+  const INDEX_T* const knn_graph,
+  const std::uint32_t knn_k,
+  // hashmap
+  INDEX_T* const visited_hashmap_ptr,
+  const std::uint32_t hash_bitlen,
+  const INDEX_T* const parent_indices,
+  const INDEX_T* const internal_topk_list,
+  const std::uint32_t search_width)
 {
   constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
   const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
@@ -281,16 +178,6 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
     }
     result_child_indices_ptr[i] = child_id;
   }
-
-  // [Notice]
-  //   Loading the query vector here from shared memory into registers reduces
-  //   shared memory trafiic. However, register usage increase. The
-  //   MAX_N_FRAGS below is used as the threshold to enable or disable this,
-  //   but the appropriate value should be discussed.
-  constexpr unsigned N_FRAGS  = (DATASET_BLOCK_DIM + TEAM_SIZE - 1) / TEAM_SIZE;
-  constexpr bool use_fragment = N_FRAGS <= MAX_N_FRAGS;
-  distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, use_fragment> dist_op(
-    query_buffer);
   __syncthreads();
 
   // Compute the distance to child nodes
@@ -302,8 +189,8 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
     INDEX_T child_id   = invalid_index;
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
-    DISTANCE_T norm2 =
-      dist_op(dataset_ptr + child_id * dataset_ld, dataset_dim, child_id != invalid_index);
+    const auto norm2 =
+      dataset_desc.compute_similarity(query_buffer, child_id, child_id != invalid_index);
 
     // Store the distance
     const unsigned lane_id = threadIdx.x % TEAM_SIZE;
@@ -318,4 +205,108 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
 }
 
 }  // namespace device
+
+template <class QUERY_T_, class DISTANCE_T_, class INDEX_T_>
+struct dataset_descriptor_base_t {
+  using INDEX_T    = INDEX_T_;
+  using QUERY_T    = QUERY_T_;
+  using DISTANCE_T = DISTANCE_T_;
+
+  const INDEX_T size;
+  const std::uint32_t dim;
+
+  dataset_descriptor_base_t(const INDEX_T size, const std::uint32_t dim) : size(size), dim(dim) {}
+};
+
+template <class DATA_T_,
+          class INDEX_T,
+          std::uint32_t DATASET_BLOCK_DIM_ = 0,
+          std::uint32_t TEAM_SIZE_         = 0,
+          class DISTANCE_T                 = float>
+struct standard_dataset_descriptor_t
+  : public dataset_descriptor_base_t<float, DISTANCE_T, INDEX_T> {
+  using LOAD_T  = device::LOAD_128BIT_T;
+  using DATA_T  = DATA_T_;
+  using QUERY_T = typename dataset_descriptor_base_t<float, DISTANCE_T, INDEX_T>::QUERY_T;
+  static const std::uint32_t DATASET_BLOCK_DIM = DATASET_BLOCK_DIM_;
+  static const std::uint32_t TEAM_SIZE         = TEAM_SIZE_;
+
+  const DATA_T* const ptr;
+  const std::size_t ld;
+  using dataset_descriptor_base_t<float, DISTANCE_T, INDEX_T>::size;
+  using dataset_descriptor_base_t<float, DISTANCE_T, INDEX_T>::dim;
+
+  standard_dataset_descriptor_t(const DATA_T* const ptr,
+                                const std::size_t size,
+                                const std::uint32_t dim,
+                                const std::size_t ld)
+    : dataset_descriptor_base_t<float, DISTANCE_T, INDEX_T>(size, dim), ptr(ptr), ld(ld)
+  {
+  }
+
+  static const std::uint32_t smem_buffer_size_in_byte = 0;
+  __device__ void set_smem_ptr(void* const){};
+
+  __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
+                                           const INDEX_T dataset_i,
+                                           const bool valid) const
+  {
+    const auto dataset_ptr  = ptr + dataset_i * ld;
+    const unsigned lane_id  = threadIdx.x % TEAM_SIZE;
+    constexpr unsigned vlen = device::get_vlen<LOAD_T, DATA_T>();
+    // #include <raft/util/cuda_dev_essentials.cuh
+    constexpr unsigned reg_nelem = raft::ceildiv<unsigned>(DATASET_BLOCK_DIM, TEAM_SIZE * vlen);
+    device::data_load_t<DATA_T, vlen> dl_buff[reg_nelem];
+
+    DISTANCE_T norm2 = 0;
+    if (valid) {
+      for (uint32_t elem_offset = 0; elem_offset < dim; elem_offset += DATASET_BLOCK_DIM) {
+#pragma unroll
+        for (uint32_t e = 0; e < reg_nelem; e++) {
+          const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
+          if (k >= dim) break;
+          dl_buff[e].load = *reinterpret_cast<const LOAD_T*>(dataset_ptr + k);
+        }
+#pragma unroll
+        for (uint32_t e = 0; e < reg_nelem; e++) {
+          const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
+          if (k >= dim) break;
+#pragma unroll
+          for (uint32_t v = 0; v < vlen; v++) {
+            const uint32_t kv = k + v;
+            // if (kv >= dataset_dim) break;
+            DISTANCE_T diff = query_ptr[device::swizzling(kv)];
+            diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
+            norm2 += diff * diff;
+          }
+        }
+      }
+    }
+    for (uint32_t offset = TEAM_SIZE / 2; offset > 0; offset >>= 1) {
+      norm2 += __shfl_xor_sync(0xffffffff, norm2, offset);
+    }
+    return norm2;
+  }
+};
+
+template <std::uint32_t DATASET_BLOCK_DIM_OUT,
+          std::uint32_t TEAM_SIZE_OUT,
+          std::uint32_t DATASET_BLOCK_DIM_IN,
+          std::uint32_t TEAM_SIZE_IN,
+          class DATA_T,
+          class INDEX_T,
+          class DISTANCE_T>
+standard_dataset_descriptor_t<DATA_T, INDEX_T, DATASET_BLOCK_DIM_OUT, TEAM_SIZE_OUT, DISTANCE_T>
+set_compute_template_params(
+  standard_dataset_descriptor_t<DATA_T, INDEX_T, DATASET_BLOCK_DIM_IN, TEAM_SIZE_IN, DISTANCE_T>&
+    desc_in)
+{
+  return standard_dataset_descriptor_t<DATA_T,
+                                       INDEX_T,
+                                       DATASET_BLOCK_DIM_OUT,
+                                       TEAM_SIZE_OUT,
+                                       DISTANCE_T>(
+    desc_in.ptr, desc_in.size, desc_in.dim, desc_in.ld);
+}
+
 }  // namespace raft::neighbors::cagra::detail
