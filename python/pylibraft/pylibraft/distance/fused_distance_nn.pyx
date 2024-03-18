@@ -54,28 +54,7 @@ cdef extern from "raft_runtime/distance/fused_distance_nn.hpp" \
         float metric_arg) except +
 
 
-DISTANCE_TYPES = {
-    "l2": DistanceType.L2SqrtExpanded,
-    "sqeuclidean": DistanceType.L2Expanded,
-    "euclidean": DistanceType.L2SqrtExpanded,
-    "l1": DistanceType.L1,
-    "cityblock": DistanceType.L1,
-    "inner_product": DistanceType.InnerProduct,
-    "chebyshev": DistanceType.Linf,
-    "canberra": DistanceType.Canberra,
-    "cosine": DistanceType.CosineExpanded,
-    "lp": DistanceType.LpUnexpanded,
-    "correlation": DistanceType.CorrelationExpanded,
-    "jaccard": DistanceType.JaccardExpanded,
-    "hellinger": DistanceType.HellingerExpanded,
-    "braycurtis": DistanceType.BrayCurtis,
-    "jensenshannon": DistanceType.JensenShannon,
-    "hamming": DistanceType.HammingUnexpanded,
-    "kl_divergence": DistanceType.KLDivergence,
-    "minkowski": DistanceType.LpUnexpanded,
-    "russellrao": DistanceType.RusselRaoExpanded,
-    "dice": DistanceType.DiceExpanded,
-}
+from pylibraft.distance.pairwise_distance import DISTANCE_TYPES
 
 SUPPORTED_DISTANCES = ["euclidean", "l2", "cosine", "sqeuclidean"]
 
