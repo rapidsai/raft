@@ -828,7 +828,7 @@ void sampleWithoutReplacement(raft::resources const& handle,
  *
  * @param res RAFT resource handle
  * @param state random number generator state
- * @param N number of elements to sample from. We will sample values in range 0..N-1
+ * @param N number of elements to sample from. We will sample values in range 0..N-1.
  * @param n_samples number of samples to return
  *
  * @return device mdarray with the random samples
