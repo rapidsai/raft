@@ -131,8 +131,8 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
             for (std::uint32_t m = 0; m < PQ_CODE_BOOK_DIM; m += 1) {
               const uint32_t d = (vlen * m) + (PQ_CODE_BOOK_DIM * k);
               if (d >= dim) break;
-              vq_vals[m].load(reinterpret_cast<const half2*>(vq_code_book_ptr),
-                              d + (dim * vq_code));
+              vq_vals[m].load(
+                reinterpret_cast<const half2*>(vq_code_book_ptr + d + (dim * vq_code)), 0);
             }
             // Compute distance
             std::uint32_t pq_code = pq_codes[e];
@@ -169,8 +169,8 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
               const std::uint32_t d = (vlen * m) + (PQ_CODE_BOOK_DIM * k);
               if (d >= dim) break;
               // Loading 4 x 8/16-bit VQ-values using 32/64-bit load ops (from L2$ or device memory)
-              vq_vals[m].load(reinterpret_cast<const half2*>(vq_code_book_ptr),
-                              d + (dim * vq_code));
+              vq_vals[m].load(
+                reinterpret_cast<const half2*>(vq_code_book_ptr + d + (dim * vq_code)), 0);
             }
             // Compute distance
             std::uint32_t pq_code = pq_codes[e];
@@ -178,8 +178,9 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
             for (std::uint32_t v = 0; v < vlen; v++) {
               if (PQ_CODE_BOOK_DIM * (v + k) >= dim) break;
               raft::TxN_t<CODE_BOOK_T, PQ_CODE_BOOK_DIM> pq_vals;
-              pq_vals.load(reinterpret_cast<const half2*>(smem_pq_code_book_ptr),
-                           (PQ_CODE_BOOK_DIM * (pq_code & 0xff)));  // (from L1$ or smem)
+              pq_vals.load(reinterpret_cast<const half2*>(smem_pq_code_book_ptr +
+                                                          PQ_CODE_BOOK_DIM * (pq_code & 0xff)),
+                           0);  // (from L1$ or smem)
 #pragma unroll
               for (std::uint32_t m = 0; m < PQ_CODE_BOOK_DIM; m++) {
                 const std::uint32_t d1 = m + (PQ_CODE_BOOK_DIM * v);
