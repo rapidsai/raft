@@ -1030,6 +1030,7 @@ struct search<TEAM_SIZE,
          uint32_t topk)
     : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk)
   {
+    THROW("The multi-kernel mode does not support VPQ");
   }
 
   void set_params(raft::resources const& res) {}
