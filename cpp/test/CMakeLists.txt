@@ -171,6 +171,7 @@ if(BUILD_TESTS)
     test/distance/masked_nn.cu
     test/distance/masked_nn_compress_to_bits.cu
     test/distance/fused_l2_nn.cu
+    test/distance/fused_cosine_nn.cu
     test/distance/gram.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
