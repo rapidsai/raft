@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ struct AnnCagraVpqInputs {
   int n_rows;
   int dim;
   int k;
-  int subspace_dim;
+  int pq_len;
   int pq_bits;
   graph_build_algo build_algo;
   search_algo algo;
@@ -113,7 +113,7 @@ inline ::std::ostream& operator<<(::std::ostream& os, const AnnCagraVpqInputs& p
   std::vector<std::string> algo       = {"single-cta", "multi_cta", "multi_kernel", "auto"};
   std::vector<std::string> build_algo = {"IVF_PQ", "NN_DESCENT"};
   os << "{n_queries=" << p.n_queries << ", dataset shape=" << p.n_rows << "x" << p.dim
-     << ", k=" << p.k << ", pq_bits=" << p.pq_bits << ", subspace_dim=" << p.subspace_dim << ", "
+     << ", k=" << p.k << ", pq_bits=" << p.pq_bits << ", pq_len=" << p.pq_len << ", "
      << algo.at((int)p.algo) << ", max_queries=" << p.max_queries << ", itopk_size=" << p.itopk_size
      << ", search_width=" << p.search_width << ", metric=" << static_cast<int>(p.metric)
      << (p.host_dataset ? ", host" : ", device")
@@ -165,10 +165,14 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
       rmm::device_uvector<IdxT> indices_dev(vpq_k * ps.n_queries, stream_);
 
       {
+        if ((ps.dim % ps.pq_len) != 0) {
+          // TODO: remove this requirement in the algorithm.
+          GTEST_SKIP() << "(TODO) At the moment dim, (" << ps.dim
+                       << ") must be a multiple of pq_len (" << ps.pq_len << ")";
+        }
         cagra::index_params index_params;
-        index_params.compression =
-          vpq_params{.pq_bits = static_cast<unsigned>(ps.pq_bits),
-                     .pq_dim  = static_cast<unsigned>(ps.dim / ps.subspace_dim)};
+        index_params.compression = vpq_params{.pq_bits = static_cast<uint32_t>(ps.pq_bits),
+                                              .pq_dim  = static_cast<uint32_t>(ps.dim / ps.pq_len)};
         index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
                                           // not used for knn_graph building.
         index_params.build_algo = ps.build_algo;
@@ -178,8 +182,8 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
         search_params.team_size   = ps.team_size;
         search_params.itopk_size  = ps.itopk_size;
 
-        auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
-          (const DataT*)database.data(), ps.n_rows, ps.dim);
+        auto database_view =
+          raft::make_device_matrix_view<const DataT, int64_t>(database.data(), ps.n_rows, ps.dim);
 
         {
           cagra::index<DataT, IdxT> index(handle_);
@@ -187,7 +191,7 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
             auto database_host = raft::make_host_matrix<DataT, int64_t>(ps.n_rows, ps.dim);
             raft::copy(database_host.data_handle(), database.data(), database.size(), stream_);
             auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
-              (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
+              database_host.data_handle(), ps.n_rows, ps.dim);
             index = cagra::build<DataT, IdxT>(handle_, index_params, database_host_view);
           } else {
             index = cagra::build<DataT, IdxT>(handle_, index_params, database_view);
@@ -197,6 +201,12 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
 
         auto index = cagra::deserialize<DataT, IdxT>(handle_, "cagra_index");
         if (!ps.include_serialized_dataset) { index.update_dataset(handle_, database_view); }
+
+        // CAGRA-Q sanity check: we've built the right index type
+        auto* vpq_dataset =
+          dynamic_cast<const raft::neighbors::vpq_dataset<half, int64_t>*>(&index.data());
+        EXPECT_NE(vpq_dataset, nullptr)
+          << "Expected VPQ dataset, because we're testing CAGRA-Q here.";
 
         auto search_queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
           search_queries.data(), ps.n_queries, ps.dim);
@@ -241,8 +251,6 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
                                   host_dists_Cagra_view,
                                   ps.metric);
 
-          resource::sync_stream(handle_);
-
           raft::copy(indices_dev.data(),
                      host_indices_Cagra_view.data_handle(),
                      ps.k * ps.n_queries,
@@ -255,13 +263,6 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
         }
       }
 
-      // for (int i = 0; i < min(ps.n_queries, 10); i++) {
-      //   //  std::cout << "query " << i << std::end;
-      //   print_vector("T", indices_naive.data() + i * ps.k, ps.k, std::cout);
-      //   print_vector("C", indices_Cagra.data() + i * ps.k, ps.k, std::cout);
-      //   print_vector("T", distances_naive.data() + i * ps.k, ps.k, std::cout);
-      //   print_vector("C", distances_Cagra.data() + i * ps.k, ps.k, std::cout);
-      // }
       double min_recall = ps.min_recall;
       EXPECT_TRUE(eval_neighbours(indices_naive,
                                   indices_Cagra,
@@ -314,30 +315,23 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
   rmm::device_uvector<DataT> search_queries;
 };
 
-inline std::vector<AnnCagraVpqInputs> generate_inputs()
-{
-  // TODO(tfeher): test MULTI_CTA kernel with search_width > 1 to allow multiple CTA per queries
-  std::vector<AnnCagraVpqInputs> inputs = raft::util::itertools::product<AnnCagraVpqInputs>(
-    {100},
-    {1000, 10000},  // datsset size
-    {128, 256},     // dataset dim
-    {8, 12},        // k
-    {2, 4},         // subspace dim
-    {8},            // PQ bit
-    {graph_build_algo::NN_DESCENT},
-    {search_algo::SINGLE_CTA, search_algo::MULTI_CTA},
-    {0},  // query size
-    {0},
-    {512},
-    {1},
-    {raft::distance::DistanceType::L2Expanded},
-    {false},
-    {true},
-    {0.8});
-
-  return inputs;
-}
-
-const std::vector<AnnCagraVpqInputs> inputs = generate_inputs();
+const std::vector<AnnCagraVpqInputs> vpq_inputs = raft::util::itertools::product<AnnCagraVpqInputs>(
+  {100},                                              // n_queries
+  {1000, 10000},                                      // n_rows
+  {128, 256},                                         // dim
+  {8, 12},                                            // k
+  {2, 4},                                             // pq_len
+  {8},                                                // pq_bits
+  {graph_build_algo::NN_DESCENT},                     // build_algo
+  {search_algo::SINGLE_CTA, search_algo::MULTI_CTA},  // algo
+  {0},                                                // max_queries
+  {0},                                                // team_size
+  {512},                                              // itopk_size
+  {1},                                                // search_width
+  {raft::distance::DistanceType::L2Expanded},         // metric
+  {false},                                            // host_dataset
+  {true},                                             // include_serialized_dataset
+  {0.8}                                               // min_recall
+);
 
 }  // namespace raft::neighbors::cagra

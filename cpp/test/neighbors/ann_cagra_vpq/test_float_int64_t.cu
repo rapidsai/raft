@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,6 @@ namespace raft::neighbors::cagra {
 typedef AnnCagraVpqTest<float, float, std::int64_t> AnnCagraVpqTestF_I64;
 TEST_P(AnnCagraVpqTestF_I64, AnnCagraVpq) { this->testCagra(); }
 
-INSTANTIATE_TEST_CASE_P(AnnCagraVpqTest, AnnCagraVpqTestF_I64, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnCagraVpqTest, AnnCagraVpqTestF_I64, ::testing::ValuesIn(vpq_inputs));
 
 }  // namespace raft::neighbors::cagra
