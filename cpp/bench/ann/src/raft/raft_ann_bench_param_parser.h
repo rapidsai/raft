@@ -43,6 +43,7 @@ extern template class raft::bench::ann::RaftIvfPQ<int8_t, int64_t>;
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
 extern template class raft::bench::ann::RaftCagra<float, uint32_t>;
+extern template class raft::bench::ann::RaftCagra<half, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<uint8_t, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
 #endif
@@ -149,6 +150,20 @@ void parse_build_param(const nlohmann::json& conf,
   }
 }
 
+inline void parse_build_param(const nlohmann::json& conf, raft::neighbors::vpq_params& param)
+{
+  if (conf.contains("pq_bits")) { param.pq_bits = conf.at("pq_bits"); }
+  if (conf.contains("pq_dim")) { param.pq_dim = conf.at("pq_dim"); }
+  if (conf.contains("vq_n_centers")) { param.vq_n_centers = conf.at("vq_n_centers"); }
+  if (conf.contains("kmeans_n_iters")) { param.kmeans_n_iters = conf.at("kmeans_n_iters"); }
+  if (conf.contains("vq_kmeans_trainset_fraction")) {
+    param.vq_kmeans_trainset_fraction = conf.at("vq_kmeans_trainset_fraction");
+  }
+  if (conf.contains("pq_kmeans_trainset_fraction")) {
+    param.pq_kmeans_trainset_fraction = conf.at("pq_kmeans_trainset_fraction");
+  }
+}
+
 nlohmann::json collect_conf_with_prefix(const nlohmann::json& conf,
                                         const std::string& prefix,
                                         bool remove_prefix = true)
@@ -204,6 +219,12 @@ void parse_build_param(const nlohmann::json& conf,
     }
     param.nn_descent_params = nn_param;
   }
+  nlohmann::json comp_search_conf = collect_conf_with_prefix(conf, "compression_");
+  if (!comp_search_conf.empty()) {
+    raft::neighbors::vpq_params vpq_pams;
+    parse_build_param(ivf_pq_build_conf, vpq_pams);
+    param.cagra_params.compression.emplace(vpq_pams);
+  }
 }
 
 raft::bench::ann::AllocatorType parse_allocator(std::string mem_type)
@@ -248,5 +269,7 @@ void parse_search_param(const nlohmann::json& conf,
   if (conf.contains("internal_dataset_memory_type")) {
     param.dataset_mem = parse_allocator(conf.at("internal_dataset_memory_type"));
   }
+  // Same ratio as in IVF-PQ
+  param.refine_ratio = conf.value("refine_ratio", 1.0f);
 }
 #endif
