@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
+
 #include "../test_utils.cuh"
 
 #include <raft/core/kvp.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/distance/fused_l2_nn.cuh>
+#include <raft/distance/detail/fused_distance_nn.cuh>
+#include <raft/distance/fused_distance_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -39,27 +42,37 @@ struct RaftKVPMinReduce {
 
 };  // KVPMinReduce
 
-template <typename DataT, bool Sqrt, typename ReduceOpT, int NWARPS>
-RAFT_KERNEL naiveKernel(raft::KeyValuePair<int, DataT>* min,
-                        DataT* x,
-                        DataT* y,
-                        int m,
-                        int n,
-                        int k,
-                        int* workspace,
-                        DataT maxVal)
+template <typename DataT, typename ReduceOpT, int NWARPS>
+__global__ void naiveCosKernel(raft::KeyValuePair<int, DataT>* min,
+                               DataT* x,
+                               DataT* y,
+                               int m,
+                               int n,
+                               int k,
+                               int* workspace,
+                               DataT maxVal)
 {
-  int midx  = threadIdx.y + blockIdx.y * blockDim.y;
-  int nidx  = threadIdx.x + blockIdx.x * blockDim.x;
-  DataT acc = DataT(0);
+  int midx     = threadIdx.y + blockIdx.y * blockDim.y;
+  int nidx     = threadIdx.x + blockIdx.x * blockDim.x;
+  DataT acc_a  = DataT(0);
+  DataT acc_b  = DataT(0);
+  DataT acc_ab = DataT(0);
+  // if (midx >= m || nidx >= n) { return; }
+
   for (int i = 0; i < k; ++i) {
-    int xidx  = i + midx * k;
-    int yidx  = i + nidx * k;
-    auto diff = midx >= m || nidx >= n ? DataT(0) : x[xidx] - y[yidx];
-    acc += diff * diff;
+    int xidx = i + midx * k;
+    int yidx = i + nidx * k;
+    auto a   = x[xidx];
+    auto b   = y[yidx];
+    acc_a += a * a;
+    acc_b += b * b;
+    acc_ab += a * b;
   }
 
-  if (Sqrt) { acc = raft::sqrt(acc); }
+  // Use 1.0 - (cosine similarity) to calc the distance
+  DataT acc = maxVal;
+  if (midx < m || nidx < n) { acc = (DataT)1.0 - acc_ab / (raft::sqrt(acc_a) * raft::sqrt(acc_b)); }
+
   ReduceOpT redOp;
   typedef cub::WarpReduce<raft::KeyValuePair<int, DataT>> WarpReduce;
   __shared__ typename WarpReduce::TempStorage temp[NWARPS];
@@ -78,7 +91,7 @@ RAFT_KERNEL naiveKernel(raft::KeyValuePair<int, DataT>* min,
   }
 }
 
-template <typename DataT, bool Sqrt>
+template <typename DataT>
 void naive(raft::KeyValuePair<int, DataT>* min,
            DataT* x,
            DataT* y,
@@ -96,7 +109,7 @@ void naive(raft::KeyValuePair<int, DataT>* min,
   detail::initKernel<DataT, raft::KeyValuePair<int, DataT>, int>
     <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max(), op);
   RAFT_CUDA_TRY(cudaGetLastError());
-  naiveKernel<DataT, Sqrt, MinAndDistanceReduceOp<int, DataT>, 16>
+  naiveCosKernel<DataT, MinAndDistanceReduceOp<int, DataT>, 16>
     <<<nblks, TPB, 0, stream>>>(min, x, y, m, n, k, workspace, std::numeric_limits<DataT>::max());
   RAFT_CUDA_TRY(cudaGetLastError());
 }
@@ -125,10 +138,10 @@ struct Inputs {
   }
 };
 
-template <typename DataT, bool Sqrt>
-class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
+template <typename DataT>
+class FusedCosineNNTest : public ::testing::TestWithParam<Inputs<DataT>> {
  public:
-  FusedL2NNTest()
+  FusedCosineNNTest()
     : params(::testing::TestWithParam<Inputs<DataT>>::GetParam()),
       stream(resource::get_cuda_stream(handle)),
       x(params.m * params.k, stream),
@@ -151,8 +164,10 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     uniform(handle, r, x.data(), m * k, DataT(-1.0), DataT(1.0));
     uniform(handle, r, y.data(), n * k, DataT(-1.0), DataT(1.0));
     generateGoldenResult();
-    raft::linalg::rowNorm(xn.data(), x.data(), k, m, raft::linalg::L2Norm, true, stream);
-    raft::linalg::rowNorm(yn.data(), y.data(), k, n, raft::linalg::L2Norm, true, stream);
+    raft::linalg::rowNorm(
+      xn.data(), x.data(), k, m, raft::linalg::L2Norm, true, stream, raft::sqrt_op{});
+    raft::linalg::rowNorm(
+      yn.data(), y.data(), k, n, raft::linalg::L2Norm, true, stream, raft::sqrt_op{});
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
@@ -173,28 +188,31 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     int m = params.m;
     int n = params.n;
     int k = params.k;
-    naive<DataT, Sqrt>(min_ref.data(), x.data(), y.data(), m, n, k, (int*)workspace.data(), stream);
+    naive<DataT>(min_ref.data(), x.data(), y.data(), m, n, k, (int*)workspace.data(), stream);
   }
 
   void runTest(raft::KeyValuePair<int, DataT>* out)
   {
-    int m = params.m;
-    int n = params.n;
-    int k = params.k;
-
-    const bool init_out_buffer = true;
-    fusedL2NNMinReduce<DataT, raft::KeyValuePair<int, DataT>, int>(out,
-                                                                   x.data(),
-                                                                   y.data(),
-                                                                   xn.data(),
-                                                                   yn.data(),
-                                                                   m,
-                                                                   n,
-                                                                   k,
-                                                                   (void*)workspace.data(),
-                                                                   Sqrt,
-                                                                   init_out_buffer,
-                                                                   stream);
+    int m                               = params.m;
+    int n                               = params.n;
+    int k                               = params.k;
+    raft::distance::DistanceType metric = raft::distance::DistanceType::CosineExpanded;
+    constexpr bool init_out_buffer      = true;
+    fusedDistanceNNMinReduce<DataT, raft::KeyValuePair<int, DataT>, int>(out,
+                                                                         x.data(),
+                                                                         y.data(),
+                                                                         xn.data(),
+                                                                         yn.data(),
+                                                                         m,
+                                                                         n,
+                                                                         k,
+                                                                         (void*)workspace.data(),
+                                                                         false,
+                                                                         init_out_buffer,
+                                                                         true,
+                                                                         metric,
+                                                                         0.0f,
+                                                                         stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 };
@@ -312,22 +330,14 @@ const std::vector<Inputs<float>> inputsf = {
   {0.006f, 8192, 1024, 25, 1234ULL},
   {0.006f, 8192, 1024, 66, 1234ULL},
 };
-typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
-TEST_P(FusedL2NNTestF_Sq, Result)
+typedef FusedCosineNNTest<float> FusedCosineNNTestF;
+TEST_P(FusedCosineNNTestF, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
     min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<float>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF_Sq, ::testing::ValuesIn(inputsf));
-typedef FusedL2NNTest<float, true> FusedL2NNTestF_Sqrt;
-TEST_P(FusedL2NNTestF_Sqrt, Result)
-{
-  runTest(min.data());
-  ASSERT_TRUE(devArrMatch(
-    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<float>(params.tolerance), stream));
-}
-INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF_Sqrt, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(FusedCosineNNTests, FusedCosineNNTestF, ::testing::ValuesIn(inputsf));
 
 const std::vector<Inputs<double>> inputsd = {
   {0.00001, 32, 32, 32, 1234ULL},   {0.00001, 32, 64, 32, 1234ULL},
@@ -345,40 +355,32 @@ const std::vector<Inputs<double>> inputsd = {
   {0.00001, 128, 32, 33, 1234ULL},  {0.00001, 128, 64, 33, 1234ULL},
   {0.00001, 128, 128, 65, 1234ULL}, {0.00001, 64, 128, 129, 1234ULL},
 
-  {0.00001, 1805, 134, 2, 1234ULL},  //{0.00001, 8192, 1024, 25, 1234ULL},
+  {0.00001, 1805, 134, 2, 1234ULL}, {0.00001, 8192, 1024, 25, 1234ULL},
 };
-typedef FusedL2NNTest<double, false> FusedL2NNTestD_Sq;
-TEST_P(FusedL2NNTestD_Sq, Result)
+typedef FusedCosineNNTest<double> FusedCosineNNTestD;
+TEST_P(FusedCosineNNTestD, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
     min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<double>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sq, ::testing::ValuesIn(inputsd));
-typedef FusedL2NNTest<double, true> FusedL2NNTestD_Sqrt;
-TEST_P(FusedL2NNTestD_Sqrt, Result)
-{
-  runTest(min.data());
-  ASSERT_TRUE(devArrMatch(
-    min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<double>(params.tolerance), stream));
-}
-INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sqrt, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(FusedCosineNNTests, FusedCosineNNTestD, ::testing::ValuesIn(inputsd));
 
 /// This is to test output determinism of the prim
-template <typename DataT, bool Sqrt>
-class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
+template <typename DataT>
+class FusedCosineNNDetTest : public FusedCosineNNTest<DataT> {
  public:
-  FusedL2NNDetTest() : stream(resource::get_cuda_stream(handle)), min1(0, stream) {}
+  FusedCosineNNDetTest() : stream(resource::get_cuda_stream(handle)), min1(0, stream) {}
 
   void SetUp() override
   {
-    FusedL2NNTest<DataT, Sqrt>::SetUp();
+    FusedCosineNNTest<DataT>::SetUp();
     int m = this->params.m;
     min1.resize(m, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override { FusedL2NNTest<DataT, Sqrt>::TearDown(); }
+  void TearDown() override { FusedCosineNNTest<DataT>::TearDown(); }
 
  protected:
   raft::resources handle;
@@ -391,29 +393,20 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   void generateGoldenResult() override {}
 };
 
-typedef FusedL2NNDetTest<float, false> FusedL2NNDetTestF_Sq;
-TEST_P(FusedL2NNDetTestF_Sq, Result)
+typedef FusedCosineNNDetTest<float> FusedCosineNNDetTestF;
+TEST_P(FusedCosineNNDetTestF, Result)
 {
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1.data());
     ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<float>(), stream));
+    cudaMemsetAsync(min1.data(), 0, sizeof(*min.data()) * params.m, stream);
   }
 }
-INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sq, ::testing::ValuesIn(inputsf));
-typedef FusedL2NNDetTest<float, true> FusedL2NNDetTestF_Sqrt;
-TEST_P(FusedL2NNDetTestF_Sqrt, Result)
-{
-  runTest(min.data());  // assumed to be golden
-  for (int i = 0; i < NumRepeats; ++i) {
-    runTest(min1.data());
-    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<float>(), stream));
-  }
-}
-INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sqrt, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(FusedCosineNNDetTests, FusedCosineNNDetTestF, ::testing::ValuesIn(inputsf));
 
-typedef FusedL2NNDetTest<double, false> FusedL2NNDetTestD_Sq;
-TEST_P(FusedL2NNDetTestD_Sq, Result)
+typedef FusedCosineNNDetTest<double> FusedCosineNNDetTestD;
+TEST_P(FusedCosineNNDetTestD, Result)
 {
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
@@ -421,17 +414,7 @@ TEST_P(FusedL2NNDetTestD_Sq, Result)
     ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<double>(), stream));
   }
 }
-INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestD_Sq, ::testing::ValuesIn(inputsd));
-typedef FusedL2NNDetTest<double, true> FusedL2NNDetTestD_Sqrt;
-TEST_P(FusedL2NNDetTestD_Sqrt, Result)
-{
-  runTest(min.data());  // assumed to be golden
-  for (int i = 0; i < NumRepeats; ++i) {
-    runTest(min1.data());
-    ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<double>(), stream));
-  }
-}
-INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestD_Sqrt, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(FusedCosineNNDetTests, FusedCosineNNDetTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace distance
 }  // end namespace raft

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,14 +20,14 @@
 namespace raft::runtime::distance {
 
 /**
- * @defgroup fused_l2_nn_min_arg_runtime Fused L2 1NN Runtime API
+ * @defgroup fused_distance_nn_min_arg_runtime Fused Distance 1NN Runtime API
  * @{
  */
 
 /**
- * @brief Wrapper around fusedL2NN with minimum reduction operators.
+ * @brief Wrapper around fusedDistanceNN with minimum reduction operators.
  *
- * fusedL2NN cannot be compiled in the distance library due to the lambda
+ * fusedDistanceNN cannot be compiled in the distance library due to the lambda
  * operators, so this wrapper covers the most common case (minimum).
  *
  * @param[in] handle         raft handle
@@ -41,27 +41,22 @@ namespace raft::runtime::distance {
  * @param[in]  n             gemm n
  * @param[in]  k             gemm k
  * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
+ * @param[in]  metric        Distance metric to be used (supports L2, cosine)
+ * @param[in]  isRowMajor    whether the input/output is row or column major.
+ * @param[in]  metric_arg    power argument for distances like Minkowski (not supported for now)
  */
-[[deprecated("use fused_distance_nn_min_arg instead")]] void fused_l2_nn_min_arg(
-  raft::resources const& handle,
-  int* min,
-  const float* x,
-  const float* y,
-  int m,
-  int n,
-  int k,
-  bool sqrt);
+void fused_distance_nn_min_arg(raft::resources const& handle,
+                               int* min,
+                               const float* x,
+                               const float* y,
+                               int m,
+                               int n,
+                               int k,
+                               bool sqrt,
+                               raft::distance::DistanceType metric,
+                               bool isRowMajor,
+                               float metric_arg);
 
-[[deprecated("use fused_distance_nn_min_arg instead")]] void fused_l2_nn_min_arg(
-  raft::resources const& handle,
-  int* min,
-  const double* x,
-  const double* y,
-  int m,
-  int n,
-  int k,
-  bool sqrt);
-
-/** @} */  // end group fused_l2_nn_min_arg_runtime
+/** @} */  // end group fused_distance_nn_min_arg_runtime
 
 }  // end namespace raft::runtime::distance
