@@ -1678,8 +1678,7 @@ auto build(raft::resources const& handle,
 
     // Besides just sampling, we transform the input dataset into floats to make it easier
     // to use gemm operations from cublas.
-    auto trainset = make_device_mdarray<float>(
-      handle, device_mr, make_extents<internal_extents_t>(n_rows_train, dim));
+    auto trainset = make_device_matrix<float, internal_extents_t>(handle, n_rows_train, dim);
 
     if constexpr (std::is_same_v<T, float>) {
       raft::matrix::detail::sample_rows<T, int64_t>(
