@@ -274,7 +274,9 @@ struct standard_dataset_descriptor_t
 #pragma unroll
           for (uint32_t v = 0; v < vlen; v++) {
             const uint32_t kv = k + v;
-            // if (kv >= dataset_dim) break;
+            // Note this loop can go above the dataset_dim for padded arrays. This is not a problem because:
+            // - Above the last element (dataset_dim-1), the query array is filled with zeros.
+            // - The data buffer has to be also padded with zeros.
             DISTANCE_T diff = query_ptr[device::swizzling(kv)];
             diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
             norm2 += diff * diff;
