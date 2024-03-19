@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
@@ -24,48 +23,15 @@
  *
  */
 
-#include <raft/neighbors/detail/cagra/search_single_cta_kernel-inl.cuh>
-#include <raft/neighbors/sample_filter_types.hpp>
+#include "search_single_cta.cuh"
 
-#define COMMA ,
+#include <raft/neighbors/detail/cagra/compute_distance.hpp>
 
 namespace raft::neighbors::cagra::detail::single_cta_search {
-
-#define instantiate_single_cta_select_and_run(                                                  \
-  TEAM_SIZE, MAX_DATASET_DIM, DATASET_DESC_T, SAMPLE_FILTER_T)                                  \
-  template void select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATASET_DESC_T, SAMPLE_FILTER_T>(    \
-    DATASET_DESC_T dataset_desc,                                                                \
-    raft::device_matrix_view<const typename DATASET_DESC_T::INDEX_T, int64_t, row_major> graph, \
-    typename DATASET_DESC_T::INDEX_T* const topk_indices_ptr,                                   \
-    typename DATASET_DESC_T::DISTANCE_T* const topk_distances_ptr,                              \
-    const typename DATASET_DESC_T::DATA_T* const queries_ptr,                                   \
-    const uint32_t num_queries,                                                                 \
-    const typename DATASET_DESC_T::INDEX_T* dev_seed_ptr,                                       \
-    uint32_t* const num_executed_iterations,                                                    \
-    uint32_t topk,                                                                              \
-    uint32_t num_itopk_candidates,                                                              \
-    uint32_t block_size,                                                                        \
-    uint32_t smem_size,                                                                         \
-    int64_t hash_bitlen,                                                                        \
-    typename DATASET_DESC_T::INDEX_T* hashmap_ptr,                                              \
-    size_t small_hash_bitlen,                                                                   \
-    size_t small_hash_reset_interval,                                                           \
-    uint32_t num_random_samplings,                                                              \
-    uint64_t rand_xor_mask,                                                                     \
-    uint32_t num_seeds,                                                                         \
-    size_t itopk_size,                                                                          \
-    size_t search_width,                                                                        \
-    size_t min_iterations,                                                                      \
-    size_t max_iterations,                                                                      \
-    SAMPLE_FILTER_T sample_filter,                                                              \
-    cudaStream_t stream);
-
-instantiate_single_cta_select_and_run(8,
-                                      128,
-                                      raft::neighbors::cagra::detail::standard_dataset_descriptor_t<
-                                        half COMMA uint64_t COMMA 0 COMMA 0 COMMA float>,
-                                      raft::neighbors::filtering::none_cagra_sample_filter);
-
-#undef instantiate_single_cta_search_kernel
+instantiate_kernel_selection(8,
+                             128,
+                             raft::neighbors::cagra::detail::standard_dataset_descriptor_t<
+                               half COMMA uint64_t COMMA 0 COMMA 0 COMMA float>,
+                             raft::neighbors::filtering::none_cagra_sample_filter);
 
 }  // namespace raft::neighbors::cagra::detail::single_cta_search
