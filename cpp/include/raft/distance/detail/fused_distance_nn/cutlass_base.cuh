@@ -33,6 +33,8 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/semaphore>
+
 #include <cutlass/cutlass.h>
 #include <cutlass/gemm/device/gemm.h>
 #include <cutlass/gemm/device/gemm_grouped.h>
@@ -45,6 +47,14 @@
 namespace raft {
 namespace distance {
 namespace detail {
+
+template <typename IdxT>
+RAFT_KERNEL initBinMutexKernel(cuda::binary_semaphore<cuda::thread_scope_device>* mut, IdxT m)
+{
+  auto tid = IdxT(blockIdx.x) * blockDim.x + threadIdx.x;
+
+  if (tid < m) { mut[tid].release(); }
+}
 
 template <typename DataT,
           typename AccT,
@@ -87,8 +97,14 @@ void cutlassFusedDistanceNN(const DataT* x,
     KVPReduceOpT>;
   constexpr int batch_count = 1;
 
+  rmm::device_uvector<cuda::binary_semaphore<cuda::thread_scope_device>> bin_mutex(m, stream);
+
+  int blks_ = (m / 256) + 1;
+
+  initBinMutexKernel<<<blks_, 256, 0, stream>>>(bin_mutex.data(), m);
+
   typename EpilogueOutputOp::Params epilog_op_param(
-    dist_op, cg_reduce_op, redOp, pairRedOp, mutexes);
+    dist_op, cg_reduce_op, redOp, pairRedOp, mutexes, bin_mutex.data());
 
   // Number of pipelines you want to use
   constexpr int NumStages = 3;

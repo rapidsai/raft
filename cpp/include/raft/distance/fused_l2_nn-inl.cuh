@@ -20,8 +20,8 @@
 #pragma once
 
 #include <raft/core/resources.hpp>
-#include <raft/distance/detail/fused_l2_nn.cuh>
-#include <raft/distance/fused_l2_nn_helpers.cuh>
+#include <raft/distance/detail/fused_distance_nn/fused_l2_nn.cuh>
+#include <raft/distance/fused_distance_nn_helpers.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
 
