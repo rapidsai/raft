@@ -122,21 +122,13 @@ if(BUILD_PRIMS_BENCH)
   )
 
   ConfigureBench(
-    NAME
-    MATRIX_BENCH
-    PATH
-    bench/prims/matrix/argmin.cu
-    bench/prims/matrix/gather.cu
-    bench/prims/matrix/select_k.cu
-    bench/prims/matrix/main.cpp
-    OPTIONAL
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_BENCH PATH bench/prims/matrix/argmin.cu bench/prims/matrix/gather.cu
+    bench/prims/matrix/select_k.cu bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
     NAME RANDOM_BENCH PATH bench/prims/random/make_blobs.cu bench/prims/random/permute.cu
-    bench/prims/random/rng.cu bench/prims/main.cpp
+   bench/prims/random/rng.cu bench/prims/random/subsample.cu bench/prims/main.cpp
   )
 
   ConfigureBench(NAME SPARSE_BENCH PATH bench/prims/sparse/convert_csr.cu bench/prims/main.cpp)

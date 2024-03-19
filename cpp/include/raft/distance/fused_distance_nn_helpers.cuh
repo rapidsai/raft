@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/distance/detail/fused_l2_nn.cuh>
+#include <raft/distance/detail/fused_distance_nn/helper_structs.cuh>
 
 namespace raft::distance {
 
