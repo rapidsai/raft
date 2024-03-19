@@ -881,10 +881,10 @@ auto build_fine_clusters(const raft::resources& handle,
       if (labels_mptr[j] == LabelT(i)) { mc_trainset_ids[k++] = j; }
     }
     if (k != static_cast<IdxT>(mesocluster_sizes[i]))
-      RAFT_LOG_WARN("Incorrect mesocluster size at %d. %zu vs %zu",
-                    static_cast<int>(i),
-                    static_cast<size_t>(k),
-                    static_cast<size_t>(mesocluster_sizes[i]));
+      RAFT_LOG_DEBUG("Incorrect mesocluster size at %d. %zu vs %zu",
+                     static_cast<int>(i),
+                     static_cast<size_t>(k),
+                     static_cast<size_t>(mesocluster_sizes[i]));
     if (k == 0) {
       RAFT_LOG_DEBUG("Empty cluster %d", i);
       RAFT_EXPECTS(fine_clusters_nums[i] == 0,
@@ -1030,7 +1030,7 @@ void build_hierarchical(const raft::resources& handle,
   const IdxT mesocluster_size_max_balanced = div_rounding_up_safe<size_t>(
     2lu * size_t(n_rows), std::max<size_t>(size_t(n_mesoclusters), 1lu));
   if (mesocluster_size_max > mesocluster_size_max_balanced) {
-    RAFT_LOG_WARN(
+    RAFT_LOG_DEBUG(
       "build_hierarchical: built unbalanced mesoclusters (max_mesocluster_size == %u > %u). "
       "At most %u points will be used for training within each mesocluster. "
       "Consider increasing the number of training iterations `n_iters`.",
