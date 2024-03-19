@@ -370,6 +370,7 @@ if(BUILD_TESTS)
     test/neighbors/ann_cagra/test_float_int64_t.cu
     test/neighbors/ann_cagra/test_half_int64_t.cu
     test/neighbors/ann_cagra_vpq/test_float_int64_t.cu
+    test/neighbors/ann_cagra_vpq/test_float_uint32_t.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim128_t8.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim256_t16.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim512_t32.cu
