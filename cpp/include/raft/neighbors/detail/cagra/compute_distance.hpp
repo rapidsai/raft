@@ -20,6 +20,7 @@
 #include "utils.hpp"
 
 #include <raft/spatial/knn/detail/ann_utils.cuh>
+#include <raft/util/vectorized.cuh>
 
 #include <type_traits>
 
@@ -35,44 +36,6 @@ _RAFT_DEVICE constexpr unsigned get_vlen()
 {
   return utils::size_of<LOAD_T>() / utils::size_of<DATA_T>();
 }
-
-template <std::uint32_t VECLEN>
-struct code_book_load_t_core {
-  using type = void;
-};
-template <>
-struct code_book_load_t_core<1> {
-  using type = std::uint8_t;
-};
-template <>
-struct code_book_load_t_core<2> {
-  using type = std::uint16_t;
-};
-template <>
-struct code_book_load_t_core<4> {
-  using type = std::uint32_t;
-};
-template <>
-struct code_book_load_t_core<8> {
-  using type = LOAD_64BIT_T;
-};
-template <>
-struct code_book_load_t_core<16> {
-  using type = LOAD_128BIT_T;
-};
-
-template <class T, std::uint32_t vlen>
-struct code_book_load_t {
-  using type = typename code_book_load_t_core<utils::size_of<T>() * vlen>::type;
-};
-
-template <class DATA_T, unsigned VLEN>
-struct data_load_t {
-  union {
-    typename code_book_load_t<DATA_T, VLEN>::type load;
-    DATA_T data[VLEN];
-  };
-};
 
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
@@ -256,7 +219,7 @@ struct standard_dataset_descriptor_t
     constexpr unsigned vlen = device::get_vlen<LOAD_T, DATA_T>();
     // #include <raft/util/cuda_dev_essentials.cuh
     constexpr unsigned reg_nelem = raft::ceildiv<unsigned>(DATASET_BLOCK_DIM, TEAM_SIZE * vlen);
-    device::data_load_t<DATA_T, vlen> dl_buff[reg_nelem];
+    raft::TxN_t<DATA_T, vlen> dl_buff[reg_nelem];
 
     DISTANCE_T norm2 = 0;
     if (valid) {
@@ -265,7 +228,7 @@ struct standard_dataset_descriptor_t
         for (uint32_t e = 0; e < reg_nelem; e++) {
           const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
           if (k >= dim) break;
-          dl_buff[e].load = *reinterpret_cast<const LOAD_T*>(dataset_ptr + k);
+          dl_buff[e].load(dataset_ptr, k);
         }
 #pragma unroll
         for (uint32_t e = 0; e < reg_nelem; e++) {
@@ -279,7 +242,7 @@ struct standard_dataset_descriptor_t
             // - Above the last element (dataset_dim-1), the query array is filled with zeros.
             // - The data buffer has to be also padded with zeros.
             DISTANCE_T diff = query_ptr[device::swizzling(kv)];
-            diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
+            diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].val.data[v]);
             norm2 += diff * diff;
           }
         }

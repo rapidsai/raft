@@ -126,15 +126,13 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
             const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen;
             if (k >= n_subspace) break;
             // Loading VQ code-book
-            device::data_load_t<half2, vlen / 2> vq_vals[PQ_CODE_BOOK_DIM];
-            using vq_vals_load_t = typename device::code_book_load_t<half2, vlen / 2>::type;
+            raft::TxN_t<half2, vlen / 2> vq_vals[PQ_CODE_BOOK_DIM];
 #pragma unroll
             for (std::uint32_t m = 0; m < PQ_CODE_BOOK_DIM; m += 1) {
               const uint32_t d = (vlen * m) + (PQ_CODE_BOOK_DIM * k);
               if (d >= dim) break;
-              // Loading 4 x 16-bit VQ-values using 64-bit load ops (from L2$ or device memory)
-              vq_vals[m].load =
-                *(reinterpret_cast<const vq_vals_load_t*>(vq_code_book_ptr + d + (dim * vq_code)));
+              vq_vals[m].load(reinterpret_cast<const half2*>(vq_code_book_ptr),
+                              d + (dim * vq_code));
             }
             // Compute distance
             std::uint32_t pq_code = pq_codes[e];
@@ -151,7 +149,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
                 // Loading PQ code book in smem
                 diff2 -= *(reinterpret_cast<half2*>(
                   smem_pq_code_book_ptr + (1 << PQ_BITS) * 2 * (m / 2) + (2 * (pq_code & 0xff))));
-                diff2 -= vq_vals[d1 / vlen].data[(d1 % vlen) / 2];
+                diff2 -= vq_vals[d1 / vlen].val.data[(d1 % vlen) / 2];
                 norm2 += diff2 * diff2;
               }
               pq_code >>= 8;
@@ -165,26 +163,23 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
             const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen;
             if (k >= n_subspace) break;
             // Loading VQ code-book
-            typename device::data_load_t<CODE_BOOK_T, vlen>::type vq_vals[PQ_CODE_BOOK_DIM];
-            using vq_vals_load_t = typename device::code_book_load_t<CODE_BOOK_T, vlen>::type;
+            raft::TxN_t<CODE_BOOK_T, vlen> vq_vals[PQ_CODE_BOOK_DIM];
 #pragma unroll
             for (std::uint32_t m = 0; m < PQ_CODE_BOOK_DIM; m++) {
               const std::uint32_t d = (vlen * m) + (PQ_CODE_BOOK_DIM * k);
               if (d >= dim) break;
               // Loading 4 x 8/16-bit VQ-values using 32/64-bit load ops (from L2$ or device memory)
-              vq_vals[m].load =
-                *(reinterpret_cast<const vq_vals_load_t*>(vq_code_book_ptr + d + (dim * vq_code)));
+              vq_vals[m].load(reinterpret_cast<const half2*>(vq_code_book_ptr),
+                              d + (dim * vq_code));
             }
             // Compute distance
             std::uint32_t pq_code = pq_codes[e];
 #pragma unroll
             for (std::uint32_t v = 0; v < vlen; v++) {
               if (PQ_CODE_BOOK_DIM * (v + k) >= dim) break;
-              typename device::data_load_t<CODE_BOOK_T, PQ_CODE_BOOK_DIM>::type pq_vals;
-              using pq_vals_load_t = device::code_book_load_t<CODE_BOOK_T, PQ_CODE_BOOK_DIM>;
-              pq_vals.load         = *(reinterpret_cast<const pq_vals_load_t*>(
-                smem_pq_code_book_ptr +
-                (PQ_CODE_BOOK_DIM * (pq_code & 0xff))));  // (from L1$ or smem)
+              raft::TxN_t<CODE_BOOK_T, PQ_CODE_BOOK_DIM> pq_vals;
+              pq_vals.load(reinterpret_cast<const half2*>(smem_pq_code_book_ptr),
+                           (PQ_CODE_BOOK_DIM * (pq_code & 0xff)));  // (from L1$ or smem)
 #pragma unroll
               for (std::uint32_t m = 0; m < PQ_CODE_BOOK_DIM; m++) {
                 const std::uint32_t d1 = m + (PQ_CODE_BOOK_DIM * v);
@@ -192,7 +187,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
                 // if (d >= dataset_dim) break;
                 DISTANCE_T diff = query_ptr[d];  // (from smem)
                 diff -= pq_scale * static_cast<float>(pq_vals.data[m]);
-                diff -= vq_scale * static_cast<float>(vq_vals[d1 / vlen].data[d1 % vlen]);
+                diff -= vq_scale * static_cast<float>(vq_vals[d1 / vlen].val.data[d1 % vlen]);
                 norm += diff * diff;
               }
               pq_code >>= 8;
