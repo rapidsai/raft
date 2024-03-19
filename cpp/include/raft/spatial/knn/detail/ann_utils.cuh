@@ -16,17 +16,8 @@
 
 #pragma once
 
-#include <raft/common/nvtx.hpp>
-#include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
-#include <raft/core/host_mdarray.hpp>
 #include <raft/core/logger.hpp>
-#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/linalg/map.cuh>
-#include <raft/matrix/gather.cuh>
-#include <raft/random/sample_without_replacement.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/integer_utils.hpp>
