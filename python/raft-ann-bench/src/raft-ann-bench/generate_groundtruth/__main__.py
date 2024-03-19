@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,17 +62,12 @@ def calc_truth(dataset, queries, k, metric="sqeuclidean"):
 
         X = cp.asarray(dataset[i : i + n_batch, :], cp.float32)
 
-        D, Ind = knn(
-            X,
-            queries,
-            k,
-            metric=metric,
-            handle=handle,
-            global_id_offset=i,  # shift neighbor index by offset i
-        )
+        D, Ind = knn(X, queries, k, metric=metric, handle=handle)
         handle.sync()
 
         D, Ind = cp.asarray(D), cp.asarray(Ind)
+        Ind += i  # shift neighbor index by offset i
+
         if distances is None:
             distances = D
             indices = Ind
