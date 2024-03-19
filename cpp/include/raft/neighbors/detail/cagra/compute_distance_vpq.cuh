@@ -15,7 +15,10 @@
  */
 
 #pragma once
+
 #include "compute_distance.hpp"
+
+#include <raft/util/integer_utils.hpp>
 
 namespace raft::neighbors::cagra::detail {
 template <class DATA_T_,
@@ -100,9 +103,9 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
       const uint32_t vq_code = *(reinterpret_cast<const std::uint32_t*>(
         encoded_dataset_ptr + (static_cast<std::uint64_t>(encoded_dataset_dim) * node_id)));
       if (PQ_BITS == 8) {
-        constexpr unsigned vlen = 4;  // **** DO NOT CHANGE ****
-        constexpr unsigned nelem =
-          ((DATASET_BLOCK_DIM / PQ_CODE_BOOK_DIM) + (TEAM_SIZE * vlen) - 1) / (TEAM_SIZE * vlen);
+        constexpr unsigned vlen  = 4;  // **** DO NOT CHANGE ****
+        constexpr unsigned nelem = raft::div_rounding_up_unsafe<unsigned>(
+          DATASET_BLOCK_DIM / PQ_CODE_BOOK_DIM, TEAM_SIZE * vlen);
         // Loading PQ codes
         uint32_t pq_codes[nelem];
 #pragma unroll
