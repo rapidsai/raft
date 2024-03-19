@@ -43,8 +43,49 @@
 
 #include <cstddef>
 #include <iostream>
+#include <random>
 #include <string>
 #include <vector>
+
+namespace {
+template <class T>
+void GenerateDataset(T* const dataset_ptr,
+                     T* const query_ptr,
+                     const std::size_t dataset_size,
+                     const std::size_t query_size,
+                     const std::size_t dim,
+                     const std::size_t num_centers,
+                     cudaStream_t cuda_stream)
+{
+  auto center_list  = raft::make_host_matrix<T, int64_t>(num_centers, dim);
+  auto host_dataset = raft::make_host_matrix<T, int64_t>(std::max(dataset_size, query_size), dim);
+
+  std::normal_distribution<T> dist(0, 1);
+  std::mt19937 mt(0);
+  for (std::size_t i = 0; i < center_list.size(); i++) {
+    center_list.data_handle()[i] = dist(mt);
+  }
+
+  std::uniform_int_distribution<std::size_t> i_dist(0, num_centers - 1);
+  for (std::size_t i = 0; i < dataset_size; i++) {
+    const auto center_index = i_dist(mt);
+    for (std::size_t j = 0; j < dim; j++) {
+      host_dataset.data_handle()[i * dim + j] =
+        center_list.data_handle()[center_index + j] + dist(mt) * 1e-1;
+    }
+  }
+  raft::copy(dataset_ptr, host_dataset.data_handle(), dataset_size * dim, cuda_stream);
+
+  for (std::size_t i = 0; i < query_size; i++) {
+    const auto center_index = i_dist(mt);
+    for (std::size_t j = 0; j < dim; j++) {
+      host_dataset.data_handle()[i * dim + j] =
+        center_list.data_handle()[center_index + j] + dist(mt) * 1e-1;
+    }
+  }
+  raft::copy(query_ptr, host_dataset.data_handle(), query_size * dim, cuda_stream);
+}
+}  // namespace
 
 namespace raft::neighbors::cagra {
 struct AnnCagraVpqInputs {
@@ -72,7 +113,7 @@ inline ::std::ostream& operator<<(::std::ostream& os, const AnnCagraVpqInputs& p
   std::vector<std::string> algo       = {"single-cta", "multi_cta", "multi_kernel", "auto"};
   std::vector<std::string> build_algo = {"IVF_PQ", "NN_DESCENT"};
   os << "{n_queries=" << p.n_queries << ", dataset shape=" << p.n_rows << "x" << p.dim
-     << ", k=" << p.k << ", pq_bits=" << p.pq_bits << ", subspace_dim=" << p.subspace_dim
+     << ", k=" << p.k << ", pq_bits=" << p.pq_bits << ", subspace_dim=" << p.subspace_dim << ", "
      << algo.at((int)p.algo) << ", max_queries=" << p.max_queries << ", itopk_size=" << p.itopk_size
      << ", search_width=" << p.search_width << ", metric=" << static_cast<int>(p.metric)
      << (p.host_dataset ? ", host" : ", device")
@@ -118,7 +159,7 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
       resource::sync_stream(handle_);
     }
 
-    const auto vpq_k = ps.k * 2;
+    const auto vpq_k = ps.k * 16;
     {
       rmm::device_uvector<DistanceT> distances_dev(vpq_k * ps.n_queries, stream_);
       rmm::device_uvector<IdxT> indices_dev(vpq_k * ps.n_queries, stream_);
@@ -201,6 +242,16 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
                                   ps.metric);
 
           resource::sync_stream(handle_);
+
+          raft::copy(indices_dev.data(),
+                     host_indices_Cagra_view.data_handle(),
+                     ps.k * ps.n_queries,
+                     stream_);
+          raft::copy(distances_dev.data(),
+                     host_dists_Cagra_view.data_handle(),
+                     ps.k * ps.n_queries,
+                     stream_);
+          resource::sync_stream(handle_);
         }
       }
 
@@ -238,17 +289,13 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
-    raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
-      raft::random::uniform(handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
-      raft::random::uniform(
-        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20));
-    } else {
-      raft::random::uniformInt(
-        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
-      raft::random::uniformInt(
-        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20));
-    }
+    GenerateDataset(database.data(),
+                    search_queries.data(),
+                    ps.n_rows,
+                    ps.n_queries,
+                    ps.dim,
+                    static_cast<std::size_t>(std::sqrt(ps.n_rows)),
+                    stream_);
     resource::sync_stream(handle_);
   }
 
@@ -272,21 +319,21 @@ inline std::vector<AnnCagraVpqInputs> generate_inputs()
   // TODO(tfeher): test MULTI_CTA kernel with search_width > 1 to allow multiple CTA per queries
   std::vector<AnnCagraVpqInputs> inputs = raft::util::itertools::product<AnnCagraVpqInputs>(
     {100},
-    {1000},
-    {128},
-    {16},    // k
-    {2, 4},  // subspace dim
-    {8},     // PQ bit
+    {1000, 10000},  // datsset size
+    {128, 256},     // dataset dim
+    {8, 12},        // k
+    {2, 4},         // subspace dim
+    {8},            // PQ bit
     {graph_build_algo::NN_DESCENT},
     {search_algo::SINGLE_CTA, search_algo::MULTI_CTA},
-    {0, 1, 10, 100},  // query size
+    {0},  // query size
     {0},
-    {256},
+    {512},
     {1},
     {raft::distance::DistanceType::L2Expanded},
     {false},
     {true},
-    {0.995});
+    {0.8});
 
   return inputs;
 }
