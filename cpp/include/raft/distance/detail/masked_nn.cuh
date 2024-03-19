@@ -19,7 +19,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/distance/detail/compress_to_bits.cuh>
-#include <raft/distance/detail/fused_l2_nn.cuh>
+#include <raft/distance/detail/fused_distance_nn/fused_l2_nn.cuh>
 #include <raft/distance/detail/masked_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
