@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include "../ann_cagra_vpq.cuh"
 
 #include <gtest/gtest.h>
