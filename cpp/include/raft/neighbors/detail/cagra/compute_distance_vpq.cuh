@@ -93,10 +93,11 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
                              QUERY_T* const smem_query_ptr,
                              const std::uint32_t query_smem_buffer_length)
   {
+    constexpr spatial::knn::detail::utils::mapping<half> mapping{};
     for (unsigned i = threadIdx.x * 2; i < dim; i += blockDim.x * 2) {
-      half2 buf2 = {CUDART_ZERO_FP16, CUDART_ZERO_FP16};
-      if (i < dim) { buf2.x = static_cast<half>(static_cast<float>(dmem_query_ptr[i])); }
-      if (i + 1 < dim) { buf2.y = static_cast<half>(static_cast<float>(dmem_query_ptr[i + 1])); }
+      half2 buf2{0, 0};
+      if (i < dim) { buf2.x = mapping(dmem_query_ptr[i]); }
+      if (i + 1 < dim) { buf2.y = mapping(dmem_query_ptr[i + 1]); }
       if ((PQ_BITS == 8) && (PQ_LEN % 2 == 0)) {
         // Use swizzling in the condition to reduce bank conflicts in shared
         // memory, which are likely to occur when pq_code_book_dim is large.

@@ -213,7 +213,7 @@ struct standard_dataset_descriptor_t
     for (unsigned i = threadIdx.x; i < query_smem_buffer_length; i += blockDim.x) {
       unsigned j = device::swizzling(i);
       if (i < dim) {
-        smem_query_ptr[j] = spatial::knn::detail::utils::mapping<float>{}(dmem_query_ptr[i]);
+        smem_query_ptr[j] = spatial::knn::detail::utils::mapping<QUERY_T>{}(dmem_query_ptr[i]);
       } else {
         smem_query_ptr[j] = 0.0;
       }
