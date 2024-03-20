@@ -91,6 +91,10 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
       pq_code_book_ptr(pq_code_book_ptr),
       pq_scale(pq_scale)
   {
+    if (dim > DATASET_BLOCK_DIM) {
+      RAFT_FAIL(
+        "`dim` must be smaller or equal to 512. Support for larger dimension is coming soon.");
+    }
   }
 
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
