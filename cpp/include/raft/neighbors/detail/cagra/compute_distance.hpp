@@ -205,6 +205,21 @@ struct standard_dataset_descriptor_t
   static const std::uint32_t smem_buffer_size_in_byte = 0;
   __device__ void set_smem_ptr(void* const){};
 
+  template <uint32_t DATASET_BLOCK_DIM>
+  __device__ void copy_query(const DATA_T* const dmem_query_ptr,
+                             QUERY_T* const smem_query_ptr,
+                             const std::uint32_t query_smem_buffer_length)
+  {
+    for (unsigned i = threadIdx.x; i < query_smem_buffer_length; i += blockDim.x) {
+      unsigned j = device::swizzling(i);
+      if (i < dim) {
+        smem_query_ptr[j] = spatial::knn::detail::utils::mapping<float>{}(dmem_query_ptr[i]);
+      } else {
+        smem_query_ptr[j] = 0.0;
+      }
+    }
+  }
+
   template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE>
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
                                            const INDEX_T dataset_i,

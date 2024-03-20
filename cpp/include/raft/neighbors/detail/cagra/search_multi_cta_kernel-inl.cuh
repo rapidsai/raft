@@ -213,14 +213,9 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
     }
 #endif
   const DATA_T* const query_ptr = queries_ptr + (dataset_desc.dim * query_id);
-  for (unsigned i = threadIdx.x; i < query_smem_buffer_length; i += blockDim.x) {
-    unsigned j = device::swizzling(i);
-    if (i < dataset_desc.dim) {
-      query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
-    } else {
-      query_buffer[j] = 0.0;
-    }
-  }
+  dataset_desc.template copy_query<DATASET_BLOCK_DIM>(
+    query_ptr, query_buffer, query_smem_buffer_length);
+
   if (threadIdx.x == 0) { terminate_flag[0] = 0; }
   INDEX_T* const local_visited_hashmap_ptr =
     visited_hashmap_ptr + (hashmap::get_size(hash_bitlen) * query_id);

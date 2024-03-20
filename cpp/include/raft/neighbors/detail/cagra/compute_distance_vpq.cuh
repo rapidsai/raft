@@ -88,6 +88,26 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
   {
   }
 
+  template <uint32_t DATASET_BLOCK_DIM>
+  __device__ void copy_query(const DATA_T* const dmem_query_ptr,
+                             QUERY_T* const smem_query_ptr,
+                             const std::uint32_t query_smem_buffer_length)
+  {
+    for (unsigned i = threadIdx.x * 2; i < dim; i += blockDim.x * 2) {
+      half2 buf2 = {CUDART_ZERO_FP16, CUDART_ZERO_FP16};
+      if (i < dim) { buf2.x = static_cast<half>(static_cast<float>(dmem_query_ptr[i])); }
+      if (i + 1 < dim) { buf2.y = static_cast<half>(static_cast<float>(dmem_query_ptr[i + 1])); }
+      if ((PQ_BITS == 8) && (PQ_LEN % 2 == 0)) {
+        // Use swizzling in the condition to reduce bank conflicts in shared
+        // memory, which are likely to occur when pq_code_book_dim is large.
+        ((half2*)smem_query_ptr)[device::swizzling<std::uint32_t, DATASET_BLOCK_DIM / 2>(i / 2)] =
+          buf2;
+      } else {
+        (reinterpret_cast<half2*>(smem_query_ptr + i))[0] = buf2;
+      }
+    }
+  }
+
   template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE>
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
                                            const INDEX_T node_id,
