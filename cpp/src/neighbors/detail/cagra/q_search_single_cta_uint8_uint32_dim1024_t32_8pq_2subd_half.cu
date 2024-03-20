@@ -28,11 +28,10 @@
 #include <raft/neighbors/detail/cagra/compute_distance_vpq.cuh>
 
 namespace raft::neighbors::cagra::detail::single_cta_search {
-instantiate_kernel_selection(
-  32,
-  1024,
-  raft::neighbors::cagra::detail::cagra_q_dataset_descriptor_t<
-    uint8_t COMMA half COMMA 8 COMMA 2 COMMA 0 COMMA float COMMA uint32_t COMMA 0>,
-  raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(32,
+                             1024,
+                             raft::neighbors::cagra::detail::cagra_q_dataset_descriptor_t<
+                               uint8_t COMMA half COMMA 8 COMMA 2 COMMA float COMMA uint32_t>,
+                             raft::neighbors::filtering::none_cagra_sample_filter);
 
 }  // namespace raft::neighbors::cagra::detail::single_cta_search

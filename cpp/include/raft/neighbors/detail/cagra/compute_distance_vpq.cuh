@@ -24,18 +24,14 @@ namespace raft::neighbors::cagra::detail {
 template <class DATA_T_,
           class CODE_BOOK_T_,
           unsigned PQ_BITS,
-          unsigned PQ_CODE_BOOK_DIM,
-          unsigned DATASET_BLOCK_DIM_,
+          unsigned PQ_LEN,
           class DISTANCE_T,
-          class INDEX_T,
-          unsigned TEAM_SIZE_>
+          class INDEX_T>
 struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DISTANCE_T, INDEX_T> {
   using LOAD_T      = device::LOAD_128BIT_T;
   using DATA_T      = DATA_T_;
   using CODE_BOOK_T = CODE_BOOK_T_;
   using QUERY_T     = typename dataset_descriptor_base_t<half, DISTANCE_T, INDEX_T>::QUERY_T;
-  static const std::uint32_t DATASET_BLOCK_DIM = DATASET_BLOCK_DIM_;
-  static const std::uint32_t TEAM_SIZE         = TEAM_SIZE_;
 
   const std::uint8_t* encoded_dataset_ptr;
   const std::uint32_t encoded_dataset_dim;
@@ -50,7 +46,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
   // Set on device
   CODE_BOOK_T* smem_pq_code_book_ptr;
   static const std::uint32_t smem_buffer_size_in_byte =
-    (1 << PQ_BITS) * PQ_CODE_BOOK_DIM * utils::size_of<CODE_BOOK_T>();
+    (1 << PQ_BITS) * PQ_LEN * utils::size_of<CODE_BOOK_T>();
 
   __device__ void set_smem_ptr(void* const smem_ptr)
   {
@@ -58,15 +54,14 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
 
     // Copy PQ table
     if constexpr (std::is_same<CODE_BOOK_T, half>::value) {
-      for (unsigned i = threadIdx.x * 2; i < (1 << PQ_BITS) * PQ_CODE_BOOK_DIM;
-           i += blockDim.x * 2) {
+      for (unsigned i = threadIdx.x * 2; i < (1 << PQ_BITS) * PQ_LEN; i += blockDim.x * 2) {
         half2 buf2;
         buf2.x                                                   = pq_code_book_ptr[i];
         buf2.y                                                   = pq_code_book_ptr[i + 1];
         (reinterpret_cast<half2*>(smem_pq_code_book_ptr + i))[0] = buf2;
       }
     } else {
-      for (unsigned i = threadIdx.x; i < (1 << PQ_BITS) * PQ_CODE_BOOK_DIM; i += blockDim.x) {
+      for (unsigned i = threadIdx.x; i < (1 << PQ_BITS) * PQ_LEN; i += blockDim.x) {
         // TODO: vectorize
         smem_pq_code_book_ptr[i] = pq_code_book_ptr[i];
       }
@@ -93,6 +88,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
   {
   }
 
+  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE>
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
                                            const INDEX_T node_id,
                                            const bool valid) const
@@ -104,9 +100,9 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
         encoded_dataset_ptr + (static_cast<std::uint64_t>(encoded_dataset_dim) * node_id)));
       if (PQ_BITS == 8) {
         for (uint32_t elem_offset = 0; elem_offset < dim; elem_offset += DATASET_BLOCK_DIM) {
-          constexpr unsigned vlen  = 4;  // **** DO NOT CHANGE ****
-          constexpr unsigned nelem = raft::div_rounding_up_unsafe<unsigned>(
-            DATASET_BLOCK_DIM / PQ_CODE_BOOK_DIM, TEAM_SIZE * vlen);
+          constexpr unsigned vlen = 4;  // **** DO NOT CHANGE ****
+          constexpr unsigned nelem =
+            raft::div_rounding_up_unsafe<unsigned>(DATASET_BLOCK_DIM / PQ_LEN, TEAM_SIZE * vlen);
           // Loading PQ codes
           uint32_t pq_codes[nelem];
 #pragma unroll
@@ -119,7 +115,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
               4 + k));
           }
           //
-          if constexpr ((std::is_same<CODE_BOOK_T, half>::value) && (PQ_CODE_BOOK_DIM % 2 == 0)) {
+          if constexpr ((std::is_same<CODE_BOOK_T, half>::value) && (PQ_LEN % 2 == 0)) {
             // **** Use half2 for distance computation ****
             half2 norm2{0, 0};
 #pragma unroll
@@ -127,10 +123,10 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
               const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen;
               if (k >= n_subspace) break;
               // Loading VQ code-book
-              raft::TxN_t<half2, vlen / 2> vq_vals[PQ_CODE_BOOK_DIM];
+              raft::TxN_t<half2, vlen / 2> vq_vals[PQ_LEN];
 #pragma unroll
-              for (std::uint32_t m = 0; m < PQ_CODE_BOOK_DIM; m += 1) {
-                const uint32_t d = (vlen * m) + (PQ_CODE_BOOK_DIM * k) + elem_offset;
+              for (std::uint32_t m = 0; m < PQ_LEN; m += 1) {
+                const uint32_t d = (vlen * m) + (PQ_LEN * k) + elem_offset;
                 if (d >= dim) break;
                 vq_vals[m].load(
                   reinterpret_cast<const half2*>(vq_code_book_ptr + d + (dim * vq_code)), 0);
@@ -139,11 +135,11 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
               std::uint32_t pq_code = pq_codes[e];
 #pragma unroll
               for (std::uint32_t v = 0; v < vlen; v++) {
-                if (PQ_CODE_BOOK_DIM * (v + k) >= dim) break;
+                if (PQ_LEN * (v + k) >= dim) break;
 #pragma unroll
-                for (std::uint32_t m = 0; m < PQ_CODE_BOOK_DIM; m += 2) {
-                  const std::uint32_t d1 = m + (PQ_CODE_BOOK_DIM * v);
-                  const std::uint32_t d  = d1 + (PQ_CODE_BOOK_DIM * k);
+                for (std::uint32_t m = 0; m < PQ_LEN; m += 2) {
+                  const std::uint32_t d1 = m + (PQ_LEN * v);
+                  const std::uint32_t d  = d1 + (PQ_LEN * k);
                   // Loading query vector in smem
                   half2 diff2 = (reinterpret_cast<const half2*>(
                     query_ptr))[device::swizzling<std::uint32_t, DATASET_BLOCK_DIM / 2>(d / 2)];
@@ -164,10 +160,10 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
               const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
               if (k >= n_subspace) break;
               // Loading VQ code-book
-              raft::TxN_t<CODE_BOOK_T, vlen> vq_vals[PQ_CODE_BOOK_DIM];
+              raft::TxN_t<CODE_BOOK_T, vlen> vq_vals[PQ_LEN];
 #pragma unroll
-              for (std::uint32_t m = 0; m < PQ_CODE_BOOK_DIM; m++) {
-                const std::uint32_t d = (vlen * m) + (PQ_CODE_BOOK_DIM * k) + elem_offset;
+              for (std::uint32_t m = 0; m < PQ_LEN; m++) {
+                const std::uint32_t d = (vlen * m) + (PQ_LEN * k) + elem_offset;
                 if (d >= dim) break;
                 // Loading 4 x 8/16-bit VQ-values using 32/64-bit load ops (from L2$ or device
                 // memory)
@@ -178,15 +174,15 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
               std::uint32_t pq_code = pq_codes[e];
 #pragma unroll
               for (std::uint32_t v = 0; v < vlen; v++) {
-                if (PQ_CODE_BOOK_DIM * (v + k) >= dim) break;
-                raft::TxN_t<CODE_BOOK_T, PQ_CODE_BOOK_DIM> pq_vals;
-                pq_vals.load(reinterpret_cast<const half2*>(smem_pq_code_book_ptr +
-                                                            PQ_CODE_BOOK_DIM * (pq_code & 0xff)),
-                             0);  // (from L1$ or smem)
+                if (PQ_LEN * (v + k) >= dim) break;
+                raft::TxN_t<CODE_BOOK_T, PQ_LEN> pq_vals;
+                pq_vals.load(
+                  reinterpret_cast<const half2*>(smem_pq_code_book_ptr + PQ_LEN * (pq_code & 0xff)),
+                  0);  // (from L1$ or smem)
 #pragma unroll
-                for (std::uint32_t m = 0; m < PQ_CODE_BOOK_DIM; m++) {
-                  const std::uint32_t d1 = m + (PQ_CODE_BOOK_DIM * v);
-                  const std::uint32_t d  = d1 + (PQ_CODE_BOOK_DIM * k);
+                for (std::uint32_t m = 0; m < PQ_LEN; m++) {
+                  const std::uint32_t d1 = m + (PQ_LEN * v);
+                  const std::uint32_t d  = d1 + (PQ_LEN * k);
                   // if (d >= dataset_dim) break;
                   DISTANCE_T diff = query_ptr[d];  // (from smem)
                   diff -= pq_scale * static_cast<float>(pq_vals.data[m]);
@@ -207,48 +203,4 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
   }
 };
 
-template <std::uint32_t DATASET_BLOCK_DIM_OUT,
-          std::uint32_t TEAM_SIZE_OUT,
-          std::uint32_t DATASET_BLOCK_DIM_IN,
-          std::uint32_t TEAM_SIZE_IN,
-          class DATA_T,
-          class INDEX_T,
-          class DISTANCE_T,
-          class CODE_BOOK_T,
-          unsigned PQ_BITS,
-          unsigned PQ_CODE_BOOK_DIM>
-cagra_q_dataset_descriptor_t<DATA_T,
-                             CODE_BOOK_T,
-                             PQ_BITS,
-                             PQ_CODE_BOOK_DIM,
-                             DATASET_BLOCK_DIM_OUT,
-                             DISTANCE_T,
-                             INDEX_T,
-                             TEAM_SIZE_OUT>
-set_compute_template_params(cagra_q_dataset_descriptor_t<DATA_T,
-                                                         CODE_BOOK_T,
-                                                         PQ_BITS,
-                                                         PQ_CODE_BOOK_DIM,
-                                                         DATASET_BLOCK_DIM_IN,
-                                                         DISTANCE_T,
-                                                         INDEX_T,
-                                                         TEAM_SIZE_IN>& desc_in)
-{
-  return cagra_q_dataset_descriptor_t<DATA_T,
-                                      CODE_BOOK_T,
-                                      PQ_BITS,
-                                      PQ_CODE_BOOK_DIM,
-                                      DATASET_BLOCK_DIM_OUT,
-                                      DISTANCE_T,
-                                      INDEX_T,
-                                      TEAM_SIZE_OUT>(desc_in.encoded_dataset_ptr,
-                                                     desc_in.encoded_dataset_dim,
-                                                     desc_in.n_subspace,
-                                                     desc_in.vq_code_book_ptr,
-                                                     desc_in.vq_scale,
-                                                     desc_in.pq_code_book_ptr,
-                                                     desc_in.pq_scale,
-                                                     desc_in.size,
-                                                     desc_in.dim);
-}
 }  // namespace raft::neighbors::cagra::detail

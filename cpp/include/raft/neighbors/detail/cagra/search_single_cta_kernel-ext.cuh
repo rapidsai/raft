@@ -58,39 +58,38 @@ void select_and_run(  // raft::resources const& res,
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
-#define instantiate_single_cta_select_and_run(                                       \
-  TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T)          \
-  extern template void                                                               \
-  select_and_run<TEAM_SIZE,                                                          \
-                 MAX_DATASET_DIM,                                                    \
-                 raft::neighbors::cagra::detail::                                    \
-                   standard_dataset_descriptor_t<DATA_T, INDEX_T, 0, 0, DISTANCE_T>, \
-                 SAMPLE_FILTER_T>(                                                   \
-    raft::neighbors::cagra::detail::                                                 \
-      standard_dataset_descriptor_t<DATA_T, INDEX_T, 0, 0, DISTANCE_T> dataset,      \
-    raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,               \
-    INDEX_T* const topk_indices_ptr,                                                 \
-    DISTANCE_T* const topk_distances_ptr,                                            \
-    const DATA_T* const queries_ptr,                                                 \
-    const uint32_t num_queries,                                                      \
-    const INDEX_T* dev_seed_ptr,                                                     \
-    uint32_t* const num_executed_iterations,                                         \
-    uint32_t topk,                                                                   \
-    uint32_t num_itopk_candidates,                                                   \
-    uint32_t block_size,                                                             \
-    uint32_t smem_size,                                                              \
-    int64_t hash_bitlen,                                                             \
-    INDEX_T* hashmap_ptr,                                                            \
-    size_t small_hash_bitlen,                                                        \
-    size_t small_hash_reset_interval,                                                \
-    uint32_t num_random_samplings,                                                   \
-    uint64_t rand_xor_mask,                                                          \
-    uint32_t num_seeds,                                                              \
-    size_t itopk_size,                                                               \
-    size_t search_width,                                                             \
-    size_t min_iterations,                                                           \
-    size_t max_iterations,                                                           \
-    SAMPLE_FILTER_T sample_filter,                                                   \
+#define instantiate_single_cta_select_and_run(                                                  \
+  TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T)                     \
+  extern template void select_and_run<                                                          \
+    TEAM_SIZE,                                                                                  \
+    MAX_DATASET_DIM,                                                                            \
+    raft::neighbors::cagra::detail::standard_dataset_descriptor_t<DATA_T, INDEX_T, DISTANCE_T>, \
+    SAMPLE_FILTER_T>(                                                                           \
+    raft::neighbors::cagra::detail::standard_dataset_descriptor_t<DATA_T, INDEX_T, DISTANCE_T>  \
+      dataset,                                                                                  \
+    raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,                          \
+    INDEX_T* const topk_indices_ptr,                                                            \
+    DISTANCE_T* const topk_distances_ptr,                                                       \
+    const DATA_T* const queries_ptr,                                                            \
+    const uint32_t num_queries,                                                                 \
+    const INDEX_T* dev_seed_ptr,                                                                \
+    uint32_t* const num_executed_iterations,                                                    \
+    uint32_t topk,                                                                              \
+    uint32_t num_itopk_candidates,                                                              \
+    uint32_t block_size,                                                                        \
+    uint32_t smem_size,                                                                         \
+    int64_t hash_bitlen,                                                                        \
+    INDEX_T* hashmap_ptr,                                                                       \
+    size_t small_hash_bitlen,                                                                   \
+    size_t small_hash_reset_interval,                                                           \
+    uint32_t num_random_samplings,                                                              \
+    uint64_t rand_xor_mask,                                                                     \
+    uint32_t num_seeds,                                                                         \
+    size_t itopk_size,                                                                          \
+    size_t search_width,                                                                        \
+    size_t min_iterations,                                                                      \
+    size_t max_iterations,                                                                      \
+    SAMPLE_FILTER_T sample_filter,                                                              \
     cudaStream_t stream);
 
 instantiate_single_cta_select_and_run(
@@ -144,19 +143,15 @@ instantiate_single_cta_select_and_run(
                                                                               CODE_BOOK_T,      \
                                                                               PQ_BITS,          \
                                                                               PQ_CODE_BOOK_DIM, \
-                                                                              0,                \
                                                                               DISTANCE_T,       \
-                                                                              INDEX_T,          \
-                                                                              0>,               \
+                                                                              INDEX_T>,         \
                  SAMPLE_FILTER_T>(                                                              \
     raft::neighbors::cagra::detail::cagra_q_dataset_descriptor_t<DATA_T,                        \
                                                                  CODE_BOOK_T,                   \
                                                                  PQ_BITS,                       \
                                                                  PQ_CODE_BOOK_DIM,              \
-                                                                 0,                             \
                                                                  DISTANCE_T,                    \
-                                                                 INDEX_T,                       \
-                                                                 0> dataset,                    \
+                                                                 INDEX_T> dataset,              \
     raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,                          \
     INDEX_T* const topk_indices_ptr,                                                            \
     DISTANCE_T* const topk_distances_ptr,                                                       \

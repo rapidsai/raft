@@ -28,10 +28,10 @@
 #include <raft/neighbors/detail/cagra/compute_distance.hpp>
 
 namespace raft::neighbors::cagra::detail::multi_cta_search {
-instantiate_kernel_selection(32,
-                             1024,
-                             raft::neighbors::cagra::detail::standard_dataset_descriptor_t<
-                               int8_t COMMA uint32_t COMMA 0 COMMA 0 COMMA float>,
-                             raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
+  32,
+  1024,
+  raft::neighbors::cagra::detail::standard_dataset_descriptor_t<int8_t COMMA uint32_t COMMA float>,
+  raft::neighbors::filtering::none_cagra_sample_filter);
 
 }  // namespace raft::neighbors::cagra::detail::multi_cta_search

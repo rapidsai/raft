@@ -78,7 +78,8 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         }
       }
 
-      const auto norm2 = dataset_desc.compute_similarity(query_buffer, seed_index, valid_i);
+      const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
+        query_buffer, seed_index, valid_i);
 
       if (valid_i && (norm2 < best_norm2_team_local)) {
         best_norm2_team_local = norm2;
@@ -152,8 +153,8 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(
     INDEX_T child_id   = invalid_index;
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
-    const auto norm2 =
-      dataset_desc.compute_similarity(query_buffer, child_id, child_id != invalid_index);
+    const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
+      query_buffer, child_id, child_id != invalid_index);
 
     // Store the distance
     const unsigned lane_id = threadIdx.x % TEAM_SIZE;
@@ -181,18 +182,12 @@ struct dataset_descriptor_base_t {
   dataset_descriptor_base_t(const INDEX_T size, const std::uint32_t dim) : size(size), dim(dim) {}
 };
 
-template <class DATA_T_,
-          class INDEX_T,
-          std::uint32_t DATASET_BLOCK_DIM_ = 0,
-          std::uint32_t TEAM_SIZE_         = 0,
-          class DISTANCE_T                 = float>
+template <class DATA_T_, class INDEX_T, class DISTANCE_T = float>
 struct standard_dataset_descriptor_t
   : public dataset_descriptor_base_t<float, DISTANCE_T, INDEX_T> {
   using LOAD_T  = device::LOAD_128BIT_T;
   using DATA_T  = DATA_T_;
   using QUERY_T = typename dataset_descriptor_base_t<float, DISTANCE_T, INDEX_T>::QUERY_T;
-  static const std::uint32_t DATASET_BLOCK_DIM = DATASET_BLOCK_DIM_;
-  static const std::uint32_t TEAM_SIZE         = TEAM_SIZE_;
 
   const DATA_T* const ptr;
   const std::size_t ld;
@@ -210,6 +205,7 @@ struct standard_dataset_descriptor_t
   static const std::uint32_t smem_buffer_size_in_byte = 0;
   __device__ void set_smem_ptr(void* const){};
 
+  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE>
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
                                            const INDEX_T dataset_i,
                                            const bool valid) const
@@ -254,25 +250,5 @@ struct standard_dataset_descriptor_t
     return norm2;
   }
 };
-
-template <std::uint32_t DATASET_BLOCK_DIM_OUT,
-          std::uint32_t TEAM_SIZE_OUT,
-          std::uint32_t DATASET_BLOCK_DIM_IN,
-          std::uint32_t TEAM_SIZE_IN,
-          class DATA_T,
-          class INDEX_T,
-          class DISTANCE_T>
-standard_dataset_descriptor_t<DATA_T, INDEX_T, DATASET_BLOCK_DIM_OUT, TEAM_SIZE_OUT, DISTANCE_T>
-set_compute_template_params(
-  standard_dataset_descriptor_t<DATA_T, INDEX_T, DATASET_BLOCK_DIM_IN, TEAM_SIZE_IN, DISTANCE_T>&
-    desc_in)
-{
-  return standard_dataset_descriptor_t<DATA_T,
-                                       INDEX_T,
-                                       DATASET_BLOCK_DIM_OUT,
-                                       TEAM_SIZE_OUT,
-                                       DISTANCE_T>(
-    desc_in.ptr, desc_in.size, desc_in.dim, desc_in.ld);
-}
 
 }  // namespace raft::neighbors::cagra::detail

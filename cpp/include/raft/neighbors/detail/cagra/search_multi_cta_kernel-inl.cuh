@@ -123,7 +123,11 @@ __device__ inline void topk_by_bitonic_sort(float* distances,  // [num_elements]
 //
 // multiple CTAs per single query
 //
-template <std::uint32_t MAX_ELEMENTS, class DATASET_DESCRIPTOR_T, class SAMPLE_FILTER_T>
+template <int32_t TEAM_SIZE,
+          uint32_t DATASET_BLOCK_DIM,
+          std::uint32_t MAX_ELEMENTS,
+          class DATASET_DESCRIPTOR_T,
+          class SAMPLE_FILTER_T>
 __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   typename DATASET_DESCRIPTOR_T::INDEX_T* const
     result_indices_ptr,  // [num_queries, num_cta_per_query, itopk_size]
@@ -147,12 +151,10 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   uint32_t* const num_executed_iterations, /* stats */
   SAMPLE_FILTER_T sample_filter)
 {
-  constexpr std::uint32_t TEAM_SIZE         = DATASET_DESCRIPTOR_T::TEAM_SIZE;
-  constexpr std::uint32_t DATASET_BLOCK_DIM = DATASET_DESCRIPTOR_T::DATASET_BLOCK_DIM;
-  using DATA_T                              = typename DATASET_DESCRIPTOR_T::DATA_T;
-  using INDEX_T                             = typename DATASET_DESCRIPTOR_T::INDEX_T;
-  using DISTANCE_T                          = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
-  using QUERY_T                             = typename DATASET_DESCRIPTOR_T::QUERY_T;
+  using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
+  using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
+  using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
+  using QUERY_T    = typename DATASET_DESCRIPTOR_T::QUERY_T;
 
   const auto num_queries       = gridDim.y;
   const auto query_id          = blockIdx.y;
@@ -398,21 +400,36 @@ void set_value_batch(T* const dev_ptr,
     <<<grid_size, block_size, 0, cuda_stream>>>(dev_ptr, ld, val, count, batch_size);
 }
 
-template <typename DATASET_DESCRIPTOR_T, typename SAMPLE_FILTER_T>
+template <uint32_t TEAM_SIZE,
+          uint32_t DATASET_BLOCK_DIM,
+          typename DATASET_DESCRIPTOR_T,
+          typename SAMPLE_FILTER_T>
 struct search_kernel_config {
   // Search kernel function type. Note that the actual values for the template value
   // parameters do not matter, because they are not part of the function signature. The
   // second to fourth value parameters will be selected by the choose_* functions below.
-  using kernel_t = decltype(&search_kernel<128, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>);
+  using kernel_t = decltype(&search_kernel<TEAM_SIZE,
+                                           DATASET_BLOCK_DIM,
+                                           128,
+                                           DATASET_DESCRIPTOR_T,
+                                           SAMPLE_FILTER_T>);
 
   static auto choose_buffer_size(unsigned result_buffer_size, unsigned block_size) -> kernel_t
   {
     if (result_buffer_size <= 64) {
-      return search_kernel<64, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
+      return search_kernel<TEAM_SIZE, DATASET_BLOCK_DIM, 64, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
     } else if (result_buffer_size <= 128) {
-      return search_kernel<128, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
+      return search_kernel<TEAM_SIZE,
+                           DATASET_BLOCK_DIM,
+                           128,
+                           DATASET_DESCRIPTOR_T,
+                           SAMPLE_FILTER_T>;
     } else if (result_buffer_size <= 256) {
-      return search_kernel<256, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
+      return search_kernel<TEAM_SIZE,
+                           DATASET_BLOCK_DIM,
+                           256,
+                           DATASET_DESCRIPTOR_T,
+                           SAMPLE_FILTER_T>;
     }
     THROW("Result buffer size %u larger than max buffer size %u", result_buffer_size, 256);
   }
@@ -449,16 +466,13 @@ void select_and_run(
   SAMPLE_FILTER_T sample_filter,
   cudaStream_t stream)
 {
-  const auto dataset_desc_ =
-    set_compute_template_params<DATASET_BLOCK_DIM, TEAM_SIZE>(dataset_desc);
-
-  using dataset_desc_t = typename std::remove_const<decltype(dataset_desc_)>::type;
-  auto kernel          = search_kernel_config<dataset_desc_t, SAMPLE_FILTER_T>::choose_buffer_size(
-    result_buffer_size, block_size);
+  auto kernel =
+    search_kernel_config<TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::
+      choose_buffer_size(result_buffer_size, block_size);
 
   RAFT_CUDA_TRY(cudaFuncSetAttribute(kernel,
                                      cudaFuncAttributeMaxDynamicSharedMemorySize,
-                                     smem_size + dataset_desc_t::smem_buffer_size_in_byte));
+                                     smem_size + DATASET_DESCRIPTOR_T::smem_buffer_size_in_byte));
   // Initialize hash table
   const uint32_t hash_size = hashmap::get_size(hash_bitlen);
   set_value_batch(hashmap_ptr,
@@ -477,7 +491,7 @@ void select_and_run(
                  smem_size);
   kernel<<<grid_dims, block_dims, smem_size, stream>>>(topk_indices_ptr,
                                                        topk_distances_ptr,
-                                                       dataset_desc_,
+                                                       dataset_desc,
                                                        queries_ptr,
                                                        graph.data_handle(),
                                                        graph.extent(1),

@@ -77,7 +77,7 @@ for type_path, (data_t, idx_t, distance_t) in search_types.items():
                     with open(path, "w") as f:
                         f.write(header)
                         f.write(
-                                f"instantiate_kernel_selection(\n  {team}, {mxdim}, raft::neighbors::cagra::detail::cagra_q_dataset_descriptor_t<{data_t} COMMA {code_book_t} COMMA {pq_bit} COMMA {subspace_dim} COMMA 0 COMMA {distance_t} COMMA {idx_t} COMMA 0>, raft::neighbors::filtering::none_cagra_sample_filter);\n"
+                                f"instantiate_kernel_selection(\n  {team}, {mxdim}, raft::neighbors::cagra::detail::cagra_q_dataset_descriptor_t<{data_t} COMMA {code_book_t} COMMA {pq_bit} COMMA {subspace_dim} COMMA {distance_t} COMMA {idx_t}>, raft::neighbors::filtering::none_cagra_sample_filter);\n"
                         )
                         f.write(trailer)
                         # For pasting into CMakeLists.txt

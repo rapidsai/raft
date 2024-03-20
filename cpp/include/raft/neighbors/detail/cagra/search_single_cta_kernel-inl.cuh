@@ -456,7 +456,9 @@ __device__ inline void set_value_device(T* const ptr, const T fill, const std::u
 }
 
 // One query one thread block
-template <unsigned MAX_ITOPK,
+template <uint32_t TEAM_SIZE,
+          uint32_t DATASET_BLOCK_DIM,
+          unsigned MAX_ITOPK,
           unsigned MAX_CANDIDATES,
           unsigned TOPK_BY_BITONIC_SORT,
           class DATASET_DESCRIPTOR_T,
@@ -487,12 +489,10 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
 {
   using LOAD_T = device::LOAD_128BIT_T;
 
-  constexpr std::uint32_t TEAM_SIZE         = DATASET_DESCRIPTOR_T::TEAM_SIZE;
-  constexpr std::uint32_t DATASET_BLOCK_DIM = DATASET_DESCRIPTOR_T::DATASET_BLOCK_DIM;
-  using DATA_T                              = typename DATASET_DESCRIPTOR_T::DATA_T;
-  using INDEX_T                             = typename DATASET_DESCRIPTOR_T::INDEX_T;
-  using DISTANCE_T                          = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
-  using QUERY_T                             = typename DATASET_DESCRIPTOR_T::QUERY_T;
+  using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
+  using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
+  using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
+  using QUERY_T    = typename DATASET_DESCRIPTOR_T::QUERY_T;
 
   const auto query_id = blockIdx.y;
 
@@ -527,8 +527,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const auto small_hash_size = hashmap::get_size(small_hash_bitlen);
 
   const auto query_smem_buffer_length =
-    raft::ceildiv<uint32_t>(dataset_desc.dim, DATASET_DESCRIPTOR_T::DATASET_BLOCK_DIM) *
-    DATASET_DESCRIPTOR_T::DATASET_BLOCK_DIM;
+    raft::ceildiv<uint32_t>(dataset_desc.dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
   auto query_buffer          = reinterpret_cast<QUERY_T*>(smem);
   auto result_indices_buffer = reinterpret_cast<INDEX_T*>(query_buffer + query_smem_buffer_length);
   auto result_distances_buffer =
@@ -577,18 +576,17 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   // compute distance to randomly selecting nodes
   _CLK_START();
   const INDEX_T* const local_seed_ptr = seed_ptr ? seed_ptr + (num_seeds * query_id) : nullptr;
-  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_DESCRIPTOR_T::DATASET_BLOCK_DIM>(
-    result_indices_buffer,
-    result_distances_buffer,
-    query_buffer,
-    dataset_desc,
-    result_buffer_size,
-    num_distilation,
-    rand_xor_mask,
-    local_seed_ptr,
-    num_seeds,
-    local_visited_hashmap_ptr,
-    hash_bitlen);
+  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM>(result_indices_buffer,
+                                                                         result_distances_buffer,
+                                                                         query_buffer,
+                                                                         dataset_desc,
+                                                                         result_buffer_size,
+                                                                         num_distilation,
+                                                                         rand_xor_mask,
+                                                                         local_seed_ptr,
+                                                                         num_seeds,
+                                                                         local_visited_hashmap_ptr,
+                                                                         hash_bitlen);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 
@@ -818,33 +816,50 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
 #endif
 }
 
-template <typename DATASET_DESCRIPTOR_T, typename SAMPLE_FILTER_T>
+template <uint32_t TEAM_SIZE,
+          uint32_t DATASET_BLOCK_DIM,
+          typename DATASET_DESCRIPTOR_T,
+          typename SAMPLE_FILTER_T>
 struct search_kernel_config {
-  using kernel_t = decltype(&search_kernel<64, 64, 0, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>);
+  using kernel_t = decltype(&search_kernel<TEAM_SIZE,
+                                           DATASET_BLOCK_DIM,
+                                           64,
+                                           64,
+                                           0,
+                                           DATASET_DESCRIPTOR_T,
+                                           SAMPLE_FILTER_T>);
 
   template <unsigned MAX_CANDIDATES, unsigned USE_BITONIC_SORT>
   static auto choose_search_kernel(unsigned itopk_size) -> kernel_t
   {
     if (itopk_size <= 64) {
-      return search_kernel<64,
+      return search_kernel<TEAM_SIZE,
+                           DATASET_BLOCK_DIM,
+                           64,
                            MAX_CANDIDATES,
                            USE_BITONIC_SORT,
                            DATASET_DESCRIPTOR_T,
                            SAMPLE_FILTER_T>;
     } else if (itopk_size <= 128) {
-      return search_kernel<128,
+      return search_kernel<TEAM_SIZE,
+                           DATASET_BLOCK_DIM,
+                           128,
                            MAX_CANDIDATES,
                            USE_BITONIC_SORT,
                            DATASET_DESCRIPTOR_T,
                            SAMPLE_FILTER_T>;
     } else if (itopk_size <= 256) {
-      return search_kernel<256,
+      return search_kernel<TEAM_SIZE,
+                           DATASET_BLOCK_DIM,
+                           256,
                            MAX_CANDIDATES,
                            USE_BITONIC_SORT,
                            DATASET_DESCRIPTOR_T,
                            SAMPLE_FILTER_T>;
     } else if (itopk_size <= 512) {
-      return search_kernel<512,
+      return search_kernel<TEAM_SIZE,
+                           DATASET_BLOCK_DIM,
+                           512,
                            MAX_CANDIDATES,
                            USE_BITONIC_SORT,
                            DATASET_DESCRIPTOR_T,
@@ -868,9 +883,21 @@ struct search_kernel_config {
       // Radix-based topk is used
       constexpr unsigned max_candidates = 32;  // to avoid build failure
       if (itopk_size <= 256) {
-        return search_kernel<256, max_candidates, 0, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             DATASET_BLOCK_DIM,
+                             256,
+                             max_candidates,
+                             0,
+                             DATASET_DESCRIPTOR_T,
+                             SAMPLE_FILTER_T>;
       } else if (itopk_size <= 512) {
-        return search_kernel<512, max_candidates, 0, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             DATASET_BLOCK_DIM,
+                             512,
+                             max_candidates,
+                             0,
+                             DATASET_DESCRIPTOR_T,
+                             SAMPLE_FILTER_T>;
       }
     }
     THROW("No kernel for parametels itopk_size %u, num_itopk_candidates %u",
@@ -910,15 +937,12 @@ void select_and_run(
   SAMPLE_FILTER_T sample_filter,
   cudaStream_t stream)
 {
-  const auto dataset_desc_ =
-    set_compute_template_params<DATASET_BLOCK_DIM, TEAM_SIZE>(dataset_desc);
-  using dataset_desc_t = typename std::remove_const<decltype(dataset_desc_)>::type;
   auto kernel =
-    search_kernel_config<dataset_desc_t, SAMPLE_FILTER_T>::choose_itopk_and_mx_candidates(
-      itopk_size, num_itopk_candidates, block_size);
+    search_kernel_config<TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::
+      choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
   RAFT_CUDA_TRY(cudaFuncSetAttribute(kernel,
                                      cudaFuncAttributeMaxDynamicSharedMemorySize,
-                                     smem_size + dataset_desc_t::smem_buffer_size_in_byte));
+                                     smem_size + DATASET_DESCRIPTOR_T::smem_buffer_size_in_byte));
   dim3 thread_dims(block_size, 1, 1);
   dim3 block_dims(1, num_queries, 1);
   RAFT_LOG_DEBUG(
@@ -926,7 +950,7 @@ void select_and_run(
   kernel<<<block_dims, thread_dims, smem_size, stream>>>(topk_indices_ptr,
                                                          topk_distances_ptr,
                                                          topk,
-                                                         dataset_desc_,
+                                                         dataset_desc,
                                                          queries_ptr,
                                                          graph.data_handle(),
                                                          graph.extent(1),

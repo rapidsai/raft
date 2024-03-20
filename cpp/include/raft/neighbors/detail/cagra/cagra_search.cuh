@@ -180,10 +180,8 @@ void launch_vpq_search_main_core(
                                                           DatasetT,
                                                           8 /*PQ bit*/,
                                                           2 /* Subspace dimension*/,
-                                                          0,
                                                           DistanceT,
-                                                          InternalIdxT,
-                                                          0>;
+                                                          InternalIdxT>;
       dataset_desc_t dataset_desc(vpq_dset->data.data_handle(),
                                   vpq_dset->encoded_row_length(),
                                   vpq_dset->pq_dim(),
@@ -200,10 +198,8 @@ void launch_vpq_search_main_core(
                                                           DatasetT,
                                                           8 /*PQ bit*/,
                                                           4 /* Subspace dimension*/,
-                                                          0,
                                                           DistanceT,
-                                                          InternalIdxT,
-                                                          0>;
+                                                          InternalIdxT>;
       dataset_desc_t dataset_desc(vpq_dset->data.data_handle(),
                                   vpq_dset->encoded_row_length(),
                                   vpq_dset->pq_dim(),
@@ -266,7 +262,7 @@ void search_main(raft::resources const& res,
       strided_dset != nullptr) {
     // Set TEAM_SIZE and DATASET_BLOCK_SIZE to zero tentatively since these parameters cannot be
     // determined here. They are set just before kernel launch.
-    using dataset_desc_t = standard_dataset_descriptor_t<T, InternalIdxT, 0, 0, DistanceT>;
+    using dataset_desc_t = standard_dataset_descriptor_t<T, InternalIdxT, DistanceT>;
     // Search using a plain (strided) row-major dataset
     const dataset_desc_t dataset_desc(strided_dset->view().data_handle(),
                                       strided_dset->n_rows(),
