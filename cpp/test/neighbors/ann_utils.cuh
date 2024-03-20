@@ -173,7 +173,7 @@ auto check_unique_indices(const std::vector<T>& actual_idx, size_t rows, size_t 
         unique_indices.insert(act_idx);
       } else {
         return testing::AssertionFailure()
-               << "Duplicated index " << act_idx << " for query " << i << "! ";
+               << "Duplicated index " << act_idx << " at k " << k << " for query " << i << "! ";
       }
     }
   }
@@ -186,7 +186,8 @@ auto eval_recall(const std::vector<T>& expected_idx,
                  size_t rows,
                  size_t cols,
                  double eps,
-                 double min_recall) -> testing::AssertionResult
+                 double min_recall,
+                 bool test_unique = true) -> testing::AssertionResult
 {
   auto [actual_recall, match_count, total_count] =
     calc_recall(expected_idx, actual_idx, rows, cols);
@@ -203,7 +204,10 @@ auto eval_recall(const std::vector<T>& expected_idx,
            << "actual recall (" << actual_recall << ") is lower than the minimum expected recall ("
            << min_recall << "); eps = " << eps << ". ";
   }
-  return check_unique_indices(actual_idx, rows, cols);
+  if (test_unique)
+    return check_unique_indices(actual_idx, rows, cols);
+  else
+    return testing::AssertionSuccess();
 }
 
 /** Overload of calc_recall to account for distances
@@ -251,7 +255,8 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
                      size_t rows,
                      size_t cols,
                      double eps,
-                     double min_recall) -> testing::AssertionResult
+                     double min_recall,
+                     bool test_unique = true) -> testing::AssertionResult
 {
   auto [actual_recall, match_count, total_count] =
     calc_recall(expected_idx, actual_idx, expected_dist, actual_dist, rows, cols, eps);
@@ -268,7 +273,10 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
            << "actual recall (" << actual_recall << ") is lower than the minimum expected recall ("
            << min_recall << "); eps = " << eps << ". ";
   }
-  return check_unique_indices(actual_idx, rows, cols);
+  if (test_unique)
+    return check_unique_indices(actual_idx, rows, cols);
+  else
+    return testing::AssertionSuccess();
 }
 
 template <typename T, typename DistT, typename IdxT>

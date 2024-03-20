@@ -91,17 +91,14 @@ void refine_device(raft::resources const& handle,
 
   // the neighbor ids will be computed in uint32_t as offset
   rmm::device_uvector<uint32_t> neighbors_uint32_buf(0, resource::get_cuda_stream(handle));
-  // Number of samples for each query
-  rmm::device_uvector<uint32_t> num_samples(n_queries, resource::get_cuda_stream(handle));
-  // Offsets per probe for each query
+  // Offsets per probe for each query [n_queries] as n_probes = 1
   rmm::device_uvector<uint32_t> chunk_index(n_queries, resource::get_cuda_stream(handle));
 
-  ivf::detail::calc_chunk_indices::configure(1, n_queries)(
-    refinement_index.list_sizes().data_handle(),
-    fake_coarse_idx.data(),
-    chunk_index.data(),
-    num_samples.data(),
-    resource::get_cuda_stream(handle));
+  // we know that each cluster has exactly n_candidates entries
+  thrust::fill(resource::get_thrust_policy(handle),
+               chunk_index.data(),
+               chunk_index.data() + n_queries,
+               uint32_t(n_candidates));
 
   uint32_t* neighbors_uint32 = nullptr;
   if constexpr (sizeof(idx_t) == sizeof(uint32_t)) {
