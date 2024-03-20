@@ -690,7 +690,6 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
                           const uint32_t query_smem_elems,
                           const T* query,
                           const uint32_t* coarse_index,
-                          const IdxT* const* list_indices_ptrs,
                           const T* const* list_data_ptrs,
                           const uint32_t* list_sizes,
                           const uint32_t queries_offset,
@@ -700,7 +699,7 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
                           const uint32_t* chunk_indices,
                           const uint32_t dim,
                           IvfSampleFilterT sample_filter,
-                          IdxT* neighbors,
+                          uint32_t* neighbors,
                           float* distances)
 {
   extern __shared__ __align__(256) uint8_t interleaved_scan_kernel_smem[];
@@ -719,8 +718,8 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
       distances += query_id * k * gridDim.x + blockIdx.x * k;
     } else {
       distances += query_id * uint64_t(max_samples);
-      chunk_indices += (n_probes * query_id);
     }
+    chunk_indices += (n_probes * query_id);
     coarse_index += query_id * n_probes;
   }
 
@@ -728,7 +727,7 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
   copy_vectorized(query_shared, query, std::min(dim, query_smem_elems));
   __syncthreads();
 
-  using local_topk_t = block_sort_t<Capacity, Ascending, float, IdxT>;
+  using local_topk_t = block_sort_t<Capacity, Ascending, float, uint32_t>;
   local_topk_t queue(k);
   {
     using align_warp  = Pow2<WarpSize>;
@@ -752,11 +751,9 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
         align_warp::div(list_length + align_warp::Mask);  // ceildiv by power of 2
 
       uint32_t sample_offset = 0;
-      if constexpr (!kManageLocalTopK) {
-        if (probe_id > 0) { sample_offset = chunk_indices[probe_id - 1]; }
-        assert(list_length == chunk_indices[probe_id] - sample_offset);
-        assert(sample_offset + list_length <= max_samples);
-      }
+      if (probe_id > 0) { sample_offset = chunk_indices[probe_id - 1]; }
+      assert(list_length == chunk_indices[probe_id] - sample_offset);
+      assert(sample_offset + list_length <= max_samples);
 
       constexpr int kUnroll        = WarpSize / Veclen;
       constexpr uint32_t kNumWarps = kThreadsPerBlock / WarpSize;
@@ -806,8 +803,7 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
         // Enqueue one element per thread
         const float val = valid ? static_cast<float>(dist) : local_topk_t::queue_t::kDummy;
         if constexpr (kManageLocalTopK) {
-          const size_t idx = valid ? static_cast<size_t>(list_indices_ptrs[list_id][vec_id]) : 0;
-          queue.add(val, idx);
+          queue.add(val, sample_offset + vec_id);
         } else {
           if (vec_id < list_length) distances[sample_offset + vec_id] = val;
         }
@@ -873,7 +869,7 @@ void launch_kernel(Lambda lambda,
                    const uint32_t max_samples,
                    const uint32_t* chunk_indices,
                    IvfSampleFilterT sample_filter,
-                   IdxT* neighbors,
+                   uint32_t* neighbors,
                    float* distances,
                    uint32_t& grid_dim_x,
                    rmm::cuda_stream_view stream)
@@ -927,7 +923,6 @@ void launch_kernel(Lambda lambda,
                                                         query_smem_elems,
                                                         queries,
                                                         coarse_index,
-                                                        index.inds_ptrs().data_handle(),
                                                         index.data_ptrs().data_handle(),
                                                         index.list_sizes().data_handle(),
                                                         queries_offset + query_offset,
@@ -945,8 +940,8 @@ void launch_kernel(Lambda lambda,
       distances += grid_dim_y * grid_dim_x * k;
     } else {
       distances += grid_dim_y * max_samples;
-      chunk_indices += grid_dim_y * n_probes;
     }
+    chunk_indices += grid_dim_y * n_probes;
     coarse_index += grid_dim_y * n_probes;
   }
 }
@@ -1161,7 +1156,7 @@ void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                               const uint32_t* chunk_indices,
                               const bool select_min,
                               IvfSampleFilterT sample_filter,
-                              IdxT* neighbors,
+                              uint32_t* neighbors,
                               float* distances,
                               uint32_t& grid_dim_x,
                               rmm::cuda_stream_view stream)
