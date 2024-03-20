@@ -165,6 +165,9 @@ void launch_vpq_search_main_core(
   raft::device_matrix_view<DistanceT, int64_t, row_major> distances,
   CagraSampleFilterT sample_filter)
 {
+  assert(vpq_dset->pq_bits() == 2 || vpq_dset->pq_bits() == 4);
+  assert(vpq_dset->dim() % vpq_dset->pq_dim() == 0);
+
   const float vq_scale = 1.0f;
   const float pq_scale = 1.0f;
 
