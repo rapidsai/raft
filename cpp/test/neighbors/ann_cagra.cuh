@@ -678,8 +678,8 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   ps.n_queries,
                                   ps.k,
                                   0.003,
-                                  min_recall),
-                  false);
+                                  min_recall,
+                                  false));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
                                  search_queries.data(),
