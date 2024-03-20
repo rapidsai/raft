@@ -165,8 +165,11 @@ void launch_vpq_search_main_core(
   raft::device_matrix_view<DistanceT, int64_t, row_major> distances,
   CagraSampleFilterT sample_filter)
 {
-  assert(vpq_dset->pq_bits() == 2 || vpq_dset->pq_bits() == 4);
-  assert(vpq_dset->dim() % vpq_dset->pq_dim() == 0);
+  RAFT_EXPECTS(vpq_dset->pq_bits() == 8, "Only pq_bits = 8 is supported for now");
+  RAFT_EXPECTS(vpq_dset->pq_len() == 2 || vpq_dset->pq_len() == 4,
+               "Only pq_len 2 or for are supported for now");
+  RAFT_EXPECTS(vpq_dset->dim() % vpq_dset->pq_dim() == 0,
+               "dim must be a multiple of pq_dim at the moment");
 
   const float vq_scale = 1.0f;
   const float pq_scale = 1.0f;
