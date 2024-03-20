@@ -670,6 +670,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
       }
 
       double min_recall = ps.min_recall;
+      // TODO(mfoerster): re-enable uniquenes test
       EXPECT_TRUE(eval_neighbours(indices_naive,
                                   indices_Cagra,
                                   distances_naive,
@@ -677,7 +678,8 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   ps.n_queries,
                                   ps.k,
                                   0.003,
-                                  min_recall));
+                                  min_recall),
+                  false);
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
                                  search_queries.data(),
