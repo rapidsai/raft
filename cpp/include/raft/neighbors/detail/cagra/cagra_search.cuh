@@ -155,7 +155,7 @@ template <class T,
           class InternalIdxT,
           class DistanceT,
           class CagraSampleFilterT>
-void lauch_vpq_search_main_core(
+void launch_vpq_search_main_core(
   raft::resources const& res,
   const vpq_dataset<DatasetT, DatasetIdxT>* vpq_dset,
   search_params params,
@@ -275,7 +275,7 @@ void search_main(raft::resources const& res,
     RAFT_FAIL("FP32 VPQ dataset support is coming soon");
   } else if (auto* vpq_dset = dynamic_cast<const vpq_dataset<half, ds_idx_type>*>(&index.data());
              vpq_dset != nullptr) {
-    lauch_vpq_search_main_core<T, half, ds_idx_type, InternalIdxT, DistanceT, CagraSampleFilterT>(
+    launch_vpq_search_main_core<T, half, ds_idx_type, InternalIdxT, DistanceT, CagraSampleFilterT>(
       res, vpq_dset, params, graph_internal, queries, neighbors, distances, sample_filter);
   } else if (auto* empty_dset = dynamic_cast<const empty_dataset<ds_idx_type>*>(&index.data());
              empty_dset != nullptr) {
