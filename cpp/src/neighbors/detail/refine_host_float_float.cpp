@@ -25,5 +25,6 @@
     distance::DistanceType metric);
 
 instantiate_raft_neighbors_refine(int64_t, float, float, int64_t);
+instantiate_raft_neighbors_refine(uint32_t, float, float, int64_t);
 
 #undef instantiate_raft_neighbors_refine

@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
-
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
@@ -28,6 +26,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
+#include <raft/neighbors/cagra_types.hpp>
 #include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
