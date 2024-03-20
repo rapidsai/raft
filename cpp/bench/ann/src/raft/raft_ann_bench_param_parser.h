@@ -222,7 +222,7 @@ void parse_build_param(const nlohmann::json& conf,
   nlohmann::json comp_search_conf = collect_conf_with_prefix(conf, "compression_");
   if (!comp_search_conf.empty()) {
     raft::neighbors::vpq_params vpq_pams;
-    parse_build_param(ivf_pq_build_conf, vpq_pams);
+    parse_build_param(comp_search_conf, vpq_pams);
     param.cagra_params.compression.emplace(vpq_pams);
   }
 }
