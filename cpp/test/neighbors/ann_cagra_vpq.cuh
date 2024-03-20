@@ -318,7 +318,7 @@ class AnnCagraVpqTest : public ::testing::TestWithParam<AnnCagraVpqInputs> {
 const std::vector<AnnCagraVpqInputs> vpq_inputs = raft::util::itertools::product<AnnCagraVpqInputs>(
   {100},                                              // n_queries
   {1000, 10000},                                      // n_rows
-  {128, 256},                                         // dim
+  {128, 132, 192, 256, 512, 768},                     // dim
   {8, 12},                                            // k
   {2, 4},                                             // pq_len
   {8},                                                // pq_bits
