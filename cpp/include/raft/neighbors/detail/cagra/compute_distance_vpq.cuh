@@ -107,7 +107,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
           uint32_t pq_codes[nelem];
 #pragma unroll
           for (std::uint32_t e = 0; e < nelem; e++) {
-            const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
+            const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset / PQ_LEN;
             if (k >= n_subspace) break;
             // Loading 4 x 8-bit PQ-codes using 32-bit load ops (from device memory)
             pq_codes[e] = *(reinterpret_cast<const std::uint32_t*>(
@@ -120,13 +120,13 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
             half2 norm2{0, 0};
 #pragma unroll
             for (std::uint32_t e = 0; e < nelem; e++) {
-              const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen;
+              const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset / PQ_LEN;
               if (k >= n_subspace) break;
               // Loading VQ code-book
               raft::TxN_t<half2, vlen / 2> vq_vals[PQ_LEN];
 #pragma unroll
               for (std::uint32_t m = 0; m < PQ_LEN; m += 1) {
-                const uint32_t d = (vlen * m) + (PQ_LEN * k) + elem_offset;
+                const uint32_t d = (vlen * m) + (PQ_LEN * k);
                 if (d >= dim) break;
                 vq_vals[m].load(
                   reinterpret_cast<const half2*>(vq_code_book_ptr + d + (dim * vq_code)), 0);
@@ -157,13 +157,13 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
             // **** Use float for distance computation ****
 #pragma unroll
             for (std::uint32_t e = 0; e < nelem; e++) {
-              const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
+              const std::uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset / PQ_LEN;
               if (k >= n_subspace) break;
               // Loading VQ code-book
               raft::TxN_t<CODE_BOOK_T, vlen> vq_vals[PQ_LEN];
 #pragma unroll
               for (std::uint32_t m = 0; m < PQ_LEN; m++) {
-                const std::uint32_t d = (vlen * m) + (PQ_LEN * k) + elem_offset;
+                const std::uint32_t d = (vlen * m) + (PQ_LEN * k);
                 if (d >= dim) break;
                 // Loading 4 x 8/16-bit VQ-values using 32/64-bit load ops (from L2$ or device
                 // memory)
