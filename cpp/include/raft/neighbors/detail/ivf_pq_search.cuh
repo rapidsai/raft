@@ -447,7 +447,10 @@ void ivfpq_search_worker(raft::resources const& handle,
                                              topK,
                                              topk_dists.data(),
                                              neighbors_uint32,
-                                             true);
+                                             true,
+                                             false,
+                                             matrix::SelectAlgo::kAuto,
+                                             manage_local_topk ? nullptr : num_samples.data());
 
   // Postprocessing
   ivf::detail::postprocess_distances(
