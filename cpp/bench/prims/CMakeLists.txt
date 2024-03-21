@@ -131,7 +131,14 @@ if(BUILD_PRIMS_BENCH)
    bench/prims/random/rng.cu bench/prims/random/subsample.cu bench/prims/main.cpp
   )
 
-  ConfigureBench(NAME SPARSE_BENCH PATH bench/prims/sparse/convert_csr.cu bench/prims/main.cpp)
+  ConfigureBench(
+    NAME
+    SPARSE_BENCH
+    PATH
+    bench/prims/sparse/bitmap_to_csr.cu
+    bench/prims/sparse/convert_csr.cu
+    bench/prims/main.cpp
+  )
 
   ConfigureBench(
     NAME
