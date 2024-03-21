@@ -300,7 +300,7 @@ auto eval_distances(raft::resources const& handle,
 
     raft::matrix::copy_rows<T, IdxT>(
       handle,
-      make_device_matrix_view<const T, IdxT>(x, k, n_cols),
+      make_device_matrix_view<const T, IdxT>(x, n_rows, n_cols),
       y.view(),
       make_device_vector_view<const IdxT, IdxT>(neighbors + i * k, k));
 
