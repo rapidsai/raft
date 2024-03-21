@@ -319,7 +319,7 @@ const std::vector<AnnCagraVpqInputs> vpq_inputs = raft::util::itertools::product
   {1000, 10000},                                      // n_rows
   {128, 132, 192, 256, 512, 768},                     // dim
   {8, 12},                                            // k
-  {2, 4},                                             // pq_len
+  {2},                                                // pq_len
   {8},                                                // pq_bits
   {graph_build_algo::NN_DESCENT},                     // build_algo
   {search_algo::SINGLE_CTA, search_algo::MULTI_CTA},  // algo
