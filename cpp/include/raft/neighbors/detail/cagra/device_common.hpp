@@ -42,13 +42,17 @@ _RAFT_HOST_DEVICE inline uint64_t xorshift64(uint64_t u)
   return u * 0x2545F4914F6CDD1DULL;
 }
 
-template <class T>
+template <class T, unsigned X_MAX = 1024>
 _RAFT_DEVICE inline T swizzling(T x)
 {
   // Address swizzling reduces bank conflicts in shared memory, but increases
   // the amount of operation instead.
   // return x;
-  return x ^ (x >> 5);  // "x" must be less than 1024
+  if constexpr (X_MAX <= 1024) {
+    return (x) ^ ((x) >> 5);
+  } else {
+    return (x) ^ (((x) >> 5) & 0x1f);
+  }
 }
 
 }  // namespace device

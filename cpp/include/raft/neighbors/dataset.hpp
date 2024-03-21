@@ -72,7 +72,7 @@ struct strided_dataset : public dataset<IdxT> {
     return static_cast<uint32_t>(v.stride(0) > 0 ? v.stride(0) : v.extent(1));
   }
   /** Get the view of the data. */
-  [[nodiscard]] virtual auto view() const noexcept -> view_type;
+  [[nodiscard]] virtual auto view() const noexcept -> view_type = 0;
 };
 
 template <typename DataT, typename IdxT>
