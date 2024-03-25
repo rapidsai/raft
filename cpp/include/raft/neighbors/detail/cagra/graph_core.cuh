@@ -696,6 +696,10 @@ void mst_optimization(raft::resources const& res,
       // If the number of clusters does not converge to 1, then edges are
       // made from all nodes not belonging to the main cluster to any node
       // in the main cluster.
+      raft::copy(
+        cluster_size_ptr, d_cluster_size_ptr, (size_t)graph_size, resource::get_cuda_stream(res));
+      raft::copy(label_ptr, d_label_ptr, (size_t)graph_size, resource::get_cuda_stream(res));
+      resource::sync_stream(res);
       uint32_t main_cluster_label = graph_size;
 #pragma omp parallel for
       for (uint64_t i = 0; i < graph_size; i++) {
