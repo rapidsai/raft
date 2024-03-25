@@ -280,7 +280,7 @@ RAFT_KERNEL kern_mst_opt_update_graph(IdxT* mst_graph,                 // [graph
     if (ret == 0) return;
 
     ret     = 0;
-    auto kj = atomicAdd(incoming_num_edges + j, 1);
+    auto kj = atomicAdd(incoming_num_edges + j, (IdxT)1);
     if (kj < incoming_max_edges[j]) {
       auto ki                                      = outgoing_num_edges[i]++;
       mst_graph[(graph_degree * (i)) + ki]         = j;  // outgoing
@@ -317,7 +317,7 @@ RAFT_KERNEL kern_mst_opt_update_graph(IdxT* mst_graph,                 // [graph
     }
     if (ret == 0) { break; }
 
-    auto kl = atomicAdd(incoming_num_edges + l, 1);
+    auto kl = atomicAdd(incoming_num_edges + l, (IdxT)1);
     if (kl < incoming_max_edges[l]) {
       auto ki                                      = outgoing_num_edges[i]++;
       mst_graph[(graph_degree * (i)) + ki]         = l;  // outgoing
@@ -382,14 +382,16 @@ RAFT_KERNEL kern_mst_opt_cluster_size(IdxT* cluster_size,  // [graph_size]
 
   IdxT ri = get_root_label(i, label);
   if (ri == i) {
-    atomicAdd(smem_num_clusters, (uint64_t)1);
+    atomicAdd((unsigned long long int*)smem_num_clusters, 1);
   } else {
     atomicAdd(cluster_size + ri, cluster_size[i]);
     cluster_size[i] = 0;
   }
 
   __syncthreads();
-  if ((threadIdx.x == 0) && (smem_num_clusters[0] > 0)) { atomicAdd(stats, smem_num_clusters[0]); }
+  if ((threadIdx.x == 0) && (smem_num_clusters[0] > 0)) {
+    atomicAdd((unsigned long long int*)stats, (unsigned long long int)(smem_num_clusters[0]));
+  }
 }
 
 template <class IdxT>
@@ -425,16 +427,20 @@ RAFT_KERNEL kern_mst_opt_postprocessing(IdxT* outgoing_num_edges,  // [graph_siz
   // Calculate min/max of cluster_size
   if (cluster_size[i] > 0) {
     if (smem_cluster_size_min[0] > cluster_size[i]) {
-      atomicMin(smem_cluster_size_min, (uint64_t)(cluster_size[i]));
+      atomicMin((unsigned long long int*)smem_cluster_size_min,
+                (unsigned long long int)(cluster_size[i]));
     }
     if (smem_cluster_size_max[0] < cluster_size[i]) {
-      atomicMax(smem_cluster_size_max, (uint64_t)(cluster_size[i]));
+      atomicMax((unsigned long long int*)smem_cluster_size_max,
+                (unsigned long long int)(cluster_size[i]));
     }
   }
 
   // Calculate total number of outgoing/incoming edges
-  atomicAdd(smem_total_outgoing_edges, (uint64_t)(outgoing_num_edges[i]));
-  atomicAdd(smem_total_incoming_edges, (uint64_t)(incoming_num_edges[i]));
+  atomicAdd((unsigned long long int*)smem_total_outgoing_edges,
+            (unsigned long long int)(outgoing_num_edges[i]));
+  atomicAdd((unsigned long long int*)smem_total_incoming_edges,
+            (unsigned long long int)(incoming_num_edges[i]));
 
   // Adjust incoming/outgoing_max_edges
   if (outgoing_num_edges[i] == outgoing_max_edges[i]) {
@@ -446,10 +452,14 @@ RAFT_KERNEL kern_mst_opt_postprocessing(IdxT* outgoing_num_edges,  // [graph_siz
 
   __syncthreads();
   if (threadIdx.x == 0) {
-    atomicMin(stats + 0, smem_cluster_size_min[0]);
-    atomicMax(stats + 1, smem_cluster_size_max[0]);
-    atomicAdd(stats + 2, smem_total_outgoing_edges[0]);
-    atomicAdd(stats + 3, smem_total_incoming_edges[0]);
+    atomicMin((unsigned long long int*)stats + 0,
+              (unsigned long long int)(smem_cluster_size_min[0]));
+    atomicMax((unsigned long long int*)stats + 1,
+              (unsigned long long int)(smem_cluster_size_max[0]));
+    atomicAdd((unsigned long long int*)stats + 2,
+              (unsigned long long int)(smem_total_outgoing_edges[0]));
+    atomicAdd((unsigned long long int*)stats + 3,
+              (unsigned long long int)(smem_total_incoming_edges[0]));
   }
 }
 
@@ -569,9 +579,9 @@ void mst_optimization(raft::resources const& res,
                       bool use_gpu = true)
 {
   if (use_gpu) {
-    RAFT_LOG_DEBUG("# MST optimization on GPU\n");
+    RAFT_LOG_DEBUG("# MST optimization on GPU");
   } else {
-    RAFT_LOG_DEBUG("# MST optimization on CPU\n");
+    RAFT_LOG_DEBUG("# MST optimization on CPU");
   }
   const double time_mst_opt_start = cur_time();
 
@@ -672,10 +682,10 @@ void mst_optimization(raft::resources const& res,
       d_cluster_size_ptr, cluster_size_ptr, (size_t)graph_size, resource::get_cuda_stream(res));
   }
 
-  uint32_t num_clusters     = 0;
-  uint32_t num_clusters_pre = graph_size;
-  uint32_t cluster_size_min = graph_size;
-  uint32_t cluster_size_max = 0;
+  IdxT num_clusters     = 0;
+  IdxT num_clusters_pre = graph_size;
+  IdxT cluster_size_min = graph_size;
+  IdxT cluster_size_max = 0;
   for (uint64_t k = 0; k <= input_graph_degree; k++) {
     int num_direct    = 0;
     int num_alternate = 0;
@@ -969,7 +979,7 @@ void mst_optimization(raft::resources const& res,
         msg += ", altenate: " + std::to_string(num_alternate);
         if (num_failure > 0) { msg += ", failure: " + std::to_string(num_failure); }
       }
-      RAFT_LOG_DEBUG("%s\n", msg.c_str());
+      RAFT_LOG_DEBUG("%s", msg.c_str());
     }
     assert(num_clusters > 0);
     assert(total_outgoing_edges == total_incoming_edges);
@@ -1009,7 +1019,7 @@ void mst_optimization(raft::resources const& res,
   }
 
   const double time_mst_opt_end = cur_time();
-  RAFT_LOG_DEBUG("# MST optimization time: %.1lf sec\n", time_mst_opt_end - time_mst_opt_start);
+  RAFT_LOG_DEBUG("# MST optimization time: %.1lf sec", time_mst_opt_end - time_mst_opt_start);
 }
 
 template <typename IdxT = uint32_t,
@@ -1018,7 +1028,7 @@ template <typename IdxT = uint32_t,
 void optimize(raft::resources const& res,
               mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
               raft::host_matrix_view<IdxT, int64_t, row_major> new_graph,
-              const bool use_mst = false)
+              const bool use_mst = true)
 {
   RAFT_LOG_DEBUG(
     "# Pruning kNN graph (size=%lu, degree=%lu)\n", knn_graph.extent(0), knn_graph.extent(1));
