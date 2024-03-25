@@ -56,9 +56,16 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
     if constexpr (std::is_same<CODE_BOOK_T, half>::value) {
       for (unsigned i = threadIdx.x * 2; i < (1 << PQ_BITS) * PQ_LEN; i += blockDim.x * 2) {
         half2 buf2;
-        buf2.x                                                   = pq_code_book_ptr[i];
-        buf2.y                                                   = pq_code_book_ptr[i + 1];
-        (reinterpret_cast<half2*>(smem_pq_code_book_ptr + i))[0] = buf2;
+        buf2.x = pq_code_book_ptr[i];
+        buf2.y = pq_code_book_ptr[i + 1];
+
+        // Change the order of PQ code book array to reduce the
+        // frequency of bank conflicts.
+        constexpr auto num_elements_per_bank = 4 / utils::size_of<CODE_BOOK_T>();
+        const auto j                         = i / num_elements_per_bank;
+        const auto smem_index =
+          (j / num_elements_per_bank) + (j % num_elements_per_bank) * (1 << PQ_BITS);
+        reinterpret_cast<half2*>(smem_pq_code_book_ptr)[smem_index] = buf2;
       }
     } else {
       for (unsigned i = threadIdx.x; i < (1 << PQ_BITS) * PQ_LEN; i += blockDim.x) {

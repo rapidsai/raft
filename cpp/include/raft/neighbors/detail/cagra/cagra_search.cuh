@@ -166,7 +166,6 @@ void launch_vpq_search_main_core(
   CagraSampleFilterT sample_filter)
 {
   RAFT_EXPECTS(vpq_dset->pq_bits() == 8, "Only pq_bits = 8 is supported for now");
-  RAFT_EXPECTS(vpq_dset->pq_len() == 2, "Only pq_len 2 is supported for now");
   RAFT_EXPECTS(vpq_dset->dim() % vpq_dset->pq_dim() == 0,
                "dim must be a multiple of pq_dim at the moment");
 
