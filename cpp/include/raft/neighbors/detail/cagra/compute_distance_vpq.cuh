@@ -61,10 +61,11 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
 
         // Change the order of PQ code book array to reduce the
         // frequency of bank conflicts.
-        constexpr auto num_elements_per_bank = 4 / utils::size_of<CODE_BOOK_T>();
-        const auto j                         = i / num_elements_per_bank;
+        constexpr auto num_elements_per_bank  = 4 / utils::size_of<CODE_BOOK_T>();
+        constexpr auto num_banks_per_subspace = PQ_LEN / num_elements_per_bank;
+        const auto j                          = i / num_elements_per_bank;
         const auto smem_index =
-          (j / num_elements_per_bank) + (j % num_elements_per_bank) * (1 << PQ_BITS);
+          (j / num_banks_per_subspace) + (j % num_banks_per_subspace) * (1 << PQ_BITS);
         reinterpret_cast<half2*>(smem_pq_code_book_ptr)[smem_index] = buf2;
       }
     } else {
