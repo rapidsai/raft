@@ -125,7 +125,6 @@ void fit(const raft::resources& handle,
  * @param[out] labels     The output labels [dim = n_samples]
  * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
  *                        datatype. If DataT == MathT, this must be the identity.
- * @param[in]  dataset_norms (optional) Pre-computed norms of each row in the dataset [n_rows]
  */
 template <typename DataT,
           typename MathT,
@@ -137,8 +136,7 @@ void predict(const raft::resources& handle,
              raft::device_matrix_view<const DataT, IndexT> X,
              raft::device_matrix_view<const MathT, IndexT> centroids,
              raft::device_vector_view<LabelT, IndexT> labels,
-             MappingOpT mapping_op = raft::identity_op(),
-             std::optional<raft::device_matrix_view<const MathT, IndexT>> dataset_norms = std::nullopt)
+             MappingOpT mapping_op = raft::identity_op())
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
@@ -160,8 +158,7 @@ void predict(const raft::resources& handle,
                   X.extent(0),
                   labels.data_handle(),
                   mapping_op,
-                  nullptr,
-                  dataset_norm.value() ? nullptr : dataset_norm.value().data_handle());
+                  nullptr);
 }
 
 /**
@@ -345,7 +342,7 @@ void calc_centers_and_sizes(const raft::resources& handle,
                             raft::device_vector_view<CounterT, IndexT> cluster_sizes,
                             bool reset_counters   = true,
                             MappingOpT mapping_op = raft::identity_op(),
-                            std::optional<raft::device_vector_view<const DataT, IndexT>> X_norm)
+                            std::optional<raft::device_vector_view<const DataT, IndexT>> X_norm = std::nullopt)
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
@@ -364,7 +361,8 @@ void calc_centers_and_sizes(const raft::resources& handle,
                                  labels.data_handle(),
                                  reset_counters,
                                  mapping_op,
-                                 X_norm.value() ? nullptr : X_norm.value().data_handle());
+                                 nullptr,
+                                 X_norm.has_value() ? nullptr : X_norm.value().data_handle());
 }
 
 }  // namespace helpers

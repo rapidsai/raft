@@ -22,6 +22,7 @@
 #include <raft/distance/distance_types.hpp>                     // is_min_close, DistanceType
 #include <raft/linalg/gemm.cuh>                                 // raft::linalg::gemm
 #include <raft/linalg/norm.cuh>                                 // raft::linalg::norm
+#include <raft/linalg/normalize.cuh>                            // raft::linalg::row_normalize
 #include <raft/linalg/unary_op.cuh>                             // raft::linalg::unary_op
 #include <raft/matrix/detail/select_k.cuh>                      // matrix::detail::select_k
 #include <raft/neighbors/detail/ivf_common.cuh>                 // raft::neighbors::detail::ivf
@@ -77,15 +78,15 @@ void search_impl(raft::resources const& handle,
   size_t float_query_size;
   auto metric = index.metric();
   rmm::device_uvector<T> normalized_queries_dev(0, stream, search_mr);
-  T* queries_ptr = queries;
+  const T* queries_ptr = queries;
 
   if (index.metric() == raft::distance::DistanceType::CosineExpanded) {
     normalized_queries_dev.resize(n_queries * index.dim(), stream);
     raft::linalg::row_normalize(handle,
-      raft::make_matrix_device_view<const T, IdxT>(queries, n_queries, index.dim()),
-      raft::make_matrix_device_view<T, IdxT>(normalized_queries_dev.data(), n_queries, index.dim()),
+      raft::make_device_matrix_view<const T, IdxT>(queries, n_queries, index.dim()),
+      raft::make_device_matrix_view<T, IdxT>(normalized_queries_dev.data(), n_queries, index.dim()),
       raft::linalg::NormType::L2Norm);
-    queries_ptr = normalized_queries_dev.data()
+    queries_ptr = normalized_queries_dev.data();
   }
 
   if constexpr (std::is_integral_v<T>) {
@@ -268,11 +269,6 @@ void search_impl(raft::resources const& handle,
                                          k,
                                          stream);
     }
-  }
-  // Distance epilogue
-  if (index.metric() == raft::linalg::DistanceType::CosineExpanded) {
-    linalg::unaryOp(
-      refined_distances_dev.data(), refined_distances_dev.data(), n_queries * k, __device__(T a) { return 1 - a; }, stream);
   }
 }
 

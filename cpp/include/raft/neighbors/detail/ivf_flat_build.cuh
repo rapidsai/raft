@@ -135,7 +135,7 @@ RAFT_KERNEL build_index_kernel(const LabelT* labels,
 
   // Record the source vector id in the index
   list_index[inlist_id] = source_ixs == nullptr ? i + batch_offset : source_ixs[i];
-  const auto vec_norm    = source_vecs_norms == nullptr ? 1 : source_vecs_norms[i];
+  const auto vec_norm    = source_vecs_norms == nullptr ? T(1) : source_vecs_norms[i];
 
   // The data is written in interleaved groups of `index::kGroupSize` vectors
   using interleaved_group = Pow2<kIndexGroupSize>;
@@ -208,23 +208,16 @@ void extend(raft::resources const& handle,
                                             resource::get_workspace_resource(handle));
 
   for (const auto& batch : vec_batches) {
-    auto batch_vectors_norms = raft::make_device_vector<T, IdxT>(handle, batch.size());
     auto batch_data_view =
       raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), index->dim());
     auto batch_labels_view = raft::make_device_vector_view<LabelT, IdxT>(
       new_labels.data_handle() + batch.offset(), batch.size());
-    // Normalize if necessary (Cosine)
-    if (index.metric() == raft::distance::DistanceType::CosineExpanded)
-    {
-      raft::linalg::norm(handle, batch_data_view, batch_vectors_norms, raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, inv_sqrt_op());
-    }
     raft::cluster::kmeans_balanced::predict(handle,
                                             kmeans_params,
                                             batch_data_view,
                                             orig_centroids_view,
                                             batch_labels_view,
-                                            utils::mapping<float>{},
-                                            std::make_optional(raft::make_const_mdspan(batch_vectors_norms)));
+                                            utils::mapping<float>{});
   }
 
   auto* list_sizes_ptr    = index->list_sizes().data_handle();
@@ -245,9 +238,9 @@ void extend(raft::resources const& handle,
         new_labels.data_handle() + batch.offset(), batch.size());
       auto batch_vectors_norms = raft::make_device_vector<T, IdxT>(handle, batch.size());
       // Normalize if necessary (Cosine)
-      if (index.metric() == raft::distance::DistanceType::CosineExpanded)
+      if (index->metric() == raft::distance::DistanceType::CosineExpanded)
       {
-        raft::linalg::norm(handle, batch_data_view, batch_vectors_norms, raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
+        raft::linalg::norm(handle, batch_data_view, batch_vectors_norms.view(), raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
       }
       raft::cluster::kmeans_balanced::helpers::calc_centers_and_sizes(handle,
                                                                       batch_data_view,
@@ -256,7 +249,7 @@ void extend(raft::resources const& handle,
                                                                       list_sizes_view,
                                                                       false,
                                                                       utils::mapping<float>{},
-                                                                      std::make_optional(raft::make_const_mdspan(batch_vectors_norms)));
+                                                                      std::make_optional(raft::make_const_mdspan(batch_vectors_norms.view())));
     }
   } else {
     raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
@@ -302,9 +295,9 @@ void extend(raft::resources const& handle,
       raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), index->dim());
     auto batch_vectors_norms = raft::make_device_vector<T, IdxT>(handle, batch.size());
     // Normalize if necessary (Cosine)
-    if (index.metric() == raft::distance::DistanceType::CosineExpanded)
+    if (index->metric() == raft::distance::DistanceType::CosineExpanded)
     {
-      raft::linalg::norm(handle, batch_data_view, batch_vectors_norms, raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
+      raft::linalg::norm(handle, batch_data_view, batch_vectors_norms.view(), raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
     }
     // Kernel to insert the new vectors
     const dim3 block_dim(256);
