@@ -33,7 +33,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
   using CODE_BOOK_T = CODE_BOOK_T_;
   using QUERY_T     = typename dataset_descriptor_base_t<half, DISTANCE_T, INDEX_T>::QUERY_T;
 
-  static_assert(std::is_same_v<CODE_BOOK_T, half>, "CODE_BOOK_T = `half` is only supported now");
+  static_assert(std::is_same_v<CODE_BOOK_T, half>, "Only CODE_BOOK_T = `half` is supported now");
 
   const std::uint8_t* encoded_dataset_ptr;
   const std::uint32_t encoded_dataset_dim;
