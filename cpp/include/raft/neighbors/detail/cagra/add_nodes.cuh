@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 #pragma once
-#include <cstdint>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
+
 #include <rmm/device_buffer.hpp>
+
+#include <cstdint>
 
 // prototype declaration
 namespace raft::neighbors::cagra {
@@ -128,7 +130,7 @@ void add_node_core(raft::resources const& handle,
     // Step 1: Obtain K (=base_degree) nearest neighbors of the new vectors by CAGRA search
     // Create queries
     for (std::size_t i = 0; i < actual_batch_size; i++) {
-      raft::copy(&queries(i, 0),
+      raft::copy(&queries.view()(i, 0),
                  &additional_dataset_view(new_vec_id_offset + i, dim),
                  dim,
                  raft::resource::get_cuda_stream(handle));
