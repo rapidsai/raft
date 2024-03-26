@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include <raft/neighbors/ann_types.hpp>
-#include <raft/neighbors/ivf_list_types.hpp>
-
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ann_types.hpp>
+#include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
 #include <thrust/fill.h>
@@ -485,6 +484,30 @@ struct index : ann::index {
     -> device_matrix_view<const float, uint32_t, row_major>
   {
     return centers_rot_.view();
+  }
+
+  /** fetch size of a particular IVF list in bytes using the list extents.
+   * Usage example:
+   * @code{.cpp}
+   *   raft::resources res;
+   *   // use default index params
+   *   ivf_pq::index_params index_params;
+   *   // extend the IVF lists while building the index
+   *   index_params.add_data_on_build = true;
+   *   // create and fill the index from a [N, D] dataset
+   *   auto index = raft::neighbors::ivf_pq::build<int64_t>(res, index_params, dataset, N, D);
+   *   // Fetch the size of the fourth list
+   *   uint32_t size = index.get_list_size_in_bytes(3);
+   * @endcode
+   *
+   * @param[in] label list ID
+   */
+  inline auto get_list_size_in_bytes(uint32_t label) -> uint32_t
+  {
+    RAFT_EXPECTS(label < this->n_lists(),
+                 "Expected label to be less than number of lists in the index");
+    auto list_data = this->lists()[label]->data;
+    return list_data.size();
   }
 
  private:

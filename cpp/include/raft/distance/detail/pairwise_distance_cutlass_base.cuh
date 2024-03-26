@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,23 +26,23 @@
 #define cutlass raft_cutlass
 #endif
 
+#include "pairwise_distance_epilogue_elementwise.h"
+#include "pairwise_distance_gemm.h"
+
+#include <raft/distance/detail/distance_ops/cutlass.cuh>
+#include <raft/util/cutlass_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
-#include <type_traits>
 
 #include <cutlass/cutlass.h>
 #include <cutlass/gemm/device/gemm.h>
 #include <cutlass/gemm/device/gemm_universal_adapter.h>
-
 #include <cutlass/layout/matrix.h>
 #include <cutlass/layout/tensor.h>
 #include <cutlass/matrix_coord.h>
 #include <cutlass/tensor_view.h>
 
-#include <raft/distance/detail/distance_ops/cutlass.cuh>
-#include <raft/util/cutlass_utils.cuh>
-
-#include "./pairwise_distance_epilogue_elementwise.h"
-#include "./pairwise_distance_gemm.h"
+#include <type_traits>
 
 namespace raft {
 namespace distance {
@@ -91,17 +91,10 @@ std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(const Da
 
   typename EpilogueOutputOp::Params epilog_op_param(dist_op, fin_op);
 
-  const DataT *a, *b;
-
-  IdxT gemm_lda, gemm_ldb;
-
   // Number of pipelines you want to use
   constexpr int NumStages = 3;
   // Alignment
   constexpr int Alignment = VecLen;
-
-  // default initialize problem size with row major inputs
-  auto problem_size = cutlass::gemm::GemmCoord(n, m, k);
 
   using cutlassDistKernel =
     typename cutlass::gemm::kernel::PairwiseDistanceGemm<DataT,
@@ -116,53 +109,73 @@ std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(const Da
 
   using cutlassDist = cutlass::gemm::device::GemmUniversalAdapter<cutlassDistKernel>;
 
-  if constexpr (isRowMajor) {
-    a        = y;
-    b        = x;
-    gemm_lda = ldb;
-    gemm_ldb = lda;
-  } else {
-    problem_size = cutlass::gemm::GemmCoord(m, n, k);
-    a            = x;
-    b            = y;
-    gemm_lda     = lda;
-    gemm_ldb     = ldb;
+  constexpr uint32_t gridYZMax      = ((1 << (sizeof(uint16_t) * 8)) - 1);
+  constexpr uint32_t max_batch_size = gridYZMax * cutlassDistKernel::ThreadblockShape::kN;
+  IdxT numNbatches                  = (n - 1 + max_batch_size) / max_batch_size;
+
+  for (IdxT i = 0; i < numNbatches; i++) {
+    const DataT *a, *b;
+    IdxT gemm_lda, gemm_ldb;
+    size_t offsetN = i * max_batch_size;
+
+    if constexpr (isRowMajor) {
+      gemm_lda = ldb;
+      gemm_ldb = lda;
+      a        = y + offsetN * gemm_lda;
+      b        = x;
+    } else {
+      gemm_lda = lda;
+      gemm_ldb = ldb;
+      a        = x;
+      b        = y + offsetN;
+    }
+    IdxT chunkN   = (i + 1) * max_batch_size;
+    IdxT currentN = (chunkN < n) ? max_batch_size : (n - offsetN);
+
+    // default initialize problem size with row major inputs
+    auto problem_size = isRowMajor ? cutlass::gemm::GemmCoord(currentN, m, k)
+                                   : cutlass::gemm::GemmCoord(m, currentN, k);
+
+    typename cutlassDist::Arguments arguments{
+      mode,
+      problem_size,
+      batch_count,
+      epilog_op_param,
+      a,
+      b,
+      xn,                    // C matrix eq vector param, which here is A norm
+      nullptr,               // tensor_Z,
+      (DataT*)yn + offsetN,  // this is broadcast vec, which is required to be non-const param
+      dOutput + offsetN,     // Output distance matrix
+      (int64_t)0,            // batch stride A
+      (int64_t)0,            // batch stride B
+      (int64_t)0,            // batch stride Norm A
+      (int64_t)0,
+      (int64_t)0,  // batch stride Norm B
+      (int64_t)0,  // batch stride Output
+      gemm_lda,    // stride A
+      gemm_ldb,    // stride B
+      1,           // stride A norm
+      0,           // this is no-op for Z
+      0,           // This must be zero
+      ldd          // stride Output matrix
+    };
+
+    // Using the arguments, query for extra workspace required for matrix multiplication computation
+    size_t workspace_size = cutlassDist::get_workspace_size(arguments);
+    // Allocate workspace memory
+    rmm::device_uvector<uint8_t> workspace(workspace_size, stream);
+    // Instantiate CUTLASS kernel depending on templates
+    cutlassDist cutlassDist_op;
+    // Check the problem size is supported or not
+    RAFT_CUTLASS_TRY(cutlassDist_op.can_implement(arguments));
+
+    // Initialize CUTLASS kernel with arguments and workspace pointer
+    RAFT_CUTLASS_TRY(cutlassDist_op.initialize(arguments, workspace.data(), stream));
+
+    // Launch initialized CUTLASS kernel
+    RAFT_CUTLASS_TRY(cutlassDist_op(stream));
   }
-
-  typename cutlassDist::Arguments arguments{
-    mode,       problem_size, batch_count, epilog_op_param, a, b,
-    xn,          // C matrix eq vector param, which here is A norm
-    nullptr,     // tensor_Z,
-    (DataT*)yn,  // this is broadcast vec, which is required to be non-const param
-    dOutput,     // Output distance matrix
-    (int64_t)0,  // batch stride A
-    (int64_t)0,  // batch stride B
-    (int64_t)0,  // batch stride Norm A
-    (int64_t)0,
-    (int64_t)0,  // batch stride Norm B
-    (int64_t)0,  // batch stride Output
-    gemm_lda,    // stride A
-    gemm_ldb,    // stride B
-    1,           // stride A norm
-    0,           // this is no-op for Z
-    0,           // This must be zero
-    ldd          // stride Output matrix
-  };
-
-  // Using the arguments, query for extra workspace required for matrix multiplication computation
-  size_t workspace_size = cutlassDist::get_workspace_size(arguments);
-  // Allocate workspace memory
-  rmm::device_uvector<uint8_t> workspace(workspace_size, stream);
-  // Instantiate CUTLASS kernel depending on templates
-  cutlassDist cutlassDist_op;
-  // Check the problem size is supported or not
-  RAFT_CUTLASS_TRY(cutlassDist_op.can_implement(arguments));
-
-  // Initialize CUTLASS kernel with arguments and workspace pointer
-  RAFT_CUTLASS_TRY(cutlassDist_op.initialize(arguments, workspace.data(), stream));
-
-  // Launch initialized CUTLASS kernel
-  RAFT_CUTLASS_TRY(cutlassDist_op(stream));
 }
 
 };  // namespace detail

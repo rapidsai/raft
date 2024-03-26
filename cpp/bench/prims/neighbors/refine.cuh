@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <raft_internal/neighbors/refine_helper.cuh>
-
 #include <common/benchmark.hpp>
 
 #include <raft/core/device_mdspan.hpp>
@@ -27,6 +25,9 @@
 #include <raft/neighbors/refine.cuh>
 #include <raft/random/rng.cuh>
 
+#include <raft_internal/neighbors/refine_helper.cuh>
+
+#include <rmm/cuda_device.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
@@ -58,7 +59,8 @@ class RefineAnn : public fixture {
     state.SetLabel(label_stream.str());
 
     auto old_mr = rmm::mr::get_current_device_resource();
-    rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr(old_mr);
+    rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr(
+      old_mr, rmm::percent_of_free_device_memory(50));
     rmm::mr::set_current_device_resource(&pool_mr);
 
     if (data.p.host_data) {

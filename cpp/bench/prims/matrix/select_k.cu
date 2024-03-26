@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,21 @@
  * limitations under the License.
  */
 
-#include <raft_internal/matrix/select_k.cuh>
-
 #include <common/benchmark.hpp>
 
 #include <raft/core/device_resources.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/matrix/detail/select_radix.cuh>
+#include <raft/matrix/detail/select_warpsort.cuh>
+#include <raft/matrix/select_k.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
 
-#include <raft/matrix/detail/select_radix.cuh>
-#include <raft/matrix/detail/select_warpsort.cuh>
-#include <raft/matrix/select_k.cuh>
+#include <raft_internal/matrix/select_k.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <cstdint>
 #include <cstring>
@@ -52,7 +50,7 @@ struct replace_with_mask {
   }
 };
 
-template <typename KeyT, typename IdxT, select::Algo Algo>
+template <typename KeyT, typename IdxT, SelectAlgo Algo>
 struct selection : public fixture {
   explicit selection(const select::params& p)
     : fixture(p.use_memory_pool),
@@ -110,16 +108,24 @@ struct selection : public fixture {
       int iter = 0;
       loop_on_state(state, [&iter, this]() {
         common::nvtx::range lap_scope("lap-", iter++);
-        select::select_k_impl<KeyT, IdxT>(handle,
-                                          Algo,
-                                          in_dists_.data(),
-                                          params_.use_index_input ? in_ids_.data() : NULL,
-                                          params_.batch_size,
-                                          params_.len,
-                                          params_.k,
-                                          out_dists_.data(),
-                                          out_ids_.data(),
-                                          params_.select_min);
+
+        std::optional<raft::device_matrix_view<const IdxT, int64_t, row_major>> in_ids_view;
+        if (params_.use_index_input) {
+          in_ids_view = raft::make_device_matrix_view<const IdxT, int64_t>(
+            in_ids_.data(), params_.batch_size, params_.len);
+        }
+
+        matrix::select_k<KeyT, IdxT>(handle,
+                                     raft::make_device_matrix_view<const KeyT, int64_t>(
+                                       in_dists_.data(), params_.batch_size, params_.len),
+                                     in_ids_view,
+                                     raft::make_device_matrix_view<KeyT, int64_t>(
+                                       out_dists_.data(), params_.batch_size, params_.k),
+                                     raft::make_device_matrix_view<IdxT, int64_t>(
+                                       out_ids_.data(), params_.batch_size, params_.k),
+                                     params_.select_min,
+                                     false,
+                                     Algo);
       });
     } catch (raft::exception& e) {
       state.SkipWithError(e.what());
@@ -213,13 +219,13 @@ const std::vector<select::params> kInputs{
   {1000, 10000, 256, true, false, false, true, 0.999},
 };
 
-#define SELECTION_REGISTER(KeyT, IdxT, A)                        \
-  namespace BENCHMARK_PRIVATE_NAME(selection) {                  \
-  using SelectK = selection<KeyT, IdxT, select::Algo::A>;        \
-  RAFT_BENCH_REGISTER(SelectK, #KeyT "/" #IdxT "/" #A, kInputs); \
+#define SELECTION_REGISTER(KeyT, IdxT, A)                             \
+  namespace BENCHMARK_PRIVATE_NAME(selection) {                       \
+  using SelectK = selection<KeyT, IdxT, raft::matrix::SelectAlgo::A>; \
+  RAFT_BENCH_REGISTER(SelectK, #KeyT "/" #IdxT "/" #A, kInputs);      \
   }
 
-SELECTION_REGISTER(float, uint32_t, kPublicApi);             // NOLINT
+SELECTION_REGISTER(float, uint32_t, kAuto);                  // NOLINT
 SELECTION_REGISTER(float, uint32_t, kRadix8bits);            // NOLINT
 SELECTION_REGISTER(float, uint32_t, kRadix11bits);           // NOLINT
 SELECTION_REGISTER(float, uint32_t, kRadix11bitsExtraPass);  // NOLINT
@@ -252,7 +258,7 @@ SELECTION_REGISTER(double, int64_t, kWarpDistributedShm);    // NOLINT
 // register other benchmarks
 #define SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, A, input)                               \
   {                                                                                       \
-    using SelectK = selection<KeyT, IdxT, select::Algo::A>;                               \
+    using SelectK = selection<KeyT, IdxT, SelectAlgo::A>;                                 \
     std::stringstream name;                                                               \
     name << "SelectKDataset/" << #KeyT "/" #IdxT "/" #A << "/" << input.batch_size << "/" \
          << input.len << "/" << input.k << "/" << input.use_index_input << "/"            \
@@ -278,9 +284,6 @@ const static size_t MAX_MEMORY = 16 * 1024 * 1024 * 1024ULL;
         SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpFiltered, input)        \
         SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpDistributed, input)     \
         SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpDistributedShm, input)  \
-      }                                                                        \
-      if (input.k <= raft::neighbors::detail::kFaissMaxK<IdxT, KeyT>()) {      \
-        SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kFaissBlockSelect, input)    \
       }                                                                        \
     }                                                                          \
   }

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 
 # raft build scripts
 
@@ -78,7 +78,7 @@ INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
 BUILD_REPORT_INCL_CACHE_STATS=OFF
 
-TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;NEIGHBORS_TEST;NEIGHBORS_ANN_CAGRA_TEST;NEIGHBORS_ANN_NN_DESCENT_TEST;NEIGHBORS_ANN_IVF_TEST;NEIGHBORS_ANN_MG_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
+TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;NEIGHBORS_TEST;NEIGHBORS_ANN_BRUTE_FORCE_TEST;NEIGHBORS_ANN_CAGRA_TEST;NEIGHBORS_ANN_NN_DESCENT_TEST;NEIGHBORS_ANN_IVF_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
 BENCH_TARGETS="CLUSTER_BENCH;CORE_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
 
 CACHE_ARGS=""
@@ -305,7 +305,7 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 
-if hasArg --compile-lib || (( ${NUMARGS} == 0 )); then
+if hasArg --compile-lib || hasArg pylibraft || (( ${NUMARGS} == 0 )); then
     COMPILE_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_lib"
 fi
@@ -323,6 +323,7 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     if [[ $CMAKE_TARGET == *"CLUSTER_TEST"* || \
           $CMAKE_TARGET == *"DISTANCE_TEST"* || \
           $CMAKE_TARGET == *"MATRIX_TEST"* || \
+          $CMAKE_TARGET == *"NEIGHBORS_ANN_BRUTE_FORCE_TEST"* || \
           $CMAKE_TARGET == *"NEIGHBORS_ANN_CAGRA_TEST"* || \
           $CMAKE_TARGET == *"NEIGHBORS_ANN_IVF_TEST"* || \
           $CMAKE_TARGET == *"NEIGHBORS_ANN_MG_TEST"* || \
@@ -386,6 +387,8 @@ SKBUILD_EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS}"
 if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
     SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
 fi
+# Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
+SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${SKBUILD_EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -403,7 +406,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench-prims || hasArg bench-ann; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench-prims || hasArg bench-ann || ((${COMPILE_LIBRARY} == ON )); then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -493,15 +496,13 @@ fi
 
 # Build and (optionally) install the pylibraft Python package
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
-    SKBUILD_CONFIGURE_OPTIONS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
+    SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/pylibraft
 fi
 
 # Build and (optionally) install the raft-dask Python package
 if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
-    SKBUILD_CONFIGURE_OPTIONS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
+    SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-dask
 fi
 
@@ -512,6 +513,8 @@ fi
 
 if hasArg docs; then
     set -x
+    export RAPIDS_VERSION="$(sed -E -e 's/^([0-9]{2})\.([0-9]{2})\.([0-9]{2}).*$/\1.\2.\3/' "${REPODIR}/VERSION")"
+    export RAPIDS_VERSION_MAJOR_MINOR="$(sed -E -e 's/^([0-9]{2})\.([0-9]{2})\.([0-9]{2}).*$/\1.\2/' "${REPODIR}/VERSION")"
     cd ${DOXYGEN_BUILD_DIR}
     doxygen Doxyfile
     cd ${SPHINX_BUILD_DIR}

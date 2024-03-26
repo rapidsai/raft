@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
@@ -22,6 +22,9 @@ build:
   ignore_run_exports_from:
     {% if cuda_major == "11" %}
     - {{ compiler('cuda11') }}
+    {% else %}
+    - {{ compiler('cuda') }}
+    - cuda-cudart-dev
     {% endif %}
 
 requirements:
@@ -43,6 +46,7 @@ requirements:
     - cudatoolkit
     {% else %}
     - cuda-python >=12.0,<13.0a0
+    - cuda-cudart-dev
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - cython >=3.0.0
@@ -50,7 +54,7 @@ requirements:
     - pylibraft {{ version }}
     - python x.x
     - rmm ={{ minor_version }}
-    - scikit-build >=0.13.1
+    - scikit-build-core >=0.7.0
     - setuptools
     - ucx {{ ucx_version }}
     - ucx-proc=*=gpu
@@ -58,12 +62,12 @@ requirements:
   run:
     {% if cuda_major == "11" %}
     - cudatoolkit
+    {% else %}
+    - cuda-cudart
     {% endif %}
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-    - dask >=2023.9.2
-    - dask-core >=2023.9.2
     - dask-cuda ={{ minor_version }}
-    - distributed >=2023.9.2
+    - rapids-dask-dependency ={{ minor_version }}
     - joblib >=0.11
     - nccl >=2.9.9
     - pylibraft {{ version }}

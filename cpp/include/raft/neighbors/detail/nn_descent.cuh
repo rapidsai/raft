@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,6 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
-#include <mma.h>
-#include <omp.h>
-
-#include <cub/cub.cuh>
-#include <limits>
-#include <queue>
-
-#include <random>
-#include <rmm/device_uvector.hpp>
-
-#include <thrust/execution_policy.h>
-#include <thrust/fill.h>
-#include <thrust/host_vector.h>
-#include <thrust/mr/allocator.h>
-#include <thrust/mr/device_memory_resource.h>
-
 #include "../nn_descent_types.hpp"
 
 #include <raft/core/device_mdarray.hpp>
@@ -47,6 +30,23 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
+
+#include <rmm/device_uvector.hpp>
+
+#include <cub/cub.cuh>
+#include <cuda_runtime.h>
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
+#include <thrust/host_vector.h>
+#include <thrust/mr/allocator.h>
+#include <thrust/mr/device_memory_resource.h>
+
+#include <mma.h>
+#include <omp.h>
+
+#include <limits>
+#include <queue>
+#include <random>
 
 namespace raft::neighbors::experimental::nn_descent::detail {
 
@@ -686,12 +686,12 @@ __device__ __forceinline__ void remove_duplicates(
 // Per
 // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#features-and-technical-specifications,
 // MAX_RESIDENT_THREAD_PER_SM = BLOCK_SIZE * BLOCKS_PER_SM = 2048
-// For architectures 750 and 860, the values for MAX_RESIDENT_THREAD_PER_SM
+// For architectures 750 and 860 (890), the values for MAX_RESIDENT_THREAD_PER_SM
 // is 1024 and 1536 respectively, which means the bounds don't work anymore
 template <typename Index_t, typename ID_t = InternalID_t<Index_t>>
 RAFT_KERNEL
 #ifdef __CUDA_ARCH__
-#if (__CUDA_ARCH__) == 750 || (__CUDA_ARCH__) == 860
+#if (__CUDA_ARCH__) == 750 || ((__CUDA_ARCH__) >= 860 && (__CUDA_ARCH__) <= 890)
 __launch_bounds__(BLOCK_SIZE)
 #else
 __launch_bounds__(BLOCK_SIZE, 4)

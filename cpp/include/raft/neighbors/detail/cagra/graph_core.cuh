@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,26 +15,28 @@
  */
 #pragma once
 
-#include <cassert>
-#include <climits>
-#include <cuda_fp16.h>
-#include <float.h>
-#include <iostream>
-#include <memory>
-#include <omp.h>
+#include "utils.hpp"
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
-#include <random>
-#include <sys/time.h>
-
 #include <raft/util/bitonic_sort.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>
 
-#include "utils.hpp"
+#include <cuda_fp16.h>
+
+#include <float.h>
+#include <omp.h>
+#include <sys/time.h>
+
+#include <cassert>
+#include <climits>
+#include <iostream>
+#include <memory>
+#include <random>
 
 namespace raft::neighbors::cagra::detail {
 namespace graph {
@@ -528,8 +530,9 @@ void optimize(raft::resources const& res,
     constexpr int _omp_chunk = 1024;
 #pragma omp parallel for schedule(dynamic, _omp_chunk)
     for (uint64_t j = 0; j < graph_size; j++) {
-      for (uint64_t _k = 0; _k < rev_graph_count.data_handle()[j]; _k++) {
-        uint64_t k = rev_graph_count.data_handle()[j] - 1 - _k;
+      uint64_t k = std::min(rev_graph_count.data_handle()[j], output_graph_degree);
+      while (k) {
+        k--;
         uint64_t i = rev_graph.data_handle()[k + (output_graph_degree * j)];
 
         uint64_t pos =

@@ -27,7 +27,7 @@ repos:
                 types_or: [python, cython]
                 additional_dependencies: ["flake8-force"]
       - repo: https://github.com/pre-commit/mirrors-mypy
-        rev: 'v0.971'
+        rev: 'v1.3.0'
         hooks:
               - id: mypy
                 additional_dependencies: [types-cachetools]
@@ -81,12 +81,6 @@ repos:
                 verbose: true
                 require_serial: true
                 exclude: .*/thirdparty/.*
-              - id: copyright-check
-                name: copyright-check
-                entry: python ./ci/checks/copyright.py --git-modified-only --update-current-year
-                language: python
-                pass_filenames: false
-                additional_dependencies: [gitpython]
               - id: include-check
                 name: include-check
                 entry: python ./cpp/scripts/include_checker.py cpp/bench cpp/include cpp/test
@@ -101,7 +95,7 @@ repos:
                 args: ["--toml", "pyproject.toml"]
                 exclude: (?x)^(^CHANGELOG.md$)
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.5.1
+        rev: v1.8.0
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
@@ -109,6 +103,23 @@ repos:
         rev: v4.5.0
         hooks:
               - id: check-json
+      - repo: https://github.com/rapidsai/pre-commit-hooks
+        rev: v0.0.1
+        hooks:
+          - id: verify-copyright
+            files: |
+              (?x)
+                  [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
+                  CMakeLists[.]txt$|
+                  CMakeLists_standalone[.]txt$|
+                  meta[.]yaml$|
+                  setup[.]cfg$
+            exclude: |
+              (?x)
+                  cpp/include/raft/neighbors/detail/faiss_select/|
+                  cpp/include/raft/thirdparty/|
+                  docs/source/sphinxext/github_link[.]py|
+                  cpp/cmake/modules/FindAVX[.]cmake
 
 default_language_version:
       python: python3

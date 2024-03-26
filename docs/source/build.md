@@ -56,7 +56,7 @@ You can also install the conda packages individually using the `mamba` command a
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
 ```
 
-If installing the C++ APIs Please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-23.12/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
+If installing the C++ APIs Please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.04/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
 
 ## Installing Python through Pip
 
@@ -106,7 +106,7 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 
 Conda environment scripts are provided for installing the necessary dependencies to build both the C++ and Python libraries from source. It is preferred to use `mamba`, as it provides significant speedup over `conda`:
 ```bash
-mamba env create --name rapids_raft -f conda/environments/all_cuda-120_arch-x86_64.yaml
+mamba env create --name rapids_raft -f conda/environments/all_cuda-122_arch-x86_64.yaml
 mamba activate rapids_raft
 ```
 

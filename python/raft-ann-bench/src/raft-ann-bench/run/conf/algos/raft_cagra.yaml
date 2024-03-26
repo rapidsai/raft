@@ -1,5 +1,6 @@
 name: raft_cagra
 constraints:
+  build: raft-ann-bench.constraints.raft_cagra_build_constraints
   search: raft-ann-bench.constraints.raft_cagra_search_constraints
 groups:
   base:
@@ -10,8 +11,3 @@ groups:
     search:
       itopk: [32, 64, 128, 256, 512]
       search_width: [1, 2, 4, 8, 16, 32, 64]
-
-
-
-
-

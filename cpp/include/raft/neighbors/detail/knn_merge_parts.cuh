@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,13 @@
 
 #pragma once
 
+#include <raft/core/error.hpp>
+#include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
+#include <raft/neighbors/detail/faiss_select/Select.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <cstdint>
-#include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
-#include <raft/neighbors/detail/faiss_select/Select.cuh>
 
 namespace raft::neighbors::detail {
 
@@ -111,7 +112,7 @@ inline void knn_merge_parts_impl(const value_t* inK,
 {
   auto grid = dim3(n_samples);
 
-  constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
+  constexpr int n_threads = (warp_q < 1024) ? 128 : 64;
   auto block              = dim3(n_threads);
 
   auto kInit = std::numeric_limits<value_t>::max();
@@ -168,5 +169,7 @@ inline void knn_merge_parts(const value_t* inK,
   else if (k <= 1024)
     knn_merge_parts_impl<value_idx, value_t, 1024, 8>(
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
+  else
+    THROW("Unimplemented for k=%d, knn_merge_parts works for k<=1024", k);
 }
 }  // namespace raft::neighbors::detail

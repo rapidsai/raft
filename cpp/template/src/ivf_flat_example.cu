@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cstdint>
-#include <optional>
+#include "common.cuh"
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -29,7 +29,8 @@
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include "common.cuh"
+#include <cstdint>
+#include <optional>
 
 void ivf_flat_build_search_simple(raft::device_resources const& dev_resources,
                                   raft::device_matrix_view<const float, int64_t> dataset,

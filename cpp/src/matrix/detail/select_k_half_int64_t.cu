@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,19 @@
 
 #include <raft/matrix/detail/select_k-inl.cuh>
 
-#define instantiate_raft_matrix_detail_select_k(T, IdxT)                            \
-  template void raft::matrix::detail::select_k(raft::resources const& handle,       \
-                                               const T* in_val,                     \
-                                               const IdxT* in_idx,                  \
-                                               size_t batch_size,                   \
-                                               size_t len,                          \
-                                               int k,                               \
-                                               T* out_val,                          \
-                                               IdxT* out_idx,                       \
-                                               bool select_min,                     \
-                                               rmm::mr::device_memory_resource* mr, \
-                                               bool sorted)
+#define instantiate_raft_matrix_detail_select_k(T, IdxT)                      \
+  template void raft::matrix::detail::select_k(raft::resources const& handle, \
+                                               const T* in_val,               \
+                                               const IdxT* in_idx,            \
+                                               size_t batch_size,             \
+                                               size_t len,                    \
+                                               int k,                         \
+                                               T* out_val,                    \
+                                               IdxT* out_idx,                 \
+                                               bool select_min,               \
+                                               bool sorted,                   \
+                                               raft::matrix::SelectAlgo algo, \
+                                               const IdxT* len_i)
 
 instantiate_raft_matrix_detail_select_k(__half, int64_t);
 

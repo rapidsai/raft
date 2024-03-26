@@ -24,15 +24,20 @@
 
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include <raft/neighbors/brute_force.cuh>
-#include <raft/neighbors/ivf_flat.cuh>
-#include <raft/neighbors/ivf_pq.cuh>
-#include <raft/neighbors/ivf_pq_serialize.cuh>
-#include <raft/neighbors/cagra.cuh>
-#include <raft/neighbors/cagra_serialize.cuh>
 #define RAFT_EXPLICIT_INSTANTIATE_ONLY
 
+#include <raft_runtime/neighbors/ivf_flat.hpp>
+#include <raft/neighbors/ivf_flat_serialize.cuh>
+
+#include <raft_runtime/neighbors/ivf_pq.hpp>
+#include <raft/neighbors/ivf_pq_serialize.cuh>
+
+#include <raft_runtime/neighbors/cagra.hpp>
+#include <raft/neighbors/cagra_serialize.cuh>
+
+
 // Number of rows per batch (search on shards)
-#define N_ROWS_PER_BATCH 33554432 // 2**25
+#define N_ROWS_PER_BATCH 3000
 
 namespace raft::neighbors::mg {
 enum dist_mode { SHARDING, INDEX_DUPLICATION };
@@ -55,13 +60,13 @@ class ann_interface {
     raft::device_matrix_view<const T, IdxT, row_major> d_index_dataset_view = raft::make_device_matrix_view<const T, IdxT, row_major>(d_index_dataset.data_handle(), n_rows, n_dims);
 
     if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, IdxT>>::value) {
-      index_.emplace(std::move(ivf_flat::build<T, IdxT>(
+      index_.emplace(std::move(raft::runtime::neighbors::ivf_flat::build(
         handle, *static_cast<const ivf_flat::index_params*>(index_params), d_index_dataset_view)));
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
-      index_.emplace(std::move(ivf_pq::build<T>(
+      index_.emplace(std::move(raft::runtime::neighbors::ivf_pq::build(
         handle, *static_cast<const ivf_pq::index_params*>(index_params), d_index_dataset_view)));
     } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
-      index_.emplace(std::move(cagra::build<T, IdxT>(
+      index_.emplace(std::move(raft::runtime::neighbors::cagra::build(
         handle, *static_cast<const cagra::index_params*>(index_params), d_index_dataset_view)));
     }
   }
@@ -85,11 +90,11 @@ class ann_interface {
     }
 
     if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, IdxT>>::value) {
-      index_.emplace(std::move(
-        ivf_flat::extend<T, IdxT>(handle, d_new_vectors_view, new_indices_opt, index_.value())));
+      index_.emplace(std::move(raft::runtime::neighbors::ivf_flat::extend(
+        handle, d_new_vectors_view, new_indices_opt, index_.value())));
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
-      index_.emplace(std::move(
-        ivf_pq::extend<T, IdxT>(handle, d_new_vectors_view, new_indices_opt, index_.value())));
+      index_.emplace(std::move(raft::runtime::neighbors::ivf_pq::extend(
+        handle, d_new_vectors_view, new_indices_opt, index_.value())));
     } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
       RAFT_FAIL("CAGRA does not implement the extend method");
     }
@@ -101,28 +106,28 @@ class ann_interface {
                    raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
                    raft::device_matrix_view<float, IdxT, row_major> distances) const
   {
-    if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, IdxT>>::value) {
-      ivf_flat::search<T, IdxT>(handle,
-                                *reinterpret_cast<const ivf_flat::search_params*>(search_params),
-                                index_.value(),
-                                query_dataset,
-                                neighbors,
-                                distances);
-    } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
-      ivf_pq::search<T, IdxT>(handle,
-                              *reinterpret_cast<const ivf_pq::search_params*>(search_params),
-                              index_.value(),
-                              query_dataset,
-                              neighbors,
-                              distances);
-    } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
-      cagra::search<T, IdxT>(handle,
-                             *reinterpret_cast<const cagra::search_params*>(search_params),
-                             index_.value(),
-                             query_dataset,
-                             neighbors,
-                             distances);
-    } 
+    if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, int64_t>>::value) {
+      raft::runtime::neighbors::ivf_flat::search(handle,
+                                                 *reinterpret_cast<const ivf_flat::search_params*>(search_params),
+                                                 index_.value(),
+                                                 query_dataset,
+                                                 neighbors,
+                                                 distances);
+    } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<int64_t>>::value) {
+      raft::runtime::neighbors::ivf_pq::search(handle,
+                                               *reinterpret_cast<const ivf_pq::search_params*>(search_params),
+                                               index_.value(),
+                                               query_dataset,
+                                               neighbors,
+                                               distances);
+    } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, uint32_t>>::value) {
+      raft::runtime::neighbors::cagra::search(handle,
+                                              *reinterpret_cast<const cagra::search_params*>(search_params),
+                                              index_.value(),
+                                              query_dataset,
+                                              neighbors,
+                                              distances);
+    }
   }
 
   // Index duplication, results stored on host memory without merge

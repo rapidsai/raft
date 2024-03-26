@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/pow2_utils.cuh>
-
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/faiss_select/Select.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/pow2_utils.cuh>
 
 namespace raft {
 namespace spatial {
@@ -133,8 +132,10 @@ void haversine_knn(value_idx* out_inds,
                    int k,
                    cudaStream_t stream)
 {
-  haversine_knn_kernel<<<n_query_rows, 128, 0, stream>>>(
-    out_inds, out_dists, index, query, n_index_rows, k);
+  // ensure kernel does not breach shared memory limits
+  constexpr int kWarpQ = sizeof(value_t) > 4 ? 512 : 1024;
+  haversine_knn_kernel<value_idx, value_t, kWarpQ>
+    <<<n_query_rows, 128, 0, stream>>>(out_inds, out_dists, index, query, n_index_rows, k);
 }
 
 }  // namespace detail

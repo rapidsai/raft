@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/warp_primitives.cuh>
+
+#include <stdint.h>
 
 namespace raft::random::device {
 
@@ -35,7 +35,7 @@ namespace raft::random::device {
  * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename rng_t, typename i_t = int>
-DI T warp_random_sample(rng_t& rng, T& weight, i_t& idx)
+DI void warp_random_sample(rng_t& rng, T& weight, i_t& idx)
 {
   // Todo(#1491): benchmark whether a scan and then selecting within the ranges is more efficient.
   static_assert(std::is_integral<T>::value, "The type T must be an integral type.");

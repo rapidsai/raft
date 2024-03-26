@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,21 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
-#include <memory>
+
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/neighbors/ball_cover.cuh>
 #include <raft/random/make_blobs.cuh>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/spatial/knn/epsilon_neighborhood.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
+
+#include <memory>
 
 namespace raft {
 namespace spatial {
@@ -82,8 +89,11 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
   IdxT batchSize;
 };  // class EpsNeighTest
 
-const std::vector<EpsInputs<float, int>> inputsfi = {
+const std::vector<EpsInputs<float, int64_t>> inputsfi = {
+  {100, 16, 5, 2, 2.f},
+  {1500, 16, 5, 3, 2.f},
   {15000, 16, 5, 1, 2.f},
+  {15000, 3, 5, 1, 2.f},
   {14000, 16, 5, 1, 2.f},
   {15000, 17, 5, 1, 2.f},
   {14000, 17, 5, 1, 2.f},
@@ -91,30 +101,316 @@ const std::vector<EpsInputs<float, int>> inputsfi = {
   {14000, 18, 5, 1, 2.f},
   {15000, 32, 5, 1, 2.f},
   {14000, 32, 5, 1, 2.f},
+  {14000, 32, 5, 10, 2.f},
   {20000, 10000, 10, 1, 2.f},
   {20000, 10000, 10, 2, 2.f},
 };
-typedef EpsNeighTest<float, int> EpsNeighTestFI;
-TEST_P(EpsNeighTestFI, Result)
+
+typedef EpsNeighTest<float, int64_t> EpsNeighTestFI;
+
+TEST_P(EpsNeighTestFI, ResultBruteForce)
 {
   for (int i = 0; i < param.n_batches; ++i) {
     RAFT_CUDA_TRY(cudaMemsetAsync(adj.data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
-    RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, sizeof(int) * (batchSize + 1), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, sizeof(int64_t) * (batchSize + 1), stream));
 
-    auto adj_view = make_device_matrix_view<bool, int>(adj.data(), param.n_row, batchSize);
-    auto vd_view  = make_device_vector_view<int, int>(vd.data(), batchSize + 1);
-    auto x_view   = make_device_matrix_view<float, int>(data.data(), param.n_row, param.n_col);
-    auto y_view   = make_device_matrix_view<float, int>(
+    auto adj_view = make_device_matrix_view<bool, int64_t>(adj.data(), batchSize, param.n_row);
+    auto vd_view  = make_device_vector_view<int64_t, int64_t>(vd.data(), batchSize + 1);
+    auto x_view   = make_device_matrix_view<float, int64_t>(
       data.data() + (i * batchSize * param.n_col), batchSize, param.n_col);
+    auto y_view = make_device_matrix_view<float, int64_t>(data.data(), param.n_row, param.n_col);
 
-    eps_neighbors_l2sq<float, int, int>(
+    eps_neighbors_l2sq<float, int64_t, int64_t>(
       handle, x_view, y_view, adj_view, vd_view, param.eps * param.eps);
 
     ASSERT_TRUE(raft::devArrMatch(
-      param.n_row / param.n_centers, vd.data(), batchSize, raft::Compare<int>(), stream));
+      param.n_row / param.n_centers, vd.data(), batchSize, raft::Compare<int64_t>(), stream));
   }
 }
+
 INSTANTIATE_TEST_CASE_P(EpsNeighTests, EpsNeighTestFI, ::testing::ValuesIn(inputsfi));
+
+// rbc examples take fewer points as correctness checks are very costly
+const std::vector<EpsInputs<float, int64_t>> inputsfi_rbc = {
+  {100, 16, 5, 2, 2.f},
+  {1500, 16, 5, 3, 2.f},
+  {1500, 16, 5, 1, 2.f},
+  {1500, 3, 5, 1, 2.f},
+  {1400, 16, 5, 1, 2.f},
+  {1500, 17, 5, 1, 2.f},
+  {1400, 17, 5, 1, 2.f},
+  {1500, 18, 5, 1, 2.f},
+  {1400, 18, 5, 1, 2.f},
+  {1500, 32, 5, 1, 2.f},
+  {1400, 32, 5, 1, 2.f},
+  {1400, 32, 5, 10, 2.f},
+  {2000, 1000, 10, 1, 2.f},
+  {2000, 1000, 10, 2, 2.f},
+};
+
+typedef EpsNeighTest<float, int64_t> EpsNeighRbcTestFI;
+
+TEST_P(EpsNeighRbcTestFI, DenseRbc)
+{
+  auto adj_baseline = raft::make_device_matrix<bool, int64_t>(handle, batchSize, param.n_row);
+
+  raft::neighbors::ball_cover::BallCoverIndex<int64_t, float, int64_t, int64_t> rbc_index(
+    handle, data.data(), param.n_row, param.n_col, raft::distance::DistanceType::L2SqrtUnexpanded);
+  raft::neighbors::ball_cover::build_index(handle, rbc_index);
+
+  for (int i = 0; i < param.n_batches; ++i) {
+    // invalidate
+    RAFT_CUDA_TRY(cudaMemsetAsync(adj.data(), 1, sizeof(bool) * param.n_row * batchSize, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 1, sizeof(int64_t) * (batchSize + 1), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      adj_baseline.data_handle(), 1, sizeof(bool) * param.n_row * batchSize, stream));
+
+    float* query = data.data() + (i * batchSize * param.n_col);
+
+    raft::neighbors::ball_cover::eps_nn<int64_t, float, int64_t, int64_t>(
+      handle,
+      rbc_index,
+      make_device_matrix_view<bool, int64_t>(adj.data(), batchSize, param.n_row),
+      make_device_vector_view<int64_t, int64_t>(vd.data(), batchSize + 1),
+      make_device_matrix_view<float, int64_t>(query, batchSize, param.n_col),
+      param.eps * param.eps);
+
+    ASSERT_TRUE(raft::devArrMatch(
+      param.n_row / param.n_centers, vd.data(), batchSize, raft::Compare<int64_t>(), stream));
+
+    // compute baseline via brute force + compare
+    epsUnexpL2SqNeighborhood<float, int64_t>(adj_baseline.data_handle(),
+                                             nullptr,
+                                             query,
+                                             data.data(),
+                                             batchSize,
+                                             param.n_row,
+                                             param.n_col,
+                                             param.eps * param.eps,
+                                             stream);
+
+    ASSERT_TRUE(raft::devArrMatch(adj_baseline.data_handle(),
+                                  adj.data(),
+                                  batchSize,
+                                  param.n_row,
+                                  raft::Compare<bool>(),
+                                  stream));
+  }
+}
+
+template <typename T>
+testing::AssertionResult assertCsrEqualUnordered(
+  T* ia_exp, T* ja_exp, T* ia_act, T* ja_act, size_t rows, size_t cols, cudaStream_t stream)
+{
+  std::unique_ptr<T[]> ia_exp_h(new T[rows + 1]);
+  std::unique_ptr<T[]> ia_act_h(new T[rows + 1]);
+  raft::update_host<T>(ia_exp_h.get(), ia_exp, rows + 1, stream);
+  raft::update_host<T>(ia_act_h.get(), ia_act, rows + 1, stream);
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
+  size_t nnz = ia_exp_h.get()[rows];
+  std::unique_ptr<T[]> ja_exp_h(new T[nnz]);
+  std::unique_ptr<T[]> ja_act_h(new T[nnz]);
+  raft::update_host<T>(ja_exp_h.get(), ja_exp, nnz, stream);
+  raft::update_host<T>(ja_act_h.get(), ja_act, nnz, stream);
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
+  for (size_t i(0); i < rows; ++i) {
+    auto row_start = ia_exp_h.get()[i];
+    auto row_end   = ia_exp_h.get()[i + 1];
+
+    // sort ja's
+    std::sort(ja_exp_h.get() + row_start, ja_exp_h.get() + row_end);
+    std::sort(ja_act_h.get() + row_start, ja_act_h.get() + row_end);
+
+    for (size_t idx(row_start); idx < (size_t)row_end; ++idx) {
+      auto exp = ja_exp_h.get()[idx];
+      auto act = ja_act_h.get()[idx];
+      if (exp != act) {
+        return testing::AssertionFailure()
+               << "actual=" << act << " != expected=" << exp << " @" << i << "," << idx;
+      }
+    }
+  }
+  return testing::AssertionSuccess();
+}
+
+TEST_P(EpsNeighRbcTestFI, SparseRbc)
+{
+  auto adj_ia          = raft::make_device_vector<int64_t>(handle, batchSize + 1);
+  auto adj_ja          = raft::make_device_vector<int64_t>(handle, param.n_row * batchSize);
+  auto vd_baseline     = raft::make_device_vector<int64_t>(handle, batchSize + 1);
+  auto adj_ia_baseline = raft::make_device_vector<int64_t>(handle, batchSize + 1);
+  auto adj_ja_baseline = raft::make_device_vector<int64_t>(handle, param.n_row * batchSize);
+
+  raft::neighbors::ball_cover::BallCoverIndex<int64_t, float, int64_t, int64_t> rbc_index(
+    handle, data.data(), param.n_row, param.n_col, raft::distance::DistanceType::L2SqrtUnexpanded);
+  raft::neighbors::ball_cover::build_index(handle, rbc_index);
+
+  for (int i = 0; i < param.n_batches; ++i) {
+    // reset full array -- that way we can compare the full size
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(adj_ja.data_handle(), 0, sizeof(int64_t) * param.n_row * batchSize, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      adj_ja_baseline.data_handle(), 0, sizeof(int64_t) * param.n_row * batchSize, stream));
+
+    float* query = data.data() + (i * batchSize * param.n_col);
+
+    // compute dense baseline and convert adj to csr
+    {
+      raft::neighbors::ball_cover::eps_nn<int64_t, float, int64_t, int64_t>(
+        handle,
+        rbc_index,
+        make_device_matrix_view<bool, int64_t>(adj.data(), batchSize, param.n_row),
+        make_device_vector_view<int64_t, int64_t>(vd_baseline.data_handle(), batchSize + 1),
+        make_device_matrix_view<float, int64_t>(query, batchSize, param.n_col),
+        param.eps * param.eps);
+      thrust::exclusive_scan(resource::get_thrust_policy(handle),
+                             vd_baseline.data_handle(),
+                             vd_baseline.data_handle() + batchSize + 1,
+                             adj_ia_baseline.data_handle());
+      raft::sparse::convert::adj_to_csr(handle,
+                                        adj.data(),
+                                        adj_ia_baseline.data_handle(),
+                                        batchSize,
+                                        param.n_row,
+                                        labels.data(),
+                                        adj_ja_baseline.data_handle());
+    }
+
+    // exact computation with 2 passes
+    {
+      raft::neighbors::ball_cover::eps_nn<int64_t, float, int64_t, int64_t>(
+        handle,
+        rbc_index,
+        make_device_vector_view<int64_t, int64_t>(adj_ia.data_handle(), batchSize + 1),
+        make_device_vector_view<int64_t, int64_t>(nullptr, 0),
+        make_device_vector_view<int64_t, int64_t>(vd.data(), batchSize + 1),
+        make_device_matrix_view<float, int64_t>(query, batchSize, param.n_col),
+        param.eps * param.eps);
+      raft::neighbors::ball_cover::eps_nn<int64_t, float, int64_t, int64_t>(
+        handle,
+        rbc_index,
+        make_device_vector_view<int64_t, int64_t>(adj_ia.data_handle(), batchSize + 1),
+        make_device_vector_view<int64_t, int64_t>(adj_ja.data_handle(), batchSize * param.n_row),
+        make_device_vector_view<int64_t, int64_t>(vd.data(), batchSize + 1),
+        make_device_matrix_view<float, int64_t>(query, batchSize, param.n_col),
+        param.eps * param.eps);
+      ASSERT_TRUE(raft::devArrMatch(adj_ia_baseline.data_handle(),
+                                    adj_ia.data_handle(),
+                                    batchSize + 1,
+                                    raft::Compare<int64_t>(),
+                                    stream));
+      ASSERT_TRUE(assertCsrEqualUnordered(adj_ia_baseline.data_handle(),
+                                          adj_ja_baseline.data_handle(),
+                                          adj_ia.data_handle(),
+                                          adj_ja.data_handle(),
+                                          batchSize,
+                                          param.n_row,
+                                          stream));
+    }
+  }
+}
+
+TEST_P(EpsNeighRbcTestFI, SparseRbcMaxK)
+{
+  auto adj_ia          = raft::make_device_vector<int64_t>(handle, batchSize + 1);
+  auto adj_ja          = raft::make_device_vector<int64_t>(handle, param.n_row * batchSize);
+  auto vd_baseline     = raft::make_device_vector<int64_t>(handle, batchSize + 1);
+  auto adj_ia_baseline = raft::make_device_vector<int64_t>(handle, batchSize + 1);
+  auto adj_ja_baseline = raft::make_device_vector<int64_t>(handle, param.n_row * batchSize);
+
+  raft::neighbors::ball_cover::BallCoverIndex<int64_t, float, int64_t, int64_t> rbc_index(
+    handle, data.data(), param.n_row, param.n_col, raft::distance::DistanceType::L2SqrtUnexpanded);
+  raft::neighbors::ball_cover::build_index(handle, rbc_index);
+
+  int64_t expected_max_k = param.n_row / param.n_centers;
+
+  for (int i = 0; i < param.n_batches; ++i) {
+    // reset full array -- that way we can compare the full size
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(adj_ja.data_handle(), 0, sizeof(int64_t) * param.n_row * batchSize, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      adj_ja_baseline.data_handle(), 0, sizeof(int64_t) * param.n_row * batchSize, stream));
+
+    float* query = data.data() + (i * batchSize * param.n_col);
+
+    // compute dense baseline and convert adj to csr
+    {
+      raft::neighbors::ball_cover::eps_nn<int64_t, float, int64_t, int64_t>(
+        handle,
+        rbc_index,
+        make_device_matrix_view<bool, int64_t>(adj.data(), batchSize, param.n_row),
+        make_device_vector_view<int64_t, int64_t>(vd_baseline.data_handle(), batchSize + 1),
+        make_device_matrix_view<float, int64_t>(query, batchSize, param.n_col),
+        param.eps * param.eps);
+      thrust::exclusive_scan(resource::get_thrust_policy(handle),
+                             vd_baseline.data_handle(),
+                             vd_baseline.data_handle() + batchSize + 1,
+                             adj_ia_baseline.data_handle());
+      raft::sparse::convert::adj_to_csr(handle,
+                                        adj.data(),
+                                        adj_ia_baseline.data_handle(),
+                                        batchSize,
+                                        param.n_row,
+                                        labels.data(),
+                                        adj_ja_baseline.data_handle());
+    }
+
+    // exact computation with 1 pass
+    {
+      int64_t max_k = expected_max_k;
+      raft::neighbors::ball_cover::eps_nn<int64_t, float, int64_t, int64_t>(
+        handle,
+        rbc_index,
+        make_device_vector_view<int64_t, int64_t>(adj_ia.data_handle(), batchSize + 1),
+        make_device_vector_view<int64_t, int64_t>(adj_ja.data_handle(), batchSize * param.n_row),
+        make_device_vector_view<int64_t, int64_t>(vd.data(), batchSize + 1),
+        make_device_matrix_view<float, int64_t>(query, batchSize, param.n_col),
+        param.eps * param.eps,
+        make_host_scalar_view<int64_t, int64_t>(&max_k));
+      ASSERT_TRUE(raft::devArrMatch(adj_ia_baseline.data_handle(),
+                                    adj_ia.data_handle(),
+                                    batchSize + 1,
+                                    raft::Compare<int64_t>(),
+                                    stream));
+      ASSERT_TRUE(assertCsrEqualUnordered(adj_ia_baseline.data_handle(),
+                                          adj_ja_baseline.data_handle(),
+                                          adj_ia.data_handle(),
+                                          adj_ja.data_handle(),
+                                          batchSize,
+                                          param.n_row,
+                                          stream));
+      ASSERT_TRUE(raft::devArrMatch(
+        vd_baseline.data_handle(), vd.data(), batchSize + 1, raft::Compare<int64_t>(), stream));
+      ASSERT_TRUE(max_k == expected_max_k);
+    }
+
+    // k-limited computation with 1 pass
+    {
+      int64_t max_k = expected_max_k / 2;
+      raft::neighbors::ball_cover::eps_nn<int64_t, float, int64_t, int64_t>(
+        handle,
+        rbc_index,
+        make_device_vector_view<int64_t, int64_t>(adj_ia.data_handle(), batchSize + 1),
+        make_device_vector_view<int64_t, int64_t>(adj_ja.data_handle(), batchSize * param.n_row),
+        make_device_vector_view<int64_t, int64_t>(vd.data(), batchSize + 1),
+        make_device_matrix_view<float, int64_t>(query, batchSize, param.n_col),
+        param.eps * param.eps,
+        make_host_scalar_view<int64_t, int64_t>(&max_k));
+      ASSERT_TRUE(max_k == expected_max_k);
+      ASSERT_TRUE(raft::devArrMatch(
+        expected_max_k / 2, vd.data(), batchSize, raft::Compare<int64_t>(), stream));
+      ASSERT_TRUE(raft::devArrMatch(expected_max_k / 2 * batchSize,
+                                    vd.data() + batchSize,
+                                    1,
+                                    raft::Compare<int64_t>(),
+                                    stream));
+    }
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(EpsNeighTests, EpsNeighRbcTestFI, ::testing::ValuesIn(inputsfi_rbc));
 
 };  // namespace knn
 };  // namespace spatial

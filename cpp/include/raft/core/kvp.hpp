@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@
 #include <raft/core/detail/macros.hpp>
 
 #ifdef _RAFT_HAS_CUDA
-#include <cub/cub.cuh>
 #include <raft/util/cuda_utils.cuh>  // raft::shfl_xor
+
+#include <cub/cub.cuh>
 #endif
 namespace raft {
 /**

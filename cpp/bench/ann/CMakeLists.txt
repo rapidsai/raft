@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -18,9 +18,6 @@
 option(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT
-       "Include faiss' cpu brute-force knn algorithm in benchmark" ON
-)
 option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT "Include faiss' cpu brute-force algorithm in benchmark" ON)
 
 option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT "Include faiss' cpu ivf flat algorithm in benchmark"
@@ -30,6 +27,8 @@ option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ "Include faiss' cpu ivf pq algorithm 
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE "Include raft's brute force knn in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB "Include raft's CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_ANN_MG "Include raft's MG ANN in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
@@ -55,6 +54,8 @@ if(BUILD_CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_ANN_MG OFF)
   set(RAFT_ANN_BENCH_USE_GGNN OFF)
 else()
@@ -90,6 +91,7 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
    OR RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE
    OR RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
    OR RAFT_ANN_BENCH_USE_RAFT_CAGRA
+   OR RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB
    OR RAFT_ANN_BENCH_USE_RAFT_ANN_MG
 )
   set(RAFT_ANN_BENCH_USE_RAFT ON)
@@ -98,7 +100,7 @@ endif()
 # ##################################################################################################
 # * Fetch requirements -------------------------------------------------------------
 
-if(RAFT_ANN_BENCH_USE_HNSWLIB)
+if(RAFT_ANN_BENCH_USE_HNSWLIB OR RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
   include(cmake/thirdparty/get_hnswlib.cmake)
 endif()
 
@@ -117,12 +119,27 @@ if(RAFT_ANN_BENCH_USE_FAISS)
 endif()
 
 # ##################################################################################################
+# * Enable NVTX if available
+
+# Note: ANN_BENCH wrappers have extra NVTX code not related to raft::nvtx.They track gbench
+# benchmark cases and iterations. This is to make limited NVTX available to all algos, not just
+# raft.
+if(TARGET CUDA::nvtx3)
+  set(_CMAKE_REQUIRED_INCLUDES_ORIG ${CMAKE_REQUIRED_INCLUDES})
+  get_target_property(CMAKE_REQUIRED_INCLUDES CUDA::nvtx3 INTERFACE_INCLUDE_DIRECTORIES)
+  unset(NVTX3_HEADERS_FOUND CACHE)
+  # Check the headers explicitly to make sure the cpu-only build succeeds
+  CHECK_INCLUDE_FILE_CXX(nvtx3/nvToolsExt.h NVTX3_HEADERS_FOUND)
+  set(CMAKE_REQUIRED_INCLUDES ${_CMAKE_REQUIRED_INCLUDES_ORIG})
+endif()
+
+# ##################################################################################################
 # * Configure tests function-------------------------------------------------------------
 
 function(ConfigureAnnBench)
 
   set(oneValueArgs NAME)
-  set(multiValueArgs PATH LINKS CXXFLAGS INCLUDES)
+  set(multiValueArgs PATH LINKS CXXFLAGS)
 
   if(NOT BUILD_CPU_ONLY)
     set(GPU_BUILD ON)
@@ -141,8 +158,13 @@ function(ConfigureAnnBench)
     add_dependencies(${BENCH_NAME} ANN_BENCH)
   else()
     add_executable(${BENCH_NAME} ${ConfigureAnnBench_PATH})
-    target_compile_definitions(${BENCH_NAME} PRIVATE ANN_BENCH_BUILD_MAIN)
-    target_link_libraries(${BENCH_NAME} PRIVATE benchmark::benchmark)
+    target_compile_definitions(
+      ${BENCH_NAME} PRIVATE ANN_BENCH_BUILD_MAIN
+                            $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
+    )
+    target_link_libraries(
+      ${BENCH_NAME} PRIVATE benchmark::benchmark $<$<BOOL:${NVTX3_HEADERS_FOUND}>:CUDA::nvtx3>
+    )
   endif()
 
   target_link_libraries(
@@ -206,9 +228,9 @@ endfunction()
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   ConfigureAnnBench(
-    NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp INCLUDES
-    ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib CXXFLAGS "${HNSW_CXX_FLAGS}"
+    NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp LINKS hnswlib::hnswlib
   )
+
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
@@ -264,6 +286,13 @@ if(RAFT_ANN_BENCH_USE_RAFT_ANN_MG)
   )
 endif()
 
+if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+  ConfigureAnnBench(
+    NAME RAFT_CAGRA_HNSWLIB PATH bench/ann/src/raft/raft_cagra_hnswlib.cu LINKS raft::compiled
+    hnswlib::hnswlib
+  )
+endif()
+
 set(RAFT_FAISS_TARGETS faiss::faiss)
 if(TARGET faiss::faiss_avx2)
   set(RAFT_FAISS_TARGETS faiss::faiss_avx2)
@@ -314,10 +343,7 @@ endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)
   include(cmake/thirdparty/get_glog.cmake)
-  ConfigureAnnBench(
-    NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu INCLUDES
-    ${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src/include LINKS glog::glog
-  )
+  ConfigureAnnBench(NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu LINKS glog::glog ggnn::ggnn)
 endif()
 
 # ##################################################################################################
@@ -336,8 +362,16 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
   target_include_directories(ANN_BENCH PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
   target_link_libraries(
-    ANN_BENCH PRIVATE nlohmann_json::nlohmann_json benchmark_static dl -static-libgcc
-                      -static-libstdc++ CUDA::nvtx3
+    ANN_BENCH
+    PRIVATE raft::raft
+            nlohmann_json::nlohmann_json
+            benchmark_static
+            dl
+            -static-libgcc
+            fmt::fmt-header-only
+            spdlog::spdlog_header_only
+            -static-libstdc++
+            $<$<BOOL:${NVTX3_HEADERS_FOUND}>:CUDA::nvtx3>
   )
   set_target_properties(
     ANN_BENCH
@@ -351,17 +385,10 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
                BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
   )
-
-  # Disable NVTX when the nvtx3 headers are missing
-  set(_CMAKE_REQUIRED_INCLUDES_ORIG ${CMAKE_REQUIRED_INCLUDES})
-  get_target_property(CMAKE_REQUIRED_INCLUDES ANN_BENCH INCLUDE_DIRECTORIES)
-  CHECK_INCLUDE_FILE_CXX(nvtx3/nvToolsExt.h NVTX3_HEADERS_FOUND)
-  set(CMAKE_REQUIRED_INCLUDES ${_CMAKE_REQUIRED_INCLUDES_ORIG})
   target_compile_definitions(
     ANN_BENCH
     PRIVATE
-      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}.${CUDAToolkit_VERSION_PATCH}
-  ">
+      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}.${CUDAToolkit_VERSION_PATCH}">
       $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
   )
 

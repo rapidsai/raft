@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,14 @@
 
 #pragma once
 
-#include <cstdint>  // int64_t
+#include <raft/core/device_mdspan.hpp>      // raft::device_matrix_view
+#include <raft/core/resources.hpp>          // raft::resources
+#include <raft/neighbors/ivf_pq_types.hpp>  // raft::neighbors::ivf_pq::index
+#include <raft/util/raft_explicit.hpp>      // RAFT_EXPLICIT
 
-#include <raft/core/device_mdspan.hpp>            // raft::device_matrix_view
-#include <raft/core/resources.hpp>                // raft::resources
-#include <raft/neighbors/ivf_pq_types.hpp>        // raft::neighbors::ivf_pq::index
-#include <raft/util/raft_explicit.hpp>            // RAFT_EXPLICIT
 #include <rmm/mr/device/per_device_resource.hpp>  // rmm::mr::device_memory_resource
+
+#include <cstdint>  // int64_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -150,6 +151,7 @@ search(raft::resources const& handle,
     ->raft::neighbors::ivf_pq::index<IdxT>;
 
 instantiate_raft_neighbors_ivf_pq_build(float, int64_t);
+instantiate_raft_neighbors_ivf_pq_build(half, int64_t);
 instantiate_raft_neighbors_ivf_pq_build(int8_t, int64_t);
 instantiate_raft_neighbors_ivf_pq_build(uint8_t, int64_t);
 
@@ -184,6 +186,7 @@ instantiate_raft_neighbors_ivf_pq_build(uint8_t, int64_t);
     IdxT n_rows);
 
 instantiate_raft_neighbors_ivf_pq_extend(float, int64_t);
+instantiate_raft_neighbors_ivf_pq_extend(half, int64_t);
 instantiate_raft_neighbors_ivf_pq_extend(int8_t, int64_t);
 instantiate_raft_neighbors_ivf_pq_extend(uint8_t, int64_t);
 
@@ -220,6 +223,7 @@ instantiate_raft_neighbors_ivf_pq_extend(uint8_t, int64_t);
     float* distances)
 
 instantiate_raft_neighbors_ivf_pq_search(float, int64_t);
+instantiate_raft_neighbors_ivf_pq_search(half, int64_t);
 instantiate_raft_neighbors_ivf_pq_search(int8_t, int64_t);
 instantiate_raft_neighbors_ivf_pq_search(uint8_t, int64_t);
 

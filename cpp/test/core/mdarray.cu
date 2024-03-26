@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,26 +15,30 @@
  */
 
 #include "../test_utils.cuh"
-#include <raft/core/resource/thrust_policy.hpp>
 
-#include <gtest/gtest.h>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/managed_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
 #include <rmm/exec_policy.hpp>
+
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/sequence.h>
+
+#include <gtest/gtest.h>
 
 namespace {
 namespace stdex = std::experimental;

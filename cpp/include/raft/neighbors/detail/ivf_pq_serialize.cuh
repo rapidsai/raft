@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,14 @@
 
 #pragma once
 
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/core/serialize.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_pq_types.hpp>
-
-#include <raft/core/host_mdarray.hpp>
-#include <raft/core/logger.hpp>
-#include <raft/core/resources.hpp>
-#include <raft/core/serialize.hpp>
 
 #include <fstream>
 #include <memory>
@@ -37,18 +36,6 @@ namespace raft::neighbors::ivf_pq::detail {
 // TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
 //             compatible fashion.
 constexpr int kSerializationVersion = 3;
-
-// NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
-// message.
-template <size_t RealSize, size_t ExpectedSize>
-struct check_index_layout {
-  static_assert(RealSize == ExpectedSize,
-                "The size of the index struct has changed since the last update; "
-                "paste in the new size and consider updating the serialization logic");
-};
-
-// TODO: Recompute this and come back to it.
-template struct check_index_layout<sizeof(index<std::uint64_t>), 480>;
 
 /**
  * Write the index to an output stream
@@ -172,7 +159,7 @@ auto deserialize(raft::resources const& handle_, std::istream& is) -> index<IdxT
 
   resource::sync_stream(handle_);
 
-  recompute_internal_state(handle_, index);
+  ivf::detail::recompute_internal_state(handle_, index);
 
   return index;
 }

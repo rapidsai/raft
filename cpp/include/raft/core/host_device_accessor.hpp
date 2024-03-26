@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 #include <raft/core/memory_type.hpp>
+
 #include <type_traits>
 
 namespace raft {
@@ -42,6 +43,16 @@ struct host_device_accessor : public AccessorPolicy {
   using AccessorPolicy::AccessorPolicy;
   using offset_policy = host_device_accessor;
   host_device_accessor(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
+
+  // Prevent implicit conversion from incompatible host_device_accessor types
+  template <memory_type OtherMemType>
+  host_device_accessor(host_device_accessor<AccessorPolicy, OtherMemType> const& that) = delete;
+
+  template <memory_type OtherMemType, typename = std::enable_if_t<mem_type == OtherMemType>>
+  host_device_accessor(host_device_accessor<AccessorPolicy, OtherMemType> const& that)
+    : AccessorPolicy{that}
+  {
+  }
 };
 
 }  // namespace raft

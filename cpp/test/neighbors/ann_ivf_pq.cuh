@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,9 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
-
-#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/map_reduce.cuh>
@@ -32,15 +30,17 @@
 #include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 
+#include <raft_internal/neighbors/naive_knn.cuh>
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
 #include <rmm/device_vector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 
-#include <gtest/gtest.h>
-
 #include <cub/cub.cuh>
 #include <thrust/sequence.h>
+
+#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -380,6 +380,83 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                             list_data_size,
                             Compare<uint8_t>{}));
   }
+  void check_packing_contiguous(index<IdxT>* index, uint32_t label)
+  {
+    auto old_list = index->lists()[label];
+    auto n_rows   = old_list->size.load();
+
+    if (n_rows == 0) { return; }
+
+    auto codes   = make_device_matrix<uint8_t>(handle_, n_rows, index->pq_dim());
+    auto indices = make_device_vector<IdxT>(handle_, n_rows);
+    copy(indices.data_handle(), old_list->indices.data_handle(), n_rows, stream_);
+
+    uint32_t code_size = ceildiv<uint32_t>(index->pq_dim() * index->pq_bits(), 8);
+
+    auto codes_compressed = make_device_matrix<uint8_t>(handle_, n_rows, code_size);
+
+    ivf_pq::helpers::unpack_contiguous_list_data(
+      handle_, *index, codes_compressed.data_handle(), n_rows, label, 0);
+    ivf_pq::helpers::erase_list(handle_, index, label);
+    ivf_pq::detail::extend_list_prepare(handle_, index, make_const_mdspan(indices.view()), label);
+    ivf_pq::helpers::pack_contiguous_list_data<IdxT>(
+      handle_, index, codes_compressed.data_handle(), n_rows, label, 0);
+    ivf_pq::helpers::recompute_internal_state(handle_, index);
+
+    auto& new_list = index->lists()[label];
+    ASSERT_NE(old_list.get(), new_list.get())
+      << "The old list should have been shared and retained after ivf_pq index has erased the "
+         "corresponding cluster.";
+    auto list_data_size = (n_rows / ivf_pq::kIndexGroupSize) * new_list->data.extent(1) *
+                          new_list->data.extent(2) * new_list->data.extent(3);
+
+    ASSERT_TRUE(old_list->data.size() >= list_data_size);
+    ASSERT_TRUE(new_list->data.size() >= list_data_size);
+    ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
+                            new_list->data.data_handle(),
+                            list_data_size,
+                            Compare<uint8_t>{}));
+
+    // Pack a few vectors back to the list.
+    uint32_t row_offset = 9;
+    uint32_t n_vec      = 3;
+    ASSERT_TRUE(row_offset + n_vec < n_rows);
+    size_t offset      = row_offset * code_size;
+    auto codes_to_pack = make_device_matrix_view<uint8_t, uint32_t>(
+      codes_compressed.data_handle() + offset, n_vec, index->pq_dim());
+    ivf_pq::helpers::pack_contiguous_list_data(
+      handle_, index, codes_to_pack.data_handle(), n_vec, label, row_offset);
+    ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
+                            new_list->data.data_handle(),
+                            list_data_size,
+                            Compare<uint8_t>{}));
+
+    // // Another test with the API that take list_data directly
+    auto list_data  = index->lists()[label]->data.view();
+    uint32_t n_take = 4;
+    ASSERT_TRUE(row_offset + n_take < n_rows);
+    auto codes2 = raft::make_device_matrix<uint8_t>(handle_, n_take, code_size);
+    ivf_pq::helpers::codepacker::unpack_contiguous(handle_,
+                                                   list_data,
+                                                   index->pq_bits(),
+                                                   row_offset,
+                                                   n_take,
+                                                   index->pq_dim(),
+                                                   codes2.data_handle());
+
+    // Write it back
+    ivf_pq::helpers::codepacker::pack_contiguous(handle_,
+                                                 codes2.data_handle(),
+                                                 n_vec,
+                                                 index->pq_dim(),
+                                                 index->pq_bits(),
+                                                 row_offset,
+                                                 list_data);
+    ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
+                            new_list->data.data_handle(),
+                            list_data_size,
+                            Compare<uint8_t>{}));
+  }
 
   template <typename BuildIndex>
   void run(BuildIndex build_index)
@@ -398,6 +475,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
         case 1: {
           // Dump and re-write codes for one label
           check_packing(&index, label);
+          check_packing_contiguous(&index, label);
         } break;
         default: {
           // check a small subset of data in a randomly chosen cluster to see if the data
@@ -960,6 +1038,32 @@ inline auto special_cases() -> test_cases_t
     x.index_params.pq_bits       = 8;
     x.index_params.n_lists       = 100;
     x.search_params.n_probes     = 100;
+  });
+
+  ADD_CASE({
+    x.num_db_vecs                = 4335;
+    x.dim                        = 4;
+    x.num_queries                = 100000;
+    x.k                          = 12;
+    x.index_params.metric        = distance::DistanceType::L2Expanded;
+    x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_SUBSPACE;
+    x.index_params.pq_dim        = 2;
+    x.index_params.pq_bits       = 8;
+    x.index_params.n_lists       = 69;
+    x.search_params.n_probes     = 69;
+  });
+
+  ADD_CASE({
+    x.num_db_vecs                = 4335;
+    x.dim                        = 4;
+    x.num_queries                = 100000;
+    x.k                          = 12;
+    x.index_params.metric        = distance::DistanceType::L2Expanded;
+    x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_CLUSTER;
+    x.index_params.pq_dim        = 2;
+    x.index_params.pq_bits       = 8;
+    x.index_params.n_lists       = 69;
+    x.search_params.n_probes     = 69;
   });
 
   return xs;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,40 +17,40 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
-#include <raft/linalg/map.cuh>
-#include <raft/neighbors/ivf_flat_types.hpp>
-#include <raft/neighbors/ivf_list.hpp>
-#include <raft/neighbors/sample_filter.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/fast_int_div.cuh>
-#include <thrust/functional.h>
-
-#include <raft_internal/neighbors/naive_knn.cuh>
-
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_flat_helpers.cuh>
+#include <raft/neighbors/ivf_flat_types.hpp>
+#include <raft/neighbors/ivf_list.hpp>
+#include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/fast_int_div.cuh>
+
+#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <thrust/functional.h>
+#include <thrust/sequence.h>
 
 #include <gtest/gtest.h>
-
-#include <rmm/device_uvector.hpp>
-#include <thrust/sequence.h>
 
 #include <cstddef>
 #include <iostream>
@@ -72,6 +72,7 @@ struct AnnIvfFlatInputs {
   IdxT nlist;
   raft::distance::DistanceType metric;
   bool adaptive_centers;
+  bool host_dataset;
 };
 
 template <typename IdxT>
@@ -79,7 +80,7 @@ template <typename IdxT>
 {
   os << "{ " << p.num_queries << ", " << p.num_db_vecs << ", " << p.dim << ", " << p.k << ", "
      << p.nprobe << ", " << p.nlist << ", " << static_cast<int>(p.metric) << ", "
-     << p.adaptive_centers << '}' << std::endl;
+     << p.adaptive_centers << ", " << p.host_dataset << '}' << std::endl;
   return os;
 }
 
@@ -178,36 +179,69 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         index_params.kmeans_trainset_fraction = 0.5;
         index_params.metric_arg               = 0;
 
-        auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
-          (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
+        ivf_flat::index<DataT, IdxT> idx(handle_, index_params, ps.dim);
+        ivf_flat::index<DataT, IdxT> index_2(handle_, index_params, ps.dim);
 
-        auto idx = ivf_flat::build(handle_, index_params, database_view);
+        if (!ps.host_dataset) {
+          auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
+            (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
+          idx = ivf_flat::build(handle_, index_params, database_view);
+          rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
+          thrust::sequence(resource::get_thrust_policy(handle_),
+                           thrust::device_pointer_cast(vector_indices.data()),
+                           thrust::device_pointer_cast(vector_indices.data() + ps.num_db_vecs));
+          resource::sync_stream(handle_);
 
-        rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
-        thrust::sequence(resource::get_thrust_policy(handle_),
-                         thrust::device_pointer_cast(vector_indices.data()),
-                         thrust::device_pointer_cast(vector_indices.data() + ps.num_db_vecs));
-        resource::sync_stream(handle_);
+          IdxT half_of_data = ps.num_db_vecs / 2;
 
-        IdxT half_of_data = ps.num_db_vecs / 2;
+          auto half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
+            (const DataT*)database.data(), half_of_data, ps.dim);
 
-        auto half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
-          (const DataT*)database.data(), half_of_data, ps.dim);
+          const std::optional<raft::device_vector_view<const IdxT, IdxT>> no_opt = std::nullopt;
+          index_2 = ivf_flat::extend(handle_, half_of_data_view, no_opt, idx);
 
-        const std::optional<raft::device_vector_view<const IdxT, IdxT>> no_opt = std::nullopt;
-        index<DataT, IdxT> index_2 = ivf_flat::extend(handle_, half_of_data_view, no_opt, idx);
+          auto new_half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
+            database.data() + half_of_data * ps.dim, IdxT(ps.num_db_vecs) - half_of_data, ps.dim);
 
-        auto new_half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
-          database.data() + half_of_data * ps.dim, IdxT(ps.num_db_vecs) - half_of_data, ps.dim);
+          auto new_half_of_data_indices_view = raft::make_device_vector_view<const IdxT, IdxT>(
+            vector_indices.data() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data);
 
-        auto new_half_of_data_indices_view = raft::make_device_vector_view<const IdxT, IdxT>(
-          vector_indices.data() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data);
+          ivf_flat::extend(handle_,
+                           new_half_of_data_view,
+                           std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
+                             new_half_of_data_indices_view),
+                           &index_2);
 
-        ivf_flat::extend(handle_,
-                         new_half_of_data_view,
-                         std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
-                           new_half_of_data_indices_view),
-                         &index_2);
+        } else {
+          auto host_database = raft::make_host_matrix<DataT, IdxT>(ps.num_db_vecs, ps.dim);
+          raft::copy(
+            host_database.data_handle(), database.data(), ps.num_db_vecs * ps.dim, stream_);
+          idx =
+            ivf_flat::build(handle_, index_params, raft::make_const_mdspan(host_database.view()));
+
+          auto vector_indices = raft::make_host_vector<IdxT>(handle_, ps.num_db_vecs);
+          std::iota(vector_indices.data_handle(), vector_indices.data_handle() + ps.num_db_vecs, 0);
+
+          IdxT half_of_data = ps.num_db_vecs / 2;
+
+          auto half_of_data_view = raft::make_host_matrix_view<const DataT, IdxT>(
+            (const DataT*)host_database.data_handle(), half_of_data, ps.dim);
+
+          const std::optional<raft::host_vector_view<const IdxT, IdxT>> no_opt = std::nullopt;
+          index_2 = ivf_flat::extend(handle_, half_of_data_view, no_opt, idx);
+
+          auto new_half_of_data_view = raft::make_host_matrix_view<const DataT, IdxT>(
+            host_database.data_handle() + half_of_data * ps.dim,
+            IdxT(ps.num_db_vecs) - half_of_data,
+            ps.dim);
+          auto new_half_of_data_indices_view = raft::make_host_vector_view<const IdxT, IdxT>(
+            vector_indices.data_handle() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data);
+          ivf_flat::extend(handle_,
+                           new_half_of_data_view,
+                           std::make_optional<raft::host_vector_view<const IdxT, IdxT>>(
+                             new_half_of_data_indices_view),
+                           &index_2);
+        }
 
         auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
           search_queries.data(), ps.num_queries, ps.dim);
@@ -320,7 +354,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
       ivf::resize_list(handle_, lists[label], list_device_spec, list_size, 0);
     }
 
-    idx.recompute_internal_state(handle_);
+    helpers::recompute_internal_state(handle_, &idx);
 
     using interleaved_group = Pow2<kIndexGroupSize>;
 
@@ -573,6 +607,32 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
   {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
   {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
   {10000, 131072, 8, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false},
+
+  // various combinations with k>raft::matrix::detail::select::warpsort::kMaxCapacity
+  {1000, 10000, 16, 1024, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {1000, 10000, 2053, 512, 50, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 10000, 2049, 2048, 70, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 10000, 16, 4000, 100, 2048, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {10, 10000, 16, 4000, 100, 2048, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {10, 10000, 16, 4000, 120, 2048, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {20, 100000, 16, 257, 20, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {1000, 100000, 16, 259, 20, 1024, raft::distance::DistanceType::L2Expanded, true, true},
+  {10000, 131072, 8, 280, 20, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {100000, 1024, 32, 257, 64, 64, raft::distance::DistanceType::L2Expanded, false},
+  {100000, 1024, 32, 257, 64, 64, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {100000, 1024, 32, 257, 64, 64, raft::distance::DistanceType::InnerProduct, false},
+  {100000, 1024, 16, 300, 20, 60, raft::distance::DistanceType::L2Expanded, false},
+  {100000, 1024, 16, 500, 20, 60, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {100000, 1024, 16, 700, 20, 60, raft::distance::DistanceType::InnerProduct, false},
+
+  // host input data
+  {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded, false, true},
+  {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::L2Expanded, false, true},
+  {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::L2Expanded, false, true},
+  {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::L2Expanded, false, true},
+  {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false, true},
+  {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false, true},
+  {10000, 131072, 8, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false, true},
 
   {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
   {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::InnerProduct, true},

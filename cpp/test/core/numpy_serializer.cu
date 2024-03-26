@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/managed_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/serialize.hpp>
 
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/universal_vector.h>
+
+#include <gtest/gtest.h>
 
 #include <complex>
 #include <cstdint>

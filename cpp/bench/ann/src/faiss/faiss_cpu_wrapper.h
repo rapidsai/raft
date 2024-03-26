@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,29 +73,23 @@ class FaissCpu : public ANN<T> {
     static_assert(std::is_same_v<T, float>, "faiss support only float type");
   }
 
-  virtual ~FaissCpu() noexcept {}
-
-  void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
+  void build(const T* dataset, size_t nrow) final;
 
   void set_search_param(const AnnSearchParam& param) override;
 
   void init_quantizer(int dim)
   {
     if (this->metric_type_ == faiss::MetricType::METRIC_L2) {
-      this->quantizer_ = std::make_unique<faiss::IndexFlatL2>(dim);
+      this->quantizer_ = std::make_shared<faiss::IndexFlatL2>(dim);
     } else if (this->metric_type_ == faiss::MetricType::METRIC_INNER_PRODUCT) {
-      this->quantizer_ = std::make_unique<faiss::IndexFlatIP>(dim);
+      this->quantizer_ = std::make_shared<faiss::IndexFlatIP>(dim);
     }
   }
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const final;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const final;
 
   AlgoProperty get_preference() const override
   {
@@ -113,19 +107,19 @@ class FaissCpu : public ANN<T> {
   template <typename Index>
   void load_(const std::string& file);
 
-  std::unique_ptr<faiss::Index> index_;
-  std::unique_ptr<faiss::Index> quantizer_;
-  std::unique_ptr<faiss::IndexRefineFlat> index_refine_;
+  std::shared_ptr<faiss::Index> index_;
+  std::shared_ptr<faiss::Index> quantizer_;
+  std::shared_ptr<faiss::IndexRefineFlat> index_refine_;
   faiss::MetricType metric_type_;
   int nlist_;
   double training_sample_fraction_;
 
   int num_threads_;
-  std::unique_ptr<FixedThreadPool> thread_pool_;
+  std::shared_ptr<FixedThreadPool> thread_pool_;
 };
 
 template <typename T>
-void FaissCpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void FaissCpu<T>::build(const T* dataset, size_t nrow)
 {
   auto index_ivf = dynamic_cast<faiss::IndexIVF*>(index_.get());
   if (index_ivf != nullptr) {
@@ -152,7 +146,7 @@ void FaissCpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
   index_->train(nrow, dataset);  // faiss::IndexFlat::train() will do nothing
   assert(index_->is_trained);
   index_->add(nrow, dataset);
-  index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), dataset);
+  index_refine_ = std::make_shared<faiss::IndexRefineFlat>(this->index_.get(), dataset);
 }
 
 template <typename T>
@@ -169,17 +163,13 @@ void FaissCpu<T>::set_search_param(const AnnSearchParam& param)
 
   if (!thread_pool_ || num_threads_ != search_param.num_threads) {
     num_threads_ = search_param.num_threads;
-    thread_pool_ = std::make_unique<FixedThreadPool>(num_threads_);
+    thread_pool_ = std::make_shared<FixedThreadPool>(num_threads_);
   }
 }
 
 template <typename T>
-void FaissCpu<T>::search(const T* queries,
-                         int batch_size,
-                         int k,
-                         size_t* neighbors,
-                         float* distances,
-                         cudaStream_t stream) const
+void FaissCpu<T>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
@@ -203,7 +193,7 @@ template <typename T>
 template <typename Index>
 void FaissCpu<T>::load_(const std::string& file)
 {
-  index_ = std::unique_ptr<Index>(dynamic_cast<Index*>(faiss::read_index(file.c_str())));
+  index_ = std::shared_ptr<Index>(dynamic_cast<Index*>(faiss::read_index(file.c_str())));
 }
 
 template <typename T>
@@ -214,7 +204,7 @@ class FaissCpuIVFFlat : public FaissCpu<T> {
   FaissCpuIVFFlat(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)
   {
     this->init_quantizer(dim);
-    this->index_ = std::make_unique<faiss::IndexIVFFlat>(
+    this->index_ = std::make_shared<faiss::IndexIVFFlat>(
       this->quantizer_.get(), dim, param.nlist, this->metric_type_);
   }
 
@@ -223,6 +213,11 @@ class FaissCpuIVFFlat : public FaissCpu<T> {
     this->template save_<faiss::IndexIVFFlat>(file);
   }
   void load(const std::string& file) override { this->template load_<faiss::IndexIVFFlat>(file); }
+
+  std::unique_ptr<ANN<T>> copy()
+  {
+    return std::make_unique<FaissCpuIVFFlat<T>>(*this);  // use copy constructor
+  }
 };
 
 template <typename T>
@@ -237,7 +232,7 @@ class FaissCpuIVFPQ : public FaissCpu<T> {
   FaissCpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)
   {
     this->init_quantizer(dim);
-    this->index_ = std::make_unique<faiss::IndexIVFPQ>(
+    this->index_ = std::make_shared<faiss::IndexIVFPQ>(
       this->quantizer_.get(), dim, param.nlist, param.M, param.bitsPerCode, this->metric_type_);
   }
 
@@ -246,6 +241,11 @@ class FaissCpuIVFPQ : public FaissCpu<T> {
     this->template save_<faiss::IndexIVFPQ>(file);
   }
   void load(const std::string& file) override { this->template load_<faiss::IndexIVFPQ>(file); }
+
+  std::unique_ptr<ANN<T>> copy()
+  {
+    return std::make_unique<FaissCpuIVFPQ<T>>(*this);  // use copy constructor
+  }
 };
 
 // TODO: Enable this in cmake
@@ -270,7 +270,7 @@ class FaissCpuIVFSQ : public FaissCpu<T> {
     }
 
     this->init_quantizer(dim);
-    this->index_ = std::make_unique<faiss::IndexIVFScalarQuantizer>(
+    this->index_ = std::make_shared<faiss::IndexIVFScalarQuantizer>(
       this->quantizer_.get(), dim, param.nlist, qtype, this->metric_type_, true);
   }
 
@@ -282,6 +282,11 @@ class FaissCpuIVFSQ : public FaissCpu<T> {
   {
     this->template load_<faiss::IndexIVFScalarQuantizer>(file);
   }
+
+  std::unique_ptr<ANN<T>> copy()
+  {
+    return std::make_unique<FaissCpuIVFSQ<T>>(*this);  // use copy constructor
+  }
 };
 
 template <typename T>
@@ -290,7 +295,7 @@ class FaissCpuFlat : public FaissCpu<T> {
   FaissCpuFlat(Metric metric, int dim)
     : FaissCpu<T>(metric, dim, typename FaissCpu<T>::BuildParam{})
   {
-    this->index_ = std::make_unique<faiss::IndexFlat>(dim, this->metric_type_);
+    this->index_ = std::make_shared<faiss::IndexFlat>(dim, this->metric_type_);
   }
 
   // class FaissCpu is more like a IVF class, so need special treating here
@@ -299,7 +304,7 @@ class FaissCpuFlat : public FaissCpu<T> {
     auto search_param = dynamic_cast<const typename FaissCpu<T>::SearchParam&>(param);
     if (!this->thread_pool_ || this->num_threads_ != search_param.num_threads) {
       this->num_threads_ = search_param.num_threads;
-      this->thread_pool_ = std::make_unique<FixedThreadPool>(this->num_threads_);
+      this->thread_pool_ = std::make_shared<FixedThreadPool>(this->num_threads_);
     }
   };
 
@@ -308,6 +313,11 @@ class FaissCpuFlat : public FaissCpu<T> {
     this->template save_<faiss::IndexFlat>(file);
   }
   void load(const std::string& file) override { this->template load_<faiss::IndexFlat>(file); }
+
+  std::unique_ptr<ANN<T>> copy()
+  {
+    return std::make_unique<FaissCpuFlat<T>>(*this);  // use copy constructor
+  }
 };
 
 }  // namespace raft::bench::ann

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 
 header = """/*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,11 +45,11 @@ header = """/*
 
 macro_pass_one = """
 #define instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(                            \\
-  Mvalue_idx, Mvalue_t, Mvalue_int, Mdims, Mdist_func)                                       \\
-  template void                                                                       \\
-  raft::spatial::knn::detail::rbc_low_dim_pass_one<Mvalue_idx, Mvalue_t, Mvalue_int, Mdims>( \\
-    raft::resources const& handle,                                                    \\
-    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                           \\
+  Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdims, Mdist_func)                          \\
+  template void                                                                              \\
+  raft::spatial::knn::detail::rbc_low_dim_pass_one<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdims>( \\
+    raft::resources const& handle,                                                           \\
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>& index,              \\
     const Mvalue_t* query,                                                                   \\
     const Mvalue_int n_query_rows,                                                           \\
     Mvalue_int k,                                                                            \\
@@ -65,11 +65,11 @@ macro_pass_one = """
 
 macro_pass_two = """
 #define instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(                            \\
-  Mvalue_idx, Mvalue_t, Mvalue_int, Mdims, Mdist_func)                                       \\
-  template void                                                                       \\
-  raft::spatial::knn::detail::rbc_low_dim_pass_two<Mvalue_idx, Mvalue_t, Mvalue_int, Mdims>( \\
-    raft::resources const& handle,                                                    \\
-    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                           \\
+  Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdims, Mdist_func)                          \\
+  template void                                                                              \\
+  raft::spatial::knn::detail::rbc_low_dim_pass_two<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdims>( \\
+    raft::resources const& handle,                                                           \\
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>& index,              \\
     const Mvalue_t* query,                                                                   \\
     const Mvalue_int n_query_rows,                                                           \\
     Mvalue_int k,                                                                            \\
@@ -83,10 +83,49 @@ macro_pass_two = """
 
 """
 
+macro_pass_eps = """
+#define instantiate_raft_spatial_knn_detail_rbc_eps_pass(                                  \\
+  Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdist_func)                               \\
+  template void                                                                            \\
+  raft::spatial::knn::detail::rbc_eps_pass<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>( \\
+    raft::resources const& handle,                                                         \\
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>& index,            \\
+    const Mvalue_t* query,                                                                 \\
+    const Mvalue_int n_query_rows,                                                         \\
+    Mvalue_t eps,                                                                          \\
+    const Mvalue_t* R_dists,                                                               \\
+    Mdist_func<Mvalue_t, Mvalue_int>& dfunc,                                               \\
+    bool* adj,                                                                             \\
+    Mvalue_idx* vd);                                                                       \\
+                                                                                           \\
+  template void                                                                            \\
+  raft::spatial::knn::detail::rbc_eps_pass<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>( \\
+    raft::resources const& handle,                                                         \\
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx>& index,            \\
+    const Mvalue_t* query,                                                                 \\
+    const Mvalue_int n_query_rows,                                                         \\
+    Mvalue_t eps,                                                                          \\
+    Mvalue_int* max_k,                                                                     \\
+    const Mvalue_t* R_dists,                                                               \\
+    Mdist_func<Mvalue_t, Mvalue_int>& dfunc,                                               \\
+    Mvalue_idx* adj_ia,                                                                    \\
+    Mvalue_idx* adj_ja,                                                                    \\
+    Mvalue_idx* vd)
+
+"""
+
+
 distances = dict(
     haversine="raft::spatial::knn::detail::HaversineFunc",
     euclidean="raft::spatial::knn::detail::EuclideanFunc",
     dist="raft::spatial::knn::detail::DistFunc",
+)
+
+euclideanSq="raft::spatial::knn::detail::EuclideanSqFunc",
+
+types = dict(
+    int64_float=("std::int64_t", "float"),
+    #int64_double=("std::int64_t", "double"),
 )
 
 for k, v in distances.items():
@@ -95,8 +134,9 @@ for k, v in distances.items():
         with open(path, "w") as f:
             f.write(header)
             f.write(macro_pass_one)
-            f.write(f"instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(\n")
-            f.write(f"  std::int64_t, float, std::uint32_t, {dim}, {v});\n")
+            for type_path, (int_t, data_t) in types.items():
+                f.write(f"instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(\n")
+                f.write(f"  {int_t}, {data_t}, {int_t}, {int_t}, {dim}, {v});\n")
             f.write("#undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one\n")
         print(f"src/spatial/knn/detail/ball_cover/{path}")
 
@@ -106,7 +146,19 @@ for k, v in distances.items():
         with open(path, "w") as f:
             f.write(header)
             f.write(macro_pass_two)
-            f.write(f"instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(\n")
-            f.write(f"  std::int64_t, float, std::uint32_t, {dim}, {v});\n")
+            for type_path, (int_t, data_t) in types.items():
+                f.write(f"instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(\n")
+                f.write(f"  {int_t}, {data_t}, {int_t}, {int_t}, {dim}, {v});\n")
             f.write("#undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two\n")
         print(f"src/spatial/knn/detail/ball_cover/{path}")
+
+path="registers_eps_pass_euclidean.cu"
+with open(path, "w") as f:
+    f.write(header)
+    f.write(macro_pass_eps)
+    for type_path, (int_t, data_t) in types.items():
+            f.write(f"instantiate_raft_spatial_knn_detail_rbc_eps_pass(\n")
+            f.write(f"  {int_t}, {data_t}, {int_t}, {int_t}, {euclideanSq});\n")
+    f.write("#undef instantiate_raft_spatial_knn_detail_rbc_eps_pass\n")
+    print(f"src/spatial/knn/detail/ball_cover/{path}")
+

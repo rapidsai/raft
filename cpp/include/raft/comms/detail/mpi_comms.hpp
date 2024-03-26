@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,23 @@
 
 #pragma once
 
-#include <cstdio>
-#include <memory>
-
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-
-#include <mpi.h>
-#include <nccl.h>
-
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/util.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
+
+#include <mpi.h>
+#include <nccl.h>
+
+#include <cstdio>
+#include <memory>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 
 #define RAFT_MPI_TRY(call)                                                                    \
   do {                                                                                        \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,17 @@
 
 #pragma once
 
-#include <math_constants.h>
-#include <stdint.h>
-#include <type_traits>
-
-#if defined(_RAFT_HAS_CUDA)
-#include <cuda_bf16.h>
-#include <cuda_fp16.h>
-#endif
-
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/math.hpp>
 #include <raft/core/operators.hpp>
+
+#include <cuda_bf16.h>
+#include <cuda_fp16.h>
+#include <math_constants.h>
+
+#include <stdint.h>
+
+#include <type_traits>
 // For backward compatibility, we include the follow headers. They contain
 // functionality that were previously contained in cuda_utils.cuh
 #include <raft/util/cuda_dev_essentials.cuh>
@@ -278,17 +277,53 @@ template <>
  * @{
  */
 template <typename T>
-inline __device__ T myInf();
-template <>
-inline __device__ float myInf<float>()
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, float>, float> myInf()
 {
   return CUDART_INF_F;
 }
-template <>
-inline __device__ double myInf<double>()
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, double>, double> myInf()
 {
   return CUDART_INF;
 }
+// Half/Bfloat constants only defined after CUDA 12.2
+#if __CUDACC_VER_MAJOR__ < 12 || (__CUDACC_VER_MAJOR__ == 12 && __CUDACC_VER_MINOR__ < 2)
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> myInf()
+{
+#if (__CUDA_ARCH__ >= 530)
+  return __ushort_as_half((unsigned short)0x7C00U);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+myInf()
+{
+#if (__CUDA_ARCH__ >= 800)
+  return __ushort_as_bfloat16((unsigned short)0x7F80U);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#else
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> myInf()
+{
+  return CUDART_INF_FP16;
+}
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+myInf()
+{
+  return CUDART_INF_BF16;
+}
+#endif
 /** @} */
 
 /**

@@ -26,7 +26,7 @@ function(find_and_configure_spdlog)
                 GLOBAL_TARGETS spdlog spdlog_header_only
                 NAMESPACE spdlog::)
         include("${rapids-cmake-dir}/export/find_package_root.cmake")
-        rapids_export_find_package_root(BUILD spdlog [=[${CMAKE_CURRENT_LIST_DIR}]=] rmm-exports)
+        rapids_export_find_package_root(BUILD spdlog [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET rmm-exports)
     endif()
 endfunction()
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+#include "../common/ann_types.hpp"
+#include "faiss_cpu_wrapper.h"
+
+#define JSON_DIAGNOSTICS 1
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -21,11 +27,6 @@
 #include <string>
 #include <type_traits>
 #include <utility>
-
-#include "../common/ann_types.hpp"
-#include "faiss_cpu_wrapper.h"
-#define JSON_DIAGNOSTICS 1
-#include <nlohmann/json.hpp>
 
 namespace raft::bench::ann {
 
@@ -143,7 +144,7 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
     parse_search_param<T>(conf, *param);
     return param;
   } else if (algo == "faiss_cpu_flat") {
-    auto param = std::make_unique<typename raft::bench::ann::ANN<T>::AnnSearchParam>();
+    auto param = std::make_unique<typename raft::bench::ann::FaissCpu<T>::SearchParam>();
     return param;
   }
   // else

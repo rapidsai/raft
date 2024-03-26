@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,17 @@
 #pragma once
 
 #include "ann_types.hpp"
-#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::neighbors::experimental::nn_descent {
 /**
- * @ingroup nn_descent
+ * @ingroup nn-descent
  * @{
  */
 
@@ -57,6 +57,12 @@ struct index_params : ann::index_params {
  * @brief nn-descent Build an nn-descent index
  * The index contains an all-neighbors graph of the input dataset
  * stored in host memory of dimensions (n_rows, n_cols)
+ *
+ * Reference:
+ * Hui Wang, Wan-Lei Zhao, Xiangxiang Zeng, and Jianye Yang. 2021.
+ * Fast k-NN Graph Construction by GPU based NN-Descent. In Proceedings of the 30th ACM
+ * International Conference on Information & Knowledge Management (CIKM '21). Association for
+ * Computing Machinery, New York, NY, USA, 1929–1938. https://doi.org/10.1145/3459637.3482344
  *
  * @tparam IdxT dtype to be used for constructing knn-graph
  */

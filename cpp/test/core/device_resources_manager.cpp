@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <array>
-#include <cuda_runtime_api.h>
-#include <gtest/gtest.h>
-#include <mutex>
-#include <omp.h>
 #include <raft/core/device_resources_manager.hpp>
 #include <raft/core/device_setter.hpp>
 #include <raft/core/logger.hpp>
+
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/limiting_resource_adaptor.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+
+#include <cuda_runtime_api.h>
+
+#include <gtest/gtest.h>
+#include <omp.h>
+
+#include <array>
+#include <mutex>
 #include <set>
 
 namespace raft {

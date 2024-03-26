@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,13 @@
 #include "detail/rng_impl.cuh"
 #include "detail/rng_impl_deprecated.cuh"  // necessary for now (to be removed)
 #include "rng_state.hpp"
-#include <cassert>
-#include <optional>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+
+#include <cassert>
+#include <optional>
 #include <type_traits>
 #include <variant>
 
@@ -809,6 +811,32 @@ void sampleWithoutReplacement(raft::resources const& handle,
 {
   detail::sampleWithoutReplacement(
     rng_state, out, outIdx, in, wts, sampledLen, len, resource::get_cuda_stream(handle));
+}
+
+/** @brief Sample from range 0..N-1.
+ *
+ * Elements are sampled uniformly. The method aims to sample without replacement,
+ * but there is a small probability of a few having duplicate elements.
+ *
+ * The algorithm will allocate a workspace of size 4*n_samples*sizeof(IdxT) internally.
+ *
+ * We use max N random numbers. Depending on how large n_samples is w.r.t to N, we
+ * either use rejection sampling, or sort the [0..N-1] values using random keys.
+ *
+ * @tparam IdxT type of indices that we sample
+ * @tparam MatIdxT extent type of the returned mdarray
+ *
+ * @param res RAFT resource handle
+ * @param state random number generator state
+ * @param N number of elements to sample from. We will sample values in range 0..N-1.
+ * @param n_samples number of samples to return
+ *
+ * @return device mdarray with the random samples
+ */
+template <typename IdxT, typename MatIdxT = IdxT>
+auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT n_samples)
+{
+  return detail::excess_subsample(res, state, N, n_samples);
 }
 
 /**

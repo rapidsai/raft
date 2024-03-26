@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,6 @@
  */
 #pragma once
 
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
-#include <algorithm>
-#include <cassert>
-#include <iostream>
-#include <memory>
-#include <numeric>
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/device_properties.hpp>
-#include <raft/core/resources.hpp>
-#include <rmm/device_uvector.hpp>
-#include <vector>
-
 #include "bitonic.hpp"
 #include "compute_distance.hpp"
 #include "device_common.hpp"
@@ -38,53 +24,69 @@
 #include "topk_by_radix.cuh"
 #include "topk_for_cagra/topk_core.cuh"  // TODO replace with raft topk
 #include "utils.hpp"
+
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_properties.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
+
+#include <rmm/device_uvector.hpp>
+
+#include <algorithm>
+#include <cassert>
+#include <iostream>
+#include <memory>
+#include <numeric>
+#include <vector>
 
 namespace raft::neighbors::cagra::detail {
 namespace single_cta_search {
 
 template <unsigned TEAM_SIZE,
-          unsigned MAX_DATASET_DIM,
-          typename DATA_T,
-          typename INDEX_T,
-          typename DISTANCE_T,
+          unsigned DATASET_BLOCK_DIM,
+          typename DATASET_DESCRIPTOR_T,
           typename SAMPLE_FILTER_T>
-struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_queries;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::itopk_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::algo;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::team_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::search_width;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::min_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::thread_block_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_mode;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_min_bitlen;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_max_fill_rate;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_random_samplings;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::rand_xor_mask;
+struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
+  using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
+  using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
+  using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_dim;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dim;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::graph_degree;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::topk;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::max_queries;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::itopk_size;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::algo;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::team_size;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::search_width;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::min_iterations;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::max_iterations;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::thread_block_size;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::hashmap_mode;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::hashmap_min_bitlen;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::hashmap_max_fill_rate;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::num_random_samplings;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::rand_xor_mask;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hash_bitlen;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::dim;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::graph_degree;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::topk;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::small_hash_bitlen;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::small_hash_reset_interval;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dataset_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::result_buffer_size;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::hash_bitlen;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::smem_size;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::small_hash_bitlen;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::small_hash_reset_interval;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::hashmap_size;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::dataset_size;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::result_buffer_size;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_executed_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dev_seed;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_seeds;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::smem_size;
+
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::hashmap;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::num_executed_iterations;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::dev_seed;
+  using search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::num_seeds;
 
   uint32_t num_itopk_candidates;
 
@@ -93,8 +95,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
          int64_t dim,
          int64_t graph_degree,
          uint32_t topk)
-    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(
-        res, params, dim, graph_degree, topk)
+    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk)
   {
     set_params(res);
   }
@@ -122,10 +123,14 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
     constexpr unsigned max_block_size       = 1024;
     //
     const std::uint32_t topk_ws_size = 3;
+    const auto query_smem_buffer_length =
+      raft::ceildiv<uint32_t>(dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
     const std::uint32_t base_smem_size =
-      sizeof(float) * max_dim + (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
+      sizeof(float) * query_smem_buffer_length +
+      (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
       sizeof(INDEX_T) * hashmap::get_size(small_hash_bitlen) + sizeof(INDEX_T) * search_width +
-      sizeof(std::uint32_t) * topk_ws_size + sizeof(std::uint32_t);
+      sizeof(std::uint32_t) * topk_ws_size + sizeof(std::uint32_t) +
+      DATASET_DESCRIPTOR_T::smem_buffer_size_in_byte;
     smem_size = base_smem_size;
     if (num_itopk_candidates > 256) {
       // Tentatively calculate the required share memory size when radix
@@ -202,7 +207,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
   }
 
   void operator()(raft::resources const& res,
-                  raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                  DATASET_DESCRIPTOR_T dataset_desc,
                   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                   INDEX_T* const result_indices_ptr,       // [num_queries, topk]
                   DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
@@ -214,8 +219,8 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
                   SAMPLE_FILTER_T sample_filter)
   {
     cudaStream_t stream = resource::get_cuda_stream(res);
-    select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>(
-      dataset,
+    select_and_run<TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T>(
+      dataset_desc,
       graph,
       result_indices_ptr,
       result_distances_ptr,

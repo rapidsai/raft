@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,16 @@
 
 #pragma once
 
-#include <cstdint>      // uint32_t
-#include <cuda_fp16.h>  // __half
 #include <raft/core/device_resources.hpp>
-#include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
+#include <raft/matrix/select_k_types.hpp>
+#include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
+
 #include <rmm/cuda_stream_view.hpp>                  // rmm:cuda_stream_view
 #include <rmm/mr/device/device_memory_resource.hpp>  // rmm::mr::device_memory_resource
+
+#include <cuda_fp16.h>  // __half
+
+#include <cstdint>  // uint32_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -37,24 +41,26 @@ void select_k(raft::resources const& handle,
               T* out_val,
               IdxT* out_idx,
               bool select_min,
-              rmm::mr::device_memory_resource* mr = nullptr,
-              bool sorted                         = false) RAFT_EXPLICIT;
+              bool sorted       = false,
+              SelectAlgo algo   = SelectAlgo::kAuto,
+              const IdxT* len_i = nullptr) RAFT_EXPLICIT;
 }  // namespace raft::matrix::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
-#define instantiate_raft_matrix_detail_select_k(T, IdxT)                                   \
-  extern template void raft::matrix::detail::select_k(raft::resources const& handle,       \
-                                                      const T* in_val,                     \
-                                                      const IdxT* in_idx,                  \
-                                                      size_t batch_size,                   \
-                                                      size_t len,                          \
-                                                      int k,                               \
-                                                      T* out_val,                          \
-                                                      IdxT* out_idx,                       \
-                                                      bool select_min,                     \
-                                                      rmm::mr::device_memory_resource* mr, \
-                                                      bool sorted)
+#define instantiate_raft_matrix_detail_select_k(T, IdxT)                             \
+  extern template void raft::matrix::detail::select_k(raft::resources const& handle, \
+                                                      const T* in_val,               \
+                                                      const IdxT* in_idx,            \
+                                                      size_t batch_size,             \
+                                                      size_t len,                    \
+                                                      int k,                         \
+                                                      T* out_val,                    \
+                                                      IdxT* out_idx,                 \
+                                                      bool select_min,               \
+                                                      bool sorted,                   \
+                                                      raft::matrix::SelectAlgo algo, \
+                                                      const IdxT* len_i)
 instantiate_raft_matrix_detail_select_k(__half, uint32_t);
 instantiate_raft_matrix_detail_select_k(__half, int64_t);
 instantiate_raft_matrix_detail_select_k(float, int64_t);

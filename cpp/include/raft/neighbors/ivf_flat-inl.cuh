@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,13 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/neighbors/detail/ivf_flat_search.cuh>
 #include <raft/neighbors/ivf_flat_serialize.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
 
-#include <raft/core/resources.hpp>
-
-#include <raft/core/device_mdspan.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
@@ -55,7 +54,7 @@ namespace raft::neighbors::ivf_flat {
  *
  * @param[in] handle
  * @param[in] params configure the index building
- * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
+ * @param[in] dataset a host or device pointer to a row-major matrix [n_rows, dim]
  * @param[in] n_rows the number of samples
  * @param[in] dim the dimensionality of the data
  *
@@ -102,7 +101,7 @@ auto build(raft::resources const& handle,
  *
  * @param[in] handle
  * @param[in] params configure the index building
- * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
+ * @param[in] dataset a device matrix [n_rows, dim]
  *
  * @return the constructed ivf-flat index
  */
@@ -118,6 +117,20 @@ auto build(raft::resources const& handle,
                                                   static_cast<IdxT>(dataset.extent(1)));
 }
 
+/**
+ * @brief Build the index from a dataset in host memory.
+ */
+template <typename T, typename IdxT>
+auto build(raft::resources const& handle,
+           const index_params& params,
+           raft::host_matrix_view<const T, IdxT, row_major> dataset) -> index<T, IdxT>
+{
+  return raft::neighbors::ivf_flat::detail::build(handle,
+                                                  params,
+                                                  dataset.data_handle(),
+                                                  static_cast<IdxT>(dataset.extent(0)),
+                                                  static_cast<IdxT>(dataset.extent(1)));
+}
 /**
  * @brief Build the index from the dataset for efficient search.
  *
@@ -162,6 +175,21 @@ void build(raft::resources const& handle,
                                                  static_cast<IdxT>(dataset.extent(1)));
 }
 
+/**
+ * @brief Build the index from a dataset in host memory.
+ */
+template <typename T, typename IdxT>
+void build(raft::resources const& handle,
+           const index_params& params,
+           raft::host_matrix_view<const T, IdxT, row_major> dataset,
+           raft::neighbors::ivf_flat::index<T, IdxT>& idx)
+{
+  idx = raft::neighbors::ivf_flat::detail::build(handle,
+                                                 params,
+                                                 dataset.data_handle(),
+                                                 static_cast<IdxT>(dataset.extent(0)),
+                                                 static_cast<IdxT>(dataset.extent(1)));
+}
 /** @} */
 
 /**
@@ -188,8 +216,8 @@ void build(raft::resources const& handle,
  *
  * @param[in] handle
  * @param[in] orig_index original index
- * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
- * @param[in] new_indices a device pointer to a vector of indices [n_rows].
+ * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
  * @param[in] n_rows number of rows in `new_vectors`
@@ -257,6 +285,23 @@ auto extend(raft::resources const& handle,
                          new_vectors.extent(0));
 }
 
+/**
+ * @brief Extend the index with additional vectors.
+ *
+ * This overloads takes input data in host memory.
+ */
+template <typename T, typename IdxT>
+auto extend(raft::resources const& handle,
+            raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,
+            const index<T, IdxT>& orig_index) -> index<T, IdxT>
+{
+  return extend<T, IdxT>(handle,
+                         orig_index,
+                         new_vectors.data_handle(),
+                         new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
+                         new_vectors.extent(0));
+}
 /** @} */
 
 /**
@@ -279,8 +324,8 @@ auto extend(raft::resources const& handle,
  *
  * @param handle
  * @param[inout] index
- * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
- * @param[in] new_indices a device pointer to a vector of indices [n_rows].
+ * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
  * @param[in] n_rows the number of samples
@@ -339,6 +384,23 @@ void extend(raft::resources const& handle,
          static_cast<IdxT>(new_vectors.extent(0)));
 }
 
+/**
+ * @brief Extend the index with additional vectors.
+ *
+ * This overloads takes input data in host memory.
+ */
+template <typename T, typename IdxT>
+void extend(raft::resources const& handle,
+            raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,
+            index<T, IdxT>* index)
+{
+  extend(handle,
+         index,
+         new_vectors.data_handle(),
+         new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
+         static_cast<IdxT>(new_vectors.extent(0)));
+}
 /** @} */
 
 /**

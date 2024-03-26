@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,19 @@
  */
 
 #include "../test_utils.cuh"
+
 #include <raft/core/resource/cuda_stream.hpp>
-
-#include <raft_internal/matrix/select_k.cuh>
-
 #include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
 
-#include <gtest/gtest.h>
+#include <raft_internal/matrix/select_k.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+
+#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <numeric>
@@ -49,8 +49,8 @@ auto gen_simple_ids(uint32_t batch_size, uint32_t len) -> std::vector<IdxT>
 template <typename KeyT, typename IdxT>
 struct io_simple {
  public:
-  bool not_supported               = false;
-  std::optional<select::Algo> algo = std::nullopt;
+  bool not_supported             = false;
+  std::optional<SelectAlgo> algo = std::nullopt;
 
   io_simple(const select::params& spec,
             const std::vector<KeyT>& in_dists,
@@ -80,10 +80,10 @@ template <typename KeyT, typename IdxT>
 struct io_computed {
  public:
   bool not_supported = false;
-  select::Algo algo;
+  SelectAlgo algo;
 
   io_computed(const select::params& spec,
-              const select::Algo& algo,
+              const SelectAlgo& algo,
               const std::vector<KeyT>& in_dists,
               const std::optional<std::vector<IdxT>>& in_ids = std::nullopt)
     : algo(algo),
@@ -94,11 +94,11 @@ struct io_computed {
   {
     // check if the size is supported by the algorithm
     switch (algo) {
-      case select::Algo::kWarpAuto:
-      case select::Algo::kWarpImmediate:
-      case select::Algo::kWarpFiltered:
-      case select::Algo::kWarpDistributed:
-      case select::Algo::kWarpDistributedShm: {
+      case SelectAlgo::kWarpAuto:
+      case SelectAlgo::kWarpImmediate:
+      case SelectAlgo::kWarpFiltered:
+      case SelectAlgo::kWarpDistributed:
+      case SelectAlgo::kWarpDistributedShm: {
         if (spec.k > raft::matrix::detail::select::warpsort::kMaxCapacity) {
           not_supported = true;
           return;
@@ -118,16 +118,22 @@ struct io_computed {
     update_device(in_dists_d.data(), in_dists_.data(), in_dists_.size(), stream);
     update_device(in_ids_d.data(), in_ids_.data(), in_ids_.size(), stream);
 
-    select::select_k_impl<KeyT, IdxT>(handle,
-                                      algo,
-                                      in_dists_d.data(),
-                                      spec.use_index_input ? in_ids_d.data() : nullptr,
-                                      spec.batch_size,
-                                      spec.len,
-                                      spec.k,
-                                      out_dists_d.data(),
-                                      out_ids_d.data(),
-                                      spec.select_min);
+    std::optional<raft::device_matrix_view<const IdxT, int64_t, row_major>> in_ids_view;
+    if (spec.use_index_input) {
+      in_ids_view = raft::make_device_matrix_view<const IdxT, int64_t>(
+        in_ids_d.data(), spec.batch_size, spec.len);
+    }
+
+    matrix::select_k<KeyT, IdxT>(
+      handle,
+      raft::make_device_matrix_view<const KeyT, int64_t>(
+        in_dists_d.data(), spec.batch_size, spec.len),
+      in_ids_view,
+      raft::make_device_matrix_view<KeyT, int64_t>(out_dists_d.data(), spec.batch_size, spec.k),
+      raft::make_device_matrix_view<IdxT, int64_t>(out_ids_d.data(), spec.batch_size, spec.k),
+      spec.select_min,
+      false,
+      algo);
 
     update_host(out_dists_.data(), out_dists_d.data(), out_dists_.size(), stream);
     update_host(out_ids_.data(), out_ids_d.data(), out_ids_.size(), stream);
@@ -194,13 +200,13 @@ struct io_computed {
 };
 
 template <typename InOut>
-using Params = std::tuple<select::params, select::Algo, InOut>;
+using Params = std::tuple<select::params, SelectAlgo, InOut>;
 
 template <typename KeyT, typename IdxT, template <typename, typename> typename ParamsReader>
 struct SelectK  // NOLINT
   : public testing::TestWithParam<typename ParamsReader<KeyT, IdxT>::params_t> {
   const select::params spec;
-  const select::Algo algo;
+  const SelectAlgo algo;
   typename ParamsReader<KeyT, IdxT>::io_t ref;
   io_computed<KeyT, IdxT> res;
 
@@ -255,20 +261,18 @@ struct SelectK  // NOLINT
     ASSERT_TRUE(hostVecMatch(ref.get_out_ids(), res.get_out_ids(), compare_ids));
   }
 
-  auto forgive_algo(const std::optional<select::Algo>& algo, IdxT ix) const -> bool
+  auto forgive_algo(const std::optional<SelectAlgo>& algo, IdxT ix) const -> bool
   {
     if (!algo.has_value()) { return false; }
     switch (algo.value()) {
       // not sure which algo this is.
-      case select::Algo::kPublicApi: return true;
+      case SelectAlgo::kAuto: return true;
       // warp-sort-based algos currently return zero index for inf distances.
-      case select::Algo::kWarpAuto:
-      case select::Algo::kWarpImmediate:
-      case select::Algo::kWarpFiltered:
-      case select::Algo::kWarpDistributed:
-      case select::Algo::kWarpDistributedShm: return ix == 0;
-      // FAISS version returns a special invalid value:
-      case select::Algo::kFaissBlockSelect: return ix == std::numeric_limits<IdxT>::max();
+      case SelectAlgo::kWarpAuto:
+      case SelectAlgo::kWarpImmediate:
+      case SelectAlgo::kWarpFiltered:
+      case SelectAlgo::kWarpDistributed:
+      case SelectAlgo::kWarpDistributedShm: return ix == 0;
       // Do not forgive by default
       default: return false;
     }
@@ -283,7 +287,7 @@ struct params_simple {
                              std::optional<std::vector<IdxT>>,
                              std::vector<KeyT>,
                              std::vector<IdxT>>;
-  using params_t = std::tuple<input_t, select::Algo>;
+  using params_t = std::tuple<input_t, SelectAlgo>;
 
   static auto read(params_t ps) -> Params<io_t>
   {
@@ -389,13 +393,13 @@ INSTANTIATE_TEST_CASE_P(                // NOLINT
   SelectK,
   SimpleFloatInt,
   testing::Combine(inputs_simple_f,
-                   testing::Values(select::Algo::kPublicApi,
-                                   select::Algo::kRadix8bits,
-                                   select::Algo::kRadix11bits,
-                                   select::Algo::kRadix11bitsExtraPass,
-                                   select::Algo::kWarpImmediate,
-                                   select::Algo::kWarpFiltered,
-                                   select::Algo::kWarpDistributed)));
+                   testing::Values(SelectAlgo::kAuto,
+                                   SelectAlgo::kRadix8bits,
+                                   SelectAlgo::kRadix11bits,
+                                   SelectAlgo::kRadix11bitsExtraPass,
+                                   SelectAlgo::kWarpImmediate,
+                                   SelectAlgo::kWarpFiltered,
+                                   SelectAlgo::kWarpDistributed)));
 
 template <typename KeyT>
 struct replace_with_mask {
@@ -403,12 +407,12 @@ struct replace_with_mask {
   constexpr auto inline operator()(KeyT x, uint8_t mask) -> KeyT { return mask ? replacement : x; }
 };
 
-template <select::Algo RefAlgo>
+template <SelectAlgo RefAlgo>
 struct with_ref {
   template <typename KeyT, typename IdxT>
   struct params_random {
     using io_t     = io_computed<KeyT, IdxT>;
-    using params_t = std::tuple<select::params, select::Algo>;
+    using params_t = std::tuple<select::params, SelectAlgo>;
 
     static auto read(params_t ps) -> Params<io_t>
     {
