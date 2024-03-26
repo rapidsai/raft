@@ -126,34 +126,33 @@ void add_node_core(raft::resources const& handle,
 
   for (std::size_t new_vec_id_offset = 0; new_vec_id_offset < num_add;
        new_vec_id_offset += max_chunk_size) {
-    const auto actual_batch_size = std::min(max_chunk_size, num_add - new_vec_id_offset);
+    const auto actual_chunk_size = std::min(max_chunk_size, num_add - new_vec_id_offset);
     // Step 1: Obtain K (=base_degree) nearest neighbors of the new vectors by CAGRA search
     // Create queries
-    for (std::size_t i = 0; i < actual_batch_size; i++) {
-      raft::copy(&queries.view()(i, 0),
-                 &additional_dataset_view(new_vec_id_offset + i, dim),
-                 dim,
-                 raft::resource::get_cuda_stream(handle));
-    }
+    raft::copy(queries.data_handle(),
+               additional_dataset_view.data_handle() + new_vec_id_offset * dim,
+               dim * actual_chunk_size,
+               raft::resource::get_cuda_stream(handle));
+
     const auto queries_view = raft::make_device_matrix_view<const T, std::int64_t>(
-      queries.data_handle(), actual_batch_size, dim);
+      queries.data_handle(), actual_chunk_size, dim);
 
     auto neighbor_indices_view = raft::make_device_matrix_view<IdxT, std::int64_t>(
-      neighbor_indices.data_handle(), actual_batch_size, base_degree);
+      neighbor_indices.data_handle(), actual_chunk_size, base_degree);
     auto neighbor_distances_view = raft::make_device_matrix_view<float, std::int64_t>(
-      neighbor_distances.data_handle(), actual_batch_size, base_degree);
+      neighbor_distances.data_handle(), actual_chunk_size, base_degree);
 
     raft::neighbors::cagra::search(
       handle, params, idx, queries_view, neighbor_indices_view, neighbor_distances_view);
 
     raft::copy(host_neighbor_indices.data_handle(),
                neighbor_indices.data_handle(),
-               actual_batch_size * base_degree,
+               actual_chunk_size * base_degree,
                raft::resource::get_cuda_stream(handle));
 
     // Step 2: Obtain K (=base_degree) nearest neighbors of the neighbors of the new vectors by
     // CAGRA search
-    for (std::uint32_t i = 0; i < actual_batch_size; i++) {
+    for (std::uint32_t i = 0; i < actual_chunk_size; i++) {
       for (std::uint32_t j = 0; j < base_degree; j++) {
         raft::copy(
           neighbors_vectors.data_handle() + (i * base_degree + j) * dim,
@@ -169,13 +168,13 @@ void add_node_core(raft::resources const& handle,
 
     raft::copy(host_two_hop_neighbors_indices.data_handle(),
                two_hop_neighbors_indices.data_handle(),
-               actual_batch_size * degree * degree,
+               actual_chunk_size * degree * degree,
                raft::resource::get_cuda_stream(handle));
     raft::resource::sync_stream(handle);
 
     // Step 3: rank-based reordering
     std::vector<std::pair<IdxT, std::size_t>> detourable_node_count_list(base_degree);
-    for (std::size_t vec_i = 0; vec_i < actual_batch_size; vec_i++) {
+    for (std::size_t vec_i = 0; vec_i < actual_chunk_size; vec_i++) {
       const auto host_neighbor_indices_ptr =
         host_neighbor_indices.data_handle() + vec_i * base_degree;
       const auto host_two_hop_neighbors_indices_ptr =
@@ -213,7 +212,7 @@ void add_node_core(raft::resources const& handle,
     const std::uint32_t rev_edge_search_range = degree / 2;
     const std::uint32_t num_rev_edges         = degree / 2;
     std::vector<IdxT> rev_edges(num_rev_edges), temp(degree);
-    for (std::size_t vec_i = 0; vec_i < actual_batch_size; vec_i++) {
+    for (std::size_t vec_i = 0; vec_i < actual_chunk_size; vec_i++) {
       // Create a reverse edge list
       const auto target_new_node_id = old_size + new_vec_id_offset + vec_i;
       for (std::size_t i = 0; i < num_rev_edges; i++) {
