@@ -266,7 +266,8 @@ template <typename IdxT = uint32_t,
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void optimize(raft::resources const& res,
               mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
-              raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)
+              raft::host_matrix_view<IdxT, int64_t, row_major> new_graph,
+              const bool use_mst = true)
 {
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
 
@@ -283,7 +284,7 @@ void optimize(raft::resources const& res,
       knn_graph.extent(0),
       knn_graph.extent(1));
 
-  cagra::detail::graph::optimize(res, knn_graph_internal, new_graph_internal);
+  cagra::detail::graph::optimize(res, knn_graph_internal, new_graph_internal, use_mst);
 }
 
 template <typename T,
