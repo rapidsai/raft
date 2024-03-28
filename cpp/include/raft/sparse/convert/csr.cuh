@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,10 @@
 
 #pragma once
 
+#include <raft/core/bitmap.cuh>
+#include <raft/core/device_csr_matrix.hpp>
 #include <raft/sparse/convert/detail/adj_to_csr.cuh>
+#include <raft/sparse/convert/detail/bitmap_to_csr.cuh>
 #include <raft/sparse/convert/detail/csr.cuh>
 #include <raft/sparse/csr.hpp>
 
@@ -100,6 +103,30 @@ void adj_to_csr(raft::resources const& handle,
 )
 {
   detail::adj_to_csr(handle, adj, row_ind, num_rows, num_cols, tmp, out_col_ind);
+}
+
+/**
+ * @brief  Converts a bitmap matrix to a Compressed Sparse Row (CSR) format matrix.
+ *
+ * @tparam       bitmap_t       The data type of the elements in the bitmap matrix.
+ * @tparam       index_t        The data type used for indexing the elements in the matrices.
+ * @tparam       csr_matrix_t   Specifies the CSR matrix type, constrained to
+ * raft::device_csr_matrix.
+ *
+ * @param[in]    handle         The RAFT handle containing the CUDA stream for operations.
+ * @param[in]    bitmap         The bitmap matrix view, to be converted to CSR format.
+ * @param[out]   csr            Output parameter where the resulting CSR matrix is stored. In the
+ * bitmap, each '1' bit corresponds to a non-zero element in the CSR matrix.
+ */
+template <typename bitmap_t,
+          typename index_t,
+          typename csr_matrix_t,
+          typename = std::enable_if_t<raft::is_device_csr_matrix_v<csr_matrix_t>>>
+void bitmap_to_csr(raft::resources const& handle,
+                   raft::core::bitmap_view<bitmap_t, index_t> bitmap,
+                   csr_matrix_t& csr)
+{
+  detail::bitmap_to_csr(handle, bitmap, csr);
 }
 
 };  // end NAMESPACE convert

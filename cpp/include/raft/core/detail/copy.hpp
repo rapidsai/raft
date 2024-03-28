@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 
 #pragma once
-#include <cstdio>
 #include <raft/core/cuda_support.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
@@ -24,6 +23,8 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resource/stream_view.hpp>
 #include <raft/core/resources.hpp>
+
+#include <cstdio>
 #include <type_traits>
 #ifndef RAFT_DISABLE_CUDA
 #include <raft/core/cudart_utils.hpp>

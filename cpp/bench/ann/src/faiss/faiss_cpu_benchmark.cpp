@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+#include "../common/ann_types.hpp"
+#include "faiss_cpu_wrapper.h"
+
+#define JSON_DIAGNOSTICS 1
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -21,11 +27,6 @@
 #include <string>
 #include <type_traits>
 #include <utility>
-
-#include "../common/ann_types.hpp"
-#include "faiss_cpu_wrapper.h"
-#define JSON_DIAGNOSTICS 1
-#include <nlohmann/json.hpp>
 
 namespace raft::bench::ann {
 

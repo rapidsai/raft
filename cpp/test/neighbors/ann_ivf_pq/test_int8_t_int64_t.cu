@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include "../ann_ivf_pq.cuh"
 
+#include <raft_internal/neighbors/ivf_pq_search_test-ext.cuh>
 namespace raft::neighbors::ivf_pq {
 
 using f32_i08_i64 = ivf_pq_test<float, int8_t, int64_t>;

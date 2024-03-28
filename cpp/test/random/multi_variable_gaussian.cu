@@ -15,9 +15,7 @@
  */
 
 #include "../test_utils.cuh"
-#include <cmath>
-#include <gtest/gtest.h>
-#include <iostream>
+
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
@@ -26,8 +24,13 @@
 #include <raft/random/multi_variable_gaussian.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <random>
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cmath>
+#include <iostream>
+#include <random>
 
 // mvg.h takes in column-major matrices (as in Fortran)
 #define IDX2C(i, j, ld) (j * ld + i)

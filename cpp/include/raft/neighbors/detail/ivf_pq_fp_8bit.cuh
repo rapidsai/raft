@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,6 @@
 
 #pragma once
 
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
-#include <raft/neighbors/ivf_pq_types.hpp>
-
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/logger.hpp>
@@ -32,6 +28,8 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
+#include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/device_loads_stores.cuh>
@@ -42,7 +40,6 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cub/cub.cuh>
-
 #include <cuda_fp16.h>
 
 #include <optional>

@@ -121,6 +121,8 @@ distances = dict(
     dist="raft::spatial::knn::detail::DistFunc",
 )
 
+euclideanSq="raft::spatial::knn::detail::EuclideanSqFunc",
+
 types = dict(
     int64_float=("std::int64_t", "float"),
     #int64_double=("std::int64_t", "double"),
@@ -156,7 +158,7 @@ with open(path, "w") as f:
     f.write(macro_pass_eps)
     for type_path, (int_t, data_t) in types.items():
             f.write(f"instantiate_raft_spatial_knn_detail_rbc_eps_pass(\n")
-            f.write(f"  {int_t}, {data_t}, {int_t}, {int_t}, {distances['euclidean']});\n")
+            f.write(f"  {int_t}, {data_t}, {int_t}, {int_t}, {euclideanSq});\n")
     f.write("#undef instantiate_raft_spatial_knn_detail_rbc_eps_pass\n")
     print(f"src/spatial/knn/detail/ball_cover/{path}")
 

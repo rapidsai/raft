@@ -15,14 +15,17 @@
  */
 
 #include "../test_utils.h"
-#include <cstdint>
-#include <gtest/gtest.h>
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/managed_mdarray.hpp>
 #include <raft/core/mdbuffer.cuh>
 #include <raft/core/pinned_mdarray.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cstdint>
 #include <utility>
 #include <variant>
 

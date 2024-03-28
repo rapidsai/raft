@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,13 +30,13 @@
 
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/solver/detail/lap_functions.cuh>
+#include <raft/solver/linear_assignment_types.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
-
-#include <raft/solver/detail/lap_functions.cuh>
-#include <raft/solver/linear_assignment_types.hpp>
 
 namespace raft::solver {
 

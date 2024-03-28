@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include <cstdint>
 #include <raft/spatial/knn/detail/ball_cover/common.cuh>
 #include <raft/spatial/knn/detail/ball_cover/registers.cuh>
+
+#include <cstdint>
 
 namespace raft {
 namespace spatial {

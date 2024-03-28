@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -354,3 +354,16 @@ def test_device_multicast_sendrecv(n_trials, client):
     wait(dfs, timeout=5)
 
     assert list(map(lambda x: x.result(), dfs))
+
+
+@pytest.mark.nccl
+@pytest.mark.parametrize(
+    "subset", [slice(-1, None), slice(1), slice(None, None, -2)]
+)
+def test_comm_init_worker_subset(client, subset):
+    # Basic test that initializing a subset of workers is fine
+    cb = Comms(comms_p2p=True, verbose=True)
+
+    workers = list(client.scheduler_info()["workers"].keys())
+    workers = workers[subset]
+    cb.init(workers=workers)

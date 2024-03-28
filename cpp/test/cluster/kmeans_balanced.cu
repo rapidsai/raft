@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,25 @@
  */
 
 #include "../test_utils.h"
-#include <gtest/gtest.h>
-#include <optional>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <vector>
 
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
 #include <raft/util/cuda_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
+
 #include <thrust/fill.h>
+
+#include <gtest/gtest.h>
+
+#include <optional>
+#include <vector>
 
 /* This test takes advantage of the fact that make_blobs generates balanced clusters.
  * It doesn't currently test whether the algorithm can make balanced clusters with an imbalanced

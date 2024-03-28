@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <cstdint>
-#include <cub/cub.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/kvp.hpp>
@@ -33,25 +31,24 @@
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/op/reduce.cuh>
-
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/fast_int_div.cuh>
+
 #include <rmm/device_uvector.hpp>
 
+#include <cub/cub.cuh>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/gather.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/scan.h>
+#include <thrust/scatter.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
-#include <thrust/gather.h>
-#include <thrust/scatter.h>
-
-#include <cub/cub.cuh>
-
+#include <cstdint>
 #include <limits>
 
 namespace raft::sparse::neighbors::detail {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,14 @@
  */
 #pragma once
 
-#include <cuda_runtime.h>
 #include <raft/core/interruptible.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
+
+#include <cuda_runtime.h>
 
 namespace raft::resource {
 class cuda_stream_resource : public resource {

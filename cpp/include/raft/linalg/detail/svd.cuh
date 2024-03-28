@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,21 +18,22 @@
 
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
+
+#include <raft/common/nvtx.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/transpose.cuh>
-
-#include <raft/common/nvtx.hpp>
-#include <raft/core/resources.hpp>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/norm.cuh>
 #include <raft/matrix/reverse.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

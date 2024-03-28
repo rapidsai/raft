@@ -22,11 +22,10 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 // #include <raft/sparse/detail/cusparse_wrappers.h>
-#include <raft/sparse/distance/distance.cuh>
-#include <raft/sparse/linalg/spmm.hpp>
-
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/sparse/distance/distance.cuh>
+#include <raft/sparse/linalg/spmm.hpp>
 
 namespace raft::distance::kernels::detail {
 

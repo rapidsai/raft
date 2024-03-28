@@ -17,13 +17,15 @@
 #pragma once
 
 #include "../hnsw_types.hpp"
-#include <memory>
+
 #include <raft/core/error.hpp>
 #include <raft/distance/distance_types.hpp>
 
-#include <cstdint>
 #include <hnswlib/hnswlib.h>
 #include <sys/types.h>
+
+#include <cstdint>
+#include <memory>
 #include <type_traits>
 
 namespace raft::neighbors::hnsw::detail {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@
 
 #include "../hnswlib/hnswlib_wrapper.h"
 #include "raft_cagra_wrapper.h"
+
 #include <memory>
 
 namespace raft::bench::ann {
 
 template <typename T, typename IdxT>
-class RaftCagraHnswlib : public ANN<T> {
+class RaftCagraHnswlib : public ANN<T>, public AnnGPU {
  public:
   using typename ANN<T>::AnnSearchParam;
   using BuildParam  = typename RaftCagra<T, IdxT>::BuildParam;
@@ -36,18 +37,19 @@ class RaftCagraHnswlib : public ANN<T> {
   {
   }
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
+  void build(const T* dataset, size_t nrow) final;
 
   void set_search_param(const AnnSearchParam& param) override;
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const override;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    return cagra_build_.get_sync_stream();
+  }
 
   // to enable dataset access from GPU memory
   AlgoProperty get_preference() const override
@@ -71,9 +73,9 @@ class RaftCagraHnswlib : public ANN<T> {
 };
 
 template <typename T, typename IdxT>
-void RaftCagraHnswlib<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void RaftCagraHnswlib<T, IdxT>::build(const T* dataset, size_t nrow)
 {
-  cagra_build_.build(dataset, nrow, stream);
+  cagra_build_.build(dataset, nrow);
 }
 
 template <typename T, typename IdxT>
@@ -96,14 +98,10 @@ void RaftCagraHnswlib<T, IdxT>::load(const std::string& file)
 }
 
 template <typename T, typename IdxT>
-void RaftCagraHnswlib<T, IdxT>::search(const T* queries,
-                                       int batch_size,
-                                       int k,
-                                       size_t* neighbors,
-                                       float* distances,
-                                       cudaStream_t stream) const
+void RaftCagraHnswlib<T, IdxT>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
-  hnswlib_search_.search(queries, batch_size, k, neighbors, distances, stream);
+  hnswlib_search_.search(queries, batch_size, k, neighbors, distances);
 }
 
 }  // namespace raft::bench::ann

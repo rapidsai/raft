@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include "dist_adj_threshold.cuh"
+
 #include <raft/distance/distance.cuh>
 
 #define instantiate_raft_distance_distance(DT, DataT, AccT, OutT, FinalLambda, IdxT)       \

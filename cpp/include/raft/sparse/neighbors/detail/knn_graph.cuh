@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,13 @@
 #pragma once
 
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <raft/sparse/coo.hpp>
-#include <raft/sparse/linalg/symmetrize.cuh>
-
-#include <raft/spatial/knn/knn.cuh>
-
-#include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>

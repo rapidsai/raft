@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,11 +27,11 @@
 
 #include <cutlass/array.h>
 #include <cutlass/cutlass.h>
+#include <cutlass/epilogue/thread/activation.h>
 #include <cutlass/functional.h>
+#include <cutlass/layout/pitch_linear.h>
 #include <cutlass/numeric_conversion.h>
 #include <cutlass/numeric_types.h>
-
-#include <cutlass/epilogue/thread/activation.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 

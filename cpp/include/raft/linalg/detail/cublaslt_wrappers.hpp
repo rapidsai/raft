@@ -24,8 +24,10 @@
 #include <raft/util/cache.hpp>
 #include <raft/util/cuda_data_type.hpp>
 
-#include <cublasLt.h>
 #include <cuda_fp16.hpp>
+
+#include <cublasLt.h>
+
 #include <type_traits>
 
 namespace raft::linalg::detail {

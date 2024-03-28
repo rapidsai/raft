@@ -16,9 +16,7 @@
 
 #pragma once
 #include "curand_wrappers.hpp"
-#include <cmath>
-#include <memory>
-#include <optional>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
@@ -31,8 +29,14 @@
 #include <raft/random/random_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
 #include <stdio.h>
+
+#include <cmath>
+#include <memory>
+#include <optional>
 #include <type_traits>
 
 // mvg.cuh takes in matrices that are column major (as in fortran)

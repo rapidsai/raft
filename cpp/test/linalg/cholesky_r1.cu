@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include "../test_utils.cuh"
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include "../test_utils.cuh"
+#include <gtest/gtest.h>
+
 #include <sstream>
 #include <vector>
 namespace raft {

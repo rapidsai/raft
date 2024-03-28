@@ -16,11 +16,11 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
-
-#include <raft/core/detail/macros.hpp>
 
 #if defined(_RAFT_HAS_CUDA)
 #include <cuda_bf16.h>

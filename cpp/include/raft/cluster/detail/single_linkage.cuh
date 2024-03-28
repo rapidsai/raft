@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
-
 #include <raft/cluster/detail/agglomerative.cuh>
 #include <raft/cluster/detail/connectivities.cuh>
 #include <raft/cluster/detail/mst.cuh>
 #include <raft/cluster/single_linkage_types.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 namespace raft::cluster::detail {
 

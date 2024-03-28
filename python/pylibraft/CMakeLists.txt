@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -14,9 +14,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-include(../../fetch_rapids.cmake)
-
-set(pylibraft_version 24.02.00)
+include(../../rapids_config.cmake)
 
 # We always need CUDA for pylibraft because the raft dependency brings in a header-only cuco
 # dependency that enables CUDA unconditionally.
@@ -25,7 +23,7 @@ rapids_cuda_init_architectures(pylibraft)
 
 project(
   pylibraft
-  VERSION ${pylibraft_version}
+  VERSION "${RAPIDS_VERSION}"
   LANGUAGES CXX CUDA
 )
 
@@ -35,7 +33,7 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-  find_package(raft ${pylibraft_version} REQUIRED COMPONENTS compiled)
+  find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS compiled)
   if(NOT TARGET raft::raft_lib)
     message(
       FATAL_ERROR

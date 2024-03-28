@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,20 +19,22 @@
 // for cmath:
 #define _USE_MATH_DEFINES
 
-#include <cmath>
+#include "cublas_wrappers.hpp"
+
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <vector>
-
-#include <cuda.h>
-#include <curand.h>
-
-#include "cublas_wrappers.hpp"
 #include <raft/core/resources.hpp>
 #include <raft/spectral/detail/lapack.hpp>
 #include <raft/spectral/detail/warn_dbg.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
+
+#include <cuda.h>
+
+#include <curand.h>
+
+#include <cmath>
+#include <vector>
 
 namespace raft {
 namespace linalg {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,16 @@
  */
 
 #include "../../test_utils.cuh"
-#include <gtest/gtest.h>
+
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/neighbors/knn_graph.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/coo.hpp>
-#include <raft/sparse/neighbors/knn_graph.cuh>
+#include <gtest/gtest.h>
 
 #include <iostream>
 

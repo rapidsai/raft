@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/device_atomics.cuh>
+
 #include <thrust/for_each.h>
 
 namespace raft::core {

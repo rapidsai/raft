@@ -30,7 +30,7 @@
  **************************************************************************************************/
 
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,29 +67,25 @@ reduction
 #include <cuda/std/utility>
 #else
 #include <assert.h>
+
 #include <utility>
 #endif
 
 #include <cutlass/aligned_buffer.h>
 #include <cutlass/array.h>
 #include <cutlass/cutlass.h>
+#include <cutlass/epilogue/threadblock/epilogue_base.h>
+#include <cutlass/epilogue/threadblock/predicated_tile_iterator.h>
 #include <cutlass/fast_math.h>
 #include <cutlass/functional.h>
+#include <cutlass/gemm/gemm.h>
 #include <cutlass/layout/tensor.h>
 #include <cutlass/layout/vector.h>
 #include <cutlass/numeric_conversion.h>
 #include <cutlass/numeric_types.h>
 #include <cutlass/tensor_coord.h>
-
-#include <cutlass/gemm/gemm.h>
-
 #include <cutlass/transform/pitch_linear_thread_map.h>
 #include <cutlass/transform/threadblock/regular_tile_iterator.h>
-
-#include <cutlass/epilogue/threadblock/epilogue_base.h>
-#include <cutlass/epilogue/threadblock/predicated_tile_iterator.h>
-
-#include <cutlass/numeric_types.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -615,6 +611,7 @@ class EpilogueWithBroadcastCustom : public EpilogueBase<Shape_,
         ++tensor_iterator;
       }
     }
+    tensor_iterator.dumpToGmem();
   }
 
   /// Helper to invoke the output functor over each vector of output

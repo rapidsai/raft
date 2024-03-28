@@ -19,6 +19,9 @@ cmake_version:
 nccl_version:
   - ">=2.9.9"
 
+gbench_version:
+  - "==1.8.0"
+
 gtest_version:
   - ">=1.13.0"
 

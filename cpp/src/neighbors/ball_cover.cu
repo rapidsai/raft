@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <cstdint>
 #include <raft/neighbors/ball_cover-inl.cuh>
+
+#include <cstdint>
 
 #define instantiate_raft_neighbors_ball_cover(idx_t, value_t, int_t, matrix_idx_t)                 \
   template void raft::neighbors::ball_cover::build_index<idx_t, value_t, int_t, matrix_idx_t>(     \

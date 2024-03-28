@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <raft/core/mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/serialize.hpp>
+#include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
@@ -153,7 +154,7 @@ auto deserialize(raft::resources const& handle, std::istream& is) -> index<T, Id
   }
   resource::sync_stream(handle);
 
-  index_.recompute_internal_state(handle);
+  ivf::detail::recompute_internal_state(handle, index_);
 
   return index_;
 }

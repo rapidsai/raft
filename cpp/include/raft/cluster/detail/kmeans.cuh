@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,6 @@
  */
 #pragma once
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <ctime>
-#include <optional>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
-#include <random>
-
-#include <cuda.h>
-#include <thrust/fill.h>
-#include <thrust/transform.h>
-
 #include <raft/cluster/detail/kmeans_common.cuh>
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/common/nvtx.hpp>
@@ -38,6 +25,8 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
@@ -48,8 +37,20 @@
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <cuda.h>
+#include <thrust/fill.h>
+#include <thrust/transform.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <ctime>
+#include <optional>
+#include <random>
 
 namespace raft {
 namespace cluster {

@@ -15,9 +15,11 @@
  */
 #pragma once
 
-#include <cstdint>
 #include <cuda_fp16.hpp>
+
 #include <library_types.h>
+
+#include <cstdint>
 
 namespace raft {
 

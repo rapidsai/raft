@@ -29,7 +29,7 @@
  *
  **************************************************************************************************/
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +58,8 @@ Changes:
 */
 #pragma once
 
+#include <raft/util/device_loads_stores.cuh>
+
 #include <cutlass/arch/arch.h>
 #include <cutlass/arch/memory.h>
 #include <cutlass/array.h>
@@ -70,8 +72,6 @@ Changes:
 #include <cutlass/numeric_types.h>
 #include <cutlass/tensor_ref.h>
 #include <cutlass/transform/pitch_linear_thread_map.h>
-
-#include <raft/util/device_loads_stores.cuh>
 
 ////////////////////////////////////////////////////////////////////////////////
 

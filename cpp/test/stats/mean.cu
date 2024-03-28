@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,14 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -93,39 +95,39 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
 // Note: For 1024 samples, 256 experiments, a mean of 1.0 with stddev=1.0, the
 // measured mean (of a normal distribution) will fall outside of an epsilon of
 // 0.15 only 4/10000 times. (epsilon of 0.1 will fail 30/100 times)
-const std::vector<MeanInputs<float>> inputsf = {{0.15f, 1.f, 1024, 32, true, false, 1234ULL},
-                                                {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
-                                                {0.15f, 1.f, 1024, 128, true, false, 1234ULL},
-                                                {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
-                                                {0.15f, -1.f, 1024, 32, false, false, 1234ULL},
-                                                {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
-                                                {0.15f, -1.f, 1024, 128, false, false, 1234ULL},
-                                                {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
-                                                {0.15f, 1.f, 1024, 32, true, true, 1234ULL},
-                                                {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
-                                                {0.15f, 1.f, 1024, 128, true, true, 1234ULL},
-                                                {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
-                                                {0.15f, -1.f, 1024, 32, false, true, 1234ULL},
-                                                {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
-                                                {0.15f, -1.f, 1024, 128, false, true, 1234ULL},
-                                                {0.15f, -1.f, 1024, 256, false, true, 1234ULL}};
+const std::vector<MeanInputs<float>> inputsf = {
+  {0.15f, 1.f, 1024, 32, true, false, 1234ULL},    {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
+  {0.15f, 1.f, 1024, 128, true, false, 1234ULL},   {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
+  {0.15f, -1.f, 1024, 32, false, false, 1234ULL},  {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
+  {0.15f, -1.f, 1024, 128, false, false, 1234ULL}, {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
+  {0.15f, 1.f, 1024, 32, true, true, 1234ULL},     {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
+  {0.15f, 1.f, 1024, 128, true, true, 1234ULL},    {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
+  {0.15f, -1.f, 1024, 32, false, true, 1234ULL},   {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
+  {0.15f, -1.f, 1024, 128, false, true, 1234ULL},  {0.15f, -1.f, 1024, 256, false, true, 1234ULL},
+  {0.15f, -1.f, 1030, 1, false, false, 1234ULL},   {0.15f, -1.f, 1030, 60, true, false, 1234ULL},
+  {2.0f, -1.f, 31, 120, false, false, 1234ULL},    {2.0f, -1.f, 1, 130, true, false, 1234ULL},
+  {0.15f, -1.f, 1030, 1, false, true, 1234ULL},    {0.15f, -1.f, 1030, 60, true, true, 1234ULL},
+  {2.0f, -1.f, 31, 120, false, true, 1234ULL},     {2.0f, -1.f, 1, 130, false, true, 1234ULL},
+  {2.0f, -1.f, 1, 1, false, false, 1234ULL},       {2.0f, -1.f, 1, 1, false, true, 1234ULL},
+  {2.0f, -1.f, 7, 23, false, false, 1234ULL},      {2.0f, -1.f, 7, 23, false, true, 1234ULL},
+  {2.0f, -1.f, 17, 5, false, false, 1234ULL},      {2.0f, -1.f, 17, 5, false, true, 1234ULL}};
 
-const std::vector<MeanInputs<double>> inputsd = {{0.15, 1.0, 1024, 32, true, false, 1234ULL},
-                                                 {0.15, 1.0, 1024, 64, true, false, 1234ULL},
-                                                 {0.15, 1.0, 1024, 128, true, false, 1234ULL},
-                                                 {0.15, 1.0, 1024, 256, true, false, 1234ULL},
-                                                 {0.15, -1.0, 1024, 32, false, false, 1234ULL},
-                                                 {0.15, -1.0, 1024, 64, false, false, 1234ULL},
-                                                 {0.15, -1.0, 1024, 128, false, false, 1234ULL},
-                                                 {0.15, -1.0, 1024, 256, false, false, 1234ULL},
-                                                 {0.15, 1.0, 1024, 32, true, true, 1234ULL},
-                                                 {0.15, 1.0, 1024, 64, true, true, 1234ULL},
-                                                 {0.15, 1.0, 1024, 128, true, true, 1234ULL},
-                                                 {0.15, 1.0, 1024, 256, true, true, 1234ULL},
-                                                 {0.15, -1.0, 1024, 32, false, true, 1234ULL},
-                                                 {0.15, -1.0, 1024, 64, false, true, 1234ULL},
-                                                 {0.15, -1.0, 1024, 128, false, true, 1234ULL},
-                                                 {0.15, -1.0, 1024, 256, false, true, 1234ULL}};
+const std::vector<MeanInputs<double>> inputsd = {
+  {0.15, 1.0, 1024, 32, true, false, 1234ULL},    {0.15, 1.0, 1024, 64, true, false, 1234ULL},
+  {0.15, 1.0, 1024, 128, true, false, 1234ULL},   {0.15, 1.0, 1024, 256, true, false, 1234ULL},
+  {0.15, -1.0, 1024, 32, false, false, 1234ULL},  {0.15, -1.0, 1024, 64, false, false, 1234ULL},
+  {0.15, -1.0, 1024, 128, false, false, 1234ULL}, {0.15, -1.0, 1024, 256, false, false, 1234ULL},
+  {0.15, 1.0, 1024, 32, true, true, 1234ULL},     {0.15, 1.0, 1024, 64, true, true, 1234ULL},
+  {0.15, 1.0, 1024, 128, true, true, 1234ULL},    {0.15, 1.0, 1024, 256, true, true, 1234ULL},
+  {0.15, -1.0, 1024, 32, false, true, 1234ULL},   {0.15, -1.0, 1024, 64, false, true, 1234ULL},
+  {0.15, -1.0, 1024, 128, false, true, 1234ULL},  {0.15, -1.0, 1024, 256, false, true, 1234ULL},
+  {0.15, -1.0, 1030, 1, false, false, 1234ULL},   {0.15, -1.0, 1030, 60, true, false, 1234ULL},
+  {2.0, -1.0, 31, 120, false, false, 1234ULL},    {2.0, -1.0, 1, 130, true, false, 1234ULL},
+  {0.15, -1.0, 1030, 1, false, true, 1234ULL},    {0.15, -1.0, 1030, 60, true, true, 1234ULL},
+  {2.0, -1.0, 31, 120, false, true, 1234ULL},     {2.0, -1.0, 1, 130, false, true, 1234ULL},
+  {2.0, -1.0, 1, 1, false, false, 1234ULL},       {2.0, -1.0, 1, 1, false, true, 1234ULL},
+  {2.0, -1.0, 7, 23, false, false, 1234ULL},      {2.0, -1.0, 7, 23, false, true, 1234ULL},
+  {2.0, -1.0, 17, 5, false, false, 1234ULL},      {2.0, -1.0, 17, 5, false, true, 1234ULL}};
 
 typedef MeanTest<float> MeanTestF;
 TEST_P(MeanTestF, Result)

@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <optional>
-
 #include <raft/core/device_mdspan.hpp>       // raft::device_matrix_view
 #include <raft/core/operators.hpp>           // raft::identity_op
 #include <raft/core/resources.hpp>           // raft::resources
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/neighbors/brute_force_types.hpp>
 #include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
+
+#include <optional>
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

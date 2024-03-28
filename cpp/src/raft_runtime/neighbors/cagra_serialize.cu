@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-#include <sstream>
-#include <string>
-
 #include <raft/core/device_resources.hpp>
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/neighbors/cagra_types.hpp>
+
 #include <raft_runtime/neighbors/cagra.hpp>
+
+#include <cuda_fp16.h>
+
+#include <sstream>
+#include <string>
 
 namespace raft::runtime::neighbors::cagra {
 
@@ -75,6 +78,7 @@ namespace raft::runtime::neighbors::cagra {
   }
 
 RAFT_INST_CAGRA_SERIALIZE(float);
+RAFT_INST_CAGRA_SERIALIZE(half);
 RAFT_INST_CAGRA_SERIALIZE(int8_t);
 RAFT_INST_CAGRA_SERIALIZE(uint8_t);
 

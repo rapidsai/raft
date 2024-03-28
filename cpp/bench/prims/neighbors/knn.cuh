@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,18 @@
 #pragma once
 
 #include <common/benchmark.hpp>
-#include <raft/core/resource/device_id.hpp>
-
-#include <raft/random/rng.cuh>
 
 #include <raft/core/bitset.cuh>
+#include <raft/core/resource/device_id.hpp>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/sample_filter.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/itertools.hpp>
 
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-
 #include <rmm/mr/host/new_delete_resource.hpp>
 #include <rmm/mr/host/pinned_memory_resource.hpp>
 

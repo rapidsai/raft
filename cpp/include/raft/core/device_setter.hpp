@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
  */
 
 #pragma once
-#include <cuda_runtime_api.h>
 #include <raft/core/logger.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
+
+#include <cuda_runtime_api.h>
 namespace raft {
 
 /**

@@ -16,17 +16,13 @@
 
 #pragma once
 
-#include <memory>
-#include <raft/core/resource/cuda_stream.hpp>
-
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cudart_utils.hpp>
-
-#include <benchmark/benchmark.h>
 
 #include <rmm/cuda_device.hpp>
 #include <rmm/cuda_stream.hpp>
@@ -34,6 +30,10 @@
 #include <rmm/device_buffer.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+
+#include <benchmark/benchmark.h>
+
+#include <memory>
 
 namespace raft::bench {
 

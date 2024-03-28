@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@
 #undef RAFT_ACTIVE_LEVEL
 #define RAFT_ACTIVE_LEVEL 6
 
-#include <gtest/gtest.h>
 #include <raft/core/logger.hpp>
+
+#include <gtest/gtest.h>
+
 #include <string>
 
 namespace raft {

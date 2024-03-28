@@ -15,10 +15,11 @@
  */
 #pragma once
 
-#include <cstddef>                           // size_t
-#include <cstdint>                           // uint32_t
 #include <raft/distance/distance_types.hpp>  // DistanceType
 #include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
+
+#include <cstddef>  // size_t
+#include <cstdint>  // uint32_t
 
 #if defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 

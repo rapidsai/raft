@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,16 @@
 
 #pragma once
 
-#include <cuda_fp16.h>                               // __half
 #include <raft/core/detail/macros.hpp>               // RAFT_WEAK_FUNCTION
 #include <raft/distance/distance_types.hpp>          // raft::distance::DistanceType
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>  // raft::neighbors::ivf_pq::detail::fp_8bit
 #include <raft/neighbors/ivf_pq_types.hpp>           // raft::neighbors::ivf_pq::codebook_gen
 #include <raft/neighbors/sample_filter_types.hpp>    // none_ivf_sample_filter
 #include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
-#include <rmm/cuda_stream_view.hpp>                  // rmm::cuda_stream_view
+
+#include <rmm/cuda_stream_view.hpp>  // rmm::cuda_stream_view
+
+#include <cuda_fp16.h>  // __half
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

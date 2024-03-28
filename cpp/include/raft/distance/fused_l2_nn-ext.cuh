@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,12 @@
 
 #pragma once
 
-#include <cstdint>                                // int64_t
-#include <raft/core/kvp.hpp>                      // raft::KeyValuePair
-#include <raft/core/resources.hpp>                // raft::resources
-#include <raft/distance/fused_l2_nn_helpers.cuh>  // include initialize and reduce operations
-#include <raft/util/raft_explicit.hpp>            // RAFT_EXPLICIT
+#include <raft/core/kvp.hpp>                            // raft::KeyValuePair
+#include <raft/core/resources.hpp>                      // raft::resources
+#include <raft/distance/fused_distance_nn_helpers.cuh>  // include initialize and reduce operations
+#include <raft/util/raft_explicit.hpp>                  // RAFT_EXPLICIT
+
+#include <cstdint>  // int64_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,15 @@
  */
 #pragma once
 
-#include <cstdint>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/fast_int_div.cuh>
+
 #include <thrust/iterator/counting_iterator.h>
+
+#include <cstdint>
 
 namespace raft {
 namespace matrix {

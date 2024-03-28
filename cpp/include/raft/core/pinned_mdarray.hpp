@@ -16,11 +16,12 @@
 
 #pragma once
 
-#include <cstdint>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/pinned_container_policy.hpp>
 #include <raft/core/pinned_mdspan.hpp>
 #include <raft/core/resources.hpp>
+
+#include <cstdint>
 
 namespace raft {
 

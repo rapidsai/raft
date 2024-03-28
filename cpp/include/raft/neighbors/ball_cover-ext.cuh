@@ -15,10 +15,11 @@
  */
 #pragma once
 
-#include <cstdint>                              // uint32_t
 #include <raft/distance/distance_types.hpp>     // raft::distance::DistanceType
 #include <raft/neighbors/ball_cover_types.hpp>  // BallCoverIndex
 #include <raft/util/raft_explicit.hpp>          // RAFT_EXPLICIT
+
+#include <cstdint>  // uint32_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

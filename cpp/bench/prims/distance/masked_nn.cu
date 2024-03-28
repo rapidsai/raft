@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,8 @@
  * limitations under the License.
  */
 
-#include <cstdint>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
-
 #include <common/benchmark.hpp>
-#include <limits>
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
@@ -29,6 +23,13 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <limits>
+#include <sstream>
+#include <string>
 
 namespace raft::bench::distance::masked_nn {
 

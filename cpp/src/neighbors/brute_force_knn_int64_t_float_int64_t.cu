@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,9 @@
  *
  */
 
-#include <cstdint>
 #include <raft/neighbors/brute_force-inl.cuh>
+
+#include <cstdint>
 
 #define instantiate_raft_neighbors_brute_force_knn(                                         \
   idx_t, value_t, matrix_idx, index_layout, search_layout, epilogue_op)                     \

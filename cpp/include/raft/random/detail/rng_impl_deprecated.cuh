@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,17 @@
 
 #include "rng_device.cuh"
 
-#include <curand_kernel.h>
 #include <raft/core/resources.hpp>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/detail/cub_wrappers.cuh>
 #include <raft/util/scatter.cuh>
-#include <random>
+
 #include <rmm/device_uvector.hpp>
+
+#include <curand_kernel.h>
+
+#include <random>
 
 namespace raft {
 namespace random {

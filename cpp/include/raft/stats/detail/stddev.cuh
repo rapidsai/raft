@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ RAFT_KERNEL stddevKernelRowMajor(Type* std, const Type* data, IdxType D, IdxType
   __syncthreads();
   raft::myAtomicAdd(sstd + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk) raft::myAtomicAdd(std + colId, sstd[thisColId]);
+  if (threadIdx.x < ColsPerBlk && colId < D) raft::myAtomicAdd(std + colId, sstd[thisColId]);
 }
 
 template <typename Type, typename IdxType, int TPB>

@@ -16,12 +16,13 @@
 
 #pragma once
 
+#include <raft/core/error.hpp>
+#include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
+#include <raft/neighbors/detail/faiss_select/Select.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <cstdint>
-#include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
-#include <raft/neighbors/detail/faiss_select/Select.cuh>
 
 namespace raft::neighbors::detail {
 
@@ -168,5 +169,7 @@ inline void knn_merge_parts(const value_t* inK,
   else if (k <= 1024)
     knn_merge_parts_impl<value_idx, value_t, 1024, 8>(
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
+  else
+    THROW("Unimplemented for k=%d, knn_merge_parts works for k<=1024", k);
 }
 }  // namespace raft::neighbors::detail

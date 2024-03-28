@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
  */
 #pragma once
 
-#include <algorithm>                                                 // std::min
 #include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>   // cutlassDistanceKernel
 #include <raft/distance/detail/pairwise_matrix/dispatch_layout.cuh>  // dispatch_layout
+
+#include <algorithm>  // std::min
 
 namespace raft::distance::detail {
 

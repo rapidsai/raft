@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuda_runtime.h>
-#include <gtest/gtest.h>
 #include <raft/core/memory_type.hpp>
+
+#include <cuda_runtime.h>
+
+#include <gtest/gtest.h>
 
 namespace raft {
 TEST(MemoryType, IsDeviceAccessible)

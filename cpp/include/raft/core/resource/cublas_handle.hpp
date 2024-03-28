@@ -15,11 +15,12 @@
  */
 #pragma once
 
-#include <cublas_v2.h>
 #include <raft/core/cublas_macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
+
+#include <cublas_v2.h>
 
 namespace raft::resource {
 

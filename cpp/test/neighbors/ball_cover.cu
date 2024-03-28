@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include "spatial_data.h"
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -32,8 +33,9 @@
 #include <thrust/fill.h>
 #include <thrust/transform.h>
 
-#include <cstdint>
 #include <gtest/gtest.h>
+
+#include <cstdint>
 #include <iostream>
 #include <vector>
 

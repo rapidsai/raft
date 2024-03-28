@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,14 +22,15 @@
  *          for the Linear Assignment Problem." Parallel Computing 57 (2016): 52-72.
  *
  */
-#include <gtest/gtest.h>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/solver/linear_assignment.cuh>
 
 #include <rmm/device_uvector.hpp>
 
-#include <iostream>
+#include <gtest/gtest.h>
 #include <omp.h>
-#include <raft/solver/linear_assignment.cuh>
+
+#include <iostream>
 #include <random>
 
 #define PROBLEMSIZE  1000  // Number of rows/columns

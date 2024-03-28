@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,26 +16,24 @@
 
 #pragma once
 
-#include <cusparse_v2.h>
 #include <raft/common/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/linalg/norm_types.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/sparse/detail/utils.h>
+#include <raft/sparse/op/row_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <raft/sparse/op/row_op.cuh>
-
+#include <cuda_runtime.h>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 
-#include <cuda_runtime.h>
+#include <cusparse_v2.h>
 #include <stdio.h>
 
 #include <iostream>
 #include <limits>
-
-#include <raft/sparse/detail/utils.h>
 
 namespace raft {
 namespace sparse {

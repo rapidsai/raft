@@ -19,36 +19,31 @@
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/ucp_helper.hpp>
 #include <raft/comms/detail/util.hpp>
-
+#include <raft/core/error.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/core/error.hpp>
-
-#include <raft/util/cudart_utils.hpp>
-
+#include <cuda_runtime.h>
 #include <thrust/iterator/zip_iterator.h>
 
-#include <cuda_runtime.h>
-
+#include <nccl.h>
+#include <stdlib.h>
+#include <time.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-
-#include <nccl.h>
-
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <exception>
 #include <memory>
-#include <stdlib.h>
 #include <thread>
-#include <time.h>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 
 namespace raft {
 namespace comms {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,15 @@
 
 #pragma once
 
-#include <limits>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/device_memory_resource.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
-#include <type_traits>
-
 #include <raft/cluster/detail/kmeans_common.cuh>
 #include <raft/cluster/kmeans_balanced_types.hpp>
 #include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -44,7 +41,6 @@
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/integer_utils.hpp>
 
-#include <raft/core/resource/device_memory_resource.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_vector.hpp>
@@ -55,7 +51,9 @@
 #include <thrust/gather.h>
 #include <thrust/transform.h>
 
+#include <limits>
 #include <tuple>
+#include <type_traits>
 
 namespace raft::cluster::detail {
 

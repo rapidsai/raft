@@ -16,13 +16,12 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/neighbors/detail/ivf_flat_search.cuh>
 #include <raft/neighbors/ivf_flat_serialize.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
-
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/resources.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>

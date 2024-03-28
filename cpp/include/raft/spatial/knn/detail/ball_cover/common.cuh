@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,11 @@
 
 #include "../haversine_distance.cuh"
 #include "registers_types.cuh"
-#include <cstdint>
+
 #include <thrust/functional.h>
 #include <thrust/tuple.h>
+
+#include <cstdint>
 
 namespace raft {
 namespace spatial {

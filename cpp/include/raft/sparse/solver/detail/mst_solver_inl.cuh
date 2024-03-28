@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,10 @@
 
 #pragma once
 
-#include <curand.h>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
-
 #include <raft/sparse/solver/detail/mst_kernels.cuh>
 #include <raft/sparse/solver/detail/mst_utils.cuh>
-
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_scalar.hpp>
@@ -42,6 +39,8 @@
 #include <thrust/transform_reduce.h>
 #include <thrust/tuple.h>
 #include <thrust/unique.h>
+
+#include <curand.h>
 
 #include <iostream>
 

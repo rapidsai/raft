@@ -16,10 +16,12 @@
 
 #pragma once
 
-#include "../../ball_cover_types.hpp"   // BallCoverIndex
-#include "registers_types.cuh"          // DistFunc
-#include <cstdint>                      // uint32_t
+#include "../../ball_cover_types.hpp"  // BallCoverIndex
+#include "registers_types.cuh"         // DistFunc
+
 #include <raft/util/raft_explicit.hpp>  //RAFT_EXPLICIT
+
+#include <cstdint>  // uint32_t
 
 #if defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 
@@ -188,7 +190,7 @@ instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(
   std::int64_t, float, std::int64_t, std::int64_t, 3, raft::spatial::knn::detail::DistFunc);
 
 instantiate_raft_spatial_knn_detail_rbc_eps_pass(
-  std::int64_t, float, std::int64_t, std::int64_t, raft::spatial::knn::detail::EuclideanFunc);
+  std::int64_t, float, std::int64_t, std::int64_t, raft::spatial::knn::detail::EuclideanSqFunc);
 
 #undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two
 #undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one

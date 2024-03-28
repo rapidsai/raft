@@ -7,11 +7,10 @@
 
 #pragma once
 
+#include <raft/core/kvp.hpp>
 #include <raft/neighbors/detail/faiss_select/Comparators.cuh>
 #include <raft/neighbors/detail/faiss_select/MergeNetworkBlock.cuh>
 #include <raft/neighbors/detail/faiss_select/MergeNetworkWarp.cuh>
-
-#include <raft/core/kvp.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 namespace raft::neighbors::detail::faiss_select {

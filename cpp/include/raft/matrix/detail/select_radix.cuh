@@ -19,6 +19,9 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/core/resource/device_properties.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
@@ -26,14 +29,14 @@
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
+
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_scan.cuh>
 #include <cub/block/block_store.cuh>
 #include <cub/block/radix_rank_sort_operations.cuh>
-
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
-#include <rmm/mr/device/managed_memory_resource.hpp>
 
 namespace raft::matrix::detail::select::radix {
 namespace impl {
@@ -554,6 +557,7 @@ RAFT_KERNEL radix_kernel(const T* in,
                          Counter<T, IdxT>* counters,
                          IdxT* histograms,
                          const IdxT len,
+                         const IdxT* len_i,
                          const IdxT k,
                          const bool select_min,
                          const int pass)
@@ -595,6 +599,14 @@ RAFT_KERNEL radix_kernel(const T* in,
     in_buf += batch_id * buf_len;
     in_idx_buf += batch_id * buf_len;
   }
+
+  // in case we have individual len for each query defined we want to make sure
+  // that we only iterate valid elements.
+  if (len_i != nullptr) {
+    const IdxT max_len = max(len_i[batch_id], k);
+    if (max_len < previous_len) previous_len = max_len;
+  }
+
   // "current_len > buf_len" means current pass will skip writing buffer
   if (pass == 0 || current_len > buf_len) {
     out_buf     = nullptr;
@@ -826,6 +838,7 @@ void radix_topk(const T* in,
                 IdxT* out_idx,
                 bool select_min,
                 bool fused_last_filter,
+                const IdxT* len_i,
                 unsigned grid_dim,
                 int sm_cnt,
                 rmm::cuda_stream_view stream,
@@ -865,6 +878,7 @@ void radix_topk(const T* in,
     const IdxT* chunk_in_idx = in_idx ? (in_idx + offset * len) : nullptr;
     T* chunk_out             = out + offset * k;
     IdxT* chunk_out_idx      = out_idx + offset * k;
+    const IdxT* chunk_len_i  = len_i ? (len_i + offset) : nullptr;
 
     const T* in_buf        = nullptr;
     const IdxT* in_idx_buf = nullptr;
@@ -902,6 +916,7 @@ void radix_topk(const T* in,
                                                counters.data(),
                                                histograms.data(),
                                                len,
+                                               chunk_len_i,
                                                k,
                                                select_min,
                                                pass);
@@ -1004,6 +1019,7 @@ template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
                                         const IdxT* in_idx,
                                         const IdxT len,
+                                        const IdxT* len_i,
                                         const IdxT k,
                                         T* out,
                                         IdxT* out_idx,
@@ -1052,6 +1068,13 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
       // so "out_buf==nullptr" denotes skipping writing buffer in current pass
       out_buf     = nullptr;
       out_idx_buf = nullptr;
+    }
+
+    // in case we have individual len for each query defined we want to make sure
+    // that we only iterate valid elements.
+    if (len_i != nullptr) {
+      const IdxT max_len = max(len_i[batch_id], k);
+      if (max_len < previous_len) previous_len = max_len;
     }
 
     filter_and_histogram_for_one_block<T, IdxT, BitsPerPass>(in_buf,
@@ -1103,6 +1126,7 @@ void radix_topk_one_block(const T* in,
                           T* out,
                           IdxT* out_idx,
                           bool select_min,
+                          const IdxT* len_i,
                           int sm_cnt,
                           rmm::cuda_stream_view stream,
                           rmm::mr::device_memory_resource* mr)
@@ -1118,10 +1142,12 @@ void radix_topk_one_block(const T* in,
     max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
 
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
-    int chunk_size = std::min(max_chunk_size, batch_size - offset);
+    int chunk_size          = std::min(max_chunk_size, batch_size - offset);
+    const IdxT* chunk_len_i = len_i ? (len_i + offset) : nullptr;
     kernel<<<chunk_size, BlockSize, 0, stream>>>(in + offset * len,
                                                  in_idx ? (in_idx + offset * len) : nullptr,
                                                  len,
+                                                 chunk_len_i,
                                                  k,
                                                  out + offset * k,
                                                  out_idx + offset * k,
@@ -1157,6 +1183,7 @@ void radix_topk_one_block(const T* in,
  * @tparam BlockSize
  *   Number of threads in a kernel thread block.
  *
+ * @param[in] res container of reusable resources
  * @param[in] in
  *   contiguous device array of inputs of size (len * batch_size);
  *   these are compared and selected.
@@ -1184,12 +1211,12 @@ void radix_topk_one_block(const T* in,
  *   blocks is called. The later case is preferable when leading bits of input data are almost the
  *   same. That is, when the value range of input data is narrow. In such case, there could be a
  *   large number of inputs for the last filter, hence using multiple thread blocks is beneficial.
- * @param stream
- * @param mr an optional memory resource to use across the calls (you can provide a large enough
- *           memory pool here to avoid memory allocations within the call).
+ * @param len_i
+ *   optional array of size (batch_size) providing lengths for each individual row
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
-void select_k(const T* in,
+void select_k(raft::resources const& res,
+              const T* in,
               const IdxT* in_idx,
               int batch_size,
               IdxT len,
@@ -1198,9 +1225,10 @@ void select_k(const T* in,
               IdxT* out_idx,
               bool select_min,
               bool fused_last_filter,
-              rmm::cuda_stream_view stream,
-              rmm::mr::device_memory_resource* mr = nullptr)
+              const IdxT* len_i)
 {
+  auto stream = resource::get_cuda_stream(res);
+  auto mr     = resource::get_workspace_resource(res);
   if (k == len) {
     RAFT_CUDA_TRY(
       cudaMemcpyAsync(out, in, sizeof(T) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
@@ -1210,33 +1238,24 @@ void select_k(const T* in,
     } else {
       auto out_idx_view =
         raft::make_device_vector_view(out_idx, static_cast<size_t>(len) * batch_size);
-      raft::resources handle;
-      resource::set_cuda_stream(handle, stream);
-      raft::linalg::map_offset(handle, out_idx_view, raft::mod_const_op<IdxT>(len));
+      raft::linalg::map_offset(res, out_idx_view, raft::mod_const_op<IdxT>(len));
     }
     return;
   }
 
-  // TODO: use device_resources::get_device_properties() instead; should change it when we refactor
-  // resource management
-  int sm_cnt;
-  {
-    int dev;
-    RAFT_CUDA_TRY(cudaGetDevice(&dev));
-    RAFT_CUDA_TRY(cudaDeviceGetAttribute(&sm_cnt, cudaDevAttrMultiProcessorCount, dev));
-  }
+  int sm_cnt = resource::get_device_properties(res).multiProcessorCount;
 
   constexpr int items_per_thread = 32;
 
   if (len <= BlockSize * items_per_thread) {
     impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, sm_cnt, stream, mr);
+      in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
   } else {
     unsigned grid_dim =
       impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt);
     if (grid_dim == 1) {
       impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, sm_cnt, stream, mr);
+        in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
     } else {
       impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(in,
                                                         in_idx,
@@ -1247,6 +1266,7 @@ void select_k(const T* in,
                                                         out_idx,
                                                         select_min,
                                                         fused_last_filter,
+                                                        len_i,
                                                         grid_dim,
                                                         sm_cnt,
                                                         stream,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
-
-#include <raft_internal/neighbors/refine_helper.cuh>
 
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/refine.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/util/itertools.hpp>
+
+#include <raft_internal/neighbors/refine_helper.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 

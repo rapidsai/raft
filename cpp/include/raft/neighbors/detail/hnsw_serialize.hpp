@@ -19,8 +19,6 @@
 #include "../hnsw_types.hpp"
 #include "hnsw_types.hpp"
 
-#include <cstddef>
-#include <cstdint>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
@@ -29,6 +27,8 @@
 #include <raft/core/serialize.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <type_traits>
 

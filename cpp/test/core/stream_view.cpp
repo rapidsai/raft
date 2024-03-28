@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <raft/core/cuda_support.hpp>
 #include <raft/core/stream_view.hpp>
+
+#include <gtest/gtest.h>
 #ifndef RAFT_DISABLE_CUDA
 #include <rmm/cuda_stream_view.hpp>
 #endif

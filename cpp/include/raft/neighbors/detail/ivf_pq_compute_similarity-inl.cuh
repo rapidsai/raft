@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,15 @@
 
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/matrix/detail/select_warpsort.cuh>  // matrix::detail::select::warpsort::warp_sort_distributed
-#include <raft/neighbors/detail/ivf_pq_dummy_block_sort.cuh>  // dummy_block_sort_t
-#include <raft/neighbors/ivf_pq_types.hpp>                    // codebook_gen
-#include <raft/neighbors/sample_filter_types.hpp>             // none_ivf_sample_filter
-#include <raft/util/cuda_rt_essentials.hpp>                   // RAFT_CUDA_TRY
-#include <raft/util/device_atomics.cuh>                       // raft::atomicMin
-#include <raft/util/pow2_utils.cuh>                           // raft::Pow2
-#include <raft/util/vectorized.cuh>                           // raft::TxN_t
-#include <rmm/cuda_stream_view.hpp>                           // rmm::cuda_stream_view
+#include <raft/neighbors/detail/ivf_common.cuh>    // dummy_block_sort_t
+#include <raft/neighbors/ivf_pq_types.hpp>         // codebook_gen
+#include <raft/neighbors/sample_filter_types.hpp>  // none_ivf_sample_filter
+#include <raft/util/cuda_rt_essentials.hpp>        // RAFT_CUDA_TRY
+#include <raft/util/device_atomics.cuh>            // raft::atomicMin
+#include <raft/util/pow2_utils.cuh>                // raft::Pow2
+#include <raft/util/vectorized.cuh>                // raft::TxN_t
+
+#include <rmm/cuda_stream_view.hpp>  // rmm::cuda_stream_view
 
 namespace raft::neighbors::ivf_pq::detail {
 
@@ -72,8 +73,8 @@ struct pq_block_sort {
 };
 
 template <typename T, typename IdxT>
-struct pq_block_sort<0, T, IdxT> : dummy_block_sort_t<T, IdxT> {
-  using type = dummy_block_sort_t<T, IdxT>;
+struct pq_block_sort<0, T, IdxT> : ivf::detail::dummy_block_sort_t<T, IdxT> {
+  using type = ivf::detail::dummy_block_sort_t<T, IdxT>;
   static auto mem_required(uint32_t) -> size_t { return 0; }
   static auto get_mem_required(uint32_t) { return mem_required; }
 };

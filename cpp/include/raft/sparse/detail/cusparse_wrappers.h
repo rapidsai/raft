@@ -16,11 +16,13 @@
 
 #pragma once
 
-#include <cusparse.h>
 #include <raft/core/cusparse_macros.hpp>
 #include <raft/core/error.hpp>
 #include <raft/linalg/transpose.cuh>
+
 #include <rmm/device_uvector.hpp>
+
+#include <cusparse.h>
 
 namespace raft {
 namespace sparse {

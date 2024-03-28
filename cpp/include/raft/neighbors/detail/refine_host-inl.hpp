@@ -21,8 +21,9 @@
 #include <raft/neighbors/detail/refine_common.hpp>
 #include <raft/util/integer_utils.hpp>
 
-#include <algorithm>
 #include <omp.h>
+
+#include <algorithm>
 
 namespace raft::neighbors::detail {
 

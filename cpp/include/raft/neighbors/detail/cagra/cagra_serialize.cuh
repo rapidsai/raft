@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
@@ -25,13 +23,16 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/serialize.hpp>
 #include <raft/neighbors/cagra_types.hpp>
+#include <raft/neighbors/detail/dataset_serialize.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <type_traits>
 
 namespace raft::neighbors::cagra::detail {
 
-constexpr int serialization_version = 3;
+constexpr int serialization_version = 4;
 
 /**
  * Save the index to file.
@@ -65,21 +66,14 @@ void serialize(raft::resources const& res,
   serialize_scalar(res, os, index_.metric());
   serialize_mdspan(res, os, index_.graph());
 
+  include_dataset &= (index_.data().n_rows() > 0);
+
   serialize_scalar(res, os, include_dataset);
   if (include_dataset) {
-    auto dataset = index_.dataset();
-    // Remove padding before saving the dataset
-    auto host_dataset = make_host_matrix<T, int64_t>(dataset.extent(0), dataset.extent(1));
-    RAFT_CUDA_TRY(cudaMemcpy2DAsync(host_dataset.data_handle(),
-                                    sizeof(T) * host_dataset.extent(1),
-                                    dataset.data_handle(),
-                                    sizeof(T) * dataset.stride(0),
-                                    sizeof(T) * host_dataset.extent(1),
-                                    dataset.extent(0),
-                                    cudaMemcpyDefault,
-                                    resource::get_cuda_stream(res)));
-    resource::sync_stream(res);
-    serialize_mdspan(res, os, host_dataset.view());
+    RAFT_LOG_INFO("Saving CAGRA index with dataset");
+    neighbors::detail::serialize(res, os, index_.data());
+  } else {
+    RAFT_LOG_DEBUG("Saving CAGRA index WITHOUT dataset");
   }
 }
 
@@ -251,19 +245,13 @@ auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
   auto graph = raft::make_host_matrix<IdxT, int64_t>(n_rows, graph_degree);
   deserialize_mdspan(res, is, graph.view());
 
+  index<T, IdxT> idx(res, metric);
+  idx.update_graph(res, raft::make_const_mdspan(graph.view()));
   bool has_dataset = deserialize_scalar<bool>(res, is);
   if (has_dataset) {
-    auto dataset = raft::make_host_matrix<T, int64_t>(n_rows, dim);
-    deserialize_mdspan(res, is, dataset.view());
-    return index<T, IdxT>(
-      res, metric, raft::make_const_mdspan(dataset.view()), raft::make_const_mdspan(graph.view()));
-  } else {
-    // create a new index with no dataset - the user must supply via update_dataset themselves
-    // later (this avoids allocating GPU memory in the meantime)
-    index<T, IdxT> idx(res, metric);
-    idx.update_graph(res, raft::make_const_mdspan(graph.view()));
-    return idx;
+    idx.update_dataset(res, neighbors::detail::deserialize_dataset<int64_t>(res, is));
   }
+  return idx;
 }
 
 template <typename T, typename IdxT>

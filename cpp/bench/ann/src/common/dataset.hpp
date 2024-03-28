@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,6 @@
 #pragma once
 
 #include "util.hpp"
-
-#ifndef BUILD_CPU_ONLY
-#include <cuda_fp16.h>
-#else
-typedef uint16_t half;
-#endif
 
 #include <errno.h>
 #include <sys/mman.h>
@@ -222,7 +216,7 @@ void BinFile<T>::check_suffix_()
       throw std::runtime_error("BinFile<float> should has .fbin suffix: " + file_);
     }
   } else if constexpr (std::is_same_v<T, half>) {
-    if (suffix != "f16bin") {
+    if (suffix != "f16bin" && suffix != "fbin") {
       throw std::runtime_error("BinFile<half> should has .f16bin suffix: " + file_);
     }
   } else if constexpr (std::is_same_v<T, int>) {

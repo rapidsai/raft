@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <optional>
 #include <raft/cluster/detail/kmeans.cuh>
 #include <raft/cluster/detail/kmeans_auto_find_k.cuh>
 #include <raft/cluster/kmeans_types.hpp>
@@ -23,6 +22,8 @@
 #include <raft/core/mdarray.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+
+#include <optional>
 
 namespace raft::cluster::kmeans {
 

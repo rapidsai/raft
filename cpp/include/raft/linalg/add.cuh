@@ -19,10 +19,10 @@
 #pragma once
 
 #include "detail/add.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {

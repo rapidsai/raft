@@ -23,8 +23,9 @@
  *
  */
 
-#include <cstdint>  // int64_t
 #include <raft/spatial/knn/detail/ball_cover/registers-inl.cuh>
+
+#include <cstdint>  // int64_t
 
 #define instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(                 \
   Mvalue_idx, Mvalue_t, Mvalue_int, Mmatrix_idx, Mdims, Mdist_func)               \

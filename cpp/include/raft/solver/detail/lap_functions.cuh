@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,11 +25,11 @@
 #pragma once
 
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/solver/linear_assignment_types.hpp>
-
 #include <raft/core/resources.hpp>
 #include <raft/solver/detail/lap_kernels.cuh>
+#include <raft/solver/linear_assignment_types.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

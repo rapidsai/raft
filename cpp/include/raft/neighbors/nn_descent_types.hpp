@@ -17,11 +17,11 @@
 #pragma once
 
 #include "ann_types.hpp"
-#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 

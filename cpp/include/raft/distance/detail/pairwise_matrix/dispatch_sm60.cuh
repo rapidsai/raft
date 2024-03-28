@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
  */
 #pragma once
 
-#include <algorithm>                                                 // std::min
 #include <raft/distance/detail/pairwise_matrix/dispatch_layout.cuh>  // dispatch_layout
 #include <raft/distance/detail/pairwise_matrix/kernel_sm60.cuh>      // pairwise_matrix_sm60_wrapper
 #include <raft/linalg/contractions.cuh>                              // raft::linalg::Policy4x4
+
+#include <algorithm>  // std::min
 
 namespace raft::distance::detail {
 

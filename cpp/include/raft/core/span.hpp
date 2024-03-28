@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+#include <raft/core/detail/span.hpp>
+#include <raft/core/mdspan_types.hpp>
+
 #include <cassert>
 #include <cinttypes>  // size_t
 #include <cstddef>    // std::byte
-#include <raft/core/mdspan_types.hpp>
-
-#include <raft/core/detail/macros.hpp>
-#include <raft/core/detail/span.hpp>
 
 // TODO (cjnolet): Remove thrust dependencies here so host_span can be used without CUDA Toolkit
 // being installed. Reference: https://github.com/rapidsai/raft/issues/812.
@@ -29,6 +29,7 @@
 #include <thrust/functional.h>
 #include <thrust/host_vector.h>  // _RAFT_HOST_DEVICE
 #include <thrust/iterator/reverse_iterator.h>
+
 #include <type_traits>
 
 namespace raft {

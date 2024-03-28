@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,8 @@
 #pragma once
 
 #include "../../cagra_types.hpp"
+#include "../../vpq_dataset.cuh"
 #include "graph_core.cuh"
-#include <chrono>
-#include <cstdio>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <vector>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -28,14 +25,18 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/nn_descent.cuh>
 #include <raft/neighbors/refine.cuh>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
+#include <chrono>
+#include <cstdio>
+#include <vector>
 
 namespace raft::neighbors::cagra::detail {
 
@@ -296,7 +297,8 @@ index<T, IdxT> build(
   std::optional<experimental::nn_descent::index_params> nn_descent_params = std::nullopt,
   std::optional<float> refine_rate                                        = std::nullopt,
   std::optional<ivf_pq::index_params> pq_build_params                     = std::nullopt,
-  std::optional<ivf_pq::search_params> search_params                      = std::nullopt)
+  std::optional<ivf_pq::search_params> search_params                      = std::nullopt,
+  bool construct_index_with_dataset                                       = true)
 {
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
@@ -334,12 +336,31 @@ index<T, IdxT> build(
 
   auto cagra_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), graph_degree);
 
+  RAFT_LOG_INFO("optimizing graph");
   optimize<IdxT>(res, knn_graph->view(), cagra_graph.view());
 
   // free intermediate graph before trying to create the index
   knn_graph.reset();
 
+  RAFT_LOG_INFO("Graph optimized, creating index");
   // Construct an index from dataset and optimized knn graph.
-  return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
+  if (construct_index_with_dataset) {
+    if (params.compression.has_value()) {
+      index<T, IdxT> idx(res, params.metric);
+      idx.update_graph(res, raft::make_const_mdspan(cagra_graph.view()));
+      idx.update_dataset(
+        res,
+        // TODO: hardcoding codebook math to `half`, we can do runtime dispatching later
+        neighbors::vpq_build<decltype(dataset), half, int64_t>(res, *params.compression, dataset));
+      return idx;
+    }
+    return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
+  } else {
+    // We just add the graph. User is expected to update dataset separately. This branch is used
+    // if user needs special control of memory allocations for the dataset.
+    index<T, IdxT> idx(res, params.metric);
+    idx.update_graph(res, raft::make_const_mdspan(cagra_graph.view()));
+    return idx;
+  }
 }
 }  // namespace raft::neighbors::cagra::detail

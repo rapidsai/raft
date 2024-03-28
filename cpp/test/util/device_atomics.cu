@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <gtest/gtest.h>
-#include <iostream>
-#include <memory>
-#include <numeric>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
+
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <iostream>
+#include <memory>
+#include <numeric>
 
 namespace raft {
 

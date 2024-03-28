@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,9 +34,6 @@
 #include <faiss/impl/ScalarQuantizer.h>
 #include <faiss/index_io.h>
 #include <omp.h>
-
-#include <raft/core/device_resources.hpp>
-#include <raft/core/resource/stream_view.hpp>
 
 #include <cassert>
 #include <memory>
@@ -80,21 +77,8 @@ class OmpSingleThreadScope {
 
 namespace raft::bench::ann {
 
-struct copyable_event {
-  copyable_event() { RAFT_CUDA_TRY(cudaEventCreate(&value_, cudaEventDisableTiming)); }
-  ~copyable_event() { RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(value_)); }
-  copyable_event(copyable_event&&)            = default;
-  copyable_event& operator=(copyable_event&&) = default;
-  copyable_event(const copyable_event& res) : copyable_event{} {}
-  copyable_event& operator=(const copyable_event& other) = delete;
-  operator cudaEvent_t() const noexcept { return value_; }
-
- private:
-  cudaEvent_t value_{nullptr};
-};
-
 template <typename T>
-class FaissGpu : public ANN<T> {
+class FaissGpu : public ANN<T>, public AnnGPU {
  public:
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
@@ -119,7 +103,7 @@ class FaissGpu : public ANN<T> {
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
+  void build(const T* dataset, size_t nrow) final;
 
   virtual void set_search_param(const FaissGpu<T>::AnnSearchParam& param) {}
 
@@ -127,12 +111,13 @@ class FaissGpu : public ANN<T> {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const final;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const final;
+
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    return gpu_resource_->getDefaultStream(device_);
+  }
 
   AlgoProperty get_preference() const override
   {
@@ -149,12 +134,6 @@ class FaissGpu : public ANN<T> {
 
   template <typename GpuIndex, typename CpuIndex>
   void load_(const std::string& file);
-
-  void stream_wait(cudaStream_t stream) const
-  {
-    RAFT_CUDA_TRY(cudaEventRecord(sync_, gpu_resource_->getDefaultStream(device_)));
-    RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_));
-  }
 
   /** [NOTE Multithreading]
    *
@@ -178,7 +157,6 @@ class FaissGpu : public ANN<T> {
   faiss::MetricType metric_type_;
   int nlist_;
   int device_;
-  copyable_event sync_{};
   double training_sample_fraction_;
   std::shared_ptr<faiss::SearchParameters> search_params_;
   const T* dataset_;
@@ -186,7 +164,7 @@ class FaissGpu : public ANN<T> {
 };
 
 template <typename T>
-void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void FaissGpu<T>::build(const T* dataset, size_t nrow)
 {
   OmpSingleThreadScope omp_single_thread;
   auto index_ivf = dynamic_cast<faiss::gpu::GpuIndexIVF*>(index_.get());
@@ -214,16 +192,11 @@ void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
   index_->train(nrow, dataset);  // faiss::gpu::GpuIndexFlat::train() will do nothing
   assert(index_->is_trained);
   index_->add(nrow, dataset);
-  stream_wait(stream);
 }
 
 template <typename T>
-void FaissGpu<T>::search(const T* queries,
-                         int batch_size,
-                         int k,
-                         size_t* neighbors,
-                         float* distances,
-                         cudaStream_t stream) const
+void FaissGpu<T>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
@@ -246,7 +219,6 @@ void FaissGpu<T>::search(const T* queries,
                    reinterpret_cast<faiss::idx_t*>(neighbors),
                    this->search_params_.get());
   }
-  stream_wait(stream);
 }
 
 template <typename T>

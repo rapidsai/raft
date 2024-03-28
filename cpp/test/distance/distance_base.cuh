@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,19 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
-#include <raft/common/nvtx.hpp>  // common::nvtx::range
-#include <raft/core/resource/cuda_stream.hpp>
 
+#include <raft/common/nvtx.hpp>         // common::nvtx::range
 #include <raft/core/device_mdspan.hpp>  // make_device_matrix_view
 #include <raft/core/operators.hpp>      // raft::sqrt
-#include <raft/core/resources.hpp>      // raft::resources
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>  // raft::resources
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/random/rng.cuh>
+
 #include <rmm/device_uvector.hpp>  // rmm::device_uvector
+
+#include <gtest/gtest.h>
 
 namespace raft {
 namespace distance {
@@ -337,7 +339,7 @@ void naiveDistance(DataType* dist,
                    DataType metric_arg = 2.0f,
                    cudaStream_t stream = 0)
 {
-  static const dim3 TPB(16, 32, 1);
+  static const dim3 TPB(4, 256, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {

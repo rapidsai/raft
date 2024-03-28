@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <cmath>
+#include "../test_utils.h"
+
+#include <raft/core/kvp.hpp>
+#include <raft/core/operators.hpp>
 
 #include <gtest/gtest.h>
 
-#include "../test_utils.h"
-#include <raft/core/kvp.hpp>
-#include <raft/core/operators.hpp>
+#include <algorithm>
+#include <cmath>
 
 TEST(OperatorsHost, IdentityOp)
 {

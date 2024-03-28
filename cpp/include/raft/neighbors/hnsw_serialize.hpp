@@ -18,9 +18,9 @@
 
 #include "detail/hnsw_serialize.hpp"
 #include "hnsw_types.hpp"
-#include <raft/distance/distance_types.hpp>
 
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 
 namespace raft::neighbors::hnsw {
 

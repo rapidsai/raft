@@ -19,12 +19,12 @@
 #include "detail/hnsw.hpp"
 #include "hnsw.hpp"
 
-#include <cstddef>
-
-#include <cstdint>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
+
+#include <cstddef>
+#include <cstdint>
 
 namespace raft::neighbors::hnsw {
 
