@@ -68,7 +68,7 @@ struct ivf_pq_inputs {
   ivf_pq_inputs()
   {
     index_params.n_lists                  = max(32u, min(1024u, num_db_vecs / 128u));
-    index_params.kmeans_trainset_fraction = 1.0;
+    index_params.kmeans_trainset_fraction = 0.95;
   }
 };
 
