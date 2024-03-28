@@ -36,6 +36,7 @@
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace raft::bench::ann {

@@ -66,3 +66,12 @@ _text
 # clang tooling
 compile_commands.json
 .clangd/
+
+ann_mg_ivf_flat_index
+ann_mg_ivf_pq_index
+datasets/
+index/
+ivf_flat_index
+local_cagra_index
+local_ivf_flat_index
+local_ivf_pq_index

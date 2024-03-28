@@ -29,6 +29,7 @@ option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchm
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE "Include raft's brute force knn in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB "Include raft's CAGRA in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_RAFT_ANN_MG "Include raft's MG ANN in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_SINGLE_EXE
@@ -55,6 +56,7 @@ if(BUILD_CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_ANN_MG OFF)
   set(RAFT_ANN_BENCH_USE_GGNN OFF)
 else()
   # Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
@@ -90,6 +92,7 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
    OR RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
    OR RAFT_ANN_BENCH_USE_RAFT_CAGRA
    OR RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB
+   OR RAFT_ANN_BENCH_USE_RAFT_ANN_MG
 )
   set(RAFT_ANN_BENCH_USE_RAFT ON)
 endif()
@@ -267,6 +270,17 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
     PATH
     bench/ann/src/raft/raft_benchmark.cu
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra.cu>
+    LINKS
+    raft::compiled
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_ANN_MG)
+  ConfigureAnnBench(
+    NAME
+    RAFT_ANN_MG
+    PATH
+    bench/ann/src/raft/raft_benchmark.cu
     LINKS
     raft::compiled
   )

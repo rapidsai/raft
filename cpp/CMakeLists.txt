@@ -599,6 +599,8 @@ if(RAFT_COMPILE_LIBRARY)
              ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
                                            # will just be cublas
              $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+             nccl
+             ucp
     )
 
     # So consumers know when using libraft.so/libraft.a
