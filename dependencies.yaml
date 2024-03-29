@@ -8,6 +8,7 @@ files:
     includes:
       - build
       - build_pylibraft
+      - cython_build
       - cuda
       - cuda_version
       - develop
@@ -27,6 +28,7 @@ files:
       arch: [x86_64, aarch64]
     includes:
       - build
+      - cython_build
       - cuda
       - cuda_version
       - develop
@@ -58,6 +60,14 @@ files:
       - docs
       - py_version
       - test_pylibraft
+  py_build_libraft:
+    output: pyproject
+    pyproject_dir: python/libraft
+    extras:
+      table: build-system
+    includes:
+      - build
+      - librmm
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -66,6 +76,7 @@ files:
     includes:
       - build
       - build_pylibraft
+      - cython_build
   py_run_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -90,6 +101,7 @@ files:
       table: build-system
     includes:
       - build
+      - cython_build
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -131,7 +143,6 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cmake_ver cmake>=3.26.4
-          - cython>=3.0.0
           - ninja
       - output_types: [conda]
         packages:
@@ -175,7 +186,16 @@ dependencies:
             packages: [nvcc_linux-64=11.2]
           - matrix: {cuda: "11.2", arch: aarch64}
             packages: [nvcc_linux-aarch64=11.2]
-
+  cython_build:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - cython>=3.0.0
+  librmm:
+    common:
+      - output_types: [requirements, pyproject]
+        packages:
+          - librmm==24.6.*
   build_pylibraft:
     common:
       - output_types: [conda]
