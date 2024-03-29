@@ -191,6 +191,9 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cython>=3.0.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - libraft==24.6.*
   librmm:
     common:
       - output_types: [requirements, pyproject]

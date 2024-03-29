@@ -18,6 +18,7 @@ requires = [
     "cmake>=3.26.4",
     "cuda-python>=11.7.1,<12.0a0",
     "cython>=3.0.0",
+    "libraft==24.6.*",
     "ninja",
     "rmm==24.6.*",
     "scikit-build-core[pyproject]>=0.7.0",
