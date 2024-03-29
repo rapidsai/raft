@@ -68,6 +68,17 @@ files:
     includes:
       - build
       - librmm
+  py_run_libraft:
+    output: pyproject
+    pyproject_dir: python/libraft
+    extras:
+      table: project
+    includes:
+      # This is really a build requirement for anything using libraft to build
+      # against, but is not required when _running_ with libraft. There isn't a
+      # great way to express that without separating libraft into libraft and
+      # libraft-dev packages, though.
+      - librmm
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
