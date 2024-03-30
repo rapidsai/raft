@@ -39,8 +39,13 @@ function(rapids_cython_register_site_packages_library target)
   # TODO: Should we support other install locations like user site?
   cmake_path(IS_PREFIX Python_SITELIB "${library_dir}" library_is_in_site)
   # We cannot support libraries that are not installed to site-packages
+  # TODO: We do need to still allow building in such cases. For now the easiest
+  # thing I can think of is just a status message here because a warning seems
+  # pretty loud for standard uses cases like conda or devcontainers where this
+  # won't link.
   if(NOT library_is_in_site)
-    message(FATAL_ERROR "Library ${target} is not installed to site-packages. This is not supported.")
+      message(STATUS "Library ${target} is not installed to site-packages. This is not supported.")
+      return()
   endif()
 
   cmake_path(RELATIVE_PATH library_dir BASE_DIRECTORY "${Python_SITELIB}"
@@ -55,7 +60,8 @@ rapids_cython_register_site_packages_library(raft::raft_lib)
 function(rapids_cython_link_to_site_packages_library target linked_target)
   get_property(library_relative_path GLOBAL PROPERTY "rapids_cython_registered_libraries_${linked_target}")
   if(NOT library_relative_path)
-    message(FATAL_ERROR "Library ${linked_target} is not registered as a site-packages library.")
+    message(STATUS "Library ${linked_target} is not registered as a site-packages library, not updating RPATH of ${target}")
+    return()
   endif()
 
   cmake_path(RELATIVE_PATH PROJECT_SOURCE_DIR BASE_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
