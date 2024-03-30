@@ -51,8 +51,7 @@ struct bench_param {
 template <typename index_t>
 inline auto operator<<(std::ostream& os, const bench_param<index_t>& params) -> std::ostream&
 {
-  os << " rows*cols=" << params.n_rows << "*" << params.n_cols << "\ttop_k=" << params.top_k
-     << "\tsparsity=" << params.sparsity;
+  os << params.n_rows << "#" << params.n_cols << "#" << params.top_k << "#" << params.sparsity;
   return os;
 }
 
@@ -69,7 +68,7 @@ struct SelectKCsrTest : public fixture {
       dst_values_d(0, stream),
       dst_indices_d(0, stream)
   {
-    std::vector<bool> dense_values_h(params.n_rows * params.n_cols, false);
+    std::vector<bool> dense_values_h(params.n_rows * params.n_cols);
     nnz = create_sparse_matrix(params.n_rows, params.n_cols, params.sparsity, dense_values_h);
 
     std::vector<index_t> indices_h(nnz);
@@ -207,7 +206,7 @@ struct SelectKCsrTest : public fixture {
     raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, params.select_min);
     resource::sync_stream(handle);
     loop_on_state(state, [this, &in_val, &in_idx, &out_val, &out_idx]() {
-      raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, params.select_min);
+      raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, params.select_min, false);
       resource::sync_stream(handle);
     });
   }
@@ -235,22 +234,53 @@ const std::vector<bench_param<index_t>> getInputs()
     index_t m;
     index_t n;
     index_t k;
-    float sparsity;
   };
 
-  const std::vector<TestParams> params_group =
-    raft::util::itertools::product<TestParams>({index_t(10), index_t(1024)},
-                                               {index_t(1024 * 10), index_t(1024 * 1024)},
-                                               {index_t(128), index_t(100), index_t(2048)},
-                                               {0.1f, 0.2f, 0.5f});
+  const std::vector<TestParams> params_group{
+    {20000, 500, 1},    {20000, 500, 2},    {20000, 500, 4},   {20000, 500, 8},
+    {20000, 500, 16},   {20000, 500, 32},   {20000, 500, 64},  {20000, 500, 128},
+    {20000, 500, 256},
+
+    {1000, 10000, 1},   {1000, 10000, 2},   {1000, 10000, 4},  {1000, 10000, 8},
+    {1000, 10000, 16},  {1000, 10000, 32},  {1000, 10000, 64}, {1000, 10000, 128},
+    {1000, 10000, 256},
+
+    {100, 100000, 1},   {100, 100000, 2},   {100, 100000, 4},  {100, 100000, 8},
+    {100, 100000, 16},  {100, 100000, 32},  {100, 100000, 64}, {100, 100000, 128},
+    {100, 100000, 256},
+
+    {10, 1000000, 1},   {10, 1000000, 2},   {10, 1000000, 4},  {10, 1000000, 8},
+    {10, 1000000, 16},  {10, 1000000, 32},  {10, 1000000, 64}, {10, 1000000, 128},
+    {10, 1000000, 256},
+
+    {10, 1000000, 1},   {10, 1000000, 2},   {10, 1000000, 4},  {10, 1000000, 8},
+    {10, 1000000, 16},  {10, 1000000, 32},  {10, 1000000, 64}, {10, 1000000, 128},
+    {10, 1000000, 256},
+
+    {10, 1000000, 1},   {10, 1000000, 16},  {10, 1000000, 64}, {10, 1000000, 128},
+    {10, 1000000, 256},
+
+    {10, 1000000, 1},   {10, 1000000, 16},  {10, 1000000, 64}, {10, 1000000, 128},
+    {10, 1000000, 256}, {1000, 10000, 1},   {1000, 10000, 16}, {1000, 10000, 64},
+    {1000, 10000, 128}, {1000, 10000, 256},
+
+    {10, 1000000, 1},   {10, 1000000, 16},  {10, 1000000, 64}, {10, 1000000, 128},
+    {10, 1000000, 256}, {1000, 10000, 1},   {1000, 10000, 16}, {1000, 10000, 64},
+    {1000, 10000, 128}, {1000, 10000, 256}};
 
   param_vec.reserve(params_group.size());
   for (TestParams params : params_group) {
-    param_vec.push_back(bench_param<index_t>({params.m, params.n, params.k, params.sparsity}));
+    param_vec.push_back(bench_param<index_t>({params.m, params.n, params.k, 0.1}));
+  }
+  for (TestParams params : params_group) {
+    param_vec.push_back(bench_param<index_t>({params.m, params.n, params.k, 0.2}));
+  }
+  for (TestParams params : params_group) {
+    param_vec.push_back(bench_param<index_t>({params.m, params.n, params.k, 0.5}));
   }
   return param_vec;
 }
 
-RAFT_BENCH_REGISTER((SelectKCsrTest<float, int>), "", getInputs<int>());
+RAFT_BENCH_REGISTER((SelectKCsrTest<float, uint32_t>), "", getInputs<uint32_t>());
 
 }  // namespace raft::bench::sparse

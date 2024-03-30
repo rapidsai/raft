@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <queue>
 #include <random>
@@ -48,6 +49,23 @@ struct SelectKCsrInputs {
   float sparsity;
   bool select_min;
   bool customized_indices;
+};
+
+template <typename T>
+struct CompareApproxWithInf {
+  CompareApproxWithInf(T eps_) : eps(eps_) {}
+  bool operator()(const T& a, const T& b) const
+  {
+    if (std::isinf(a) && std::isinf(b)) return true;
+    T diff  = std::abs(a - b);
+    T m     = std::max(std::abs(a), std::abs(b));
+    T ratio = diff > eps ? diff / m : diff;
+
+    return (ratio <= eps);
+  }
+
+ private:
+  T eps;
 };
 
 template <typename value_t, typename index_t>
@@ -202,9 +220,9 @@ class SelectKCsrTest : public ::testing::TestWithParam<SelectKCsrInputs<index_t>
 
     convert_to_csr(dense_values_h, params.n_rows, params.n_cols, indices_h, indptr_h);
 
-    std::vector<value_t> dst_values_h(params.n_rows * params.top_k, static_cast<value_t>(2.0f));
-    std::vector<index_t> dst_indices_h(params.n_rows * params.top_k,
-                                       static_cast<index_t>(params.n_rows * params.n_cols * 100));
+    std::vector<value_t> dst_values_h(params.n_rows * params.top_k,
+                                      std::numeric_limits<value_t>::infinity());
+    std::vector<index_t> dst_indices_h(params.n_rows * params.top_k, static_cast<index_t>(0));
 
     dst_values_d.resize(params.n_rows * params.top_k, stream);
     dst_indices_d.resize(params.n_rows * params.top_k, stream);
@@ -280,18 +298,18 @@ class SelectKCsrTest : public ::testing::TestWithParam<SelectKCsrInputs<index_t>
     auto out_idx = raft::make_device_matrix_view<index_t, index_t, raft::row_major>(
       dst_indices_d.data(), params.n_rows, params.top_k);
 
-    raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, params.select_min);
-
-    ASSERT_TRUE(raft::devArrMatch<value_t>(dst_values_expected_d.data(),
-                                           out_val.data_handle(),
-                                           params.n_rows * params.top_k,
-                                           raft::CompareApprox<value_t>(1e-6f),
-                                           stream));
+    raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, params.select_min, true);
 
     ASSERT_TRUE(raft::devArrMatch<index_t>(dst_indices_expected_d.data(),
                                            out_idx.data_handle(),
                                            params.n_rows * params.top_k,
                                            raft::Compare<index_t>(),
+                                           stream));
+
+    ASSERT_TRUE(raft::devArrMatch<value_t>(dst_values_expected_d.data(),
+                                           out_val.data_handle(),
+                                           params.n_rows * params.top_k,
+                                           CompareApproxWithInf<value_t>(1e-6f),
                                            stream));
   }
 
@@ -331,6 +349,8 @@ const std::vector<SelectKCsrInputs<index_t>> selectk_inputs = {
   {10, 32, 251, 0.6, true, true},
   {1024, 1024, 258, 0.3, true, false},
   {1024, 1024, 600, 0.2, true, true},
+  {1024, 1024, 1024, 0.3, true, false},
+  {1024, 1024, 1024, 0.2, true, true},
   {100, 1024 * 1000, 251, 0.1, true, false},
   {100, 1024 * 1000, 251, 0.2, true, true},
   {1024, 1024 * 10, 251, 0.3, true, false},

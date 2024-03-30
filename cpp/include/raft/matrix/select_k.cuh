@@ -146,6 +146,8 @@ void select_k(raft::resources const& handle,
  *   Output indices [in_val.get_n_row(), k] corresponding to the selected elements in `out_val`.
  * @param[in] select_min
  *   Flag indicating whether to select the k smallest (true) or largest (false) elements.
+ * @param[in] sorted
+ *   whether to make sure selected pairs are sorted by value
  */
 template <typename T, typename IdxT>
 void select_k(raft::resources const& handle,
@@ -153,9 +155,10 @@ void select_k(raft::resources const& handle,
               std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx,
               raft::device_matrix_view<T, IdxT, raft::row_major> out_val,
               raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,
-              bool select_min)
+              bool select_min,
+              bool sorted = false)
 {
-  return detail::select_k<T, IdxT>(handle, in_val, in_idx, out_val, out_idx, select_min);
+  return detail::select_k<T, IdxT>(handle, in_val, in_idx, out_val, out_idx, select_min, sorted);
 }
 /** @} */  // end of group select_k
 

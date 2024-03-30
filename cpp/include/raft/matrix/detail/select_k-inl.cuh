@@ -324,9 +324,9 @@ void select_k(raft::resources const& handle,
 }
 
 /**
- * Selects the k smallest or largest keys/values from each row of the input matrix.
+ * Selects the k smallest or largest keys/values from each row of the input CSR matrix.
  *
- * This function operates on a row-major matrix `in_val` with dimensions `batch_size` x `len`,
+ * This function operates on a CSR matrix `in_val` with a logical dense shape of [batch_size, len],
  * selecting the k smallest or largest elements from each row. The selected elements are then stored
  * in a row-major output matrix `out_val` with dimensions `batch_size` x k.
  *
@@ -352,6 +352,10 @@ void select_k(raft::resources const& handle,
  *   Output indices [in_val.get_n_row(), k] corresponding to the selected elements in `out_val`.
  * @param[in] select_min
  *   Flag indicating whether to select the k smallest (true) or largest (false) elements.
+ * @param[in] sorted
+ *   whether to make sure selected pairs are sorted by value
+ * @param[in] algo
+ *   the selection algorithm to use
  */
 template <typename T, typename IdxT>
 void select_k(raft::resources const& handle,
@@ -359,7 +363,9 @@ void select_k(raft::resources const& handle,
               std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx,
               raft::device_matrix_view<T, IdxT, raft::row_major> out_val,
               raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,
-              bool select_min)
+              bool select_min,
+              bool sorted     = false,
+              SelectAlgo algo = SelectAlgo::kAuto)
 {
   auto csr_view = in_val.structure_view();
   auto nnz      = csr_view.get_nnz();
@@ -383,33 +389,127 @@ void select_k(raft::resources const& handle,
   }
   RAFT_EXPECTS(IdxT(k) == out_idx.extent(1), "value and index output lengths must be equal");
 
-  auto stream = raft::resource::get_cuda_stream(handle);
+  if (algo == SelectAlgo::kAuto) { algo = choose_select_k_algorithm(batch_size, len, k); }
 
-  rmm::device_uvector<IdxT> offsets(batch_size + 1, stream, mr);
-  rmm::device_uvector<T> keys(nnz, stream, mr);
-  rmm::device_uvector<IdxT> values(nnz, stream, mr);
+  auto indptr = csr_view.get_indptr().data();
 
-  raft::copy(offsets.data(), csr_view.get_indptr().data(), batch_size + 1, stream);
-  raft::copy(keys.data(), in_val.get_elements().data(), nnz, stream);
-  raft::copy(values.data(),
-             (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
-             nnz,
-             stream);
+  switch (algo) {
+    case SelectAlgo::kRadix8bits:
+    case SelectAlgo::kRadix11bits:
+    case SelectAlgo::kRadix11bitsExtraPass: {
+      if (algo == SelectAlgo::kRadix8bits) {
+        detail::select::radix::select_k<T, IdxT, 8, 512, false>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          true,
+          indptr);
+      } else {
+        bool fused_last_filter = algo == SelectAlgo::kRadix11bits;
+        detail::select::radix::select_k<T, IdxT, 11, 512, false>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          fused_last_filter,
+          indptr);
+      }
 
-  segmented_sort_by_key(handle,
-                        keys.data(),
-                        values.data(),
-                        size_t(batch_size),
-                        size_t(nnz),
-                        offsets.data(),
-                        select_min);
+      if (sorted) {
+        auto offsets = make_device_mdarray<IdxT, IdxT>(
+          handle, resource::get_workspace_resource(handle), make_extents<IdxT>(batch_size + 1));
+        raft::linalg::map_offset(handle, offsets.view(), mul_const_op<IdxT>(k));
 
-  auto src_val      = raft::make_device_vector_view<T, IdxT>(keys.data(), nnz);
-  auto offsets_view = raft::make_device_vector_view<IdxT, IdxT>(offsets.data(), batch_size + 1);
-  raft::matrix::segmented_copy<T, IdxT>(handle, k, src_val, offsets_view, out_val);
+        auto keys =
+          raft::make_device_vector_view<T, IdxT>(out_val.data_handle(), (IdxT)(batch_size * k));
+        auto vals =
+          raft::make_device_vector_view<IdxT, IdxT>(out_idx.data_handle(), (IdxT)(batch_size * k));
 
-  auto src_idx = raft::make_device_vector_view<IdxT, IdxT>(values.data(), nnz);
-  raft::matrix::segmented_copy<IdxT, IdxT>(handle, k, src_idx, offsets_view, out_idx);
+        segmented_sort_by_key<T, IdxT>(
+          handle, raft::make_const_mdspan(offsets.view()), keys, vals, select_min);
+      }
+
+      return;
+    }
+    case SelectAlgo::kWarpDistributed:
+      return detail::select::warpsort::
+        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          indptr);
+    case SelectAlgo::kWarpDistributedShm:
+      return detail::select::warpsort::
+        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          indptr);
+    case SelectAlgo::kWarpAuto:
+      return detail::select::warpsort::select_k<T, IdxT>(
+        handle,
+        in_val.get_elements().data(),
+        (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+        batch_size,
+        len,
+        k,
+        out_val.data_handle(),
+        out_idx.data_handle(),
+        select_min,
+        indptr);
+    case SelectAlgo::kWarpImmediate:
+      return detail::select::warpsort::
+        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_immediate>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          indptr);
+    case SelectAlgo::kWarpFiltered:
+      return detail::select::warpsort::
+        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_filtered>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          indptr);
+    default: RAFT_FAIL("K-selection Algorithm not supported.");
+  }
+
+  return;
 }
 
 }  // namespace raft::matrix::detail
