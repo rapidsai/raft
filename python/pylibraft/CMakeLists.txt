@@ -27,42 +27,43 @@ project(
   LANGUAGES CXX CUDA
 )
 
-option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
-       ON
-)
+find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS compiled)
 
-# If the user requested it we attempt to find RAFT.
-if(FIND_RAFT_CPP)
-  find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS compiled)
-  if(NOT TARGET raft::raft_lib)
-    message(
-      FATAL_ERROR
-        "Building against a preexisting libraft library requires the compiled libraft to have been built!"
-    )
+# Register a library that is installed to site-packages for rpath linking
+function(rapids_cython_register_site_packages_library target)
+  # TODO: Is this solution robust? Should we also check for other configs, or the default IMPORTED_LOCATION?
+  get_property(target_library TARGET "${target}" PROPERTY IMPORTED_LOCATION_RELEASE)
+  cmake_path(GET target_library PARENT_PATH library_dir)
 
+  find_package(Python REQUIRED)
+  # TODO: Should we support other install locations like user site?
+  cmake_path(IS_PREFIX Python_SITELIB "${library_dir}" library_is_in_site)
+  # We cannot support libraries that are not installed to site-packages
+  if(NOT library_is_in_site)
+    message(FATAL_ERROR "Library ${target} is not installed to site-packages. This is not supported.")
   endif()
-else()
-  set(raft_FOUND OFF)
-endif()
+
+  cmake_path(RELATIVE_PATH library_dir BASE_DIRECTORY "${Python_SITELIB}"
+      OUTPUT_VARIABLE library_relative_path)
+  set_property(GLOBAL PROPERTY "rapids_cython_registered_libraries_${target}" "${library_relative_path}")
+endfunction()
+
+# TODO: We have to use raft_lib for this because we can't get the required
+# location out of raft::raft or raft::compiled. Is there a better way?
+rapids_cython_register_site_packages_library(raft::raft_lib)
+
+function(rapids_cython_link_to_site_packages_library target linked_target)
+  get_property(library_relative_path GLOBAL PROPERTY "rapids_cython_registered_libraries_${linked_target}")
+  if(NOT library_relative_path)
+    message(FATAL_ERROR "Library ${linked_target} is not registered as a site-packages library.")
+  endif()
+
+  cmake_path(RELATIVE_PATH PROJECT_SOURCE_DIR BASE_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
+      OUTPUT_VARIABLE path_to_site)
+  set_property(TARGET "${target}" APPEND PROPERTY INSTALL_RPATH "\$ORIGIN/${path_to_site}/${library_relative_path}")
+endfunction()
 
 include(rapids-cython-core)
-
-if(NOT raft_FOUND)
-  set(BUILD_TESTS OFF)
-  set(BUILD_PRIMS_BENCH OFF)
-  set(BUILD_ANN_BENCH OFF)
-  set(RAFT_COMPILE_LIBRARY ON)
-  set(CUDA_STATIC_RUNTIME ON)
-
-  add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
-
-  # When building the C++ libraries from source we must copy libraft.so alongside the
-  # pairwise_distance and random Cython libraries TODO: when we have a single 'compiled' raft
-  # library, we shouldn't need this
-  set(cython_lib_dir pylibraft)
-  install(TARGETS raft_lib DESTINATION ${cython_lib_dir})
-endif()
-
 rapids_cython_init()
 
 add_subdirectory(pylibraft/common)
@@ -71,7 +72,3 @@ add_subdirectory(pylibraft/matrix)
 add_subdirectory(pylibraft/neighbors)
 add_subdirectory(pylibraft/random)
 add_subdirectory(pylibraft/cluster)
-
-if(DEFINED cython_lib_dir)
-  rapids_cython_add_rpath_entries(TARGET raft PATHS "${cython_lib_dir}")
-endif()
