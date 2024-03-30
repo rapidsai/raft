@@ -148,6 +148,8 @@ void select_k(raft::resources const& handle,
  *   Flag indicating whether to select the k smallest (true) or largest (false) elements.
  * @param[in] sorted
  *   whether to make sure selected pairs are sorted by value
+ * @param[in] algo
+ *   the selection algorithm to use
  */
 template <typename T, typename IdxT>
 void select_k(raft::resources const& handle,
@@ -156,9 +158,11 @@ void select_k(raft::resources const& handle,
               raft::device_matrix_view<T, IdxT, raft::row_major> out_val,
               raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,
               bool select_min,
-              bool sorted = false)
+              bool sorted     = false,
+              SelectAlgo algo = SelectAlgo::kAuto)
 {
-  return detail::select_k<T, IdxT>(handle, in_val, in_idx, out_val, out_idx, select_min, sorted);
+  return detail::select_k<T, IdxT>(
+    handle, in_val, in_idx, out_val, out_idx, select_min, sorted, algo);
 }
 /** @} */  // end of group select_k
 

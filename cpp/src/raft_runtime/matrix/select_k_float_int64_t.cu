@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,7 @@ void select_k(const resources& handle,
               std::optional<raft::device_matrix_view<const int64_t, int64_t, row_major>> in_idx,
               raft::device_matrix_view<float, int64_t, row_major> out_val,
               raft::device_matrix_view<int64_t, int64_t, row_major> out_idx,
-              bool select_min,
-              raft::matrix::SelectAlgo algo)
+              bool select_min)
 {
   raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, select_min);
 }
