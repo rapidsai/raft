@@ -54,6 +54,7 @@ template <typename IdxT, typename DataT, typename DistanceT, typename ExtentsT>
     distance::DistanceType metric);
 
 instantiate_raft_neighbors_refine(int64_t, float, float, int64_t);
+instantiate_raft_neighbors_refine(uint32_t, float, float, int64_t);
 instantiate_raft_neighbors_refine(int64_t, int8_t, float, int64_t);
 instantiate_raft_neighbors_refine(int64_t, uint8_t, float, int64_t);
 

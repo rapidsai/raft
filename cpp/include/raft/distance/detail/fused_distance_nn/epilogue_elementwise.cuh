@@ -56,6 +56,8 @@
 
 #pragma once
 
+#include <cuda/semaphore>
+
 #include <cutlass/array.h>
 #include <cutlass/cutlass.h>
 #include <cutlass/epilogue/thread/activation.h>
@@ -121,6 +123,7 @@ class FusedDistanceNNEpilogueElementwise {
     KVPReduceOpT_ pair_redop_;
     ReduceOpT_ red_op_;
     int* mutexes_;
+    cuda::binary_semaphore<cuda::thread_scope_device>* bin_mutex_;
     using CGReduceT = CGReduceOp_;
     //
     // Methods
@@ -130,12 +133,14 @@ class FusedDistanceNNEpilogueElementwise {
            CGReduceOp cg_reduce_op,
            ReduceOpT_ red_op,
            KVPReduceOpT_ pair_redop,
-           int* mutexes)
+           int* mutexes,
+           cuda::binary_semaphore<cuda::thread_scope_device>* bin_mutex)
       : cg_reduce_op(cg_reduce_op),
         dist_op_(dist_op),
         pair_redop_(pair_redop),
         red_op_(red_op),
-        mutexes_(mutexes)
+        mutexes_(mutexes),
+        bin_mutex_(bin_mutex)
     {
     }
 

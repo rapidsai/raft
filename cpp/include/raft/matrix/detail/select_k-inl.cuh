@@ -234,6 +234,9 @@ void segmented_sort_by_key(raft::resources const& handle,
  *   whether to make sure selected pairs are sorted by value
  * @param[in] algo
  *   the selection algorithm to use
+ * @param[in] len_i
+ *   array of size (batch_size) providing lengths for each individual row
+ *   only radix select-k supported
  */
 template <typename T, typename IdxT>
 void select_k(raft::resources const& handle,
@@ -245,8 +248,9 @@ void select_k(raft::resources const& handle,
               T* out_val,
               IdxT* out_idx,
               bool select_min,
-              bool sorted     = false,
-              SelectAlgo algo = SelectAlgo::kAuto)
+              bool sorted       = false,
+              SelectAlgo algo   = SelectAlgo::kAuto,
+              const IdxT* len_i = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "matrix::select_k(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
@@ -267,9 +271,8 @@ void select_k(raft::resources const& handle,
                                                          out_val,
                                                          out_idx,
                                                          select_min,
-                                                         true  // fused_last_filter
-        );
-
+                                                         true,  // fused_last_filter
+                                                         len_i);
       } else {
         bool fused_last_filter = algo == SelectAlgo::kRadix11bits;
         detail::select::radix::select_k<T, IdxT, 11, 512>(handle,
@@ -281,7 +284,8 @@ void select_k(raft::resources const& handle,
                                                           out_val,
                                                           out_idx,
                                                           select_min,
-                                                          fused_last_filter);
+                                                          fused_last_filter,
+                                                          len_i);
       }
       if (sorted) {
         auto offsets = make_device_mdarray<IdxT, IdxT>(

@@ -27,7 +27,8 @@
                                                IdxT* out_idx,                 \
                                                bool select_min,               \
                                                bool sorted,                   \
-                                               raft::matrix::SelectAlgo algo)
+                                               raft::matrix::SelectAlgo algo, \
+                                               const IdxT* len_i)
 
 instantiate_raft_matrix_detail_select_k(float, int);
 
