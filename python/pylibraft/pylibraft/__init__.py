@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,3 +14,11 @@
 #
 
 from pylibraft._version import __git_commit__, __version__
+
+# Importing the libraft wheel loads libraft symbols at runtime. If the wheel is not present, then libraft was installed in a different way.
+try:
+    import libraft
+
+    del libraft
+except ModuleNotFoundError:
+    pass
