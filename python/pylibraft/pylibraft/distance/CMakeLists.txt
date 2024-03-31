@@ -22,6 +22,3 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${linked_libraries}" ASSOCIATED_TARGETS raft MODULE_PREFIX distance_
 )
-foreach(target IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  rapids_cython_link_to_site_packages_library(${target} raft::raft_lib)
-endforeach()
