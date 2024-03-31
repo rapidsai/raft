@@ -15,10 +15,12 @@
 
 from pylibraft._version import __git_commit__, __version__
 
-# Importing the libraft wheel loads libraft symbols at runtime. If the wheel is not present, then libraft was installed in a different way.
+# If libraft was installed as a wheel, we must request it to load the library symbols.
+# Otherwise, we assume that the library was installed in a system path that ld can find.
 try:
     import libraft
-
-    del libraft
 except ModuleNotFoundError:
     pass
+else:
+    libraft.load_library()
+    del libraft
