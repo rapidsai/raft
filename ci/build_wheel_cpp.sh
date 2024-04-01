@@ -3,10 +3,6 @@
 
 set -euo pipefail
 
-artifact_name=$(RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" RAPIDS_REPOSITORY=rmm PYTHON_VERSION="3.11" rapids-package-name wheel_python)
-commit=$(git ls-remote https://github.com/rapidsai/rmm.git refs/heads/pull-request/1512 | cut -c1-7)
-librmm_wheelhouse=$(rapids-get-artifact "ci/rmm/pull-request/1512/${commit}/${artifact_name}")
-
 package_name="libraft"
 package_dir="python/libraft"
 
@@ -17,6 +13,10 @@ version=$(rapids-generate-version)
 git_commit=$(git rev-parse HEAD)
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+
+artifact_name=$(RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" RAPIDS_REPOSITORY=rmm PYTHON_VERSION="3.11" rapids-package-name wheel_python)
+commit=$(git ls-remote https://github.com/rapidsai/rmm.git refs/heads/pull-request/1512 | cut -c1-7)
+librmm_wheelhouse=$(rapids-get-artifact "ci/rmm/pull-request/1512/${commit}/${artifact_name}")
 
 # This is the version of the suffix with a preceding hyphen. It's used
 # everywhere except in the final wheel name.
