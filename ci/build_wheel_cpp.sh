@@ -3,6 +3,10 @@
 
 set -euo pipefail
 
+artifact_name=$(RAPIDS_REPOSITORY=rmm PYTHON_VERSION="3.11" rapids-package-name wheel_python)
+commit=$(git ls-remote https://github.com/rapidsai/rmm.git refs/heads/pull-request/1512 | cut -c1-7)
+librmm_wheelhouse=$(rapids-get-artifact "ci/rmm/pull-request/1512/${commit}/${artifact_name}")
+
 package_name="libraft"
 package_dir="python/libraft"
 
@@ -39,8 +43,7 @@ sed -r -i "s/librmm(.*)\"/librmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyp
 
 cd "${package_dir}"
 
-# Hardcode the output dir
-python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
+PIP_FIND_LINKS="${librmm_wheelhouse}" python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist dist/*
