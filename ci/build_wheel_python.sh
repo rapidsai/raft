@@ -30,6 +30,13 @@ fi
 ###############################################
 # Build pylibraft
 
+set -euo pipefail
+
+# TODO: Generalize gha tool for getting conda artifacts to wheels.
+artifact_name=$(RAPIDS_REPOSITORY=rmm PYTHON_VERSION="3.11" rapids-package-name wheel_python)
+commit=$(git ls-remote https://github.com/rapidsai/rmm.git refs/heads/pull-request/1512 | cut -c1-7)
+librmm_wheelhouse=$(rapids-get-artifact "ci/rmm/pull-request/1512/${commit}/${artifact_name}")
+
 package_name="pylibraft"
 package_dir="python/pylibraft"
 
@@ -48,7 +55,7 @@ fi
 
 pushd "${package_dir}"
 
-PIP_FIND_LINKS="${PWD}/libraft_dist" python -m pip wheel . -w pylibraft_dist -vvv --no-deps --disable-pip-version-check
+PIP_FIND_LINKS="${PWD}/libraft_dist;${librmm_wheelhouse}" python -m pip wheel . -w pylibraft_dist -vvv --no-deps --disable-pip-version-check
 
 mkdir -p pylibraft_final_dist
 python -m auditwheel repair -w pylibraft_final_dist pylibraft_dist/*
