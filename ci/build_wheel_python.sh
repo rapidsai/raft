@@ -58,32 +58,32 @@ RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wh
 popd
 
 
-###############################################
-# Build raft-dask
-
-package_name=raft-dask
-package_dir=python/raft-dask
-underscore_package_name=$(echo "${package_name}" | tr "-" "_")
-
-pyproject_file="${package_dir}/pyproject.toml"
-version_file="${package_dir}/${underscore_package_name}/_version.py"
-
-sed -i "s/name = \"${package_name}\"/name = \"${package_name}${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
-sed -i "/^__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${version_file}
-
-sed -r -i "s/libraft(.*)\"/libraft${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
-sed -r -i "s/pylibraft==(.*)\"/pylibraft${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
-sed -r -i "s/ucx-py==(.*)\"/ucx-py${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
-sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
-sed -r -i "s/dask-cuda==(.*)\"/dask-cuda==\1${alpha_spec}\"/g" ${pyproject_file}
-
-pushd "${package_dir}"
-
-PIP_FIND_LINKS="${PWD}/pylibraft_dist;${PWD}/libraft_dist" python -m pip wheel . -w raft_dask_dist -vvv --no-deps --disable-pip-version-check
-
-mkdir -p raft_dask_final_dist
-python -m auditwheel repair -w raft_dask_final_dist raft_dask_dist/*
-
-RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 raft_dask_final_dist
-
-popd
+################################################
+## Build raft-dask
+#
+#package_name=raft-dask
+#package_dir=python/raft-dask
+#underscore_package_name=$(echo "${package_name}" | tr "-" "_")
+#
+#pyproject_file="${package_dir}/pyproject.toml"
+#version_file="${package_dir}/${underscore_package_name}/_version.py"
+#
+#sed -i "s/name = \"${package_name}\"/name = \"${package_name}${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
+#sed -i "/^__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${version_file}
+#
+#sed -r -i "s/libraft(.*)\"/libraft${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
+#sed -r -i "s/pylibraft==(.*)\"/pylibraft${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
+#sed -r -i "s/ucx-py==(.*)\"/ucx-py${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
+#sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
+#sed -r -i "s/dask-cuda==(.*)\"/dask-cuda==\1${alpha_spec}\"/g" ${pyproject_file}
+#
+#pushd "${package_dir}"
+#
+#PIP_FIND_LINKS="${PWD}/pylibraft_dist;${PWD}/libraft_dist" python -m pip wheel . -w raft_dask_dist -vvv --no-deps --disable-pip-version-check
+#
+#mkdir -p raft_dask_final_dist
+#python -m auditwheel repair -w raft_dask_final_dist raft_dask_dist/*
+#
+#RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 raft_dask_final_dist
+#
+#popd
