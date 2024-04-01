@@ -397,7 +397,7 @@ void search(raft::resources const& res,
  */
 template <class T, class IdxT>
 void add_graph_nodes(raft::resources const& handle,
-                     const raft::device_matrix_view<T, std::int64_t> updated_dataset_view,
+                     const raft::device_matrix_view<T, std::int64_t> input_updated_dataset_view,
                      const raft::neighbors::cagra::index<T, IdxT>& index,
                      raft::host_matrix_view<IdxT, std::int64_t> updated_graph_view,
                      const std::size_t max_batch_size)
@@ -405,7 +405,7 @@ void add_graph_nodes(raft::resources const& handle,
   assert(updated_dataset.extent(0) >= original_index.size());
 
   const std::size_t initial_dataset_size = index.size();
-  const std::size_t new_dataset_size     = updated_dataset_view.extent(0);
+  const std::size_t new_dataset_size     = input_updated_dataset_view.extent(0);
   const std::size_t num_new_nodes        = new_dataset_size - initial_dataset_size;
   const std::size_t degree               = index.graph_degree();
   const std::size_t dim                  = index.dim();
@@ -430,14 +430,20 @@ void add_graph_nodes(raft::resources const& handle,
       updated_graph_view.data_handle(),
       initial_dataset_size + additional_dataset_offset + actual_batch_size,
       degree);
-    auto updated_dataset = raft::make_device_matrix_view<const T, std::int64_t>(
-      updated_dataset_view.data_handle() + (initial_dataset_size + additional_dataset_offset) * dim,
+    auto additional_dataset_view = raft::make_device_matrix_view<const T, std::int64_t>(
+      input_updated_dataset_view.data_handle() +
+        (initial_dataset_size + additional_dataset_offset) * dim,
       actual_batch_size,
       dim);
     raft::neighbors::cagra::detail::add_node_core<T, IdxT>(
-      handle, internal_index, updated_dataset, updated_graph);
+      handle, internal_index, additional_dataset_view, updated_graph);
 
-    internal_index.update_dataset(handle, raft::make_const_mdspan(updated_dataset));
+    auto updated_dataset_view = raft::make_device_matrix_view<const T, std::int64_t>(
+      input_updated_dataset_view.data_handle(),
+      initial_dataset_size + additional_dataset_offset + actual_batch_size,
+      dim);
+
+    internal_index.update_dataset(handle, raft::make_const_mdspan(updated_dataset_view));
     internal_index.update_graph(handle, raft::make_const_mdspan(updated_graph));
   }
 }
@@ -474,23 +480,33 @@ void extend(raft::resources const& handle,
   const std::size_t degree               = index.graph_degree();
   const std::size_t dim                  = index.dim();
 
-  auto updated_graph = raft::make_host_matrix<IdxT, std::int64_t>(new_dataset_size, degree);
+  using ds_idx_type = decltype(index.data().n_rows());
+  if (auto* strided_dset = dynamic_cast<const strided_dataset<T, ds_idx_type>*>(&index.data());
+      strided_dset != nullptr) {
+    auto updated_graph   = raft::make_host_matrix<IdxT, std::int64_t>(new_dataset_size, degree);
+    auto updated_dataset = raft::make_device_matrix<T, std::int64_t>(handle, new_dataset_size, dim);
 
-  auto updated_dataset = raft::make_device_matrix<T, std::int64_t>(handle, new_dataset_size, dim);
+    // TODO(enp1s0): strided_dset->stride();
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(updated_dataset.data_handle(),
+                                    sizeof(T) * dim,
+                                    strided_dset->view().data_handle(),
+                                    sizeof(T) * strided_dset->stride(),
+                                    sizeof(T) * dim,
+                                    initial_dataset_size,
+                                    cudaMemcpyDefault,
+                                    resource::get_cuda_stream(handle)));
+    raft::copy(updated_dataset.data_handle() + initial_dataset_size * dim,
+               additional_dataset.data_handle(),
+               num_new_nodes * dim,
+               raft::resource::get_cuda_stream(handle));
 
-  raft::copy(updated_dataset.data_handle(),
-             index.dataset().data_handle(),
-             initial_dataset_size * dim,
-             raft::resource::get_cuda_stream(handle));
-  raft::copy(updated_dataset.data_handle() + initial_dataset_size * dim,
-             additional_dataset.data_handle(),
-             num_new_nodes * dim,
-             raft::resource::get_cuda_stream(handle));
+    add_graph_nodes(handle, updated_dataset.view(), index, updated_graph.view(), max_batch_size);
 
-  add_graph_nodes(handle, updated_dataset.view(), index, updated_graph.view(), max_batch_size);
-
-  index.update_dataset(handle, raft::make_const_mdspan(updated_dataset.view()));
-  index.update_graph(handle, raft::make_const_mdspan(updated_graph.view()));
+    index.update_dataset(handle, raft::make_const_mdspan(updated_dataset.view()));
+    index.update_graph(handle, raft::make_const_mdspan(updated_graph.view()));
+  } else {
+    RAFT_FAIL("Only uncompressed dataset is supported");
+  }
 }
 
 /** @} */  // end group cagra

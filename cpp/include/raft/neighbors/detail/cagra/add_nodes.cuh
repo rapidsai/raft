@@ -18,6 +18,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
+#include <raft/stats/histogram.cuh>
 
 #include <rmm/device_buffer.hpp>
 
@@ -35,35 +36,6 @@ void search(raft::resources const& res,
 }
 
 namespace raft::neighbors::cagra::detail {
-template <class CounterT, class IdxT>
-__global__ void count_incoming_edges_kernel(CounterT* const count_ptr,
-                                            const IdxT* const graph_ptr,
-                                            const std::size_t num_entries)
-{
-  for (std::size_t i = threadIdx.x + blockDim.x * blockIdx.x; i < num_entries;
-       i += gridDim.x * blockDim.x) {
-    const auto node_id = graph_ptr[i];
-    atomicAdd(count_ptr + node_id, 1);
-  }
-}
-
-template <class CounterT, class IdxT>
-void count_incoming_edges(CounterT* const count_ptr,
-                          const IdxT* const graph_ptr,
-                          const std::size_t num_entries,
-                          const std::size_t dataset_size,
-                          cudaStream_t cuda_stream)
-{
-  const std::uint32_t block_size = 256;
-  const std::uint32_t grid_size  = 512;
-
-  // Initizalize counter
-  RAFT_CUDA_TRY(cudaMemsetAsync(count_ptr, 0, sizeof(CounterT) * dataset_size, cuda_stream));
-
-  count_incoming_edges_kernel<<<grid_size, block_size, 0, cuda_stream>>>(
-    count_ptr, graph_ptr, num_entries);
-}
-
 template <class T, class IdxT>
 void add_node_core(raft::resources const& handle,
                    const raft::neighbors::cagra::index<T, IdxT>& idx,
@@ -79,14 +51,21 @@ void add_node_core(raft::resources const& handle,
   const std::uint32_t base_degree = degree * 2;
 
   // Step 0: Calculate the number of incoming edges for each node
-  auto dev_num_incoming_edges =
-    raft::make_device_vector<std::uint32_t, std::uint64_t>(handle, new_size);
-  auto host_num_incoming_edges = raft::make_host_vector<std::uint32_t, std::uint64_t>(new_size);
-  count_incoming_edges(dev_num_incoming_edges.data_handle(),
-                       idx.graph().data_handle(),
-                       degree * old_size,
-                       new_size,
-                       raft::resource::get_cuda_stream(handle));
+  auto dev_num_incoming_edges = raft::make_device_vector<int, std::uint64_t>(handle, new_size);
+
+  RAFT_CUDA_TRY(cudaMemsetAsync(dev_num_incoming_edges.data_handle(),
+                                0,
+                                sizeof(int) * new_size,
+                                raft::resource::get_cuda_stream(handle)));
+  raft::stats::histogram<IdxT, std::int64_t>(stats::HistTypeAuto,
+                                             dev_num_incoming_edges.data_handle(),
+                                             old_size,
+                                             idx.graph().data_handle(),
+                                             old_size * degree,
+                                             1,
+                                             raft::resource::get_cuda_stream(handle));
+
+  auto host_num_incoming_edges = raft::make_host_vector<int, std::uint64_t>(new_size);
   raft::copy(host_num_incoming_edges.data_handle(),
              dev_num_incoming_edges.data_handle(),
              new_size,
@@ -226,8 +205,8 @@ void add_node_core(raft::resources const& handle,
         std::size_t replace_num_incoming_edges = 0;
         for (std::int32_t j = degree - 1; j >= static_cast<std::int32_t>(rev_edge_search_range);
              j--) {
-          const auto neighbor_id        = host_neighbor_indices_ptr[j];
-          const auto num_incoming_edges = host_num_incoming_edges.data_handle()[neighbor_id];
+          const auto neighbor_id               = host_neighbor_indices_ptr[j];
+          const std::size_t num_incoming_edges = host_num_incoming_edges.data_handle()[neighbor_id];
           if (num_incoming_edges > replace_num_incoming_edges) {
             // Check duplication
             bool dup = false;
