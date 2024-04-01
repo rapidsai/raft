@@ -57,13 +57,6 @@ sdist.exclude = ["*tests*"]
 sdist.reproducible = true
 wheel.packages = ["libraft"]
 wheel.install-dir = "libraft"
-# TODO: We don't want to install the static library because it dramatically
-# increases the size. Unfortunately we also need to install a number of pieces
-# beyond the contents of the compiled component, including (but not limited to)
-# the transitive dependencies pulled via CPM manually. There doesn't seem to be
-# a good solution for this other than adding an option to the CPP CMake to not
-# create the static library.
-#install.components = ["compiled"]
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
