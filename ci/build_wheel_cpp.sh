@@ -19,7 +19,7 @@ git_commit=$(git rev-parse HEAD)
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-librmm_wheelhouse=$(rapids-get-pr-wheel-artifact.sh rmm 1512 cpp)
+librmm_wheelhouse=$(rapids-get-pr-wheel-artifact rmm 1512 cpp)
 
 # This is the version of the suffix with a preceding hyphen. It's used
 # everywhere except in the final wheel name.
