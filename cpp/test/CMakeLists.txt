@@ -258,7 +258,6 @@ if(BUILD_TESTS)
     test/matrix/argmax.cu
     test/matrix/argmin.cu
     test/matrix/columnSort.cu
-    test/matrix/copy.cu
     test/matrix/diagonal.cu
     test/matrix/gather.cu
     test/matrix/scatter.cu

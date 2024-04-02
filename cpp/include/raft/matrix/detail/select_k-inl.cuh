@@ -376,7 +376,6 @@ void select_k(raft::resources const& handle,
   auto len        = csr_view.get_n_cols();
   auto k          = IdxT(out_val.extent(1));
 
-  auto mr = resource::get_workspace_resource(handle);
   RAFT_EXPECTS(out_val.extent(1) <= int64_t(std::numeric_limits<int>::max()),
                "output k must fit the int type.");
 
