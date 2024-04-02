@@ -3,6 +3,11 @@
 
 set -euo pipefail
 
+if [[ ! -d "/tmp/gha-tools" ]]; then
+    git clone https://github.com/msarahan/gha-tools.git -b get-pr-wheel-artifact /tmp/gha-tools
+    export PATH="/tmp/gha-tools/tools:${PATH}"
+fi
+
 source rapids-configure-sccache
 source rapids-date-string
 
@@ -10,7 +15,7 @@ version=$(rapids-generate-version)
 git_commit=$(git rev-parse HEAD)
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
-RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" RAPIDS_PY_VERSION="3.11" rapids-download-wheels-from-s3 /tmp/libraft_dist
+RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libraft_dist
 
 # This is the version of the suffix with a preceding hyphen. It's used
 # everywhere except in the final wheel name.
@@ -30,10 +35,7 @@ fi
 ###############################################
 # Build pylibraft
 
-# TODO: Generalize gha tool for getting conda artifacts to wheels.
-artifact_name=$(RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" RAPIDS_REPOSITORY=rmm RAPIDS_PY_VERSION="3.11" rapids-package-name wheel_python)
-commit=$(git ls-remote https://github.com/rapidsai/rmm.git refs/heads/pull-request/1512 | cut -c1-7)
-librmm_wheelhouse=$(rapids-get-artifact "ci/rmm/pull-request/1512/${commit}/${artifact_name}")
+librmm_wheelhouse=$(get-pr-wheel-artifact.sh rmm 1512 cpp)
 
 package_name="pylibraft"
 package_dir="python/pylibraft"
@@ -58,7 +60,7 @@ PIP_FIND_LINKS="/tmp/libraft_dist ${librmm_wheelhouse}" python -m pip wheel . -w
 mkdir -p pylibraft_final_dist
 python -m auditwheel repair -w pylibraft_final_dist --exclude libraft.so pylibraft_dist/*
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 pylibraft_final_dist
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python pylibraft_final_dist
 
 popd
 
