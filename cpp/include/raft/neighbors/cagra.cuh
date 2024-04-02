@@ -395,9 +395,10 @@ void search(raft::resources const& res,
  * @param[out] updated_graph_view updated graph
  * @param[in] max_batch_size the batch size for graph update
  */
-template <class T, class IdxT>
+template <class T, class IdxT, class Accessor>
 void add_graph_nodes(raft::resources const& handle,
-                     const raft::device_matrix_view<T, std::int64_t> input_updated_dataset_view,
+                     mdspan<const T, matrix_extent<int64_t>, raft::layout_c_contiguous, Accessor>
+                       input_updated_dataset_view,
                      const raft::neighbors::cagra::index<T, IdxT>& index,
                      raft::host_matrix_view<IdxT, std::int64_t> updated_graph_view,
                      const std::size_t max_batch_size)
@@ -409,7 +410,7 @@ void add_graph_nodes(raft::resources const& handle,
   const std::size_t num_new_nodes        = new_dataset_size - initial_dataset_size;
   const std::size_t degree               = index.graph_degree();
   const std::size_t dim                  = index.dim();
-  const std::size_t max_batch_size_      = max_batch_size == 0 ? num_new_nodes : max_batch_size;
+  const std::size_t max_batch_size_      = max_batch_size == 0 ? 1 : max_batch_size;
 
   raft::copy(updated_graph_view.data_handle(),
              index.graph().data_handle(),
@@ -457,7 +458,7 @@ void add_graph_nodes(raft::resources const& handle,
  *   // memory space for a new dataset and graph
  *   auto additional_dataset = raft::make_host_matrix<uint32_t,int64_t>(res,add_size,dim);
  *
- *   cagra::extend(res, index, additional_dataset.view());
+ *   cagra::extend(res, index, raft::make_const_mdspan(additional_dataset).view());
  * @endcode
  *
  * @tparam T data element type
@@ -466,13 +467,14 @@ void add_graph_nodes(raft::resources const& handle,
  * @param[in] handle raft resources
  * @param[in] additional_dataset additional dataset
  * @param[in,out] index CAGRA index
- * @param[in] max_batch_size the batch size for graph update
+ * @param[in] max_batch_size the batch size for graph update (default: 0 (AUTO))
  */
-template <class T, class IdxT>
-void extend(raft::resources const& handle,
-            const raft::host_matrix_view<const T, std::int64_t> additional_dataset,
-            raft::neighbors::cagra::index<T, IdxT>& index,
-            const std::size_t max_batch_size = 0)
+template <class T, class IdxT, class Accessor>
+void extend(
+  raft::resources const& handle,
+  mdspan<const T, matrix_extent<int64_t>, raft::layout_c_contiguous, Accessor> additional_dataset,
+  raft::neighbors::cagra::index<T, IdxT>& index,
+  const std::size_t max_batch_size = 0)
 {
   const std::size_t num_new_nodes        = additional_dataset.extent(0);
   const std::size_t initial_dataset_size = index.size();
@@ -500,7 +502,11 @@ void extend(raft::resources const& handle,
                num_new_nodes * dim,
                raft::resource::get_cuda_stream(handle));
 
-    add_graph_nodes(handle, updated_dataset.view(), index, updated_graph.view(), max_batch_size);
+    add_graph_nodes(handle,
+                    raft::make_const_mdspan(updated_dataset.view()),
+                    index,
+                    updated_graph.view(),
+                    max_batch_size);
 
     index.update_dataset(handle, raft::make_const_mdspan(updated_dataset.view()));
     index.update_graph(handle, raft::make_const_mdspan(updated_graph.view()));

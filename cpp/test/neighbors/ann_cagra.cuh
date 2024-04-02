@@ -807,7 +807,7 @@ class AnnCagraAddNodesTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
         const std::size_t update_batch_size = 100;
         raft::neighbors::cagra::extend<DataT, IdxT>(
-          handle_, additional_dataset.view(), index, update_batch_size);
+          handle_, raft::make_const_mdspan(additional_dataset.view()), index, update_batch_size);
 
         auto search_queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
           search_queries.data(), ps.n_queries, ps.dim);
