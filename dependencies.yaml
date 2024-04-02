@@ -462,10 +462,15 @@ dependencies:
           - matrix: {cuda: "12.*"}
             packages:
               - *rmm_cu12
+              - libraft-cu12==24.6.*
           - matrix: {cuda: "11.*"}
             packages:
               - *rmm_cu11
-          - {matrix: null, packages: [*rmm_conda]}
+              - libraft-cu12==24.6.*
+          - matrix: null
+            packages:
+              - *rmm_conda
+              - libraft==24.6.*
   run_raft_dask:
     common:
       - output_types: [conda, pyproject]
