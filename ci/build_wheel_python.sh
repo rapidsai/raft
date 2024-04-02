@@ -53,7 +53,7 @@ fi
 
 pushd "${package_dir}"
 
-PIP_FIND_LINKS="/tmp/libraft_dist;${librmm_wheelhouse}" python -m pip wheel . -w pylibraft_dist -vvv --no-deps --disable-pip-version-check
+PIP_FIND_LINKS="/tmp/libraft_dist ${librmm_wheelhouse}" python -m pip wheel . -w pylibraft_dist -vvv --no-deps --disable-pip-version-check
 
 mkdir -p pylibraft_final_dist
 python -m auditwheel repair -w pylibraft_final_dist pylibraft_dist/*
@@ -84,7 +84,7 @@ popd
 #
 #pushd "${package_dir}"
 #
-#PIP_FIND_LINKS="../pylibraft/pylibraft_dist;/tmp/libraft_dist" python -m pip wheel . -w raft_dask_dist -vvv --no-deps --disable-pip-version-check
+#PIP_FIND_LINKS="../pylibraft/pylibraft_dist /tmp/libraft_dist" python -m pip wheel . -w raft_dask_dist -vvv --no-deps --disable-pip-version-check
 #
 #mkdir -p raft_dask_final_dist
 #python -m auditwheel repair -w raft_dask_final_dist raft_dask_dist/*
