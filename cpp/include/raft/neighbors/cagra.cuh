@@ -458,7 +458,7 @@ void add_graph_nodes(raft::resources const& handle,
  *   // memory space for a new dataset and graph
  *   auto additional_dataset = raft::make_host_matrix<uint32_t,int64_t>(res,add_size,dim);
  *
- *   cagra::extend(res, index, raft::make_const_mdspan(additional_dataset).view());
+ *   cagra::extend(res, index, raft::make_const_mdspan(additional_dataset.view()));
  * @endcode
  *
  * @tparam T data element type
