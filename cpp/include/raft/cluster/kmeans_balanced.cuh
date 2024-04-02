@@ -362,7 +362,7 @@ void calc_centers_and_sizes(const raft::resources& handle,
                                  reset_counters,
                                  mapping_op,
                                  nullptr,
-                                 X_norm.has_value() ? nullptr : X_norm.value().data_handle());
+                                 X_norm.has_value() ? X_norm.value().data_handle() : nullptr);
 }
 
 }  // namespace helpers

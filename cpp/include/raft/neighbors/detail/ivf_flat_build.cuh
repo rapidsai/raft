@@ -237,10 +237,12 @@ void extend(raft::resources const& handle,
       auto batch_labels_view = raft::make_device_vector_view<const LabelT, IdxT>(
         new_labels.data_handle() + batch.offset(), batch.size());
       auto batch_vectors_norms = raft::make_device_vector<T, IdxT>(handle, batch.size());
+      std::optional<raft::device_vector_view<const T, IdxT>> batch_vectors_norms_opt = std::nullopt;
       // Normalize if necessary (Cosine)
       if (index->metric() == raft::distance::DistanceType::CosineExpanded)
       {
         raft::linalg::norm(handle, batch_data_view, batch_vectors_norms.view(), raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
+        batch_vectors_norms_opt = std::make_optional(raft::make_const_mdspan(batch_vectors_norms.view()));
       }
       raft::cluster::kmeans_balanced::helpers::calc_centers_and_sizes(handle,
                                                                       batch_data_view,
@@ -249,7 +251,7 @@ void extend(raft::resources const& handle,
                                                                       list_sizes_view,
                                                                       false,
                                                                       utils::mapping<float>{},
-                                                                      std::make_optional(raft::make_const_mdspan(batch_vectors_norms.view())));
+                                                                      batch_vectors_norms_opt);
     }
   } else {
     raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
