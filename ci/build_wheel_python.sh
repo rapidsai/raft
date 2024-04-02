@@ -35,7 +35,7 @@ fi
 ###############################################
 # Build pylibraft
 
-librmm_wheelhouse=$(rapids-get-pr-wheel-artifact rmm 1512 cpp)
+RAPIDS_PY_WHEEL_NAME="librmm${RAPIDS_PY_CUDA_SUFFIX}" librmm_wheelhouse=$(rapids-get-pr-wheel-artifact rmm 1512 cpp)
 
 package_name="pylibraft"
 package_dir="python/pylibraft"
