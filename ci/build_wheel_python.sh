@@ -35,7 +35,7 @@ fi
 ###############################################
 # Build pylibraft
 
-librmm_wheelhouse=$(rapids-get-pr-wheel-artifact.sh rmm 1512 cpp)
+librmm_wheelhouse=$(rapids-get-pr-wheel-artifact rmm 1512 cpp)
 
 package_name="pylibraft"
 package_dir="python/pylibraft"
