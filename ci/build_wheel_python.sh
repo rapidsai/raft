@@ -5,8 +5,8 @@ set -euo pipefail
 
 if [[ ! -d "/tmp/gha-tools" ]]; then
     git clone https://github.com/msarahan/gha-tools.git -b get-pr-wheel-artifact /tmp/gha-tools
-    export PATH="/tmp/gha-tools/tools:${PATH}"
 fi
+export PATH="/tmp/gha-tools/tools:${PATH}"
 
 source rapids-configure-sccache
 source rapids-date-string
