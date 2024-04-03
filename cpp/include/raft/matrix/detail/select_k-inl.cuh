@@ -27,8 +27,6 @@
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/linalg/map.cuh>
-#include <raft/matrix/copy.cuh>
-#include <raft/matrix/gather.cuh>
 #include <raft/matrix/select_k_types.hpp>
 
 #include <cub/cub.cuh>

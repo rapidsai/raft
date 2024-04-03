@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/core/resource/cublas_handle.hpp>
-#include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/util/cache_util.cuh>
@@ -316,70 +315,6 @@ m_t getL2Norm(raft::resources const& handle, const m_t* in, idx_t size, cudaStre
   RAFT_CUBLAS_TRY(
     raft::linalg::detail::cublasnrm2(cublasH, static_cast<int>(size), in, 1, &normval, stream));
   return normval;
-}
-
-// Threads per block in segmented_copy_kernel.
-static const constexpr int SEGMENTED_COPY_TPB_256 = 256;
-static const constexpr int SEGMENTED_COPY_TPB_32  = 32;
-
-template <typename m_t, typename idx_t, idx_t TPB>
-RAFT_KERNEL __launch_bounds__(TPB) segmented_copy_kernel(
-  const m_t* src, idx_t n_rows, idx_t n_cols, idx_t max_len_per_row, idx_t* offsets, m_t* dst)
-{
-#pragma unroll
-  for (idx_t row_id = blockIdx.y; row_id < n_rows; row_id += gridDim.y) {
-    idx_t segment_start = offsets[row_id];
-    idx_t len           = min(offsets[row_id + 1] - segment_start, max_len_per_row);
-    for (idx_t col_id = threadIdx.x + blockIdx.x * blockDim.x; col_id < len;
-         col_id += blockDim.x * gridDim.x) {
-      dst[row_id * n_cols + col_id] = src[segment_start + col_id];
-    }
-  }
-}
-
-template <typename m_t, typename idx_t>
-void segmented_copy(raft::resources const& handle,
-                    const m_t* src,
-                    idx_t n_rows,
-                    idx_t n_cols,
-                    idx_t max_len_per_row,
-                    idx_t* offsets,
-                    m_t* dst)
-{
-  auto stream = resource::get_cuda_stream(handle);
-
-  idx_t tpb = max_len_per_row >= 256 ? SEGMENTED_COPY_TPB_256 : SEGMENTED_COPY_TPB_32;
-
-  int blocks_per_sm;
-  int sm_count = resource::get_device_properties(handle).multiProcessorCount;
-
-  if (tpb == SEGMENTED_COPY_TPB_32) {
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-      &blocks_per_sm, segmented_copy_kernel<m_t, idx_t, SEGMENTED_COPY_TPB_32>, tpb, 0);
-  } else if (tpb == SEGMENTED_COPY_TPB_256) {
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-      &blocks_per_sm, segmented_copy_kernel<m_t, idx_t, SEGMENTED_COPY_TPB_256>, tpb, 0);
-  }
-
-  idx_t max_active_blocks = sm_count * blocks_per_sm;
-  // `max threads number = sm_count * blocks_per_sm * tpb`
-  // `problem size = n_rows * max_len_per_row`
-  idx_t required_active_blocks =
-    raft::min(max_active_blocks, raft::ceildiv(n_rows * max_len_per_row, tpb));
-
-  idx_t blocks_per_row = raft::ceildiv(required_active_blocks, n_rows);
-  idx_t grid_rows      = raft::ceildiv(required_active_blocks, blocks_per_row);
-  dim3 block(tpb, 1);
-  dim3 grid(blocks_per_row, grid_rows);
-
-  if (tpb == SEGMENTED_COPY_TPB_32) {
-    segmented_copy_kernel<m_t, idx_t, SEGMENTED_COPY_TPB_32>
-      <<<grid, block, 0, stream>>>(src, n_rows, n_cols, max_len_per_row, offsets, dst);
-  } else if (tpb == SEGMENTED_COPY_TPB_256) {
-    segmented_copy_kernel<m_t, idx_t, SEGMENTED_COPY_TPB_256>
-      <<<grid, block, 0, stream>>>(src, n_rows, n_cols, max_len_per_row, offsets, dst);
-  }
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // end namespace detail
