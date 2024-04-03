@@ -8,8 +8,8 @@ package_dir="python/libraft"
 
 if [[ ! -d "/tmp/gha-tools" ]]; then
     git clone https://github.com/msarahan/gha-tools.git -b get-pr-wheel-artifact /tmp/gha-tools
-    export PATH="/tmp/gha-tools/tools:${PATH}"
 fi
+export PATH="/tmp/gha-tools/tools:${PATH}"
 
 source rapids-configure-sccache
 source rapids-date-string
@@ -19,7 +19,7 @@ git_commit=$(git rev-parse HEAD)
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" librmm_wheelhouse=$(rapids-get-pr-wheel-artifact rmm 1512 cpp)
+librmm_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact rmm 1512 cpp)
 
 # This is the version of the suffix with a preceding hyphen. It's used
 # everywhere except in the final wheel name.
