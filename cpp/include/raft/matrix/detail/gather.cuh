@@ -16,8 +16,18 @@
 
 #pragma once
 
+#include <raft/common/nvtx.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/pinned_mdarray.hpp>
+#include <raft/core/pinned_mdspan.hpp>
+#include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <omp.h>
 
 #include <functional>
 
@@ -334,6 +344,83 @@ void gather_if(const InputIteratorT in,
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
   gatherImpl(in, D, N, map, stencil, map_length, out, pred_op, transform_op, stream);
+}
+
+/**
+ * Helper function to gather a set of vectors from a (host) dataset.
+ */
+template <typename T, typename IdxT, typename MatIdxT = int64_t>
+void gather_buff(host_matrix_view<const T, MatIdxT> dataset,
+                 host_vector_view<const IdxT, MatIdxT> indices,
+                 MatIdxT offset,
+                 pinned_matrix_view<T, MatIdxT> buff)
+{
+  raft::common::nvtx::range<common::nvtx::domain::raft> fun_scope("gather_host_buff");
+  IdxT batch_size = std::min<IdxT>(buff.extent(0), indices.extent(0) - offset);
+
+#pragma omp for
+  for (IdxT i = 0; i < batch_size; i++) {
+    IdxT in_idx = indices(offset + i);
+    for (IdxT k = 0; k < buff.extent(1); k++) {
+      buff(i, k) = dataset(in_idx, k);
+    }
+  }
+}
+
+template <typename T, typename IdxT, typename MatIdxT = int64_t>
+void gather(raft::resources const& res,
+            host_matrix_view<const T, MatIdxT> dataset,
+            device_vector_view<const IdxT, MatIdxT> indices,
+            raft::device_matrix_view<T, MatIdxT> output)
+{
+  raft::common::nvtx::range<common::nvtx::domain::raft> fun_scope("gather");
+  IdxT n_dim        = output.extent(1);
+  IdxT n_train      = output.extent(0);
+  auto indices_host = raft::make_host_vector<IdxT, MatIdxT>(n_train);
+  raft::copy(
+    indices_host.data_handle(), indices.data_handle(), n_train, resource::get_cuda_stream(res));
+  resource::sync_stream(res);
+
+  const size_t buffer_size = 32768 * 1024;  // bytes
+  const size_t max_batch_size =
+    std::min<size_t>(round_up_safe<size_t>(buffer_size / n_dim, 32), n_train);
+  RAFT_LOG_DEBUG("Gathering data with batch size %zu", max_batch_size);
+
+  // Gather the vector on the host in tmp buffers. We use two buffers to overlap H2D sync
+  // and gathering the data.
+  auto out_tmp1 = raft::make_pinned_matrix<T, MatIdxT>(res, max_batch_size, n_dim);
+  auto out_tmp2 = raft::make_pinned_matrix<T, MatIdxT>(res, max_batch_size, n_dim);
+
+  // Usually a limited number of threads provide sufficient bandwidth for gathering data.
+  int n_threads = std::min(omp_get_max_threads(), 32);
+
+  // The gather_buff function has a parallel for loop. We start the the omp parallel
+  // region here, to avoid repeated overhead within the device_offset loop.
+#pragma omp parallel num_threads(n_threads)
+  {
+    auto view1 = out_tmp1.view();
+    auto view2 = out_tmp2.view();
+    gather_buff(dataset, make_const_mdspan(indices_host.view()), (MatIdxT)0, view1);
+    for (MatIdxT device_offset = 0; device_offset < n_train; device_offset += max_batch_size) {
+      MatIdxT batch_size = std::min<IdxT>(max_batch_size, n_train - device_offset);
+
+#pragma omp master
+      raft::copy(output.data_handle() + device_offset * n_dim,
+                 view1.data_handle(),
+                 batch_size * n_dim,
+                 resource::get_cuda_stream(res));
+      // Start gathering the next batch on the host.
+      MatIdxT host_offset = device_offset + batch_size;
+      batch_size          = std::min<IdxT>(max_batch_size, n_train - host_offset);
+      if (batch_size > 0) {
+        gather_buff(dataset, make_const_mdspan(indices_host.view()), host_offset, view2);
+      }
+#pragma omp master
+      resource::sync_stream(res);
+#pragma omp barrier
+      std::swap(view1, view2);
+    }
+  }
 }
 
 }  // namespace detail

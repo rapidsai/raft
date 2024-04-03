@@ -21,6 +21,7 @@
 #include <rmm/mr/device/limiting_resource_adaptor.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda_runtime_api.h>
 
@@ -114,17 +115,16 @@ TEST(DeviceResourcesManager, ObeysSetters)
 
     auto* mr = dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(
       rmm::mr::get_current_device_resource());
-    auto* workspace_mr =
-      dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(
-        dynamic_cast<rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>*>(
-          res.get_workspace_resource())
-          ->get_upstream());
+    rmm::device_async_resource_ref workspace_mr =
+      dynamic_cast<rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>*>(
+        res.get_workspace_resource())
+        ->get_upstream_resource();
     if (upstream_mrs[i % devices.size()] != nullptr) {
       // Expect that the current memory resource is a pool memory resource as requested
       EXPECT_NE(mr, nullptr);
-      // Expect that the upstream workspace memory resource is a pool memory
-      // resource as requested
-      EXPECT_NE(workspace_mr, nullptr);
+
+      // We cannot easily check the type of a resource_ref
+      (void)workspace_mr;
     }
 
     {

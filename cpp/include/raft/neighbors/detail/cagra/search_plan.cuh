@@ -71,8 +71,12 @@ struct search_plan_impl_base : public search_params {
   }
 };
 
-template <class DATA_T, class INDEX_T, class DISTANCE_T, class SAMPLE_FILTER_T>
+template <class DATASET_DESCRIPTOR_T, class SAMPLE_FILTER_T>
 struct search_plan_impl : public search_plan_impl_base {
+  using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
+  using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
+  using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
+
   int64_t hash_bitlen;
 
   size_t small_hash_bitlen;
@@ -111,7 +115,7 @@ struct search_plan_impl : public search_plan_impl_base {
   virtual ~search_plan_impl() {}
 
   virtual void operator()(raft::resources const& res,
-                          raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                          DATASET_DESCRIPTOR_T dataset_desc,
                           raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                           INDEX_T* const result_indices_ptr,       // [num_queries, topk]
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]

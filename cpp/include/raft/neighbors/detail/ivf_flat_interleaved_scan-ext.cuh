@@ -45,7 +45,7 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
                               const uint32_t* chunk_indices,
                               const bool select_min,
                               IvfSampleFilterT sample_filter,
-                              IdxT* neighbors,
+                              uint32_t* neighbors,
                               float* distances,
                               uint32_t& grid_dim_x,
                               rmm::cuda_stream_view stream) RAFT_EXPLICIT;
@@ -70,7 +70,7 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
     const uint32_t* chunk_indices,                                                              \
     const bool select_min,                                                                      \
     IvfSampleFilterT sample_filter,                                                             \
-    IdxT* neighbors,                                                                            \
+    uint32_t* neighbors,                                                                        \
     float* distances,                                                                           \
     uint32_t& grid_dim_x,                                                                       \
     rmm::cuda_stream_view stream)
