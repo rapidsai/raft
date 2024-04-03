@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 #pragma once
-#include <cub/cub.cuh>
-#include <limits>
 #include <raft/linalg/norm.cuh>
 #include <raft/neighbors/detail/faiss_select/Select.cuh>
+
+#include <cub/cub.cuh>
+
+#include <limits>
 // TODO: Need to hide the PairwiseDistance class impl and expose to public API
 #include "processing.cuh"
+
 #include <raft/core/operators.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>

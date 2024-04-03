@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <raft/core/resource/device_memory_resource.hpp>
-#include <utility>
-
 #include <raft/cluster/detail/kmeans_balanced.cuh>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/util/cuda_utils.cuh>
+
+#include <utility>
 
 namespace raft::cluster::kmeans_balanced {
 

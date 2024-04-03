@@ -65,7 +65,7 @@ requirements:
     {% endif %}
     - libraft {{ version }}
     - libraft-headers {{ version }}
-    - numpy >=1.21
+    - numpy >=1.23,<2.0a0
     - python x.x
     - rmm ={{ minor_version }}
 

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/managed_mdspan.hpp>
 #include <raft/core/resources.hpp>
@@ -24,6 +22,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/universal_vector.h>
+
+#include <gtest/gtest.h>
 
 #include <complex>
 #include <cstdint>

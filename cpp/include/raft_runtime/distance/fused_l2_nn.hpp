@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,23 +42,25 @@ namespace raft::runtime::distance {
  * @param[in]  k             gemm k
  * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
  */
-void fused_l2_nn_min_arg(raft::resources const& handle,
-                         int* min,
-                         const float* x,
-                         const float* y,
-                         int m,
-                         int n,
-                         int k,
-                         bool sqrt);
+[[deprecated("use fused_distance_nn_min_arg instead")]] void fused_l2_nn_min_arg(
+  raft::resources const& handle,
+  int* min,
+  const float* x,
+  const float* y,
+  int m,
+  int n,
+  int k,
+  bool sqrt);
 
-void fused_l2_nn_min_arg(raft::resources const& handle,
-                         int* min,
-                         const double* x,
-                         const double* y,
-                         int m,
-                         int n,
-                         int k,
-                         bool sqrt);
+[[deprecated("use fused_distance_nn_min_arg instead")]] void fused_l2_nn_min_arg(
+  raft::resources const& handle,
+  int* min,
+  const double* x,
+  const double* y,
+  int m,
+  int n,
+  int k,
+  bool sqrt);
 
 /** @} */  // end group fused_l2_nn_min_arg_runtime
 

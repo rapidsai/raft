@@ -126,7 +126,8 @@ inline dtype_t get_numpy_dtype()
 }
 
 #if defined(_RAFT_HAS_CUDA)
-template <typename T, typename std::enable_if_t<std::is_same_v<T, half>, bool> = true>
+template <typename T,
+          typename std::enable_if_t<std::is_same_v<std::remove_cv_t<T>, half>, bool> = true>
 inline dtype_t get_numpy_dtype()
 {
   return {RAFT_NUMPY_HOST_ENDIAN_CHAR, 'e', sizeof(T)};

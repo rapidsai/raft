@@ -17,11 +17,11 @@
 #pragma once
 
 #include "base_strategy.cuh"
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 
 #include <cuco/static_map.cuh>
-
 #include <thrust/copy.h>
 #include <thrust/iterator/counting_iterator.h>
 
@@ -236,8 +236,8 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     return insert_type::make_from_uninitialized_slots(cooperative_groups::this_thread_block(),
                                                       cache,
                                                       cache_size,
-                                                      cuco::sentinel::empty_key{value_idx{-1}},
-                                                      cuco::sentinel::empty_value{value_t{0}});
+                                                      cuco::empty_key{value_idx{-1}},
+                                                      cuco::empty_value{value_t{0}});
   }
 
   __device__ inline void insert(insert_type cache, const value_idx& key, const value_t& value)
@@ -247,10 +247,8 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
   __device__ inline find_type init_find(smem_type cache, const value_idx& cache_size)
   {
-    return find_type(cache,
-                     cache_size,
-                     cuco::sentinel::empty_key{value_idx{-1}},
-                     cuco::sentinel::empty_value{value_t{0}});
+    return find_type(
+      cache, cache_size, cuco::empty_key{value_idx{-1}}, cuco::empty_value{value_t{0}});
   }
 
   __device__ inline value_t find(find_type cache, const value_idx& key)

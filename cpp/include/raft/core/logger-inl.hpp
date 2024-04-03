@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,16 @@
  */
 #pragma once
 
+#include "logger-macros.hpp"
+
 #include <stdarg.h>
 
 #include <algorithm>
-
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
-
-#include <stdarg.h>
-
-#include "logger-macros.hpp"
 // The logger-ext.hpp file contains the class declaration of the logger class.
 // In this case, it is okay to include the logger-ext.hpp file because it
 // contains no RAFT_EXPLICIT template instantiations.
@@ -35,7 +32,8 @@
 
 #define SPDLOG_HEADER_ONLY
 #include <raft/core/detail/callback_sink.hpp>
-#include <raft/core/detail/macros.hpp>        // RAFT_INLINE_CONDITIONAL
+#include <raft/core/detail/macros.hpp>  // RAFT_INLINE_CONDITIONAL
+
 #include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT
 #include <spdlog/spdlog.h>                    // NOLINT
 

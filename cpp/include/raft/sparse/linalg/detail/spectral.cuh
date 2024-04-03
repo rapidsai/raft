@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,15 @@
  */
 
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/util/cudart_utils.hpp>
-
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/coo.hpp>
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/partition.cuh>
 #include <raft/util/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
+#include <raft/util/cudart_utils.hpp>
 
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace sparse {

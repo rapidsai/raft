@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <cstddef>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -27,9 +26,9 @@
 #include <raft/core/resources.hpp>
 
 #include <cub/cub.cuh>
-
 #include <cuda/atomic>
 
+#include <cstddef>
 #include <optional>
 
 namespace raft::stats::detail {

@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <raft/neighbors/cagra_types.hpp>
-#include <raft/neighbors/ivf_pq_types.hpp>
-#include <string>
-
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/neighbors/cagra_types.hpp>
+#include <raft/neighbors/ivf_pq_types.hpp>
+
+#include <string>
 
 namespace raft::runtime::neighbors::cagra {
 

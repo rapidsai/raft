@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,40 +17,40 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
-#include <raft/linalg/map.cuh>
-#include <raft/neighbors/ivf_flat_types.hpp>
-#include <raft/neighbors/ivf_list.hpp>
-#include <raft/neighbors/sample_filter.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/fast_int_div.cuh>
-#include <thrust/functional.h>
-
-#include <raft_internal/neighbors/naive_knn.cuh>
-
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_flat_helpers.cuh>
+#include <raft/neighbors/ivf_flat_types.hpp>
+#include <raft/neighbors/ivf_list.hpp>
+#include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/fast_int_div.cuh>
+
+#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <thrust/functional.h>
+#include <thrust/sequence.h>
 
 #include <gtest/gtest.h>
-
-#include <rmm/device_uvector.hpp>
-#include <thrust/sequence.h>
 
 #include <cstddef>
 #include <iostream>
@@ -354,7 +354,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
       ivf::resize_list(handle_, lists[label], list_device_spec, list_size, 0);
     }
 
-    idx.recompute_internal_state(handle_);
+    helpers::recompute_internal_state(handle_, &idx);
 
     using interleaved_group = Pow2<kIndexGroupSize>;
 
@@ -607,6 +607,23 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
   {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
   {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
   {10000, 131072, 8, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false},
+
+  // various combinations with k>raft::matrix::detail::select::warpsort::kMaxCapacity
+  {1000, 10000, 16, 1024, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {1000, 10000, 2053, 512, 50, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 10000, 2049, 2048, 70, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 10000, 16, 4000, 100, 2048, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {10, 10000, 16, 4000, 100, 2048, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {10, 10000, 16, 4000, 120, 2048, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {20, 100000, 16, 257, 20, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {1000, 100000, 16, 259, 20, 1024, raft::distance::DistanceType::L2Expanded, true, true},
+  {10000, 131072, 8, 280, 20, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {100000, 1024, 32, 257, 64, 64, raft::distance::DistanceType::L2Expanded, false},
+  {100000, 1024, 32, 257, 64, 64, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {100000, 1024, 32, 257, 64, 64, raft::distance::DistanceType::InnerProduct, false},
+  {100000, 1024, 16, 300, 20, 60, raft::distance::DistanceType::L2Expanded, false},
+  {100000, 1024, 16, 500, 20, 60, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {100000, 1024, 16, 700, 20, 60, raft::distance::DistanceType::InnerProduct, false},
 
   // host input data
   {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded, false, true},

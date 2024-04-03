@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+#include "../common/ann_types.hpp"
+
+#undef WARP_SIZE
+#include "faiss_gpu_wrapper.h"
+
+#define JSON_DIAGNOSTICS 1
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -21,12 +29,6 @@
 #include <string>
 #include <type_traits>
 #include <utility>
-
-#include "../common/ann_types.hpp"
-#undef WARP_SIZE
-#include "faiss_gpu_wrapper.h"
-#define JSON_DIAGNOSTICS 1
-#include <nlohmann/json.hpp>
 
 namespace raft::bench::ann {
 

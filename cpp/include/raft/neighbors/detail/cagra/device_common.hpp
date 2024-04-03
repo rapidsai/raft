@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,13 @@
 #pragma once
 
 #include "utils.hpp"
+
+#include <raft/core/detail/macros.hpp>
+
+#include <cuda_fp16.h>
+
 #include <cfloat>
 #include <cstdint>
-#include <cuda_fp16.h>
-#include <raft/core/detail/macros.hpp>
 
 namespace raft::neighbors::cagra::detail {
 namespace device {
@@ -39,13 +42,17 @@ _RAFT_HOST_DEVICE inline uint64_t xorshift64(uint64_t u)
   return u * 0x2545F4914F6CDD1DULL;
 }
 
-template <class T>
+template <class T, unsigned X_MAX = 1024>
 _RAFT_DEVICE inline T swizzling(T x)
 {
   // Address swizzling reduces bank conflicts in shared memory, but increases
   // the amount of operation instead.
   // return x;
-  return x ^ (x >> 5);  // "x" must be less than 1024
+  if constexpr (X_MAX <= 1024) {
+    return (x) ^ ((x) >> 5);
+  } else {
+    return (x) ^ (((x) >> 5) & 0x1f);
+  }
 }
 
 }  // namespace device
