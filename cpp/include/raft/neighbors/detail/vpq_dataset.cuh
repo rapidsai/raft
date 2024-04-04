@@ -81,7 +81,7 @@ auto fill_missing_params_heuristics(const vpq_params& params, const DatasetT& da
   vpq_params r  = params;
   double n_rows = dataset.extent(0);
   size_t dim    = dataset.extent(1);
-  if (r.pq_dim == 0) { r.pq_dim = raft::div_rounding_up_safe(dim, size_t{2}); }
+  if (r.pq_dim == 0) { r.pq_dim = raft::div_rounding_up_safe(dim, size_t{4}); }
   if (r.pq_bits == 0) { r.pq_bits = 8; }
   if (r.vq_n_centers == 0) { r.vq_n_centers = raft::round_up_safe<uint32_t>(std::sqrt(n_rows), 8); }
   if (r.vq_kmeans_trainset_fraction == 0) {
