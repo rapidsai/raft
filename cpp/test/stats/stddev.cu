@@ -141,7 +141,19 @@ const std::vector<StdDevInputs<float>> inputsf = {
   {0.1f, -1.f, 2.f, 1024, 32, false, true, 1234ULL},
   {0.1f, -1.f, 2.f, 1024, 64, false, true, 1234ULL},
   {0.1f, -1.f, 2.f, 1024, 128, false, true, 1234ULL},
-  {0.1f, -1.f, 2.f, 1024, 256, false, true, 1234ULL}};
+  {0.1f, -1.f, 2.f, 1024, 256, false, true, 1234ULL},
+  {0.1f, -1.f, 2.f, 1099, 97, false, false, 1234ULL},
+  {0.1f, -1.f, 2.f, 1022, 694, true, false, 1234ULL},
+  {0.5f, -1.f, 2.f, 31, 1, true, true, 1234ULL},
+  {1.f, -1.f, 2.f, 1, 257, false, true, 1234ULL},
+  {0.5f, -1.f, 2.f, 31, 1, false, false, 1234ULL},
+  {1.f, -1.f, 2.f, 1, 257, true, false, 1234ULL},
+  {1.f, -1.f, 2.f, 1, 1, false, false, 1234ULL},
+  {1.f, -1.f, 2.f, 7, 23, false, false, 1234ULL},
+  {1.f, -1.f, 2.f, 17, 5, false, false, 1234ULL},
+  {1.f, -1.f, 2.f, 1, 1, false, true, 1234ULL},
+  {1.f, -1.f, 2.f, 7, 23, false, true, 1234ULL},
+  {1.f, -1.f, 2.f, 17, 5, false, true, 1234ULL}};
 
 const std::vector<StdDevInputs<double>> inputsd = {
   {0.1, 1.0, 2.0, 1024, 32, true, false, 1234ULL},
@@ -159,13 +171,33 @@ const std::vector<StdDevInputs<double>> inputsd = {
   {0.1, -1.0, 2.0, 1024, 32, false, true, 1234ULL},
   {0.1, -1.0, 2.0, 1024, 64, false, true, 1234ULL},
   {0.1, -1.0, 2.0, 1024, 128, false, true, 1234ULL},
-  {0.1, -1.0, 2.0, 1024, 256, false, true, 1234ULL}};
+  {0.1, -1.0, 2.0, 1024, 256, false, true, 1234ULL},
+  {0.1, -1.0, 2.0, 1099, 97, false, false, 1234ULL},
+  {0.1, -1.0, 2.0, 1022, 694, true, false, 1234ULL},
+  {0.5, -1.0, 2.0, 31, 1, true, true, 1234ULL},
+  {1.0, -1.0, 2.0, 1, 257, false, true, 1234ULL},
+  {0.5, -1.0, 2.0, 31, 1, false, false, 1234ULL},
+  {1.0, -1.0, 2.0, 1, 257, true, false, 1234ULL},
+  {1.0, -1.0, 2.0, 1, 1, false, false, 1234ULL},
+  {1.0, -1.0, 2.0, 7, 23, false, false, 1234ULL},
+  {1.0, -1.0, 2.0, 17, 5, false, false, 1234ULL},
+  {1.0, -1.0, 2.0, 1, 1, false, true, 1234ULL},
+  {1.0, -1.0, 2.0, 7, 23, false, true, 1234ULL},
+  {1.0, -1.0, 2.0, 17, 5, false, true, 1234ULL}};
 
 typedef StdDevTest<float> StdDevTestF;
 TEST_P(StdDevTestF, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    params.stddev, stddev_act.data(), params.cols, CompareApprox<float>(params.tolerance), stream));
+  if (params.rows == 1) {
+    ASSERT_TRUE(devArrMatch(
+      float(0), stddev_act.data(), params.cols, CompareApprox<float>(params.tolerance), stream));
+  } else {
+    ASSERT_TRUE(devArrMatch(params.stddev,
+                            stddev_act.data(),
+                            params.cols,
+                            CompareApprox<float>(params.tolerance),
+                            stream));
+  }
 
   ASSERT_TRUE(devArrMatch(stddev_act.data(),
                           vars_act.data(),
@@ -177,11 +209,16 @@ TEST_P(StdDevTestF, Result)
 typedef StdDevTest<double> StdDevTestD;
 TEST_P(StdDevTestD, Result)
 {
-  ASSERT_TRUE(devArrMatch(params.stddev,
-                          stddev_act.data(),
-                          params.cols,
-                          CompareApprox<double>(params.tolerance),
-                          stream));
+  if (params.rows == 1) {
+    ASSERT_TRUE(devArrMatch(
+      double(0), stddev_act.data(), params.cols, CompareApprox<double>(params.tolerance), stream));
+  } else {
+    ASSERT_TRUE(devArrMatch(params.stddev,
+                            stddev_act.data(),
+                            params.cols,
+                            CompareApprox<double>(params.tolerance),
+                            stream));
+  }
 
   ASSERT_TRUE(devArrMatch(stddev_act.data(),
                           vars_act.data(),

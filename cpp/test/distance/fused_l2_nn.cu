@@ -18,7 +18,6 @@
 
 #include <raft/core/kvp.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>

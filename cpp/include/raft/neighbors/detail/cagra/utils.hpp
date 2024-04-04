@@ -111,6 +111,11 @@ _RAFT_HOST_DEVICE constexpr unsigned size_of<half>()
 {
   return 2;
 }
+template <>
+_RAFT_HOST_DEVICE constexpr unsigned size_of<half2>()
+{
+  return 4;
+}
 
 // max values for data types
 template <class BS_T, class FP_T>

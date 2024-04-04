@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,5 +25,6 @@
     distance::DistanceType metric);
 
 instantiate_raft_neighbors_refine(int64_t, float, float, int64_t);
+instantiate_raft_neighbors_refine(uint32_t, float, float, int64_t);
 
 #undef instantiate_raft_neighbors_refine

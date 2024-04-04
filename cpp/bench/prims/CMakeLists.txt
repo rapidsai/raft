@@ -122,24 +122,23 @@ if(BUILD_PRIMS_BENCH)
   )
 
   ConfigureBench(
-    NAME
-    MATRIX_BENCH
-    PATH
-    bench/prims/matrix/argmin.cu
-    bench/prims/matrix/gather.cu
-    bench/prims/matrix/select_k.cu
-    bench/prims/matrix/main.cpp
-    OPTIONAL
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_BENCH PATH bench/prims/matrix/argmin.cu bench/prims/matrix/gather.cu
+    bench/prims/matrix/select_k.cu bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
     NAME RANDOM_BENCH PATH bench/prims/random/make_blobs.cu bench/prims/random/permute.cu
-    bench/prims/random/rng.cu bench/prims/main.cpp
+   bench/prims/random/rng.cu bench/prims/random/subsample.cu bench/prims/main.cpp
   )
 
-  ConfigureBench(NAME SPARSE_BENCH PATH bench/prims/sparse/convert_csr.cu bench/prims/main.cpp)
+  ConfigureBench(
+    NAME
+    SPARSE_BENCH
+    PATH
+    bench/prims/sparse/bitmap_to_csr.cu
+    bench/prims/sparse/convert_csr.cu
+    bench/prims/main.cpp
+  )
 
   ConfigureBench(
     NAME
@@ -156,6 +155,14 @@ if(BUILD_PRIMS_BENCH)
     bench/prims/neighbors/knn/ivf_pq_filter_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_int8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_pq_uint8_t_int64_t.cu
+    src/neighbors/detail/ivf_pq_search_filtering_float_int64_t.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_float_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_half_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_half_bitset64.cu
     bench/prims/neighbors/refine_float_int64_t.cu
     bench/prims/neighbors/refine_uint8_t_int64_t.cu
     bench/prims/main.cpp
