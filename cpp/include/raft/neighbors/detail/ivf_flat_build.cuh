@@ -160,14 +160,6 @@ RAFT_KERNEL build_index_kernel(const LabelT* labels,
   }
 }
 
-struct inv_sqrt_op {
-  template <typename Type, typename... UnusedArgs>
-  RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
-  {
-    return 1 / raft::sqrt(in);
-  }
-};
-
 /** See raft::neighbors::ivf_flat::extend docs */
 template <typename T, typename IdxT>
 void extend(raft::resources const& handle,
@@ -192,7 +184,7 @@ void extend(raft::resources const& handle,
 
   auto new_labels = raft::make_device_vector<LabelT, IdxT>(handle, n_rows);
   raft::cluster::kmeans_balanced_params kmeans_params;
-  kmeans_params.metric = index->metric() != raft::distance::DistanceType::CosineExpanded ? index->metric() : raft::distance::DistanceType::InnerProduct;
+  kmeans_params.metric = index->metric();
   auto orig_centroids_view =
     raft::make_device_matrix_view<const float, IdxT>(index->centers().data_handle(), n_lists, dim);
   // Calculate the batch size for the input data if it's not accessible directly from the device
@@ -296,10 +288,12 @@ void extend(raft::resources const& handle,
     auto batch_data_view =
       raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), index->dim());
     auto batch_vectors_norms = raft::make_device_vector<T, IdxT>(handle, batch.size());
+    T* batch_vectors_norms_ptr = nullptr;
     // Normalize if necessary (Cosine)
     if (index->metric() == raft::distance::DistanceType::CosineExpanded)
     {
       raft::linalg::norm(handle, batch_data_view, batch_vectors_norms.view(), raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_ROWS, raft::sqrt_op());
+      batch_vectors_norms_ptr = batch_vectors_norms.data_handle();
     }
     // Kernel to insert the new vectors
     const dim3 block_dim(256);
@@ -315,7 +309,7 @@ void extend(raft::resources const& handle,
                                            dim,
                                            index->veclen(),
                                            batch.offset(),
-                                           batch_vectors_norms.data_handle());
+                                           batch_vectors_norms_ptr);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     if (batch.offset() > next_report_offset) {
