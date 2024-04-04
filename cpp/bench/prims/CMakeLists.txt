@@ -128,7 +128,6 @@ if(BUILD_PRIMS_BENCH)
     bench/prims/matrix/argmin.cu
     bench/prims/matrix/gather.cu
     bench/prims/matrix/select_k.cu
-    bench/prims/matrix/select_k_csr.cu
     bench/prims/main.cpp
     OPTIONAL
     LIB
@@ -146,6 +145,7 @@ if(BUILD_PRIMS_BENCH)
     PATH
     bench/prims/sparse/bitmap_to_csr.cu
     bench/prims/sparse/convert_csr.cu
+    bench/prims/sparse/select_k_csr.cu
     bench/prims/main.cpp
   )
 

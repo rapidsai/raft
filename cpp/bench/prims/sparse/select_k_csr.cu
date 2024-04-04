@@ -22,10 +22,10 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/copy.cuh>
-#include <raft/matrix/select_k.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/matrix/select_k.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/itertools.hpp>
 
@@ -203,10 +203,11 @@ struct SelectKCsrTest : public fixture {
     auto out_idx = raft::make_device_matrix_view<index_t, index_t, raft::row_major>(
       dst_indices_d.data(), params.n_rows, params.top_k);
 
-    raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, params.select_min);
+    raft::sparse::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, params.select_min);
     resource::sync_stream(handle);
     loop_on_state(state, [this, &in_val, &in_idx, &out_val, &out_idx]() {
-      raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, params.select_min, false);
+      raft::sparse::matrix::select_k(
+        handle, in_val, in_idx, out_val, out_idx, params.select_min, false);
       resource::sync_stream(handle);
     });
   }

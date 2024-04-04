@@ -22,9 +22,9 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/copy.cuh>
-#include <raft/matrix/select_k.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/random/rng_state.hpp>
+#include <raft/sparse/matrix/select_k.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <gtest/gtest.h>
@@ -298,7 +298,8 @@ class SelectKCsrTest : public ::testing::TestWithParam<SelectKCsrInputs<index_t>
     auto out_idx = raft::make_device_matrix_view<index_t, index_t, raft::row_major>(
       dst_indices_d.data(), params.n_rows, params.top_k);
 
-    raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, params.select_min, true);
+    raft::sparse::matrix::select_k(
+      handle, in_val, in_idx, out_val, out_idx, params.select_min, true);
 
     ASSERT_TRUE(raft::devArrMatch<index_t>(dst_indices_expected_d.data(),
                                            out_idx.data_handle(),
