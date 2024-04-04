@@ -29,6 +29,12 @@
 namespace raft::sparse::matrix {
 
 using SelectAlgo = raft::matrix::SelectAlgo;
+
+/**
+ * @defgroup select_k Batched-select k smallest or largest key/values
+ * @{
+ */
+
 /**
  * Selects the k smallest or largest keys/values from each row of the input matrix.
  *
