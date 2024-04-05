@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/select_k_types.hpp>
+#include <raft/sparse/matrix/detail/select_k.cuh>
 
 #include <optional>
 
@@ -79,7 +79,7 @@ void select_k(raft::resources const& handle,
               bool sorted     = false,
               SelectAlgo algo = SelectAlgo::kAuto)
 {
-  return raft::matrix::detail::select_k<T, IdxT>(
+  return detail::select_k<T, IdxT>(
     handle, in_val, in_idx, out_val, out_idx, select_min, sorted, algo);
 }
 /** @} */  // end of group select_k

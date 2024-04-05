@@ -33,18 +33,3 @@
 instantiate_raft_matrix_detail_select_k(double, int64_t);
 
 #undef instantiate_raft_matrix_detail_select_k
-
-#define instantiate_raft_matrix_detail_select_k(T, IdxT)              \
-  template void raft::matrix::detail::select_k(                       \
-    raft::resources const& handle,                                    \
-    raft::device_csr_matrix_view<const T, IdxT, IdxT, IdxT> in_val,   \
-    std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx, \
-    raft::device_matrix_view<T, IdxT, raft::row_major> out_val,       \
-    raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,    \
-    bool select_min,                                                  \
-    bool sorted,                                                      \
-    raft::matrix::SelectAlgo algo)
-
-instantiate_raft_matrix_detail_select_k(double, int64_t);
-
-#undef instantiate_raft_matrix_detail_select_k

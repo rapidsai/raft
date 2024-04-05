@@ -275,12 +275,7 @@ if(BUILD_TESTS)
     EXPLICIT_INSTANTIATE_ONLY
   )
 
-  ConfigureTest(
-    NAME
-    MATRIX_SELECT_TEST
-    PATH test/matrix/select_k.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY)
+  ConfigureTest(NAME MATRIX_SELECT_TEST PATH test/matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY)
 
   ConfigureTest(
     NAME MATRIX_SELECT_LARGE_TEST PATH test/matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY

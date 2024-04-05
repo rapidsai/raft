@@ -122,16 +122,8 @@ if(BUILD_PRIMS_BENCH)
   )
 
   ConfigureBench(
-    NAME
-    MATRIX_BENCH
-    PATH
-    bench/prims/matrix/argmin.cu
-    bench/prims/matrix/gather.cu
-    bench/prims/matrix/select_k.cu
-    bench/prims/main.cpp
-    OPTIONAL
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_BENCH PATH bench/prims/matrix/argmin.cu bench/prims/matrix/gather.cu
+    bench/prims/matrix/select_k.cu bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
