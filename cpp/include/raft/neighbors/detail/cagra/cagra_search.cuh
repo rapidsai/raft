@@ -89,7 +89,7 @@ void search_main_core(
   raft::device_matrix_view<typename DatasetDescriptorT::INDEX_T, int64_t, row_major> neighbors,
   raft::device_matrix_view<typename DatasetDescriptorT::DISTANCE_T, int64_t, row_major> distances,
   CagraSampleFilterT sample_filter = CagraSampleFilterT(),
-  raft::distance::DistanceType metric = raft::distance::L2Expanded)
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.data().n_rows()),

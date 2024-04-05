@@ -37,7 +37,7 @@ struct search_plan_impl_base : public search_params {
   int64_t graph_degree;
   uint32_t topk;
   raft::distance::DistanceType metric;
-  search_plan_impl_base(search_params params, int64_t dim, int64_t graph_degree, uint32_t topk, raft::distance::DistanceType metric = raft::distance::L2Expanded)
+  search_plan_impl_base(search_params params, int64_t dim, int64_t graph_degree, uint32_t topk, raft::distance::DistanceType metric)
     : search_params(params), dim(dim), graph_degree(graph_degree), topk(topk), metric(metric)
   {
     set_dataset_block_and_team_size(dim);
@@ -100,7 +100,7 @@ struct search_plan_impl : public search_plan_impl_base {
                    int64_t dim,
                    int64_t graph_degree,
                    uint32_t topk,
-                   raft::distance::DistanceType metric = raft::distance::L2Expanded)
+                   raft::distance::DistanceType metric)
     : search_plan_impl_base(params, dim, graph_degree, topk, metric),
       hashmap(0, resource::get_cuda_stream(res)),
       num_executed_iterations(0, resource::get_cuda_stream(res)),
