@@ -78,28 +78,31 @@ void add_node_core(
   params.itopk_size = std::max(base_degree * 2lu, 256lu);
 
   // Memory space for rank-based neighbor list
-  auto neighbor_indices =
-    raft::make_device_matrix<IdxT, std::int64_t>(handle, max_chunk_size, base_degree);
+  auto mr = resource::get_workspace_resource(handle);
 
-  auto neighbor_distances =
-    raft::make_device_matrix<DistanceT, std::int64_t>(handle, max_chunk_size, base_degree);
+  auto neighbor_indices = raft::make_device_mdarray<IdxT, std::int64_t>(
+    handle, mr, raft::make_extents<std::int64_t>(max_chunk_size, base_degree));
 
-  auto queries = raft::make_device_matrix<T, std::int64_t>(handle, max_chunk_size, dim);
+  auto neighbor_distances = raft::make_device_mdarray<DistanceT, std::int64_t>(
+    handle, mr, raft::make_extents<std::int64_t>(max_chunk_size, base_degree));
+
+  auto queries = raft::make_device_mdarray<T, std::int64_t>(
+    handle, mr, raft::make_extents<std::int64_t>(max_chunk_size, dim));
 
   auto host_neighbor_indices =
     raft::make_host_matrix<IdxT, std::int64_t>(max_chunk_size, base_degree);
 
-  auto neighbors_vectors =
-    raft::make_device_matrix<T, std::int64_t>(handle, max_chunk_size * base_degree, dim);
+  auto neighbors_vectors = raft::make_device_mdarray<T, std::int64_t>(
+    handle, mr, raft::make_extents<std::int64_t>(max_chunk_size * base_degree, dim));
 
-  auto two_hop_neighbors_indices =
-    raft::make_device_matrix<IdxT, std::int64_t>(handle, max_chunk_size * base_degree, base_degree);
+  auto two_hop_neighbors_indices = raft::make_device_mdarray<IdxT, std::int64_t>(
+    handle, mr, raft::make_extents<std::int64_t>(max_chunk_size * base_degree, base_degree));
 
   auto host_two_hop_neighbors_indices =
     raft::make_host_matrix<IdxT, std::int64_t>(max_chunk_size * base_degree, base_degree);
 
-  auto two_hop_neighbors_distances = raft::make_device_matrix<DistanceT, std::int64_t>(
-    handle, max_chunk_size * base_degree, base_degree);
+  auto two_hop_neighbors_distances = raft::make_device_mdarray<DistanceT, std::int64_t>(
+    handle, mr, raft::make_extents<std::int64_t>(max_chunk_size * base_degree, base_degree));
 
   auto host_two_hop_neighbors_distances =
     raft::make_host_matrix<DistanceT, std::int64_t>(max_chunk_size * base_degree, base_degree);
