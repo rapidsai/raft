@@ -267,7 +267,7 @@ void postprocess_distances(ScoreOutT* out,      // [n_queries, topk]
       }
     } break;
     case distance::DistanceType::CosineExpanded: {
-      float factor = (account_for_max_close ? -1.0 : 1.0) * scaling_factor * scaling_factor;
+      float factor = (account_for_max_close ? 1.0 : -1.0) * scaling_factor * scaling_factor;
       if (factor != 1.0) {
         linalg::unaryOp(
           out,

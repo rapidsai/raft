@@ -143,6 +143,8 @@ inline std::enable_if_t<std::is_floating_point_v<MathT>> predict_core(
       rmm::device_uvector<MathT> distances(n_rows * n_clusters, stream, mr);
 
       MathT alpha = -1.0;
+      if (params.metric == raft::distance::DistanceType::CosineExpanded)
+        alpha = 1.0;
       MathT beta  = 0.0;
 
       linalg::gemm(handle,
