@@ -805,7 +805,7 @@ class AnnCagraAddNodesTest : public ::testing::TestWithParam<AnnCagraInputs> {
                    additional_dataset.size(),
                    stream_);
 
-        const std::size_t update_batch_size = 100;
+        const std::size_t update_batch_size = 10;
         raft::neighbors::cagra::extend<DataT, IdxT>(
           handle_, raft::make_const_mdspan(additional_dataset.view()), index, update_batch_size);
 
