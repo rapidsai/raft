@@ -501,6 +501,12 @@ void extend(
     auto updated_dataset =
       raft::make_device_matrix<T, std::int64_t>(handle, new_dataset_size, stride);
 
+    // The padding area must be filled with zeros.!!!!!!!!!!!!!!!!!!!
+    RAFT_CUDA_TRY(cudaMemsetAsync(updated_dataset.data_handle(),
+                                  0,
+                                  sizeof(T) * updated_dataset.size(),
+                                  resource::get_cuda_stream(handle)));
+
     RAFT_CUDA_TRY(cudaMemcpy2DAsync(updated_dataset.data_handle(),
                                     sizeof(T) * stride,
                                     strided_dset->view().data_handle(),
@@ -512,7 +518,7 @@ void extend(
     RAFT_CUDA_TRY(cudaMemcpy2DAsync(updated_dataset.data_handle() + initial_dataset_size * stride,
                                     sizeof(T) * stride,
                                     additional_dataset.data_handle(),
-                                    sizeof(T) * dim,
+                                    sizeof(T) * additional_dataset.stride(0),
                                     sizeof(T) * dim,
                                     num_new_nodes,
                                     cudaMemcpyDefault,
