@@ -36,11 +36,12 @@ void search(raft::resources const& res,
 }
 
 namespace raft::neighbors::cagra::detail {
-template <class T, class IdxT>
-void add_node_core(raft::resources const& handle,
-                   const raft::neighbors::cagra::index<T, IdxT>& idx,
-                   const raft::device_matrix_view<const T, std::int64_t> additional_dataset_view,
-                   raft::host_matrix_view<IdxT, std::int64_t> updated_graph)
+template <class T, class IdxT, class Accessor>
+void add_node_core(
+  raft::resources const& handle,
+  const raft::neighbors::cagra::index<T, IdxT>& idx,
+  mdspan<const T, matrix_extent<int64_t>, raft::layout_stride, Accessor> additional_dataset_view,
+  raft::host_matrix_view<IdxT, std::int64_t> updated_graph)
 {
   using DistanceT                 = float;
   const std::size_t degree        = idx.graph_degree();
@@ -108,10 +109,15 @@ void add_node_core(raft::resources const& handle,
     const auto actual_chunk_size = std::min(max_chunk_size, num_add - new_vec_id_offset);
     // Step 1: Obtain K (=base_degree) nearest neighbors of the new vectors by CAGRA search
     // Create queries
-    raft::copy(queries.data_handle(),
-               additional_dataset_view.data_handle() + new_vec_id_offset * dim,
-               dim * actual_chunk_size,
-               raft::resource::get_cuda_stream(handle));
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(
+      queries.data_handle(),
+      sizeof(T) * dim,
+      additional_dataset_view.data_handle() + new_vec_id_offset * additional_dataset_view.stride(0),
+      sizeof(T) * additional_dataset_view.stride(0),
+      sizeof(T) * dim,
+      actual_chunk_size,
+      cudaMemcpyDefault,
+      raft::resource::get_cuda_stream(handle)));
 
     const auto queries_view = raft::make_device_matrix_view<const T, std::int64_t>(
       queries.data_handle(), actual_chunk_size, dim);

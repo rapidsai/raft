@@ -801,7 +801,7 @@ class AnnCagraAddNodesTest : public ::testing::TestWithParam<AnnCagraInputs> {
         auto additional_dataset =
           raft::make_host_matrix<DataT, int64_t>(ps.n_rows - initial_database_size, index.dim());
         raft::copy(additional_dataset.data_handle(),
-                   static_cast<DataT*>(database.data()) + initial_database_view.size(),
+                   static_cast<const DataT*>(database.data()) + initial_database_view.size(),
                    additional_dataset.size(),
                    stream_);
 
