@@ -260,7 +260,7 @@ struct standard_dataset_descriptor_t
               d -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].val.data[v]);
               dist += d * d;
             } else {
-              d *= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
+              d *= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].val.data[v]);
               dist -= d;
             }
           }

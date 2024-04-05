@@ -582,7 +582,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
                                                                          local_seed_ptr,
                                                                          num_seeds,
                                                                          local_visited_hashmap_ptr,
-                                                                         hash_bitlen);
+                                                                         hash_bitlen,
+                                                                         metric);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 

@@ -26,6 +26,7 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/neighbors/detail/ivf_common.cuh>
 #include <raft/neighbors/detail/ivf_pq_search.cuh>
@@ -88,7 +89,7 @@ void search_main_core(
   raft::device_matrix_view<typename DatasetDescriptorT::INDEX_T, int64_t, row_major> neighbors,
   raft::device_matrix_view<typename DatasetDescriptorT::DISTANCE_T, int64_t, row_major> distances,
   CagraSampleFilterT sample_filter = CagraSampleFilterT(),
-  raft::distance::DistanceType metric)
+  raft::distance::DistanceType metric = raft::distance::L2Expanded)
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.data().n_rows()),

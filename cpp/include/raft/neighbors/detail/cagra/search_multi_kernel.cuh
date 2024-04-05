@@ -1033,8 +1033,9 @@ struct search<TEAM_SIZE,
          search_params params,
          int64_t dim,
          int64_t graph_degree,
-         uint32_t topk)
-    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk)
+         uint32_t topk,
+         raft::distance::DistanceType metric)
+    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk, metric)
   {
     THROW("The multi-kernel mode does not support VPQ");
   }

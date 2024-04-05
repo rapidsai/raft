@@ -51,6 +51,7 @@ namespace multi_cta_search {
     size_t min_iterations,                                                                        \
     size_t max_iterations,                                                                        \
     SAMPLE_FILTER_T sample_filter,                                                                \
+    raft::distance::DistanceType metric,                                                          \
     cudaStream_t stream);
 
 instantiate_kernel_selection(standard_dataset_descriptor_t,
@@ -118,6 +119,7 @@ namespace single_cta_search {
     size_t min_iterations,                                                                        \
     size_t max_iterations,                                                                        \
     SAMPLE_FILTER_T sample_filter,                                                                \
+    raft::distance::DistanceType metric,                                                          \
     cudaStream_t stream);
 
 instantiate_single_cta_select_and_run(standard_dataset_descriptor_t,
