@@ -100,7 +100,8 @@ RAFT_KERNEL random_pickup_kernel(
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
   const std::uint32_t ldr,                                                // (*) ldr >= num_pickup
   typename DATASET_DESCRIPTOR_T::INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
-  const std::uint32_t hash_bitlen)
+  const std::uint32_t hash_bitlen,
+  raft::distance::DistanceType metric)
 {
   using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
@@ -138,7 +139,7 @@ RAFT_KERNEL random_pickup_kernel(
     }
 
     const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-      query_buffer, seed_index, true);
+      query_buffer, seed_index, true, metric);
 
     if (norm2 < best_norm2_team_local) {
       best_norm2_team_local = norm2;
@@ -175,6 +176,7 @@ void random_pickup(
   const std::size_t ldr,                                                  // (*) ldr >= num_pickup
   typename DATASET_DESCRIPTOR_T::INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
   const std::uint32_t hash_bitlen,
+  raft::distance::DistanceType metric,
   cudaStream_t const cuda_stream = 0)
 {
   const auto block_size                = 256u;
@@ -198,7 +200,8 @@ void random_pickup(
                                                         result_distances_ptr,
                                                         ldr,
                                                         visited_hashmap_ptr,
-                                                        hash_bitlen);
+                                                        hash_bitlen,
+                                                        metric);
 }
 
 template <class INDEX_T>
@@ -325,7 +328,8 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   typename DATASET_DESCRIPTOR_T::INDEX_T* const result_indices_ptr,       // [num_queries, ldd]
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,  // (*) ldd >= search_width * graph_degree
-  SAMPLE_FILTER_T sample_filter)
+  SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric)
 {
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
   using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
@@ -372,7 +376,7 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
     visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id);
 
   const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-    query_buffer, child_id, compute_distance_flag);
+    query_buffer, child_id, compute_distance_flag, metric);
 
   if (compute_distance_flag) {
     if (threadIdx.x % TEAM_SIZE == 0) {
@@ -421,6 +425,7 @@ void compute_distance_to_child_nodes(
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,  // (*) ldd >= search_width * graph_degree
   SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric,
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
@@ -452,7 +457,8 @@ void compute_distance_to_child_nodes(
                                                         result_indices_ptr,
                                                         result_distances_ptr,
                                                         ldd,
-                                                        sample_filter);
+                                                        sample_filter,
+                                                        metric);
 }
 
 template <class INDEX_T>
@@ -536,13 +542,14 @@ RAFT_KERNEL batched_memcpy_kernel(T* const dst,  // [batch_size, ld_dst]
                                   const T* const src,  // [batch_size, ld_src]
                                   const uint64_t ld_src,
                                   const uint64_t count,
-                                  const uint64_t batch_size)
+                                  const uint64_t batch_size,
+                                  bool invert)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= count * batch_size) { return; }
   const auto i          = tid % count;
   const auto j          = tid / count;
-  dst[i + (ld_dst * j)] = src[i + (ld_src * j)];
+  dst[i + (ld_dst * j)] = (-2*invert + 1) * src[i + (ld_src * j)];
 }
 
 template <class T>
@@ -552,14 +559,15 @@ void batched_memcpy(T* const dst,  // [batch_size, ld_dst]
                     const uint64_t ld_src,
                     const uint64_t count,
                     const uint64_t batch_size,
-                    cudaStream_t cuda_stream)
+                    cudaStream_t cuda_stream,
+                    bool invert = false)
 {
   assert(ld_dst >= count);
   assert(ld_src >= count);
   constexpr uint32_t block_size = 256;
   const auto grid_size          = (batch_size * count + block_size - 1) / block_size;
   batched_memcpy_kernel<T>
-    <<<grid_size, block_size, 0, cuda_stream>>>(dst, ld_dst, src, ld_src, count, batch_size);
+    <<<grid_size, block_size, 0, cuda_stream>>>(dst, ld_dst, src, ld_src, count, batch_size, invert);
 }
 
 template <class T>
@@ -660,8 +668,9 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
          search_params params,
          int64_t dim,
          int64_t graph_degree,
-         uint32_t topk)
-    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk),
+         uint32_t topk,
+         raft::distance::DistanceType metric)
+    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk, metric),
       result_indices(0, resource::get_cuda_stream(res)),
       result_distances(0, resource::get_cuda_stream(res)),
       parent_node_list(0, resource::get_cuda_stream(res)),
@@ -835,6 +844,7 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
                                                 result_buffer_allocation_size,
                                                 hashmap.data(),
                                                 hash_bitlen,
+                                                this->metric,
                                                 stream);
 
     unsigned iter = 0;
@@ -904,6 +914,7 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
         result_distances.data() + itopk_size,
         result_buffer_allocation_size,
         sample_filter,
+        this->metric,
         stream);
 
       iter++;
@@ -962,13 +973,15 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
                    num_queries,
                    stream);
     if (topk_distances_ptr) {
+      bool invert = this->metric == distance::InnerProduct;
       batched_memcpy(topk_distances_ptr,
                      topk,
                      result_distances_ptr,
                      result_buffer_allocation_size,
                      topk,
                      num_queries,
-                     stream);
+                     stream,
+                     invert);
     }
 
     if (num_executed_iterations) {

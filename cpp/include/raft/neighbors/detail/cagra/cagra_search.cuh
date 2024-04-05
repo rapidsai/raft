@@ -87,7 +87,8 @@ void search_main_core(
   raft::device_matrix_view<const typename DatasetDescriptorT::DATA_T, int64_t, row_major> queries,
   raft::device_matrix_view<typename DatasetDescriptorT::INDEX_T, int64_t, row_major> neighbors,
   raft::device_matrix_view<typename DatasetDescriptorT::DISTANCE_T, int64_t, row_major> distances,
-  CagraSampleFilterT sample_filter = CagraSampleFilterT())
+  CagraSampleFilterT sample_filter = CagraSampleFilterT(),
+  raft::distance::DistanceType metric)
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.data().n_rows()),
@@ -112,7 +113,7 @@ void search_main_core(
   using CagraSampleFilterT_s = typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type;
   std::unique_ptr<search_plan_impl<DatasetDescriptorT, CagraSampleFilterT_s>> plan =
     factory<DatasetDescriptorT, CagraSampleFilterT_s>::create(
-      res, params, dataset_desc.dim, graph.extent(1), topk);
+      res, params, dataset_desc.dim, graph.extent(1), topk, metric);
 
   plan->check(topk);
 
@@ -163,7 +164,8 @@ void launch_vpq_search_main_core(
   raft::device_matrix_view<const T, int64_t, row_major> queries,
   raft::device_matrix_view<InternalIdxT, int64_t, row_major> neighbors,
   raft::device_matrix_view<DistanceT, int64_t, row_major> distances,
-  CagraSampleFilterT sample_filter)
+  CagraSampleFilterT sample_filter,
+  raft::distance::DistanceType metric)
 {
   RAFT_EXPECTS(vpq_dset->pq_bits() == 8, "Only pq_bits = 8 is supported for now");
   RAFT_EXPECTS(vpq_dset->pq_len() == 2 || vpq_dset->pq_len() == 4,
@@ -192,7 +194,7 @@ void launch_vpq_search_main_core(
                                   size_t(vpq_dset->n_rows()),
                                   vpq_dset->dim());
       search_main_core(
-        res, params, dataset_desc, graph, queries, neighbors, distances, sample_filter);
+        res, params, dataset_desc, graph, queries, neighbors, distances, sample_filter, metric);
     } else if (vpq_dset->pq_len() == 4) {
       using dataset_desc_t = cagra_q_dataset_descriptor_t<T,
                                                           DatasetT,
@@ -210,7 +212,7 @@ void launch_vpq_search_main_core(
                                   size_t(vpq_dset->n_rows()),
                                   vpq_dset->dim());
       search_main_core(
-        res, params, dataset_desc, graph, queries, neighbors, distances, sample_filter);
+        res, params, dataset_desc, graph, queries, neighbors, distances, sample_filter, metric);
     } else {
       RAFT_FAIL("Subspace dimension must be 2 or 4");
     }
@@ -269,8 +271,15 @@ void search_main(raft::resources const& res,
                                       strided_dset->dim(),
                                       strided_dset->stride());
 
-    search_main_core<dataset_desc_t, CagraSampleFilterT>(
-      res, params, dataset_desc, graph_internal, queries, neighbors, distances, sample_filter);
+    search_main_core<dataset_desc_t, CagraSampleFilterT>(res,
+                                                         params,
+                                                         dataset_desc,
+                                                         graph_internal,
+                                                         queries,
+                                                         neighbors,
+                                                         distances,
+                                                         sample_filter,
+                                                         index.metric());
   } else if (auto* vpq_dset = dynamic_cast<const vpq_dataset<float, ds_idx_type>*>(&index.data());
              vpq_dset != nullptr) {
     // Search using a compressed dataset
@@ -278,7 +287,7 @@ void search_main(raft::resources const& res,
   } else if (auto* vpq_dset = dynamic_cast<const vpq_dataset<half, ds_idx_type>*>(&index.data());
              vpq_dset != nullptr) {
     launch_vpq_search_main_core<T, half, ds_idx_type, InternalIdxT, DistanceT, CagraSampleFilterT>(
-      res, vpq_dset, params, graph_internal, queries, neighbors, distances, sample_filter);
+      res, vpq_dset, params, graph_internal, queries, neighbors, distances, sample_filter, index.metric());
   } else if (auto* empty_dset = dynamic_cast<const empty_dataset<ds_idx_type>*>(&index.data());
              empty_dset != nullptr) {
     // Forgot to add a dataset.
@@ -291,20 +300,22 @@ void search_main(raft::resources const& res,
 
   static_assert(std::is_same_v<DistanceT, float>,
                 "only float distances are supported at the moment");
-  float* dist_out          = distances.data_handle();
-  const DistanceT* dist_in = distances.data_handle();
-  // We're converting the data from T to DistanceT during distance computation
-  // and divide the values by kDivisor. Here we restore the original scale.
-  constexpr float kScale = spatial::knn::detail::utils::config<T>::kDivisor /
-                           spatial::knn::detail::utils::config<DistanceT>::kDivisor;
-  ivf::detail::postprocess_distances(dist_out,
-                                     dist_in,
-                                     index.metric(),
-                                     distances.extent(0),
-                                     distances.extent(1),
-                                     kScale,
-                                     true,
-                                     resource::get_cuda_stream(res));
+  if (index.metric() != distance::InnerProduct) {
+    float* dist_out          = distances.data_handle();
+    const DistanceT* dist_in = distances.data_handle();
+    // We're converting the data from T to DistanceT during distance computation
+    // and divide the values by kDivisor. Here we restore the original scale.
+    constexpr float kScale = spatial::knn::detail::utils::config<T>::kDivisor /
+                             spatial::knn::detail::utils::config<DistanceT>::kDivisor;
+    ivf::detail::postprocess_distances(dist_out,
+                                       dist_in,
+                                       index.metric(),
+                                       distances.extent(0),
+                                       distances.extent(1),
+                                       kScale,
+                                       true,
+                                       resource::get_cuda_stream(res));
+  }
 }
 /** @} */  // end group cagra
 
