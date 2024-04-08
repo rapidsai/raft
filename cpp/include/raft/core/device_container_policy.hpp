@@ -22,14 +22,13 @@
  */
 #pragma once
 #ifndef RAFT_DISABLE_CUDA
-#include <raft/core/device_mdspan.hpp>
-#include <raft/util/cudart_utils.hpp>
-
 #include <raft/core/detail/span.hpp>  // dynamic_extent
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_device_accessor.hpp>
-
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/util/cudart_utils.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,16 @@
  */
 
 #include "../test_utils.cuh"
-#include <gtest/gtest.h>
-#include <iostream>
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
+
+#include <iostream>
 #include <vector>
 
 namespace raft {

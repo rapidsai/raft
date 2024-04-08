@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +29,11 @@
     const raft::distance::DistanceType metric,                                                  \
     const uint32_t n_probes,                                                                    \
     const uint32_t k,                                                                           \
+    const uint32_t max_samples,                                                                 \
+    const uint32_t* chunk_indices,                                                              \
     const bool select_min,                                                                      \
     IvfSampleFilterT sample_filter,                                                             \
-    IdxT* neighbors,                                                                            \
+    uint32_t* neighbors,                                                                        \
     float* distances,                                                                           \
     uint32_t& grid_dim_x,                                                                       \
     rmm::cuda_stream_view stream)

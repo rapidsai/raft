@@ -39,7 +39,7 @@ dependencies:
 - openblas
 - pandas
 - pyyaml
-- rmm==24.4.*
+- rmm==24.6.*
 - scikit-build-core>=0.7.0
 - sysroot_linux-64==2.17
 name: bench_ann_cuda-118_arch-x86_64

@@ -14,16 +14,14 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-set(raft_dask_version 24.04.00)
-
-include(../../fetch_rapids.cmake)
+include(../../rapids_config.cmake)
 include(rapids-cpm)
 include(rapids-cuda)
 rapids_cuda_init_architectures(raft-dask-python)
 
 project(
   raft-dask-python
-  VERSION ${raft_dask_version}
+  VERSION "${RAPIDS_VERSION}"
   LANGUAGES CXX CUDA
 )
 
@@ -38,7 +36,7 @@ include(cmake/thirdparty/get_ucxx.cmake)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-  find_package(raft ${raft_dask_version} REQUIRED COMPONENTS distributed)
+  find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS distributed)
 else()
   set(raft_FOUND OFF)
 endif()

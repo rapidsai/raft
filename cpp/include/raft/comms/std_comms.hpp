@@ -16,17 +16,17 @@
 
 #pragma once
 
+#include <raft/comms/comms.hpp>
+#include <raft/comms/detail/std_comms.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
-#include <raft/comms/comms.hpp>
-#include <raft/comms/detail/std_comms.hpp>
-
-#include <iostream>
 #include <nccl.h>
 #include <ucp/api/ucp.h>
 #include <ucxx/api.h>
+
+#include <iostream>
 
 namespace raft {
 namespace comms {
