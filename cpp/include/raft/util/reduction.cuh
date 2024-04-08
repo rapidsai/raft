@@ -39,8 +39,8 @@ DI T logicalWarpReduce(T val, ReduceLambda reduce_op)
 {
 #pragma unroll
   for (int i = logicalWarpSize / 2; i > 0; i >>= 1) {
-    T tmp = shfl_xor(val, i);
-    val   = reduce_op(val, tmp);
+    const T tmp = shfl_xor(val, i, logicalWarpSize);
+    val         = reduce_op(val, tmp);
   }
   return val;
 }
