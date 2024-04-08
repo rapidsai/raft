@@ -141,7 +141,7 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - nccl>=2.9.9
-          - libucxx==0.37.*
+          - libucxx==0.38.*
           - scikit-build-core>=0.7.0
       - output_types: [requirements, pyproject]
         packages:
@@ -489,7 +489,7 @@ dependencies:
         packages:
           # UCXX is not currently a hard-dependency thus only installed during tests,
           # this will change in the future.
-          - &distributed_ucxx_conda distributed-ucxx==0.37.*
+          - &distributed_ucxx_conda distributed-ucxx==0.38.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -500,8 +500,8 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - distributed-ucxx-cu12==0.37.*
+              - distributed-ucxx-cu12==0.38.*
           - matrix: {cuda: "11.*"}
             packages:
-              - distributed-ucxx-cu11==0.37.*
+              - distributed-ucxx-cu11==0.38.*
           - {matrix: null, packages: [*distributed_ucxx_conda]}
