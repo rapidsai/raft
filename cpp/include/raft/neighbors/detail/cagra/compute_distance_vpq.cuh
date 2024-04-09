@@ -168,13 +168,22 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
                   // Loading query vector in smem
                   half2 diff2 = (reinterpret_cast<const half2*>(
                     query_ptr))[device::swizzling<std::uint32_t, DATASET_BLOCK_DIM / 2>(d / 2)];
-                  // Loading PQ code book in smem
-                  diff2 -= *(reinterpret_cast<half2*>(
-                    smem_pq_code_book_ptr + (1 << PQ_BITS) * 2 * (m / 2) + (2 * (pq_code & 0xff))));
-                  diff2 -= vq_vals[d1 / vlen].val.data[(d1 % vlen) / 2];
-                  norm2 += diff2 * diff2;
+                  if (metric == raft::distance::L2Expanded) {
+                    // Loading PQ code book in smem
+                    diff2 -= *(reinterpret_cast<half2*>(smem_pq_code_book_ptr +
+                                                        (1 << PQ_BITS) * 2 * (m / 2) +
+                                                        (2 * (pq_code & 0xff))));
+                    diff2 -= vq_vals[d1 / vlen].val.data[(d1 % vlen) / 2];
+                    norm2 += diff2 * diff2;
+                  } else {
+                    half2 multiplier2 = *(reinterpret_cast<half2*>(smem_pq_code_book_ptr +
+                                                                  (1 << PQ_BITS) * 2 * (m / 2) +
+                                                                  (2 * (pq_code & 0xff)))) +
+                                       vq_vals[d1 / vlen].val.data[(d1 % vlen) / 2];
+                    norm2 -= diff2 * multiplier2;
+                  }
+                  pq_code >>= 8;
                 }
-                pq_code >>= 8;
               }
             }
             norm += static_cast<float>(norm2.x + norm2.y);
@@ -210,9 +219,17 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
                   const std::uint32_t d  = d1 + (PQ_LEN * k);
                   // if (d >= dataset_dim) break;
                   DISTANCE_T diff = query_ptr[d];  // (from smem)
-                  diff -= pq_scale * static_cast<float>(pq_vals.data[m]);
-                  diff -= vq_scale * static_cast<float>(vq_vals[d1 / vlen].val.data[d1 % vlen]);
-                  norm += diff * diff;
+                  if (metric == raft::distance::L2Expanded) {
+                    // Loading PQ code book in smem
+                    diff -= pq_scale * static_cast<float>(pq_vals.data[m]);
+                    diff -= vq_scale * static_cast<float>(vq_vals[d1 / vlen].val.data[d1 % vlen]);
+                    norm += diff * diff;
+                  } else {
+                    DISTANCE_T multiplier =
+                      pq_scale * static_cast<float>(pq_vals.data[m]) +
+                      vq_scale * static_cast<float>(vq_vals[d1 / vlen].val.data[d1 % vlen]);
+                    norm -= diff * multiplier;
+                  }
                 }
                 pq_code >>= 8;
               }
