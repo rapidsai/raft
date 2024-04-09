@@ -119,6 +119,7 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
 
 const std::vector<coalescedReductionInputs<float>> inputsf = {{0.000002f, 50, 2, 1234ULL},
                                                               {0.000002f, 50, 3, 1234ULL},
+                                                              {0.000002f, 50, 7, 1234ULL},
                                                               {0.000002f, 50, 9, 1234ULL},
                                                               {0.000002f, 50, 20, 1234ULL},
                                                               {0.000002f, 50, 55, 1234ULL},
@@ -134,6 +135,7 @@ const std::vector<coalescedReductionInputs<float>> inputsf = {{0.000002f, 50, 2,
 
 const std::vector<coalescedReductionInputs<double>> inputsd = {{0.000000001, 50, 2, 1234ULL},
                                                                {0.000000001, 50, 3, 1234ULL},
+                                                               {0.000000001, 50, 7, 1234ULL},
                                                                {0.000000001, 50, 9, 1234ULL},
                                                                {0.000000001, 50, 20, 1234ULL},
                                                                {0.000000001, 50, 55, 1234ULL},

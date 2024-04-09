@@ -65,7 +65,6 @@ RAFT_KERNEL __launch_bounds__(Policy::ThreadsPerBlock)
    *    multiple loads per thread and increase bytes in flight and amortize latencies.
    *  - For large D, we start with a sequential reduction. The compiler partially unrolls
    *    that loop (e.g. first a loop of stride 16, then 8, 4, and 1).
-   * Both approaches can be combined.
    */
   IdxType i0 = threadIdx.y + (Policy::RowsPerBlock * static_cast<IdxType>(blockIdx.x));
   if (i0 >= N) return;
@@ -96,22 +95,35 @@ RAFT_KERNEL __launch_bounds__(Policy::ThreadsPerBlock)
     }
   }
 
-#pragma unroll
-  for (int k = 0; k < Policy::RowsPerLogicalWarp; k++) {
-    acc[k] = raft::logicalWarpReduce<Policy::LogicalWarpSize>(acc[k], reduce_op);
-  }
+  /* This vector reduction has two benefits compared to naive separate reductions:
+   * - It avoids the LSU bottleneck when the number of columns is around 32 (e.g. for 32, 5 shuffles
+   *   are required and there is no initial sequential reduction to amortize that cost).
+   * - It distributes the outputs to multiple threads, enabling a coalesced store when the number of
+   *   rows per logical warp and logical warp size are equal.
+   */
+  raft::logicalWarpReduceVector<Policy::LogicalWarpSize, Policy::RowsPerLogicalWarp>(
+    acc, threadIdx.x, reduce_op);
 
-  if (threadIdx.x == 0) {
+  constexpr int reducOutVecWidth =
+    std::max(1, Policy::RowsPerLogicalWarp / Policy::LogicalWarpSize);
+  constexpr int reducOutGroupSize =
+    std::max(1, Policy::LogicalWarpSize / Policy::RowsPerLogicalWarp);
+  constexpr int reducNumGroups = Policy::LogicalWarpSize / reducOutGroupSize;
+
+  if (threadIdx.x % reducOutGroupSize == 0) {
+    const int groupId = threadIdx.x / reducOutGroupSize;
     if (inplace) {
 #pragma unroll
-      for (int k = 0; k < Policy::RowsPerLogicalWarp; k++) {
-        const IdxType i = i0 + k * Policy::NumLogicalWarps;
+      for (int k = 0; k < reducOutVecWidth; k++) {
+        const int reductionId = k * reducNumGroups + groupId;
+        const IdxType i       = i0 + reductionId * Policy::NumLogicalWarps;
         if (i < N) { dots[i] = final_op(reduce_op(dots[i], acc[k])); }
       }
     } else {
 #pragma unroll
-      for (int k = 0; k < Policy::RowsPerLogicalWarp; k++) {
-        const IdxType i = i0 + k * Policy::NumLogicalWarps;
+      for (int k = 0; k < reducOutVecWidth; k++) {
+        const int reductionId = k * reducNumGroups + groupId;
+        const IdxType i       = i0 + reductionId * Policy::NumLogicalWarps;
         if (i < N) { dots[i] = final_op(acc[k]); }
       }
     }
@@ -181,10 +193,13 @@ void coalescedReductionThinDispatcher(OutType* dots,
   } else if (D <= IdxType(32)) {
     coalescedReductionThin<ReductionThinPolicy<32, 128, 8, true>>(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
-  } else if (D <= IdxType(128)) {
+  } else if (D < IdxType(128)) {
     coalescedReductionThin<ReductionThinPolicy<32, 128, 4, false>>(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else {
+    // For D=128 (included) and above, the 4x-unrolled loading loop is used
+    // and multiple rows per warp are counter-productive in terms of cache-friendliness
+    // and register use.
     coalescedReductionThin<ReductionThinPolicy<32, 128, 1, false>>(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   }

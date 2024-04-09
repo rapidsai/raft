@@ -21,6 +21,15 @@
 namespace raft {
 
 /**
+ * Checks whether an integer is a power of 2.
+ */
+template <typename T>
+constexpr HDI std::enable_if_t<std::is_integral_v<T>, bool> is_pow2(T v)
+{
+  return (v && !(v & (v - 1)));
+}
+
+/**
  * @brief Fast arithmetics and alignment checks for power-of-two values known at compile time.
  *
  * @tparam Value_ a compile-time value representable as a power-of-two.
@@ -33,7 +42,7 @@ struct Pow2 {
   static constexpr Type Mask  = Value - 1;
 
   static_assert(std::is_integral<Type>::value, "Value must be integral.");
-  static_assert(Value && !(Value & Mask), "Value must be power of two.");
+  static_assert(is_pow2(Value), "Value must be power of two.");
 
 #define Pow2_FUNC_QUALIFIER         static constexpr __host__ __device__ __forceinline__
 #define Pow2_WHEN_INTEGRAL(I)       std::enable_if_t<Pow2_IS_REPRESENTABLE_AS(I), I>
