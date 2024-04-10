@@ -24,6 +24,7 @@
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/neighbors/dataset.hpp>
 
@@ -48,6 +49,7 @@ namespace raft::neighbors::cagra {
  *
  * The following distance metrics are supported:
  * - L2Expanded
+ * - InnerProduct
  *
  * Usage example:
  * @code{.cpp}
@@ -79,6 +81,7 @@ template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
+                     raft::distance::DistanceType metric,
                      std::optional<float> refine_rate                   = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
@@ -93,7 +96,7 @@ void build_knn_graph(raft::resources const& res,
     dataset.data_handle(), dataset.extent(0), dataset.extent(1));
 
   cagra::detail::build_knn_graph(
-    res, dataset_internal, knn_graph_internal, refine_rate, build_params, search_params);
+    res, dataset_internal, knn_graph_internal, metric, refine_rate, build_params, search_params);
 }
 
 /**

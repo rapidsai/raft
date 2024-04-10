@@ -395,9 +395,9 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
       if (ps.build_algo == graph_build_algo::IVF_PQ) {
         if (ps.host_dataset) {
-          cagra::build_knn_graph<DataT, IdxT>(handle_, database_host_view, knn_graph.view());
+          cagra::build_knn_graph<DataT, IdxT>(handle_, database_host_view, knn_graph.view(), ps.metric);
         } else {
-          cagra::build_knn_graph<DataT, IdxT>(handle_, database_view, knn_graph.view());
+          cagra::build_knn_graph<DataT, IdxT>(handle_, database_view, knn_graph.view(), ps.metric);
         }
       } else {
         auto nn_descent_idx_params                      = experimental::nn_descent::index_params{};

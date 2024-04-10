@@ -271,7 +271,7 @@ void search_main(raft::resources const& res,
                                       strided_dset->n_rows(),
                                       strided_dset->dim(),
                                       strided_dset->stride());
-
+    std::cout << "index.metric from search_main" << index.metric() << std::endl;
     search_main_core<dataset_desc_t, CagraSampleFilterT>(res,
                                                          params,
                                                          dataset_desc,

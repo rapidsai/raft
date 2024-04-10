@@ -973,7 +973,7 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
                    num_queries,
                    stream);
     if (topk_distances_ptr) {
-      bool invert = this->metric == distance::InnerProduct;
+      bool invert = this->metric == distance::DistanceType::InnerProduct;
       batched_memcpy(topk_distances_ptr,
                      topk,
                      result_distances_ptr,
@@ -982,6 +982,7 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
                      num_queries,
                      stream,
                      invert);
+      raft::print_device_vector("result_distances_ptr", result_distances_ptr, topk, std::cout);
     }
 
     if (num_executed_iterations) {
