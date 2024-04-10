@@ -320,6 +320,7 @@ if(BUILD_TESTS)
     test/sparse/reduce.cu
     test/sparse/row_op.cu
     test/sparse/sddmm.cu
+    test/sparse/select_k_csr.cu
     test/sparse/sort.cu
     test/sparse/spgemmi.cu
     test/sparse/spmm.cu
