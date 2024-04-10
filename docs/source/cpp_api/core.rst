@@ -22,3 +22,4 @@ expose in public APIs.
    core_operators.rst
    core_math.rst
    core_bitset.rst
+   core_bitmap.rst

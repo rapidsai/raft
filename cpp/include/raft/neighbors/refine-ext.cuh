@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <cstdint>  // int64_t
-
 #include <raft/core/device_mdspan.hpp>       // raft::device_matrix_view
 #include <raft/core/host_mdspan.hpp>         // // raft::host_matrix_view
 #include <raft/core/resources.hpp>           // raft::resources
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
+
+#include <cstdint>  // int64_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -52,7 +52,7 @@ void refine(raft::resources const& handle,
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
-#define instantiate_raft_neighbors_refine(idx_t, data_t, distance_t, matrix_idx)       \
+#define instantiate_raft_neighbors_refine_d(idx_t, data_t, distance_t, matrix_idx)     \
   extern template void raft::neighbors::refine<idx_t, data_t, distance_t, matrix_idx>( \
     raft::resources const& handle,                                                     \
     raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,             \
@@ -60,8 +60,9 @@ void refine(raft::resources const& handle,
     raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,  \
     raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,                    \
     raft::device_matrix_view<distance_t, matrix_idx, row_major> distances,             \
-    raft::distance::DistanceType metric);                                              \
-                                                                                       \
+    raft::distance::DistanceType metric);
+
+#define instantiate_raft_neighbors_refine_h(idx_t, data_t, distance_t, matrix_idx)     \
   extern template void raft::neighbors::refine<idx_t, data_t, distance_t, matrix_idx>( \
     raft::resources const& handle,                                                     \
     raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,               \
@@ -71,8 +72,14 @@ void refine(raft::resources const& handle,
     raft::host_matrix_view<distance_t, matrix_idx, row_major> distances,               \
     raft::distance::DistanceType metric);
 
-instantiate_raft_neighbors_refine(int64_t, float, float, int64_t);
-instantiate_raft_neighbors_refine(int64_t, int8_t, float, int64_t);
-instantiate_raft_neighbors_refine(int64_t, uint8_t, float, int64_t);
+instantiate_raft_neighbors_refine_d(int64_t, float, float, int64_t);
+instantiate_raft_neighbors_refine_d(int64_t, int8_t, float, int64_t);
+instantiate_raft_neighbors_refine_d(int64_t, uint8_t, float, int64_t);
 
-#undef instantiate_raft_neighbors_refine
+instantiate_raft_neighbors_refine_h(int64_t, float, float, int64_t);
+instantiate_raft_neighbors_refine_h(uint32_t, float, float, int64_t);
+instantiate_raft_neighbors_refine_h(int64_t, int8_t, float, int64_t);
+instantiate_raft_neighbors_refine_h(int64_t, uint8_t, float, int64_t);
+
+#undef instantiate_raft_neighbors_refine_d
+#undef instantiate_raft_neighbors_refine_h

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
-// XXX: the uint32_t instance is not compiled in libraft.so. So we allow
-// instantiating the template here.
-//
-// TODO: consider removing this test or consider adding an instantiation to the
-// library.
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
-
 #include "../ann_ivf_pq.cuh"
+#include "ivf_pq_build_test-ext.cuh"
+
+#include <raft_internal/neighbors/ivf_pq_compute_similarity_filters_test-ext.cuh>
+#include <raft_internal/neighbors/ivf_pq_search_test-ext.cuh>
 
 namespace raft::neighbors::ivf_pq {
 

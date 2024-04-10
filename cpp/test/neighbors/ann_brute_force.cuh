@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,39 +18,39 @@
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 #include "knn_utils.cuh"
+
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
-#include <raft/linalg/map.cuh>
-#include <raft/neighbors/brute_force_types.hpp>
-#include <raft/neighbors/ivf_list.hpp>
-#include <raft/neighbors/sample_filter.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/fast_int_div.cuh>
-#include <thrust/functional.h>
-
-#include <raft_internal/neighbors/naive_knn.cuh>
-
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/brute_force_serialize.cuh>
+#include <raft/neighbors/brute_force_types.hpp>
+#include <raft/neighbors/ivf_list.hpp>
+#include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/fast_int_div.cuh>
+
+#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <thrust/functional.h>
+#include <thrust/sequence.h>
 
 #include <gtest/gtest.h>
-
-#include <rmm/device_uvector.hpp>
-#include <thrust/sequence.h>
 
 #include <cstddef>
 #include <iostream>

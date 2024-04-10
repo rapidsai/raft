@@ -17,7 +17,10 @@
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
+
 #include <raft_runtime/neighbors/cagra.hpp>
+
+#include <cuda_fp16.h>
 
 namespace raft::runtime::neighbors::cagra {
 
@@ -55,6 +58,7 @@ namespace raft::runtime::neighbors::cagra {
   }
 
 RAFT_INST_CAGRA_BUILD(float, uint32_t);
+RAFT_INST_CAGRA_BUILD(half, uint32_t);
 RAFT_INST_CAGRA_BUILD(int8_t, uint32_t);
 RAFT_INST_CAGRA_BUILD(uint8_t, uint32_t);
 

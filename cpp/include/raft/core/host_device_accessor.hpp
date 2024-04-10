@@ -16,6 +16,7 @@
 
 #pragma once
 #include <raft/core/memory_type.hpp>
+
 #include <type_traits>
 
 namespace raft {

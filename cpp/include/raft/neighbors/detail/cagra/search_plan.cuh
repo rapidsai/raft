@@ -17,7 +17,9 @@
 #pragma once
 
 #include "hashmap.hpp"
+
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 // #include "search_single_cta.cuh"
 // #include "topk_for_cagra/topk_core.cuh"
 
@@ -42,9 +44,12 @@ struct search_plan_impl_base : public search_params {
       if (itopk_size <= 512 && search_params::max_queries >= num_sm * 2lu) {
         algo = search_algo::SINGLE_CTA;
         RAFT_LOG_DEBUG("Auto strategy: selecting single-cta");
-      } else {
+      } else if (topk <= 1024) {
         algo = search_algo::MULTI_CTA;
         RAFT_LOG_DEBUG("Auto strategy: selecting multi-cta");
+      } else {
+        algo = search_algo::MULTI_KERNEL;
+        RAFT_LOG_DEBUG("Auto strategy: selecting multi kernel");
       }
     }
   }
@@ -66,8 +71,12 @@ struct search_plan_impl_base : public search_params {
   }
 };
 
-template <class DATA_T, class INDEX_T, class DISTANCE_T, class SAMPLE_FILTER_T>
+template <class DATASET_DESCRIPTOR_T, class SAMPLE_FILTER_T>
 struct search_plan_impl : public search_plan_impl_base {
+  using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
+  using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
+  using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
+
   int64_t hash_bitlen;
 
   size_t small_hash_bitlen;
@@ -106,7 +115,7 @@ struct search_plan_impl : public search_plan_impl_base {
   virtual ~search_plan_impl() {}
 
   virtual void operator()(raft::resources const& res,
-                          raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                          DATASET_DESCRIPTOR_T dataset_desc,
                           raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                           INDEX_T* const result_indices_ptr,       // [num_queries, topk]
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
@@ -255,7 +264,8 @@ struct search_plan_impl : public search_plan_impl_base {
   virtual void check(const uint32_t topk)
   {
     // For single-CTA and multi kernel
-    RAFT_EXPECTS(topk <= itopk_size, "topk must be smaller than itopk_size = %lu", itopk_size);
+    RAFT_EXPECTS(
+      topk <= itopk_size, "topk = %u must be smaller than itopk_size = %lu", topk, itopk_size);
   }
 
   inline void check_params()
@@ -263,7 +273,7 @@ struct search_plan_impl : public search_plan_impl_base {
     std::string error_message = "";
 
     if (itopk_size > 1024) {
-      if (algo == search_algo::MULTI_CTA) {
+      if ((algo == search_algo::MULTI_CTA) || (algo == search_algo::MULTI_KERNEL)) {
       } else {
         error_message += std::string("- `internal_topk` (" + std::to_string(itopk_size) +
                                      ") must be smaller or equal to 1024");

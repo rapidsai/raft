@@ -29,7 +29,7 @@
  *
  **************************************************************************************************/
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,12 +60,11 @@ Changes:
 #include <cutlass/cutlass.h>
 #include <cutlass/fast_math.h>
 #include <cutlass/gemm/gemm.h>
-#include <cutlass/matrix_coord.h>
-#include <cutlass/semaphore.h>
-
 #include <cutlass/gemm/kernel/gemm_grouped_problem_visitor.h>
 #include <cutlass/gemm/kernel/gemm_transpose_operands.h>
 #include <cutlass/layout/matrix.h>
+#include <cutlass/matrix_coord.h>
+#include <cutlass/semaphore.h>
 #include <cutlass/trace.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -181,8 +180,7 @@ struct FusedDistanceNNPersistent {
     /// Default ctor
     CUTLASS_HOST_DEVICE
     Arguments()
-      :  // problem_count(0),
-        threadblock_count(0),
+      : threadblock_count(0),
         ptr_A(nullptr),
         ptr_B(nullptr),
         ptr_C(nullptr),
@@ -236,7 +234,6 @@ struct FusedDistanceNNPersistent {
 
   /// Parameters structure
   struct Params {
-    // typename ProblemVisitor::Params problem_visitor;
     temp_problem_visitor problem_visitor;
     int threadblock_count;
 

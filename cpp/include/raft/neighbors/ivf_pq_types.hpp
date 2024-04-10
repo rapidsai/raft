@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include <raft/neighbors/ann_types.hpp>
-#include <raft/neighbors/ivf_list_types.hpp>
-
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ann_types.hpp>
+#include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
 #include <thrust/fill.h>

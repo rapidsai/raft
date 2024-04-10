@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,12 +38,16 @@
 // maximal throughput of a kernel. Measuring other things, like performance on
 // skinny or wide matrices is not yet implemented.
 
-#include "kernel.cuh"                                       // launch_kernel
-#include <algorithm>                                        // std::min
-#include <common/benchmark.hpp>                             // RAFT_BENCH_REGISTER
+#include "kernel.cuh"  // launch_kernel
+
+#include <common/benchmark.hpp>  // RAFT_BENCH_REGISTER
+
 #include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
-#include <rmm/device_uvector.hpp>                           // rmm::device_uvector
-#include <vector>                                           // std::vector
+
+#include <rmm/device_uvector.hpp>  // rmm::device_uvector
+
+#include <algorithm>  // std::min
+#include <vector>     // std::vector
 
 namespace raft::bench::distance::tune {
 

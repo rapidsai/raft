@@ -15,10 +15,9 @@
  */
 #pragma once
 
-#include <rmm/mr/device/device_memory_resource.hpp>
-
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/detail/error.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 #include <cstddef>
 
@@ -44,14 +43,6 @@ class cuda_pinned_resource final : public rmm::mr::device_memory_resource {
   cuda_pinned_resource(cuda_pinned_resource&&)                 = default;
   cuda_pinned_resource& operator=(cuda_pinned_resource const&) = default;
   cuda_pinned_resource& operator=(cuda_pinned_resource&&)      = default;
-
-  /**
-   * @brief Query whether the resource supports use of non-null CUDA streams for
-   * allocation/deallocation. `cuda_pinned_resource` does not support streams.
-   *
-   * @returns bool false
-   */
-  [[nodiscard]] bool supports_streams() const noexcept override { return false; }
 
  private:
   /**
