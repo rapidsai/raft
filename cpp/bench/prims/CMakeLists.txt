@@ -137,6 +137,7 @@ if(BUILD_PRIMS_BENCH)
     PATH
     bench/prims/sparse/bitmap_to_csr.cu
     bench/prims/sparse/convert_csr.cu
+    bench/prims/sparse/select_k_csr.cu
     bench/prims/main.cpp
   )
 
