@@ -442,14 +442,76 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
   }
 }
 
-template <typename T, typename IdxT, int BitsPerPass>
+template <typename T, typename IdxT>
+_RAFT_DEVICE void set_buf_pointers(const T* in,
+                                   const IdxT* in_idx,
+                                   char* bufs,
+                                   IdxT buf_len,
+                                   int pass,
+                                   const T*& in_buf,
+                                   const IdxT*& in_idx_buf,
+                                   T*& out_buf,
+                                   IdxT*& out_idx_buf)
+{
+  // bufs consists of 4 pieces in order: buf1, buf2, idx_buf1, idx_buf2
+  if (pass == 0) {
+    in_buf      = in;
+    in_idx_buf  = nullptr;
+    out_buf     = nullptr;
+    out_idx_buf = nullptr;
+  } else if (pass == 1) {
+    in_buf      = in;
+    in_idx_buf  = in_idx;
+    out_buf     = reinterpret_cast<T*>(bufs);
+    out_idx_buf = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
+  } else if (pass % 2 == 0) {
+    in_buf      = reinterpret_cast<T*>(bufs);
+    in_idx_buf  = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
+    out_buf     = const_cast<T*>(in_buf + buf_len);
+    out_idx_buf = const_cast<IdxT*>(in_idx_buf + buf_len);
+  } else {
+    out_buf     = reinterpret_cast<T*>(bufs);
+    out_idx_buf = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
+    in_buf      = out_buf + buf_len;
+    in_idx_buf  = out_idx_buf + buf_len;
+  }
+}
+
+template <typename T, typename IdxT>
+_RAFT_DEVICE void set_buf_pointers(const T* in,
+                                   const IdxT* in_idx,
+                                   char* bufs,
+                                   IdxT buf_len,
+                                   const int pass,
+                                   const T*& out_buf,
+                                   const IdxT*& out_idx_buf)
+{
+  // bufs consists of 4 pieces in order: buf1, buf2, idx_buf1, idx_buf2
+  if (pass == 0) {
+    out_buf     = nullptr;
+    out_idx_buf = nullptr;
+  } else if (pass == 1) {
+    out_buf     = reinterpret_cast<T*>(bufs);
+    out_idx_buf = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
+  } else if (pass % 2 == 0) {
+    out_buf = const_cast<T*>(reinterpret_cast<T*>(bufs) + buf_len);
+    out_idx_buf =
+      const_cast<IdxT*>(reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len) + buf_len);
+  } else {
+    out_buf     = reinterpret_cast<T*>(bufs);
+    out_idx_buf = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
+  }
+}
+
+template <typename T, typename IdxT, int BitsPerPass, bool len_or_indptr = true>
 RAFT_KERNEL last_filter_kernel(const T* in,
                                const IdxT* in_idx,
-                               const T* in_buf,
-                               const IdxT* in_idx_buf,
+                               char* bufs,
+                               size_t offset,
                                T* out,
                                IdxT* out_idx,
                                const IdxT len,
+                               const IdxT* len_i,
                                const IdxT k,
                                Counter<T, IdxT>* counters,
                                const bool select_min)
@@ -458,21 +520,30 @@ RAFT_KERNEL last_filter_kernel(const T* in,
 
   Counter<T, IdxT>* counter = counters + batch_id;
   IdxT previous_len         = counter->previous_len;
+
   if (previous_len == 0) { return; }
+
+  const IdxT l_len    = len_or_indptr ? len : (len_i[batch_id + 1] - len_i[batch_id]);
+  const IdxT l_offset = len_or_indptr ? (offset + batch_id) * len : len_i[batch_id];
+
   const IdxT buf_len = calc_buf_len<T>(len);
-  if (previous_len > buf_len || in_buf == in) {
-    in_buf       = in + batch_id * len;
-    in_idx_buf   = in_idx ? (in_idx + batch_id * len) : nullptr;
-    previous_len = len;
-  } else {
-    in_buf += batch_id * buf_len;
-    in_idx_buf += batch_id * buf_len;
-  }
-  out += batch_id * k;
-  out_idx += batch_id * k;
+
+  const T* in_buf        = nullptr;
+  const IdxT* in_idx_buf = nullptr;
+  bufs += batch_id * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
 
   constexpr int pass      = calc_num_passes<T, BitsPerPass>() - 1;
   constexpr int start_bit = calc_start_bit<T, BitsPerPass>(pass);
+
+  set_buf_pointers(in + l_offset, in_idx + l_offset, bufs, buf_len, pass, in_buf, in_idx_buf);
+
+  if (previous_len > buf_len || in_buf == in + l_offset) {
+    in_buf       = in + l_offset;
+    in_idx_buf   = in_idx ? (in_idx + l_offset) : nullptr;
+    previous_len = l_len;
+  }
+  out += batch_id * k;
+  out_idx += batch_id * k;
 
   const auto kth_value_bits    = counter->kth_value_bits;
   const IdxT num_of_kth_needed = counter->k;
@@ -510,6 +581,29 @@ RAFT_KERNEL last_filter_kernel(const T* in,
                      f);
 }
 
+template <typename T, typename IdxT, typename S>
+_RAFT_DEVICE _RAFT_FORCEINLINE void copy_in_val(
+  T* dest, const T* src, S len, IdxT k, const bool select_min)
+{
+  S idx               = S(threadIdx.x);
+  S stride            = S(blockDim.x);
+  const T default_val = select_min ? upper_bound<T>() : lower_bound<T>();
+  for (S i = idx; i < k; i += stride) {
+    dest[i] = i < len ? src[i] : default_val;
+  }
+}
+
+template <typename T, typename S>
+_RAFT_DEVICE _RAFT_FORCEINLINE void copy_in_idx(T* dest, const T* src, S len)
+{
+  S idx    = S(threadIdx.x);
+  S stride = S(blockDim.x);
+
+  for (S i = idx; i < len; i += stride) {
+    dest[i] = src ? src[i] : i;
+  }
+}
+
 /**
  *
  * It is expected to call this kernel multiple times (passes), in each pass we process a radix,
@@ -545,13 +639,16 @@ RAFT_KERNEL last_filter_kernel(const T* in,
  * rather than from `in_buf`. The benefit is that we can save the cost of writing candidates and
  * their indices.
  */
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool fused_last_filter>
+template <typename T,
+          typename IdxT,
+          int BitsPerPass,
+          int BlockSize,
+          bool fused_last_filter,
+          bool len_or_indptr>
 RAFT_KERNEL radix_kernel(const T* in,
                          const IdxT* in_idx,
-                         const T* in_buf,
-                         const IdxT* in_idx_buf,
-                         T* out_buf,
-                         IdxT* out_idx_buf,
+                         char* bufs,
+                         size_t offset,
                          T* out,
                          IdxT* out_idx,
                          Counter<T, IdxT>* counters,
@@ -567,21 +664,38 @@ RAFT_KERNEL radix_kernel(const T* in,
   IdxT current_k;
   IdxT previous_len;
   IdxT current_len;
+
+  const IdxT l_len    = len_or_indptr ? len : (len_i[batch_id + 1] - len_i[batch_id]);
+  const IdxT l_offset = len_or_indptr ? (offset + batch_id) * len : len_i[batch_id];
+
   if (pass == 0) {
     current_k    = k;
-    previous_len = len;
+    previous_len = l_len;
     // Need to do this so setting counter->previous_len for the next pass is correct.
     // This value is meaningless for pass 0, but it's fine because pass 0 won't be the
     // last pass in this implementation so pass 0 won't hit the "if (pass ==
     // num_passes - 1)" branch.
     // Maybe it's better to reload counter->previous_len and use it rather than
     // current_len in last_filter()
-    current_len = len;
+    current_len = l_len;
   } else {
     current_k    = counter->k;
     current_len  = counter->len;
     previous_len = counter->previous_len;
   }
+  if constexpr (!len_or_indptr) {
+    if (pass == 0 && l_len <= k) {
+      copy_in_val(out + batch_id * k, in + l_offset, l_len, k, select_min);
+      copy_in_idx(out_idx + batch_id * k, (in_idx ? (in_idx + l_offset) : nullptr), l_len);
+      if (threadIdx.x == 0) {
+        counter->previous_len = 0;
+        counter->len          = 0;
+      }
+      __syncthreads();
+      return;
+    }
+  }
+
   if (current_len == 0) { return; }
 
   // When k=len, early_stop will be true at pass 0. It means filter_and_histogram() should handle
@@ -590,20 +704,33 @@ RAFT_KERNEL radix_kernel(const T* in,
   const bool early_stop = (current_len == current_k);
   const IdxT buf_len    = calc_buf_len<T>(len);
 
+  const T* in_buf;
+  const IdxT* in_idx_buf;
+  T* out_buf;
+  IdxT* out_idx_buf;
+  bufs += batch_id * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
+
+  set_buf_pointers(in + l_offset,
+                   (in_idx ? (in_idx + l_offset) : nullptr),
+                   bufs,
+                   buf_len,
+                   pass,
+                   in_buf,
+                   in_idx_buf,
+                   out_buf,
+                   out_idx_buf);
+
   // "previous_len > buf_len" means previous pass skips writing buffer
   if (pass == 0 || pass == 1 || previous_len > buf_len) {
-    in_buf       = in + batch_id * len;
-    in_idx_buf   = in_idx ? (in_idx + batch_id * len) : nullptr;
-    previous_len = len;
-  } else {
-    in_buf += batch_id * buf_len;
-    in_idx_buf += batch_id * buf_len;
+    in_buf       = in + l_offset;
+    in_idx_buf   = in_idx ? (in_idx + l_offset) : nullptr;
+    previous_len = l_len;
   }
 
   // in case we have individual len for each query defined we want to make sure
   // that we only iterate valid elements.
   if (len_i != nullptr) {
-    const IdxT max_len = max(len_i[batch_id], k);
+    const IdxT max_len = max(l_len, k);
     if (max_len < previous_len) previous_len = max_len;
   }
 
@@ -611,9 +738,6 @@ RAFT_KERNEL radix_kernel(const T* in,
   if (pass == 0 || current_len > buf_len) {
     out_buf     = nullptr;
     out_idx_buf = nullptr;
-  } else {
-    out_buf += batch_id * buf_len;
-    out_idx_buf += batch_id * buf_len;
   }
   out += batch_id * k;
   out_idx += batch_id * k;
@@ -640,7 +764,6 @@ RAFT_KERNEL radix_kernel(const T* in,
     unsigned int finished = atomicInc(&counter->finished_block_cnt, gridDim.x - 1);
     isLastBlock           = (finished == (gridDim.x - 1));
   }
-
   if (__syncthreads_or(isLastBlock)) {
     if (early_stop) {
       if (threadIdx.x == 0) {
@@ -676,7 +799,7 @@ RAFT_KERNEL radix_kernel(const T* in,
                                           out_idx_buf ? out_idx_buf : in_idx_buf,
                                           out,
                                           out_idx,
-                                          out_buf ? current_len : len,
+                                          out_buf ? current_len : l_len,
                                           k,
                                           counter,
                                           select_min,
@@ -726,7 +849,7 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
 
   int active_blocks;
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-    &active_blocks, radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>, BlockSize, 0));
+    &active_blocks, radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, true>, BlockSize, 0));
   active_blocks *= sm_cnt;
 
   IdxT best_num_blocks         = 0;
@@ -757,78 +880,7 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
   return best_num_blocks;
 }
 
-template <typename T, typename IdxT>
-_RAFT_HOST void set_buf_pointers(const T* in,
-                                 const IdxT* in_idx,
-                                 T* buf1,
-                                 IdxT* idx_buf1,
-                                 T* buf2,
-                                 IdxT* idx_buf2,
-                                 int pass,
-                                 const T*& in_buf,
-                                 const IdxT*& in_idx_buf,
-                                 T*& out_buf,
-                                 IdxT*& out_idx_buf)
-{
-  if (pass == 0) {
-    in_buf      = in;
-    in_idx_buf  = nullptr;
-    out_buf     = nullptr;
-    out_idx_buf = nullptr;
-  } else if (pass == 1) {
-    in_buf      = in;
-    in_idx_buf  = in_idx;
-    out_buf     = buf1;
-    out_idx_buf = idx_buf1;
-  } else if (pass % 2 == 0) {
-    in_buf      = buf1;
-    in_idx_buf  = idx_buf1;
-    out_buf     = buf2;
-    out_idx_buf = idx_buf2;
-  } else {
-    in_buf      = buf2;
-    in_idx_buf  = idx_buf2;
-    out_buf     = buf1;
-    out_idx_buf = idx_buf1;
-  }
-}
-
-template <typename T, typename IdxT>
-_RAFT_DEVICE void set_buf_pointers(const T* in,
-                                   const IdxT* in_idx,
-                                   char* bufs,
-                                   IdxT buf_len,
-                                   int pass,
-                                   const T*& in_buf,
-                                   const IdxT*& in_idx_buf,
-                                   T*& out_buf,
-                                   IdxT*& out_idx_buf)
-{
-  // bufs consists of 4 pieces in order: buf1, buf2, idx_buf1, idx_buf2
-  if (pass == 0) {
-    in_buf      = in;
-    in_idx_buf  = nullptr;
-    out_buf     = nullptr;
-    out_idx_buf = nullptr;
-  } else if (pass == 1) {
-    in_buf      = in;
-    in_idx_buf  = in_idx;
-    out_buf     = reinterpret_cast<T*>(bufs);
-    out_idx_buf = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
-  } else if (pass % 2 == 0) {
-    in_buf      = reinterpret_cast<T*>(bufs);
-    in_idx_buf  = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
-    out_buf     = const_cast<T*>(in_buf + buf_len);
-    out_idx_buf = const_cast<IdxT*>(in_idx_buf + buf_len);
-  } else {
-    out_buf     = reinterpret_cast<T*>(bufs);
-    out_idx_buf = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
-    in_buf      = out_buf + buf_len;
-    in_idx_buf  = out_idx_buf + buf_len;
-  }
-}
-
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr>
 void radix_topk(const T* in,
                 const IdxT* in_idx,
                 int batch_size,
@@ -850,7 +902,7 @@ void radix_topk(const T* in,
 
   if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
 
-  auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
+  auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, len_or_indptr>;
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, false);
   if (max_chunk_size != static_cast<size_t>(batch_size)) {
@@ -862,55 +914,33 @@ void radix_topk(const T* in,
 
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
   rmm::device_uvector<IdxT> histograms(max_chunk_size * num_buckets, stream, mr);
-  rmm::device_uvector<T> buf1(max_chunk_size * buf_len, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf1(max_chunk_size * buf_len, stream, mr);
-  rmm::device_uvector<T> buf2(max_chunk_size * buf_len, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf2(max_chunk_size * buf_len, stream, mr);
+
+  rmm::device_uvector<char> bufs(
+    max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
 
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size = std::min(max_chunk_size, batch_size - offset);
     RAFT_CUDA_TRY(
       cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms.data(), 0, histograms.size() * sizeof(IdxT), stream));
-    auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
+    auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, len_or_indptr>;
 
-    const T* chunk_in        = in + offset * len;
-    const IdxT* chunk_in_idx = in_idx ? (in_idx + offset * len) : nullptr;
-    T* chunk_out             = out + offset * k;
-    IdxT* chunk_out_idx      = out_idx + offset * k;
-    const IdxT* chunk_len_i  = len_i ? (len_i + offset) : nullptr;
-
-    const T* in_buf        = nullptr;
-    const IdxT* in_idx_buf = nullptr;
-    T* out_buf             = nullptr;
-    IdxT* out_idx_buf      = nullptr;
+    T* chunk_out            = out + offset * k;
+    IdxT* chunk_out_idx     = out_idx + offset * k;
+    const IdxT* chunk_len_i = len_i ? (len_i + offset) : nullptr;
 
     dim3 blocks(grid_dim, chunk_size);
     constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
 
     for (int pass = 0; pass < num_passes; ++pass) {
-      set_buf_pointers(chunk_in,
-                       chunk_in_idx,
-                       buf1.data(),
-                       idx_buf1.data(),
-                       buf2.data(),
-                       idx_buf2.data(),
-                       pass,
-                       in_buf,
-                       in_idx_buf,
-                       out_buf,
-                       out_idx_buf);
-
       if (fused_last_filter && pass == num_passes - 1) {
-        kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, true>;
+        kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, true, len_or_indptr>;
       }
 
-      kernel<<<blocks, BlockSize, 0, stream>>>(chunk_in,
-                                               chunk_in_idx,
-                                               in_buf,
-                                               in_idx_buf,
-                                               out_buf,
-                                               out_idx_buf,
+      kernel<<<blocks, BlockSize, 0, stream>>>(in,
+                                               in_idx,
+                                               bufs.data(),
+                                               offset,
                                                chunk_out,
                                                chunk_out_idx,
                                                counters.data(),
@@ -924,16 +954,18 @@ void radix_topk(const T* in,
     }
 
     if (!fused_last_filter) {
-      last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(chunk_in,
-                                                                                 chunk_in_idx,
-                                                                                 out_buf,
-                                                                                 out_idx_buf,
-                                                                                 chunk_out,
-                                                                                 chunk_out_idx,
-                                                                                 len,
-                                                                                 k,
-                                                                                 counters.data(),
-                                                                                 select_min);
+      last_filter_kernel<T, IdxT, BitsPerPass, len_or_indptr>
+        <<<blocks, BlockSize, 0, stream>>>(in,
+                                           in_idx,
+                                           bufs.data(),
+                                           offset,
+                                           chunk_out,
+                                           chunk_out_idx,
+                                           len,
+                                           chunk_len_i,
+                                           k,
+                                           counters.data(),
+                                           select_min);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
   }
@@ -1015,7 +1047,7 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
   }
 }
 
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr>
 RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
                                         const IdxT* in_idx,
                                         const IdxT len,
@@ -1024,29 +1056,47 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
                                         T* out,
                                         IdxT* out_idx,
                                         const bool select_min,
-                                        char* bufs)
+                                        char* bufs,
+                                        size_t offset)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   __shared__ Counter<T, IdxT> counter;
   __shared__ IdxT histogram[num_buckets];
 
+  const size_t batch_id = blockIdx.x;  // size_t to avoid multiplication overflow
+
+  IdxT l_len    = len;
+  IdxT l_offset = (offset + batch_id) * len;
+  if constexpr (!len_or_indptr) {
+    l_offset = len_i[batch_id];
+    l_len    = len_i[batch_id + 1] - l_offset;
+  }
+
   if (threadIdx.x == 0) {
     counter.k              = k;
-    counter.len            = len;
-    counter.previous_len   = len;
+    counter.len            = l_len;
+    counter.previous_len   = l_len;
     counter.kth_value_bits = 0;
     counter.out_cnt        = 0;
     counter.out_back_cnt   = 0;
   }
   __syncthreads();
 
-  const size_t batch_id = blockIdx.x;  // size_t to avoid multiplication overflow
-  in += batch_id * len;
-  if (in_idx) { in_idx += batch_id * len; }
+  in += l_offset;
+  if (in_idx) { in_idx += l_offset; }
   out += batch_id * k;
   out_idx += batch_id * k;
   const IdxT buf_len = calc_buf_len<T, IdxT, unsigned>(len);
   bufs += batch_id * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
+
+  if constexpr (!len_or_indptr) {
+    if (l_len <= k) {
+      copy_in_val(out, in, l_len, k, select_min);
+      copy_in_idx(out_idx, in_idx, l_len);
+      __syncthreads();
+      return;
+    }
+  }
 
   constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
   for (int pass = 0; pass < num_passes; ++pass) {
@@ -1073,7 +1123,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
     // in case we have individual len for each query defined we want to make sure
     // that we only iterate valid elements.
     if (len_i != nullptr) {
-      const IdxT max_len = max(len_i[batch_id], k);
+      const IdxT max_len = max(l_len, k);
       if (max_len < previous_len) previous_len = max_len;
     }
 
@@ -1102,7 +1152,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
                                         out_buf ? out_idx_buf : in_idx,
                                         out,
                                         out_idx,
-                                        out_buf ? current_len : len,
+                                        out_buf ? current_len : l_len,
                                         k,
                                         &counter,
                                         select_min,
@@ -1117,7 +1167,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
 // counters and global histograms, can be kept in shared memory and cheap sync operations can be
 // used. It's used when len is relatively small or when the number of blocks per row calculated by
 // `calc_grid_dim()` is 1.
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr>
 void radix_topk_one_block(const T* in,
                           const IdxT* in_idx,
                           int batch_size,
@@ -1133,7 +1183,7 @@ void radix_topk_one_block(const T* in,
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
 
-  auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
+  auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>;
   const IdxT buf_len = calc_buf_len<T, IdxT, unsigned>(len);
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, true);
@@ -1144,15 +1194,16 @@ void radix_topk_one_block(const T* in,
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size          = std::min(max_chunk_size, batch_size - offset);
     const IdxT* chunk_len_i = len_i ? (len_i + offset) : nullptr;
-    kernel<<<chunk_size, BlockSize, 0, stream>>>(in + offset * len,
-                                                 in_idx ? (in_idx + offset * len) : nullptr,
+    kernel<<<chunk_size, BlockSize, 0, stream>>>(in,
+                                                 in_idx,
                                                  len,
                                                  chunk_len_i,
                                                  k,
                                                  out + offset * k,
                                                  out_idx + offset * k,
                                                  select_min,
-                                                 bufs.data());
+                                                 bufs.data(),
+                                                 offset);
   }
 }
 
@@ -1182,6 +1233,10 @@ void radix_topk_one_block(const T* in,
  *   it affects the number of passes and number of buckets.
  * @tparam BlockSize
  *   Number of threads in a kernel thread block.
+ * @tparam len_or_indptr
+ *   Flag to interpret `len_i` as either direct row lengths (true) or CSR format
+ *   index pointers (false). When true, each `len_i` element denotes the length of a row. When
+ *   false, `len_i` represents the index pointers for a CSR matrix with shape of `batch_size + 1`.
  *
  * @param[in] res container of reusable resources
  * @param[in] in
@@ -1212,9 +1267,12 @@ void radix_topk_one_block(const T* in,
  *   same. That is, when the value range of input data is narrow. In such case, there could be a
  *   large number of inputs for the last filter, hence using multiple thread blocks is beneficial.
  * @param len_i
- *   optional array of size (batch_size) providing lengths for each individual row
+ *   Optional array used differently based on `len_or_indptr`:
+ *   When `len_or_indptr` is true, `len_i` presents the lengths of each row, which is `batch_size`.
+ *   When `len_or_indptr` is false, `len_i` works like a indptr for a CSR matrix. The length of each
+ *   row would be (`len_i[row_id + 1] - len_i[row_id]`). `len_i` size is `batch_size + 1`.
  */
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr = true>
 void select_k(raft::resources const& res,
               const T* in,
               const IdxT* in_idx,
@@ -1227,9 +1285,12 @@ void select_k(raft::resources const& res,
               bool fused_last_filter,
               const IdxT* len_i)
 {
+  RAFT_EXPECTS(!(!len_or_indptr && (len_i == nullptr)),
+               "When `len_or_indptr` is false, `len_i` must not be nullptr!");
+
   auto stream = resource::get_cuda_stream(res);
   auto mr     = resource::get_workspace_resource(res);
-  if (k == len) {
+  if (k == len && len_or_indptr) {
     RAFT_CUDA_TRY(
       cudaMemcpyAsync(out, in, sizeof(T) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
     if (in_idx) {
@@ -1248,29 +1309,29 @@ void select_k(raft::resources const& res,
   constexpr int items_per_thread = 32;
 
   if (len <= BlockSize * items_per_thread) {
-    impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
+    impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
   } else {
     unsigned grid_dim =
       impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt);
     if (grid_dim == 1) {
-      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
+      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(
         in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
     } else {
-      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(in,
-                                                        in_idx,
-                                                        batch_size,
-                                                        len,
-                                                        k,
-                                                        out,
-                                                        out_idx,
-                                                        select_min,
-                                                        fused_last_filter,
-                                                        len_i,
-                                                        grid_dim,
-                                                        sm_cnt,
-                                                        stream,
-                                                        mr);
+      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(in,
+                                                                       in_idx,
+                                                                       batch_size,
+                                                                       len,
+                                                                       k,
+                                                                       out,
+                                                                       out_idx,
+                                                                       select_min,
+                                                                       fused_last_filter,
+                                                                       len_i,
+                                                                       grid_dim,
+                                                                       sm_cnt,
+                                                                       stream,
+                                                                       mr);
     }
   }
 }
