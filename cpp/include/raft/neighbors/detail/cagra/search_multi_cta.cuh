@@ -19,6 +19,7 @@
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
+
 #include "search_multi_cta_kernel.cuh"
 #include "search_plan.cuh"
 #include "topk_for_cagra/topk_core.cuh"  // TODO replace with raft topk if possible
@@ -26,9 +27,12 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
@@ -42,6 +46,13 @@
 
 namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {
+
+template <typename T>
+RAFT_KERNEL negate_kernel(T* dists, uint32_t n)
+{
+  uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (tid < n) { dists[tid] *= -1; }
+}
 
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
@@ -98,7 +109,8 @@ struct search : public search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
          int64_t graph_degree,
          uint32_t topk,
          raft::distance::DistanceType metric)
-    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk, metric),
+    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk, metric),
       intermediate_indices(0, resource::get_cuda_stream(res)),
       intermediate_distances(0, resource::get_cuda_stream(res)),
       topk_workspace(0, resource::get_cuda_stream(res))
@@ -257,6 +269,12 @@ struct search : public search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
                      true,
                      NULL,
                      stream);
+
+    if (this->metric == raft::distance::DistanceType::InnerProduct) {
+      dim3 threads(1024, 1, 1);
+      dim3 blocks((num_queries * topk + 1023) / 1024, 1, 1);
+      negate_kernel<<<blocks, threads, 0, stream>>>(topk_distances_ptr, num_queries * topk);
+    }
   }
 };
 
