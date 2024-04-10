@@ -19,15 +19,14 @@
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
-
 #include "search_multi_cta_kernel.cuh"
 #include "search_plan.cuh"
 #include "topk_for_cagra/topk_core.cuh"  // TODO replace with raft topk if possible
 #include "utils.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
-#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>

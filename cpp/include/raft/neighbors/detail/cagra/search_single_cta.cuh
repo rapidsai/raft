@@ -96,7 +96,8 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
          int64_t graph_degree,
          uint32_t topk,
          raft::distance::DistanceType metric)
-    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk, metric)
+    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk, metric)
   {
     set_params(res);
   }

@@ -88,7 +88,7 @@ void search_main_core(
   raft::device_matrix_view<const typename DatasetDescriptorT::DATA_T, int64_t, row_major> queries,
   raft::device_matrix_view<typename DatasetDescriptorT::INDEX_T, int64_t, row_major> neighbors,
   raft::device_matrix_view<typename DatasetDescriptorT::DISTANCE_T, int64_t, row_major> distances,
-  CagraSampleFilterT sample_filter = CagraSampleFilterT(),
+  CagraSampleFilterT sample_filter    = CagraSampleFilterT(),
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
@@ -288,7 +288,15 @@ void search_main(raft::resources const& res,
   } else if (auto* vpq_dset = dynamic_cast<const vpq_dataset<half, ds_idx_type>*>(&index.data());
              vpq_dset != nullptr) {
     launch_vpq_search_main_core<T, half, ds_idx_type, InternalIdxT, DistanceT, CagraSampleFilterT>(
-      res, vpq_dset, params, graph_internal, queries, neighbors, distances, sample_filter, index.metric());
+      res,
+      vpq_dset,
+      params,
+      graph_internal,
+      queries,
+      neighbors,
+      distances,
+      sample_filter,
+      index.metric());
   } else if (auto* empty_dset = dynamic_cast<const empty_dataset<ds_idx_type>*>(&index.data());
              empty_dset != nullptr) {
     // Forgot to add a dataset.

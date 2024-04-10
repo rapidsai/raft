@@ -37,7 +37,11 @@ struct search_plan_impl_base : public search_params {
   int64_t graph_degree;
   uint32_t topk;
   raft::distance::DistanceType metric;
-  search_plan_impl_base(search_params params, int64_t dim, int64_t graph_degree, uint32_t topk, raft::distance::DistanceType metric)
+  search_plan_impl_base(search_params params,
+                        int64_t dim,
+                        int64_t graph_degree,
+                        uint32_t topk,
+                        raft::distance::DistanceType metric)
     : search_params(params), dim(dim), graph_degree(graph_degree), topk(topk), metric(metric)
   {
     set_dataset_block_and_team_size(dim);

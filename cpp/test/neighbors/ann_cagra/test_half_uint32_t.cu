@@ -35,6 +35,7 @@ TEST_P(AnnCagraTestH_U32, AnnCagra) { this->testCagra(); }
 
 INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestH_U32, ::testing::ValuesIn(inputs));
 // INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestH_U32, ::testing::ValuesIn(inputs));
-// INSTANTIATE_TEST_CASE_P(AnnCagraFilterTest, AnnCagraFilterTestH_U32, ::testing::ValuesIn(inputs));
+// INSTANTIATE_TEST_CASE_P(AnnCagraFilterTest, AnnCagraFilterTestH_U32,
+// ::testing::ValuesIn(inputs));
 
 }  // namespace raft::neighbors::cagra

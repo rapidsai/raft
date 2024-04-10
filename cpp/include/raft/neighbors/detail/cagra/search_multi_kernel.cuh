@@ -549,7 +549,7 @@ RAFT_KERNEL batched_memcpy_kernel(T* const dst,  // [batch_size, ld_dst]
   if (tid >= count * batch_size) { return; }
   const auto i          = tid % count;
   const auto j          = tid / count;
-  dst[i + (ld_dst * j)] = (-2*invert + 1) * src[i + (ld_src * j)];
+  dst[i + (ld_dst * j)] = (-2 * invert + 1) * src[i + (ld_src * j)];
 }
 
 template <class T>
@@ -566,8 +566,8 @@ void batched_memcpy(T* const dst,  // [batch_size, ld_dst]
   assert(ld_src >= count);
   constexpr uint32_t block_size = 256;
   const auto grid_size          = (batch_size * count + block_size - 1) / block_size;
-  batched_memcpy_kernel<T>
-    <<<grid_size, block_size, 0, cuda_stream>>>(dst, ld_dst, src, ld_src, count, batch_size, invert);
+  batched_memcpy_kernel<T><<<grid_size, block_size, 0, cuda_stream>>>(
+    dst, ld_dst, src, ld_src, count, batch_size, invert);
 }
 
 template <class T>
@@ -670,7 +670,8 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
          int64_t graph_degree,
          uint32_t topk,
          raft::distance::DistanceType metric)
-    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk, metric),
+    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk, metric),
       result_indices(0, resource::get_cuda_stream(res)),
       result_distances(0, resource::get_cuda_stream(res)),
       parent_node_list(0, resource::get_cuda_stream(res)),
@@ -1035,7 +1036,8 @@ struct search<TEAM_SIZE,
          int64_t graph_degree,
          uint32_t topk,
          raft::distance::DistanceType metric)
-    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk, metric)
+    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk, metric)
   {
     THROW("The multi-kernel mode does not support VPQ");
   }

@@ -18,7 +18,6 @@
 #include "../../cagra_types.hpp"
 #include "../../vpq_dataset.cuh"
 #include "graph_core.cuh"
-#include "raft/util/cudart_utils.hpp"
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -50,10 +49,12 @@ void build_knn_graph(raft::resources const& res,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
-  std::cout << "metric from build_knn_graph" << metric<< std::endl;
-  RAFT_EXPECTS(!build_params || build_params->metric == metric, "Mismatch between index metric and IVF-PQ metric");
-  RAFT_EXPECTS(metric == distance::DistanceType::L2Expanded || metric == distance::DistanceType::InnerProduct,
-               "Currently only L2Expanded metric is supported");
+  std::cout << "metric from build_knn_graph" << metric << std::endl;
+  RAFT_EXPECTS(!build_params || build_params->metric == metric,
+               "Mismatch between index metric and IVF-PQ metric");
+  RAFT_EXPECTS(
+    metric == distance::DistanceType::L2Expanded || metric == distance::DistanceType::InnerProduct,
+    "Currently only L2Expanded metric is supported");
 
   uint32_t node_degree = knn_graph.extent(1);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::build_graph(%zu, %zu, %u)",
@@ -69,7 +70,7 @@ void build_knn_graph(raft::resources const& res,
     build_params->kmeans_trainset_fraction = dataset.extent(0) < 10000 ? 1 : 10;
     build_params->kmeans_n_iters           = 25;
     build_params->add_data_on_build        = true;
-    build_params->metric = metric;
+    build_params->metric                   = metric;
   }
 
   // Make model name
@@ -154,7 +155,8 @@ void build_knn_graph(raft::resources const& res,
 
     ivf_pq::search(res, *search_params, index, queries_view, neighbors_view, distances_view);
     raft::resource::sync_stream(res);
-    raft::print_device_vector("distances vector", distances.data_handle(), distances.extent(1), std::cout);
+    raft::print_device_vector(
+      "distances vector", distances.data_handle(), distances.extent(1), std::cout);
     if constexpr (is_host_mdspan_v<decltype(dataset)>) {
       raft::copy(neighbors_host.data_handle(),
                  neighbors.data_handle(),
@@ -181,7 +183,8 @@ void build_knn_graph(raft::resources const& res,
         refined_neighbors_host_view,
         refined_distances_host_view,
         build_params->metric);
-        raft::print_host_vector("host_distances", refined_distances_host.data_handle(), top_k, std::cout);
+      raft::print_host_vector(
+        "host_distances", refined_distances_host.data_handle(), top_k, std::cout);
     } else {
       auto neighbor_candidates_view = make_device_matrix_view<const int64_t, uint64_t>(
         neighbors.data_handle(), batch.size(), gpu_top_k);
@@ -205,7 +208,8 @@ void build_knn_graph(raft::resources const& res,
                  refined_neighbors_view.size(),
                  resource::get_cuda_stream(res));
       resource::sync_stream(res);
-      raft::print_device_vector("device_distances", refined_distances.data_handle(), top_k, std::cout);
+      raft::print_device_vector(
+        "device_distances", refined_distances.data_handle(), top_k, std::cout);
     }
     // omit itself & write out
     // TODO(tfeher): do this in parallel with GPU processing of next batch
@@ -330,7 +334,8 @@ index<T, IdxT> build(
     raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree));
 
   if (params.build_algo == graph_build_algo::IVF_PQ) {
-    build_knn_graph(res, dataset, knn_graph->view(), params.metric, refine_rate, pq_build_params, search_params);
+    build_knn_graph(
+      res, dataset, knn_graph->view(), params.metric, refine_rate, pq_build_params, search_params);
 
   } else {
     // Use nn-descent to build CAGRA knn graph
