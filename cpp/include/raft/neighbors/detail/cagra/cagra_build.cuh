@@ -154,9 +154,6 @@ void build_knn_graph(raft::resources const& res,
       distances.data_handle(), batch.size(), distances.extent(1));
 
     ivf_pq::search(res, *search_params, index, queries_view, neighbors_view, distances_view);
-    raft::resource::sync_stream(res);
-    raft::print_device_vector(
-      "distances vector", distances.data_handle(), distances.extent(1), std::cout);
     if constexpr (is_host_mdspan_v<decltype(dataset)>) {
       raft::copy(neighbors_host.data_handle(),
                  neighbors.data_handle(),
@@ -183,8 +180,6 @@ void build_knn_graph(raft::resources const& res,
         refined_neighbors_host_view,
         refined_distances_host_view,
         build_params->metric);
-      raft::print_host_vector(
-        "host_distances", refined_distances_host.data_handle(), top_k, std::cout);
     } else {
       auto neighbor_candidates_view = make_device_matrix_view<const int64_t, uint64_t>(
         neighbors.data_handle(), batch.size(), gpu_top_k);
@@ -208,8 +203,6 @@ void build_knn_graph(raft::resources const& res,
                  refined_neighbors_view.size(),
                  resource::get_cuda_stream(res));
       resource::sync_stream(res);
-      raft::print_device_vector(
-        "device_distances", refined_distances.data_handle(), top_k, std::cout);
     }
     // omit itself & write out
     // TODO(tfeher): do this in parallel with GPU processing of next batch
