@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "raft/util/cudart_utils.hpp"
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
 
 #include "../test_utils.cuh"
@@ -85,25 +86,49 @@ void RandomSuffle(raft::host_matrix_view<IdxT, int64_t> index)
 
 template <typename DistanceT, typename DatatT, typename IdxT>
 testing::AssertionResult CheckOrder(raft::host_matrix_view<IdxT, int64_t> index_test,
-                                    raft::host_matrix_view<DatatT, int64_t> dataset)
+                                    raft::host_matrix_view<DatatT, int64_t> dataset,
+                                    raft::distance::DistanceType metric)
 {
   for (IdxT i = 0; i < index_test.extent(0); i++) {
     const DatatT* const base_vec = dataset.data_handle() + i * dataset.extent(1);
     const IdxT* const index_row  = index_test.data_handle() + i * index_test.extent(1);
-    DistanceT prev_distance      = 0;
+    DistanceT prev_distance      = metric == raft::distance::DistanceType::L2Expanded
+                                     ? 0
+                                     : std::numeric_limits<DistanceT>::max();
     for (unsigned j = 0; j < index_test.extent(1) - 1; j++) {
       const DatatT* const target_vec = dataset.data_handle() + index_row[j] * dataset.extent(1);
       DistanceT distance             = 0;
-      for (unsigned l = 0; l < dataset.extent(1); l++) {
-        const auto diff =
-          static_cast<DistanceT>(target_vec[l]) - static_cast<DistanceT>(base_vec[l]);
-        distance += diff * diff;
-      }
-      if (prev_distance > distance) {
-        return testing::AssertionFailure()
-               << "Wrong index order (row = " << i << ", neighbor_id = " << j
-               << "). (distance[neighbor_id-1] = " << prev_distance
-               << "should be larger than distance[neighbor_id] = " << distance << ")";
+      switch (metric) {
+        case raft::distance::DistanceType::L2Expanded:
+          for (unsigned l = 0; l < dataset.extent(1); l++) {
+            const auto diff =
+              static_cast<DistanceT>(target_vec[l]) - static_cast<DistanceT>(base_vec[l]);
+            distance += diff * diff;
+          }
+          if (prev_distance > distance) {
+            return testing::AssertionFailure()
+                   << "Wrong index order (row = " << i << ", neighbor_id = " << j
+                   << "). (distance[neighbor_id-1] = " << prev_distance
+                   << "should be lesser than distance[neighbor_id] = " << distance << ")";
+          }
+          break;
+        case raft::distance::DistanceType::InnerProduct:
+          for (unsigned l = 0; l < dataset.extent(1); l++) {
+            const auto prod =
+              static_cast<DistanceT>(target_vec[l]) * static_cast<DistanceT>(base_vec[l]);
+            distance += prod;
+          }
+          if (prev_distance < distance) {
+            return testing::AssertionFailure()
+                   << "Wrong index order (row = " << i << ", neighbor_id = " << j
+                   << "). (distance[neighbor_id-1] = " << prev_distance
+                   << "should be greater than distance[neighbor_id] = " << distance << ")";
+          }
+          break;
+        default:
+          return testing::AssertionFailure()
+                 << "Distance metric " << metric
+                 << " not supported. Only L2Expanded and InnerProduct are supported";
       }
       prev_distance = distance;
     }
@@ -306,6 +331,11 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
       //   print_vector("T", distances_naive.data() + i * ps.k, ps.k, std::cout);
       //   print_vector("C", distances_Cagra.data() + i * ps.k, ps.k, std::cout);
       // }
+
+      raft::print_host_vector("indices_naive", indices_naive.data(), ps.k, std::cout);
+      raft::print_host_vector("indices_Cagra", indices_Cagra.data(), ps.k, std::cout);
+      raft::print_host_vector("distances_naive", distances_naive.data(), ps.k, std::cout);
+      raft::print_host_vector("distances_Cagra", distances_Cagra.data(), ps.k, std::cout);
       double min_recall = ps.min_recall;
       EXPECT_TRUE(eval_neighbours(indices_naive,
                                   indices_Cagra,
@@ -412,14 +442,16 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
       }
 
       handle_.sync_stream();
-      ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view()));
+      ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view(), ps.metric));
 
-      RandomSuffle(knn_graph.view());
+      if (ps.metric != raft::distance::DistanceType::InnerProduct) {
+        RandomSuffle(knn_graph.view());
 
-      cagra::sort_knn_graph(handle_, database_view, knn_graph.view());
-      handle_.sync_stream();
+        cagra::sort_knn_graph(handle_, database_view, knn_graph.view());
+        handle_.sync_stream();
 
-      ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view()));
+        ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view(), ps.metric));
+      }
     }
   }
 
@@ -587,8 +619,8 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
   void testCagraRemoved()
   {
-    // if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT);
-    GTEST_SKIP();
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT)
+      GTEST_SKIP();
 
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
