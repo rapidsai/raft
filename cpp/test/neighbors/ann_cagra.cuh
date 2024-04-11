@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include "raft/util/cudart_utils.hpp"
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
 
 #include "../test_utils.cuh"

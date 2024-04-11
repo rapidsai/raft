@@ -308,22 +308,20 @@ void search_main(raft::resources const& res,
 
   static_assert(std::is_same_v<DistanceT, float>,
                 "only float distances are supported at the moment");
-  if (index.metric() != distance::InnerProduct) {
-    float* dist_out          = distances.data_handle();
-    const DistanceT* dist_in = distances.data_handle();
-    // We're converting the data from T to DistanceT during distance computation
-    // and divide the values by kDivisor. Here we restore the original scale.
-    constexpr float kScale = spatial::knn::detail::utils::config<T>::kDivisor /
-                             spatial::knn::detail::utils::config<DistanceT>::kDivisor;
-    ivf::detail::postprocess_distances(dist_out,
-                                       dist_in,
-                                       index.metric(),
-                                       distances.extent(0),
-                                       distances.extent(1),
-                                       kScale,
-                                       true,
-                                       resource::get_cuda_stream(res));
-  }
+  float* dist_out          = distances.data_handle();
+  const DistanceT* dist_in = distances.data_handle();
+  // We're converting the data from T to DistanceT during distance computation
+  // and divide the values by kDivisor. Here we restore the original scale.
+  constexpr float kScale = spatial::knn::detail::utils::config<T>::kDivisor /
+                           spatial::knn::detail::utils::config<DistanceT>::kDivisor;
+  ivf::detail::postprocess_distances(dist_out,
+                                     dist_in,
+                                     index.metric(),
+                                     distances.extent(0),
+                                     distances.extent(1),
+                                     kScale,
+                                     true,
+                                     resource::get_cuda_stream(res));
 }
 /** @} */  // end group cagra
 

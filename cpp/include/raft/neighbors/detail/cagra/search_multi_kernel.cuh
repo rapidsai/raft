@@ -542,14 +542,13 @@ RAFT_KERNEL batched_memcpy_kernel(T* const dst,  // [batch_size, ld_dst]
                                   const T* const src,  // [batch_size, ld_src]
                                   const uint64_t ld_src,
                                   const uint64_t count,
-                                  const uint64_t batch_size,
-                                  bool invert)
+                                  const uint64_t batch_size)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= count * batch_size) { return; }
   const auto i          = tid % count;
   const auto j          = tid / count;
-  dst[i + (ld_dst * j)] = (-2 * invert + 1) * src[i + (ld_src * j)];
+  dst[i + (ld_dst * j)] = src[i + (ld_src * j)];
 }
 
 template <class T>
@@ -559,15 +558,14 @@ void batched_memcpy(T* const dst,  // [batch_size, ld_dst]
                     const uint64_t ld_src,
                     const uint64_t count,
                     const uint64_t batch_size,
-                    cudaStream_t cuda_stream,
-                    bool invert = false)
+                    cudaStream_t cuda_stream)
 {
   assert(ld_dst >= count);
   assert(ld_src >= count);
   constexpr uint32_t block_size = 256;
   const auto grid_size          = (batch_size * count + block_size - 1) / block_size;
-  batched_memcpy_kernel<T><<<grid_size, block_size, 0, cuda_stream>>>(
-    dst, ld_dst, src, ld_src, count, batch_size, invert);
+  batched_memcpy_kernel<T>
+    <<<grid_size, block_size, 0, cuda_stream>>>(dst, ld_dst, src, ld_src, count, batch_size);
 }
 
 template <class T>
@@ -974,15 +972,13 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
                    num_queries,
                    stream);
     if (topk_distances_ptr) {
-      bool invert = this->metric == distance::DistanceType::InnerProduct;
       batched_memcpy(topk_distances_ptr,
                      topk,
                      result_distances_ptr,
                      result_buffer_allocation_size,
                      topk,
                      num_queries,
-                     stream,
-                     invert);
+                     stream);
     }
 
     if (num_executed_iterations) {

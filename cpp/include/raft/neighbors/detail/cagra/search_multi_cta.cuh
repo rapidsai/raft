@@ -46,13 +46,6 @@
 namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {
 
-template <typename T>
-RAFT_KERNEL negate_kernel(T* dists, uint32_t n)
-{
-  uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (tid < n) { dists[tid] *= -1; }
-}
-
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
           typename DATASET_DESCRIPTOR_T,
@@ -268,12 +261,6 @@ struct search : public search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
                      true,
                      NULL,
                      stream);
-
-    if (this->metric == raft::distance::DistanceType::InnerProduct) {
-      dim3 threads(1024, 1, 1);
-      dim3 blocks((num_queries * topk + 1023) / 1024, 1, 1);
-      negate_kernel<<<blocks, threads, 0, stream>>>(topk_distances_ptr, num_queries * topk);
-    }
   }
 };
 
