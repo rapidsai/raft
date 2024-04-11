@@ -24,34 +24,7 @@ project(
   LANGUAGES CXX CUDA
 )
 
-option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
-       OFF
-)
-
-# If the user requested it we attempt to find RAFT.
-if(FIND_RAFT_CPP)
-  find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS distributed)
-else()
-  set(raft_FOUND OFF)
-endif()
-
-if(NOT raft_FOUND)
-  find_package(ucx REQUIRED)
-
-  # raft-dask doesn't actually use raft libraries, it just needs the headers, so we can turn off all
-  # library compilation and we don't need to install anything here.
-  set(BUILD_TESTS OFF)
-  set(BUILD_ANN_BENCH OFF)
-  set(BUILD_PRIMS_BENCH OFF)
-  set(RAFT_COMPILE_LIBRARIES OFF)
-  set(RAFT_COMPILE_DIST_LIBRARY OFF)
-  set(RAFT_COMPILE_NN_LIBRARY OFF)
-  set(CUDA_STATIC_RUNTIME ON)
-
-  add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
-  list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR}/cmake/find_modules)
-  find_package(NCCL REQUIRED)
-endif()
+find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS distributed)
 
 include(rapids-cython-core)
 rapids_cython_init()

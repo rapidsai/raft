@@ -36,6 +36,7 @@ requires-python = ">=3.9"
 dependencies = [
     "dask-cuda==24.6.*",
     "joblib>=0.11",
+    "libraft==24.6.*",
     "numba>=0.57",
     "numpy>=1.23,<2.0a0",
     "pylibraft==24.6.*",
