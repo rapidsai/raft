@@ -268,7 +268,6 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                         ps.dim,
                                         ps.k,
                                         ps.metric);
-      std::cout << "ps.metric" << ps.metric << std::endl;
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       resource::sync_stream(handle_);
@@ -331,10 +330,6 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
       //   print_vector("C", distances_Cagra.data() + i * ps.k, ps.k, std::cout);
       // }
 
-      raft::print_host_vector("indices_naive", indices_naive.data(), ps.k, std::cout);
-      raft::print_host_vector("indices_Cagra", indices_Cagra.data(), ps.k, std::cout);
-      raft::print_host_vector("distances_naive", distances_naive.data(), ps.k, std::cout);
-      raft::print_host_vector("distances_Cagra", distances_Cagra.data(), ps.k, std::cout);
       double min_recall = ps.min_recall;
       EXPECT_TRUE(eval_neighbours(indices_naive,
                                   indices_Cagra,
