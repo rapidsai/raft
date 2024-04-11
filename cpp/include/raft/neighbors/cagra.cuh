@@ -59,7 +59,8 @@ namespace raft::neighbors::cagra {
  *   ivf_pq::search_params search_params
  *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // create knn graph
- *   cagra::build_knn_graph(res, dataset, knn_graph.view(), 2, build_params, search_params);
+ *   cagra::build_knn_graph(res, dataset, knn_graph.view(),
+ *   raft::distance::DistanceType::L2Expanded, 2, build_params, search_params);
  *   auto optimized_gaph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 64);
  *   cagra::optimize(res, dataset, knn_graph.view(), optimized_graph.view());
  *   // Construct an index from dataset and optimized knn_graph
@@ -73,6 +74,7 @@ namespace raft::neighbors::cagra {
  * @param[in] res raft resources
  * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
  * @param[out] knn_graph a host matrix view to store the output knn graph [n_rows, graph_degree]
+ * @param[in] metric distance metric (default = raft::distance::DistanceType::L2Expanded)
  * @param[in] refine_rate (optional) refinement rate for ivf-pq search
  * @param[in] build_params (optional) ivf_pq index building parameters for knn graph
  * @param[in] search_params (optional) ivf_pq search parameters
@@ -81,8 +83,8 @@ template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
-                     raft::distance::DistanceType metric,
-                     std::optional<float> refine_rate                   = std::nullopt,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+                     std::optional<float> refine_rate    = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
