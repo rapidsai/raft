@@ -271,5 +271,12 @@ void parse_search_param(const nlohmann::json& conf,
   }
   // Same ratio as in IVF-PQ
   param.refine_ratio = conf.value("refine_ratio", 1.0f);
+
+  uint64_t pmask = 0x8000000000000000LL;
+  if (conf.contains("persistent") && conf.at("persistent")) {
+    param.p.rand_xor_mask |= pmask;
+  } else {
+    param.p.rand_xor_mask &= ~pmask;
+  }
 }
 #endif

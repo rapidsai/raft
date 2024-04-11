@@ -35,14 +35,24 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
+#include <rmm/cuda_stream.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
+#include <rmm/mr/pinned_host_memory_resource.hpp>
+
+#include <cuda/barrier>
+#include <cuda/latch>
+
+#include <atomic_queue/atomic_queue.h>
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <numeric>
+#include <thread>
 #include <vector>
 
 namespace raft::neighbors::cagra::detail {
@@ -464,7 +474,7 @@ template <uint32_t TEAM_SIZE,
           unsigned TOPK_BY_BITONIC_SORT,
           class DATASET_DESCRIPTOR_T,
           class SAMPLE_FILTER_T>
-__launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
+__device__ void search_core(
   typename DATASET_DESCRIPTOR_T::INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
   const std::uint32_t top_k,
@@ -486,6 +496,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const std::uint32_t hash_bitlen,
   const std::uint32_t small_hash_bitlen,
   const std::uint32_t small_hash_reset_interval,
+  const std::uint32_t query_id,
   SAMPLE_FILTER_T sample_filter,
   raft::distance::DistanceType metric)
 {
@@ -495,8 +506,6 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
   using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
   using QUERY_T    = typename DATASET_DESCRIPTOR_T::QUERY_T;
-
-  const auto query_id = blockIdx.y;
 
 #ifdef _CLK_BREAKDOWN
   std::uint64_t clk_init                 = 0;
@@ -817,52 +826,271 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
 
 template <uint32_t TEAM_SIZE,
           uint32_t DATASET_BLOCK_DIM,
+          unsigned MAX_ITOPK,
+          unsigned MAX_CANDIDATES,
+          unsigned TOPK_BY_BITONIC_SORT,
+          class DATASET_DESCRIPTOR_T,
+          class SAMPLE_FILTER_T>
+__launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
+  typename DATASET_DESCRIPTOR_T::INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
+  typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
+  const std::uint32_t top_k,
+  DATASET_DESCRIPTOR_T dataset_desc,
+  const typename DATASET_DESCRIPTOR_T::DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
+  const typename DATASET_DESCRIPTOR_T::INDEX_T* const knn_graph,   // [dataset_size, graph_degree]
+  const std::uint32_t graph_degree,
+  const unsigned num_distilation,
+  const uint64_t rand_xor_mask,
+  const typename DATASET_DESCRIPTOR_T::INDEX_T* seed_ptr,  // [num_queries, num_seeds]
+  const uint32_t num_seeds,
+  typename DATASET_DESCRIPTOR_T::INDEX_T* const
+    visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+  const std::uint32_t internal_topk,
+  const std::uint32_t search_width,
+  const std::uint32_t min_iteration,
+  const std::uint32_t max_iteration,
+  std::uint32_t* const num_executed_iterations,  // [num_queries]
+  const std::uint32_t hash_bitlen,
+  const std::uint32_t small_hash_bitlen,
+  const std::uint32_t small_hash_reset_interval,
+  SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric)
+{
+  const auto query_id = blockIdx.y;
+  search_core<TEAM_SIZE,
+              DATASET_BLOCK_DIM,
+              MAX_ITOPK,
+              MAX_CANDIDATES,
+              TOPK_BY_BITONIC_SORT,
+              DATASET_DESCRIPTOR_T,
+              SAMPLE_FILTER_T>(result_indices_ptr,
+                               result_distances_ptr,
+                               top_k,
+                               dataset_desc,
+                               queries_ptr,
+                               knn_graph,
+                               graph_degree,
+                               num_distilation,
+                               rand_xor_mask,
+                               seed_ptr,
+                               num_seeds,
+                               visited_hashmap_ptr,
+                               internal_topk,
+                               search_width,
+                               min_iteration,
+                               max_iteration,
+                               num_executed_iterations,
+                               hash_bitlen,
+                               small_hash_bitlen,
+                               small_hash_reset_interval,
+                               query_id,
+                               sample_filter,
+                               metric);
+}
+
+template <typename DATASET_DESCRIPTOR_T>
+struct work_desc_t {
+  using index_type    = typename DATASET_DESCRIPTOR_T::INDEX_T;
+  using distance_type = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
+  using data_type     = typename DATASET_DESCRIPTOR_T::DATA_T;
+  cuda::barrier<cuda::thread_scope_system> input_barrier;
+  cuda::latch<cuda::thread_scope_device>* completion_latch;
+  index_type* result_indices_ptr;       // [num_queries, top_k]
+  distance_type* result_distances_ptr;  // [num_queries, top_k]
+  const data_type* queries_ptr;         // [num_queries, dataset_dim]
+  uint32_t query_id;                    // [0...num_queries - 1]
+  uint32_t top_k;
+};
+
+template <uint32_t TEAM_SIZE,
+          uint32_t DATASET_BLOCK_DIM,
+          unsigned MAX_ITOPK,
+          unsigned MAX_CANDIDATES,
+          unsigned TOPK_BY_BITONIC_SORT,
+          class DATASET_DESCRIPTOR_T,
+          class SAMPLE_FILTER_T>
+__launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
+  DATASET_DESCRIPTOR_T dataset_desc,
+  work_desc_t<DATASET_DESCRIPTOR_T>* work_descriptors,
+  const typename DATASET_DESCRIPTOR_T::INDEX_T* const knn_graph,  // [dataset_size, graph_degree]
+  const std::uint32_t graph_degree,
+  const unsigned num_distilation,
+  const uint64_t rand_xor_mask,
+  const typename DATASET_DESCRIPTOR_T::INDEX_T* seed_ptr,  // [num_queries, num_seeds]
+  const uint32_t num_seeds,
+  typename DATASET_DESCRIPTOR_T::INDEX_T* const
+    visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+  const std::uint32_t internal_topk,
+  const std::uint32_t search_width,
+  const std::uint32_t min_iteration,
+  const std::uint32_t max_iteration,
+  std::uint32_t* const num_executed_iterations,  // [num_queries]
+  const std::uint32_t hash_bitlen,
+  const std::uint32_t small_hash_bitlen,
+  const std::uint32_t small_hash_reset_interval,
+  SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric)
+{
+  auto& work_descriptor = work_descriptors[blockIdx.y];
+  auto& input_barrier   = work_descriptor.input_barrier;
+
+  cuda::barrier<cuda::thread_scope_system>::arrival_token ready_to_read;
+  if (threadIdx.x == 0) { ready_to_read = input_barrier.arrive(); }
+
+  while (true) {
+    // wait the writing phase
+    if (threadIdx.x == 0) { input_barrier.wait(std::move(ready_to_read)); }
+    __syncthreads();
+    cuda::atomic_thread_fence(cuda::memory_order_acquire, cuda::thread_scope_system);
+
+    // reading phase
+    auto* completion_latch = work_descriptor.completion_latch;
+    // empty input means terminate the persistent kernel.
+    if (completion_latch == nullptr) {
+      if (threadIdx.x == 0) { input_barrier.arrive_and_drop(); }
+      break;
+    }
+    auto* result_indices_ptr   = work_descriptor.result_indices_ptr;
+    auto* result_distances_ptr = work_descriptor.result_distances_ptr;
+    auto* queries_ptr          = work_descriptor.queries_ptr;
+    auto query_id              = work_descriptor.query_id;
+    auto top_k                 = work_descriptor.top_k;
+
+    // arrive to mark the end of the reading phase
+    __syncthreads();
+    if (threadIdx.x == 0) { ready_to_read = input_barrier.arrive(); }
+
+    // work phase
+    search_core<TEAM_SIZE,
+                DATASET_BLOCK_DIM,
+                MAX_ITOPK,
+                MAX_CANDIDATES,
+                TOPK_BY_BITONIC_SORT,
+                DATASET_DESCRIPTOR_T,
+                SAMPLE_FILTER_T>(result_indices_ptr,
+                                 result_distances_ptr,
+                                 top_k,
+                                 dataset_desc,
+                                 queries_ptr,
+                                 knn_graph,
+                                 graph_degree,
+                                 num_distilation,
+                                 rand_xor_mask,
+                                 seed_ptr,
+                                 num_seeds,
+                                 visited_hashmap_ptr,
+                                 internal_topk,
+                                 search_width,
+                                 min_iteration,
+                                 max_iteration,
+                                 num_executed_iterations,
+                                 hash_bitlen,
+                                 small_hash_bitlen,
+                                 small_hash_reset_interval,
+                                 query_id,
+                                 sample_filter,
+                                 metric);
+
+    // arrive to mark the end of the work phase
+    __syncthreads();
+    if (threadIdx.x == 0) { completion_latch->count_down(); }
+  }
+}
+
+RAFT_KERNEL
+register_completion_kernel(cuda::barrier<cuda::thread_scope_system>* bar,
+                           cuda::latch<cuda::thread_scope_device>* latch,
+                           uint32_t num_queries)
+{
+  if (threadIdx.x != 0 || bar == nullptr || latch == nullptr) { return; }
+  new (latch) cuda::latch<cuda::thread_scope_device>(num_queries);
+  cuda::atomic_thread_fence(cuda::memory_order_release, cuda::thread_scope_device);
+  [[maybe_unused]] auto ready_to_read = bar->arrive();
+  latch->wait();
+}
+
+template <bool Persistent,
+          uint32_t TEAM_SIZE,
+          uint32_t DATASET_BLOCK_DIM,
+          unsigned MAX_ITOPK,
+          unsigned MAX_CANDIDATES,
+          unsigned TOPK_BY_BITONIC_SORT,
+          class DATASET_DESCRIPTOR_T,
+          class SAMPLE_FILTER_T>
+auto dispatch_kernel = []() {
+  if constexpr (Persistent) {
+    return search_kernel_p<TEAM_SIZE,
+                           DATASET_BLOCK_DIM,
+                           MAX_ITOPK,
+                           MAX_CANDIDATES,
+                           TOPK_BY_BITONIC_SORT,
+                           DATASET_DESCRIPTOR_T,
+                           SAMPLE_FILTER_T>;
+  } else {
+    return search_kernel<TEAM_SIZE,
+                         DATASET_BLOCK_DIM,
+                         MAX_ITOPK,
+                         MAX_CANDIDATES,
+                         TOPK_BY_BITONIC_SORT,
+                         DATASET_DESCRIPTOR_T,
+                         SAMPLE_FILTER_T>;
+  }
+}();
+
+template <bool Persistent,
+          uint32_t TEAM_SIZE,
+          uint32_t DATASET_BLOCK_DIM,
           typename DATASET_DESCRIPTOR_T,
           typename SAMPLE_FILTER_T>
 struct search_kernel_config {
-  using kernel_t = decltype(&search_kernel<TEAM_SIZE,
-                                           DATASET_BLOCK_DIM,
-                                           64,
-                                           64,
-                                           0,
-                                           DATASET_DESCRIPTOR_T,
-                                           SAMPLE_FILTER_T>);
+  using kernel_t = decltype(dispatch_kernel<Persistent,
+                                            TEAM_SIZE,
+                                            DATASET_BLOCK_DIM,
+                                            64,
+                                            64,
+                                            0,
+                                            DATASET_DESCRIPTOR_T,
+                                            SAMPLE_FILTER_T>);
 
   template <unsigned MAX_CANDIDATES, unsigned USE_BITONIC_SORT>
   static auto choose_search_kernel(unsigned itopk_size) -> kernel_t
   {
     if (itopk_size <= 64) {
-      return search_kernel<TEAM_SIZE,
-                           DATASET_BLOCK_DIM,
-                           64,
-                           MAX_CANDIDATES,
-                           USE_BITONIC_SORT,
-                           DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T>;
+      return dispatch_kernel<Persistent,
+                             TEAM_SIZE,
+                             DATASET_BLOCK_DIM,
+                             64,
+                             MAX_CANDIDATES,
+                             USE_BITONIC_SORT,
+                             DATASET_DESCRIPTOR_T,
+                             SAMPLE_FILTER_T>;
     } else if (itopk_size <= 128) {
-      return search_kernel<TEAM_SIZE,
-                           DATASET_BLOCK_DIM,
-                           128,
-                           MAX_CANDIDATES,
-                           USE_BITONIC_SORT,
-                           DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T>;
+      return dispatch_kernel<Persistent,
+                             TEAM_SIZE,
+                             DATASET_BLOCK_DIM,
+                             128,
+                             MAX_CANDIDATES,
+                             USE_BITONIC_SORT,
+                             DATASET_DESCRIPTOR_T,
+                             SAMPLE_FILTER_T>;
     } else if (itopk_size <= 256) {
-      return search_kernel<TEAM_SIZE,
-                           DATASET_BLOCK_DIM,
-                           256,
-                           MAX_CANDIDATES,
-                           USE_BITONIC_SORT,
-                           DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T>;
+      return dispatch_kernel<Persistent,
+                             TEAM_SIZE,
+                             DATASET_BLOCK_DIM,
+                             256,
+                             MAX_CANDIDATES,
+                             USE_BITONIC_SORT,
+                             DATASET_DESCRIPTOR_T,
+                             SAMPLE_FILTER_T>;
     } else if (itopk_size <= 512) {
-      return search_kernel<TEAM_SIZE,
-                           DATASET_BLOCK_DIM,
-                           512,
-                           MAX_CANDIDATES,
-                           USE_BITONIC_SORT,
-                           DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T>;
+      return dispatch_kernel<Persistent,
+                             TEAM_SIZE,
+                             DATASET_BLOCK_DIM,
+                             512,
+                             MAX_CANDIDATES,
+                             USE_BITONIC_SORT,
+                             DATASET_DESCRIPTOR_T,
+                             SAMPLE_FILTER_T>;
     }
     THROW("No kernel for parametels itopk_size %u, max_candidates %u", itopk_size, MAX_CANDIDATES);
   }
@@ -882,21 +1110,23 @@ struct search_kernel_config {
       // Radix-based topk is used
       constexpr unsigned max_candidates = 32;  // to avoid build failure
       if (itopk_size <= 256) {
-        return search_kernel<TEAM_SIZE,
-                             DATASET_BLOCK_DIM,
-                             256,
-                             max_candidates,
-                             0,
-                             DATASET_DESCRIPTOR_T,
-                             SAMPLE_FILTER_T>;
+        return dispatch_kernel<Persistent,
+                               TEAM_SIZE,
+                               DATASET_BLOCK_DIM,
+                               256,
+                               max_candidates,
+                               0,
+                               DATASET_DESCRIPTOR_T,
+                               SAMPLE_FILTER_T>;
       } else if (itopk_size <= 512) {
-        return search_kernel<TEAM_SIZE,
-                             DATASET_BLOCK_DIM,
-                             512,
-                             max_candidates,
-                             0,
-                             DATASET_DESCRIPTOR_T,
-                             SAMPLE_FILTER_T>;
+        return dispatch_kernel<Persistent,
+                               TEAM_SIZE,
+                               DATASET_BLOCK_DIM,
+                               512,
+                               max_candidates,
+                               0,
+                               DATASET_DESCRIPTOR_T,
+                               SAMPLE_FILTER_T>;
       }
     }
     THROW("No kernel for parametels itopk_size %u, num_itopk_candidates %u",
@@ -904,6 +1134,255 @@ struct search_kernel_config {
           num_itopk_candidates);
   }
 };
+
+inline void run_zombie(std::atomic<std::chrono::time_point<std::chrono::system_clock>>* last_touch);
+
+struct persistent_runner_base_t {
+  using work_queue_type = atomic_queue::AtomicQueue<uint32_t, 1024, ~0u, false, true, false, false>;
+  rmm::mr::managed_memory_resource work_descriptor_mr;
+  cudaStream_t stream;
+  work_queue_type queue;
+  persistent_runner_base_t(cudaStream_t stream) : stream(stream), queue() {}
+  virtual ~persistent_runner_base_t() noexcept = default;
+};
+
+template <unsigned TEAM_SIZE,
+          unsigned DATASET_BLOCK_DIM,
+          typename DATASET_DESCRIPTOR_T,
+          typename SAMPLE_FILTER_T>
+struct persistent_runner_t : public persistent_runner_base_t {
+  using index_type    = typename DATASET_DESCRIPTOR_T::INDEX_T;
+  using distance_type = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
+  using data_type     = typename DATASET_DESCRIPTOR_T::DATA_T;
+  using kernel_config_type =
+    search_kernel_config<true, TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
+  using kernel_type    = typename kernel_config_type::kernel_t;
+  using work_desc_type = work_desc_t<DATASET_DESCRIPTOR_T>;
+  kernel_type kernel;
+  uint32_t block_size;
+  rmm::device_uvector<work_desc_type> work_descriptors;
+  std::atomic<std::chrono::time_point<std::chrono::system_clock>> last_touch;
+
+  persistent_runner_t(DATASET_DESCRIPTOR_T dataset_desc,
+                      raft::device_matrix_view<const index_type, int64_t, row_major> graph,
+                      uint32_t num_itopk_candidates,
+                      uint32_t block_size,  //
+                      uint32_t smem_size,
+                      int64_t hash_bitlen,
+                      index_type* hashmap_ptr,
+                      size_t small_hash_bitlen,
+                      size_t small_hash_reset_interval,
+                      uint32_t num_random_samplings,
+                      uint64_t rand_xor_mask,
+                      uint32_t num_seeds,
+                      size_t itopk_size,
+                      size_t search_width,
+                      size_t min_iterations,
+                      size_t max_iterations,
+                      SAMPLE_FILTER_T sample_filter,
+                      raft::distance::DistanceType metric,
+                      cudaStream_t stream)
+    : persistent_runner_base_t{stream},
+      kernel{kernel_config_type::choose_itopk_and_mx_candidates(
+        itopk_size, num_itopk_candidates, block_size)},
+      block_size{block_size},
+      work_descriptors(0, stream, work_descriptor_mr)
+  {
+    // set kernel attributes same as in normal kernel
+    RAFT_CUDA_TRY(
+      cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+    // do the same for subsequently launched completion kernel to make sure
+    // its config is the same and it is loaded by the driver before this kernel is launched
+    RAFT_CUDA_TRY(cudaFuncSetAttribute(
+      register_completion_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+    register_completion_kernel<<<1, 1, 0, stream>>>(nullptr, nullptr, 1);
+
+    // set kernel launch parameters
+    dim3 gs = calc_coop_grid_size(block_size, smem_size);
+    dim3 bs(block_size, 1, 1);
+    RAFT_LOG_DEBUG(
+      "Launching persistent kernel with %u threads, %u block %u smem", bs.x, gs.y, smem_size);
+
+    // initialize the work queue
+    work_descriptors.resize(gs.y, stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    for (uint32_t i = 0; i < gs.y; i++) {
+      auto& wd = work_descriptors.data()[i];
+      init(&wd.input_barrier, 3);
+      wd.completion_latch     = nullptr;
+      wd.result_indices_ptr   = nullptr;
+      wd.result_distances_ptr = nullptr;
+      wd.queries_ptr          = nullptr;
+      wd.query_id             = 0;
+      wd.top_k                = 0;
+      queue.push(i);
+    }
+
+    // launch the kernel
+    auto* work_descriptors_ptr        = work_descriptors.data();
+    auto* graph_ptr                   = graph.data_handle();
+    uint32_t graph_degree             = graph.extent(1);
+    uint32_t* num_executed_iterations = nullptr;  // optional arg [num_queries]
+    const index_type* dev_seed_ptr    = nullptr;  // optional arg [num_queries, num_seeds]
+
+    void* args[] =  // NOLINT
+      {&dataset_desc,
+       &work_descriptors_ptr,
+       &graph_ptr,  // [dataset_size, graph_degree]
+       &graph_degree,
+       &num_random_samplings,
+       &rand_xor_mask,
+       &dev_seed_ptr,
+       &num_seeds,
+       &hashmap_ptr,  // visited_hashmap_ptr: [num_queries, 1 << hash_bitlen]
+       &itopk_size,
+       &search_width,
+       &min_iterations,
+       &max_iterations,
+       &num_executed_iterations,
+       &hash_bitlen,
+       &small_hash_bitlen,
+       &small_hash_reset_interval,
+       &sample_filter,
+       &metric};
+    RAFT_CUDA_TRY(cudaLaunchCooperativeKernel<std::remove_pointer_t<kernel_type>>(
+      kernel, gs, bs, args, smem_size, stream));
+    RAFT_LOG_INFO("Initialized the kernel in stream %zd, queue size = %u",
+                  int64_t((cudaStream_t)stream),
+                  queue.was_size());
+
+    std::thread(run_zombie, &last_touch).detach();
+  }
+
+  ~persistent_runner_t() noexcept override
+  {
+    RAFT_LOG_INFO("Gonna destroy the persistent runner.");
+    auto wds           = work_descriptors.data();
+    auto wdl           = work_descriptors.size();
+    uint32_t worker_id = 0;
+    while (queue.try_pop(worker_id)) {
+      auto& wd                   = wds[worker_id];
+      wd.completion_latch        = nullptr;
+      [[maybe_unused]] auto done = wd.input_barrier.arrive(2);
+    }
+    for (uint32_t i = 0; i < wdl; i++) {
+      auto& wd = wds[i];
+      if (wd.completion_latch != nullptr) {
+        wd.completion_latch        = nullptr;
+        [[maybe_unused]] auto done = wd.input_barrier.arrive(2);
+      }
+    }
+    RAFT_LOG_INFO("Destroyed the persistent runner.");
+  }
+
+  void launch(index_type* result_indices_ptr,       // [num_queries, top_k]
+              distance_type* result_distances_ptr,  // [num_queries, top_k]
+              const data_type* queries_ptr,         // [num_queries, dataset_dim]
+              uint32_t num_queries,
+              uint32_t top_k,
+              cuda::latch<cuda::thread_scope_device>* completion_latch,
+              cudaStream_t local_stream)
+  {
+    // RAFT_LOG_INFO("Launch! queue size = %u, num_queries = %u, top_k = %u",
+    //               queue.was_size(),
+    //               num_queries,
+    //               top_k);
+    void* args[] = {nullptr, &completion_latch, &num_queries};  // NOLINT
+    // RAFT_CUDA_TRY(cudaLaunchKernel<decltype(register_completion_kernel)>(
+    //   &register_completion_kernel, dim3(1, 1, 1), dim3(1, 1, 1), args, 0ul, local_stream));
+    // register_completion_kernel<<<1, 1, 0, local_stream>>>(nullptr, completion_latch,
+    // num_queries);
+    // RAFT_LOG_INFO("Launched completion kernel %p", completion_latch);
+    // using latch_t = cuda::latch<cuda::thread_scope_device>;
+    // static thread_local std::unique_ptr<latch_t, std::function<void(latch_t*)>>
+    //   completion_latch_store(
+    //     [local_stream]() {
+    //       latch_t* x = nullptr;
+    //       cudaMallocAsync(&x, sizeof(latch_t), local_stream);
+    //       return x;
+    //     }(),
+    //     [](latch_t* x) { cudaFreeAsync(x, local_stream); });
+    // wait for all workers to finish
+    // DANGER: initialization of the latch can happen too late!
+    // std::vector<decltype(work_descriptors[0].completion.arrive())>
+    // completion_tokens(num_queries);
+    // RAFT_EXPECTS(num_queries == 1, "Single-query for now");
+    for (uint32_t i = 0; i < num_queries; i++) {
+      auto worker_id = queue.pop();
+      // RAFT_LOG_INFO("Submitting query %u (worker id = %u)", i, worker_id);
+      auto& wd = work_descriptors.data()[worker_id];
+      if (i == 0) {
+        auto* bar = &wd.input_barrier;
+        args[0]   = &bar;
+        RAFT_CUDA_TRY(cudaLaunchKernel<decltype(register_completion_kernel)>(
+          &register_completion_kernel, dim3(1, 1, 1), dim3(1, 1, 1), args, 0ul, local_stream));
+        // register_completion_kernel<<<1, 1, 0, local_stream>>>(
+        //   &wd.input_barrier, completion_latch, num_queries);
+        // RAFT_LOG_INFO("Launched completion kernel %p", completion_latch);
+        // RAFT_CUDA_TRY(cudaPeekAtLastError());
+      }
+
+      wd.completion_latch     = completion_latch;
+      wd.result_indices_ptr   = result_indices_ptr;
+      wd.result_distances_ptr = result_distances_ptr;
+      wd.queries_ptr          = queries_ptr;
+      wd.query_id             = i;
+      wd.top_k                = top_k;
+      // RAFT_LOG_INFO("Wrote input %p", completion_latch);
+      cuda::atomic_thread_fence(cuda::memory_order_release, cuda::thread_scope_system);
+      // RAFT_LOG_INFO("Issued a fence %p", completion_latch);
+      // RAFT_CUDA_TRY(cudaStreamSynchronize(local_stream));
+      // RAFT_LOG_INFO("Finished the completion kernel!");
+      // wait till the device threads finish the reading
+      // wd.input_barrier.arrive_and_wait();
+      wd.input_barrier.wait(wd.input_barrier.arrive((i == 0) ? 1 : 2));
+      // RAFT_LOG_INFO("Got the barrier");
+      // then release the worker id
+      queue.push(worker_id);
+      // RAFT_LOG_INFO("Returned worker %u", worker_id);
+    }
+    // latch->arrive_and_wait();
+    // RAFT_LOG_INFO("Launch done!");
+    last_touch.store(std::chrono::system_clock::now());
+  }
+
+  auto calc_coop_grid_size(uint32_t block_size, uint32_t smem_size) -> dim3
+  {
+    // We may need to run other kernels alongside this persistent kernel.
+    // Leave a few SMs idle.
+    constexpr double kDeviceUsage = 0.8;
+
+    // determine the grid size
+    int ctas_per_sm = 1;
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor<kernel_type>(
+      &ctas_per_sm, kernel, block_size, smem_size);
+    int num_sm = getMultiProcessorCount() - 1;
+
+    return {1, uint32_t(kDeviceUsage * (ctas_per_sm * num_sm)), 1};
+    // return {1, uint32_t(getMultiProcessorCount() - 8), 1};
+  }
+};
+
+struct non_blocking_stream {
+  non_blocking_stream() { cudaStreamCreateWithFlags(&value, cudaStreamNonBlocking); }
+  ~non_blocking_stream() noexcept { cudaStreamDestroy(value); }
+  cudaStream_t value;
+};
+
+inline std::unique_ptr<non_blocking_stream> persistent_stream;
+inline std::shared_ptr<persistent_runner_base_t> persistent_runner{nullptr};
+inline std::mutex persistent_lock;
+
+inline void run_zombie(std::atomic<std::chrono::time_point<std::chrono::system_clock>>* last_touch)
+{
+  constexpr auto kInterval = std::chrono::milliseconds(500);
+  last_touch->store(std::chrono::system_clock::now());
+  while (last_touch->load() + kInterval >= std::chrono::system_clock::now()) {
+    std::this_thread::sleep_for(kInterval);
+  }
+  std::lock_guard<std::mutex> guard(persistent_lock);
+  persistent_runner.reset();
+}
 
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
@@ -937,39 +1416,102 @@ void select_and_run(
   raft::distance::DistanceType metric,
   cudaStream_t stream)
 {
-  auto kernel =
-    search_kernel_config<TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::
-      choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
-  RAFT_CUDA_TRY(cudaFuncSetAttribute(kernel,
-                                     cudaFuncAttributeMaxDynamicSharedMemorySize,
-                                     smem_size + DATASET_DESCRIPTOR_T::smem_buffer_size_in_byte));
-  dim3 thread_dims(block_size, 1, 1);
-  dim3 block_dims(1, num_queries, 1);
-  RAFT_LOG_DEBUG(
-    "Launching kernel with %u threads, %u block %u smem", block_size, num_queries, smem_size);
-  kernel<<<block_dims, thread_dims, smem_size, stream>>>(topk_indices_ptr,
-                                                         topk_distances_ptr,
-                                                         topk,
-                                                         dataset_desc,
-                                                         queries_ptr,
-                                                         graph.data_handle(),
-                                                         graph.extent(1),
-                                                         num_random_samplings,
-                                                         rand_xor_mask,
-                                                         dev_seed_ptr,
-                                                         num_seeds,
-                                                         hashmap_ptr,
-                                                         itopk_size,
-                                                         search_width,
-                                                         min_iterations,
-                                                         max_iterations,
-                                                         num_executed_iterations,
-                                                         hash_bitlen,
-                                                         small_hash_bitlen,
-                                                         small_hash_reset_interval,
-                                                         sample_filter,
-                                                         metric);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  // hack: pass the 'is_persistent' flag in the highest bit of the `rand_xor_mask`
+  //       to avoid changing the signature of `select_and_run` and updating all its
+  //       instantiations...
+  uint64_t pmask     = 0x8000000000000000LL;
+  bool is_persistent = rand_xor_mask & pmask;
+  rand_xor_mask &= ~pmask;
+  if (is_persistent) {
+    using runner_type = persistent_runner_t<true,
+                                            TEAM_SIZE,
+                                            DATASET_BLOCK_DIM,
+                                            DATASET_DESCRIPTOR_T,
+                                            SAMPLE_FILTER_T>;
+    // This is used to keep the object alive if `persistent_runner` gets reset.
+    std::shared_ptr<persistent_runner_base_t> runner_local_copy;
+    runner_type* runner = nullptr;
+    {
+      std::lock_guard<std::mutex> guard(persistent_lock);
+      runner = dynamic_cast<runner_type*>(persistent_runner.get());
+      if (runner == nullptr) {
+        // Free the resources (if any) in advance
+        persistent_runner = std::shared_ptr<persistent_runner_base_t>();
+        // Lazy-create a stream, which is going to be used by all runners till the program exists
+        if (!persistent_stream) { persistent_stream = std::make_unique<non_blocking_stream>(); }
+        // Create a new runner
+        runner = new runner_type(dataset_desc,
+                                 graph,
+                                 num_itopk_candidates,
+                                 block_size,
+                                 smem_size,
+                                 hash_bitlen,
+                                 hashmap_ptr,
+                                 small_hash_bitlen,
+                                 small_hash_reset_interval,
+                                 num_random_samplings,
+                                 rand_xor_mask,
+                                 num_seeds,
+                                 itopk_size,
+                                 search_width,
+                                 min_iterations,
+                                 max_iterations,
+                                 sample_filter,
+                                 metric,
+                                 persistent_stream->value);
+        persistent_runner.reset(runner);
+      }
+      runner_local_copy = persistent_runner;
+    }
+    auto* completion_latch =
+      reinterpret_cast<cuda::latch<cuda::thread_scope_device>*>(num_executed_iterations);
+    runner->launch(topk_indices_ptr,
+                   topk_distances_ptr,
+                   queries_ptr,
+                   num_queries,
+                   topk,
+                   completion_latch,
+                   stream);
+  } else {
+    auto kernel =
+      search_kernel_config<false,
+                           TEAM_SIZE,
+                           DATASET_BLOCK_DIM,
+                           DATASET_DESCRIPTOR_T,
+                           SAMPLE_FILTER_T>::choose_itopk_and_mx_candidates(itopk_size,
+                                                                            num_itopk_candidates,
+                                                                            block_size);
+    RAFT_CUDA_TRY(cudaFuncSetAttribute(kernel,
+                                       cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                       smem_size + DATASET_DESCRIPTOR_T::smem_buffer_size_in_byte));
+    dim3 thread_dims(block_size, 1, 1);
+    dim3 block_dims(1, num_queries, 1);
+    RAFT_LOG_DEBUG(
+      "Launching kernel with %u threads, %u block %u smem", block_size, num_queries, smem_size);
+    kernel<<<block_dims, thread_dims, smem_size, stream>>>(topk_indices_ptr,
+                                                           topk_distances_ptr,
+                                                           topk,
+                                                           dataset_desc,
+                                                           queries_ptr,
+                                                           graph.data_handle(),
+                                                           graph.extent(1),
+                                                           num_random_samplings,
+                                                           rand_xor_mask,
+                                                           dev_seed_ptr,
+                                                           num_seeds,
+                                                           hashmap_ptr,
+                                                           itopk_size,
+                                                           search_width,
+                                                           min_iterations,
+                                                           max_iterations,
+                                                           num_executed_iterations,
+                                                           hash_bitlen,
+                                                           small_hash_bitlen,
+                                                           small_hash_reset_interval,
+                                                           sample_filter,
+                                                           metric);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
 }
 }  // namespace single_cta_search
 }  // namespace raft::neighbors::cagra::detail

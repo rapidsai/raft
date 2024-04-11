@@ -105,6 +105,11 @@ void search_main_core(
     params.max_queries = std::min<size_t>(queries.extent(0), deviceProp.maxGridSize[1]);
   }
 
+  uint64_t pmask     = 0x8000000000000000LL;
+  bool is_persistent = params.rand_xor_mask & pmask;
+  rmm::device_uvector<uint32_t> completion_latch(is_persistent ? 16 : 0,
+                                                 raft::resource::get_cuda_stream(res));
+
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "cagra::search(max_queries = %u, k = %u, dim = %zu)",
     params.max_queries,
@@ -135,7 +140,7 @@ void search_main_core(
         ? reinterpret_cast<const typename DatasetDescriptorT::INDEX_T*>(plan->dev_seed.data()) +
             (plan->num_seeds * qid)
         : nullptr;
-    uint32_t* _num_executed_iterations = nullptr;
+    uint32_t* _num_executed_iterations = completion_latch.data();
 
     (*plan)(res,
             dataset_desc,

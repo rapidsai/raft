@@ -67,8 +67,9 @@ struct buf {
     switch (memory_type) {
 #ifndef BUILD_CPU_ONLY
       case MemoryType::Device: {
-        cudaMalloc(reinterpret_cast<void**>(&data), size * sizeof(T));
-        cudaMemset(data, 0, size * sizeof(T));
+        cudaMallocAsync(reinterpret_cast<void**>(&data), size * sizeof(T), cudaStreamPerThread);
+        cudaMemsetAsync(data, 0, size * sizeof(T), cudaStreamPerThread);
+        cudaStreamSynchronize(cudaStreamPerThread);
       } break;
 #endif
       default: {
@@ -98,7 +99,8 @@ struct buf {
 #ifndef BUILD_CPU_ONLY
     if ((memory_type == MemoryType::Device && target_memory_type != MemoryType::Device) ||
         (memory_type != MemoryType::Device && target_memory_type == MemoryType::Device)) {
-      cudaMemcpy(r.data, data, size * sizeof(T), cudaMemcpyDefault);
+      cudaMemcpyAsync(r.data, data, size * sizeof(T), cudaMemcpyDefault, cudaStreamPerThread);
+      cudaStreamSynchronize(cudaStreamPerThread);
       return r;
     }
 #endif
