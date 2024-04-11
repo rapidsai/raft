@@ -21,6 +21,7 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/error.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -306,6 +307,8 @@ index<T, IdxT> build(
   std::optional<ivf_pq::search_params> search_params                      = std::nullopt,
   bool construct_index_with_dataset                                       = true)
 {
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
+               "Number of columns in output neighbors and distances matrices must equal k");
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
   if (intermediate_degree >= static_cast<size_t>(dataset.extent(0))) {
@@ -327,10 +330,18 @@ index<T, IdxT> build(
     raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree));
 
   if (params.build_algo == graph_build_algo::IVF_PQ) {
+    RAFT_EXPECTS(params.metric == raft::distance::DistanceType::L2Expanded ||
+                   params.metric == raft::distance::DistanceType::InnerProduct,
+                 "L2Expanded and InnerProduct are the only distance metrics supported with IVF-PQ");
     build_knn_graph(
       res, dataset, knn_graph->view(), params.metric, refine_rate, pq_build_params, search_params);
 
   } else {
+    RAFT_EXPECTS(
+      params.metric != raft::distance::DistanceType::InnerProduct,
+      "InnerProduct distance metric supported with nn_descent. Use IVF_PQ as the build_algo");
+    RAFT_EXPECTS(params.metric == raft::distance::DistanceType::L2Expanded,
+                 "L2Expanded is the only distance metrics supported with nn_descent");
     // Use nn-descent to build CAGRA knn graph
     if (!nn_descent_params) {
       nn_descent_params                            = experimental::nn_descent::index_params();
