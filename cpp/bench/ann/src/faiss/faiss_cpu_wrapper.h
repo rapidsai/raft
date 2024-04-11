@@ -231,7 +231,6 @@ class FaissCpuIVFPQ : public FaissCpu<T> {
 
   FaissCpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)
   {
-    std::cout << "inside FaissCpuIVFPQ constructor" << std::endl;
     this->init_quantizer(dim);
     this->index_ = std::make_shared<faiss::IndexIVFPQ>(
       this->quantizer_.get(), dim, param.nlist, param.M, param.bitsPerCode, this->metric_type_);

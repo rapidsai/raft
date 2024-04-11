@@ -17,13 +17,21 @@
 #define FAISS_WRAPPER_H_
 
 #include "../common/ann_types.hpp"
+
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
-#include <raft/distance/distance_types.hpp>
-
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/stream_view.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/util/cudart_utils.hpp>
+
+#include <raft_runtime/neighbors/refine.hpp>
+
+#include <rmm/cuda_device.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
@@ -39,13 +47,6 @@
 #include <faiss/impl/ScalarQuantizer.h>
 #include <faiss/index_io.h>
 #include <omp.h>
-
-#include <raft/core/device_resources.hpp>
-#include <raft/core/resource/stream_view.hpp>
-#include <raft_runtime/neighbors/refine.hpp>
-#include <rmm/cuda_device.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cassert>
 #include <memory>
@@ -181,7 +182,6 @@ class FaissGpu : public ANN<T>, public AnnGPU {
 template <typename T>
 void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
-  // raft::print_host_vector("faiss dataset", dataset, 100, std::cout);
   OmpSingleThreadScope omp_single_thread;
   auto index_ivf = dynamic_cast<faiss::gpu::GpuIndexIVF*>(index_.get());
   if (index_ivf != nullptr) {
@@ -249,7 +249,7 @@ void FaissGpu<T>::search(
 
       // wait for the queries to copy to host in 'stream`
       handle_.sync_stream();
-      
+
       raft::runtime::neighbors::refine(handle_,
                                        dataset_v,
                                        queries_host.view(),
