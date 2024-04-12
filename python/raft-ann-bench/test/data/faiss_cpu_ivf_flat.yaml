@@ -1,0 +1,10 @@
+name: faiss_cpu_ivf_flat
+groups:
+  base:
+    build:
+      nlist: [48]
+      ratio: [1, 4, 10]
+      useFloat16: [False]
+    search:
+      nprobe: [48]
+      refine_ratio: [1]

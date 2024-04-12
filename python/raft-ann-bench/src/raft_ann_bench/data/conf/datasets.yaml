@@ -1,0 +1,127 @@
+- name: bigann-1B
+  base_file: bigann-1B/base.1B.u8bin
+  subset_size: 100000000
+  dims: 128
+  query_file: bigann-1B/query.public.10K.u8bin
+  groundtruth_neighbors_file: bigann-1B/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: deep-1B
+  base_file: deep-1B/base.1B.fbin
+  query_file: deep-1B/query.public.10K.fbin
+  dims: 96
+  groundtruth_neighbors_file: deep-1B/groundtruth.neighbors.ibin
+  distance: inner_product
+
+- name: bigann-100M
+  base_file: bigann-100M/base.1B.u8bin
+  subset_size: 100000000
+  dims: 128
+  query_file: bigann-100M/query.public.10K.u8bin
+  groundtruth_neighbors_file: bigann-100M/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: deep-image-96-inner
+  base_file: deep-image-96-inner/base.fbin
+  query_file: deep-image-96-inner/query.fbin
+  dims: 96
+  groundtruth_neighbors_file: deep-image-96-inner/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: fashion-mnist-784-euclidean
+  dims: 784
+  base_file: fashion-mnist-784-euclidean/base.fbin
+  query_file: fashion-mnist-784-euclidean/query.fbin
+  groundtruth_neighbors_file: fashion-mnist-784-euclidean/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: gist-960-euclidean
+  dims: 960
+  base_file: gist-960-euclidean/base.fbin
+  query_file: gist-960-euclidean/query.fbin
+  groundtruth_neighbors_file: gist-960-euclidean/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: glove-50-angular
+  dims: 50
+  base_file: glove-50-angular/base.fbin
+  query_file: glove-50-angular/query.fbin
+  groundtruth_neighbors_file: glove-50-angular/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: glove-50-inner
+  dims: 50
+  base_file: glove-50-inner/base.fbin
+  query_file: glove-50-inner/query.fbin
+  groundtruth_neighbors_file: glove-50-inner/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: glove-100-angular
+  dims: 100
+  base_file: glove-100-angular/base.fbin
+  query_file: glove-100-angular/query.fbin
+  groundtruth_neighbors_file: glove-100-angular/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: glove-100-inner
+  dims: 100
+  base_file: glove-100-inner/base.fbin
+  query_file: glove-100-inner/query.fbin
+  groundtruth_neighbors_file: glove-100-inner/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: lastfm-65-angular
+  dims: 65
+  base_file: lastfm-65-angular/base.fbin
+  query_file: lastfm-65-angular/query.fbin
+  groundtruth_neighbors_file: lastfm-65-angular/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: mnist-784-euclidean
+  dims: 784
+  base_file: mnist-784-euclidean/base.fbin
+  query_file: mnist-784-euclidean/query.fbin
+  groundtruth_neighbors_file: mnist-784-euclidean/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: nytimes-256-angular
+  dims: 256
+  base_file: nytimes-256-angular/base.fbin
+  query_file: nytimes-256-angular/query.fbin
+  groundtruth_neighbors_file: nytimes-256-angular/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: nytimes-256-inner
+  dims: 256
+  base_file: nytimes-256-inner/base.fbin
+  query_file: nytimes-256-inner/query.fbin
+  groundtruth_neighbors_file: nytimes-256-inner/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: sift-128-euclidean
+  dims: 128
+  base_file: sift-128-euclidean/base.fbin
+  query_file: sift-128-euclidean/query.fbin
+  groundtruth_neighbors_file: sift-128-euclidean/groundtruth.neighbors.ibin
+  distance: euclidean
+
+- name: wiki_all_1M
+  dims: 768
+  base_file: wiki_all_1M/base.1M.fbin
+  query_file: wiki_all_1M/queries.fbin
+  groundtruth_neighbors_file: wiki_all_1M/groundtruth.1M.neighbors.ibin
+  distance: euclidean
+
+- name: wiki_all_10M
+  dims: 768
+  base_file: wiki_all_10M/base.10M.fbin
+  query_file: wiki_all_10M/queries.fbin
+  groundtruth_neighbors_file: wiki_all_10M/groundtruth.10M.neighbors.ibin
+  distance: euclidean
+
+- name: wiki_all_88M
+  dims: 768
+  base_file: wiki_all_88M/base.88M.fbin
+  query_file: wiki_all_88M/queries.fbin
+  groundtruth_neighbors_file: wiki_all_88M/groundtruth.88M.neighbors.ibin
+  distance: euclidean

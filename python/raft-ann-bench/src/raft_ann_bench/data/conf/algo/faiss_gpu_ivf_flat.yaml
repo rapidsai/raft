@@ -1,0 +1,10 @@
+name: faiss_gpu_ivf_flat
+groups:
+  base:
+    build:
+      nlist: [2048]
+      ratio: [1, 4, 10]
+      useFloat16: [False]
+    search:
+      nprobe: [2048]
+      refine_ratio: [1]
