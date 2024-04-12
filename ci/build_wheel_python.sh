@@ -55,7 +55,7 @@ fi
 
 pushd "${package_dir}"
 
-PIP_FIND_LINKS="/tmp/libraft_dist ${librmm_wheelhouse}" python -m pip wheel . -w pylibraft_dist -vvv --no-deps --disable-pip-version-check
+python -m pip wheel . -w pylibraft_dist -vvv --no-deps --disable-pip-version-check --find-links /tmp/libraft_dist --find-links ${librmm_wheelhouse} 
 
 mkdir -p pylibraft_final_dist
 python -m auditwheel repair -w pylibraft_final_dist --exclude libraft.so pylibraft_dist/*
@@ -86,7 +86,7 @@ sed -r -i "s/dask-cuda==(.*)\"/dask-cuda==\1${alpha_spec}\"/g" ${pyproject_file}
 
 pushd "${package_dir}"
 
-PIP_FIND_LINKS="../pylibraft/pylibraft_dist /tmp/libraft_dist" python -m pip wheel . -w raft_dask_dist -vvv --no-deps --disable-pip-version-check
+python -m pip wheel . -w raft_dask_dist -vvv --no-deps --disable-pip-version-check --find-links /tmp/libraft_dist --find-links ${librmm_wheelhouse} --find-links ../pylibraft/pylibraft_dist
 
 mkdir -p raft_dask_final_dist
 python -m auditwheel repair -w raft_dask_final_dist --exclude libraft.so raft_dask_dist/*
