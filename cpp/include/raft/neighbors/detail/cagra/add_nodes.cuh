@@ -156,8 +156,12 @@ void add_node_core(
       }
     }
 
-    raft::neighbors::cagra::search(
-      handle, params, idx, queries_view, neighbor_indices_view, neighbor_distances_view);
+    raft::neighbors::cagra::search(handle,
+                                   params,
+                                   idx,
+                                   raft::make_const_mdspan(neighbors_vectors.view()),
+                                   two_hop_neighbors_indices.view(),
+                                   two_hop_neighbors_distances.view());
 
     raft::copy(host_two_hop_neighbors_indices.data_handle(),
                two_hop_neighbors_indices.data_handle(),
@@ -218,7 +222,7 @@ void add_node_core(
         for (std::int32_t j = degree - 1; j >= static_cast<std::int32_t>(rev_edge_search_range);
              j--) {
           const auto neighbor_id               = updated_graph(target_node_id, j);
-          const std::size_t num_incoming_edges = host_num_incoming_edges.data_handle(neighbor_id);
+          const std::size_t num_incoming_edges = host_num_incoming_edges(neighbor_id);
           if (num_incoming_edges > replace_num_incoming_edges) {
             // Check duplication
             bool dup = false;
