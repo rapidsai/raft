@@ -245,7 +245,7 @@ void add_node_core(
         updated_graph.data_handle()[target_node_id * degree + replace_id_j] = target_new_node_id;
         rev_edges[i]                                                        = replace_id;
       }
-      host_num_incoming_edges.data_handle()[target_new_node_id] = num_rev_edges;
+      host_num_incoming_edges(target_new_node_id) = num_rev_edges;
 
       // Create a neighbor list of a new node by interleaving the kNN neighbor list and reverse edge
       // list
