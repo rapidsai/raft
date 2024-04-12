@@ -150,7 +150,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const uint32_t max_iteration,
   uint32_t* const num_executed_iterations, /* stats */
   SAMPLE_FILTER_T sample_filter,
-  raft::distance::DistanceType metric)
+  const raft::distance::DistanceType metric)
 {
   using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;

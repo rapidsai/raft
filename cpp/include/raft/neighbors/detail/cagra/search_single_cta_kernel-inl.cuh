@@ -486,7 +486,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const std::uint32_t small_hash_bitlen,
   const std::uint32_t small_hash_reset_interval,
   SAMPLE_FILTER_T sample_filter,
-  raft::distance::DistanceType metric)
+  const raft::distance::DistanceType metric)
 {
   using LOAD_T = device::LOAD_128BIT_T;
 

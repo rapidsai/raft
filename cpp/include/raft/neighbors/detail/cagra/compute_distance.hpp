@@ -54,7 +54,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   const uint32_t num_seeds,
   INDEX_T* const visited_hash_ptr,
   const uint32_t hash_bitlen,
-  raft::distance::DistanceType metric,
+  const raft::distance::DistanceType metric,
   const uint32_t block_id   = 0,
   const uint32_t num_blocks = 1)
 {
@@ -226,7 +226,7 @@ struct standard_dataset_descriptor_t
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
                                            const INDEX_T dataset_i,
                                            const bool valid,
-                                           raft::distance::DistanceType metric) const
+                                           const raft::distance::DistanceType metric) const
   {
     const auto dataset_ptr  = ptr + dataset_i * ld;
     const unsigned lane_id  = threadIdx.x % TEAM_SIZE;

@@ -101,7 +101,7 @@ RAFT_KERNEL random_pickup_kernel(
   const std::uint32_t ldr,                                                // (*) ldr >= num_pickup
   typename DATASET_DESCRIPTOR_T::INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
   const std::uint32_t hash_bitlen,
-  raft::distance::DistanceType metric)
+  const raft::distance::DistanceType metric)
 {
   using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
@@ -176,7 +176,7 @@ void random_pickup(
   const std::size_t ldr,                                                  // (*) ldr >= num_pickup
   typename DATASET_DESCRIPTOR_T::INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
   const std::uint32_t hash_bitlen,
-  raft::distance::DistanceType metric,
+  const raft::distance::DistanceType metric,
   cudaStream_t const cuda_stream = 0)
 {
   const auto block_size                = 256u;
@@ -329,7 +329,7 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,  // (*) ldd >= search_width * graph_degree
   SAMPLE_FILTER_T sample_filter,
-  raft::distance::DistanceType metric)
+  const raft::distance::DistanceType metric)
 {
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
   using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
@@ -425,7 +425,7 @@ void compute_distance_to_child_nodes(
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,  // (*) ldd >= search_width * graph_degree
   SAMPLE_FILTER_T sample_filter,
-  raft::distance::DistanceType metric,
+  const raft::distance::DistanceType metric,
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;

@@ -117,7 +117,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
                                            const INDEX_T node_id,
                                            const bool valid,
-                                           raft::distance::DistanceType metric) const
+                                           const raft::distance::DistanceType metric) const
   {
     float norm = 0;
     if (valid) {

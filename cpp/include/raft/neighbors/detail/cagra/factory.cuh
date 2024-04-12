@@ -42,7 +42,7 @@ class factory {
     int64_t dim,
     int64_t graph_degree,
     uint32_t topk,
-    raft::distance::DistanceType metric)
+    const raft::distance::DistanceType metric)
   {
     search_plan_impl_base plan(params, dim, graph_degree, topk, metric);
     switch (plan.dataset_block_dim) {

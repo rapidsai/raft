@@ -166,7 +166,7 @@ void launch_vpq_search_main_core(
   raft::device_matrix_view<InternalIdxT, int64_t, row_major> neighbors,
   raft::device_matrix_view<DistanceT, int64_t, row_major> distances,
   CagraSampleFilterT sample_filter,
-  raft::distance::DistanceType metric)
+  const raft::distance::DistanceType metric)
 {
   RAFT_EXPECTS(vpq_dset->pq_bits() == 8, "Only pq_bits = 8 is supported for now");
   RAFT_EXPECTS(vpq_dset->pq_len() == 2 || vpq_dset->pq_len() == 4,
