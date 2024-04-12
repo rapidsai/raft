@@ -384,6 +384,11 @@ void search(raft::resources const& res,
 /**
  * @brief Add new vectors to the index.
  *
+ * This function expects an input array that contains both the old and new dataset vectors
+ * (new vector appended to the end). This allows explicit control of dataset allocation.
+ * If there are no specific requirements for dataset allocation, then it is recommended
+ * to use cagra::extend to add new vectors.
+ *
  * See [cagra::extend](#cagra::extend) for usage example
  *
  * @tparam T data element type
