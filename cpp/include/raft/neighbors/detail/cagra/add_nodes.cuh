@@ -242,7 +242,7 @@ void add_node_core(
           std::fprintf(stderr, "Invalid rev edge index (%u)\n", replace_id);
           return;
         }
-        updated_graph.data_handle()[target_node_id * degree + replace_id_j] = target_new_node_id;
+        updated_graph(target_node_id, replace_id_j) = target_new_node_id;
         rev_edges[i]                                                        = replace_id;
       }
       host_num_incoming_edges(target_new_node_id) = num_rev_edges;
