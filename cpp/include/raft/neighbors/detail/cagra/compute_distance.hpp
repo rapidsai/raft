@@ -19,6 +19,7 @@
 #include "hashmap.hpp"
 #include "utils.hpp"
 
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
@@ -79,8 +80,10 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         }
       }
 
-      const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-        query_buffer, seed_index, valid_i, metric);
+      const auto norm2 =
+        dataset_desc
+          .template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::L2Expanded>(
+            query_buffer, seed_index, valid_i);
 
       if (valid_i && (norm2 < best_norm2_team_local)) {
         best_norm2_team_local = norm2;
@@ -155,8 +158,10 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(
     INDEX_T child_id   = invalid_index;
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
-    const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-      query_buffer, child_id, child_id != invalid_index, metric);
+    const auto norm2 =
+      dataset_desc
+        .template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::L2Expanded>(
+          query_buffer, child_id, child_id != invalid_index);
 
     // Store the distance
     const unsigned lane_id = threadIdx.x % TEAM_SIZE;
@@ -222,11 +227,16 @@ struct standard_dataset_descriptor_t
     }
   }
 
-  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE>
+template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE, raft::distance::DistanceType METRIC>
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
-                                           const INDEX_T dataset_i,
-                                           const bool valid,
-                                           raft::distance::DistanceType metric) const
+                     const INDEX_T dataset_i,
+                     const bool valid) {}
+
+  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE, raft::distance::DistanceType METRIC>
+  std::enable_if_t<METRIC == raft::distance::DistanceType::L2Expanded, DISTANCE_T> __device__
+  compute_similarity(const QUERY_T* const query_ptr,
+                     const INDEX_T dataset_i,
+                     const bool valid) const
   {
     const auto dataset_ptr  = ptr + dataset_i * ld;
     const unsigned lane_id  = threadIdx.x % TEAM_SIZE;
@@ -235,7 +245,7 @@ struct standard_dataset_descriptor_t
     constexpr unsigned reg_nelem = raft::ceildiv<unsigned>(DATASET_BLOCK_DIM, TEAM_SIZE * vlen);
     raft::TxN_t<DATA_T, vlen> dl_buff[reg_nelem];
 
-    DISTANCE_T dist = 0;
+    DISTANCE_T norm2 = 0;
     if (valid) {
       for (uint32_t elem_offset = 0; elem_offset < dim; elem_offset += DATASET_BLOCK_DIM) {
 #pragma unroll
@@ -255,22 +265,63 @@ struct standard_dataset_descriptor_t
             // because:
             // - Above the last element (dataset_dim-1), the query array is filled with zeros.
             // - The data buffer has to be also padded with zeros.
-            DISTANCE_T d = query_ptr[device::swizzling(kv)];
-            if (metric == raft::distance::L2Expanded) {
-              d -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].val.data[v]);
-              dist += d * d;
-            } else {
-              d *= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].val.data[v]);
-              dist -= d;
-            }
+            DISTANCE_T diff = query_ptr[device::swizzling(kv)];
+            diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].val.data[v]);
+            norm2 += diff * diff;
           }
         }
       }
     }
     for (uint32_t offset = TEAM_SIZE / 2; offset > 0; offset >>= 1) {
-      dist += __shfl_xor_sync(0xffffffff, dist, offset);
+      norm2 += __shfl_xor_sync(0xffffffff, norm2, offset);
     }
-    return dist;
+    return norm2;
+  }
+
+  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE, raft::distance::DistanceType METRIC>
+  std::enable_if_t<METRIC == raft::distance::DistanceType::InnerProduct, DISTANCE_T> __device__
+  compute_similarity(const QUERY_T* const query_ptr,
+                     const INDEX_T dataset_i,
+                     const bool valid) const
+  {
+    const auto dataset_ptr  = ptr + dataset_i * ld;
+    const unsigned lane_id  = threadIdx.x % TEAM_SIZE;
+    constexpr unsigned vlen = device::get_vlen<LOAD_T, DATA_T>();
+    // #include <raft/util/cuda_dev_essentials.cuh
+    constexpr unsigned reg_nelem = raft::ceildiv<unsigned>(DATASET_BLOCK_DIM, TEAM_SIZE * vlen);
+    raft::TxN_t<DATA_T, vlen> dl_buff[reg_nelem];
+
+    DISTANCE_T norm2 = 0;
+    if (valid) {
+      for (uint32_t elem_offset = 0; elem_offset < dim; elem_offset += DATASET_BLOCK_DIM) {
+#pragma unroll
+        for (uint32_t e = 0; e < reg_nelem; e++) {
+          const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
+          if (k >= dim) break;
+          dl_buff[e].load(dataset_ptr, k);
+        }
+#pragma unroll
+        for (uint32_t e = 0; e < reg_nelem; e++) {
+          const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
+          if (k >= dim) break;
+#pragma unroll
+          for (uint32_t v = 0; v < vlen; v++) {
+            const uint32_t kv = k + v;
+            // Note this loop can go above the dataset_dim for padded arrays. This is not a problem
+            // because:
+            // - Above the last element (dataset_dim-1), the query array is filled with zeros.
+            // - The data buffer has to be also padded with zeros.
+            DISTANCE_T prod = query_ptr[device::swizzling(kv)];
+            prod *= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].val.data[v]);
+            norm2 -= prod;
+          }
+        }
+      }
+    }
+    for (uint32_t offset = TEAM_SIZE / 2; offset > 0; offset >>= 1) {
+      norm2 += __shfl_xor_sync(0xffffffff, norm2, offset);
+    }
+    return norm2;
   }
 };
 

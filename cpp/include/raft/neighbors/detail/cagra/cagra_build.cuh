@@ -307,8 +307,6 @@ index<T, IdxT> build(
   std::optional<ivf_pq::search_params> search_params                      = std::nullopt,
   bool construct_index_with_dataset                                       = true)
 {
-  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
-               "Number of columns in output neighbors and distances matrices must equal k");
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
   if (intermediate_degree >= static_cast<size_t>(dataset.extent(0))) {

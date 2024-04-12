@@ -19,6 +19,7 @@
 #include "compute_distance_vpq.cuh"
 #include "device_common.hpp"
 #include "hashmap.hpp"
+#include "raft/distance/distance_types.hpp"
 #include "search_plan.cuh"
 #include "topk_for_cagra/topk_core.cuh"  //todo replace with raft kernel
 #include "utils.hpp"
@@ -138,8 +139,10 @@ RAFT_KERNEL random_pickup_kernel(
         device::xorshift64((global_team_index ^ rand_xor_mask) * (i + 1)) % dataset_desc.size;
     }
 
-    const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-      query_buffer, seed_index, true, metric);
+    const auto norm2 =
+      dataset_desc
+        .template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::L2Expanded>(
+          query_buffer, seed_index, true);
 
     if (norm2 < best_norm2_team_local) {
       best_norm2_team_local = norm2;
@@ -375,8 +378,23 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   const auto compute_distance_flag = hashmap::insert<TEAM_SIZE, INDEX_T>(
     visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id);
 
-  const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-    query_buffer, child_id, compute_distance_flag, metric);
+  DISTANCE_T norm2;
+  switch (metric) {
+    case raft::distance::DistanceType::L2Expanded:
+      norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                       TEAM_SIZE,
+                                                       raft::distance::DistanceType::L2Expanded>(
+        query_buffer, child_id, compute_distance_flag);
+      break;
+    case raft::distance::DistanceType::InnerProduct:
+      norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                       TEAM_SIZE,
+                                                       raft::distance::DistanceType::InnerProduct>(
+        query_buffer, child_id, compute_distance_flag);
+      break;
+    default:
+      break;
+  }
 
   if (compute_distance_flag) {
     if (threadIdx.x % TEAM_SIZE == 0) {
