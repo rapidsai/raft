@@ -277,7 +277,7 @@ void add_node_core(
         interleave_switch = 1 - interleave_switch;
       }
       for (std::uint32_t i = 0; i < degree; i++) {
-        updated_graph.data_handle()[target_new_node_id * degree + i] = temp[i];
+        updated_graph(target_new_node_id, i) = temp[i];
       }
     }
   }
