@@ -168,17 +168,15 @@ void add_node_core(
     // Step 3: rank-based reordering
     std::vector<std::pair<IdxT, std::size_t>> detourable_node_count_list(base_degree);
     for (std::size_t vec_i = 0; vec_i < batch.size(); vec_i++) {
-      const auto host_neighbor_indices_ptr =
-        host_neighbor_indices.data_handle() + vec_i * base_degree;
       const auto host_two_hop_neighbors_indices_ptr =
         host_two_hop_neighbors_indices.data_handle() + vec_i * base_degree * base_degree;
 
       // Count detourable edges
       for (std::uint32_t i = 0; i < base_degree; i++) {
         std::uint32_t detourable_node_count = 0;
-        const auto a_id                     = host_neighbor_indices_ptr[i];
+        const auto a_id                     = host_neighbor_indices(vec_i, i);
         for (std::uint32_t j = i + 1; j < base_degree; j++) {
-          const auto b0_id = host_neighbor_indices_ptr[j];
+          const auto b0_id = host_neighbor_indices(vec_i, j);
           for (std::uint32_t k = 0; k <= i; k++) {
             const auto b1_id = host_two_hop_neighbors_indices_ptr[i * base_degree + k];
             if (b0_id == b1_id) {
@@ -243,7 +241,7 @@ void add_node_core(
           return;
         }
         updated_graph(target_node_id, replace_id_j) = target_new_node_id;
-        rev_edges[i]                                                        = replace_id;
+        rev_edges[i]                                = replace_id;
       }
       host_num_incoming_edges(target_new_node_id) = num_rev_edges;
 
