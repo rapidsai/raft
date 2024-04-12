@@ -217,7 +217,7 @@ void add_node_core(
         std::size_t replace_num_incoming_edges = 0;
         for (std::int32_t j = degree - 1; j >= static_cast<std::int32_t>(rev_edge_search_range);
              j--) {
-          const auto neighbor_id               = host_neighbor_indices_ptr[j];
+          const auto neighbor_id               = updated_graph(target_node_id, j);
           const std::size_t num_incoming_edges = host_num_incoming_edges.data_handle(neighbor_id);
           if (num_incoming_edges > replace_num_incoming_edges) {
             // Check duplication
