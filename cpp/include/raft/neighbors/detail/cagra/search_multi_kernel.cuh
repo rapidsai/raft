@@ -19,7 +19,6 @@
 #include "compute_distance_vpq.cuh"
 #include "device_common.hpp"
 #include "hashmap.hpp"
-#include "raft/distance/distance_types.hpp"
 #include "search_plan.cuh"
 #include "topk_for_cagra/topk_core.cuh"  //todo replace with raft kernel
 #include "utils.hpp"
@@ -28,6 +27,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/matrix/select_k.cuh>
 #include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
@@ -102,7 +102,7 @@ RAFT_KERNEL random_pickup_kernel(
   const std::uint32_t ldr,                                                // (*) ldr >= num_pickup
   typename DATASET_DESCRIPTOR_T::INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
   const std::uint32_t hash_bitlen,
-  raft::distance::DistanceType metric)
+  const raft::distance::DistanceType metric)
 {
   using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
@@ -139,10 +139,22 @@ RAFT_KERNEL random_pickup_kernel(
         device::xorshift64((global_team_index ^ rand_xor_mask) * (i + 1)) % dataset_desc.size;
     }
 
-    const auto norm2 =
-      dataset_desc
-        .template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::L2Expanded>(
+    DISTANCE_T norm2;
+    switch (metric) {
+      case distance::DistanceType::L2Expanded:
+        norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                         TEAM_SIZE,
+                                                         distance::DistanceType::L2Expanded>(
           query_buffer, seed_index, true);
+        break;
+      case distance::DistanceType::InnerProduct:
+        norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                         TEAM_SIZE,
+                                                         distance::DistanceType::InnerProduct>(
+          query_buffer, seed_index, true);
+        break;
+      default: break;
+    }
 
     if (norm2 < best_norm2_team_local) {
       best_norm2_team_local = norm2;
@@ -179,7 +191,7 @@ void random_pickup(
   const std::size_t ldr,                                                  // (*) ldr >= num_pickup
   typename DATASET_DESCRIPTOR_T::INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
   const std::uint32_t hash_bitlen,
-  raft::distance::DistanceType metric,
+  const raft::distance::DistanceType metric,
   cudaStream_t const cuda_stream = 0)
 {
   const auto block_size                = 256u;
@@ -332,7 +344,7 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,  // (*) ldd >= search_width * graph_degree
   SAMPLE_FILTER_T sample_filter,
-  raft::distance::DistanceType metric)
+  const raft::distance::DistanceType metric)
 {
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
   using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
@@ -392,8 +404,7 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
                                                        raft::distance::DistanceType::InnerProduct>(
         query_buffer, child_id, compute_distance_flag);
       break;
-    default:
-      break;
+    default: break;
   }
 
   if (compute_distance_flag) {
@@ -443,7 +454,7 @@ void compute_distance_to_child_nodes(
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,  // (*) ldd >= search_width * graph_degree
   SAMPLE_FILTER_T sample_filter,
-  raft::distance::DistanceType metric,
+  const raft::distance::DistanceType metric,
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;

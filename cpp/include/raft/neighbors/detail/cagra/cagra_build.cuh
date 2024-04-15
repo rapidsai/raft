@@ -50,7 +50,6 @@ void build_knn_graph(raft::resources const& res,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
-  std::cout << "metric from build_knn_graph" << metric << std::endl;
   RAFT_EXPECTS(!build_params || build_params->metric == metric,
                "Mismatch between index metric and IVF-PQ metric");
   RAFT_EXPECTS(
