@@ -23,6 +23,8 @@
 
 #include <rmm/device_buffer.hpp>
 
+#include <omp.h>
+
 #include <cstdint>
 
 // prototype declaration
@@ -93,21 +95,6 @@ void add_node_core(
   auto host_neighbor_indices =
     raft::make_host_matrix<IdxT, std::int64_t>(max_chunk_size, base_degree);
 
-  auto neighbors_vectors = raft::make_device_mdarray<T, std::int64_t>(
-    handle, mr, raft::make_extents<std::int64_t>(max_chunk_size * base_degree, dim));
-
-  auto two_hop_neighbors_indices = raft::make_device_mdarray<IdxT, std::int64_t>(
-    handle, mr, raft::make_extents<std::int64_t>(max_chunk_size * base_degree, base_degree));
-
-  auto host_two_hop_neighbors_indices =
-    raft::make_host_matrix<IdxT, std::int64_t>(max_chunk_size * base_degree, base_degree);
-
-  auto two_hop_neighbors_distances = raft::make_device_mdarray<DistanceT, std::int64_t>(
-    handle, mr, raft::make_extents<std::int64_t>(max_chunk_size * base_degree, base_degree));
-
-  auto host_two_hop_neighbors_distances =
-    raft::make_host_matrix<DistanceT, std::int64_t>(max_chunk_size * base_degree, base_degree);
-
   raft::spatial::knn::detail::utils::batch_load_iterator<T> additional_dataset_batch(
     additional_dataset_view.data_handle(),
     num_add,
@@ -142,68 +129,44 @@ void add_node_core(
                neighbor_indices.data_handle(),
                batch.size() * base_degree,
                raft::resource::get_cuda_stream(handle));
-
-    // Step 2: Obtain K (=base_degree) nearest neighbors of the neighbors of the new vectors by
-    // CAGRA search
-    for (std::uint32_t i = 0; i < batch.size(); i++) {
-      for (std::uint32_t j = 0; j < base_degree; j++) {
-        raft::copy(
-          neighbors_vectors.data_handle() + (i * base_degree + j) * dim,
-          idx.dataset().data_handle() +
-            host_neighbor_indices.data_handle()[i * base_degree + j] * idx.dataset().stride(0),
-          dim,
-          raft::resource::get_cuda_stream(handle));
-      }
-    }
-
-    raft::neighbors::cagra::search(handle,
-                                   params,
-                                   idx,
-                                   raft::make_const_mdspan(neighbors_vectors.view()),
-                                   two_hop_neighbors_indices.view(),
-                                   two_hop_neighbors_distances.view());
-
-    raft::copy(host_two_hop_neighbors_indices.data_handle(),
-               two_hop_neighbors_indices.data_handle(),
-               batch.size() * degree * degree,
-               raft::resource::get_cuda_stream(handle));
     raft::resource::sync_stream(handle);
 
-    // Step 3: rank-based reordering
-    std::vector<std::pair<IdxT, std::size_t>> detourable_node_count_list(base_degree);
-    for (std::size_t vec_i = 0; vec_i < batch.size(); vec_i++) {
-      const auto host_two_hop_neighbors_indices_ptr =
-        host_two_hop_neighbors_indices.data_handle() + vec_i * base_degree * base_degree;
-
-      // Count detourable edges
-      for (std::uint32_t i = 0; i < base_degree; i++) {
-        std::uint32_t detourable_node_count = 0;
-        const auto a_id                     = host_neighbor_indices(vec_i, i);
-        for (std::uint32_t j = i + 1; j < base_degree; j++) {
-          const auto b0_id = host_neighbor_indices(vec_i, j);
-          for (std::uint32_t k = 0; k <= i; k++) {
-            const auto b1_id = host_two_hop_neighbors_indices_ptr[i * base_degree + k];
-            if (b0_id == b1_id) {
-              detourable_node_count++;
-              break;
+    // Step 2: rank-based reordering
+#pragma omp parallel
+    {
+      std::vector<std::pair<IdxT, std::size_t>> detourable_node_count_list(base_degree);
+      for (std::size_t vec_i = omp_get_thread_num(); vec_i < batch.size();
+           vec_i += omp_get_num_threads()) {
+        // Count detourable edges
+        for (std::uint32_t i = 0; i < base_degree; i++) {
+          std::uint32_t detourable_node_count = 0;
+          const auto a_id                     = host_neighbor_indices(vec_i, i);
+          for (std::uint32_t j = i + 1; j < base_degree; j++) {
+            const auto b0_id = host_neighbor_indices(vec_i, j);
+            for (std::uint32_t k = 0; k < degree; k++) {
+              const auto b1_id = updated_graph.data_handle()[a_id * degree + k];
+              if (b0_id == b1_id) {
+                detourable_node_count++;
+                break;
+              }
             }
           }
+          detourable_node_count_list[i] = std::make_pair(a_id, detourable_node_count);
         }
-        detourable_node_count_list[i] = std::make_pair(a_id, detourable_node_count);
-      }
-      std::sort(detourable_node_count_list.begin(),
-                detourable_node_count_list.end(),
-                [&](const std::pair<IdxT, std::size_t> a, const std::pair<IdxT, std::size_t> b) {
-                  return a.second < b.second;
-                });
+        std::sort(detourable_node_count_list.begin(),
+                  detourable_node_count_list.end(),
+                  [&](const std::pair<IdxT, std::size_t> a, const std::pair<IdxT, std::size_t> b) {
+                    return a.second < b.second;
+                  });
 
-      for (std::size_t i = 0; i < degree; i++) {
-        updated_graph.data_handle()[i + (old_size + batch.offset() + vec_i) * degree] =
-          detourable_node_count_list[i].first;
+        for (std::size_t i = 0; i < degree; i++) {
+          updated_graph.data_handle()[i + (old_size + batch.offset() + vec_i) * degree] =
+            detourable_node_count_list[i].first;
+        }
       }
     }
 
-    // Step 4: Add reverse edges
+    // Step 3: Add reverse edges
     const std::uint32_t rev_edge_search_range = degree / 2;
     const std::uint32_t num_rev_edges         = degree / 2;
     std::vector<IdxT> rev_edges(num_rev_edges), temp(degree);
