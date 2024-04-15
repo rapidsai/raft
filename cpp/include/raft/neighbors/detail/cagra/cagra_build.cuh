@@ -54,7 +54,7 @@ void build_knn_graph(raft::resources const& res,
                "Mismatch between index metric and IVF-PQ metric");
   RAFT_EXPECTS(
     metric == distance::DistanceType::L2Expanded || metric == distance::DistanceType::InnerProduct,
-    "Currently only L2Expanded metric is supported");
+    "Currently only L2Expanded or InnerProduct metric are supported");
 
   uint32_t node_degree = knn_graph.extent(1);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::build_graph(%zu, %zu, %u)",
@@ -334,9 +334,6 @@ index<T, IdxT> build(
       res, dataset, knn_graph->view(), params.metric, refine_rate, pq_build_params, search_params);
 
   } else {
-    RAFT_EXPECTS(
-      params.metric != raft::distance::DistanceType::InnerProduct,
-      "InnerProduct distance metric supported with nn_descent. Use IVF_PQ as the build_algo");
     RAFT_EXPECTS(params.metric == raft::distance::DistanceType::L2Expanded,
                  "L2Expanded is the only distance metrics supported with nn_descent");
     // Use nn-descent to build CAGRA knn graph
@@ -361,6 +358,8 @@ index<T, IdxT> build(
   // Construct an index from dataset and optimized knn graph.
   if (construct_index_with_dataset) {
     if (params.compression.has_value()) {
+      RAFT_EXPECTS(params.metric == raft::distance::DistanceType::L2Expanded,
+                   "VPQ compression is only supported with L2Expanded distance mertric");
       index<T, IdxT> idx(res, params.metric);
       idx.update_graph(res, raft::make_const_mdspan(cagra_graph.view()));
       idx.update_dataset(
