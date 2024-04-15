@@ -205,8 +205,8 @@ struct index : ann::index {
         raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
     : ann::index(),
       metric_(metric),
-      dataset_(new neighbors::empty_dataset<int64_t>(0)),
-      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      dataset_(new neighbors::empty_dataset<int64_t>(0))
   {
   }
 
@@ -271,8 +271,8 @@ struct index : ann::index {
         mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph)
     : ann::index(),
       metric_(metric),
-      dataset_(make_aligned_dataset(res, dataset, 16)),
-      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      dataset_(make_aligned_dataset(res, dataset, 16))
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
                  "Dataset and knn_graph must have equal number of rows");
