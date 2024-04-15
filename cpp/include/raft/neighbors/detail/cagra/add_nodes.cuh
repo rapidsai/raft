@@ -141,11 +141,12 @@ void add_node_core(
         for (std::uint32_t i = 0; i < base_degree; i++) {
           std::uint32_t detourable_node_count = 0;
           const auto a_id                     = host_neighbor_indices(vec_i, i);
-          for (std::uint32_t j = i + 1; j < base_degree; j++) {
+          for (std::uint32_t j = 0; j < i; j++) {
             const auto b0_id = host_neighbor_indices(vec_i, j);
+            assert(b0_id < idx.size());
             for (std::uint32_t k = 0; k < degree; k++) {
-              const auto b1_id = updated_graph.data_handle()[a_id * degree + k];
-              if (b0_id == b1_id) {
+              const auto b1_id = updated_graph(b0_id, k);
+              if (a_id == b1_id) {
                 detourable_node_count++;
                 break;
               }
@@ -160,8 +161,7 @@ void add_node_core(
                   });
 
         for (std::size_t i = 0; i < degree; i++) {
-          updated_graph.data_handle()[i + (old_size + batch.offset() + vec_i) * degree] =
-            detourable_node_count_list[i].first;
+          updated_graph(old_size + batch.offset() + vec_i, i) = detourable_node_count_list[i].first;
         }
       }
     }
@@ -174,10 +174,7 @@ void add_node_core(
       // Create a reverse edge list
       const auto target_new_node_id = old_size + batch.offset() + vec_i;
       for (std::size_t i = 0; i < num_rev_edges; i++) {
-        const auto target_node_id =
-          updated_graph.data_handle()[i + (old_size + batch.offset() + vec_i) * degree];
-
-        auto host_neighbor_indices_ptr = updated_graph.data_handle() + target_node_id * degree;
+        const auto target_node_id = updated_graph(old_size + batch.offset() + vec_i, i);
 
         IdxT replace_id                        = new_size;
         IdxT replace_id_j                      = 0;
