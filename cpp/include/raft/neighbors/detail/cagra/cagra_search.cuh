@@ -90,8 +90,8 @@ void search_main_core(
   CagraSampleFilterT sample_filter = CagraSampleFilterT())
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
-                 static_cast<size_t>(index.data().n_rows()),
-                 static_cast<size_t>(index.data().dim()));
+                 static_cast<size_t>(dataset_desc.size),
+                 static_cast<size_t>(dataset_desc.dim));
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
@@ -166,7 +166,8 @@ void launch_vpq_search_main_core(
   CagraSampleFilterT sample_filter)
 {
   RAFT_EXPECTS(vpq_dset->pq_bits() == 8, "Only pq_bits = 8 is supported for now");
-  RAFT_EXPECTS(vpq_dset->pq_len() == 2, "Only pq_len 2 is supported for now");
+  RAFT_EXPECTS(vpq_dset->pq_len() == 2 || vpq_dset->pq_len() == 4,
+               "Only pq_len 2 or 4 is supported for now");
   RAFT_EXPECTS(vpq_dset->dim() % vpq_dset->pq_dim() == 0,
                "dim must be a multiple of pq_dim at the moment");
 
