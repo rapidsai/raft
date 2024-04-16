@@ -893,8 +893,7 @@ struct work_desc_t {
   using index_type    = typename DATASET_DESCRIPTOR_T::INDEX_T;
   using distance_type = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
   using data_type     = typename DATASET_DESCRIPTOR_T::DATA_T;
-  cuda::barrier<cuda::thread_scope_system> input_barrier;
-  cuda::latch<cuda::thread_scope_device>* completion_latch;
+  cuda::latch<cuda::thread_scope_system>* completion_latch;
   index_type* result_indices_ptr;       // [num_queries, top_k]
   distance_type* result_distances_ptr;  // [num_queries, top_k]
   const data_type* queries_ptr;         // [num_queries, dataset_dim]
@@ -911,6 +910,7 @@ template <uint32_t TEAM_SIZE,
           class SAMPLE_FILTER_T>
 __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
   DATASET_DESCRIPTOR_T dataset_desc,
+  cuda::barrier<cuda::thread_scope_system>* input_barriers,
   work_desc_t<DATASET_DESCRIPTOR_T>* work_descriptors,
   const typename DATASET_DESCRIPTOR_T::INDEX_T* const knn_graph,  // [dataset_size, graph_degree]
   const std::uint32_t graph_degree,
@@ -931,8 +931,16 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
   SAMPLE_FILTER_T sample_filter,
   raft::distance::DistanceType metric)
 {
-  auto& work_descriptor = work_descriptors[blockIdx.y];
-  auto& input_barrier   = work_descriptor.input_barrier;
+  auto& input_barrier = input_barriers[blockIdx.y];
+
+  using work_desc_type     = work_desc_t<DATASET_DESCRIPTOR_T>;
+  using blob_elem          = uint32_t;
+  constexpr auto kBlobSize = raft::div_rounding_up_safe(sizeof(work_desc_type), sizeof(blob_elem));
+  static_assert(kBlobSize * sizeof(blob_elem) == sizeof(work_desc_type));
+  __shared__ union {
+    work_desc_type value;
+    blob_elem blob[kBlobSize];
+  } work_descriptor;
 
   cuda::barrier<cuda::thread_scope_system>::arrival_token ready_to_read;
   if (threadIdx.x == 0) { ready_to_read = input_barrier.arrive(); }
@@ -943,18 +951,23 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
     __syncthreads();
     cuda::atomic_thread_fence(cuda::memory_order_acquire, cuda::thread_scope_system);
 
+    for (auto i = threadIdx.x; i < kBlobSize; i += blockDim.x) {
+      work_descriptor.blob[i] = reinterpret_cast<blob_elem*>(work_descriptors + blockIdx.y)[i];
+    }
+    __syncthreads();
+
     // reading phase
-    auto* completion_latch = work_descriptor.completion_latch;
+    auto* completion_latch = work_descriptor.value.completion_latch;
     // empty input means terminate the persistent kernel.
     if (completion_latch == nullptr) {
       if (threadIdx.x == 0) { input_barrier.arrive_and_drop(); }
       break;
     }
-    auto* result_indices_ptr   = work_descriptor.result_indices_ptr;
-    auto* result_distances_ptr = work_descriptor.result_distances_ptr;
-    auto* queries_ptr          = work_descriptor.queries_ptr;
-    auto query_id              = work_descriptor.query_id;
-    auto top_k                 = work_descriptor.top_k;
+    auto* result_indices_ptr   = work_descriptor.value.result_indices_ptr;
+    auto* result_distances_ptr = work_descriptor.value.result_distances_ptr;
+    auto* queries_ptr          = work_descriptor.value.queries_ptr;
+    auto query_id              = work_descriptor.value.query_id;
+    auto top_k                 = work_descriptor.value.top_k;
 
     // arrive to mark the end of the reading phase
     __syncthreads();
@@ -997,17 +1010,17 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
   }
 }
 
-RAFT_KERNEL
-register_completion_kernel(cuda::barrier<cuda::thread_scope_system>* bar,
-                           cuda::latch<cuda::thread_scope_device>* latch,
-                           uint32_t num_queries)
-{
-  if (threadIdx.x != 0 || bar == nullptr || latch == nullptr) { return; }
-  new (latch) cuda::latch<cuda::thread_scope_device>(num_queries);
-  cuda::atomic_thread_fence(cuda::memory_order_release, cuda::thread_scope_device);
-  [[maybe_unused]] auto ready_to_read = bar->arrive();
-  latch->wait();
-}
+// RAFT_KERNEL
+// register_completion_kernel(cuda::barrier<cuda::thread_scope_system>* bar,
+//                            cuda::latch<cuda::thread_scope_device>* latch,
+//                            uint32_t num_queries)
+// {
+//   if (threadIdx.x != 0 || bar == nullptr || latch == nullptr) { return; }
+//   new (latch) cuda::latch<cuda::thread_scope_device>(num_queries);
+//   cuda::atomic_thread_fence(cuda::memory_order_release, cuda::thread_scope_device);
+//   [[maybe_unused]] auto ready_to_read = bar->arrive();
+//   latch->wait();
+// }
 
 template <bool Persistent,
           uint32_t TEAM_SIZE,
@@ -1139,7 +1152,8 @@ inline void run_zombie(std::atomic<std::chrono::time_point<std::chrono::system_c
 
 struct persistent_runner_base_t {
   using work_queue_type = atomic_queue::AtomicQueue<uint32_t, 1024, ~0u, false, true, false, false>;
-  rmm::mr::managed_memory_resource work_descriptor_mr;
+  rmm::mr::managed_memory_resource input_barriers_mr;
+  rmm::mr::pinned_host_memory_resource work_descriptor_mr;
   cudaStream_t stream;
   work_queue_type queue;
   persistent_runner_base_t(cudaStream_t stream) : stream(stream), queue() {}
@@ -1160,6 +1174,7 @@ struct persistent_runner_t : public persistent_runner_base_t {
   using work_desc_type = work_desc_t<DATASET_DESCRIPTOR_T>;
   kernel_type kernel;
   uint32_t block_size;
+  rmm::device_uvector<cuda::barrier<cuda::thread_scope_system>> input_barriers;
   rmm::device_uvector<work_desc_type> work_descriptors;
   std::atomic<std::chrono::time_point<std::chrono::system_clock>> last_touch;
 
@@ -1186,16 +1201,19 @@ struct persistent_runner_t : public persistent_runner_base_t {
       kernel{kernel_config_type::choose_itopk_and_mx_candidates(
         itopk_size, num_itopk_candidates, block_size)},
       block_size{block_size},
+      input_barriers(0, stream, input_barriers_mr),
       work_descriptors(0, stream, work_descriptor_mr)
   {
+    int gpu_dev;
+    RAFT_CUDA_TRY(cudaGetDevice(&gpu_dev));
     // set kernel attributes same as in normal kernel
     RAFT_CUDA_TRY(
       cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
-    // do the same for subsequently launched completion kernel to make sure
-    // its config is the same and it is loaded by the driver before this kernel is launched
-    RAFT_CUDA_TRY(cudaFuncSetAttribute(
-      register_completion_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
-    register_completion_kernel<<<1, 1, 0, stream>>>(nullptr, nullptr, 1);
+    // // do the same for subsequently launched completion kernel to make sure
+    // // its config is the same and it is loaded by the driver before this kernel is launched
+    // RAFT_CUDA_TRY(cudaFuncSetAttribute(
+    //   register_completion_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+    // register_completion_kernel<<<1, 1, 0, stream>>>(nullptr, nullptr, 1);
 
     // set kernel launch parameters
     dim3 gs = calc_coop_grid_size(block_size, smem_size);
@@ -1205,10 +1223,31 @@ struct persistent_runner_t : public persistent_runner_base_t {
 
     // initialize the work queue
     work_descriptors.resize(gs.y, stream);
+    auto* work_descriptors_ptr = work_descriptors.data();
+    // {
+    //   auto allocation_size = work_descriptors.size() * sizeof(work_desc_type);
+    //   RAFT_CUDA_TRY(cudaMemAdvise(
+    //     work_descriptors_ptr, allocation_size, cudaMemAdviseSetPreferredLocation,
+    //     cudaCpuDeviceId));
+    //   RAFT_CUDA_TRY(
+    //     cudaMemAdvise(work_descriptors_ptr, allocation_size, cudaMemAdviseSetAccessedBy,
+    //     gpu_dev));
+    // }
+
+    input_barriers.resize(gs.y, stream);
+    auto* input_barriers_ptr = input_barriers.data();
+    {
+      auto allocation_size =
+        input_barriers.size() * sizeof(cuda::barrier<cuda::thread_scope_system>);
+      RAFT_CUDA_TRY(cudaMemAdvise(
+        input_barriers_ptr, allocation_size, cudaMemAdviseSetPreferredLocation, gpu_dev));
+      RAFT_CUDA_TRY(cudaMemAdvise(
+        input_barriers_ptr, allocation_size, cudaMemAdviseSetAccessedBy, cudaCpuDeviceId));
+    }
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     for (uint32_t i = 0; i < gs.y; i++) {
-      auto& wd = work_descriptors.data()[i];
-      init(&wd.input_barrier, 3);
+      auto& wd = work_descriptors_ptr[i];
+      init(input_barriers_ptr + i, 2);
       wd.completion_latch     = nullptr;
       wd.result_indices_ptr   = nullptr;
       wd.result_distances_ptr = nullptr;
@@ -1219,7 +1258,6 @@ struct persistent_runner_t : public persistent_runner_base_t {
     }
 
     // launch the kernel
-    auto* work_descriptors_ptr        = work_descriptors.data();
     auto* graph_ptr                   = graph.data_handle();
     uint32_t graph_degree             = graph.extent(1);
     uint32_t* num_executed_iterations = nullptr;  // optional arg [num_queries]
@@ -1227,6 +1265,7 @@ struct persistent_runner_t : public persistent_runner_base_t {
 
     void* args[] =  // NOLINT
       {&dataset_desc,
+       &input_barriers_ptr,
        &work_descriptors_ptr,
        &graph_ptr,  // [dataset_size, graph_degree]
        &graph_degree,
@@ -1256,20 +1295,22 @@ struct persistent_runner_t : public persistent_runner_base_t {
 
   ~persistent_runner_t() noexcept override
   {
-    RAFT_LOG_INFO("Gonna destroy the persistent runner.");
+    auto ibs           = input_barriers.data();
     auto wds           = work_descriptors.data();
     auto wdl           = work_descriptors.size();
     uint32_t worker_id = 0;
+    // wait for all the jobs to finish nicely
     while (queue.try_pop(worker_id)) {
       auto& wd                   = wds[worker_id];
       wd.completion_latch        = nullptr;
-      [[maybe_unused]] auto done = wd.input_barrier.arrive(2);
+      [[maybe_unused]] auto done = ibs[worker_id].arrive();
     }
+    // try to kill stuck threads if any
     for (uint32_t i = 0; i < wdl; i++) {
       auto& wd = wds[i];
       if (wd.completion_latch != nullptr) {
         wd.completion_latch        = nullptr;
-        [[maybe_unused]] auto done = wd.input_barrier.arrive(2);
+        [[maybe_unused]] auto done = ibs[i].arrive();
       }
     }
     RAFT_LOG_INFO("Destroyed the persistent runner.");
@@ -1280,68 +1321,38 @@ struct persistent_runner_t : public persistent_runner_base_t {
               const data_type* queries_ptr,         // [num_queries, dataset_dim]
               uint32_t num_queries,
               uint32_t top_k,
-              cuda::latch<cuda::thread_scope_device>* completion_latch,
+              cuda::latch<cuda::thread_scope_device>* _completion_latch,
               cudaStream_t local_stream)
   {
-    // RAFT_LOG_INFO("Launch! queue size = %u, num_queries = %u, top_k = %u",
-    //               queue.was_size(),
-    //               num_queries,
-    //               top_k);
-    void* args[] = {nullptr, &completion_latch, &num_queries};  // NOLINT
-    // RAFT_CUDA_TRY(cudaLaunchKernel<decltype(register_completion_kernel)>(
-    //   &register_completion_kernel, dim3(1, 1, 1), dim3(1, 1, 1), args, 0ul, local_stream));
-    // register_completion_kernel<<<1, 1, 0, local_stream>>>(nullptr, completion_latch,
-    // num_queries);
-    // RAFT_LOG_INFO("Launched completion kernel %p", completion_latch);
-    // using latch_t = cuda::latch<cuda::thread_scope_device>;
-    // static thread_local std::unique_ptr<latch_t, std::function<void(latch_t*)>>
-    //   completion_latch_store(
-    //     [local_stream]() {
-    //       latch_t* x = nullptr;
-    //       cudaMallocAsync(&x, sizeof(latch_t), local_stream);
-    //       return x;
-    //     }(),
-    //     [](latch_t* x) { cudaFreeAsync(x, local_stream); });
+    using latch_t = cuda::latch<cuda::thread_scope_system>;
+    static thread_local std::unique_ptr<latch_t, std::function<void(latch_t*)>>
+      completion_latch_store(
+        []() {
+          latch_t* x = nullptr;
+          cudaMallocManaged(&x, sizeof(latch_t));
+          RAFT_CUDA_TRY(
+            cudaMemAdvise(x, sizeof(latch_t), cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
+          RAFT_CUDA_TRY(cudaMemAdvise(x, sizeof(latch_t), cudaMemAdviseSetAccessedBy, 0));
+          return x;
+        }(),
+        [](latch_t* x) { cudaFree(x); });
     // wait for all workers to finish
-    // DANGER: initialization of the latch can happen too late!
-    // std::vector<decltype(work_descriptors[0].completion.arrive())>
-    // completion_tokens(num_queries);
-    // RAFT_EXPECTS(num_queries == 1, "Single-query for now");
+    auto* completion_latch = new (completion_latch_store.get()) latch_t{num_queries};
     for (uint32_t i = 0; i < num_queries; i++) {
       auto worker_id = queue.pop();
       // RAFT_LOG_INFO("Submitting query %u (worker id = %u)", i, worker_id);
-      auto& wd = work_descriptors.data()[worker_id];
-      if (i == 0) {
-        auto* bar = &wd.input_barrier;
-        args[0]   = &bar;
-        RAFT_CUDA_TRY(cudaLaunchKernel<decltype(register_completion_kernel)>(
-          &register_completion_kernel, dim3(1, 1, 1), dim3(1, 1, 1), args, 0ul, local_stream));
-        // register_completion_kernel<<<1, 1, 0, local_stream>>>(
-        //   &wd.input_barrier, completion_latch, num_queries);
-        // RAFT_LOG_INFO("Launched completion kernel %p", completion_latch);
-        // RAFT_CUDA_TRY(cudaPeekAtLastError());
-      }
-
+      auto& wd                = work_descriptors.data()[worker_id];
       wd.completion_latch     = completion_latch;
       wd.result_indices_ptr   = result_indices_ptr;
       wd.result_distances_ptr = result_distances_ptr;
       wd.queries_ptr          = queries_ptr;
       wd.query_id             = i;
       wd.top_k                = top_k;
-      // RAFT_LOG_INFO("Wrote input %p", completion_latch);
       cuda::atomic_thread_fence(cuda::memory_order_release, cuda::thread_scope_system);
-      // RAFT_LOG_INFO("Issued a fence %p", completion_latch);
-      // RAFT_CUDA_TRY(cudaStreamSynchronize(local_stream));
-      // RAFT_LOG_INFO("Finished the completion kernel!");
-      // wait till the device threads finish the reading
-      // wd.input_barrier.arrive_and_wait();
-      wd.input_barrier.wait(wd.input_barrier.arrive((i == 0) ? 1 : 2));
-      // RAFT_LOG_INFO("Got the barrier");
-      // then release the worker id
+      input_barriers.data()[worker_id].arrive_and_wait();
       queue.push(worker_id);
-      // RAFT_LOG_INFO("Returned worker %u", worker_id);
     }
-    // latch->arrive_and_wait();
+    completion_latch->wait();
     // RAFT_LOG_INFO("Launch done!");
     last_touch.store(std::chrono::system_clock::now());
   }
