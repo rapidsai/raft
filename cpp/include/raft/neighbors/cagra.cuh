@@ -502,17 +502,13 @@ void extend(
       strided_dset != nullptr) {
     auto updated_graph = raft::make_host_matrix<IdxT, std::int64_t>(new_dataset_size, degree);
 
-    const auto stride = strided_dset->stride();
-    auto updated_dataset =
-      raft::make_device_matrix<T, std::int64_t>(handle, new_dataset_size, stride);
+    const auto stride         = strided_dset->stride();
+    auto host_updated_dataset = raft::make_host_matrix<T, std::int64_t>(new_dataset_size, stride);
 
     // The padding area must be filled with zeros.!!!!!!!!!!!!!!!!!!!
-    RAFT_CUDA_TRY(cudaMemsetAsync(updated_dataset.data_handle(),
-                                  0,
-                                  sizeof(T) * updated_dataset.size(),
-                                  resource::get_cuda_stream(handle)));
+    memset(host_updated_dataset.data_handle(), 0, sizeof(T) * host_updated_dataset.size());
 
-    RAFT_CUDA_TRY(cudaMemcpy2DAsync(updated_dataset.data_handle(),
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(host_updated_dataset.data_handle(),
                                     sizeof(T) * stride,
                                     strided_dset->view().data_handle(),
                                     sizeof(T) * stride,
@@ -520,17 +516,33 @@ void extend(
                                     initial_dataset_size,
                                     cudaMemcpyDefault,
                                     resource::get_cuda_stream(handle)));
-    RAFT_CUDA_TRY(cudaMemcpy2DAsync(updated_dataset.data_handle() + initial_dataset_size * stride,
-                                    sizeof(T) * stride,
-                                    additional_dataset.data_handle(),
-                                    sizeof(T) * additional_dataset.stride(0),
-                                    sizeof(T) * dim,
-                                    num_new_nodes,
-                                    cudaMemcpyDefault,
-                                    resource::get_cuda_stream(handle)));
-    auto updated_dataset_view = raft::make_device_strided_matrix_view<const T, std::int64_t>(
-      updated_dataset.data_handle(), new_dataset_size, dim, stride);
+    RAFT_CUDA_TRY(
+      cudaMemcpy2DAsync(host_updated_dataset.data_handle() + initial_dataset_size * stride,
+                        sizeof(T) * stride,
+                        additional_dataset.data_handle(),
+                        sizeof(T) * additional_dataset.stride(0),
+                        sizeof(T) * dim,
+                        num_new_nodes,
+                        cudaMemcpyDefault,
+                        resource::get_cuda_stream(handle)));
 
+    // Deallocate the current dataset memory space if the dataset is `owning'.
+    index.update_dataset(
+      handle, raft::make_device_strided_matrix_view<const T, int64_t>(nullptr, 0, 0, stride));
+
+    auto updated_dataset =
+      raft::make_device_matrix<T, std::int64_t>(handle, new_dataset_size, stride);
+    raft::copy(updated_dataset.data_handle(),
+               host_updated_dataset.data_handle(),
+               updated_dataset.size(),
+               resource::get_cuda_stream(handle));
+
+    auto initial_dataset_view = raft::make_device_strided_matrix_view<const T, std::int64_t>(
+      host_updated_dataset.data_handle(), initial_dataset_size, dim, stride);
+    auto updated_dataset_view = raft::make_device_strided_matrix_view<const T, std::int64_t>(
+      host_updated_dataset.data_handle(), new_dataset_size, dim, stride);
+
+    index.update_dataset(handle, initial_dataset_view);
     add_graph_nodes(handle, updated_dataset_view, index, updated_graph.view(), max_batch_size);
 
     using out_mdarray_type          = decltype(updated_dataset);
