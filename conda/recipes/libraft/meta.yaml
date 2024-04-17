@@ -304,9 +304,6 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - benchmark {{ gbench_version }}
-        - gmock {{ gtest_version }}
-        - gtest {{ gtest_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -319,9 +316,6 @@ outputs:
         - libcusparse
         {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
-        - benchmark {{ gbench_version }}
-        - gmock {{ gtest_version }}
-        - gtest {{ gtest_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
