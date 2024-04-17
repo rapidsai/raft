@@ -44,11 +44,11 @@ done
 
 build_wheel () {
     local package_name="${1}"
-    local version_package_name=$(echo "${package_name}" | tr "-" "_")
+    local underscore_package_name=$(echo "${package_name}" | tr "-" "_")
 
     local package_dir="python/${package_name}"
     local pyproject_file="${package_dir}/pyproject.toml"
-    local version_file="${package_dir}/${version_package_name}/_version.py"
+    local version_file="${package_dir}/${underscore_package_name}/_version.py"
 
     sed -i "s/name = \"${package_name}\"/name = \"${package_name}${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
     sed -i "/^__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${version_file}
