@@ -215,13 +215,14 @@ python ./cpp/scripts/include_checker.py --inplace [cpp/include cpp/test ... list
 ```
 
 ### Copyright header
-[copyright.py](https://github.com/rapidsai/raft/blob/branch-24.06/ci/checks/copyright.py) checks the Copyright header for all git-modified files
+RAPIDS [pre-commit-hooks](https://github.com/rapidsai/pre-commit-hooks) checks the Copyright
+header for all git-modified files.
 
-Manually, you can run the following to bulk-fix the header if only the years need to be updated:
+Manually, you can run the following to bulk-fix the header on all files in the repository:
 ```bash
-python ./ci/checks/copyright.py --update-current-year
+pre-commit run -a verify-copyright
 ```
-Keep in mind that this only applies to files tracked by git and having been modified.
+Keep in mind that this only applies to files tracked by git that have been modified.
 
 ## Error handling
 Call CUDA APIs via the provided helper macros `RAFT_CUDA_TRY`, `RAFT_CUBLAS_TRY` and `RAFT_CUSOLVER_TRY`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `RAFT_CUDA_TRY_NO_THROW`, `RAFT_CUBLAS_TRY_NO_THROW ` and `RAFT_CUSOLVER_TRY_NO_THROW`. These macros log the error but do not throw an exception.

@@ -1,3 +1,65 @@
+# raft 24.04.00 (10 Apr 2024)
+
+## 🐛 Bug Fixes
+
+- Update pre-commit-hooks to v0.0.3 ([#2239](https://github.com/rapidsai/raft/pull/2239)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- MAINT: Simplify NCCL worker rank identification ([#2228](https://github.com/rapidsai/raft/pull/2228)) [@VibhuJawa](https://github.com/VibhuJawa)
+- Fix bug in blockRankedReduce ([#2226](https://github.com/rapidsai/raft/pull/2226)) [@akifcorduk](https://github.com/akifcorduk)
+- Fix illegal acces mean/stdev, sum add Kahan Summation ([#2223](https://github.com/rapidsai/raft/pull/2223)) [@mfoerste4](https://github.com/mfoerste4)
+- Batch cutlass distance kernels along N matrix dim ([#2215](https://github.com/rapidsai/raft/pull/2215)) [@mdoijade](https://github.com/mdoijade)
+- Fix out of bounds access in sum kernel ([#2183](https://github.com/rapidsai/raft/pull/2183)) [@tfeher](https://github.com/tfeher)
+- Fix ANN bench ground truth generation for k&gt;1024 ([#2180](https://github.com/rapidsai/raft/pull/2180)) [@tfeher](https://github.com/tfeher)
+- Fixing cusparse aligned address issue and adding note ([#2179](https://github.com/rapidsai/raft/pull/2179)) [@cjnolet](https://github.com/cjnolet)
+- Launch `neighborhood_recall` kernel on CUDA stream ([#2156](https://github.com/rapidsai/raft/pull/2156)) [@divyegala](https://github.com/divyegala)
+- Add `compile-library` by default on pylibraft build ([#2090](https://github.com/rapidsai/raft/pull/2090)) [@lowener](https://github.com/lowener)
+
+## 📖 Documentation
+
+- Adding cuVS notice to README and front page of docs. ([#2224](https://github.com/rapidsai/raft/pull/2224)) [@cjnolet](https://github.com/cjnolet)
+
+## 🚀 New Features
+
+- Add CAGRA-Q to ANN benchmarks ([#2233](https://github.com/rapidsai/raft/pull/2233)) [@achirkin](https://github.com/achirkin)
+- Add CAGRA-Q build (compression) ([#2213](https://github.com/rapidsai/raft/pull/2213)) [@achirkin](https://github.com/achirkin)
+- CAGRA-Q search ([#2206](https://github.com/rapidsai/raft/pull/2206)) [@enp1s0](https://github.com/enp1s0)
+- Demangle backtrace symbols on raft error ([#2188](https://github.com/rapidsai/raft/pull/2188)) [@achirkin](https://github.com/achirkin)
+- Reapply: Support for fp16 in CAGRA and IVF-PQ ([#2172](https://github.com/rapidsai/raft/pull/2172)) [@achirkin](https://github.com/achirkin)
+- Remove supports_streams from custom RAFT memory resources ([#2121](https://github.com/rapidsai/raft/pull/2121)) [@harrism](https://github.com/harrism)
+- [FEA] Add support for bitmap_view &amp; the API of `bitmap_to_csr` ([#2109](https://github.com/rapidsai/raft/pull/2109)) [@rhdong](https://github.com/rhdong)
+
+## 🛠️ Improvements
+
+- Use `conda env create --yes` instead of `--force` ([#2247](https://github.com/rapidsai/raft/pull/2247)) [@bdice](https://github.com/bdice)
+- Align ucx version pinning with ucx-py/ucxx. ([#2227](https://github.com/rapidsai/raft/pull/2227)) [@bdice](https://github.com/bdice)
+- Add upper bound to prevent usage of NumPy 2 ([#2222](https://github.com/rapidsai/raft/pull/2222)) [@bdice](https://github.com/bdice)
+- Performance optimization of IVF-flat / select_k ([#2221](https://github.com/rapidsai/raft/pull/2221)) [@mfoerste4](https://github.com/mfoerste4)
+- Replace local copyright check with pre-commit-hooks verify-copyright ([#2220](https://github.com/rapidsai/raft/pull/2220)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Remove hard-coding of RAPIDS version where possible ([#2219](https://github.com/rapidsai/raft/pull/2219)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Fix style. ([#2214](https://github.com/rapidsai/raft/pull/2214)) [@bdice](https://github.com/bdice)
+- Add explicit instantiations for IVF-PQ search kernels used in tests ([#2212](https://github.com/rapidsai/raft/pull/2212)) [@tfeher](https://github.com/tfeher)
+- Improve RBC eps-neighborhood query performance ([#2211](https://github.com/rapidsai/raft/pull/2211)) [@mfoerste4](https://github.com/mfoerste4)
+- Add test for spmm ([#2210](https://github.com/rapidsai/raft/pull/2210)) [@mfoerste4](https://github.com/mfoerste4)
+- Only install necessary components in conda packages. ([#2209](https://github.com/rapidsai/raft/pull/2209)) [@bdice](https://github.com/bdice)
+- Automate C++ include file grouping and ordering using clang-format ([#2202](https://github.com/rapidsai/raft/pull/2202)) [@harrism](https://github.com/harrism)
+- Add support for Python 3.11, require NumPy 1.23+ ([#2200](https://github.com/rapidsai/raft/pull/2200)) [@jameslamb](https://github.com/jameslamb)
+- Pass `std::optional` instead of `thrust::optional` to RMM ([#2199](https://github.com/rapidsai/raft/pull/2199)) [@trxcllnt](https://github.com/trxcllnt)
+- Update devcontainers to CUDA Toolkit 12.2 ([#2192](https://github.com/rapidsai/raft/pull/2192)) [@trxcllnt](https://github.com/trxcllnt)
+- target branch-24.04 for GitHub Actions workflows ([#2189](https://github.com/rapidsai/raft/pull/2189)) [@jameslamb](https://github.com/jameslamb)
+- Fixing workaround for cuSPARSE bug with correct copy dimensions ([#2185](https://github.com/rapidsai/raft/pull/2185)) [@mfoerste4](https://github.com/mfoerste4)
+- Allow topk larger than 1024 in CAGRA ([#2181](https://github.com/rapidsai/raft/pull/2181)) [@benfred](https://github.com/benfred)
+- IVF-FLAT support k &gt; 256 ([#2169](https://github.com/rapidsai/raft/pull/2169)) [@mfoerste4](https://github.com/mfoerste4)
+- Add environment-agnostic scripts for running ctests and pytests ([#2165](https://github.com/rapidsai/raft/pull/2165)) [@trxcllnt](https://github.com/trxcllnt)
+- Ensure that `ctest` is called with `--no-tests=error`. ([#2163](https://github.com/rapidsai/raft/pull/2163)) [@bdice](https://github.com/bdice)
+- Update ops-bot.yaml ([#2158](https://github.com/rapidsai/raft/pull/2158)) [@AyodeAwe](https://github.com/AyodeAwe)
+- random sampling of dataset rows with improved memory utilization ([#2155](https://github.com/rapidsai/raft/pull/2155)) [@tfeher](https://github.com/tfeher)
+- [FIX] Ensure hnswlib can be found from RAFT&#39;s build dir ([#2145](https://github.com/rapidsai/raft/pull/2145)) [@trxcllnt](https://github.com/trxcllnt)
+- Improve analysis experience for ANN benchmarks ([#2139](https://github.com/rapidsai/raft/pull/2139)) [@achirkin](https://github.com/achirkin)
+- Enable CAGRA index building without adding dataset to the index ([#2126](https://github.com/rapidsai/raft/pull/2126)) [@tfeher](https://github.com/tfeher)
+- Add fused cosine 1-NN cutlass based kernel ([#2125](https://github.com/rapidsai/raft/pull/2125)) [@mdoijade](https://github.com/mdoijade)
+- Update raft for compatibility with the latest cuco ([#2118](https://github.com/rapidsai/raft/pull/2118)) [@PointKernel](https://github.com/PointKernel)
+- Support CUDA 12.2 ([#2092](https://github.com/rapidsai/raft/pull/2092)) [@jameslamb](https://github.com/jameslamb)
+- Cache IVF-PQ and select-warpsort kernel launch parameters to reduce latency ([#1786](https://github.com/rapidsai/raft/pull/1786)) [@achirkin](https://github.com/achirkin)
+
 # raft 24.02.00 (12 Feb 2024)
 
 ## 🚨 Breaking Changes
