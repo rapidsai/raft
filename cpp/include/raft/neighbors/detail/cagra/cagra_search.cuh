@@ -92,8 +92,8 @@ void search_main_core(
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
-                 static_cast<size_t>(index.data().n_rows()),
-                 static_cast<size_t>(index.data().dim()));
+                 static_cast<size_t>(dataset_desc.size),
+                 static_cast<size_t>(dataset_desc.dim));
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
