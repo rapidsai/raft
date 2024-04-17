@@ -38,7 +38,7 @@ sed -r -i "s/librmm(.*)\"/librmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyp
 
 cd "${package_dir}"
 
-librmm_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact rmm 1529 cpp)
+librmm_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact rmm 1529 cpp)
 
 python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check --find-links "${librmm_wheelhouse}"
 
