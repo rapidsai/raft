@@ -57,6 +57,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   const uint32_t num_seeds,
   INDEX_T* const visited_hash_ptr,
   const uint32_t hash_bitlen,
+  const raft::distance::DistanceType metric,
   const uint32_t block_id   = 0,
   const uint32_t num_blocks = 1)
 {
@@ -81,9 +82,22 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         }
       }
 
-      const auto norm2 =
-        dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, METRIC>(
-          query_buffer, seed_index, valid_i);
+      DISTANCE_T norm2;
+      switch (metric) {
+        case raft::distance::L2Expanded:
+          norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                           TEAM_SIZE,
+                                                           raft::distance::L2Expanded>(
+            query_buffer, seed_index, valid_i);
+          break;
+        case raft::distance::InnerProduct:
+          norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                           TEAM_SIZE,
+                                                           raft::distance::InnerProduct>(
+            query_buffer, seed_index, valid_i);
+          break;
+        default: break;
+      }
 
       if (valid_i && (norm2 < best_norm2_team_local)) {
         best_norm2_team_local = norm2;
@@ -107,7 +121,6 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
           unsigned MAX_N_FRAGS,
-          raft::distance::DistanceType METRIC,
           class DATASET_DESCRIPTOR_T,
           class DISTANCE_T,
           class INDEX_T>
@@ -126,7 +139,8 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(
   const std::uint32_t hash_bitlen,
   const INDEX_T* const parent_indices,
   const INDEX_T* const internal_topk_list,
-  const std::uint32_t search_width)
+  const std::uint32_t search_width,
+  const raft::distance::DistanceType metric)
 {
   constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
   const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
@@ -158,9 +172,18 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(
     INDEX_T child_id   = invalid_index;
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
-    const auto norm2 =
-      dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, METRIC>(
+    DISTANCE_T norm2;
+      switch (metric) {
+        case raft::distance::L2Expanded:
+          norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::L2Expanded>(
         query_buffer, child_id, child_id != invalid_index);
+          break;
+        case raft::distance::InnerProduct:
+          norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::InnerProduct>(
+        query_buffer, child_id, child_id != invalid_index);
+          break;
+        default: break;
+      }
 
     // Store the distance
     const unsigned lane_id = threadIdx.x % TEAM_SIZE;
@@ -230,14 +253,15 @@ struct standard_dataset_descriptor_t
   std::enable_if_t<METRIC == raft::distance::DistanceType::L2Expanded, T> __device__
   dist_op(T a, T b) const
   {
-    return sq_op{}(sub_op{}(a, b));
+    T diff = a - b;
+    return diff * diff;
   }
 
   template <typename T, raft::distance::DistanceType METRIC>
   std::enable_if_t<METRIC == raft::distance::DistanceType::InnerProduct, T> __device__
   dist_op(T a, T b) const
   {
-    return -mul_op{}(a, b);
+    return -a * b;
   }
 
   template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE, raft::distance::DistanceType METRIC>

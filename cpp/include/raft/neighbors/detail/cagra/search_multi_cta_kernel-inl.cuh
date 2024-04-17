@@ -128,8 +128,7 @@ template <int32_t TEAM_SIZE,
           uint32_t DATASET_BLOCK_DIM,
           std::uint32_t MAX_ELEMENTS,
           class DATASET_DESCRIPTOR_T,
-          class SAMPLE_FILTER_T,
-          raft::distance::DistanceType METRIC>
+          class SAMPLE_FILTER_T>
 __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   typename DATASET_DESCRIPTOR_T::INDEX_T* const
     result_indices_ptr,  // [num_queries, num_cta_per_query, itopk_size]
@@ -151,7 +150,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const uint32_t min_iteration,
   const uint32_t max_iteration,
   uint32_t* const num_executed_iterations, /* stats */
-  SAMPLE_FILTER_T sample_filter)
+  SAMPLE_FILTER_T sample_filter,
+  const raft::distance::DistanceType metric)
 {
   using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
@@ -242,6 +242,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
     num_seeds,
     local_visited_hashmap_ptr,
     hash_bitlen,
+    metric,
     block_id,
     num_blocks);
   __syncthreads();
@@ -275,7 +276,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
     _CLK_START();
     // constexpr unsigned max_n_frags = 16;
     constexpr unsigned max_n_frags = 0;
-    device::compute_distance_to_child_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, max_n_frags, METRIC>(
+    device::compute_distance_to_child_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, max_n_frags>(
       result_indices_buffer + itopk_size,
       result_distances_buffer + itopk_size,
       query_buffer,
@@ -286,7 +287,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
       hash_bitlen,
       parent_indices_buffer,
       result_indices_buffer,
-      search_width);
+      search_width,
+      metric);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 

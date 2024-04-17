@@ -463,8 +463,7 @@ template <uint32_t TEAM_SIZE,
           unsigned MAX_CANDIDATES,
           unsigned TOPK_BY_BITONIC_SORT,
           class DATASET_DESCRIPTOR_T,
-          class SAMPLE_FILTER_T,
-          raft::distance::DistanceType METRIC>
+          class SAMPLE_FILTER_T>
 __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   typename DATASET_DESCRIPTOR_T::INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
@@ -487,7 +486,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const std::uint32_t hash_bitlen,
   const std::uint32_t small_hash_bitlen,
   const std::uint32_t small_hash_reset_interval,
-  SAMPLE_FILTER_T sample_filter)
+  SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric)
 {
   using LOAD_T = device::LOAD_128BIT_T;
 
@@ -573,7 +573,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   // compute distance to randomly selecting nodes
   _CLK_START();
   const INDEX_T* const local_seed_ptr = seed_ptr ? seed_ptr + (num_seeds * query_id) : nullptr;
-  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, METRIC>(
+  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM>(
     result_indices_buffer,
     result_distances_buffer,
     query_buffer,
@@ -584,7 +584,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
     local_seed_ptr,
     num_seeds,
     local_visited_hashmap_ptr,
-    hash_bitlen);
+    hash_bitlen,
+    metric);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 
@@ -710,7 +711,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
     // compute the norms between child nodes and query node
     _CLK_START();
     constexpr unsigned max_n_frags = 8;
-    device::compute_distance_to_child_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, max_n_frags, METRIC>(
+    device::compute_distance_to_child_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, max_n_frags>(
       result_indices_buffer + internal_topk,
       result_distances_buffer + internal_topk,
       query_buffer,
@@ -721,7 +722,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
       hash_bitlen,
       parent_list_buffer,
       result_indices_buffer,
-      search_width);
+      search_width,
+      metric);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
