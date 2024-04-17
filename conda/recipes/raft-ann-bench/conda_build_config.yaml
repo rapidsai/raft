@@ -19,9 +19,6 @@ cmake_version:
 nccl_version:
   - ">=2.9.9"
 
-gtest_version:
-  - ">=1.13.0"
-
 glog_version:
   - ">=0.6.0"
 
