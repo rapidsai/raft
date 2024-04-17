@@ -31,6 +31,7 @@ option(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE "Include raft's brute force knn in be
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB "Include raft's CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_DISKANN "Include diskann algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_SINGLE_EXE
        "Make a single executable with benchmark as shared library modules" OFF
 )
@@ -56,6 +57,7 @@ if(BUILD_CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB OFF)
   set(RAFT_ANN_BENCH_USE_GGNN OFF)
+  set(RAFT_ANN_BENCH_USE_DISKANN OFF)
 else()
   # Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
   # https://github.com/rapidsai/raft/issues/1627
@@ -113,6 +115,10 @@ if(RAFT_ANN_BENCH_USE_FAISS)
   # will have the conda includes/link dirs
   link_libraries($<TARGET_NAME_IF_EXISTS:conda_env>)
   include(cmake/thirdparty/get_faiss.cmake)
+endif()
+
+if(RAFT_ANN_BENCH_USE_DISKANN)
+  include(cmake/thirdparty/get_diskann.cmake)
 endif()
 
 # ##################################################################################################
@@ -331,6 +337,11 @@ if(RAFT_ANN_BENCH_USE_GGNN)
   include(cmake/thirdparty/get_glog.cmake)
   ConfigureAnnBench(NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu LINKS glog::glog ggnn::ggnn)
 endif()
+
+if(RAFT_ANN_BENCH_USE_DISKANN)
+  ConfigureAnnBench(
+    NAME DISKANN PATH bench/ann/src/diskann/diskann_benchmark.cpp LINKS diskann::diskann
+  )
 
 # ##################################################################################################
 # * Dynamically-loading ANN_BENCH executable -------------------------------------------------------
