@@ -188,7 +188,6 @@ if(BUILD_TESTS)
     test/ext_headers/raft_spatial_knn_detail_fused_l2_knn.cu
     test/ext_headers/raft_distance_fused_l2_nn.cu
     test/ext_headers/raft_neighbors_ivf_pq.cu
-    test/ext_headers/raft_util_memory_pool.cpp
     test/ext_headers/raft_neighbors_ivf_flat.cu
     test/ext_headers/raft_core_logger.cpp
     test/ext_headers/raft_neighbors_refine.cu

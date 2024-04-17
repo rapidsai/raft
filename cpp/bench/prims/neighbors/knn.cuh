@@ -31,6 +31,7 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/host/new_delete_resource.hpp>
 #include <rmm/mr/host/pinned_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <thrust/sequence.h>
 
@@ -101,11 +102,11 @@ struct device_resource {
     if (managed_) { delete res_; }
   }
 
-  [[nodiscard]] auto get() const -> rmm::mr::device_memory_resource* { return res_; }
+  [[nodiscard]] auto get() const -> rmm::device_async_resource_ref { return res_; }
 
  private:
   const bool managed_;
-  rmm::mr::device_memory_resource* res_;
+  rmm::device_async_resource_ref res_;
 };
 
 template <typename T>

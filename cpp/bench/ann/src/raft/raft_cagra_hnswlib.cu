@@ -20,6 +20,7 @@
 
 #include <rmm/cuda_device.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
@@ -91,7 +92,7 @@ int main(int argc, char** argv)
     &cuda_mr, rmm::percent_of_free_device_memory(50)};
   rmm::mr::set_current_device_resource(
     &pool_mr);  // Updates the current device resource pointer to `pool_mr`
-  rmm::mr::device_memory_resource* mr =
+  rmm::device_async_resource_ref mr =
     rmm::mr::get_current_device_resource();  // Points to `pool_mr`
   return raft::bench::ann::run_main(argc, argv);
 }

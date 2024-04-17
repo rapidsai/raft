@@ -28,6 +28,7 @@
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cub/cub.cuh>
 
@@ -94,7 +95,7 @@ struct sample : public fixture {
  private:
   float GiB = 1073741824.0f;
   raft::device_resources res;
-  rmm::mr::device_memory_resource* old_mr;
+  rmm::device_async_resource_ref old_mr;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr;
   sample_inputs params;
   raft::device_vector<T, int64_t> out, in;

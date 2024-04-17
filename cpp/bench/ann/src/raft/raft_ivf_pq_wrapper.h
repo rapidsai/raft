@@ -32,9 +32,6 @@
 #include <raft/neighbors/refine.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
-
 #include <type_traits>
 
 namespace raft::bench::ann {

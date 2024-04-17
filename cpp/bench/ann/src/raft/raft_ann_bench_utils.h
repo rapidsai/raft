@@ -28,6 +28,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/failure_callback_resource_adaptor.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <memory>
 #include <type_traits>
@@ -100,7 +101,7 @@ class shared_raft_resources {
   ~shared_raft_resources() noexcept { rmm::mr::set_current_device_resource(orig_resource_); }
 
  private:
-  rmm::mr::device_memory_resource* orig_resource_;
+  rmm::device_async_resource_ref orig_resource_;
   pool_mr_type pool_resource_;
   mr_type resource_;
 };

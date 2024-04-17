@@ -25,6 +25,7 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 namespace raft::bench::matrix {
 
@@ -108,7 +109,7 @@ struct Gather : public fixture {
 
  private:
   GatherParams<IdxT> params;
-  rmm::mr::device_memory_resource* old_mr;
+  rmm::device_async_resource_ref old_mr;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr;
   raft::device_matrix<T, IdxT> matrix, out;
   raft::host_matrix<T, IdxT> matrix_h;
