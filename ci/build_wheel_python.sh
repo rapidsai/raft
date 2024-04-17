@@ -32,7 +32,7 @@ CPP_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-download
 librmm_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact rmm 1529 cpp)
 PYTHON_WHEELHOUSE="${PWD}/dist/"
 PYTHON_AUDITED_WHEELHOUSE="${PWD}/final_dist/"
-WHEELHOUSES=("${PYTHON_WHEELHOUSE}" "${LIBRAFT_WHEELHOUSE}" "${librmm_wheelhouse}")
+WHEELHOUSES=("${PYTHON_WHEELHOUSE}" "${CPP_WHEELHOUSE}" "${librmm_wheelhouse}")
 mkdir -p "${PYTHON_AUDITED_WHEELHOUSE}"
 
 FIND_LINKS=""
@@ -70,12 +70,11 @@ build_wheel () {
     pushd "${package_dir}"
 
     python -m pip wheel . -w "${PYTHON_WHEELHOUSE}" -vvv --no-deps --disable-pip-version-check ${FIND_LINKS}
-    python -m auditwheel repair -w "${PYTHON_AUDITED_WHEELHOUSE}" --exclude libraft.so "${PYTHON_WHEELHOUSE}"/*
     popd
 }
 
 build_wheel pylibraft
 build_wheel raft-dask
 
-# TODO: Remove RAPIDS_PY_WHEEL_NAME once gha-tools includes the cuda version in the artifact name.
+python -m auditwheel repair -w "${PYTHON_AUDITED_WHEELHOUSE}" --exclude libraft.so "${PYTHON_WHEELHOUSE}"/*
 RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python "${PYTHON_AUDITED_WHEELHOUSE}"
