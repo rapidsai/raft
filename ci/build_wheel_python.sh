@@ -12,11 +12,16 @@ git_commit=$(git rev-parse HEAD)
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libraft_dist
 
+librmm_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact rmm 1529 cpp)
+
+wheelhouses=("/tmp/libraft_dist" "${librmm_wheelhouse}")
+
 # This is the version of the suffix with a preceding hyphen. It's used
 # everywhere except in the final wheel name.
 PACKAGE_CUDA_SUFFIX="-${RAPIDS_PY_CUDA_SUFFIX}"
 
 echo "${version}" > VERSION
+
 # For nightlies we want to ensure that we're pulling in alphas as well. The
 # easiest way to do so is to augment the spec with a constraint containing a
 # min alpha version that doesn't affect the version bounds but does allow usage
@@ -26,66 +31,50 @@ if ! rapids-is-release-build; then
     alpha_spec=',>=0.0.0a0'
 fi
 
+build_wheel () {
+    local package_name="${1}"
+    local version_package_name=$(echo "${package_name}" | tr "-" "_")
 
-###############################################
-# Build pylibraft
+    local package_dir="python/${package_name}"
+    local pyproject_file="${package_dir}/pyproject.toml"
+    local version_file="${package_dir}/${version_package_name}/_version.py"
 
-librmm_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact rmm 1529 cpp)
+    sed -i "s/name = \"${package_name}\"/name = \"${package_name}${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
+    sed -i "/^__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${version_file}
 
-package_name="pylibraft"
-package_dir="python/pylibraft"
+    for dep in rmm libraft pylibraft ucx-py; do
+        sed -r -i "s/${dep}==(.*)\"/${dep}${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
+    done
 
-pyproject_file="${package_dir}/pyproject.toml"
-version_file="${package_dir}/${package_name}/_version.py"
+    # dask-cuda & rapids-dask-dependency don't get a suffix, but they do get an alpha spec.
+    for dep in dask-cuda rapids-dask-dependency; do
+        sed -r -i "s/${dep}==(.*)\"/${dep}==\1${alpha_spec}\"/g" ${pyproject_file}
+    done
 
-sed -i "s/name = \"${package_name}\"/name = \"${package_name}${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
-sed -i "/^__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${version_file}
+    if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
+        sed -i "s/cuda-python[<=>\.,0-9a]*/cuda-python>=12.0,<13.0a0/g" ${pyproject_file}
+        sed -i "s/cupy-cuda11x/cupy-cuda12x/g" ${pyproject_file}
+    fi
 
-sed -r -i "s/rmm(.*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
-sed -r -i "s/libraft==(.*)\"/libraft${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
-if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
-    sed -i "s/cuda-python[<=>\.,0-9a]*/cuda-python>=12.0,<13.0a0/g" ${pyproject_file}
-    sed -i "s/cupy-cuda11x/cupy-cuda12x/g" ${pyproject_file}
-fi
+    pushd "${package_dir}"
 
-pushd "${package_dir}"
+    local find_links=""
+    # Iterate over the array
+    for wheelhouse in "${wheelhouses[@]}"; do
+        find_links+="--find-links ${wheelhouse} "
+    done
+              
+    python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check ${find_links}
 
-python -m pip wheel . -w pylibraft_dist -vvv --no-deps --disable-pip-version-check --find-links /tmp/libraft_dist --find-links ${librmm_wheelhouse} 
+    mkdir -p final_dist
+    python -m auditwheel repair -w final_dist --exclude libraft.so dist/*
 
-mkdir -p pylibraft_final_dist
-python -m auditwheel repair -w pylibraft_final_dist --exclude libraft.so pylibraft_dist/*
+    RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python final_dist
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python pylibraft_final_dist
+    # Append ${PWD}/final_dist to the list of wheelhouses for the next package
+    wheelhouses+=("${PWD}/final_dist")
+    popd
+}
 
-popd
-
-
-################################################
-# Build raft-dask
-
-package_name="raft-dask"
-package_dir="python/raft-dask"
-underscore_package_name=$(echo "${package_name}" | tr "-" "_")
-
-pyproject_file="${package_dir}/pyproject.toml"
-version_file="${package_dir}/${underscore_package_name}/_version.py"
-
-sed -i "s/name = \"${package_name}\"/name = \"${package_name}${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
-sed -i "/^__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${version_file}
-
-sed -r -i "s/libraft(.*)\"/libraft${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
-sed -r -i "s/pylibraft==(.*)\"/pylibraft${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
-sed -r -i "s/ucx-py==(.*)\"/ucx-py${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
-sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
-sed -r -i "s/dask-cuda==(.*)\"/dask-cuda==\1${alpha_spec}\"/g" ${pyproject_file}
-
-pushd "${package_dir}"
-
-python -m pip wheel . -w raft_dask_dist -vvv --no-deps --disable-pip-version-check --find-links /tmp/libraft_dist --find-links ${librmm_wheelhouse} --find-links ../pylibraft/pylibraft_dist
-
-mkdir -p raft_dask_final_dist
-python -m auditwheel repair -w raft_dask_final_dist --exclude libraft.so raft_dask_dist/*
-
-RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 raft_dask_final_dist
-
-popd
+build_wheel pylibraft
+build_wheel raft-dask
