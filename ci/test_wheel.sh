@@ -14,6 +14,6 @@ RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 p
 
 librmm_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact rmm 1529 cpp)
 
-python -m pip install "${package_name}[test]>=0.0.0a0" --find-links "${WHEELHOUSE}" --find-links ${librmm_wheelhouse}
+python -m pip install "${package_name}-${RAPIDS_PY_CUDA_SUFFIX}[test]>=0.0.0a0" --find-links "${WHEELHOUSE}" --find-links ${librmm_wheelhouse}
 
 python -m pytest ${package_dir}/${underscore_package_name}/test
