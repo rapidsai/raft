@@ -1164,6 +1164,107 @@ struct persistent_runner_base_t {
   virtual ~persistent_runner_base_t() noexcept = default;
 };
 
+struct launcher_t {
+  using work_queue_type = persistent_runner_base_t::work_queue_type;
+  using pending_reads_queue_type =
+    atomic_queue::AtomicQueue<uint32_t, 32, ~0u, false, true, false, true>;
+  using completion_latch_type = cuda::atomic<uint32_t, cuda::thread_scope_system>;
+
+  pending_reads_queue_type pending_reads{};
+  work_queue_type& worker_ids;
+  work_handle_t* work_handles;
+  uint32_t lead_worker_id;
+  completion_latch_type* completion_latch;
+  bool all_done = false;
+
+  template <typename RecordWork>
+  launcher_t(work_queue_type& worker_ids,
+             work_handle_t* work_handles,
+             uint32_t n_queries,
+             RecordWork record_work)
+    : worker_ids{worker_ids},
+      work_handles{work_handles},
+      lead_worker_id{worker_ids.pop()},
+      completion_latch{record_work(lead_worker_id)}
+  {
+    // The first worker is special: one may associate a work_descriptor and the completion_latch
+    // with the same id. Hence it bypassed the `pending_reads` queue and is only released at the
+    // very end.
+    submit_query(lead_worker_id, 0, false);
+    // Submit all queries in the batch
+    for (uint32_t i = 1; i < n_queries; i++) {
+      uint32_t worker_id;
+      while (!try_get_worker(worker_id)) {
+        if (pending_reads.try_pop(worker_id)) {
+          if (!try_return_worker(worker_id)) { pending_reads.push(worker_id); }
+        }
+      }
+      submit_query(worker_id, i);
+    }
+  }
+
+  void submit_query(uint32_t worker_id, uint32_t query_id, bool add_to_pending_reads = true)
+  {
+    work_handles[worker_id].store((work_handle_view_t{.value = {lead_worker_id, query_id}}).handle,
+                                  cuda::memory_order_release);
+
+    if (!add_to_pending_reads) { return; }
+    while (!pending_reads.try_push(worker_id)) {
+      // The only reason pending_reads cannot push is that the queue is full.
+      // It's local, so we must pop and wait for the returned worker to finish its work.
+      auto pending_worker_id = pending_reads.pop();
+      while (!try_return_worker(pending_worker_id)) {
+        std::this_thread::yield();
+      }
+    }
+  }
+
+  /** Check if the worker has finished the work; if so, return it to the shared pool. */
+  auto try_return_worker(uint32_t worker_id) -> bool
+  {
+    // Use the cached `all_done` - makes sence when called from the `wait()` routine.
+    if (all_done || work_handles[worker_id].load(cuda::memory_order_relaxed) == kWaitForWork) {
+      worker_ids.push(worker_id);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /** Try get a free worker if any. */
+  auto try_get_worker(uint32_t& worker_id) -> bool { return worker_ids.try_pop(worker_id); }
+
+  /** Check if all workers finished their work. */
+  auto is_all_done()
+  {
+    // Cache the result of the check to avoid doing unnecessary atomic loads.
+    if (all_done) { return true; }
+    all_done = completion_latch->load() == 0;
+    return all_done;
+  }
+
+  /** Wait for all work to finish and don't forget to return the workers to the shared pool. */
+  void wait()
+  {
+    uint32_t worker_id;
+    while (pending_reads.try_pop(worker_id)) {
+      while (!try_return_worker(worker_id)) {
+        if (!is_all_done()) { std::this_thread::yield(); }
+      }
+    }
+    // terminal state, should be engaged only after the `pending_reads` is empty
+    // and `queries_submitted == n_queries`
+    while (!is_all_done()) {
+      // Not sure if this improves the perf, but it does not seem to hurt it.
+      // Let's hope this reduces cpu utilization
+      std::this_thread::yield();
+    }
+
+    // lead_worker_id is reused for the handles, so we can only return it at the end
+    try_return_worker(lead_worker_id);
+  }
+};
+
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
           typename DATASET_DESCRIPTOR_T,
@@ -1303,34 +1404,20 @@ struct persistent_runner_t : public persistent_runner_base_t {
               uint32_t num_queries,
               uint32_t top_k)
   {
-    cuda::atomic<uint32_t, cuda::thread_scope_system>* completion_latch;
-    uint32_t lead_worker_id;
-    for (uint32_t i = 0; i < num_queries; i++) {
-      auto worker_id = queue.pop();
-
-      if (i == 0) {
-        lead_worker_id = worker_id;
-        auto& wd       = work_descriptors.data()[lead_worker_id];
-        completion_latch =
-          reinterpret_cast<cuda::atomic<uint32_t, cuda::thread_scope_system>*>(&wd.n_queries);
+    launcher_t{
+      queue,
+      work_handles.data(),
+      num_queries,
+      [=](uint32_t worker_id) {
+        auto& wd                = work_descriptors.data()[worker_id];
         wd.result_indices_ptr   = result_indices_ptr;
         wd.result_distances_ptr = result_distances_ptr;
         wd.queries_ptr          = queries_ptr;
         wd.top_k                = top_k;
         wd.n_queries            = num_queries;
-      }
-
-      work_handles.data()[worker_id].store(
-        (work_handle_view_t{.value = {lead_worker_id, i}}).handle, cuda::memory_order_release);
-      // danger: need to wait till the GPU finishes reading.
-      queue.push(worker_id);
-    }
-    while (completion_latch->load() != 0) {
-      // Not sure if this improves the perf, but it does not seem to hurt it.
-      // Let's hope this reduces cpu utilization
-      std::this_thread::yield();
-    }
-
+        return reinterpret_cast<cuda::atomic<uint32_t, cuda::thread_scope_system>*>(&wd.n_queries);
+      }}
+      .wait();
     last_touch.store(std::chrono::system_clock::now());
   }
 
