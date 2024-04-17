@@ -1151,17 +1151,18 @@ struct search_kernel_config {
   }
 };
 
-inline void run_zombie(std::atomic<std::chrono::time_point<std::chrono::system_clock>>* last_touch);
-
 struct persistent_runner_base_t {
   using work_queue_type = atomic_queue::AtomicQueue<uint32_t, 1024, ~0u, false, true, false, false>;
   rmm::mr::pinned_host_memory_resource work_handles_mr;
   rmm::mr::pinned_host_memory_resource work_descriptor_mr;
   rmm::mr::cuda_memory_resource completion_counters_mr;
-  cudaStream_t stream;
-  work_queue_type queue;
-  persistent_runner_base_t(cudaStream_t stream) : stream(stream), queue() {}
-  virtual ~persistent_runner_base_t() noexcept = default;
+  cudaStream_t stream{};
+  work_queue_type queue{};
+  persistent_runner_base_t() : queue()
+  {
+    cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+  }
+  virtual ~persistent_runner_base_t() noexcept { cudaStreamDestroy(stream); };
 };
 
 struct launcher_t {
@@ -1301,9 +1302,8 @@ struct persistent_runner_t : public persistent_runner_base_t {
                       size_t min_iterations,
                       size_t max_iterations,
                       SAMPLE_FILTER_T sample_filter,
-                      raft::distance::DistanceType metric,
-                      cudaStream_t stream)
-    : persistent_runner_base_t{stream},
+                      raft::distance::DistanceType metric)
+    : persistent_runner_base_t{},
       kernel{kernel_config_type::choose_itopk_and_mx_candidates(
         itopk_size, num_itopk_candidates, block_size)},
       block_size{block_size},
@@ -1374,8 +1374,6 @@ struct persistent_runner_t : public persistent_runner_base_t {
     RAFT_LOG_INFO("Initialized the kernel in stream %zd, queue size = %u",
                   int64_t((cudaStream_t)stream),
                   queue.was_size());
-
-    std::thread(run_zombie, &last_touch).detach();
   }
 
   ~persistent_runner_t() noexcept override
@@ -1438,25 +1436,60 @@ struct persistent_runner_t : public persistent_runner_base_t {
   }
 };
 
-struct non_blocking_stream {
-  non_blocking_stream() { cudaStreamCreateWithFlags(&value, cudaStreamNonBlocking); }
-  ~non_blocking_stream() noexcept { cudaStreamDestroy(value); }
-  cudaStream_t value;
-};
-
-inline std::unique_ptr<non_blocking_stream> persistent_stream;
 inline std::shared_ptr<persistent_runner_base_t> persistent_runner{nullptr};
 inline std::mutex persistent_lock;
 
-inline void run_zombie(std::atomic<std::chrono::time_point<std::chrono::system_clock>>* last_touch)
+template <typename RunnerT, typename... Args>
+auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass everything by values
 {
-  constexpr auto kInterval = std::chrono::milliseconds(500);
-  last_touch->store(std::chrono::system_clock::now());
-  while (last_touch->load() + kInterval >= std::chrono::system_clock::now()) {
-    std::this_thread::sleep_for(kInterval);
+  cuda::atomic<std::shared_ptr<RunnerT>*> runner_outer{nullptr};
+  std::thread(
+    [&runner_outer](Args... thread_args) {  // pass everything by values
+      std::shared_ptr<RunnerT> runner_inner{nullptr};
+      std::weak_ptr<RunnerT> runner_weak;
+      {
+        std::lock_guard<std::mutex> guard(persistent_lock);
+        persistent_runner.reset();  // Free the resources (if any) in advance
+        runner_inner      = std::make_shared<RunnerT>(thread_args...);
+        runner_weak       = runner_inner;
+        persistent_runner = std::static_pointer_cast<persistent_runner_base_t>(runner_inner);
+        runner_outer.store(new std::shared_ptr<RunnerT>{runner_inner});
+        runner_outer.notify_one();
+        runner_inner->last_touch.store(std::chrono::system_clock::now());
+        runner_inner.reset();
+      }
+      constexpr auto kInterval = std::chrono::milliseconds(500);
+      while (true) {
+        std::this_thread::sleep_for(kInterval);
+        std::lock_guard<std::mutex> guard(persistent_lock);
+        auto runner = runner_weak.lock();
+        if (!runner) {
+          return;  // dead already
+        }
+        if (runner->last_touch.load() + kInterval < std::chrono::system_clock::now()) {
+          if (runner == persistent_runner) { persistent_runner.reset(); }
+          return;
+        }
+      }
+    },
+    args...)
+    .detach();
+  runner_outer.wait(nullptr);
+  auto* p = runner_outer.load();
+  auto r  = std::move(*p);
+  delete p;
+  return r;
+}
+
+template <typename RunnerT, typename... Args>
+auto get_runner(Args&&... args) -> std::shared_ptr<RunnerT>
+{
+  {
+    std::lock_guard<std::mutex> guard(persistent_lock);
+    auto runner = std::dynamic_pointer_cast<RunnerT>(persistent_runner);
+    if (runner) { return runner; }
   }
-  std::lock_guard<std::mutex> guard(persistent_lock);
-  persistent_runner.reset();
+  return create_runner<RunnerT>(args...);
 }
 
 template <unsigned TEAM_SIZE,
@@ -1498,47 +1531,27 @@ void select_and_run(
   bool is_persistent = rand_xor_mask & pmask;
   rand_xor_mask &= ~pmask;
   if (is_persistent) {
-    using runner_type = persistent_runner_t<true,
-                                            TEAM_SIZE,
-                                            DATASET_BLOCK_DIM,
-                                            DATASET_DESCRIPTOR_T,
-                                            SAMPLE_FILTER_T>;
-    // This is used to keep the object alive if `persistent_runner` gets reset.
-    std::shared_ptr<persistent_runner_base_t> runner_local_copy;
-    runner_type* runner = nullptr;
-    {
-      std::lock_guard<std::mutex> guard(persistent_lock);
-      runner = dynamic_cast<runner_type*>(persistent_runner.get());
-      if (runner == nullptr) {
-        // Free the resources (if any) in advance
-        persistent_runner = std::shared_ptr<persistent_runner_base_t>();
-        // Lazy-create a stream, which is going to be used by all runners till the program exists
-        if (!persistent_stream) { persistent_stream = std::make_unique<non_blocking_stream>(); }
-        // Create a new runner
-        runner = new runner_type(dataset_desc,
-                                 graph,
-                                 num_itopk_candidates,
-                                 block_size,
-                                 smem_size,
-                                 hash_bitlen,
-                                 hashmap_ptr,
-                                 small_hash_bitlen,
-                                 small_hash_reset_interval,
-                                 num_random_samplings,
-                                 rand_xor_mask,
-                                 num_seeds,
-                                 itopk_size,
-                                 search_width,
-                                 min_iterations,
-                                 max_iterations,
-                                 sample_filter,
-                                 metric,
-                                 persistent_stream->value);
-        persistent_runner.reset(runner);
-      }
-      runner_local_copy = persistent_runner;
-    }
-    runner->launch(topk_indices_ptr, topk_distances_ptr, queries_ptr, num_queries, topk);
+    using runner_type =
+      persistent_runner_t<TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
+    get_runner<runner_type>(dataset_desc,
+                            graph,
+                            num_itopk_candidates,
+                            block_size,
+                            smem_size,
+                            hash_bitlen,
+                            hashmap_ptr,
+                            small_hash_bitlen,
+                            small_hash_reset_interval,
+                            num_random_samplings,
+                            rand_xor_mask,
+                            num_seeds,
+                            itopk_size,
+                            search_width,
+                            min_iterations,
+                            max_iterations,
+                            sample_filter,
+                            metric)
+      ->launch(topk_indices_ptr, topk_distances_ptr, queries_ptr, num_queries, topk);
   } else {
     auto kernel =
       search_kernel_config<false,
