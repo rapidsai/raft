@@ -24,9 +24,11 @@
 
 #pragma once
 
+#ifndef RAFT_HIDE_DEPRECATION_WARNINGS
 #pragma message(__FILE__                                                    \
                   " is deprecated and will be removed in a future release." \
                   " Please use the raft/solver version instead.")
+#endif
 
 #include <raft/solver/linear_assignment.cuh>
 

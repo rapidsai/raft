@@ -13,8 +13,8 @@
 # =============================================================================
 
 if(DISABLE_DEPRECATION_WARNINGS)
-  list(APPEND RAFT_CXX_FLAGS -Wno-deprecated-declarations)
-  list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
+  list(APPEND RAFT_CXX_FLAGS -Wno-deprecated-declarations -DRAFT_HIDE_DEPRECATION_WARNINGS)
+  list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations -DRAFT_HIDE_DEPRECATION_WARNINGS)
 endif()
 
 # Be very strict when compiling with GCC as host compiler (and thus more lenient when compiling with
