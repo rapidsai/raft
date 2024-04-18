@@ -38,6 +38,7 @@
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/pinned_host_memory_resource.hpp>
 
 #include <cuda/atomic>
@@ -960,8 +961,9 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
     // wait the writing phase
     if (threadIdx.x == 0) {
       do {
-        work_index.handle = work_handle.load(cuda::memory_order_acquire);
+        work_index.handle = work_handle.load(cuda::memory_order_relaxed);
       } while (work_index.handle == kWaitForWork);
+      cuda::atomic_thread_fence(cuda::memory_order_acquire, cuda::thread_scope_system);
     }
     __syncthreads();
     if (work_index.handle == kNoMoreWork) { break; }
@@ -1017,6 +1019,9 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
     if (threadIdx.x == 0) {
       auto completed_count = atomicInc(completion_counters + work_ix, n_queries - 1) + 1;
       if (completed_count >= n_queries) {
+        // we may need a memory fence here:
+        //   - device - if the queries are accessed by the device
+        //   - system - e.g. if we put them into managed/pinned memory.
         reinterpret_cast<cuda::atomic<uint32_t, cuda::thread_scope_system>*>(
           &work_descriptors[work_ix].n_queries)
           ->store(0, cuda::memory_order_relaxed);
@@ -1191,7 +1196,7 @@ struct launcher_t {
     // The first worker is special: one may associate a work_descriptor and the completion_latch
     // with the same id. Hence it bypassed the `pending_reads` queue and is only released at the
     // very end.
-    submit_query(lead_worker_id, 0, false);
+    submit_query(lead_worker_id, 0, true);
     // Submit all queries in the batch
     for (uint32_t i = 1; i < n_queries; i++) {
       uint32_t worker_id;
@@ -1204,12 +1209,13 @@ struct launcher_t {
     }
   }
 
-  void submit_query(uint32_t worker_id, uint32_t query_id, bool add_to_pending_reads = true)
+  void submit_query(uint32_t worker_id, uint32_t query_id, bool first_to_submit = false)
   {
-    work_handles[worker_id].store((work_handle_view_t{.value = {lead_worker_id, query_id}}).handle,
-                                  cuda::memory_order_release);
+    work_handles[worker_id].store(
+      (work_handle_view_t{.value = {lead_worker_id, query_id}}).handle,
+      first_to_submit ? cuda::memory_order_release : cuda::memory_order_relaxed);
 
-    if (!add_to_pending_reads) { return; }
+    if (first_to_submit) { return; }
     while (!pending_reads.try_push(worker_id)) {
       // The only reason pending_reads cannot push is that the queue is full.
       // It's local, so we must pop and wait for the returned worker to finish its work.
