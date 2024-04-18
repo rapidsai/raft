@@ -230,21 +230,20 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   uint32_t block_id                   = cta_id + (num_cta_per_query * query_id);
   uint32_t num_blocks                 = num_cta_per_query * num_queries;
 
-  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, METRIC>(
-    result_indices_buffer,
-    result_distances_buffer,
-    query_buffer,
-    dataset_desc,
-    result_buffer_size,
-    num_distilation,
-    rand_xor_mask,
-    local_seed_ptr,
-    num_seeds,
-    local_visited_hashmap_ptr,
-    hash_bitlen,
-    metric,
-    block_id,
-    num_blocks);
+  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM>(result_indices_buffer,
+                                                                         result_distances_buffer,
+                                                                         query_buffer,
+                                                                         dataset_desc,
+                                                                         result_buffer_size,
+                                                                         num_distilation,
+                                                                         rand_xor_mask,
+                                                                         local_seed_ptr,
+                                                                         num_seeds,
+                                                                         local_visited_hashmap_ptr,
+                                                                         hash_bitlen,
+                                                                         metric,
+                                                                         block_id,
+                                                                         num_blocks);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 
@@ -404,8 +403,7 @@ void set_value_batch(T* const dev_ptr,
 template <uint32_t TEAM_SIZE,
           uint32_t DATASET_BLOCK_DIM,
           typename DATASET_DESCRIPTOR_T,
-          typename SAMPLE_FILTER_T,
-          raft::distance::DistanceType METRIC>
+          typename SAMPLE_FILTER_T>
 struct search_kernel_config {
   // Search kernel function type. Note that the actual values for the template value
   // parameters do not matter, because they are not part of the function signature. The
@@ -414,32 +412,24 @@ struct search_kernel_config {
                                            DATASET_BLOCK_DIM,
                                            128,
                                            DATASET_DESCRIPTOR_T,
-                                           SAMPLE_FILTER_T,
-                                           METRIC>);
+                                           SAMPLE_FILTER_T>);
 
   static auto choose_buffer_size(unsigned result_buffer_size, unsigned block_size) -> kernel_t
   {
     if (result_buffer_size <= 64) {
-      return search_kernel<TEAM_SIZE,
-                           DATASET_BLOCK_DIM,
-                           64,
-                           DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T,
-                           METRIC>;
+      return search_kernel<TEAM_SIZE, DATASET_BLOCK_DIM, 64, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>;
     } else if (result_buffer_size <= 128) {
       return search_kernel<TEAM_SIZE,
                            DATASET_BLOCK_DIM,
                            128,
                            DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T,
-                           METRIC>;
+                           SAMPLE_FILTER_T>;
     } else if (result_buffer_size <= 256) {
       return search_kernel<TEAM_SIZE,
                            DATASET_BLOCK_DIM,
                            256,
                            DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T,
-                           METRIC>;
+                           SAMPLE_FILTER_T>;
     }
     THROW("Result buffer size %u larger than max buffer size %u", result_buffer_size, 256);
   }
@@ -478,27 +468,8 @@ void select_and_run(
   cudaStream_t stream)
 {
   auto kernel =
-    metric == raft::distance::DistanceType::L2Expanded
-      ? search_kernel_config<TEAM_SIZE,
-                             DATASET_BLOCK_DIM,
-                             DATASET_DESCRIPTOR_T,
-                             SAMPLE_FILTER_T,
-                             raft::distance::L2Expanded>::choose_buffer_size(result_buffer_size,
-                                                                             block_size)
-      : search_kernel_config<TEAM_SIZE,
-                             DATASET_BLOCK_DIM,
-                             DATASET_DESCRIPTOR_T,
-                             SAMPLE_FILTER_T,
-                             raft::distance::InnerProduct>::choose_buffer_size(result_buffer_size,
-                                                                               block_size);
-  //     break;
-  //   case raft::distance::DistanceType::InnerProduct:
-  //     kernel = search_kernel_config<TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T,
-  //     SAMPLE_FILTER_T, raft::distance::InnerProduct>:: choose_buffer_size(result_buffer_size,
-  //     block_size); break;
-  //   default:
-  //     break;
-  // }
+    search_kernel_config<TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::
+      choose_buffer_size(result_buffer_size, block_size);
 
   RAFT_CUDA_TRY(cudaFuncSetAttribute(kernel,
                                      cudaFuncAttributeMaxDynamicSharedMemorySize,
@@ -537,7 +508,8 @@ void select_and_run(
                                                        min_iterations,
                                                        max_iterations,
                                                        num_executed_iterations,
-                                                       sample_filter);
+                                                       sample_filter,
+                                                       metric);
 }
 
 }  // namespace multi_cta_search

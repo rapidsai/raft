@@ -32,6 +32,14 @@
 
 namespace raft::neighbors::cagra {
 
+template <typename DataT, typename accessor>
+auto get_default_ivf_pq_build_params(
+  mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
+  const raft::distance::DistanceType metric = raft::distance::L2Expanded) -> ivf_pq::index_params
+{
+  return detail::get_default_ivf_pq_build_params(dataset, metric);
+}
+
 /**
  * @defgroup cagra CUDA ANN Graph-based nearest neighbor search
  * @{
@@ -83,8 +91,7 @@ template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
-                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-                     std::optional<float> refine_rate    = std::nullopt,
+                     std::optional<float> refine_rate                   = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
@@ -98,7 +105,7 @@ void build_knn_graph(raft::resources const& res,
     dataset.data_handle(), dataset.extent(0), dataset.extent(1));
 
   cagra::detail::build_knn_graph(
-    res, dataset_internal, knn_graph_internal, metric, refine_rate, build_params, search_params);
+    res, dataset_internal, knn_graph_internal, refine_rate, build_params, search_params);
 }
 
 /**

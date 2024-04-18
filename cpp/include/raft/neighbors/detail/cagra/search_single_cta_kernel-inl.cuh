@@ -573,19 +573,18 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   // compute distance to randomly selecting nodes
   _CLK_START();
   const INDEX_T* const local_seed_ptr = seed_ptr ? seed_ptr + (num_seeds * query_id) : nullptr;
-  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM>(
-    result_indices_buffer,
-    result_distances_buffer,
-    query_buffer,
-    dataset_desc,
-    result_buffer_size,
-    num_distilation,
-    rand_xor_mask,
-    local_seed_ptr,
-    num_seeds,
-    local_visited_hashmap_ptr,
-    hash_bitlen,
-    metric);
+  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM>(result_indices_buffer,
+                                                                         result_distances_buffer,
+                                                                         query_buffer,
+                                                                         dataset_desc,
+                                                                         result_buffer_size,
+                                                                         num_distilation,
+                                                                         rand_xor_mask,
+                                                                         local_seed_ptr,
+                                                                         num_seeds,
+                                                                         local_visited_hashmap_ptr,
+                                                                         hash_bitlen,
+                                                                         metric);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 
@@ -819,8 +818,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
 template <uint32_t TEAM_SIZE,
           uint32_t DATASET_BLOCK_DIM,
           typename DATASET_DESCRIPTOR_T,
-          typename SAMPLE_FILTER_T,
-          raft::distance::DistanceType METRIC>
+          typename SAMPLE_FILTER_T>
 struct search_kernel_config {
   using kernel_t = decltype(&search_kernel<TEAM_SIZE,
                                            DATASET_BLOCK_DIM,
@@ -828,8 +826,7 @@ struct search_kernel_config {
                                            64,
                                            0,
                                            DATASET_DESCRIPTOR_T,
-                                           SAMPLE_FILTER_T,
-                                           METRIC>);
+                                           SAMPLE_FILTER_T>);
 
   template <unsigned MAX_CANDIDATES, unsigned USE_BITONIC_SORT>
   static auto choose_search_kernel(unsigned itopk_size) -> kernel_t
@@ -841,8 +838,7 @@ struct search_kernel_config {
                            MAX_CANDIDATES,
                            USE_BITONIC_SORT,
                            DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T,
-                           METRIC>;
+                           SAMPLE_FILTER_T>;
     } else if (itopk_size <= 128) {
       return search_kernel<TEAM_SIZE,
                            DATASET_BLOCK_DIM,
@@ -850,8 +846,7 @@ struct search_kernel_config {
                            MAX_CANDIDATES,
                            USE_BITONIC_SORT,
                            DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T,
-                           METRIC>;
+                           SAMPLE_FILTER_T>;
     } else if (itopk_size <= 256) {
       return search_kernel<TEAM_SIZE,
                            DATASET_BLOCK_DIM,
@@ -859,8 +854,7 @@ struct search_kernel_config {
                            MAX_CANDIDATES,
                            USE_BITONIC_SORT,
                            DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T,
-                           METRIC>;
+                           SAMPLE_FILTER_T>;
     } else if (itopk_size <= 512) {
       return search_kernel<TEAM_SIZE,
                            DATASET_BLOCK_DIM,
@@ -868,8 +862,7 @@ struct search_kernel_config {
                            MAX_CANDIDATES,
                            USE_BITONIC_SORT,
                            DATASET_DESCRIPTOR_T,
-                           SAMPLE_FILTER_T,
-                           METRIC>;
+                           SAMPLE_FILTER_T>;
     }
     THROW("No kernel for parametels itopk_size %u, max_candidates %u", itopk_size, MAX_CANDIDATES);
   }
@@ -895,8 +888,7 @@ struct search_kernel_config {
                              max_candidates,
                              0,
                              DATASET_DESCRIPTOR_T,
-                             SAMPLE_FILTER_T,
-                             METRIC>;
+                             SAMPLE_FILTER_T>;
       } else if (itopk_size <= 512) {
         return search_kernel<TEAM_SIZE,
                              DATASET_BLOCK_DIM,
@@ -904,8 +896,7 @@ struct search_kernel_config {
                              max_candidates,
                              0,
                              DATASET_DESCRIPTOR_T,
-                             SAMPLE_FILTER_T,
-                             METRIC>;
+                             SAMPLE_FILTER_T>;
       }
     }
     THROW("No kernel for parametels itopk_size %u, num_itopk_candidates %u",
@@ -946,20 +937,9 @@ void select_and_run(
   raft::distance::DistanceType metric,
   cudaStream_t stream)
 {
-  auto kernel = metric == raft::distance::L2Expanded
-                  ? search_kernel_config<TEAM_SIZE,
-                                         DATASET_BLOCK_DIM,
-                                         DATASET_DESCRIPTOR_T,
-                                         SAMPLE_FILTER_T,
-                                         raft::distance::DistanceType::L2Expanded>::
-                      choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size)
-                  : search_kernel_config<TEAM_SIZE,
-                                         DATASET_BLOCK_DIM,
-                                         DATASET_DESCRIPTOR_T,
-                                         SAMPLE_FILTER_T,
-                                         raft::distance::DistanceType::InnerProduct>::
-                      choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
-
+  auto kernel =
+    search_kernel_config<TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>::
+      choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
   RAFT_CUDA_TRY(cudaFuncSetAttribute(kernel,
                                      cudaFuncAttributeMaxDynamicSharedMemorySize,
                                      smem_size + DATASET_DESCRIPTOR_T::smem_buffer_size_in_byte));
@@ -987,7 +967,8 @@ void select_and_run(
                                                          hash_bitlen,
                                                          small_hash_bitlen,
                                                          small_hash_reset_interval,
-                                                         sample_filter);
+                                                         sample_filter,
+                                                         metric);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 }  // namespace single_cta_search

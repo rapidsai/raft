@@ -18,6 +18,7 @@
 #include "../../cagra_types.hpp"
 #include "../../vpq_dataset.cuh"
 #include "graph_core.cuh"
+// #include "raft/core/mdspan_types.hpp"
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -41,20 +42,34 @@
 
 namespace raft::neighbors::cagra::detail {
 
+template <typename DataT, typename accessor>
+ivf_pq::index_params get_default_ivf_pq_build_params(
+  mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
+  const raft::distance::DistanceType metric)
+{
+  auto build_params    = ivf_pq::index_params{};
+  build_params.n_lists = dataset.extent(0) < 4 * 2500 ? 4 : (uint32_t)(dataset.extent(0) / 2500);
+  build_params.pq_dim  = raft::Pow2<8>::roundUp(dataset.extent(1) / 2);
+  build_params.pq_bits = 8;
+  build_params.kmeans_trainset_fraction = dataset.extent(0) < 10000 ? 1 : 10;
+  build_params.kmeans_n_iters           = 25;
+  build_params.add_data_on_build        = true;
+  build_params.metric                   = metric;
+
+  return build_params;
+}
+
 template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
-                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-                     std::optional<float> refine_rate    = std::nullopt,
+                     std::optional<float> refine_rate                   = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
-  RAFT_EXPECTS(!build_params || build_params->metric == metric,
-               "Mismatch between index metric and IVF-PQ metric");
-  RAFT_EXPECTS(
-    metric == distance::DistanceType::L2Expanded || metric == distance::DistanceType::InnerProduct,
-    "Currently only L2Expanded or InnerProduct metric are supported");
+  RAFT_EXPECTS(!build_params || build_params->metric == distance::DistanceType::L2Expanded ||
+                 build_params->metric == distance::DistanceType::InnerProduct,
+               "Currently only L2Expanded or InnerProduct metric are supported");
 
   uint32_t node_degree = knn_graph.extent(1);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::build_graph(%zu, %zu, %u)",
@@ -63,14 +78,7 @@ void build_knn_graph(raft::resources const& res,
                                                             node_degree);
 
   if (!build_params) {
-    build_params          = ivf_pq::index_params{};
-    build_params->n_lists = dataset.extent(0) < 4 * 2500 ? 4 : (uint32_t)(dataset.extent(0) / 2500);
-    build_params->pq_dim  = raft::Pow2<8>::roundUp(dataset.extent(1) / 2);
-    build_params->pq_bits = 8;
-    build_params->kmeans_trainset_fraction = dataset.extent(0) < 10000 ? 1 : 10;
-    build_params->kmeans_n_iters           = 25;
-    build_params->add_data_on_build        = true;
-    build_params->metric                   = metric;
+    build_params = get_default_ivf_pq_build_params(dataset, raft::distance::L2Expanded);
   }
 
   // Make model name
@@ -327,15 +335,15 @@ index<T, IdxT> build(
     raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree));
 
   if (params.build_algo == graph_build_algo::IVF_PQ) {
-    RAFT_EXPECTS(params.metric == raft::distance::DistanceType::L2Expanded ||
-                   params.metric == raft::distance::DistanceType::InnerProduct,
-                 "L2Expanded and InnerProduct are the only distance metrics supported with IVF-PQ");
-    build_knn_graph(
-      res, dataset, knn_graph->view(), params.metric, refine_rate, pq_build_params, search_params);
+    if (!pq_build_params) {
+      pq_build_params = get_default_ivf_pq_build_params(dataset, params.metric);
+    }
+    build_knn_graph(res, dataset, knn_graph->view(), refine_rate, pq_build_params, search_params);
 
   } else {
-    RAFT_EXPECTS(params.metric == raft::distance::DistanceType::L2Expanded,
-                 "L2Expanded is the only distance metrics supported with nn_descent");
+    RAFT_EXPECTS(
+      params.metric == raft::distance::DistanceType::L2Expanded,
+      "L2Expanded is the only distance metrics supported for CAGRA build with nn_descent");
     // Use nn-descent to build CAGRA knn graph
     if (!nn_descent_params) {
       nn_descent_params                            = experimental::nn_descent::index_params();

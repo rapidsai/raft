@@ -41,7 +41,6 @@ _RAFT_DEVICE constexpr unsigned get_vlen()
 
 template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
-          raft::distance::DistanceType METRIC,
           class DATASET_DESCRIPTOR_T,
           class DISTANCE_T,
           class INDEX_T>
@@ -173,17 +172,21 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
     DISTANCE_T norm2;
-      switch (metric) {
-        case raft::distance::L2Expanded:
-          norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::L2Expanded>(
-        query_buffer, child_id, child_id != invalid_index);
-          break;
-        case raft::distance::InnerProduct:
-          norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::InnerProduct>(
-        query_buffer, child_id, child_id != invalid_index);
-          break;
-        default: break;
-      }
+    switch (metric) {
+      case raft::distance::L2Expanded:
+        norm2 =
+          dataset_desc
+            .template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::L2Expanded>(
+              query_buffer, child_id, child_id != invalid_index);
+        break;
+      case raft::distance::InnerProduct:
+        norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                         TEAM_SIZE,
+                                                         raft::distance::InnerProduct>(
+          query_buffer, child_id, child_id != invalid_index);
+        break;
+      default: break;
+    }
 
     // Store the distance
     const unsigned lane_id = threadIdx.x % TEAM_SIZE;
