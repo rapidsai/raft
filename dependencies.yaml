@@ -358,8 +358,6 @@ dependencies:
       - output_types: [conda]
         packages:
           - *cmake_ver
-          - gtest>=1.13.0
-          - gmock>=1.13.0
   docs:
     common:
       - output_types: [conda]
