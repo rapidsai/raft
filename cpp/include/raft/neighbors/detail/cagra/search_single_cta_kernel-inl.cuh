@@ -890,28 +890,53 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
                                metric);
 }
 
+// To make sure we avoid false sharing on both CPU and GPU, we enforce cache line size to the
+// maximum of the two.
+// This makes sync atomic significantly faster.
+constexpr size_t kCacheLineBytes = 128;
+
 template <typename DATASET_DESCRIPTOR_T>
-struct work_desc_t {
+struct alignas(kCacheLineBytes) work_desc_t {
   using index_type    = typename DATASET_DESCRIPTOR_T::INDEX_T;
   using distance_type = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
   using data_type     = typename DATASET_DESCRIPTOR_T::DATA_T;
-  index_type* result_indices_ptr;       // [num_queries, top_k]
-  distance_type* result_distances_ptr;  // [num_queries, top_k]
-  const data_type* queries_ptr;         // [num_queries, dataset_dim]
-  uint32_t top_k;
-  uint32_t n_queries;  // also used as a completion indicator: last thread sets it to zero
+  // The algorithm input parameters
+  struct value_t {
+    index_type* result_indices_ptr;       // [num_queries, top_k]
+    distance_type* result_distances_ptr;  // [num_queries, top_k]
+    const data_type* queries_ptr;         // [num_queries, dataset_dim]
+    uint32_t top_k;
+    uint32_t n_queries;
+  };
+  using blob_elem_type = uint32_t;
+  constexpr static inline size_t kBlobSize =
+    raft::div_rounding_up_safe(sizeof(value_t), sizeof(blob_elem_type));
+  // Union facilitates loading the input by a warp in a single request
+  union input_t {
+    blob_elem_type blob[kBlobSize];  // NOLINT
+    value_t value;
+  } input;
+  // Last thread triggers this flag.
+  cuda::atomic<bool, cuda::thread_scope_system> completion_flag;
 };
 
-using work_handle_t = cuda::atomic<uint64_t, cuda::thread_scope_system>;
-union work_handle_view_t {
-  uint64_t handle;
+struct alignas(kCacheLineBytes) work_handle_t {
+  using handle_t = uint64_t;
   struct value_t {
     uint32_t desc_id;
     uint32_t query_id;
-  } value;
+  };
+  union data_t {
+    handle_t handle;
+    value_t value;
+  };
+  cuda::atomic<data_t, cuda::thread_scope_system> data;
 };
-constexpr uint64_t kWaitForWork = std::numeric_limits<uint64_t>::max();
-constexpr uint64_t kNoMoreWork  = kWaitForWork - 1;
+static_assert(sizeof(work_handle_t::value_t) == sizeof(work_handle_t::handle_t));
+static_assert(cuda::atomic<work_handle_t::data_t, cuda::thread_scope_system>::is_always_lock_free);
+
+constexpr work_handle_t::handle_t kWaitForWork = std::numeric_limits<uint64_t>::max();
+constexpr work_handle_t::handle_t kNoMoreWork  = kWaitForWork - 1;
 
 template <uint32_t TEAM_SIZE,
           uint32_t DATASET_BLOCK_DIM,
@@ -944,24 +969,17 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
   SAMPLE_FILTER_T sample_filter,
   raft::distance::DistanceType metric)
 {
-  auto& work_handle = work_handles[blockIdx.y];
+  using work_desc_type = work_desc_t<DATASET_DESCRIPTOR_T>;
+  __shared__ typename work_desc_type::input_t work_descriptor;
+  __shared__ work_handle_t::data_t work_index;
 
-  using work_desc_type     = work_desc_t<DATASET_DESCRIPTOR_T>;
-  using blob_elem          = uint32_t;
-  constexpr auto kBlobSize = raft::div_rounding_up_safe(sizeof(work_desc_type), sizeof(blob_elem));
-  static_assert(kBlobSize * sizeof(blob_elem) == sizeof(work_desc_type));
-  __shared__ union {
-    work_desc_type value;
-    blob_elem blob[kBlobSize];
-  } work_descriptor;
-
-  __shared__ work_handle_view_t work_index;
+  auto& work_handle = work_handles[blockIdx.y].data;
 
   while (true) {
     // wait the writing phase
     if (threadIdx.x == 0) {
       do {
-        work_index.handle = work_handle.load(cuda::memory_order_relaxed);
+        work_index = work_handle.load(cuda::memory_order_relaxed);
       } while (work_index.handle == kWaitForWork);
       cuda::atomic_thread_fence(cuda::memory_order_acquire, cuda::thread_scope_system);
     }
@@ -969,11 +987,11 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
     if (work_index.handle == kNoMoreWork) { break; }
     auto work_ix = work_index.value.desc_id;
 
-    for (auto i = threadIdx.x; i < kBlobSize; i += blockDim.x) {
-      work_descriptor.blob[i] = reinterpret_cast<blob_elem*>(work_descriptors + work_ix)[i];
+    for (auto i = threadIdx.x; i < work_desc_type::kBlobSize; i += blockDim.x) {
+      work_descriptor.blob[i] = work_descriptors[work_ix].input.blob[i];
     }
     __syncthreads();
-    if (threadIdx.x == 0) { work_handle.store(kWaitForWork, cuda::memory_order_relaxed); }
+    if (threadIdx.x == 0) { work_handle.store({kWaitForWork}, cuda::memory_order_relaxed); }
 
     // reading phase
     auto* result_indices_ptr   = work_descriptor.value.result_indices_ptr;
@@ -1022,9 +1040,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
         // we may need a memory fence here:
         //   - device - if the queries are accessed by the device
         //   - system - e.g. if we put them into managed/pinned memory.
-        reinterpret_cast<cuda::atomic<uint32_t, cuda::thread_scope_system>*>(
-          &work_descriptors[work_ix].n_queries)
-          ->store(0, cuda::memory_order_relaxed);
+        work_descriptors[work_ix].completion_flag.store(true, cuda::memory_order_relaxed);
       }
     }
   }
@@ -1174,13 +1190,13 @@ struct launcher_t {
   using work_queue_type = persistent_runner_base_t::work_queue_type;
   using pending_reads_queue_type =
     atomic_queue::AtomicQueue<uint32_t, 32, ~0u, false, false, false, true>;
-  using completion_latch_type = cuda::atomic<uint32_t, cuda::thread_scope_system>;
+  using completion_flag_type = cuda::atomic<bool, cuda::thread_scope_system>;
 
   pending_reads_queue_type pending_reads{};
   work_queue_type& worker_ids;
   work_handle_t* work_handles;
   uint32_t lead_worker_id;
-  completion_latch_type* completion_latch;
+  completion_flag_type* completion_flag;
   bool all_done = false;
 
   template <typename RecordWork>
@@ -1191,9 +1207,9 @@ struct launcher_t {
     : worker_ids{worker_ids},
       work_handles{work_handles},
       lead_worker_id{worker_ids.pop()},
-      completion_latch{record_work(lead_worker_id)}
+      completion_flag{record_work(lead_worker_id)}
   {
-    // The first worker is special: one may associate a work_descriptor and the completion_latch
+    // The first worker is special: one may associate a work_descriptor and the completion_flag
     // with the same id. Hence it bypassed the `pending_reads` queue and is only released at the
     // very end.
     submit_query(lead_worker_id, 0, true);
@@ -1211,8 +1227,8 @@ struct launcher_t {
 
   void submit_query(uint32_t worker_id, uint32_t query_id, bool first_to_submit = false)
   {
-    work_handles[worker_id].store(
-      (work_handle_view_t{.value = {lead_worker_id, query_id}}).handle,
+    work_handles[worker_id].data.store(
+      work_handle_t::data_t{.value = {lead_worker_id, query_id}},
       first_to_submit ? cuda::memory_order_release : cuda::memory_order_relaxed);
 
     if (first_to_submit) { return; }
@@ -1230,7 +1246,8 @@ struct launcher_t {
   auto try_return_worker(uint32_t worker_id) -> bool
   {
     // Use the cached `all_done` - makes sense when called from the `wait()` routine.
-    if (all_done || work_handles[worker_id].load(cuda::memory_order_relaxed) == kWaitForWork) {
+    if (all_done ||
+        work_handles[worker_id].data.load(cuda::memory_order_relaxed).handle == kWaitForWork) {
       worker_ids.push(worker_id);
       return true;
     } else {
@@ -1246,7 +1263,7 @@ struct launcher_t {
   {
     // Cache the result of the check to avoid doing unnecessary atomic loads.
     if (all_done) { return true; }
-    all_done = completion_latch->load() == 0;
+    all_done = completion_flag->load(cuda::memory_order_relaxed);
     return all_done;
   }
 
@@ -1337,13 +1354,14 @@ struct persistent_runner_t : public persistent_runner_base_t {
     auto* work_handles_ptr = work_handles.data();
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     for (uint32_t i = 0; i < gs.y; i++) {
-      auto& wd                = work_descriptors_ptr[i];
+      auto& wd                = work_descriptors_ptr[i].input.value;
       wd.result_indices_ptr   = nullptr;
       wd.result_distances_ptr = nullptr;
       wd.queries_ptr          = nullptr;
       wd.top_k                = 0;
       wd.n_queries            = 0;
-      work_handles_ptr[i].store(kWaitForWork);
+      work_descriptors_ptr[i].completion_flag.store(false);
+      work_handles_ptr[i].data.store({kWaitForWork});
       queue.push(i);
     }
 
@@ -1390,13 +1408,13 @@ struct persistent_runner_t : public persistent_runner_base_t {
     auto count         = whl;
     // wait for all the jobs to finish nicely
     while (queue.try_pop(worker_id)) {
-      whs[worker_id].store(kNoMoreWork, cuda::memory_order_relaxed);
+      whs[worker_id].data.store({kNoMoreWork}, cuda::memory_order_relaxed);
       count--;
     }
     if (count > 0) {
       // try to kill stuck threads if any
       for (uint32_t i = 0; i < whl; i++) {
-        whs[i].store(kNoMoreWork, cuda::memory_order_relaxed);
+        whs[i].data.store({kNoMoreWork}, cuda::memory_order_relaxed);
       }
     }
     RAFT_LOG_INFO("Destroyed the persistent runner.");
@@ -1408,19 +1426,20 @@ struct persistent_runner_t : public persistent_runner_base_t {
               uint32_t num_queries,
               uint32_t top_k)
   {
-    launcher_t{
-      queue,
-      work_handles.data(),
-      num_queries,
-      [=](uint32_t worker_id) {
-        auto& wd                = work_descriptors.data()[worker_id];
-        wd.result_indices_ptr   = result_indices_ptr;
-        wd.result_distances_ptr = result_distances_ptr;
-        wd.queries_ptr          = queries_ptr;
-        wd.top_k                = top_k;
-        wd.n_queries            = num_queries;
-        return reinterpret_cast<cuda::atomic<uint32_t, cuda::thread_scope_system>*>(&wd.n_queries);
-      }}
+    launcher_t{queue,
+               work_handles.data(),
+               num_queries,
+               [=](uint32_t worker_id) {
+                 auto& wd                = work_descriptors.data()[worker_id].input.value;
+                 auto cflag              = &work_descriptors.data()[worker_id].completion_flag;
+                 wd.result_indices_ptr   = result_indices_ptr;
+                 wd.result_distances_ptr = result_distances_ptr;
+                 wd.queries_ptr          = queries_ptr;
+                 wd.top_k                = top_k;
+                 wd.n_queries            = num_queries;
+                 cflag->store(false, cuda::memory_order_relaxed);
+                 return cflag;
+               }}
       .wait();
     last_touch.store(std::chrono::system_clock::now());
   }
