@@ -1429,16 +1429,17 @@ struct persistent_runner_t : public persistent_runner_base_t {
   {
     // We may need to run other kernels alongside this persistent kernel.
     // Leave a few SMs idle.
-    constexpr double kDeviceUsage = 0.8;
+    // Note: even when we know there are no other kernels working at the same time, setting
+    // kDeviceUsage to 1.0 surprisingly hurts performance.
+    constexpr double kDeviceUsage = 0.9;
 
     // determine the grid size
     int ctas_per_sm = 1;
     cudaOccupancyMaxActiveBlocksPerMultiprocessor<kernel_type>(
       &ctas_per_sm, kernel, block_size, smem_size);
-    int num_sm = getMultiProcessorCount() - 1;
+    int num_sm = getMultiProcessorCount();
 
-    return {1, uint32_t(kDeviceUsage * (ctas_per_sm * num_sm)), 1};
-    // return {1, uint32_t(getMultiProcessorCount() - 8), 1};
+    return {1, static_cast<uint32_t>(kDeviceUsage * (ctas_per_sm * num_sm)), 1};
   }
 };
 
