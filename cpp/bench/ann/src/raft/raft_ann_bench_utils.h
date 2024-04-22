@@ -101,7 +101,7 @@ class shared_raft_resources {
   ~shared_raft_resources() noexcept { rmm::mr::set_current_device_resource(orig_resource_); }
 
  private:
-  rmm::device_async_resource_ref orig_resource_;
+  rmm::mr::device_memory_resource* orig_resource_;
   pool_mr_type pool_resource_;
   mr_type resource_;
 };
@@ -131,8 +131,8 @@ class configured_raft_resources {
   {
   }
 
-  configured_raft_resources(configured_raft_resources&&)            = default;
-  configured_raft_resources& operator=(configured_raft_resources&&) = default;
+  configured_raft_resources(configured_raft_resources&&)            = delete;
+  configured_raft_resources& operator=(configured_raft_resources&&) = delete;
   ~configured_raft_resources()                                      = default;
   configured_raft_resources(const configured_raft_resources& res)
     : configured_raft_resources{res.shared_res_}
