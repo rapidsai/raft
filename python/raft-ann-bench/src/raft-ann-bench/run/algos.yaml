@@ -31,6 +31,9 @@ raft_cagra:
 raft_brute_force:
   executable: RAFT_BRUTE_FORCE_ANN_BENCH
   requires_gpu: true
+raft_ann_mg:
+  executable: RAFT_ANN_MG_ANN_BENCH
+  requires_gpu: true
 ggnn:
   executable: GGNN_ANN_BENCH
   requires_gpu: true

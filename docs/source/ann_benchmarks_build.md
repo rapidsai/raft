@@ -44,5 +44,6 @@ Available targets to use with `--limit-bench-ann` are:
 - RAFT_CAGRA_ANN_BENCH
 - RAFT_IVF_PQ_ANN_BENCH
 - RAFT_IVF_FLAT_ANN_BENCH
+- RAFT_ANN_MG_ANN_BENCH
 
 By default, the `*_ANN_BENCH` executables program infer the dataset's datatype from the filename's extension. For example, an extension of `fbin` uses a `float` datatype, `f16bin` uses a `float16` datatype, extension of `i8bin` uses `int8_t` datatype, and `u8bin` uses `uint8_t` type. Currently, only `float`, `float16`, int8_t`, and `unit8_t` are supported.

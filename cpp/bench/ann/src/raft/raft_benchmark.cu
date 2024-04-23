@@ -81,6 +81,16 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
     ann = std::make_unique<raft::bench::ann::RaftCagra<T, uint32_t>>(metric, dim, param);
   }
 #endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, uint8_t> ||
+                std::is_same_v<T, int8_t>) {
+    if (algo == "raft_ann_mg") {
+      typename raft::bench::ann::RaftAnnMG<T, int64_t>::BuildParam param;
+      parse_build_param<T, int64_t>(conf, param);
+      ann = std::make_unique<raft::bench::ann::RaftAnnMG<T, int64_t>>(metric, dim, param);
+    }
+  }
+#endif
 
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 
@@ -120,6 +130,17 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
     auto param = std::make_unique<typename raft::bench::ann::RaftCagra<T, uint32_t>::SearchParam>();
     parse_search_param<T, uint32_t>(conf, *param);
     return param;
+  }
+#endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, uint8_t> ||
+                std::is_same_v<T, int8_t>) {
+    if (algo == "raft_ann_mg") {
+      auto param =
+        std::make_unique<typename raft::bench::ann::RaftAnnMG<T, int64_t>::SearchParam>();
+      parse_search_param<T, int64_t>(conf, *param);
+      return param;
+    }
   }
 #endif
 

@@ -47,6 +47,12 @@ extern template class raft::bench::ann::RaftCagra<half, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<uint8_t, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
 #endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG
+#include "raft_ann_mg_wrapper.h"
+extern template class raft::bench::ann::RaftAnnMG<float, uint32_t>;
+extern template class raft::bench::ann::RaftAnnMG<uint8_t, uint32_t>;
+extern template class raft::bench::ann::RaftAnnMG<int8_t, uint32_t>;
+#endif
 
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
 template <typename T, typename IdxT>
@@ -61,6 +67,24 @@ void parse_build_param(const nlohmann::json& conf,
 template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftIvfFlatGpu<T, IdxT>::SearchParam& param)
+{
+  param.ivf_flat_params.n_probes = conf.at("nprobe");
+}
+#endif
+
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG
+template <typename T, typename IdxT>
+void parse_build_param(const nlohmann::json& conf,
+                       typename raft::bench::ann::RaftAnnMG<T, IdxT>::BuildParam& param)
+{
+  param.n_lists = conf.at("nlist");
+  if (conf.contains("niter")) { param.kmeans_n_iters = conf.at("niter"); }
+  if (conf.contains("ratio")) { param.kmeans_trainset_fraction = 1.0 / (double)conf.at("ratio"); }
+}
+
+template <typename T, typename IdxT>
+void parse_search_param(const nlohmann::json& conf,
+                        typename raft::bench::ann::RaftAnnMG<T, IdxT>::SearchParam& param)
 {
   param.ivf_flat_params.n_probes = conf.at("nprobe");
 }

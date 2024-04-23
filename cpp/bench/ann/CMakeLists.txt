@@ -275,6 +275,13 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
   )
 endif()
 
+if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+  ConfigureAnnBench(
+    NAME RAFT_CAGRA_HNSWLIB PATH bench/ann/src/raft/raft_cagra_hnswlib.cu LINKS raft::compiled
+    hnswlib::hnswlib
+  )
+endif()
+
 if(RAFT_ANN_BENCH_USE_RAFT_ANN_MG)
   ConfigureAnnBench(
     NAME
@@ -283,13 +290,6 @@ if(RAFT_ANN_BENCH_USE_RAFT_ANN_MG)
     bench/ann/src/raft/raft_benchmark.cu
     LINKS
     raft::compiled
-  )
-endif()
-
-if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
-  ConfigureAnnBench(
-    NAME RAFT_CAGRA_HNSWLIB PATH bench/ann/src/raft/raft_cagra_hnswlib.cu LINKS raft::compiled
-    hnswlib::hnswlib
   )
 endif()
 

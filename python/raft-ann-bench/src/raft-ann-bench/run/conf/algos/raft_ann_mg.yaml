@@ -1,0 +1,9 @@
+name: raft_ann_mg
+groups:
+  base:
+    build:
+      nlist: [1024, 2048, 4096, 8192, 16384, 32000, 64000]
+      ratio: [1, 2, 4]
+      niter: [20, 25]
+    search:
+      nprobe: [1, 5, 10, 50, 100, 200, 500, 1000, 2000]
