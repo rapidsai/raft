@@ -42,7 +42,6 @@
 #include <rmm/mr/pinned_host_memory_resource.hpp>
 
 #include <cuda/atomic>
-#include <cuda/latch>
 
 #include <atomic_queue/atomic_queue.h>
 
@@ -908,7 +907,7 @@ struct alignas(kCacheLineBytes) work_desc_t {
     uint32_t top_k;
     uint32_t n_queries;
   };
-  using blob_elem_type = uint32_t;
+  using blob_elem_type = uint4;
   constexpr static inline size_t kBlobSize =
     raft::div_rounding_up_safe(sizeof(value_t), sizeof(blob_elem_type));
   // Union facilitates loading the input by a warp in a single request
@@ -974,23 +973,29 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
   __shared__ work_handle_t::data_t work_index;
 
   auto& work_handle = work_handles[blockIdx.y].data;
+  uint32_t work_ix;
 
   while (true) {
     // wait the writing phase
     if (threadIdx.x == 0) {
+      work_handle_t::data_t work_index_local;
       do {
-        work_index = work_handle.load(cuda::memory_order_relaxed);
-      } while (work_index.handle == kWaitForWork);
+        work_index_local = work_handle.load(cuda::memory_order_relaxed);
+      } while (work_index_local.handle == kWaitForWork);
+      work_ix = work_index_local.value.desc_id;
       cuda::atomic_thread_fence(cuda::memory_order_acquire, cuda::thread_scope_system);
+      work_index = work_index_local;
+    }
+    if (threadIdx.x < WarpSize) {
+      // Sync one warp and copy descriptor data
+      static_assert(work_desc_type::kBlobSize <= WarpSize);
+      work_ix = raft::shfl(work_ix, 0);
+      if (threadIdx.x < work_desc_type::kBlobSize) {
+        work_descriptor.blob[threadIdx.x] = work_descriptors[work_ix].input.blob[threadIdx.x];
+      }
     }
     __syncthreads();
     if (work_index.handle == kNoMoreWork) { break; }
-    auto work_ix = work_index.value.desc_id;
-
-    for (auto i = threadIdx.x; i < work_desc_type::kBlobSize; i += blockDim.x) {
-      work_descriptor.blob[i] = work_descriptors[work_ix].input.blob[i];
-    }
-    __syncthreads();
     if (threadIdx.x == 0) { work_handle.store({kWaitForWork}, cuda::memory_order_relaxed); }
 
     // reading phase
