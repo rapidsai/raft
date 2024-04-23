@@ -26,9 +26,9 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/failure_callback_resource_adaptor.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
-#include <rmm/resource_ref.hpp>
 
 #include <memory>
 #include <type_traits>
