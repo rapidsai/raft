@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include "raft/neighbors/ivf_pq_types.hpp"
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
 
 #include "../test_utils.cuh"
@@ -29,6 +28,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
+#include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
@@ -246,7 +246,8 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagra()
   {
-    // TODO (tarang-jain): remove when NN Descent index building support InnerProduct
+    // TODO (tarang-jain): remove when NN Descent index building support InnerProduct. Reference
+    // issue: https://github.com/rapidsai/raft/issues/2276
     if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT)
       GTEST_SKIP();
 
