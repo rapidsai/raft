@@ -104,6 +104,22 @@ struct index_params : ann::index_params {
    * flag to `true` if you prefer to use as little GPU memory for the database as possible.
    */
   bool conservative_memory_allocation = false;
+
+  /**
+   * Helper that sets values according to the extents of the dataset mdspan.
+   */
+  template <typename DataT, typename Accessor>
+  void initialize_from_dataset(
+    mdspan<const DataT, matrix_extent<int64_t>, row_major, Accessor> dataset,
+    raft::distance::DistanceType metric = raft::distance::L2Expanded)
+  {
+    n_lists =
+      dataset.extent(0) < 4 * 2500 ? 4 : static_cast<uint32_t>(std::sqrt(dataset.extent(0)));
+    pq_dim  = round_up_safe(static_cast<uint32_t>(dataset.extent(1) / 4), static_cast<uint32_t>(8));
+    pq_bits = 8;
+    kmeans_trainset_fraction = dataset.extent(0) < 10000 ? 1 : 0.1;
+    this->metric             = metric;
+  }
 };
 
 struct search_params : ann::search_params {

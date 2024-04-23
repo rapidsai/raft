@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "raft/neighbors/ivf_pq_types.hpp"
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
 
 #include "../test_utils.cuh"
@@ -415,7 +416,8 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
         raft::make_host_matrix<IdxT, int64_t>(ps.n_rows, index_params.intermediate_graph_degree);
 
       if (ps.build_algo == graph_build_algo::IVF_PQ) {
-        auto build_params = cagra::get_default_ivf_pq_build_params(database_view, ps.metric);
+        auto build_params = ivf_pq::index_params{};
+        build_params.initialize_from_dataset(database_view, ps.metric);
         if (ps.host_dataset) {
           cagra::build_knn_graph<DataT, IdxT>(
             handle_, database_host_view, knn_graph.view(), 2, build_params);

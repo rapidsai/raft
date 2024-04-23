@@ -32,14 +32,6 @@
 
 namespace raft::neighbors::cagra {
 
-template <typename DataT, typename accessor>
-auto get_default_ivf_pq_build_params(
-  mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
-  const raft::distance::DistanceType metric = raft::distance::L2Expanded) -> ivf_pq::index_params
-{
-  return detail::get_default_ivf_pq_build_params(dataset, metric);
-}
-
 /**
  * @defgroup cagra CUDA ANN Graph-based nearest neighbor search
  * @{
@@ -63,8 +55,9 @@ auto get_default_ivf_pq_build_params(
  * @code{.cpp}
  *   using namespace raft::neighbors;
  *   // use default index parameters
- *   ivf_pq::index_params = cagra::get_default_ivf_pq_build_params(dataset);
- *   ivf_pq::search_params search_params
+ *   ivf_pq::index_params build_params;
+ *   build_params.initialize_from_dataset(dataset);
+ *   ivf_pq::search_params search_params;
  *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // create knn graph
  *   cagra::build_knn_graph(res, dataset, knn_graph.view(), 2, build_params, search_params);
