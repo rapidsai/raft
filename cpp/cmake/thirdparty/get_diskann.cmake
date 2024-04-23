@@ -18,21 +18,33 @@ function(find_and_configure_diskann)
     set(oneValueArgs VERSION REPOSITORY PINNED_TAG)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
+    
+    set(patch_files_to_run "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/diskann.diff")
+    set(patch_issues_to_ref "fix compile issues")
+    set(patch_script "${CMAKE_BINARY_DIR}/rapids-cmake/patches/diskann/patch.cmake")
+    set(log_file "${CMAKE_BINARY_DIR}/rapids-cmake/patches/diskann/log")
+    string(TIMESTAMP current_year "%Y" UTC)
+    configure_file(${rapids-cmake-dir}/cpm/patches/command_template.cmake.in "${patch_script}"
+                   @ONLY)
 
-    rapids_cpm_find(diskann ${PKG_VERSION}
+    rapids_cpm_find(diskann
             GLOBAL_TARGETS diskann::diskann
             CPM_ARGS
             GIT_REPOSITORY   ${PKG_REPOSITORY}
             GIT_TAG          ${PKG_PINNED_TAG}
             )
+    
+    if(TARGET diskann AND NOT TARGET diskann::diskann)
+        add_library(diskann::diskann ALIAS diskann)
+    endif()
 endfunction()
 
 if(NOT RAFT_DISKANN_GIT_TAG)
-    set(RAFT_DISKANN_GIT_TAG cagra_int)
+    set(RAFT_DISKANN_GIT_TAG main)
 endif()
 
 if(NOT RAFT_DISKANN_GIT_REPOSITORY)
-    # set(RAFT_FAISS_GIT_REPOSITORY https://github.com/tarang-jain/DiskANN.git)
+    set(RAFT_FAISS_GIT_REPOSITORY https://github.com/microsoft/DiskANN.git)
 endif()
 
 find_and_configure_diskann(VERSION 0.7.0
