@@ -27,6 +27,7 @@
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/itertools.hpp>
 
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/host/new_delete_resource.hpp>
@@ -106,7 +107,7 @@ struct device_resource {
 
  private:
   const bool managed_;
-  rmm::device_async_resource_ref res_;
+  rmm::mr::device_memory_resource* res_;
 };
 
 template <typename T>
@@ -159,8 +160,15 @@ struct ivf_flat_knn {
               IdxT* out_idxs)
   {
     search_params.n_probes = 20;
-    raft::neighbors::ivf_flat::search(
-      handle, search_params, *index, search_items, ps.n_queries, ps.k, out_idxs, out_dists);
+    raft::neighbors::ivf_flat::search(handle,
+                                      search_params,
+                                      *index,
+                                      search_items,
+                                      ps.n_queries,
+                                      ps.k,
+                                      out_idxs,
+                                      out_dists,
+                                      resource::get_workspace_resource(handle));
   }
 };
 

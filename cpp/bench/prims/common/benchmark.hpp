@@ -28,9 +28,9 @@
 #include <rmm/cuda_stream.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
-#include <rmm/resource_ref.hpp>
 
 #include <benchmark/benchmark.h>
 
@@ -44,7 +44,7 @@ namespace raft::bench {
  */
 struct using_pool_memory_res {
  private:
-  rmm::device_async_resource_ref orig_res_;
+  rmm::mr::device_memory_resource* orig_res_;
   rmm::mr::cuda_memory_resource cuda_res_{};
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_res_;
 
