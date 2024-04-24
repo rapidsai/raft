@@ -293,12 +293,12 @@ void RaftCagra<T, IdxT>::search_base(
   const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
   IdxT* neighbors_IdxT;
-  rmm::device_uvector<IdxT> neighbors_storage(0, resource::get_cuda_stream(handle_));
+  std::optional<rmm::device_uvector<IdxT>> neighbors_storage{std::nullopt};
   if constexpr (sizeof(IdxT) == sizeof(AnnBase::index_type)) {
     neighbors_IdxT = reinterpret_cast<AnnBase::index_type*>(neighbors);
   } else {
-    neighbors_storage.resize(batch_size * k, resource::get_cuda_stream(handle_));
-    neighbors_IdxT = neighbors_storage.data();
+    neighbors_storage.emplace(batch_size * k, resource::get_cuda_stream(handle_));
+    neighbors_IdxT = neighbors_storage->data();
   }
 
   auto queries_view =
