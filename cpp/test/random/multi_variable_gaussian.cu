@@ -25,6 +25,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <gtest/gtest.h>
 
@@ -287,10 +288,8 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     raft::device_matrix_view<T, int, raft::col_major> P_view(P_d.data(), dim, dim);
     raft::device_matrix_view<T, int, raft::col_major> X_view(X_d.data(), dim, nPoints);
 
-    rmm::mr::device_memory_resource* mem_resource_ptr = rmm::mr::get_current_device_resource();
-    ASSERT_TRUE(mem_resource_ptr != nullptr);
     raft::random::multi_variable_gaussian(
-      handle, *mem_resource_ptr, x_view, P_view, X_view, method);
+      handle, rmm::mr::get_current_device_resource(), x_view, P_view, X_view, method);
 
     // saving the mean of the randoms in Rand_mean
     //@todo can be swapped with a API that calculates mean
