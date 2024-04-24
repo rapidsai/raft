@@ -26,7 +26,7 @@ SUPPORTED_DISTANCES = {
     "sqeuclidean": DistanceType.L2Expanded,
     "euclidean": DistanceType.L2SqrtExpanded,
     "inner_product": DistanceType.InnerProduct,
-
+    "cosine": DistanceType.CosineExpanded
 }
 
 
@@ -44,7 +44,8 @@ def _get_metric(metric):
 cdef _get_metric_string(DistanceType metric):
     return {DistanceType.L2Expanded : "sqeuclidean",
             DistanceType.InnerProduct: "inner_product",
-            DistanceType.L2SqrtExpanded: "euclidean"}[metric]
+            DistanceType.L2SqrtExpanded: "euclidean",
+            DistanceType.CosineExpanded: "cosine"}[metric]
 
 
 def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):

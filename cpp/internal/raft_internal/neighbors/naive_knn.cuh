@@ -118,7 +118,7 @@ void naive_knn(raft::resources const& handle,
                                           static_cast<int>(k),
                                           dist_topk + offset * k,
                                           indices_topk + offset * k,
-                                          type != raft::distance::DistanceType::InnerProduct);
+                                          raft::distance::is_min_close(type));
   }
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }

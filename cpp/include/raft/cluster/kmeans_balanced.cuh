@@ -157,7 +157,8 @@ void predict(const raft::resources& handle,
                   X.data_handle(),
                   X.extent(0),
                   labels.data_handle(),
-                  mapping_op);
+                  mapping_op,
+                  nullptr);
 }
 
 /**
@@ -340,7 +341,8 @@ void calc_centers_and_sizes(const raft::resources& handle,
                             raft::device_matrix_view<MathT, IndexT> centroids,
                             raft::device_vector_view<CounterT, IndexT> cluster_sizes,
                             bool reset_counters   = true,
-                            MappingOpT mapping_op = raft::identity_op())
+                            MappingOpT mapping_op = raft::identity_op(),
+                            std::optional<raft::device_vector_view<const DataT, IndexT>> X_norm = std::nullopt)
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
@@ -358,7 +360,9 @@ void calc_centers_and_sizes(const raft::resources& handle,
                                  X.extent(0),
                                  labels.data_handle(),
                                  reset_counters,
-                                 mapping_op);
+                                 mapping_op,
+                                 nullptr,
+                                 X_norm.has_value() ? X_norm.value().data_handle() : nullptr);
 }
 
 }  // namespace helpers
