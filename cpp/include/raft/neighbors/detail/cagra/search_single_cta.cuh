@@ -201,8 +201,8 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
     }
     RAFT_LOG_DEBUG("# smem_size: %u", smem_size);
     hashmap_size = 0;
-    if (small_hash_bitlen == 0) {
-      hashmap_size = sizeof(INDEX_T) * max_queries * hashmap::get_size(hash_bitlen);
+    if (small_hash_bitlen == 0 && !this->is_persistent) {
+      hashmap_size = max_queries * hashmap::get_size(hash_bitlen);
       hashmap.resize(hashmap_size, resource::get_cuda_stream(res));
     }
     RAFT_LOG_DEBUG("# hashmap_size: %lu", hashmap_size);

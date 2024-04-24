@@ -574,7 +574,7 @@ __device__ void search_core(
   if (small_hash_bitlen) {
     local_visited_hashmap_ptr = visited_hash_buffer;
   } else {
-    local_visited_hashmap_ptr = visited_hashmap_ptr + (hashmap::get_size(hash_bitlen) * query_id);
+    local_visited_hashmap_ptr = visited_hashmap_ptr + (hashmap::get_size(hash_bitlen) * gridDim.y);
   }
   hashmap::init(local_visited_hashmap_ptr, hash_bitlen, 0);
   __syncthreads();
@@ -1181,7 +1181,7 @@ struct persistent_runner_base_t {
   using work_queue_type = atomic_queue::AtomicQueue<uint32_t, 1024, ~0u, false, true, false, false>;
   rmm::mr::pinned_host_memory_resource work_handles_mr;
   rmm::mr::pinned_host_memory_resource work_descriptor_mr;
-  rmm::mr::cuda_memory_resource completion_counters_mr;
+  rmm::mr::cuda_memory_resource device_mr;
   cudaStream_t stream{};
   work_queue_type queue{};
   persistent_runner_base_t() : queue()
@@ -1311,6 +1311,7 @@ struct persistent_runner_t : public persistent_runner_base_t {
   rmm::device_uvector<work_handle_t> work_handles;
   rmm::device_uvector<work_desc_type> work_descriptors;
   rmm::device_uvector<uint32_t> completion_counters;
+  rmm::device_uvector<index_type> hashmap;
   std::atomic<std::chrono::time_point<std::chrono::system_clock>> last_touch;
 
   persistent_runner_t(DATASET_DESCRIPTOR_T dataset_desc,
@@ -1319,7 +1320,6 @@ struct persistent_runner_t : public persistent_runner_base_t {
                       uint32_t block_size,  //
                       uint32_t smem_size,
                       int64_t hash_bitlen,
-                      index_type* hashmap_ptr,
                       size_t small_hash_bitlen,
                       size_t small_hash_reset_interval,
                       uint32_t num_random_samplings,
@@ -1337,7 +1337,8 @@ struct persistent_runner_t : public persistent_runner_base_t {
       block_size{block_size},
       work_handles(0, stream, work_handles_mr),
       work_descriptors(0, stream, work_descriptor_mr),
-      completion_counters(0, stream, completion_counters_mr)
+      completion_counters(0, stream, device_mr),
+      hashmap(0, stream, device_mr)
   {
     // set kernel attributes same as in normal kernel
     RAFT_CUDA_TRY(
@@ -1354,6 +1355,9 @@ struct persistent_runner_t : public persistent_runner_base_t {
     auto* completion_counters_ptr = completion_counters.data();
     work_descriptors.resize(gs.y, stream);
     auto* work_descriptors_ptr = work_descriptors.data();
+
+    index_type* hashmap_ptr = nullptr;
+    if (small_hash_bitlen == 0) { hashmap.resize(gs.y * hashmap::get_size(hash_bitlen), stream); }
 
     work_handles.resize(gs.y, stream);
     auto* work_handles_ptr = work_handles.data();
@@ -1570,7 +1574,6 @@ void select_and_run(
                             block_size,
                             smem_size,
                             hash_bitlen,
-                            hashmap_ptr,
                             small_hash_bitlen,
                             small_hash_reset_interval,
                             num_random_samplings,
