@@ -26,6 +26,7 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/failure_callback_resource_adaptor.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
@@ -130,8 +131,8 @@ class configured_raft_resources {
   {
   }
 
-  configured_raft_resources(configured_raft_resources&&)            = default;
-  configured_raft_resources& operator=(configured_raft_resources&&) = default;
+  configured_raft_resources(configured_raft_resources&&)            = delete;
+  configured_raft_resources& operator=(configured_raft_resources&&) = delete;
   ~configured_raft_resources()                                      = default;
   configured_raft_resources(const configured_raft_resources& res)
     : configured_raft_resources{res.shared_res_}

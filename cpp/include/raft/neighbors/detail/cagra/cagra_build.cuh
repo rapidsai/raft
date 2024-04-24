@@ -35,6 +35,8 @@
 #include <raft/neighbors/refine.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
+#include <rmm/resource_ref.hpp>
+
 #include <chrono>
 #include <cstdio>
 #include <vector>
@@ -118,7 +120,7 @@ void build_knn_graph(raft::resources const& res,
   bool first                    = true;
   const auto start_clock        = std::chrono::system_clock::now();
 
-  rmm::mr::device_memory_resource* device_memory = raft::resource::get_workspace_resource(res);
+  rmm::device_async_resource_ref device_memory = raft::resource::get_workspace_resource(res);
 
   raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(
     dataset.data_handle(),

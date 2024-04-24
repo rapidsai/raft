@@ -49,6 +49,7 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda_fp16.h>
 #include <thrust/extrema.h>
@@ -171,7 +172,7 @@ void select_residuals(raft::resources const& handle,
                       const float* center,           // [dim]
                       const T* dataset,              // [.., dim]
                       const IdxT* row_ids,           // [n_rows]
-                      rmm::mr::device_memory_resource* device_memory
+                      rmm::device_async_resource_ref device_memory
 
 )
 {
@@ -225,7 +226,7 @@ void flat_compute_residuals(
   device_matrix_view<const float, uint32_t, row_major> centers,          // [n_lists, dim_ext]
   const T* dataset,                                                      // [n_rows, dim]
   std::variant<uint32_t, const uint32_t*> labels,                        // [n_rows]
-  rmm::mr::device_memory_resource* device_memory)
+  rmm::device_async_resource_ref device_memory)
 {
   auto stream  = resource::get_cuda_stream(handle);
   auto dim     = rotation_matrix.extent(1);
@@ -397,7 +398,7 @@ void train_per_subset(raft::resources const& handle,
                       const float* trainset,   // [n_rows, dim]
                       const uint32_t* labels,  // [n_rows]
                       uint32_t kmeans_n_iters,
-                      rmm::mr::device_memory_resource* managed_memory)
+                      rmm::device_async_resource_ref managed_memory)
 {
   auto stream        = resource::get_cuda_stream(handle);
   auto device_memory = resource::get_workspace_resource(handle);
@@ -475,7 +476,7 @@ void train_per_cluster(raft::resources const& handle,
                        const float* trainset,   // [n_rows, dim]
                        const uint32_t* labels,  // [n_rows]
                        uint32_t kmeans_n_iters,
-                       rmm::mr::device_memory_resource* managed_memory)
+                       rmm::device_async_resource_ref managed_memory)
 {
   auto stream        = resource::get_cuda_stream(handle);
   auto device_memory = resource::get_workspace_resource(handle);
@@ -1325,7 +1326,7 @@ void process_and_fill_codes(raft::resources const& handle,
                             std::variant<IdxT, const IdxT*> src_offset_or_indices,
                             const uint32_t* new_labels,
                             IdxT n_rows,
-                            rmm::mr::device_memory_resource* mr)
+                            rmm::device_async_resource_ref mr)
 {
   auto new_vectors_residual =
     make_device_mdarray<float>(handle, mr, make_extents<IdxT>(n_rows, index.rot_dim()));
@@ -1516,7 +1517,7 @@ void extend(raft::resources const& handle,
                   std::is_same_v<T, int8_t>,
                 "Unsupported data type");
 
-  rmm::mr::device_memory_resource* device_memory = raft::resource::get_workspace_resource(handle);
+  rmm::device_async_resource_ref device_memory = raft::resource::get_workspace_resource(handle);
 
   // The spec defines how the clusters look like
   auto spec = list_spec<uint32_t, IdxT>{
