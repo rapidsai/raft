@@ -106,7 +106,18 @@ struct index_params : ann::index_params {
   bool conservative_memory_allocation = false;
 
   /**
-   * Helper that sets values according to the extents of the dataset mdspan.
+   * Creates index_params based on shape of the input dataset.
+   * Usage example:
+   * @code{.cpp}
+   *   using namespace raft::neighbors;
+   *   raft::resources res;
+   *   // create index_params for a [N. D] dataset and have InnerProduct as the distance metric
+   *   auto dataset = raft::make_device_matrix<float, int64_t>(res, N, D);
+   *   ivf_pq::index_params index_params =
+   *     ivf_pq::index_params::from_dataset(dataset.view(), raft::distance::InnerProduct);
+   *   // modify/update index_params as needed
+   *   index_params.add_data_on_build = true;
+   * @endcode
    */
   template <typename DataT, typename Accessor>
   static index_params from_dataset(
