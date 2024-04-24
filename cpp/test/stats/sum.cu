@@ -15,8 +15,8 @@
  */
 
 #include "../test_utils.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/stats/sum.cuh>

@@ -5,9 +5,9 @@ constraints:
 groups:
   base:
     build:
-      graph_degree: [32, 64, 128, 256]
-      intermediate_graph_degree: [32, 64, 96, 128]
-      graph_build_algo: ["NN_DESCENT"]
+      graph_degree: [4, 32]
+      intermediate_graph_degree: [8, 64]
+      graph_build_algo: ["IVF_PQ"]
     search:
       itopk: [32, 64, 128, 256, 512]
       search_width: [1, 2, 4, 8, 16, 32, 64]

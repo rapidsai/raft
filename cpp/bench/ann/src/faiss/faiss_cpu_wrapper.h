@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ class FaissCpu : public ANN<T> {
     static_assert(std::is_same_v<T, float>, "faiss support only float type");
   }
 
-  virtual void build(const T* dataset, size_t nrow, cudaStream_t stream = 0);
+  virtual void build(const T* dataset, size_t nrow);
 
   void set_search_param(const AnnSearchParam& param) override;
 
@@ -89,12 +89,8 @@ class FaissCpu : public ANN<T> {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  virtual void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const;
+  virtual void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const;
 
   AlgoProperty get_preference() const override
   {
@@ -121,7 +117,7 @@ class FaissCpu : public ANN<T> {
 };
 
 template <typename T>
-void FaissCpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void FaissCpu<T>::build(const T* dataset, size_t nrow)
 {
   auto index_ivf = dynamic_cast<faiss::IndexIVF*>(index_.get());
   if (index_ivf != nullptr) {
@@ -176,12 +172,8 @@ void FaissCpu<T>::set_search_param(const AnnSearchParam& param)
 }
 
 template <typename T>
-void FaissCpu<T>::search(const T* queries,
-                         int batch_size,
-                         int k,
-                         size_t* neighbors,
-                         float* distances,
-                         cudaStream_t stream) const
+void FaissCpu<T>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
@@ -362,7 +354,7 @@ class FaissCpuHNSW : public FaissCpu<T> {
     search_params_.efSearch = search_param.ef;
   }
 
-void build(const T* dataset, size_t nrow, cudaStream_t stream) override
+void build(const T* dataset, size_t nrow) override
 {
   this->index_->train(nrow, dataset);  // faiss::IndexHNSWFlat::train() will do nothing
   assert(index_->is_trained);
@@ -374,8 +366,7 @@ void build(const T* dataset, size_t nrow, cudaStream_t stream) override
               int batch_size,
               int k,
               size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const override {
+              float* distances) const override {
      
   this->index_->search(batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors), &search_params_);
   }

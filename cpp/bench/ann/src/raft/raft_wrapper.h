@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,20 @@
  */
 #pragma once
 
-#include <cassert>
-#include <memory>
+#include "../common/ann_types.hpp"
+#include "raft_ann_bench_utils.h"
+
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/brute_force_serialize.cuh>
+
+#include <cassert>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-
-#include "../common/ann_types.hpp"
-#include "raft_ann_bench_utils.h"
 
 namespace raft_temp {
 
@@ -45,24 +46,20 @@ namespace raft::bench::ann {
 
 // brute force KNN - RAFT
 template <typename T>
-class RaftGpu : public ANN<T> {
+class RaftGpu : public ANN<T>, public AnnGPU {
  public:
   using typename ANN<T>::AnnSearchParam;
 
   RaftGpu(Metric metric, int dim);
 
-  void build(const T*, size_t, cudaStream_t) final;
+  void build(const T*, size_t) final;
 
   void set_search_param(const AnnSearchParam& param) override;
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const final;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const final;
 
   // to enable dataset access from GPU memory
   AlgoProperty get_preference() const override
@@ -71,6 +68,10 @@ class RaftGpu : public ANN<T> {
     property.dataset_memory_type = MemoryType::Device;
     property.query_memory_type   = MemoryType::Device;
     return property;
+  }
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    return handle_.get_sync_stream();
   }
   void set_search_dataset(const T* dataset, size_t nrow) override;
   void save(const std::string& file) const override;
@@ -97,13 +98,11 @@ RaftGpu<T>::RaftGpu(Metric metric, int dim)
 }
 
 template <typename T>
-void RaftGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void RaftGpu<T>::build(const T* dataset, size_t nrow)
 {
   auto dataset_view = raft::make_host_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
   index_            = std::make_shared<raft::neighbors::brute_force::index<T>>(
     std::move(raft::neighbors::brute_force::build(handle_, dataset_view)));
-
-  handle_.stream_wait(stream);
 }
 
 template <typename T>
@@ -133,12 +132,8 @@ void RaftGpu<T>::load(const std::string& file)
 }
 
 template <typename T>
-void RaftGpu<T>::search(const T* queries,
-                        int batch_size,
-                        int k,
-                        size_t* neighbors,
-                        float* distances,
-                        cudaStream_t stream) const
+void RaftGpu<T>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   auto queries_view =
     raft::make_device_matrix_view<const T, int64_t>(queries, batch_size, this->dim_);
@@ -148,8 +143,6 @@ void RaftGpu<T>::search(const T* queries,
 
   raft::neighbors::brute_force::search<T, size_t>(
     handle_, *index_, queries_view, neighbors_view, distances_view);
-
-  handle_.stream_wait(stream);
 }
 
 template <typename T>

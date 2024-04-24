@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+#include "../common/ann_types.hpp"
+#include "ggnn_wrapper.cuh"
+
+#define JSON_DIAGNOSTICS 1
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -21,11 +27,6 @@
 #include <string>
 #include <type_traits>
 #include <utility>
-
-#include "../common/ann_types.hpp"
-#include "ggnn_wrapper.cuh"
-#define JSON_DIAGNOSTICS 1
-#include <nlohmann/json.hpp>
 
 namespace raft::bench::ann {
 
@@ -92,11 +93,10 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   raft::bench::ann::Metric metric = parse_metric(distance);
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
-  if constexpr (std::is_same_v<T, float>) {}
-
-  if constexpr (std::is_same_v<T, uint8_t>) {}
-
-  if (algo == "ggnn") { ann = make_algo<T, raft::bench::ann::Ggnn>(metric, dim, conf); }
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, uint8_t> ||
+                std::is_same_v<T, int8_t>) {
+    if (algo == "ggnn") { ann = make_algo<T, raft::bench::ann::Ggnn>(metric, dim, conf); }
+  }
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 
   return ann;
@@ -106,10 +106,13 @@ template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-  if (algo == "ggnn") {
-    auto param = std::make_unique<typename raft::bench::ann::Ggnn<T>::SearchParam>();
-    parse_search_param<T>(conf, *param);
-    return param;
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, uint8_t> ||
+                std::is_same_v<T, int8_t>) {
+    if (algo == "ggnn") {
+      auto param = std::make_unique<typename raft::bench::ann::Ggnn<T>::SearchParam>();
+      parse_search_param<T>(conf, *param);
+      return param;
+    }
   }
   // else
   throw std::runtime_error("invalid algo: '" + algo + "'");

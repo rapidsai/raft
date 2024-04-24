@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,11 +91,16 @@ class Configuration {
       dataset_conf_.dtype = conf.at("dtype");
     } else {
       auto filename = dataset_conf_.base_file;
-      if (!filename.compare(filename.size() - 4, 4, "fbin")) {
+      if (filename.size() > 6 && filename.compare(filename.size() - 6, 6, "f16bin") == 0) {
+        dataset_conf_.dtype = "half";
+      } else if (filename.size() > 9 &&
+                 filename.compare(filename.size() - 9, 9, "fp16.fbin") == 0) {
+        dataset_conf_.dtype = "half";
+      } else if (filename.size() > 4 && filename.compare(filename.size() - 4, 4, "fbin") == 0) {
         dataset_conf_.dtype = "float";
-      } else if (!filename.compare(filename.size() - 5, 5, "u8bin")) {
+      } else if (filename.size() > 5 && filename.compare(filename.size() - 5, 5, "u8bin") == 0) {
         dataset_conf_.dtype = "uint8";
-      } else if (!filename.compare(filename.size() - 5, 5, "i8bin")) {
+      } else if (filename.size() > 5 && filename.compare(filename.size() - 5, 5, "i8bin") == 0) {
         dataset_conf_.dtype = "int8";
       } else {
         log_error("Could not determine data type of the dataset %s", filename.c_str());

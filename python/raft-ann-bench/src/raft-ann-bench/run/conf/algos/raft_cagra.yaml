@@ -5,9 +5,18 @@ constraints:
 groups:
   base:
     build:
-      graph_degree: [32, 64, 128, 256]
-      intermediate_graph_degree: [32, 64, 96, 128]
-      graph_build_algo: ["NN_DESCENT"]
+      graph_degree: [4]
+      intermediate_graph_degree: [8]
+      graph_build_algo: ["IVF_PQ"]
+      ivf_pq_build_pq_dim: [32]
+      ivf_pq_build_pq_bits: [8]
+      ivf_pq_build_nlist: [16384]
+      ivf_pq_build_niter: [10]
+      ivf_pq_build_ratio: [10]
+      ivf_pq_search_nprobe: [30]
+      ivf_pq_search_internalDistanceDtype: [half]
+      ivf_pq_search_smemLutDtype: [half]
+      ivf_pq_search_refine_ratio: [1]
     search:
       itopk: [32, 64, 128, 256, 512]
       search_width: [1, 2, 4, 8, 16, 32, 64]

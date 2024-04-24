@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include <sstream>
-#include <string>
-
 #include <raft/core/device_resources.hpp>
 #include <raft/neighbors/ivf_flat_serialize.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
+
 #include <raft_runtime/neighbors/ivf_flat.hpp>
+
+#include <sstream>
+#include <string>
 
 namespace raft::runtime::neighbors::ivf_flat {
 

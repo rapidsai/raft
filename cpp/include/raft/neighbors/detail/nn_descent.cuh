@@ -17,23 +17,6 @@
 #pragma once
 #include <raft/common/nvtx.hpp>
 
-#include <cuda_runtime.h>
-#include <mma.h>
-#include <omp.h>
-
-#include <cub/cub.cuh>
-#include <limits>
-#include <queue>
-
-#include <random>
-#include <rmm/device_uvector.hpp>
-
-#include <thrust/execution_policy.h>
-#include <thrust/fill.h>
-#include <thrust/host_vector.h>
-#include <thrust/mr/allocator.h>
-#include <thrust/mr/device_memory_resource.h>
-
 #include "../nn_descent_types.hpp"
 
 #include <raft/core/device_mdarray.hpp>
@@ -48,6 +31,23 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
+
+#include <rmm/device_uvector.hpp>
+
+#include <cub/cub.cuh>
+#include <cuda_runtime.h>
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
+#include <thrust/host_vector.h>
+#include <thrust/mr/allocator.h>
+#include <thrust/mr/device_memory_resource.h>
+
+#include <mma.h>
+#include <omp.h>
+
+#include <limits>
+#include <queue>
+#include <random>
 
 namespace raft::neighbors::experimental::nn_descent::detail {
 

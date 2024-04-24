@@ -17,24 +17,24 @@
 #pragma once
 
 #include "ann_types.hpp"
-#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/cagra/utils.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <thrust/fill.h>
+
 #include <memory>
 #include <optional>
 #include <string>
-#include <thrust/fill.h>
 #include <type_traits>
-
-#include <raft/core/logger.hpp>
 namespace raft::neighbors::cagra {
 /**
  * @addtogroup cagra
@@ -278,6 +278,14 @@ struct index : ann::index {
       dataset_view_ = make_device_strided_matrix_view<const T, int64_t>(
         dataset.data_handle(), dataset.extent(0), dataset.extent(1), dataset.extent(1));
     }
+  }
+
+  /** Set the dataset reference explicitly to a device matrix view with padding. */
+  void update_dataset(raft::resources const&,
+                      raft::device_matrix_view<const T, int64_t, layout_stride> dataset)
+  {
+    RAFT_EXPECTS(dataset.stride(0) * sizeof(T) % 16 == 0, "Incorrect data padding.");
+    dataset_view_ = dataset;
   }
 
   /**
