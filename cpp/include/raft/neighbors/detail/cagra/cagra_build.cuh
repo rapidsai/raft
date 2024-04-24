@@ -59,10 +59,7 @@ void build_knn_graph(raft::resources const& res,
                                                             size_t(dataset.extent(1)),
                                                             node_degree);
 
-  if (!build_params) {
-    build_params = ivf_pq::index_params{};
-    build_params.value().initialize_from_dataset(dataset);
-  }
+  if (!build_params) { build_params = ivf_pq::index_params::from_dataset(dataset); }
 
   // Make model name
   const std::string model_name = [&]() {

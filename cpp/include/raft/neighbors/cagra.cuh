@@ -55,8 +55,7 @@ namespace raft::neighbors::cagra {
  * @code{.cpp}
  *   using namespace raft::neighbors;
  *   // use default index parameters
- *   ivf_pq::index_params build_params;
- *   build_params.initialize_from_dataset(dataset);
+ *   ivf_pq::index_params build_params = ivf_pq::index_params::from_dataset(dataset);
  *   ivf_pq::search_params search_params;
  *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // create knn graph
