@@ -42,6 +42,7 @@
 #include <rmm/mr/pinned_host_memory_resource.hpp>
 
 #include <cuda/atomic>
+#include <cuda/std/atomic>
 
 #include <atomic_queue/atomic_queue.h>
 
@@ -892,7 +893,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
 // To make sure we avoid false sharing on both CPU and GPU, we enforce cache line size to the
 // maximum of the two.
 // This makes sync atomic significantly faster.
-constexpr size_t kCacheLineBytes = 128;
+constexpr size_t kCacheLineBytes = 64;
 
 template <typename DATASET_DESCRIPTOR_T>
 struct alignas(kCacheLineBytes) work_desc_t {
@@ -1191,7 +1192,7 @@ struct persistent_runner_base_t {
   virtual ~persistent_runner_base_t() noexcept { cudaStreamDestroy(stream); };
 };
 
-struct launcher_t {
+struct alignas(kCacheLineBytes) launcher_t {
   using work_queue_type = persistent_runner_base_t::work_queue_type;
   using pending_reads_queue_type =
     atomic_queue::AtomicQueue<uint32_t, 32, ~0u, false, false, false, true>;
@@ -1298,7 +1299,7 @@ template <unsigned TEAM_SIZE,
           unsigned DATASET_BLOCK_DIM,
           typename DATASET_DESCRIPTOR_T,
           typename SAMPLE_FILTER_T>
-struct persistent_runner_t : public persistent_runner_base_t {
+struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_base_t {
   using index_type    = typename DATASET_DESCRIPTOR_T::INDEX_T;
   using distance_type = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
   using data_type     = typename DATASET_DESCRIPTOR_T::DATA_T;
@@ -1435,22 +1436,22 @@ struct persistent_runner_t : public persistent_runner_base_t {
               uint32_t num_queries,
               uint32_t top_k)
   {
-    launcher_t{queue,
-               work_handles.data(),
-               num_queries,
-               [=](uint32_t worker_id) {
-                 auto& wd                = work_descriptors.data()[worker_id].input.value;
-                 auto cflag              = &work_descriptors.data()[worker_id].completion_flag;
-                 wd.result_indices_ptr   = result_indices_ptr;
-                 wd.result_distances_ptr = result_distances_ptr;
-                 wd.queries_ptr          = queries_ptr;
-                 wd.top_k                = top_k;
-                 wd.n_queries            = num_queries;
-                 cflag->store(false, cuda::memory_order_relaxed);
-                 return cflag;
-               }}
-      .wait();
-    last_touch.store(std::chrono::system_clock::now());
+    // submit all queries
+    launcher_t launcher{queue, work_handles.data(), num_queries, [=](uint32_t worker_id) {
+                          auto& wd   = work_descriptors.data()[worker_id].input.value;
+                          auto cflag = &work_descriptors.data()[worker_id].completion_flag;
+                          wd.result_indices_ptr   = result_indices_ptr;
+                          wd.result_distances_ptr = result_distances_ptr;
+                          wd.queries_ptr          = queries_ptr;
+                          wd.top_k                = top_k;
+                          wd.n_queries            = num_queries;
+                          cflag->store(false, cuda::memory_order_relaxed);
+                          return cflag;
+                        }};
+    // update the keep-alive atomic in the meanwhile
+    last_touch.store(std::chrono::system_clock::now(), std::memory_order_relaxed);
+    // wait for the results to arrive
+    launcher.wait();
   }
 
   auto calc_coop_grid_size(uint32_t block_size, uint32_t smem_size) -> dim3
@@ -1471,60 +1472,84 @@ struct persistent_runner_t : public persistent_runner_base_t {
   }
 };
 
-inline std::shared_ptr<persistent_runner_base_t> persistent_runner{nullptr};
-inline std::mutex persistent_lock;
+struct alignas(kCacheLineBytes) persistent_state {
+  std::shared_ptr<persistent_runner_base_t> runner{nullptr};
+  std::mutex lock;
+};
+
+inline persistent_state persistent{};
 
 template <typename RunnerT, typename... Args>
 auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass everything by values
 {
-  cuda::atomic<std::shared_ptr<RunnerT>*> runner_outer{nullptr};
+  // NB: storing pointer-to-shared_ptr; otherwise, notify_one()/wait() do not seem to work.
+  std::shared_ptr<RunnerT> runner_outer{nullptr};
+  cuda::std::atomic_flag ready{};
+  ready.clear(cuda::std::memory_order_relaxed);
   std::thread(
-    [&runner_outer](Args... thread_args) {  // pass everything by values
-      std::shared_ptr<RunnerT> runner_inner{nullptr};
+    [&runner_outer, &ready](Args... thread_args) {  // pass everything by values
       std::weak_ptr<RunnerT> runner_weak;
       {
-        std::lock_guard<std::mutex> guard(persistent_lock);
-        persistent_runner.reset();  // Free the resources (if any) in advance
-        runner_inner      = std::make_shared<RunnerT>(thread_args...);
-        runner_weak       = runner_inner;
-        persistent_runner = std::static_pointer_cast<persistent_runner_base_t>(runner_inner);
-        runner_outer.store(new std::shared_ptr<RunnerT>{runner_inner});
-        runner_outer.notify_one();
-        runner_inner->last_touch.store(std::chrono::system_clock::now());
-        runner_inner.reset();
+        std::lock_guard<std::mutex> guard(persistent.lock);
+        // Try to check the runner again:
+        //   it may have been created by another thread since the last check
+        runner_outer = std::dynamic_pointer_cast<RunnerT>(
+          std::atomic_load_explicit(&persistent.runner, std::memory_order_relaxed));
+        if (runner_outer) {
+          runner_outer->last_touch.store(std::chrono::system_clock::now(),
+                                         std::memory_order_relaxed);
+          ready.test_and_set(cuda::std::memory_order_release);
+          ready.notify_one();
+          return;
+        }
+        // Free the resources (if any) in advance
+        std::atomic_store_explicit(&persistent.runner,
+                                   std::shared_ptr<persistent_runner_base_t>{nullptr},
+                                   std::memory_order_relaxed);
+        runner_outer = std::make_shared<RunnerT>(thread_args...);
+        runner_weak  = runner_outer;
+        std::atomic_store_explicit(&persistent.runner,
+                                   std::static_pointer_cast<persistent_runner_base_t>(runner_outer),
+                                   std::memory_order_relaxed);
+        runner_outer->last_touch.store(std::chrono::system_clock::now(), std::memory_order_relaxed);
+        ready.test_and_set(cuda::std::memory_order_release);
+        ready.notify_one();
       }
       constexpr auto kInterval = std::chrono::milliseconds(500);
       while (true) {
         std::this_thread::sleep_for(kInterval);
-        std::lock_guard<std::mutex> guard(persistent_lock);
-        auto runner = runner_weak.lock();
+        auto runner = runner_weak.lock();  // runner_weak is local - thread-safe
         if (!runner) {
           return;  // dead already
         }
-        if (runner->last_touch.load() + kInterval < std::chrono::system_clock::now()) {
-          if (runner == persistent_runner) { persistent_runner.reset(); }
+        if (runner->last_touch.load(std::memory_order_relaxed) + kInterval <
+            std::chrono::system_clock::now()) {
+          if (runner == std::atomic_load_explicit(
+                          &persistent.runner,
+                          std::memory_order_relaxed)) {  // compare pointers: this is thread-safe
+            std::lock_guard<std::mutex> guard(persistent.lock);
+            std::atomic_store_explicit(&persistent.runner,
+                                       std::shared_ptr<persistent_runner_base_t>{nullptr},
+                                       std::memory_order_relaxed);
+          }
           return;
         }
       }
     },
     args...)
     .detach();
-  runner_outer.wait(nullptr);
-  auto* p = runner_outer.load();
-  auto r  = std::move(*p);
-  delete p;
-  return r;
+  ready.wait(false, cuda::std::memory_order_acquire);
+  return runner_outer;
 }
 
 template <typename RunnerT, typename... Args>
 auto get_runner(Args&&... args) -> std::shared_ptr<RunnerT>
 {
-  {
-    std::lock_guard<std::mutex> guard(persistent_lock);
-    auto runner = std::dynamic_pointer_cast<RunnerT>(persistent_runner);
-    if (runner) { return runner; }
-  }
-  return create_runner<RunnerT>(args...);
+  // We copy the shared pointer here, then using the copy is thread-safe.
+  auto runner = std::dynamic_pointer_cast<RunnerT>(
+    std::atomic_load_explicit(&persistent.runner, std::memory_order_relaxed));
+  if (runner) { return runner; }
+  return create_runner<RunnerT>(std::forward<Args>(args)...);
 }
 
 template <unsigned TEAM_SIZE,
