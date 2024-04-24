@@ -134,7 +134,14 @@ void RaftIvfFlatGpu<T, IdxT>::search(
   const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   static_assert(sizeof(size_t) == sizeof(IdxT), "IdxT is incompatible with size_t");
-  raft::neighbors::ivf_flat::search(
-    handle_, search_params_, *index_, queries, batch_size, k, (IdxT*)neighbors, distances);
+  raft::neighbors::ivf_flat::search(handle_,
+                                    search_params_,
+                                    *index_,
+                                    queries,
+                                    batch_size,
+                                    k,
+                                    (IdxT*)neighbors,
+                                    distances,
+                                    resource::get_workspace_resource(handle_));
 }
 }  // namespace raft::bench::ann
