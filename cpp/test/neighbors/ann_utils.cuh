@@ -28,10 +28,6 @@
 
 #include <raft_internal/neighbors/naive_knn.cuh>
 
-#include <rmm/cuda_stream_view.hpp>
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
-
 #include <gtest/gtest.h>
 
 #include <iostream>
