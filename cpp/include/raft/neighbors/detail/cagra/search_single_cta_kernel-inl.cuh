@@ -1173,7 +1173,7 @@ struct persistent_runner_base_t {
 struct launcher_t {
   using work_queue_type = persistent_runner_base_t::work_queue_type;
   using pending_reads_queue_type =
-    atomic_queue::AtomicQueue<uint32_t, 32, ~0u, false, true, false, true>;
+    atomic_queue::AtomicQueue<uint32_t, 32, ~0u, false, false, false, true>;
   using completion_latch_type = cuda::atomic<uint32_t, cuda::thread_scope_system>;
 
   pending_reads_queue_type pending_reads{};
@@ -1229,7 +1229,7 @@ struct launcher_t {
   /** Check if the worker has finished the work; if so, return it to the shared pool. */
   auto try_return_worker(uint32_t worker_id) -> bool
   {
-    // Use the cached `all_done` - makes sence when called from the `wait()` routine.
+    // Use the cached `all_done` - makes sense when called from the `wait()` routine.
     if (all_done || work_handles[worker_id].load(cuda::memory_order_relaxed) == kWaitForWork) {
       worker_ids.push(worker_id);
       return true;

@@ -73,6 +73,8 @@ struct AlgoProperty {
 
 class AnnBase {
  public:
+  using index_type = uint32_t;
+
   inline AnnBase(Metric metric, int dim) : metric_(metric), dim_(dim) {}
   virtual ~AnnBase() noexcept = default;
 
@@ -98,7 +100,16 @@ class AnnGPU {
    * end.
    */
   [[nodiscard]] virtual auto get_sync_stream() const noexcept -> cudaStream_t = 0;
-  virtual ~AnnGPU() noexcept                                                  = default;
+  /**
+   * By default a GPU algorithm uses a fixed stream to order GPU operations.
+   * However, an algorithm may need to synchronize with the host at the end of its execution.
+   * In that case, also synchronizing with a benchmark event would put it at disadvantage.
+   *
+   * We can disable event sync by passing `false` here
+   *   - ONLY IF THE ALGORITHM HAS PRODUCED ITS OUTPUT BY THE TIME IT SYNCHRONIZES WITH CPU.
+   */
+  [[nodiscard]] virtual auto uses_stream() const noexcept -> bool { return true; }
+  virtual ~AnnGPU() noexcept = default;
 };
 
 template <typename T>
@@ -118,8 +129,11 @@ class ANN : public AnnBase {
   virtual void set_search_param(const AnnSearchParam& param) = 0;
   // TODO: this assumes that an algorithm can always return k results.
   // This is not always possible.
-  virtual void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const = 0;
+  virtual void search(const T* queries,
+                      int batch_size,
+                      int k,
+                      AnnBase::index_type* neighbors,
+                      float* distances) const = 0;
 
   virtual void save(const std::string& file) const = 0;
   virtual void load(const std::string& file)       = 0;

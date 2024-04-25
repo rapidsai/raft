@@ -120,7 +120,9 @@ struct cuda_timer {
   static inline auto extract_stream(AnnT* algo) -> std::optional<cudaStream_t>
   {
     auto gpu_ann = dynamic_cast<AnnGPU*>(algo);
-    if (gpu_ann != nullptr) { return std::make_optional(gpu_ann->get_sync_stream()); }
+    if (gpu_ann != nullptr && gpu_ann->uses_stream()) {
+      return std::make_optional(gpu_ann->get_sync_stream());
+    }
     return std::nullopt;
   }
 

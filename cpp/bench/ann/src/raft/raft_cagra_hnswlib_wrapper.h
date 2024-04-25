@@ -43,8 +43,11 @@ class RaftCagraHnswlib : public ANN<T>, public AnnGPU {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              AnnBase::index_type* neighbors,
+              float* distances) const override;
 
   [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
   {
@@ -99,7 +102,7 @@ void RaftCagraHnswlib<T, IdxT>::load(const std::string& file)
 
 template <typename T, typename IdxT>
 void RaftCagraHnswlib<T, IdxT>::search(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
   hnswlib_search_.search(queries, batch_size, k, neighbors, distances);
 }
