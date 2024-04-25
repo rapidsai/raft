@@ -1184,6 +1184,63 @@ struct search_kernel_config {
   }
 };
 
+/** Primitive fixed-size deque for single-threaded use. */
+template <typename T>
+struct local_deque_t {
+  explicit local_deque_t(uint32_t size) : store_(size) {}
+
+  [[nodiscard]] auto capacity() const -> uint32_t { return store_.size(); }
+  [[nodiscard]] auto size() const -> uint32_t { return end_ - start_; }
+
+  void push_back(T x) { store_[end_++ % capacity()] = x; }
+
+  void push_front(T x)
+  {
+    if (start_ == 0) {
+      start_ += capacity();
+      end_ += capacity();
+    }
+    store_[--start_ % capacity()] = x;
+  }
+
+  // NB: non-blocking, unsafe functions
+  auto pop_back() -> T { return store_[--end_ % capacity()]; }
+  auto pop_front() -> T { return store_[start_++ % capacity()]; }
+
+  auto try_push_back(T x) -> bool
+  {
+    if (size() >= capacity()) { return false; }
+    push_back(x);
+    return true;
+  }
+
+  auto try_push_front(T x) -> bool
+  {
+    if (size() >= capacity()) { return false; }
+    push_front(x);
+    return true;
+  }
+
+  auto try_pop_back(T& x) -> bool
+  {
+    if (start_ >= end_) { return false; }
+    x = pop_back();
+    return true;
+  }
+
+  auto try_pop_front(T& x) -> bool
+  {
+    if (start_ >= end_) { return false; }
+    x = pop_front();
+    return true;
+  }
+
+ private:
+  std::vector<T> store_;
+  uint32_t start_{0};
+  uint32_t end_{0};
+};
+
 constexpr uint32_t kMaxJobsNum              = 2048;
 constexpr uint32_t kMaxWorkersNum           = 2048;
 constexpr uint32_t kMaxWorkersPerThread     = 256;
@@ -1208,13 +1265,12 @@ struct persistent_runner_base_t {
 };
 
 struct alignas(kCacheLineBytes) launcher_t {
-  using job_queue_type    = persistent_runner_base_t::job_queue_type;
-  using worker_queue_type = persistent_runner_base_t::worker_queue_type;
-  using pending_reads_queue_type =
-    atomic_queue::AtomicQueue<uint32_t, kMaxWorkersPerThread, ~0u, false, false, false, true>;
-  using completion_flag_type = cuda::atomic<bool, cuda::thread_scope_system>;
+  using job_queue_type           = persistent_runner_base_t::job_queue_type;
+  using worker_queue_type        = persistent_runner_base_t::worker_queue_type;
+  using pending_reads_queue_type = local_deque_t<uint32_t>;
+  using completion_flag_type     = cuda::atomic<bool, cuda::thread_scope_system>;
 
-  pending_reads_queue_type pending_reads{};
+  pending_reads_queue_type pending_reads;
   job_queue_type& job_ids;
   worker_queue_type& idle_worker_ids;
   worker_handle_t* worker_handles;
@@ -1228,7 +1284,8 @@ struct alignas(kCacheLineBytes) launcher_t {
              worker_handle_t* worker_handles,
              uint32_t n_queries,
              RecordWork record_work)
-    : job_ids{job_ids},
+    : pending_reads{std::min(n_queries, kMaxWorkersPerThread)},
+      job_ids{job_ids},
       idle_worker_ids{idle_worker_ids},
       worker_handles{worker_handles},
       job_id{job_ids.pop()},
@@ -1238,17 +1295,17 @@ struct alignas(kCacheLineBytes) launcher_t {
     for (uint32_t i = 0; i < n_queries; i++) {
       uint32_t worker_id;
       while (!try_get_worker(worker_id)) {
-        if (pending_reads.try_pop(worker_id)) {
+        if (pending_reads.try_pop_front(worker_id)) {
           // TODO optimization: avoid the roundtrip through pending_worker_ids
-          if (!try_return_worker(worker_id)) { pending_reads.push(worker_id); }
+          if (!try_return_worker(worker_id)) { pending_reads.push_front(worker_id); }
         } else {
           std::this_thread::yield();
         }
       }
       submit_query(worker_id, i);
       // Try to not hold too many workers in one thread
-      if (i >= kSoftMaxWorkersPerThread && pending_reads.try_pop(worker_id)) {
-        if (!try_return_worker(worker_id)) { pending_reads.push(worker_id); }
+      if (i >= kSoftMaxWorkersPerThread && pending_reads.try_pop_front(worker_id)) {
+        if (!try_return_worker(worker_id)) { pending_reads.push_front(worker_id); }
       }
     }
   }
@@ -1258,10 +1315,10 @@ struct alignas(kCacheLineBytes) launcher_t {
     worker_handles[worker_id].data.store(worker_handle_t::data_t{.value = {job_id, query_id}},
                                          cuda::memory_order_relaxed);
 
-    while (!pending_reads.try_push(worker_id)) {
+    while (!pending_reads.try_push_back(worker_id)) {
       // The only reason pending_reads cannot push is that the job_queue is full.
       // It's local, so we must pop and wait for the returned worker to finish its work.
-      auto pending_worker_id = pending_reads.pop();
+      auto pending_worker_id = pending_reads.pop_front();
       while (!try_return_worker(pending_worker_id)) {
         std::this_thread::yield();
       }
@@ -1297,7 +1354,7 @@ struct alignas(kCacheLineBytes) launcher_t {
   void wait()
   {
     uint32_t worker_id;
-    while (pending_reads.try_pop(worker_id)) {
+    while (pending_reads.try_pop_front(worker_id)) {
       while (!try_return_worker(worker_id)) {
         if (!is_all_done()) { std::this_thread::yield(); }
       }
