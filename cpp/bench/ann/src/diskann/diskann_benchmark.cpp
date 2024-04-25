@@ -16,7 +16,6 @@
 
 #include "../common/ann_types.hpp"
 #include "diskann_wrapper.h"
-#include "hnswlib_wrapper.h"
 
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
@@ -35,19 +34,15 @@ template <typename T>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::DiskANNMemory<T>::BuildParam& param)
 {
-  param.ef_construction = conf.at("efConstruction");
-  param.M               = conf.at("M");
   param.R               = conf.at("R");
-  param.Lb              = conf.at("Lb");
+  param.L_build              = conf.at("Lb");
   param.alpha           = conf.at("alpha");
   if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
   param.use_raft_cagra = conf.at("use_raft_cagra");
-  param.filtered_index = false;
   if (param.use_raft_cagra) {
-    raft::neighbors::cagra::index_params cagra_index_params;
-    cagra_index_params.graph_degree = conf.at("cagra_params_graph_degree");
-    cagra_index_params.intermediate_graph_degree =
-      conf.at("cagra_params_intermediate_graph_degree");
+    param.cagra_graph_degree = conf.at("cagra_graph_degree");
+    param.cagra_intermediate_graph_degree =
+      conf.at("cagra_intermediate_graph_degree");
   }
 }
 
@@ -55,7 +50,7 @@ template <typename T>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::DiskANNMemory<T>::SearchParam& param)
 {
-  param.Ls = conf.at("Ls");
+  param.L_search = conf.at("Ls");
   if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
 }
 
@@ -95,15 +90,12 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   raft::bench::ann::Metric metric = parse_metric(distance);
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
-  if constexpr (std::is_same_v<T, float>) {
-    if (algo == "hnswlib") { ann = make_algo<T, raft::bench::ann::HnswLib>(metric, dim, conf); }
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, uint8_t> ||
+                std::is_same_v<T, int8_t>) {
+    if (algo == "diskann") { ann = make_algo<T, raft::bench::ann::DiskANNMemory>(metric, dim, conf); }
   }
-
-  if constexpr (std::is_same_v<T, uint8_t>) {
-    if (algo == "hnswlib") { ann = make_algo<T, raft::bench::ann::HnswLib>(metric, dim, conf); }
-  }
-
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
+
   return ann;
 }
 
@@ -111,12 +103,11 @@ template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-  if (algo == "hnswlib") {
-    auto param = std::make_unique<typename raft::bench::ann::HnswLib<T>::SearchParam>();
+  if (algo == "diskann") {
+    auto param = std::make_unique<typename raft::bench::ann::DiskANNMemory<T>::SearchParam>();
     parse_search_param<T>(conf, *param);
     return param;
   }
-  // else
   throw std::runtime_error("invalid algo: '" + algo + "'");
 }
 

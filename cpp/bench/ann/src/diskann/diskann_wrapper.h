@@ -16,9 +16,6 @@
 #pragma once
 
 #include "../common/ann_types.hpp"
-#include "../common/thread_pool.hpp"
-
-#include <hnswlib/hnswlib.h>
 #include <omp.h>
 
 #include <algorithm>
@@ -38,10 +35,6 @@
 #include <utility>
 #include <vector>
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
-#include "program_options_utils.hpp"
 #include "raft/neighbors/cagra_types.hpp"
 
 #include <boost/program_options.hpp>
@@ -61,7 +54,7 @@
 #include "ann_exception.h"
 #include "memory_mapper.h"
 
-#include <diskann/index_factory.h>
+// #include <diskann/index_factory.h>
 
 namespace raft::bench::ann {
 
@@ -86,7 +79,8 @@ class DiskANNMemory : public ANN<T> {
     int num_threads = omp_get_num_procs();
     bool use_raft_cagra;
     bool filtered_index;
-    raft::neighbors::cagra::index_params cagra_index_params;
+    uint32_t cagra_graph_degree;
+    uint32_t cagra_intermediate_graph_degree;
   };
 
   using typename ANN<T>::AnnSearchParam;
@@ -148,6 +142,7 @@ void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
                                                           this->dim_,
                                                           nrow,
                                                           this->diskann_index_write_params_,
+                                                          nullptr,
                                                           nullptr,
                                                           0,
                                                           false,

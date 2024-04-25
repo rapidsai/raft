@@ -27,14 +27,15 @@ function(find_and_configure_diskann)
     configure_file(${rapids-cmake-dir}/cpm/patches/command_template.cmake.in "${patch_script}"
                    @ONLY)
 
-    rapids_cpm_find(diskann
+    rapids_cpm_find(diskann ${PKG_VERSION}
             GLOBAL_TARGETS diskann::diskann
             CPM_ARGS
             GIT_REPOSITORY   ${PKG_REPOSITORY}
             GIT_TAG          ${PKG_PINNED_TAG}
             )
     
-    if(TARGET diskann AND NOT TARGET diskann::diskann)
+    if(NOT TARGET diskann::diskann)
+        target_include_directories(diskann INTERFACE "$<BUILD_INTERFACE:${diskann_SOURCE_DIR}/include>")
         add_library(diskann::diskann ALIAS diskann)
     endif()
 endfunction()
@@ -44,7 +45,7 @@ if(NOT RAFT_DISKANN_GIT_TAG)
 endif()
 
 if(NOT RAFT_DISKANN_GIT_REPOSITORY)
-    set(RAFT_FAISS_GIT_REPOSITORY https://github.com/microsoft/DiskANN.git)
+    set(RAFT_DISKANN_GIT_REPOSITORY https://github.com/microsoft/DiskANN.git)
 endif()
 
 find_and_configure_diskann(VERSION 0.7.0
