@@ -553,10 +553,10 @@ def main():
                             index["build_param"], conf_file["dataset"]["dims"]
                         ):
                             continue
-
+                index_filename = index_name if len(index_name) < 128 else str(hash(index_name))
                 index["name"] = index_name
                 index["file"] = os.path.join(
-                    args.dataset_path, args.dataset, "index", index_name
+                    args.dataset_path, args.dataset, "index", index_filename
                 )
                 index["search_params"] = []
                 all_search_params = itertools.product(*search_param_lists)
