@@ -32,9 +32,13 @@ function(find_and_configure_diskann)
             CPM_ARGS
             GIT_REPOSITORY   ${PKG_REPOSITORY}
             GIT_TAG          ${PKG_PINNED_TAG}
+            GIT_SHALLOW TRUE
+            DOWNLOAD_ONLY ON
+            PATCH_COMMAND ${CMAKE_COMMAND} -P ${patch_script}
             )
     
     if(NOT TARGET diskann::diskann)
+        add_library(diskann INTERFACE)
         target_include_directories(diskann INTERFACE "$<BUILD_INTERFACE:${diskann_SOURCE_DIR}/include>")
         add_library(diskann::diskann ALIAS diskann)
     endif()
