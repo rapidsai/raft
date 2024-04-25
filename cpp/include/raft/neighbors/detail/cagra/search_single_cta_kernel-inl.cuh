@@ -1184,8 +1184,10 @@ struct search_kernel_config {
   }
 };
 
-constexpr uint32_t kMaxJobsNum    = 1024;
-constexpr uint32_t kMaxWorkersNum = 1024;
+constexpr uint32_t kMaxJobsNum              = 2048;
+constexpr uint32_t kMaxWorkersNum           = 2048;
+constexpr uint32_t kMaxWorkersPerThread     = 256;
+constexpr uint32_t kSoftMaxWorkersPerThread = 16;
 
 struct persistent_runner_base_t {
   using job_queue_type =
@@ -1209,7 +1211,7 @@ struct alignas(kCacheLineBytes) launcher_t {
   using job_queue_type    = persistent_runner_base_t::job_queue_type;
   using worker_queue_type = persistent_runner_base_t::worker_queue_type;
   using pending_reads_queue_type =
-    atomic_queue::AtomicQueue<uint32_t, 32, ~0u, false, false, false, true>;
+    atomic_queue::AtomicQueue<uint32_t, kMaxWorkersPerThread, ~0u, false, false, false, true>;
   using completion_flag_type = cuda::atomic<bool, cuda::thread_scope_system>;
 
   pending_reads_queue_type pending_reads{};
@@ -1237,10 +1239,17 @@ struct alignas(kCacheLineBytes) launcher_t {
       uint32_t worker_id;
       while (!try_get_worker(worker_id)) {
         if (pending_reads.try_pop(worker_id)) {
+          // TODO optimization: avoid the roundtrip through pending_worker_ids
           if (!try_return_worker(worker_id)) { pending_reads.push(worker_id); }
+        } else {
+          std::this_thread::yield();
         }
       }
       submit_query(worker_id, i);
+      // Try to not hold too many workers in one thread
+      if (i >= kSoftMaxWorkersPerThread && pending_reads.try_pop(worker_id)) {
+        if (!try_return_worker(worker_id)) { pending_reads.push(worker_id); }
+      }
     }
   }
 
