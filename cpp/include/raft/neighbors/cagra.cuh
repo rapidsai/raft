@@ -395,7 +395,7 @@ void search(raft::resources const& res,
  * @tparam IdxT type of the indices
  *
  * @param[in] handle raft resources
- * @param[in] updated_dataset_view updated dataset (initial + additional dataset)
+ * @param[in] input_updated_dataset_view updated dataset (initial + additional dataset)
  * @param[in] index CAGRA index
  * @param[out] updated_graph_view updated graph
  * @param[in] max_batch_size the batch size for graph update
