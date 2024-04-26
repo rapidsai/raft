@@ -575,7 +575,7 @@ __device__ void search_core(
   if (small_hash_bitlen) {
     local_visited_hashmap_ptr = visited_hash_buffer;
   } else {
-    local_visited_hashmap_ptr = visited_hashmap_ptr + (hashmap::get_size(hash_bitlen) * gridDim.y);
+    local_visited_hashmap_ptr = visited_hashmap_ptr + (hashmap::get_size(hash_bitlen) * blockIdx.y);
   }
   hashmap::init(local_visited_hashmap_ptr, hash_bitlen, 0);
   __syncthreads();
@@ -895,6 +895,11 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
 // This makes sync atomic significantly faster.
 constexpr size_t kCacheLineBytes = 64;
 
+constexpr uint32_t kMaxJobsNum              = 2048;
+constexpr uint32_t kMaxWorkersNum           = 2048;
+constexpr uint32_t kMaxWorkersPerThread     = 256;
+constexpr uint32_t kSoftMaxWorkersPerThread = 16;
+
 template <typename DATASET_DESCRIPTOR_T>
 struct alignas(kCacheLineBytes) job_desc_t {
   using index_type    = typename DATASET_DESCRIPTOR_T::INDEX_T;
@@ -997,7 +1002,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
       // Sync one warp and copy descriptor data
       static_assert(job_desc_type::kBlobSize <= WarpSize);
       job_ix = raft::shfl(job_ix, 0);
-      if (threadIdx.x < job_desc_type::kBlobSize) {
+      if (threadIdx.x < job_desc_type::kBlobSize && job_ix < kMaxJobsNum) {
         job_descriptor.blob[threadIdx.x] = job_descriptors[job_ix].input.blob[threadIdx.x];
       }
     }
@@ -1241,11 +1246,6 @@ struct local_deque_t {
   uint32_t end_{0};
 };
 
-constexpr uint32_t kMaxJobsNum              = 2048;
-constexpr uint32_t kMaxWorkersNum           = 2048;
-constexpr uint32_t kMaxWorkersPerThread     = 256;
-constexpr uint32_t kSoftMaxWorkersPerThread = 16;
-
 struct persistent_runner_base_t {
   using job_queue_type =
     atomic_queue::AtomicQueue<uint32_t, kMaxJobsNum, ~0u, false, true, false, false>;
@@ -1390,7 +1390,7 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
   rmm::device_uvector<job_desc_type> job_descriptors;
   rmm::device_uvector<uint32_t> completion_counters;
   rmm::device_uvector<index_type> hashmap;
-  std::atomic<std::chrono::time_point<std::chrono::system_clock>> last_touch;
+  std::atomic<uint64_t> heartbeat;
 
   persistent_runner_t(DATASET_DESCRIPTOR_T dataset_desc,
                       raft::device_matrix_view<const index_type, int64_t, row_major> graph,
@@ -1452,7 +1452,10 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
     }
 
     index_type* hashmap_ptr = nullptr;
-    if (small_hash_bitlen == 0) { hashmap.resize(gs.y * hashmap::get_size(hash_bitlen), stream); }
+    if (small_hash_bitlen == 0) {
+      hashmap.resize(gs.y * hashmap::get_size(hash_bitlen), stream);
+      hashmap_ptr = hashmap.data();
+    }
 
     // launch the kernel
     auto* graph_ptr                   = graph.data_handle();
@@ -1493,21 +1496,11 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
 
   ~persistent_runner_t() noexcept override
   {
-    auto whs           = worker_handles.data();
-    auto whl           = worker_handles.size();
-    uint32_t worker_id = 0;
-    auto count         = whl;
-    // wait for all the jobs to finish nicely
-    while (job_queue.try_pop(worker_id)) {
-      whs[worker_id].data.store({kNoMoreWork}, cuda::memory_order_relaxed);
-      count--;
+    auto whs = worker_handles.data();
+    for (auto i = worker_handles.size(); i > 0; i--) {
+      whs[worker_queue.pop()].data.store({kNoMoreWork}, cuda::memory_order_relaxed);
     }
-    if (count > 0) {
-      // try to kill stuck threads if any
-      for (uint32_t i = 0; i < whl; i++) {
-        whs[i].data.store({kNoMoreWork}, cuda::memory_order_relaxed);
-      }
-    }
+    RAFT_CUDA_TRY_NO_THROW(cudaStreamSynchronize(stream));
     RAFT_LOG_INFO("Destroyed the persistent runner.");
   }
 
@@ -1532,7 +1525,7 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
         return cflag;
       }};
     // update the keep-alive atomic in the meanwhile
-    last_touch.store(std::chrono::system_clock::now(), std::memory_order_relaxed);
+    heartbeat.fetch_add(1, std::memory_order_relaxed);
     // wait for the results to arrive
     launcher.wait();
   }
@@ -1586,8 +1579,7 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
         runner_outer = std::dynamic_pointer_cast<RunnerT>(
           std::atomic_load_explicit(&persistent.runner, std::memory_order_relaxed));
         if (runner_outer) {
-          runner_outer->last_touch.store(std::chrono::system_clock::now(),
-                                         std::memory_order_relaxed);
+          runner_outer->heartbeat.fetch_add(1, std::memory_order_relaxed);
           ready.test_and_set(cuda::std::memory_order_release);
           ready.notify_one();
           return;
@@ -1598,32 +1590,34 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
                                    std::memory_order_relaxed);
         runner_outer = std::make_shared<RunnerT>(thread_args...);
         runner_weak  = runner_outer;
+        runner_outer->heartbeat.store(1, std::memory_order_relaxed);
         std::atomic_store_explicit(&persistent.runner,
                                    std::static_pointer_cast<persistent_runner_base_t>(runner_outer),
                                    std::memory_order_relaxed);
-        runner_outer->last_touch.store(std::chrono::system_clock::now(), std::memory_order_relaxed);
         ready.test_and_set(cuda::std::memory_order_release);
         ready.notify_one();
       }
       constexpr auto kInterval = std::chrono::milliseconds(500);
+      size_t last_beat         = 0;
       while (true) {
         std::this_thread::sleep_for(kInterval);
         auto runner = runner_weak.lock();  // runner_weak is local - thread-safe
         if (!runner) {
           return;  // dead already
         }
-        if (runner->last_touch.load(std::memory_order_relaxed) + kInterval <
-            std::chrono::system_clock::now()) {
+        size_t this_beat = runner->heartbeat.load(std::memory_order_relaxed);
+        if (this_beat == last_beat) {
+          std::lock_guard<std::mutex> guard(persistent.lock);
           if (runner == std::atomic_load_explicit(
                           &persistent.runner,
                           std::memory_order_relaxed)) {  // compare pointers: this is thread-safe
-            std::lock_guard<std::mutex> guard(persistent.lock);
             std::atomic_store_explicit(&persistent.runner,
                                        std::shared_ptr<persistent_runner_base_t>{nullptr},
                                        std::memory_order_relaxed);
           }
           return;
         }
+        last_beat = this_beat;
       }
     },
     args...)
