@@ -1627,13 +1627,26 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
 }
 
 template <typename RunnerT, typename... Args>
-auto get_runner(Args&&... args) -> std::shared_ptr<RunnerT>
+auto get_runner_nocache(Args&&... args) -> std::shared_ptr<RunnerT>
 {
   // We copy the shared pointer here, then using the copy is thread-safe.
   auto runner = std::dynamic_pointer_cast<RunnerT>(
     std::atomic_load_explicit(&persistent.runner, std::memory_order_relaxed));
   if (runner) { return runner; }
   return create_runner<RunnerT>(std::forward<Args>(args)...);
+}
+
+template <typename RunnerT, typename... Args>
+auto get_runner(Args&&... args) -> std::shared_ptr<RunnerT>
+{
+  // Using a thread-local weak pointer allows us to avoid an extra atomic load of the persistent
+  // runner shared pointer.
+  static thread_local std::weak_ptr<RunnerT> weak;
+  auto runner = weak.lock();
+  if (runner) { return runner; }
+  runner = get_runner_nocache<RunnerT, Args...>(std::forward<Args>(args)...);
+  weak   = runner;
+  return runner;
 }
 
 template <unsigned TEAM_SIZE,
