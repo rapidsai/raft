@@ -34,6 +34,8 @@
 #include <raft/neighbors/refine.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
+#include <rmm/resource_ref.hpp>
+
 #include <chrono>
 #include <cstdio>
 #include <vector>
@@ -101,7 +103,7 @@ void build_knn_graph(raft::resources const& res,
   uint32_t gpu_top_k     = node_degree * refine_rate.value_or(2.0f);
   gpu_top_k              = std::min<IdxT>(std::max(gpu_top_k, top_k), dataset.extent(0));
   const auto num_queries = dataset.extent(0);
-  rmm::mr::device_memory_resource* workspace_mr = raft::resource::get_workspace_resource(res);
+  rmm::device_async_resource_ref workspace_mr = raft::resource::get_workspace_resource(res);
   // Heuristic: how much of the workspace we can spare for the queries.
   // The rest is going to be used by ivf_pq::search
   const auto workspace_queries_bytes = raft::resource::get_workspace_free_bytes(res) / 5;
@@ -121,7 +123,7 @@ void build_knn_graph(raft::resources const& res,
     max_batch_size,
     search_params->n_probes);
 
-  rmm::mr::device_memory_resource* large_mr = raft::resource::get_large_workspace_resource(res);
+  rmm::device_async_resource_ref large_mr = raft::resource::get_large_workspace_resource(res);
   auto distances                            = raft::make_device_mdarray<float>(
     res, large_mr, raft::make_extents<int64_t>(max_batch_size, gpu_top_k));
   auto neighbors = raft::make_device_mdarray<int64_t>(

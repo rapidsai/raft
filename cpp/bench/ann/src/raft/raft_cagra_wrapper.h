@@ -36,7 +36,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cassert>
 #include <fstream>
@@ -138,7 +138,7 @@ class RaftCagra : public ANN<T>, public AnnGPU {
   std::shared_ptr<raft::device_matrix<T, int64_t, row_major>> dataset_;
   std::shared_ptr<raft::device_matrix_view<const T, int64_t, row_major>> input_dataset_v_;
 
-  inline rmm::mr::device_memory_resource* get_mr(AllocatorType mem_type)
+  inline rmm::device_async_resource_ref get_mr(AllocatorType mem_type)
   {
     switch (mem_type) {
       case (AllocatorType::HostPinned): return &mr_pinned_;

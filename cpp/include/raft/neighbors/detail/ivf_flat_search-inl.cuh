@@ -31,7 +31,7 @@
 #include <raft/neighbors/sample_filter_types.hpp>               // none_ivf_sample_filter
 #include <raft/spatial/knn/detail/ann_utils.cuh>                // utils::mapping
 
-#include <rmm/mr/device/device_memory_resource.hpp>  // rmm::device_memory_resource
+#include <rmm/resource_ref.hpp>
 
 namespace raft::neighbors::ivf_flat::detail {
 
@@ -49,7 +49,7 @@ void search_impl(raft::resources const& handle,
                  bool select_min,
                  IdxT* neighbors,
                  AccT* distances,
-                 rmm::mr::device_memory_resource* search_mr,
+                 rmm::device_async_resource_ref search_mr,
                  IvfSampleFilterT sample_filter)
 {
   auto stream = resource::get_cuda_stream(handle);
@@ -277,8 +277,8 @@ inline void search(raft::resources const& handle,
                    uint32_t k,
                    IdxT* neighbors,
                    float* distances,
-                   rmm::mr::device_memory_resource* mr = nullptr,
-                   IvfSampleFilterT sample_filter      = IvfSampleFilterT())
+                   std::optional<rmm::device_async_resource_ref> mr = std::nullopt,
+                   IvfSampleFilterT sample_filter                   = IvfSampleFilterT())
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());
@@ -299,8 +299,8 @@ inline void search(raft::resources const& handle,
 
   // a batch size heuristic: try to keep the workspace within the specified size
   uint64_t expected_ws_size = 1024 * 1024 * 1024ull;
-  if (mr == nullptr) {
-    mr               = resource::get_workspace_resource(handle);
+  if (!mr.has_value()) {
+    mr.emplace(resource::get_workspace_resource(handle));
     expected_ws_size = resource::get_workspace_free_bytes(handle);
   }
 
@@ -325,7 +325,7 @@ inline void search(raft::resources const& handle,
                                                   raft::distance::is_min_close(index.metric()),
                                                   neighbors + offset_q * k,
                                                   distances + offset_q * k,
-                                                  mr,
+                                                  mr.value(),
                                                   sample_filter);
   }
 }

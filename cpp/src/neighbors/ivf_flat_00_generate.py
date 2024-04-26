@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 
 header = """/*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ extend_macro = """
    template auto raft::neighbors::ivf_flat::extend<T, IdxT>(               \\
     const raft::resources& handle,                                         \\
     raft::host_matrix_view<const T, IdxT, row_major> new_vectors,          \\
-    std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,  \\
+    std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,   \\
     const raft::neighbors::ivf_flat::index<T, IdxT>& idx)                  \\
     -> raft::neighbors::ivf_flat::index<T, IdxT>;                          \\
                                                                            \\
@@ -122,13 +122,13 @@ extend_macro = """
     raft::resources const& handle,                                         \\
     raft::host_matrix_view<const T, IdxT, row_major> new_vectors,          \\
     std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,   \\
-    raft::neighbors::ivf_flat::index<T, IdxT>* index);                     
+    raft::neighbors::ivf_flat::index<T, IdxT>* index);
 """
 
 search_macro = """
 #define instantiate_raft_neighbors_ivf_flat_search(T, IdxT)        \\
-  template void raft::neighbors::ivf_flat::search<T, IdxT>( \\
-    raft::resources const& handle,                          \\
+  template void raft::neighbors::ivf_flat::search<T, IdxT>(        \\
+    raft::resources const& handle,                                 \\
     const raft::neighbors::ivf_flat::search_params& params,        \\
     const raft::neighbors::ivf_flat::index<T, IdxT>& index,        \\
     const T* queries,                                              \\
@@ -136,10 +136,10 @@ search_macro = """
     uint32_t k,                                                    \\
     IdxT* neighbors,                                               \\
     float* distances,                                              \\
-    rmm::mr::device_memory_resource* mr );                         \\
+    std::optional<rmm::device_async_resource_ref> mr);             \\
                                                                    \\
-  template void raft::neighbors::ivf_flat::search<T, IdxT>( \\
-    raft::resources const& handle,                          \\
+  template void raft::neighbors::ivf_flat::search<T, IdxT>(        \\
+    raft::resources const& handle,                                 \\
     const raft::neighbors::ivf_flat::search_params& params,        \\
     const raft::neighbors::ivf_flat::index<T, IdxT>& index,        \\
     raft::device_matrix_view<const T, IdxT, row_major> queries,    \\

@@ -20,7 +20,7 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/util/integer_utils.hpp>
 
-#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda.h>
 #include <cuda_fp16.h>
@@ -264,9 +264,8 @@ template <typename T, typename data_accessor>
 void copy_with_padding(raft::resources const& res,
                        raft::device_matrix<T, int64_t, row_major>& dst,
                        mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> src,
-                       rmm::mr::device_memory_resource* mr = nullptr)
+                       rmm::device_async_resource_ref mr = rmm::mr::get_current_device_resource())
 {
-  if (!mr) { mr = rmm::mr::get_current_device_resource(); }
   size_t padded_dim = round_up_safe<size_t>(src.extent(1) * sizeof(T), 16) / sizeof(T);
 
   if ((dst.extent(0) != src.extent(0)) || (static_cast<size_t>(dst.extent(1)) != padded_dim)) {

@@ -50,6 +50,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda_fp16.h>
 #include <thrust/extrema.h>
@@ -172,7 +173,7 @@ void select_residuals(raft::resources const& handle,
                       const float* center,           // [dim]
                       const T* dataset,              // [.., dim]
                       const IdxT* row_ids,           // [n_rows]
-                      rmm::mr::device_memory_resource* device_memory
+                      rmm::device_async_resource_ref device_memory
 
 )
 {
@@ -226,7 +227,7 @@ void flat_compute_residuals(
   device_matrix_view<const float, uint32_t, row_major> centers,          // [n_lists, dim_ext]
   const T* dataset,                                                      // [n_rows, dim]
   std::variant<uint32_t, const uint32_t*> labels,                        // [n_rows]
-  rmm::mr::device_memory_resource* device_memory)
+  rmm::device_async_resource_ref device_memory)
 {
   auto stream  = resource::get_cuda_stream(handle);
   auto dim     = rotation_matrix.extent(1);
@@ -398,7 +399,7 @@ void train_per_subset(raft::resources const& handle,
                       const float* trainset,   // [n_rows, dim]
                       const uint32_t* labels,  // [n_rows]
                       uint32_t kmeans_n_iters,
-                      rmm::mr::device_memory_resource* managed_memory)
+                      rmm::device_async_resource_ref managed_memory)
 {
   auto stream        = resource::get_cuda_stream(handle);
   auto device_memory = resource::get_workspace_resource(handle);
@@ -476,7 +477,7 @@ void train_per_cluster(raft::resources const& handle,
                        const float* trainset,   // [n_rows, dim]
                        const uint32_t* labels,  // [n_rows]
                        uint32_t kmeans_n_iters,
-                       rmm::mr::device_memory_resource* managed_memory)
+                       rmm::device_async_resource_ref managed_memory)
 {
   auto stream        = resource::get_cuda_stream(handle);
   auto device_memory = resource::get_workspace_resource(handle);
@@ -1326,7 +1327,7 @@ void process_and_fill_codes(raft::resources const& handle,
                             std::variant<IdxT, const IdxT*> src_offset_or_indices,
                             const uint32_t* new_labels,
                             IdxT n_rows,
-                            rmm::mr::device_memory_resource* mr)
+                            rmm::device_async_resource_ref mr)
 {
   auto new_vectors_residual =
     make_device_mdarray<float>(handle, mr, make_extents<IdxT>(n_rows, index.rot_dim()));
@@ -1517,8 +1518,8 @@ void extend(raft::resources const& handle,
                   std::is_same_v<T, int8_t>,
                 "Unsupported data type");
 
-  rmm::mr::device_memory_resource* device_memory = raft::resource::get_workspace_resource(handle);
-  rmm::mr::device_memory_resource* large_memory =
+  rmm::device_async_resource_ref device_memory = raft::resource::get_workspace_resource(handle);
+  rmm::device_async_resource_ref large_memory =
     raft::resource::get_large_workspace_resource(handle);
 
   // The spec defines how the clusters look like
@@ -1541,8 +1542,8 @@ void extend(raft::resources const& handle,
   // `large_workspace_resource`, which does not have the explicit allocation limit. The user may opt
   // to populate the `large_workspace_resource` memory resource with managed memory for easier
   // scaling.
-  rmm::mr::device_memory_resource* labels_mr  = device_memory;
-  rmm::mr::device_memory_resource* batches_mr = device_memory;
+  rmm::device_async_resource_ref labels_mr  = device_memory;
+  rmm::device_async_resource_ref batches_mr = device_memory;
   if (n_rows * (index->dim() * sizeof(T) + index->pq_dim() + sizeof(IdxT) + sizeof(uint32_t)) >
       free_mem) {
     labels_mr = large_memory;
@@ -1732,7 +1733,7 @@ auto build(raft::resources const& handle,
     // If the trainset is small enough to comfortably fit into device memory, put it there.
     // Otherwise, use the managed memory.
     constexpr size_t kTolerableRatio = 4;
-    rmm::mr::device_memory_resource* big_memory_resource =
+    rmm::device_async_resource_ref big_memory_resource =
       resource::get_large_workspace_resource(handle);
     if (sizeof(float) * n_rows_train * index.dim() * kTolerableRatio <
         resource::get_workspace_free_bytes(handle)) {
