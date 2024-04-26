@@ -19,10 +19,10 @@ jobs:
       - conda-python-build
       - conda-python-tests
       - docs-build
-      # - wheel-build-pylibraft
-      # - wheel-tests-pylibraft
-      # - wheel-build-raft-dask
-      # - wheel-tests-raft-dask
+      - wheel-build-pylibraft
+      - wheel-tests-pylibraft
+      - wheel-build-raft-dask
+      - wheel-tests-raft-dask
       - devcontainer
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.06
