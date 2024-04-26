@@ -19,8 +19,8 @@ version=$(rapids-generate-version)
 
 rapids-logger "Begin cpp build"
 
-RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry \
+RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild \
     --channel "${LIBRMM_CHANNEL}" \
-    mambabuild conda/recipes/libraft
+    conda/recipes/libraft
 
 rapids-upload-conda-to-s3 cpp
