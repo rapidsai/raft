@@ -104,15 +104,19 @@ void build_knn_graph(raft::resources const& res,
   gpu_top_k              = std::min<IdxT>(std::max(gpu_top_k, top_k), dataset.extent(0));
   const auto num_queries = dataset.extent(0);
   rmm::device_async_resource_ref workspace_mr = raft::resource::get_workspace_resource(res);
+
+  constexpr size_t kDefaultBatchSize = 1024;
+  constexpr size_t kMaxBatchSize     = 4096;  // No more perf beyond this
+  constexpr size_t kMinBatchSize     = 128;   // Too slow if smaller
   // Heuristic: how much of the workspace we can spare for the queries.
   // The rest is going to be used by ivf_pq::search
   const auto workspace_queries_bytes = raft::resource::get_workspace_free_bytes(res) / 5;
   auto max_batch_size =
-    std::min<size_t>(workspace_queries_bytes / sizeof(DataT) / dataset.extent(1), 4096);
+    std::min<size_t>(workspace_queries_bytes / sizeof(DataT) / dataset.extent(1), kMaxBatchSize);
   // Heuristic: if the workspace is too small for a decent batch size, switch to use the large
   // resource with a default batch size.
-  if (max_batch_size < 128) {
-    max_batch_size = 1024;
+  if (max_batch_size < kMinBatchSize) {
+    max_batch_size = kDefaultBatchSize;
     workspace_mr   = raft::resource::get_large_workspace_resource(res);
   }
   RAFT_LOG_DEBUG(
@@ -124,7 +128,7 @@ void build_knn_graph(raft::resources const& res,
     search_params->n_probes);
 
   rmm::device_async_resource_ref large_mr = raft::resource::get_large_workspace_resource(res);
-  auto distances                            = raft::make_device_mdarray<float>(
+  auto distances                          = raft::make_device_mdarray<float>(
     res, large_mr, raft::make_extents<int64_t>(max_batch_size, gpu_top_k));
   auto neighbors = raft::make_device_mdarray<int64_t>(
     res, large_mr, raft::make_extents<int64_t>(max_batch_size, gpu_top_k));

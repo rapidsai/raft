@@ -91,7 +91,7 @@ class large_workspace_resource_factory : public resource_factory {
   }
   auto get_resource_type() -> resource_type override
   {
-    return resource_type::LARGE_MEMORY_RESOURCE;
+    return resource_type::LARGE_WORKSPACE_RESOURCE;
   }
   auto make_resource() -> resource* override { return new memory_resource(mr_); }
 
@@ -276,10 +276,10 @@ inline void set_workspace_to_global_resource(
 
 inline auto get_large_workspace_resource(resources const& res) -> rmm::mr::device_memory_resource*
 {
-  if (!res.has_resource_factory(resource_type::LARGE_MEMORY_RESOURCE)) {
+  if (!res.has_resource_factory(resource_type::LARGE_WORKSPACE_RESOURCE)) {
     res.add_resource_factory(std::make_shared<large_workspace_resource_factory>());
   }
-  return res.get_resource<rmm::mr::device_memory_resource>(resource_type::LARGE_MEMORY_RESOURCE);
+  return res.get_resource<rmm::mr::device_memory_resource>(resource_type::LARGE_WORKSPACE_RESOURCE);
 };
 
 inline void set_large_workspace_resource(resources const& res,

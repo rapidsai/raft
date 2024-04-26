@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,14 +54,14 @@
     std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
     raft::neighbors::ivf_flat::index<T, IdxT>* index);                     \
                                                                            \
-   template auto raft::neighbors::ivf_flat::extend<T, IdxT>(               \
+  template auto raft::neighbors::ivf_flat::extend<T, IdxT>(                \
     const raft::resources& handle,                                         \
     raft::host_matrix_view<const T, IdxT, row_major> new_vectors,          \
     std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,   \
     const raft::neighbors::ivf_flat::index<T, IdxT>& idx)                  \
-    -> raft::neighbors::ivf_flat::index<T, IdxT>;                          \
+    ->raft::neighbors::ivf_flat::index<T, IdxT>;                           \
                                                                            \
-   template void raft::neighbors::ivf_flat::extend<T, IdxT>(               \
+  template void raft::neighbors::ivf_flat::extend<T, IdxT>(                \
     raft::resources const& handle,                                         \
     raft::host_matrix_view<const T, IdxT, row_major> new_vectors,          \
     std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices,   \

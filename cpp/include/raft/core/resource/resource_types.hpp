@@ -28,24 +28,24 @@ namespace raft::resource {
  */
 enum resource_type {
   // device-specific resource types
-  CUBLAS_HANDLE = 0,       // cublas handle
-  CUSOLVER_DN_HANDLE,      // cusolver dn handle
-  CUSOLVER_SP_HANDLE,      // cusolver sp handle
-  CUSPARSE_HANDLE,         // cusparse handle
-  CUDA_STREAM_VIEW,        // view of a cuda stream
-  CUDA_STREAM_POOL,        // cuda stream pool
-  CUDA_STREAM_SYNC_EVENT,  // cuda event for syncing streams
-  COMMUNICATOR,            // raft communicator
-  SUB_COMMUNICATOR,        // raft sub communicator
-  DEVICE_PROPERTIES,       // cuda device properties
-  DEVICE_ID,               // cuda device id
-  STREAM_VIEW,             // view of a cuda stream or a placeholder in
-                           // CUDA-free builds
-  THRUST_POLICY,           // thrust execution policy
-  WORKSPACE_RESOURCE,      // rmm device memory resource for small temporary allocations
-  CUBLASLT_HANDLE,         // cublasLt handle
-  CUSTOM,                  // runtime-shared default-constructible resource
-  LARGE_MEMORY_RESOURCE,   // rmm device memory resource for somewhat large temporary allocations
+  CUBLAS_HANDLE = 0,         // cublas handle
+  CUSOLVER_DN_HANDLE,        // cusolver dn handle
+  CUSOLVER_SP_HANDLE,        // cusolver sp handle
+  CUSPARSE_HANDLE,           // cusparse handle
+  CUDA_STREAM_VIEW,          // view of a cuda stream
+  CUDA_STREAM_POOL,          // cuda stream pool
+  CUDA_STREAM_SYNC_EVENT,    // cuda event for syncing streams
+  COMMUNICATOR,              // raft communicator
+  SUB_COMMUNICATOR,          // raft sub communicator
+  DEVICE_PROPERTIES,         // cuda device properties
+  DEVICE_ID,                 // cuda device id
+  STREAM_VIEW,               // view of a cuda stream or a placeholder in
+                             // CUDA-free builds
+  THRUST_POLICY,             // thrust execution policy
+  WORKSPACE_RESOURCE,        // rmm device memory resource for small temporary allocations
+  CUBLASLT_HANDLE,           // cublasLt handle
+  CUSTOM,                    // runtime-shared default-constructible resource
+  LARGE_WORKSPACE_RESOURCE,  // rmm device memory resource for somewhat large temporary allocations
 
   LAST_KEY  // reserved for the last key
 };
