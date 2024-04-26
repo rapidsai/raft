@@ -35,10 +35,10 @@ namespace raft::resource {
  * @{
  */
 
-class memory_resource : public resource {
+class device_memory_resource : public resource {
  public:
-  explicit memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr) : mr_(mr) {}
-  ~memory_resource() override = default;
+  explicit device_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr) : mr_(mr) {}
+  ~device_memory_resource() override = default;
   auto get_resource() -> void* override { return mr_.get(); }
 
  private:
@@ -93,7 +93,7 @@ class large_workspace_resource_factory : public resource_factory {
   {
     return resource_type::LARGE_WORKSPACE_RESOURCE;
   }
-  auto make_resource() -> resource* override { return new memory_resource(mr_); }
+  auto make_resource() -> resource* override { return new device_memory_resource(mr_); }
 
  private:
   std::shared_ptr<rmm::mr::device_memory_resource> mr_;
