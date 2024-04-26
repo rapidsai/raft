@@ -58,18 +58,20 @@ inline thread_local int benchmark_n_threads = 1;
 
 template <typename T>
 struct buf {
+  cudaStream_t stream;
   MemoryType memory_type;
   std::size_t size;
   T* data;
   buf(MemoryType memory_type, std::size_t size)
-    : memory_type(memory_type), size(size), data(nullptr)
+    : stream(nullptr), memory_type(memory_type), size(size), data(nullptr)
   {
     switch (memory_type) {
 #ifndef BUILD_CPU_ONLY
       case MemoryType::Device: {
-        cudaMallocAsync(reinterpret_cast<void**>(&data), size * sizeof(T), cudaStreamPerThread);
-        cudaMemsetAsync(data, 0, size * sizeof(T), cudaStreamPerThread);
-        cudaStreamSynchronize(cudaStreamPerThread);
+        cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+        cudaMallocAsync(reinterpret_cast<void**>(&data), size * sizeof(T), stream);
+        cudaMemsetAsync(data, 0, size * sizeof(T), stream);
+        cudaStreamSynchronize(stream);
       } break;
 #endif
       default: {
@@ -84,7 +86,9 @@ struct buf {
     switch (memory_type) {
 #ifndef BUILD_CPU_ONLY
       case MemoryType::Device: {
-        cudaFree(data);
+        cudaFreeAsync(data, stream);
+        cudaStreamSynchronize(stream);
+        cudaStreamDestroy(stream);
       } break;
 #endif
       default: {
@@ -99,8 +103,8 @@ struct buf {
 #ifndef BUILD_CPU_ONLY
     if ((memory_type == MemoryType::Device && target_memory_type != MemoryType::Device) ||
         (memory_type != MemoryType::Device && target_memory_type == MemoryType::Device)) {
-      cudaMemcpyAsync(r.data, data, size * sizeof(T), cudaMemcpyDefault, cudaStreamPerThread);
-      cudaStreamSynchronize(cudaStreamPerThread);
+      cudaMemcpyAsync(r.data, data, size * sizeof(T), cudaMemcpyDefault, stream);
+      cudaStreamSynchronize(stream);
       return r;
     }
 #endif

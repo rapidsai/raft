@@ -280,10 +280,8 @@ void bench_search(::benchmark::State& state,
   /**
    * Each thread will manage its own outputs
    */
-  auto distances =
-    std::make_shared<buf<float>>(current_algo_props->query_memory_type, k * query_set_size);
-  auto neighbors = std::make_shared<buf<AnnBase::index_type>>(current_algo_props->query_memory_type,
-                                                              k * query_set_size);
+  buf<float> distances{current_algo_props->query_memory_type, k * query_set_size};
+  buf<AnnBase::index_type> neighbors{current_algo_props->query_memory_type, k * query_set_size};
 
   {
     nvtx_case nvtx{state.name()};
@@ -305,8 +303,8 @@ void bench_search(::benchmark::State& state,
         algo->search(query_set + batch_offset * dataset->dim(),
                      n_queries,
                      k,
-                     neighbors->data + out_offset * k,
-                     distances->data + out_offset * k);
+                     neighbors.data + out_offset * k,
+                     distances.data + out_offset * k);
       } catch (const std::exception& e) {
         state.SkipWithError("Benchmark loop: " + std::string(e.what()));
         break;
@@ -340,7 +338,7 @@ void bench_search(::benchmark::State& state,
   if (dataset->max_k() >= k) {
     const std::int32_t* gt    = dataset->gt_set();
     const std::uint32_t max_k = dataset->max_k();
-    buf neighbors_host        = neighbors->move(MemoryType::Host);
+    buf neighbors_host        = neighbors.move(MemoryType::Host);
     std::size_t rows          = std::min(queries_processed, query_set_size);
     std::size_t match_count   = 0;
     std::size_t total_count   = rows * static_cast<size_t>(k);
