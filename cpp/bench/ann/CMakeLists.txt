@@ -340,7 +340,7 @@ endif()
 
 if(RAFT_ANN_BENCH_USE_DISKANN)
   ConfigureAnnBench(
-    NAME DISKANN PATH bench/ann/src/diskann/diskann_benchmark.cpp LINKS diskann::diskann raft::compiled
+    NAME DISKANN PATH bench/ann/src/diskann/diskann_benchmark.cu LINKS diskann::diskann raft::compiled
   )
 endif()
 
