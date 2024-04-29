@@ -25,7 +25,6 @@
 #include <raft_internal/matrix/select_k.cuh>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
 
 #include <gtest/gtest.h>
 

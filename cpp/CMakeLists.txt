@@ -565,7 +565,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
-    src/util/memory_pool.cpp
   )
   set_target_properties(
     raft_objs

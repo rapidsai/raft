@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,11 @@
  */
 #pragma once
 
+#ifndef RAFT_HIDE_DEPRECATION_WARNINGS
 #pragma message(__FILE__                                                    \
                   " is deprecated and will be removed in a future release." \
                   " Please use the raft/sparse/solver version instead.")
+#endif
 
 #include <raft/sparse/mst/mst.cuh>
 #include <raft/sparse/mst/mst_solver.cuh>

@@ -30,7 +30,7 @@
 #include <raft/neighbors/sample_filter_types.hpp>               // none_ivf_sample_filter
 #include <raft/spatial/knn/detail/ann_utils.cuh>                // utils::mapping
 
-#include <rmm/mr/device/per_device_resource.hpp>  // rmm::device_memory_resource
+#include <rmm/resource_ref.hpp>
 
 namespace raft::neighbors::ivf_flat::detail {
 
@@ -48,7 +48,7 @@ void search_impl(raft::resources const& handle,
                  bool select_min,
                  IdxT* neighbors,
                  AccT* distances,
-                 rmm::mr::device_memory_resource* search_mr,
+                 rmm::device_async_resource_ref search_mr,
                  IvfSampleFilterT sample_filter)
 {
   auto stream = resource::get_cuda_stream(handle);
@@ -276,13 +276,12 @@ inline void search(raft::resources const& handle,
                    uint32_t k,
                    IdxT* neighbors,
                    float* distances,
-                   rmm::mr::device_memory_resource* mr = nullptr,
-                   IvfSampleFilterT sample_filter      = IvfSampleFilterT())
+                   rmm::device_async_resource_ref mr = rmm::mr::get_current_device_resource(),
+                   IvfSampleFilterT sample_filter    = IvfSampleFilterT())
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());
 
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
   auto n_probes          = std::min<uint32_t>(params.n_probes, index.n_lists());
