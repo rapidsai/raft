@@ -1248,9 +1248,9 @@ struct local_deque_t {
 
 struct persistent_runner_base_t {
   using job_queue_type =
-    atomic_queue::AtomicQueue<uint32_t, kMaxJobsNum, ~0u, false, true, false, false>;
+    atomic_queue::AtomicQueue<uint32_t, kMaxJobsNum, ~0u, true, true, false, false>;
   using worker_queue_type =
-    atomic_queue::AtomicQueue<uint32_t, kMaxWorkersNum, ~0u, false, true, false, false>;
+    atomic_queue::AtomicQueue<uint32_t, kMaxWorkersNum, ~0u, true, true, false, false>;
   rmm::mr::pinned_host_memory_resource worker_handles_mr;
   rmm::mr::pinned_host_memory_resource job_descriptor_mr;
   rmm::mr::cuda_memory_resource device_mr;
@@ -1390,7 +1390,9 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
   rmm::device_uvector<job_desc_type> job_descriptors;
   rmm::device_uvector<uint32_t> completion_counters;
   rmm::device_uvector<index_type> hashmap;
-  std::atomic<uint64_t> heartbeat;
+  std::atomic<std::chrono::time_point<std::chrono::system_clock>> last_touch;
+
+  constexpr static auto kLiveInterval = std::chrono::milliseconds(1000);
 
   persistent_runner_t(DATASET_DESCRIPTOR_T dataset_desc,
                       raft::device_matrix_view<const index_type, int64_t, row_major> graph,
@@ -1525,7 +1527,13 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
         return cflag;
       }};
     // update the keep-alive atomic in the meanwhile
-    heartbeat.fetch_add(1, std::memory_order_relaxed);
+    auto prev_touch = last_touch.load(std::memory_order_relaxed);
+    auto this_touch = std::chrono::system_clock::now();
+    if (prev_touch + kLiveInterval / 10 < this_touch) {
+      // to avoid congestion at this atomic, we only update it if a significant fraction of the live
+      // interval has passed.
+      last_touch.store(this_touch, std::memory_order_relaxed);
+    }
     // wait for the results to arrive
     launcher.wait();
   }
@@ -1569,7 +1577,7 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
   // Check if the runner has already been created
   std::shared_ptr<RunnerT> runner_outer = std::dynamic_pointer_cast<RunnerT>(persistent.runner);
   if (runner_outer) {
-    runner_outer->heartbeat.fetch_add(1, std::memory_order_relaxed);
+    runner_outer->last_touch.store(std::chrono::system_clock::now(), std::memory_order_relaxed);
     return runner_outer;
   }
   // Runner has not yet been created (or it's incompatible):
@@ -1583,28 +1591,25 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
     [&runner_outer, &ready](Args... thread_args) {  // pass everything by values
       // create the runner (the lock is acquired in the parent thread).
       runner_outer = std::make_shared<RunnerT>(thread_args...);
-      runner_outer->heartbeat.store(1, std::memory_order_relaxed);
+      runner_outer->last_touch.store(std::chrono::system_clock::now(), std::memory_order_relaxed);
       persistent.runner = std::static_pointer_cast<persistent_runner_base_t>(runner_outer);
       std::weak_ptr<RunnerT> runner_weak = runner_outer;
       ready.test_and_set(cuda::std::memory_order_release);
       ready.notify_one();
       // NB: runner_outer is passed by reference and may be dead by this time.
 
-      constexpr auto kInterval = std::chrono::milliseconds(500);
-      size_t last_beat         = 0;
       while (true) {
-        std::this_thread::sleep_for(kInterval);
+        std::this_thread::sleep_for(RunnerT::kLiveInterval);
         auto runner = runner_weak.lock();  // runner_weak is local - thread-safe
         if (!runner) {
           return;  // dead already
         }
-        size_t this_beat = runner->heartbeat.load(std::memory_order_relaxed);
-        if (this_beat == last_beat) {
+        if (runner->last_touch.load(std::memory_order_relaxed) + RunnerT::kLiveInterval <
+            std::chrono::system_clock::now()) {
           std::lock_guard<std::mutex> guard(persistent.lock);
           if (runner == persistent.runner) { persistent.runner.reset(); }
           return;
         }
-        last_beat = this_beat;
       }
     },
     args...)
