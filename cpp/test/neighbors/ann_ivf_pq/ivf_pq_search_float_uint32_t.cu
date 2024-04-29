@@ -37,8 +37,7 @@
     uint32_t n_queries,                                              \
     uint32_t k,                                                      \
     IdxT* neighbors,                                                 \
-    float* distances,                                                \
-    rmm::mr::device_memory_resource* mr)
+    float* distances)
 
 instantiate_raft_neighbors_ivf_pq_search(float, uint32_t);
 

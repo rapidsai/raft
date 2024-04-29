@@ -29,9 +29,9 @@
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
-#include <rmm/mr/device/managed_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_scan.cuh>
@@ -894,13 +894,11 @@ void radix_topk(const T* in,
                 unsigned grid_dim,
                 int sm_cnt,
                 rmm::cuda_stream_view stream,
-                rmm::mr::device_memory_resource* mr)
+                rmm::device_async_resource_ref mr = rmm::mr::get_current_device_resource())
 {
   // TODO: is it possible to relax this restriction?
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
-
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
 
   auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, len_or_indptr>;
   const size_t max_chunk_size =
@@ -1179,7 +1177,7 @@ void radix_topk_one_block(const T* in,
                           const IdxT* len_i,
                           int sm_cnt,
                           rmm::cuda_stream_view stream,
-                          rmm::mr::device_memory_resource* mr)
+                          rmm::device_async_resource_ref mr)
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
 

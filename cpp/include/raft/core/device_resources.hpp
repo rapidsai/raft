@@ -37,6 +37,7 @@
 
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 #include <cuda_runtime.h>
 
