@@ -43,6 +43,8 @@ EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
 
+export LD_DEBUG=ALL
+
 rapids-logger "pytest pylibraft"
 ./ci/run_pylibraft_pytests.sh \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-pylibraft.xml" \
