@@ -280,8 +280,15 @@ void bench_search(::benchmark::State& state,
   /**
    * Each thread will manage its own outputs
    */
-  buf<float> distances{current_algo_props->query_memory_type, k * query_set_size};
-  buf<AnnBase::index_type> neighbors{current_algo_props->query_memory_type, k * query_set_size};
+  constexpr size_t kAlignResultBuf = 64;
+  size_t result_elem_count         = k * query_set_size;
+  result_elem_count =
+    ((result_elem_count + kAlignResultBuf - 1) / kAlignResultBuf) * kAlignResultBuf;
+  auto& result_buf = get_result_buffer_from_global_pool(
+    result_elem_count * (sizeof(float) + sizeof(AnnBase::index_type)));
+  auto* neighbors_ptr =
+    reinterpret_cast<AnnBase::index_type*>(result_buf.data(current_algo_props->query_memory_type));
+  auto* distances_ptr = reinterpret_cast<float*>(neighbors_ptr + result_elem_count);
 
   {
     nvtx_case nvtx{state.name()};
@@ -303,8 +310,8 @@ void bench_search(::benchmark::State& state,
         algo->search(query_set + batch_offset * dataset->dim(),
                      n_queries,
                      k,
-                     neighbors.data + out_offset * k,
-                     distances.data + out_offset * k);
+                     neighbors_ptr + out_offset * k,
+                     distances_ptr + out_offset * k);
       } catch (const std::exception& e) {
         state.SkipWithError("Benchmark loop: " + std::string(e.what()));
         break;
@@ -338,10 +345,12 @@ void bench_search(::benchmark::State& state,
   if (dataset->max_k() >= k) {
     const std::int32_t* gt    = dataset->gt_set();
     const std::uint32_t max_k = dataset->max_k();
-    buf neighbors_host        = neighbors.move(MemoryType::Host);
-    std::size_t rows          = std::min(queries_processed, query_set_size);
-    std::size_t match_count   = 0;
-    std::size_t total_count   = rows * static_cast<size_t>(k);
+    result_buf.transfer_data(MemoryType::Host, current_algo_props->query_memory_type);
+    auto* neighbors_host =
+      reinterpret_cast<AnnBase::index_type*>(result_buf.data(MemoryType::Host));
+    std::size_t rows        = std::min(queries_processed, query_set_size);
+    std::size_t match_count = 0;
+    std::size_t total_count = rows * static_cast<size_t>(k);
 
     // We go through the groundtruth with same stride as the benchmark loop.
     size_t out_offset   = 0;
@@ -352,7 +361,7 @@ void bench_search(::benchmark::State& state,
         size_t i_out_idx  = out_offset + i;
         if (i_out_idx < rows) {
           for (std::uint32_t j = 0; j < k; j++) {
-            auto act_idx = std::int32_t(neighbors_host.data[i_out_idx * k + j]);
+            auto act_idx = std::int32_t(neighbors_host[i_out_idx * k + j]);
             for (std::uint32_t l = 0; l < k; l++) {
               auto exp_idx = gt[i_orig_idx * max_k + l];
               if (act_idx == exp_idx) {
