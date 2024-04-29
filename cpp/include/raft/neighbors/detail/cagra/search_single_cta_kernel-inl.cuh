@@ -1565,38 +1565,31 @@ inline persistent_state persistent{};
 template <typename RunnerT, typename... Args>
 auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass everything by values
 {
-  // NB: storing pointer-to-shared_ptr; otherwise, notify_one()/wait() do not seem to work.
-  std::shared_ptr<RunnerT> runner_outer{nullptr};
+  std::lock_guard<std::mutex> guard(persistent.lock);
+  // Check if the runner has already been created
+  std::shared_ptr<RunnerT> runner_outer = std::dynamic_pointer_cast<RunnerT>(persistent.runner);
+  if (runner_outer) {
+    runner_outer->heartbeat.fetch_add(1, std::memory_order_relaxed);
+    return runner_outer;
+  }
+  // Runner has not yet been created (or it's incompatible):
+  //   create it in another thread and only then release the lock.
+  // Free the resources (if any) in advance
+  persistent.runner.reset();
+
   cuda::std::atomic_flag ready{};
   ready.clear(cuda::std::memory_order_relaxed);
   std::thread(
     [&runner_outer, &ready](Args... thread_args) {  // pass everything by values
-      std::weak_ptr<RunnerT> runner_weak;
-      {
-        std::lock_guard<std::mutex> guard(persistent.lock);
-        // Try to check the runner again:
-        //   it may have been created by another thread since the last check
-        runner_outer = std::dynamic_pointer_cast<RunnerT>(
-          std::atomic_load_explicit(&persistent.runner, std::memory_order_relaxed));
-        if (runner_outer) {
-          runner_outer->heartbeat.fetch_add(1, std::memory_order_relaxed);
-          ready.test_and_set(cuda::std::memory_order_release);
-          ready.notify_one();
-          return;
-        }
-        // Free the resources (if any) in advance
-        std::atomic_store_explicit(&persistent.runner,
-                                   std::shared_ptr<persistent_runner_base_t>{nullptr},
-                                   std::memory_order_relaxed);
-        runner_outer = std::make_shared<RunnerT>(thread_args...);
-        runner_weak  = runner_outer;
-        runner_outer->heartbeat.store(1, std::memory_order_relaxed);
-        std::atomic_store_explicit(&persistent.runner,
-                                   std::static_pointer_cast<persistent_runner_base_t>(runner_outer),
-                                   std::memory_order_relaxed);
-        ready.test_and_set(cuda::std::memory_order_release);
-        ready.notify_one();
-      }
+      // create the runner (the lock is acquired in the parent thread).
+      runner_outer = std::make_shared<RunnerT>(thread_args...);
+      runner_outer->heartbeat.store(1, std::memory_order_relaxed);
+      persistent.runner = std::static_pointer_cast<persistent_runner_base_t>(runner_outer);
+      std::weak_ptr<RunnerT> runner_weak = runner_outer;
+      ready.test_and_set(cuda::std::memory_order_release);
+      ready.notify_one();
+      // NB: runner_outer is passed by reference and may be dead by this time.
+
       constexpr auto kInterval = std::chrono::milliseconds(500);
       size_t last_beat         = 0;
       while (true) {
@@ -1608,13 +1601,7 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
         size_t this_beat = runner->heartbeat.load(std::memory_order_relaxed);
         if (this_beat == last_beat) {
           std::lock_guard<std::mutex> guard(persistent.lock);
-          if (runner == std::atomic_load_explicit(
-                          &persistent.runner,
-                          std::memory_order_relaxed)) {  // compare pointers: this is thread-safe
-            std::atomic_store_explicit(&persistent.runner,
-                                       std::shared_ptr<persistent_runner_base_t>{nullptr},
-                                       std::memory_order_relaxed);
-          }
+          if (runner == persistent.runner) { persistent.runner.reset(); }
           return;
         }
         last_beat = this_beat;
@@ -1627,24 +1614,14 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
 }
 
 template <typename RunnerT, typename... Args>
-auto get_runner_nocache(Args&&... args) -> std::shared_ptr<RunnerT>
-{
-  // We copy the shared pointer here, then using the copy is thread-safe.
-  auto runner = std::dynamic_pointer_cast<RunnerT>(
-    std::atomic_load_explicit(&persistent.runner, std::memory_order_relaxed));
-  if (runner) { return runner; }
-  return create_runner<RunnerT>(std::forward<Args>(args)...);
-}
-
-template <typename RunnerT, typename... Args>
 auto get_runner(Args&&... args) -> std::shared_ptr<RunnerT>
 {
-  // Using a thread-local weak pointer allows us to avoid an extra atomic load of the persistent
-  // runner shared pointer.
+  // Using a thread-local weak pointer allows us to avoid using locks/atomics,
+  // since the control block of weak/shared pointers is thread-safe.
   static thread_local std::weak_ptr<RunnerT> weak;
   auto runner = weak.lock();
   if (runner) { return runner; }
-  runner = get_runner_nocache<RunnerT, Args...>(std::forward<Args>(args)...);
+  runner = create_runner<RunnerT>(std::forward<Args>(args)...);
   weak   = runner;
   return runner;
 }
