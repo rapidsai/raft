@@ -16,14 +16,16 @@
 #pragma once
 
 #include "../common/ann_types.hpp"
+#include "parameters.h"
 #include "raft/core/host_mdspan.hpp"
-#include "raft/neighbors/cagra_types.hpp"
 #include "raft/neighbors/cagra.cuh"
+#include "raft/neighbors/cagra_types.hpp"
 
 #include <index.h>
 #include <omp.h>
 #include <utils.h>
 
+#include <memory>
 #include <vector>
 
 #ifndef _WINDOWS
@@ -82,8 +84,8 @@ class DiskANNMemory : public ANN<T> {
 
   void save(const std::string& path_to_index) const override;
   void load(const std::string& path_to_index) override;
-  std::unique_ptr<ANN<T>> copy() override {
-    return std::make_unique<DiskANNMemory<T>>(*this); };
+  DiskANNMemory(const DiskANNMemory<T>& other) = default;
+  std::unique_ptr<ANN<T>> copy() override { return nullptr; }
 
   AlgoProperty get_preference() const override
   {
@@ -113,20 +115,20 @@ DiskANNMemory<T>::DiskANNMemory(Metric metric, int dim, const BuildParam& param)
 {
   assert(dim_ > 0);
 
-  this->diskann_index_write_params_ = std::make_shared<diskann::IndexWriteParameters>(
-    diskann::IndexWriteParametersBuilder(param.L_build, param.R)
-      .with_filter_list_size(0)
-      .with_alpha(param.alpha)
-      .with_saturate_graph(false)
-      .with_num_threads(param.num_threads)
-      .build());
+  diskann::IndexWriteParameters p = diskann::IndexWriteParametersBuilder(param.L_build, param.R)
+                                      .with_filter_list_size(0)
+                                      .with_alpha(param.alpha)
+                                      .with_saturate_graph(false)
+                                      .with_num_threads(param.num_threads)
+                                      .build();
+  this->diskann_index_write_params_ = std::make_shared<diskann::IndexWriteParameters>(p);
 }
 
 template <typename T>
 void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
 {
   this->diskann_index_ =
-    std::make_shared<diskann::Index<T>>(diskann::Index<T>(parse_metric_type(this->metric_),
+    std::make_shared<diskann::Index<T>>(parse_metric_type(this->metric_),
                                                           this->dim_,
                                                           nrow,
                                                           this->diskann_index_write_params_,
@@ -140,18 +142,18 @@ void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
                                                           false,
                                                           false,
                                                           this->use_cagra_graph_,
-                                                          cagra_graph_degree_));
+                                                          cagra_graph_degree_);
 
   if (!this->use_cagra_graph_) {
-  auto intermediate_graph = raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_intermediate_graph_degree_);
-  auto knn_graph = raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_graph_degree_);
-  auto dataset_view = raft::make_host_matrix_view<const T, int64_t>(dataset, (int64_t)nrow, (int64_t)this->dim_);
-  raft::resources res;
-  raft::neighbors::cagra::build_knn_graph(res,
-                     dataset_view,
-                     intermediate_graph.view());
-  raft::neighbors::cagra::optimize(res, intermediate_graph.view(), knn_graph.view());
-  diskann_index_->build(dataset, nrow, std::vector<uint32_t>(), std::shared_ptr<uint32_t>(knn_graph.data_handle()));
+    auto intermediate_graph = raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_intermediate_graph_degree_);
+    auto knn_graph = raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_graph_degree_);
+    auto dataset_view =
+      raft::make_host_matrix_view<const T, int64_t>(dataset, (int64_t)nrow, (int64_t)this->dim_);
+    raft::resources res;
+    raft::neighbors::cagra::build_knn_graph(res, dataset_view, intermediate_graph.view());
+    raft::neighbors::cagra::optimize(res, intermediate_graph.view(), knn_graph.view());
+    diskann_index_->build(
+      dataset, nrow, std::vector<uint32_t>(), std::shared_ptr<uint32_t>(knn_graph.data_handle()));
   }
   diskann_index_->build(dataset, nrow, std::vector<uint32_t>());
 }

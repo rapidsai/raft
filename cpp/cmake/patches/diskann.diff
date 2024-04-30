@@ -106,7 +106,7 @@ index f3b1de2..c2f0728 100644
          // Inner product returns negative values to indicate distance.
          // This will ensure that cosine is between -1 and 1.
 diff --git a/include/index.h b/include/index.h
-index b9bf4f3..0691566 100644
+index b9bf4f3..d22460c 100644
 --- a/include/index.h
 +++ b/include/index.h
 @@ -66,7 +66,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
@@ -129,19 +129,15 @@ index b9bf4f3..0691566 100644
  
      // Based on filter params builds a filtered or unfiltered index
      DISKANN_DLLEXPORT void build(const std::string &data_file, const size_t num_points_to_load,
-@@ -233,8 +235,10 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
-     virtual void _set_universal_label(const LabelType universal_label) override;
+@@ -236,6 +238,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
+     Index(const Index<T, TagT, LabelT> &) = delete;
+     Index<T, TagT, LabelT> &operator=(const Index<T, TagT, LabelT> &) = delete;
  
-     // No copy/assign.
--    Index(const Index<T, TagT, LabelT> &) = delete;
--    Index<T, TagT, LabelT> &operator=(const Index<T, TagT, LabelT> &) = delete;
-+    // Index(const Index<T, TagT, LabelT> &) = delete;
-+    // Index<T, TagT, LabelT> &operator=(const Index<T, TagT, LabelT> &) = delete;
-+
 +    void add_raft_cagra_neighbours(const std::shared_ptr<uint32_t> raft_cagra_graph_ptr);
- 
++
      // Use after _data and _nd have been populated
      // Acquire exclusive _update_lock before calling
+     void build_with_data_populated(const std::vector<TagT> &tags);
 @@ -444,5 +448,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
      std::vector<non_recursive_mutex> _locks;
  
