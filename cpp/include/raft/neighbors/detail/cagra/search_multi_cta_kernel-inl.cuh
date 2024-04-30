@@ -28,6 +28,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>
@@ -149,7 +150,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const uint32_t min_iteration,
   const uint32_t max_iteration,
   uint32_t* const num_executed_iterations, /* stats */
-  SAMPLE_FILTER_T sample_filter)
+  SAMPLE_FILTER_T sample_filter,
+  const raft::distance::DistanceType metric)
 {
   using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
@@ -227,6 +229,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const INDEX_T* const local_seed_ptr = seed_ptr ? seed_ptr + (num_seeds * query_id) : nullptr;
   uint32_t block_id                   = cta_id + (num_cta_per_query * query_id);
   uint32_t num_blocks                 = num_cta_per_query * num_queries;
+
   device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM>(result_indices_buffer,
                                                                          result_distances_buffer,
                                                                          query_buffer,
@@ -238,6 +241,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
                                                                          num_seeds,
                                                                          local_visited_hashmap_ptr,
                                                                          hash_bitlen,
+                                                                         metric,
                                                                          block_id,
                                                                          num_blocks);
   __syncthreads();
@@ -282,7 +286,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
       hash_bitlen,
       parent_indices_buffer,
       result_indices_buffer,
-      search_width);
+      search_width,
+      metric);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 
@@ -459,6 +464,7 @@ void select_and_run(
   size_t min_iterations,
   size_t max_iterations,
   SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric,
   cudaStream_t stream)
 {
   auto kernel =
@@ -484,6 +490,7 @@ void select_and_run(
                  num_cta_per_query,
                  num_queries,
                  smem_size);
+
   kernel<<<grid_dims, block_dims, smem_size, stream>>>(topk_indices_ptr,
                                                        topk_distances_ptr,
                                                        dataset_desc,
@@ -501,7 +508,8 @@ void select_and_run(
                                                        min_iterations,
                                                        max_iterations,
                                                        num_executed_iterations,
-                                                       sample_filter);
+                                                       sample_filter,
+                                                       metric);
 }
 
 }  // namespace multi_cta_search
