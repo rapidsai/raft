@@ -1,3 +1,22 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 3d3d2b8..5a4280e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -300,10 +300,10 @@ else()
+ endif()
+ 
+ add_subdirectory(src)
+-if (NOT PYBIND)
+-    add_subdirectory(apps)
+-    add_subdirectory(apps/utils)
+-endif()
++#if (NOT PYBIND)
++#    add_subdirectory(apps)
++#    add_subdirectory(apps/utils)
++#endif()
+ 
+ if (UNIT_TEST)
+     enable_testing()
 diff --git a/include/distance.h b/include/distance.h
 index f3b1de2..c2f0728 100644
 --- a/include/distance.h

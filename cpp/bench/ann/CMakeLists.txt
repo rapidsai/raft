@@ -340,7 +340,7 @@ endif()
 
 if(RAFT_ANN_BENCH_USE_DISKANN)
   ConfigureAnnBench(
-    NAME DISKANN PATH bench/ann/src/diskann/diskann_benchmark.cu LINKS diskann::diskann raft::compiled CXXFLAGS "-fno-finite-math-only -dynamic-linker /lib/ld-linux.so.2 -lc -lgcc -lgcc_s -lstdc++"
+    NAME DISKANN PATH bench/ann/src/diskann/diskann_benchmark.cu LINKS diskann::diskann raft::compiled
   )
 endif()
 

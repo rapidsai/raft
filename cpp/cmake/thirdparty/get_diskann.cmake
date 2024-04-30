@@ -33,6 +33,9 @@ function(find_and_configure_diskann)
             GIT_REPOSITORY   ${PKG_REPOSITORY}
             GIT_TAG          ${PKG_PINNED_TAG}
             PATCH_COMMAND ${CMAKE_COMMAND} -P ${patch_script}
+            OPTIONS
+            "PYBIND OFF"
+            "UNIT_TEST OFF"
             )
     
     if(NOT TARGET diskann::diskann)
