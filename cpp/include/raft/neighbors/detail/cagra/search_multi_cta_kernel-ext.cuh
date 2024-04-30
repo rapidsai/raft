@@ -54,6 +54,7 @@ void select_and_run(
   size_t min_iterations,
   size_t max_iterations,
   SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric,
   cudaStream_t stream) RAFT_EXPLICIT;
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -88,6 +89,7 @@ void select_and_run(
     size_t min_iterations,                                                                      \
     size_t max_iterations,                                                                      \
     SAMPLE_FILTER_T sample_filter,                                                              \
+    raft::distance::DistanceType metric,                                                        \
     cudaStream_t stream);
 
 instantiate_kernel_selection(
@@ -172,6 +174,7 @@ instantiate_kernel_selection(
     size_t min_iterations,                                                                      \
     size_t max_iterations,                                                                      \
     SAMPLE_FILTER_T sample_filter,                                                              \
+    raft::distance::DistanceType metric,                                                        \
     cudaStream_t stream);
 
 instantiate_q_kernel_selection(
