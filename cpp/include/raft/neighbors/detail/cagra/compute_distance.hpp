@@ -19,6 +19,8 @@
 #include "hashmap.hpp"
 #include "utils.hpp"
 
+#include <raft/core/operators.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
@@ -54,6 +56,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   const uint32_t num_seeds,
   INDEX_T* const visited_hash_ptr,
   const uint32_t hash_bitlen,
+  const raft::distance::DistanceType metric,
   const uint32_t block_id   = 0,
   const uint32_t num_blocks = 1)
 {
@@ -78,8 +81,22 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         }
       }
 
-      const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-        query_buffer, seed_index, valid_i);
+      DISTANCE_T norm2;
+      switch (metric) {
+        case raft::distance::L2Expanded:
+          norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                           TEAM_SIZE,
+                                                           raft::distance::L2Expanded>(
+            query_buffer, seed_index, valid_i);
+          break;
+        case raft::distance::InnerProduct:
+          norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                           TEAM_SIZE,
+                                                           raft::distance::InnerProduct>(
+            query_buffer, seed_index, valid_i);
+          break;
+        default: break;
+      }
 
       if (valid_i && (norm2 < best_norm2_team_local)) {
         best_norm2_team_local = norm2;
@@ -121,7 +138,8 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(
   const std::uint32_t hash_bitlen,
   const INDEX_T* const parent_indices,
   const INDEX_T* const internal_topk_list,
-  const std::uint32_t search_width)
+  const std::uint32_t search_width,
+  const raft::distance::DistanceType metric)
 {
   constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
   const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
@@ -153,8 +171,22 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(
     INDEX_T child_id   = invalid_index;
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
-    const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-      query_buffer, child_id, child_id != invalid_index);
+    DISTANCE_T norm2;
+    switch (metric) {
+      case raft::distance::L2Expanded:
+        norm2 =
+          dataset_desc
+            .template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE, raft::distance::L2Expanded>(
+              query_buffer, child_id, child_id != invalid_index);
+        break;
+      case raft::distance::InnerProduct:
+        norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                         TEAM_SIZE,
+                                                         raft::distance::InnerProduct>(
+          query_buffer, child_id, child_id != invalid_index);
+        break;
+      default: break;
+    }
 
     // Store the distance
     const unsigned lane_id = threadIdx.x % TEAM_SIZE;
@@ -220,7 +252,22 @@ struct standard_dataset_descriptor_t
     }
   }
 
-  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE>
+  template <typename T, raft::distance::DistanceType METRIC>
+  std::enable_if_t<METRIC == raft::distance::DistanceType::L2Expanded, T> __device__
+  dist_op(T a, T b) const
+  {
+    T diff = a - b;
+    return diff * diff;
+  }
+
+  template <typename T, raft::distance::DistanceType METRIC>
+  std::enable_if_t<METRIC == raft::distance::DistanceType::InnerProduct, T> __device__
+  dist_op(T a, T b) const
+  {
+    return -a * b;
+  }
+
+  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE, raft::distance::DistanceType METRIC>
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
                                            const INDEX_T dataset_i,
                                            const bool valid) const
@@ -252,9 +299,9 @@ struct standard_dataset_descriptor_t
             // because:
             // - Above the last element (dataset_dim-1), the query array is filled with zeros.
             // - The data buffer has to be also padded with zeros.
-            DISTANCE_T diff = query_ptr[device::swizzling(kv)];
-            diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].val.data[v]);
-            norm2 += diff * diff;
+            DISTANCE_T d = query_ptr[device::swizzling(kv)];
+            norm2 += dist_op<DISTANCE_T, METRIC>(
+              d, spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].val.data[v]));
           }
         }
       }

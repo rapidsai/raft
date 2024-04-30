@@ -25,6 +25,7 @@
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/neighbors/dataset.hpp>
 
@@ -49,13 +50,14 @@ namespace raft::neighbors::cagra {
  *
  * The following distance metrics are supported:
  * - L2Expanded
+ * - InnerProduct
  *
  * Usage example:
  * @code{.cpp}
  *   using namespace raft::neighbors;
- *   // use default index parameters
- *   ivf_pq::index_params build_params;
- *   ivf_pq::search_params search_params
+ *   // use default index parameters based on shape of the dataset
+ *   ivf_pq::index_params build_params = ivf_pq::index_params::from_dataset(dataset);
+ *   ivf_pq::search_params search_params;
  *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // create knn graph
  *   cagra::build_knn_graph(res, dataset, knn_graph.view(), 2, build_params, search_params);

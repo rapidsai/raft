@@ -28,6 +28,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
+#include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
@@ -85,25 +86,49 @@ void RandomSuffle(raft::host_matrix_view<IdxT, int64_t> index)
 
 template <typename DistanceT, typename DatatT, typename IdxT>
 testing::AssertionResult CheckOrder(raft::host_matrix_view<IdxT, int64_t> index_test,
-                                    raft::host_matrix_view<DatatT, int64_t> dataset)
+                                    raft::host_matrix_view<DatatT, int64_t> dataset,
+                                    raft::distance::DistanceType metric)
 {
   for (IdxT i = 0; i < index_test.extent(0); i++) {
     const DatatT* const base_vec = dataset.data_handle() + i * dataset.extent(1);
     const IdxT* const index_row  = index_test.data_handle() + i * index_test.extent(1);
-    DistanceT prev_distance      = 0;
+    DistanceT prev_distance      = metric == raft::distance::DistanceType::L2Expanded
+                                     ? 0
+                                     : std::numeric_limits<DistanceT>::max();
     for (unsigned j = 0; j < index_test.extent(1) - 1; j++) {
       const DatatT* const target_vec = dataset.data_handle() + index_row[j] * dataset.extent(1);
       DistanceT distance             = 0;
-      for (unsigned l = 0; l < dataset.extent(1); l++) {
-        const auto diff =
-          static_cast<DistanceT>(target_vec[l]) - static_cast<DistanceT>(base_vec[l]);
-        distance += diff * diff;
-      }
-      if (prev_distance > distance) {
-        return testing::AssertionFailure()
-               << "Wrong index order (row = " << i << ", neighbor_id = " << j
-               << "). (distance[neighbor_id-1] = " << prev_distance
-               << "should be larger than distance[neighbor_id] = " << distance << ")";
+      switch (metric) {
+        case raft::distance::DistanceType::L2Expanded:
+          for (unsigned l = 0; l < dataset.extent(1); l++) {
+            const auto diff =
+              static_cast<DistanceT>(target_vec[l]) - static_cast<DistanceT>(base_vec[l]);
+            distance += diff * diff;
+          }
+          if (prev_distance > distance) {
+            return testing::AssertionFailure()
+                   << "Wrong index order (row = " << i << ", neighbor_id = " << j
+                   << "). (distance[neighbor_id-1] = " << prev_distance
+                   << "should be lesser than distance[neighbor_id] = " << distance << ")";
+          }
+          break;
+        case raft::distance::DistanceType::InnerProduct:
+          for (unsigned l = 0; l < dataset.extent(1); l++) {
+            const auto prod =
+              static_cast<DistanceT>(target_vec[l]) * static_cast<DistanceT>(base_vec[l]);
+            distance += prod;
+          }
+          if (prev_distance < distance) {
+            return testing::AssertionFailure()
+                   << "Wrong index order (row = " << i << ", neighbor_id = " << j
+                   << "). (distance[neighbor_id-1] = " << prev_distance
+                   << "should be greater than distance[neighbor_id] = " << distance << ")";
+          }
+          break;
+        default:
+          return testing::AssertionFailure()
+                 << "Distance metric " << metric
+                 << " not supported. Only L2Expanded and InnerProduct are supported";
       }
       prev_distance = distance;
     }
@@ -221,6 +246,11 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagra()
   {
+    // TODO (tarang-jain): remove when NN Descent index building support InnerProduct. Reference
+    // issue: https://github.com/rapidsai/raft/issues/2276
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT)
+      GTEST_SKIP();
+
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
@@ -301,6 +331,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
       //   print_vector("T", distances_naive.data() + i * ps.k, ps.k, std::cout);
       //   print_vector("C", distances_Cagra.data() + i * ps.k, ps.k, std::cout);
       // }
+
       double min_recall = ps.min_recall;
       EXPECT_TRUE(eval_neighbours(indices_naive,
                                   indices_Cagra,
@@ -368,6 +399,9 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagraSort()
   {
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT)
+      GTEST_SKIP();
+
     {
       // Step 1: Build a sorted KNN graph by CAGRA knn build
       auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
@@ -383,10 +417,13 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
         raft::make_host_matrix<IdxT, int64_t>(ps.n_rows, index_params.intermediate_graph_degree);
 
       if (ps.build_algo == graph_build_algo::IVF_PQ) {
+        auto build_params = ivf_pq::index_params::from_dataset(database_view, ps.metric);
         if (ps.host_dataset) {
-          cagra::build_knn_graph<DataT, IdxT>(handle_, database_host_view, knn_graph.view());
+          cagra::build_knn_graph<DataT, IdxT>(
+            handle_, database_host_view, knn_graph.view(), 2, build_params);
         } else {
-          cagra::build_knn_graph<DataT, IdxT>(handle_, database_view, knn_graph.view());
+          cagra::build_knn_graph<DataT, IdxT>(
+            handle_, database_view, knn_graph.view(), 2, build_params);
         }
       } else {
         auto nn_descent_idx_params                      = experimental::nn_descent::index_params{};
@@ -403,14 +440,16 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
       }
 
       handle_.sync_stream();
-      ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view()));
+      ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view(), ps.metric));
 
-      RandomSuffle(knn_graph.view());
+      if (ps.metric != raft::distance::DistanceType::InnerProduct) {
+        RandomSuffle(knn_graph.view());
 
-      cagra::sort_knn_graph(handle_, database_view, knn_graph.view());
-      handle_.sync_stream();
+        cagra::sort_knn_graph(handle_, database_view, knn_graph.view());
+        handle_.sync_stream();
 
-      ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view()));
+        ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view(), ps.metric));
+      }
     }
   }
 
@@ -453,6 +492,9 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagraFilter()
   {
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT)
+      GTEST_SKIP();
+
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
@@ -575,6 +617,9 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
   void testCagraRemoved()
   {
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT)
+      GTEST_SKIP();
+
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
@@ -893,7 +938,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},
     {256},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {true},
     {0.995});
@@ -909,7 +954,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},
     {256},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {true},
     {99. / 100}
@@ -928,7 +973,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},
     {64},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {true},
     {0.995});
@@ -944,7 +989,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0, 4, 8, 16, 32},  // team_size
     {64},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {false},
     {0.995});
@@ -961,7 +1006,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},  // team_size
     {32, 64, 128, 256, 512, 768},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false},
     {true},
     {0.995});
@@ -978,27 +1023,27 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0},  // team_size
     {64},
     {1},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false, true},
     {false},
     {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
-  inputs2 =
-    raft::util::itertools::product<AnnCagraInputs>({100},
-                                                   {20000},
-                                                   {32},
-                                                   {2048},  // k
-                                                   {graph_build_algo::NN_DESCENT},
-                                                   {search_algo::AUTO},
-                                                   {10},
-                                                   {0},
-                                                   {4096},  // itopk_size
-                                                   {1},
-                                                   {raft::distance::DistanceType::L2Expanded},
-                                                   {false},
-                                                   {false},
-                                                   {0.995});
+  inputs2 = raft::util::itertools::product<AnnCagraInputs>(
+    {100},
+    {20000},
+    {32},
+    {2048},  // k
+    {graph_build_algo::NN_DESCENT},
+    {search_algo::AUTO},
+    {10},
+    {0},
+    {4096},  // itopk_size
+    {1},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
+    {false},
+    {false},
+    {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
   return inputs;
