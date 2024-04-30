@@ -67,6 +67,7 @@ outputs:
         - librmm ={{ minor_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        - {{ pin_compatible('librmm', max_pin='x.x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% else %}
@@ -96,6 +97,7 @@ outputs:
         - librmm ={{ minor_version }}
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
+        - {{ pin_compatible('librmm', max_pin='x.x') }}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
