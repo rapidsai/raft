@@ -7,6 +7,10 @@ package_name=$1
 package_dir=$2
 underscore_package_name=$(echo "${package_name}" | tr "-" "_")
 
+# Clear out system ucx files to ensure that we're getting ucx from the wheel.
+rm -rf /usr/lib64/ucx
+rm -rf /usr/lib64/libuc*
+
 source rapids-configure-sccache
 source rapids-date-string
 
@@ -14,6 +18,8 @@ version=$(rapids-generate-version)
 git_commit=$(git rev-parse HEAD)
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+
+libucx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact ucx-wheels 1 cpp)
 
 # This is the version of the suffix with a preceding hyphen. It's used
 # everywhere except in the final wheel name.
@@ -38,6 +44,7 @@ fi
 
 if [[ ${package_name} == "raft-dask" ]]; then
     sed -r -i "s/pylibraft==(.*)\"/pylibraft${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
+    sed -r -i "s/libucx(.*)\"/libucx${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
     sed -r -i "s/ucx-py==(.*)\"/ucx-py${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
     sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
     sed -r -i "s/dask-cuda==(.*)\"/dask-cuda==\1${alpha_spec}\"/g" ${pyproject_file}
@@ -54,9 +61,9 @@ fi
 cd "${package_dir}"
 
 # Hardcode the output dir
-python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
+python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check --find-links ${libucx_wheelhouse}
 
 mkdir -p final_dist
-python -m auditwheel repair -w final_dist dist/*
+python -m auditwheel repair -w final_dist --exclude "libucp.so.0" dist/*
 
 RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 final_dist

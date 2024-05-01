@@ -6,13 +6,15 @@ set -euo pipefail
 mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
+libucx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact ucx-wheels 1 cpp)
+ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-raft-dask-dep)
+
 
 # Download the pylibraft built in the previous step
 RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-pylibraft-dep
 python -m pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl
 
-# echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install $(echo ./dist/raft_dask*.whl)[test]
+python -m pip install "raft_dask-${RAPIDS_PY_CUDA_SUFFIX}[test]>=0.0.0a0" --find-links dist/ --find-links "${libucx_wheelhouse}" --find-links "${ucxx_wheelhouse}"
 
 python -m pytest ./python/raft-dask/raft_dask/test
 python -m pytest ./python/raft-dask/raft_dask/test --run_ucx

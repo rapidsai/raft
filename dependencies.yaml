@@ -92,6 +92,7 @@ files:
       table: build-system
     includes:
       - build
+      - ucx_wheel
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -107,6 +108,7 @@ files:
       key: test
     includes:
       - test_python_common
+      - ucx_wheel
       - depends_on_distributed_ucxx
   py_build_raft_ann_bench:
     output: pyproject
@@ -503,3 +505,9 @@ dependencies:
             packages:
               - distributed-ucxx-cu11==0.38.*
           - {matrix: null, packages: [*distributed_ucxx_conda]}
+  ucx_wheel:
+    common:
+      - output_types: [requirements, pyproject]
+        packages:
+          # TODO: Update version
+          - libucx==1.14.1
