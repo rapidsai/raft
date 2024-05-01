@@ -14,11 +14,6 @@ python -m pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/raft_dask*.whl)[test]
 
-# Run smoke tests for aarch64 pull requests
-if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
-    python ./ci/wheel_smoke_test_raft_dask.py
-else
-    python -m pytest ./python/raft-dask/raft_dask/test
-    python -m pytest ./python/raft-dask/raft_dask/test --run_ucx
-    python -m pytest ./python/raft-dask/raft_dask/test --run_ucxx
-fi
+python -m pytest ./python/raft-dask/raft_dask/test
+python -m pytest ./python/raft-dask/raft_dask/test --run_ucx
+python -m pytest ./python/raft-dask/raft_dask/test --run_ucxx
