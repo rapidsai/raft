@@ -38,7 +38,7 @@ void parse_build_param(const nlohmann::json& conf,
   param.L_build              = conf.at("Lb");
   param.alpha           = conf.at("alpha");
   if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
-  param.use_cagra_graph = conf.at("use_raft_cagra");
+  param.use_cagra_graph = conf.at("use_cagra_graph");
   if (param.use_cagra_graph) {
     param.cagra_graph_degree = conf.at("cagra_graph_degree");
     param.cagra_intermediate_graph_degree =

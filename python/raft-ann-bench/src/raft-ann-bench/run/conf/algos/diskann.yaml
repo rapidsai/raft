@@ -1,0 +1,14 @@
+name: diskann
+groups:
+  base:
+    build:
+      R: [200]
+      Lb: [200]
+      alpha: [0]
+      pq_dim: [64, 32]
+      cagra_intermediate_graph_degree: [64, 128]
+      cagra_graph_degree: [32, 64]
+      use_cagra_graph: [True]
+    search:
+      L_search: [10, 20, 50, 100]
+      L_load: [100]

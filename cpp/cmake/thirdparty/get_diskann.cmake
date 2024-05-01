@@ -36,6 +36,8 @@ function(find_and_configure_diskann)
             OPTIONS
             "PYBIND OFF"
             "UNIT_TEST OFF"
+            "RESTAPI OFF"
+            "PORTABLE OFF"
             )
     
     if(NOT TARGET diskann::diskann)
