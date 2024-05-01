@@ -67,12 +67,12 @@ outputs:
         - librmm ={{ minor_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        - librmm ={{ minor_version }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% else %}
         - cuda-cudart
         {% endif %}
+        - librmm ={{ minor_version }}
         - spdlog {{ spdlog_version }}
         - fmt {{ fmt_version }}
     about:
