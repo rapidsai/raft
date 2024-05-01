@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-#include <rmm/mr/device/device_memory_resource.hpp>  // rmm::mr::device_memory_resource
 
-#include <cstddef>  // size_t
-#include <memory>   // std::unique_ptr
+#ifndef RAFT_EXPLICIT_INSTANTIATE_ONLY
+#include "select_k-inl.cuh"
+#endif
 
-namespace raft {
-
-std::unique_ptr<rmm::mr::device_memory_resource> get_pool_memory_resource(
-  rmm::mr::device_memory_resource*& mr, size_t initial_size);
-
-}  // namespace raft
+#ifdef RAFT_COMPILED
+#include "select_k-ext.cuh"
+#endif

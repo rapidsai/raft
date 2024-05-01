@@ -17,6 +17,8 @@
 #include <raft/neighbors/ivf_pq-inl.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>  // raft::neighbors::ivf_pq::index
 
+#include <rmm/resource_ref.hpp>
+
 #include <cuda_fp16.h>
 
 #define instantiate_raft_neighbors_ivf_pq_search(T, IdxT)            \
@@ -36,8 +38,7 @@
     uint32_t n_queries,                                              \
     uint32_t k,                                                      \
     IdxT* neighbors,                                                 \
-    float* distances,                                                \
-    rmm::mr::device_memory_resource* mr)
+    float* distances)
 
 instantiate_raft_neighbors_ivf_pq_search(half, int64_t);
 

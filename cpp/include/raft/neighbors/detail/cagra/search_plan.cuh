@@ -25,6 +25,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/pow2_utils.cuh>
 
@@ -35,8 +36,13 @@ struct search_plan_impl_base : public search_params {
   int64_t dim;
   int64_t graph_degree;
   uint32_t topk;
-  search_plan_impl_base(search_params params, int64_t dim, int64_t graph_degree, uint32_t topk)
-    : search_params(params), dim(dim), graph_degree(graph_degree), topk(topk)
+  raft::distance::DistanceType metric;
+  search_plan_impl_base(search_params params,
+                        int64_t dim,
+                        int64_t graph_degree,
+                        uint32_t topk,
+                        raft::distance::DistanceType metric)
+    : search_params(params), dim(dim), graph_degree(graph_degree), topk(topk), metric(metric)
   {
     set_dataset_block_and_team_size(dim);
     if (algo == search_algo::AUTO) {
@@ -97,8 +103,9 @@ struct search_plan_impl : public search_plan_impl_base {
                    search_params params,
                    int64_t dim,
                    int64_t graph_degree,
-                   uint32_t topk)
-    : search_plan_impl_base(params, dim, graph_degree, topk),
+                   uint32_t topk,
+                   raft::distance::DistanceType metric)
+    : search_plan_impl_base(params, dim, graph_degree, topk, metric),
       hashmap(0, resource::get_cuda_stream(res)),
       num_executed_iterations(0, resource::get_cuda_stream(res)),
       dev_seed(0, resource::get_cuda_stream(res)),
