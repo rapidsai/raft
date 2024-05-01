@@ -786,6 +786,11 @@ class AnnCagraAddNodesTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagra()
   {
+    // TODO (tarang-jain): remove when NN Descent index building support InnerProduct. Reference
+    // issue: https://github.com/rapidsai/raft/issues/2276
+    if (ps.metric == distance::InnerProduct && ps.build_algo == graph_build_algo::NN_DESCENT)
+      GTEST_SKIP();
+
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
