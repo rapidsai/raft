@@ -59,4 +59,4 @@ skip = [
 ]
 
 [tool.setuptools.dynamic]
-version = { attr = "pylibraft.__version__" }
+version = { attr = "raft-ann-bench.__version__" }
