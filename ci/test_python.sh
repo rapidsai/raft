@@ -59,33 +59,23 @@ rapids-logger "pytest raft-dask"
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/raft-dask-coverage.xml" \
   --cov-report=term
 
-
 rapids-logger "pytest raft-dask (ucx-py only)"
-pushd python/raft-dask/raft_dask
-pytest \
-  --cache-clear \
+./ci/run_raft_dask_pytests.sh \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-raft-dask-ucx.xml" \
   --cov-config=../.coveragerc \
   --cov=raft_dask \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/raft-dask-ucx-coverage.xml" \
   --cov-report=term \
-  --run_ucx \
-  test
-popd
-
+  --run_ucx
 
 rapids-logger "pytest raft-dask (ucxx only)"
-pushd python/raft-dask/raft_dask
-pytest \
-  --cache-clear \
+./ci/run_raft_dask_pytests.sh \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-raft-dask-ucxx.xml" \
   --cov-config=../.coveragerc \
   --cov=raft_dask \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/raft-dask-ucxx-coverage.xml" \
   --cov-report=term \
-  --run_ucxx \
-  test
-popd
+  --run_ucxx
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
