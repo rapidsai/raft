@@ -328,7 +328,7 @@ def get_ucx(dask_worker=None):
                    and not the client)
     """
     protocol = (
-        "ucxx" if dask_worker._protocol.split("://") == "ucxx" else "ucx"
+        "ucxx" if dask_worker._protocol.split("://")[0] == "ucxx" else "ucx"
     )
 
     raft_comm_state = get_raft_comm_state(
