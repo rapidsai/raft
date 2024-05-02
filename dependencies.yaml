@@ -509,5 +509,4 @@ dependencies:
     common:
       - output_types: [requirements, pyproject]
         packages:
-          # TODO: Update version
-          - libucx==1.14.1
+          - libucx==1.15.0
