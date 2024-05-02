@@ -18,6 +18,7 @@
 #include "../common/ann_types.hpp"
 #include "parameters.h"
 #include "raft/core/host_mdspan.hpp"
+#include "raft/core/resource/cuda_stream.hpp"
 #include "raft/neighbors/cagra.cuh"
 #include "raft/neighbors/cagra_types.hpp"
 
@@ -97,13 +98,12 @@ class DiskANNMemory : public ANN<T> {
 
  private:
   bool use_cagra_graph_;
-  bool use_pq_build_;
-  uint32_t build_pq_bytes_;
+  bool use_pq_build_ = true;
+  uint32_t build_pq_bytes_= 0;
   std::shared_ptr<diskann::IndexWriteParameters> diskann_index_write_params_{nullptr};
   std::shared_ptr<diskann::IndexSearchParams> diskann_index_search_params_{nullptr};
   std::shared_ptr<diskann::Index<T>> diskann_index_{nullptr};
   int num_threads_search_;
-  uint32_t L_build_;
   uint32_t L_search_;
   uint32_t cagra_graph_degree_;
   uint32_t cagra_intermediate_graph_degree_;
@@ -114,14 +114,17 @@ DiskANNMemory<T>::DiskANNMemory(Metric metric, int dim, const BuildParam& param)
   : ANN<T>(metric, dim)
 {
   assert(dim_ > 0);
-
-  diskann::IndexWriteParameters p = diskann::IndexWriteParametersBuilder(param.L_build, param.R)
+  diskann_index_write_params_ = std::make_shared<diskann::IndexWriteParameters>(diskann::IndexWriteParametersBuilder(param.L_build, param.R)
                                       .with_filter_list_size(0)
                                       .with_alpha(param.alpha)
                                       .with_saturate_graph(false)
                                       .with_num_threads(param.num_threads)
-                                      .build();
-  this->diskann_index_write_params_ = std::make_shared<diskann::IndexWriteParameters>(p);
+                                      .build());
+  use_cagra_graph_ = param.use_cagra_graph;
+  build_pq_bytes_ = 0;
+  cagra_graph_degree_ = param.cagra_graph_degree;
+  cagra_intermediate_graph_degree_ = param.cagra_intermediate_graph_degree;
+  std::cout << "intermediate_graph_degree" << cagra_intermediate_graph_degree_ << "cagra_graph_degree" << cagra_graph_degree_ << std::endl;
 }
 
 template <typename T>
@@ -144,18 +147,22 @@ void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
                                                           this->use_cagra_graph_,
                                                           cagra_graph_degree_);
 
-  if (!this->use_cagra_graph_) {
+  if (use_cagra_graph_) {
     auto intermediate_graph = raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_intermediate_graph_degree_);
     auto knn_graph = raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_graph_degree_);
+    std::cout << "nrow" << nrow << "intermediate_graph_degree" << cagra_intermediate_graph_degree_ << "cagra_graph_degree" << cagra_graph_degree_ << std::endl;
     auto dataset_view =
-      raft::make_host_matrix_view<const T, int64_t>(dataset, (int64_t)nrow, (int64_t)this->dim_);
+      raft::make_host_matrix_view<const T, int64_t>(dataset, static_cast<int64_t>(nrow), (int64_t)this->dim_);
     raft::resources res;
     raft::neighbors::cagra::build_knn_graph(res, dataset_view, intermediate_graph.view());
     raft::neighbors::cagra::optimize(res, intermediate_graph.view(), knn_graph.view());
+    resource::sync_stream(res);
+    std::cout << "built and optimized cagra graph" << std::endl;
     diskann_index_->build(
       dataset, nrow, std::vector<uint32_t>(), std::shared_ptr<uint32_t>(knn_graph.data_handle()));
+  } else {
+  // diskann_index_->build(dataset, nrow, std::vector<uint32_t>());
   }
-  diskann_index_->build(dataset, nrow, std::vector<uint32_t>());
 }
 
 template <typename T>
