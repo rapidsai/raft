@@ -310,7 +310,7 @@ def inject_comms_on_handle(handle, nccl_inst, is_ucxx, ucp_worker, eps, size,
     for i in range(len(eps)):
         if eps[i] is not None:
             if is_ucxx:
-                ep_st = <uintptr_t>eps[i].get_ucxx_endpoint()
+                ep_st = <uintptr_t>eps[i].ucxx_endpoint
             else:
                 ep_st = <uintptr_t>eps[i].get_ucp_endpoint()
             ucp_eps[i] = <size_t>ep_st
