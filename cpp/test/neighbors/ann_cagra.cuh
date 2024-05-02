@@ -240,6 +240,31 @@ void Normalize8bitInt(const raft::resources& handle,
   Normalize8bitInt_kernel<<<grid_size, block_size, 0, raft::resource::get_cuda_stream(handle)>>>(
     datatset_ptr, size, dim, normalized_norm);
 }
+
+template <class DataT>
+void InitDataset(const raft::resources& handle,
+                 DataT* const datatset_ptr,
+                 std::uint32_t size,
+                 std::uint32_t dim,
+                 raft::distance::DistanceType metric,
+                 raft::random::RngState& r)
+{
+  if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
+    GenerateRoundingErrorFreeDataset(handle, datatset_ptr, size, dim, r, true);
+
+    if (metric == raft::distance::InnerProduct) {
+      auto dataset_view = raft::make_device_matrix_view(datatset_ptr, size, dim);
+      raft::linalg::row_normalize(
+        handle, raft::make_const_mdspan(dataset_view), dataset_view, raft::linalg::L2Norm);
+    }
+  } else {
+    raft::random::uniformInt(handle, r, datatset_ptr, size * dim, DataT(1), DataT(20));
+
+    if (metric == raft::distance::InnerProduct) {
+      Normalize8bitInt(handle, datatset_ptr, size, dim);
+    }
+  }
+}
 }  // namespace
 
 struct AnnCagraInputs {
@@ -400,31 +425,8 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
-      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
-      GenerateRoundingErrorFreeDataset(
-        handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
-
-      if (ps.metric == raft::distance::InnerProduct) {
-        auto dataset_view = raft::make_device_matrix_view(database.data(), ps.n_rows, ps.dim);
-        raft::linalg::row_normalize(
-          handle_, raft::make_const_mdspan(dataset_view), dataset_view, raft::linalg::L2Norm);
-        auto query_view =
-          raft::make_device_matrix_view(search_queries.data(), ps.n_queries, ps.dim);
-        raft::linalg::row_normalize(
-          handle_, raft::make_const_mdspan(query_view), query_view, raft::linalg::L2Norm);
-      }
-    } else {
-      raft::random::uniformInt(
-        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
-      raft::random::uniformInt(
-        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20));
-
-      if (ps.metric == raft::distance::InnerProduct) {
-        Normalize8bitInt(handle_, database.data(), ps.n_rows, ps.dim);
-        Normalize8bitInt(handle_, search_queries.data(), ps.n_queries, ps.dim);
-      }
-    }
+    InitDataset(handle_, database.data(), ps.n_rows, ps.dim, ps.metric, r);
+    InitDataset(handle_, search_queries.data(), ps.n_queries, ps.dim, ps.metric, r);
     resource::sync_stream(handle_);
   }
 
@@ -512,12 +514,7 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, handle_.get_stream());
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
-      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, false);
-    } else {
-      raft::random::uniformInt(
-        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
-    }
+    InitDataset(handle_, database.data(), ps.n_rows, ps.dim, ps.metric, r);
     handle_.sync_stream();
   }
 
@@ -799,31 +796,8 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
-      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
-      GenerateRoundingErrorFreeDataset(
-        handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
-
-      if (ps.metric == raft::distance::InnerProduct) {
-        auto dataset_view = raft::make_device_matrix_view(database.data(), ps.n_rows, ps.dim);
-        raft::linalg::row_normalize(
-          handle_, raft::make_const_mdspan(dataset_view), dataset_view, raft::linalg::L2Norm);
-        auto query_view =
-          raft::make_device_matrix_view(search_queries.data(), ps.n_queries, ps.dim);
-        raft::linalg::row_normalize(
-          handle_, raft::make_const_mdspan(query_view), query_view, raft::linalg::L2Norm);
-      }
-    } else {
-      raft::random::uniformInt(
-        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
-      raft::random::uniformInt(
-        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20));
-
-      if (ps.metric == raft::distance::InnerProduct) {
-        Normalize8bitInt(handle_, database.data(), ps.n_rows, ps.dim);
-        Normalize8bitInt(handle_, search_queries.data(), ps.n_queries, ps.dim);
-      }
-    }
+    InitDataset(handle_, database.data(), ps.n_rows, ps.dim, ps.metric, r);
+    InitDataset(handle_, search_queries.data(), ps.n_queries, ps.dim, ps.metric, r);
     resource::sync_stream(handle_);
   }
 
