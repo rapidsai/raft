@@ -33,7 +33,7 @@
 #include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>
-#include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
+#include <raft/util/integer_utils.hpp>
 
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_uvector.hpp>
@@ -44,9 +44,8 @@
 #include <cuda/atomic>
 #include <cuda/std/atomic>
 
-#include <atomic_queue/atomic_queue.h>
-
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <chrono>
 #include <cstdint>
@@ -1189,6 +1188,98 @@ struct search_kernel_config {
   }
 };
 
+/**
+ * @brief Resource queue
+ *
+ * A shared atomic ring buffer based queue optimized for throughput when bottlenecked on `pop`
+ * operation.
+ */
+template <typename T, uint32_t Size, T Empty = std::numeric_limits<T>::max()>
+struct alignas(kCacheLineBytes) resource_queue_t {
+  using value_type                   = T;
+  static constexpr uint32_t kSize    = Size;
+  static constexpr value_type kEmpty = Empty;
+  static_assert(cuda::std::atomic<value_type>::is_always_lock_free,
+                "The value type must be lock-free.");
+  static_assert(raft::is_a_power_of_two(kSize), "The size must be a power-of-two for efficiency.");
+  static constexpr uint32_t kElemsPerCacheLine =
+    raft::div_rounding_up_safe<uint32_t>(kCacheLineBytes, sizeof(value_type));
+  static constexpr uint32_t kCounterIncrement = raft::bound_by_power_of_two(kElemsPerCacheLine) + 1;
+  static constexpr uint32_t kCounterLocMask   = kSize - 1;
+  // These props hold by design, but we add them here as a documentation and a sanity check.
+  static_assert(
+    kCounterIncrement * sizeof(value_type) >= kCacheLineBytes,
+    "The counter increment should be larger than the cache line size to avoid false sharing.");
+  static_assert(
+    std::gcd(kCounterIncrement, kSize) == 1,
+    "The counter increment and the size must be coprime to allow using all of the queue slots.");
+
+  static constexpr auto kMemOrder = cuda::std::memory_order_relaxed;
+
+  explicit resource_queue_t() noexcept
+  {
+    head_.store(0, kMemOrder);
+    tail_.store(0, kMemOrder);
+    for (uint32_t i = 0; i < kSize; i++) {
+      buf_[i].store(kEmpty, kMemOrder);
+    }
+  }
+
+  void push(value_type x) noexcept
+  {
+    auto& loc = buf_[head_.fetch_add(kCounterIncrement, kMemOrder) & kCounterLocMask];
+    loc_push(loc, x);
+  }
+
+  auto pop() noexcept -> value_type
+  {
+    auto& loc = buf_[tail_.fetch_add(kCounterIncrement, kMemOrder) & kCounterLocMask];
+    return loc_pop(loc);
+  }
+
+  auto try_pop(value_type& e) noexcept -> bool
+  {
+    auto tail = tail_.load(kMemOrder);
+    do {
+      // NB: static cast is here to avoid the case when the head has recently been incremented
+      // beyond the uint32_t max value.
+      if (static_cast<int32_t>(head_.load(kMemOrder) - tail) <= 0) { return false; }
+    } while (!tail_.compare_exchange_weak(tail, tail + kCounterIncrement, kMemOrder, kMemOrder));
+    e = loc_pop(buf_[tail & kCounterLocMask]);
+    return true;
+  }
+
+ private:
+  alignas(kCacheLineBytes) cuda::std::atomic<uint32_t> head_{};
+  alignas(kCacheLineBytes) cuda::std::atomic<uint32_t> tail_{};
+  alignas(kCacheLineBytes) std::array<cuda::std::atomic<value_type>, kSize> buf_{};
+
+  void loc_push(cuda::std::atomic<value_type>& loc, value_type x) noexcept
+  {
+    /* [NOT A HOT SPOT]
+     We expect there's always enough place in the queue to push the item,
+     but also we expect a few pop waiters - notify them the data is available.
+     */
+    value_type e = kEmpty;
+    while (!loc.compare_exchange_weak(e, x, kMemOrder, kMemOrder)) {
+      e = kEmpty;
+    }
+    loc.notify_one();
+  }
+
+  auto loc_pop(cuda::std::atomic<value_type>& loc) noexcept -> value_type
+  {
+    // [HOT SPOT]
+    // Optimize for the case of contention: expect the loc is empty.
+    value_type x = kEmpty;
+    do {
+      loc.wait(kEmpty, kMemOrder);
+      x = loc.exchange(kEmpty, kMemOrder);
+    } while (x == kEmpty);
+    return x;
+  }
+};
+
 /** Primitive fixed-size deque for single-threaded use. */
 template <typename T>
 struct local_deque_t {
@@ -1247,10 +1338,8 @@ struct local_deque_t {
 };
 
 struct persistent_runner_base_t {
-  using job_queue_type =
-    atomic_queue::AtomicQueue<uint32_t, kMaxJobsNum, ~0u, true, true, false, false>;
-  using worker_queue_type =
-    atomic_queue::AtomicQueue<uint32_t, kMaxWorkersNum, ~0u, true, true, false, false>;
+  using job_queue_type    = resource_queue_t<uint32_t, kMaxJobsNum>;
+  using worker_queue_type = resource_queue_t<uint32_t, kMaxWorkersNum>;
   rmm::mr::pinned_host_memory_resource worker_handles_mr;
   rmm::mr::pinned_host_memory_resource job_descriptor_mr;
   rmm::mr::cuda_memory_resource device_mr;
@@ -1291,8 +1380,12 @@ struct alignas(kCacheLineBytes) launcher_t {
       job_id{job_ids.pop()},
       completion_flag{record_work(job_id)}
   {
-    // Submit all queries in the batch
-    for (uint32_t i = 0; i < n_queries; i++) {
+    // Wait for the first worker and submit the query immediately.
+    // This is supposed to be slightly faster than `try_get_worker`,
+    // because it does not loop on the queue counter.
+    submit_query(idle_worker_ids.pop(), 0);
+    // Submit the rest of the queries in the batch
+    for (uint32_t i = 1; i < n_queries; i++) {
       uint32_t worker_id;
       while (!try_get_worker(worker_id)) {
         if (pending_reads.try_pop_front(worker_id)) {
@@ -1316,7 +1409,7 @@ struct alignas(kCacheLineBytes) launcher_t {
                                          cuda::memory_order_relaxed);
 
     while (!pending_reads.try_push_back(worker_id)) {
-      // The only reason pending_reads cannot push is that the job_queue is full.
+      // The only reason pending_reads cannot push is that the queue is full.
       // It's local, so we must pop and wait for the returned worker to finish its work.
       auto pending_worker_id = pending_reads.pop_front();
       while (!try_return_worker(pending_worker_id)) {
@@ -1492,8 +1585,8 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
     RAFT_LOG_INFO(
       "Initialized the kernel in stream %zd; job_queue size = %u; worker_queue size = %u",
       int64_t((cudaStream_t)stream),
-      job_queue.was_size(),
-      worker_queue.was_size());
+      kMaxJobsNum,
+      gs.y);
   }
 
   ~persistent_runner_t() noexcept override
