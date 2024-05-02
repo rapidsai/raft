@@ -514,7 +514,12 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, handle_.get_stream());
     raft::random::RngState r(1234ULL);
-    InitDataset(handle_, database.data(), ps.n_rows, ps.dim, ps.metric, r);
+    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
+      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, false);
+    } else {
+      raft::random::uniformInt(
+        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
+    }
     handle_.sync_stream();
   }
 
