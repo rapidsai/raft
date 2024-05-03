@@ -64,6 +64,7 @@ outputs:
         {% if cuda_major != "11" %}
         - cuda-cudart-dev
         {% endif %}
+        - librmm ={{ minor_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -93,6 +94,7 @@ outputs:
     requirements:
       host:
         - cuda-version ={{ cuda_version }}
+        - librmm ={{ minor_version }}
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         - librmm ={{ minor_version }}
