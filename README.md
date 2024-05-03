@@ -364,14 +364,22 @@ If citing CAGRA, please consider the following bibtex:
 If citing the k-selection routines, please consider the following bibtex:
 
 ```bibtex
-@proceedings{10.1145/3581784,
-    title = {SC '23: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
+@inproceedings{10.1145/3581784.3607062,
+    author = {Zhang, Jingrong and Naruse, Akira and Li, Xipeng and Wang, Yong},
+    title = {Parallel Top-K Algorithms on GPU: A Comprehensive Study and New Methods},
     year = {2023},
     isbn = {9798400701092},
     publisher = {Association for Computing Machinery},
     address = {New York, NY, USA},
-    abstract = {Started in 1988, the SC Conference has become the annual nexus for researchers and practitioners from academia, industry and government to share information and foster collaborations to advance the state of the art in High Performance Computing (HPC), Networking, Storage, and Analysis.},
-    location = {, Denver, CO, USA, }
+    url = {https://doi.org/10.1145/3581784.3607062},
+    doi = {10.1145/3581784.3607062},
+    abstract = {The top-K problem is an essential part of many important applications in scientific computing, information retrieval, etc. As data volume grows rapidly, high-performance parallel top-K algorithms become critical. We propose two parallel top-K algorithms, AIR Top-K (Adaptive and Iteration-fused Radix Top-K) and GridSelect, for GPU. AIR Top-K employs an iteration-fused design to minimize CPU-GPU communication and device data access. Its adaptive strategy eliminates unnecessary device memory traffic automatically under various data distributions. GridSelect can process data on-the-fly. It adopts a shared queue and parallel two-step insertion to decrease the frequency of costly operations. We comprehensively compare 8 open-source GPU implementations and our methods for a wide range of problem sizes and data distributions. For batch sizes 1 and 100, respectively, AIR Top-K shows 1.98--21.48\texttimes{} and 8.01--574.78\texttimes{} speedup over previous radix top-K algorithm, and 1.44--7.34\texttimes{} and 1.38--31.91\texttimes{} speedup over state-of-the-art methods. GridSelect shows up to 882.29\texttimes{} speedup over its baseline.},
+    booktitle = {Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
+    articleno = {76},
+    numpages = {13},
+    keywords = {CUDA, GPU, parallel algorithms, radix select, K-selection, top-K},
+    location = {<conf-loc>, <city>Denver</city>, <state>CO</state>, <country>USA</country>, </conf-loc>},
+    series = {SC '23}
 }
 ```
 
