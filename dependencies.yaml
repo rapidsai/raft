@@ -92,7 +92,7 @@ files:
       table: build-system
     includes:
       - build
-      - ucx_wheel
+      - depends_on_ucx_build
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -108,8 +108,8 @@ files:
       key: test
     includes:
       - test_python_common
-      - ucx_wheel
       - depends_on_distributed_ucxx
+      - depends_on_ucx_run
   py_build_raft_ann_bench:
     output: pyproject
     pyproject_dir: python/raft-ann-bench
@@ -505,8 +505,47 @@ dependencies:
             packages:
               - distributed-ucxx-cu11==0.38.*
           - {matrix: null, packages: [*distributed_ucxx_conda]}
-  ucx_wheel:
+  depends_on_ucx_build:
     common:
-      - output_types: [requirements, pyproject]
+      - output_types: conda
         packages:
-          - libucx==1.15.0
+          - &ucx_conda_build ucx==1.15.0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - libucx-cu12==1.15.0
+          - matrix: {cuda: "11.*"}
+            packages:
+              - libucx-cu11==1.15.0
+          - matrix: null
+            packages:
+              - libucx==1.15.0
+  depends_on_ucx_run:
+    common:
+      - output_types: conda
+        packages:
+          - &ucx_conda_run ucx>=1.15.0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - libucx-cu12>=1.15.0
+          - matrix: {cuda: "11.*"}
+            packages:
+              - libucx-cu11>=1.15.0
+          - matrix: null
+            packages:
+              - libucx>=1.15.0
