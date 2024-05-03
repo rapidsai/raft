@@ -13,4 +13,13 @@
 # limitations under the License.
 #
 
-from ._version import __git_commit__, __version__
+
+import importlib.resources
+
+__version__ = (
+    importlib.resources.files("raft-ann-bench")
+    .joinpath("VERSION")
+    .read_text()
+    .strip()
+)
+__git_commit__ = ""
