@@ -1444,7 +1444,8 @@ struct alignas(kCacheLineBytes) launcher_t {
   }
 
   /** Wait for all work to finish and don't forget to return the workers to the shared pool. */
-  void wait()
+  auto wait(std::chrono::time_point<std::chrono::system_clock> start,
+            std::chrono::nanoseconds expected_latency)
   {
     uint32_t worker_id;
     while (pending_reads.try_pop_front(worker_id)) {
@@ -1454,14 +1455,32 @@ struct alignas(kCacheLineBytes) launcher_t {
     }
     // terminal state, should be engaged only after the `pending_reads` is empty
     // and `queries_submitted == n_queries`
+    auto now = std::chrono::system_clock::now();
+    /* [Note: sleeping]
+    This code segment is a hot spot when the number of queries is low.
+    When the number of threads is greater than the number of cores, the threads start to fight for
+    the core time, which reduces the throughput.
+    To ease the competition, we track the expected GPU latency and let a thread sleep for some
+    time, and only start to spin when it's about a time to get the result.
+
+    The constants below balance the sleep/spin time to achieve the best throughput while keeping
+    the latency at adequate levels.
+    */
+    constexpr auto kMinWakeTime  = std::chrono::nanoseconds(10000);
+    constexpr double kSleepLimit = 0.6;
     while (!is_all_done()) {
-      // Not sure if this improves the perf, but it does not seem to hurt it.
-      // Let's hope this reduces cpu utilization
-      std::this_thread::yield();
+      auto till_time = start + expected_latency * kSleepLimit - kMinWakeTime;
+      if (now < till_time) {
+        std::this_thread::sleep_until(till_time);
+      } else {
+        std::this_thread::yield();
+      }
+      now = std::chrono::system_clock::now();
     }
 
     // Return the job descriptor
     job_ids.push(job_id);
+    return now - start;
   }
 };
 
@@ -1485,7 +1504,9 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
   rmm::device_uvector<index_type> hashmap;
   std::atomic<std::chrono::time_point<std::chrono::system_clock>> last_touch;
 
-  constexpr static auto kLiveInterval = std::chrono::milliseconds(1000);
+  // This should be large enough to make the runner live through restarts of the benchmark cases.
+  // Otherwise, the benchmarks slowdown significantly.
+  constexpr static auto kLiveInterval = std::chrono::milliseconds(2000);
 
   persistent_runner_t(DATASET_DESCRIPTOR_T dataset_desc,
                       raft::device_matrix_view<const index_type, int64_t, row_major> graph,
@@ -1605,6 +1626,10 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
               uint32_t num_queries,
               uint32_t top_k)
   {
+    // The clock is going to be used to estimate the expected latency, control the waiting behavior,
+    // and touch the keep-alive atomic.
+    auto start_time                    = std::chrono::system_clock::now();
+    thread_local auto expected_latency = std::chrono::nanoseconds(50000);
     // submit all queries
     launcher_t launcher{
       job_queue, worker_queue, worker_handles.data(), num_queries, [=](uint32_t job_ix) {
@@ -1619,25 +1644,35 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
         cuda::atomic_thread_fence(cuda::memory_order_release, cuda::thread_scope_system);
         return cflag;
       }};
-    // update the keep-alive atomic in the meanwhile
+    // Update the state of the keep-alive atomic in the meanwhile
     auto prev_touch = last_touch.load(std::memory_order_relaxed);
-    auto this_touch = std::chrono::system_clock::now();
-    if (prev_touch + kLiveInterval / 10 < this_touch) {
+    if (prev_touch + kLiveInterval / 10 < start_time) {
       // to avoid congestion at this atomic, we only update it if a significant fraction of the live
       // interval has passed.
-      last_touch.store(this_touch, std::memory_order_relaxed);
+      last_touch.store(start_time + expected_latency, std::memory_order_relaxed);
     }
     // wait for the results to arrive
-    launcher.wait();
+    auto measured_latency = launcher.wait(start_time, expected_latency);
+    // bookkeeping: update the expected latency to wait more efficiently
+    constexpr size_t kWindow = 100;
+    expected_latency         = ((kWindow - 1) * expected_latency + measured_latency) / kWindow;
   }
 
   auto calc_coop_grid_size(uint32_t block_size, uint32_t smem_size) -> dim3
   {
     // We may need to run other kernels alongside this persistent kernel.
-    // Leave a few SMs idle.
-    // Note: even when we know there are no other kernels working at the same time, setting
-    // kDeviceUsage to 1.0 surprisingly hurts performance.
-    constexpr double kDeviceUsage = 0.9;
+    // So we can leave a few SMs idle.
+    // Note: running any other work on GPU alongside with the persistent kernel make the setup
+    // fragile.
+    //   - Running another kernel in another thread usually works, but no progress guaranteed
+    //   - Any CUDA allocations block the context (this issue may be obscured by using pools)
+    //   - Memory copies to not-pinned host memory may block the context
+    //
+    // Even when we know there are no other kernels working at the same time, setting
+    // kDeviceUsage to 1.0 surprisingly sometimes hurts performance. Proceed with care.
+    // If you suspect this is an issue, you can reduce this number to ~0.9 without a significant
+    // impact on the throughput.
+    constexpr double kDeviceUsage = 1.0;
 
     // determine the grid size
     int ctas_per_sm = 1;
