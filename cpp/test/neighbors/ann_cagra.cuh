@@ -203,45 +203,6 @@ void GenerateRoundingErrorFreeDataset(
     <<<grid_size, block_size, 0, cuda_stream>>>(ptr, size, resolution);
 }
 
-template <class T>
-__global__ void Normalize8bitInt_kernel(T* const datatset_ptr,
-                                        const std::uint32_t size,
-                                        const std::uint32_t dim,
-                                        const std::uint32_t normalized_norm)
-{
-  const auto tid      = threadIdx.x + blockDim.x * blockIdx.x;
-  std::uint32_t norm2 = 0;
-  for (std::uint32_t i = 0; i < dim; i++) {
-    const std::int32_t v = datatset_ptr[tid * dim + i];
-    norm2 += v * v;
-  }
-  const float scale = normalized_norm / sqrtf(static_cast<float>(norm2));
-  for (std::uint32_t i = 0; i < dim; i++) {
-    const auto v = datatset_ptr[tid * dim + i] * scale;
-    datatset_ptr[tid * dim + i] =
-      std::max(std::min(v, static_cast<float>(std::numeric_limits<T>::max())),
-               static_cast<float>(std::numeric_limits<T>::min()));
-  }
-}
-
-template <class T>
-void Normalize8bitInt(const raft::resources& handle,
-                      T* const datatset_ptr,
-                      const std::uint32_t size,
-                      const std::uint32_t dim)
-{
-  static_assert(std::is_same_v<T, std::uint8_t> || std::is_same_v<T, std::int8_t>);
-
-  const std::uint32_t block_size = 256;
-  const std::uint32_t grid_size  = raft::ceildiv<std::uint32_t>(size, block_size);
-
-  const std::uint32_t normalized_norm =
-    (std::is_same_v<T, std::uint8_t> ? 40 : 20) * std::sqrt(static_cast<float>(dim));
-
-  Normalize8bitInt_kernel<<<grid_size, block_size, 0, raft::resource::get_cuda_stream(handle)>>>(
-    datatset_ptr, size, dim, normalized_norm);
-}
-
 template <class DataT>
 void InitDataset(const raft::resources& handle,
                  DataT* const datatset_ptr,
@@ -266,7 +227,39 @@ void InitDataset(const raft::resources& handle,
     }
 
     if (metric == raft::distance::InnerProduct) {
-      Normalize8bitInt(handle, datatset_ptr, size, dim);
+      // TODO (enp1s0): Change this once row_normalize supports (u)int8 matrices.
+      // https://github.com/rapidsai/raft/issues/2291
+
+      using ComputeT    = float;
+      auto dataset_view = raft::make_device_matrix_view(datatset_ptr, size, dim);
+      auto dev_row_norm = make_device_vector<ComputeT>(handle, size);
+      const std::uint32_t normalized_norm =
+        (std::is_same_v<DataT, std::uint8_t> ? 40 : 20) * std::sqrt(static_cast<float>(dim));
+
+      raft::linalg::reduce(dev_row_norm.data_handle(),
+                           datatset_ptr,
+                           dim,
+                           size,
+                           0.f,
+                           true,
+                           true,
+                           resource::get_cuda_stream(handle),
+                           false,
+                           raft::sq_op(),
+                           raft::add_op(),
+                           raft::sqrt_op());
+      raft::linalg::matrix_vector_op(
+        handle,
+        raft::make_const_mdspan(dataset_view),
+        raft::make_const_mdspan(dev_row_norm.view()),
+        dataset_view,
+        raft::linalg::Apply::ALONG_COLUMNS,
+        [normalized_norm] __device__(DataT elm, ComputeT norm) {
+          const ComputeT v           = elm / norm * normalized_norm;
+          const ComputeT max_v_range = std::numeric_limits<DataT>::max();
+          const ComputeT min_v_range = std::numeric_limits<DataT>::min();
+          return static_cast<DataT>(std::min(max_v_range, std::max(min_v_range, v)));
+        });
     }
   }
 }
