@@ -24,6 +24,7 @@
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/core/resource/thrust_nosync_policy.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
@@ -102,7 +103,7 @@ inline std::enable_if_t<std::is_floating_point_v<MathT>> predict_core(
       auto minClusterAndDistance = raft::make_device_mdarray<raft::KeyValuePair<IdxT, MathT>, IdxT>(
         handle, mr, make_extents<IdxT>(n_rows));
       raft::KeyValuePair<IdxT, MathT> initial_value(0, std::numeric_limits<MathT>::max());
-      thrust::fill(resource::get_thrust_policy(handle),
+      thrust::fill(resource::get_thrust_nosync_policy(handle),
                    minClusterAndDistance.data_handle(),
                    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                    initial_value);
@@ -128,7 +129,7 @@ inline std::enable_if_t<std::is_floating_point_v<MathT>> predict_core(
 
       // todo(lsugy): use KVP + iterator in caller.
       // Copy keys to output labels
-      thrust::transform(resource::get_thrust_policy(handle),
+      thrust::transform(resource::get_thrust_nosync_policy(handle),
                         minClusterAndDistance.data_handle(),
                         minClusterAndDistance.data_handle() + n_rows,
                         labels,
