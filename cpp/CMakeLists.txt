@@ -584,12 +584,10 @@ if(RAFT_COMPILE_LIBRARY)
   )
 
   add_library(raft_lib SHARED $<TARGET_OBJECTS:raft_objs>)
-  if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
-    add_library(raft_lib_static STATIC $<TARGET_OBJECTS:raft_objs>)
-  endif()
 
   set(raft_lib_targets raft_lib)
   if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+    add_library(raft_lib_static STATIC $<TARGET_OBJECTS:raft_objs>)
     list(APPEND raft_lib_targets raft_lib_static)
   endif()
 
