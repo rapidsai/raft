@@ -207,8 +207,7 @@ dependencies:
           - libraft==24.6.*
   librmm:
     common:
-      #- output_types: [requirements, pyproject]
-      - output_types: [pyproject]
+      - output_types: [requirements, pyproject]
         packages:
           - librmm==24.6.*
   build_pylibraft:
