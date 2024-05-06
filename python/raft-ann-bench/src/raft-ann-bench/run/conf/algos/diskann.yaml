@@ -2,12 +2,12 @@ name: diskann
 groups:
   base:
     build:
-      R: [200]
-      Lb: [200]
+      R: [32]
+      Lb: [64]
       alpha: [0]
-      pq_dim: [64, 32]
-      cagra_intermediate_graph_degree: [64, 128]
-      cagra_graph_degree: [32, 64]
+      pq_dim: [64]
+      cagra_intermediate_graph_degree: [128]
+      cagra_graph_degree: [64]
       use_cagra_graph: [True]
     search:
       L_search: [10, 20, 50, 100]
