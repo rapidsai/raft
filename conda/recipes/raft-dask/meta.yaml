@@ -56,8 +56,6 @@ requirements:
     - rmm ={{ minor_version }}
     - scikit-build-core >=0.7.0
     - setuptools
-    - ucx {{ ucx_version }}
-    - ucx-proc=*=gpu
     - ucx-py {{ ucx_py_version }}
     - libucxx {{ ucxx_version }}
     - ucxx {{ ucxx_version }}
@@ -75,8 +73,6 @@ requirements:
     - pylibraft {{ version }}
     - python x.x
     - rmm ={{ minor_version }}
-    - ucx {{ ucx_version }}
-    - ucx-proc=*=gpu
     - ucx-py {{ ucx_py_version }}
     - ucxx {{ ucxx_version }}
 
