@@ -17,7 +17,8 @@
 
 #include "../common/ann_types.hpp"
 #include "raft_ann_bench_utils.h"
-#include <raft/neighbors/ann_mg.cuh>
+#include <raft/neighbors/ivf_flat_mg.cuh>
+#include <raft/neighbors/ivf_flat_mg_serialize.cuh>
 
 namespace raft::bench::ann {
 
@@ -30,13 +31,15 @@ class RaftAnnMG : public ANN<T>, public AnnGPU {
     raft::neighbors::ivf_flat::search_params ivf_flat_params;
   };
 
-  using BuildParam = raft::neighbors::ivf_flat::index_params;
+  using BuildParam = raft::neighbors::ivf_flat::dist_index_params;
 
   RaftAnnMG(Metric metric, int dim, const BuildParam& param)
     : ANN<T>(metric, dim), index_params_(param), dimension_(dim)
   {
     index_params_.metric                         = parse_metric_type(metric);
     index_params_.conservative_memory_allocation = true;
+    index_params_.device_ids                     = {0, 1};
+    index_params_.mode                           = raft::neighbors::mg::parallel_mode::REPLICATION;
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
@@ -79,13 +82,9 @@ class RaftAnnMG : public ANN<T>, public AnnGPU {
 template <typename T, typename IdxT>
 void RaftAnnMG<T, IdxT>::build(const T* dataset, size_t nrow)
 {
-  std::vector<int> device_ids{0, 1};
-  raft::neighbors::mg::dist_mode d_mode = raft::neighbors::mg::dist_mode::INDEX_DUPLICATION;
   auto dataset_matrix = raft::make_host_matrix_view<const T, IdxT, row_major>(dataset, IdxT(nrow), IdxT(dimension_));
-  auto idx = raft::neighbors::mg::build<T, IdxT>(device_ids, d_mode, index_params_, dataset_matrix);
-  index_ = std::make_shared<raft::neighbors::mg::detail::ann_mg_index<raft::neighbors::ivf_flat::index<T, IdxT>, T, IdxT>>(std::move(
-    idx
-  ));
+  auto idx = raft::neighbors::mg::build<T, IdxT>(handle_, index_params_, dataset_matrix);
+  index_ = std::make_shared<raft::neighbors::mg::detail::ann_mg_index<raft::neighbors::ivf_flat::index<T, IdxT>, T, IdxT>>(std::move(idx));
   return;
 }
 
@@ -125,7 +124,7 @@ void RaftAnnMG<T, IdxT>::search(
   auto query_matrix = raft::make_host_matrix_view<const T, IdxT, row_major>(queries, IdxT(batch_size), IdxT(dimension_));
   auto neighbors_matrix = raft::make_host_matrix_view<IdxT, IdxT, row_major>((IdxT*)neighbors, IdxT(batch_size), IdxT(k));
   auto distances_matrix = raft::make_host_matrix_view<float, IdxT, row_major>(distances, IdxT(batch_size), IdxT(k));
-  raft::neighbors::mg::search<T, IdxT>(*index_, search_params_, query_matrix, neighbors_matrix, distances_matrix);
+  raft::neighbors::mg::search<T, IdxT>(handle_, *index_, search_params_, query_matrix, neighbors_matrix, distances_matrix);
   resource::sync_stream(handle_);
   return;
 }

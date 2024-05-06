@@ -55,6 +55,7 @@ option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
 option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
 option(BUILD_CAGRA_HNSWLIB "Build CAGRA+hnswlib interface" ON)
+option(RAFT_BUILD_ANN_MG_API "Build SNMG ANN interface" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -592,6 +593,10 @@ if(RAFT_COMPILE_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
+  if(RAFT_BUILD_ANN_MG_API)
+    set(RAFT_BUILD_ANN_MG_DEP nccl ucp)
+  endif()
+
   foreach(target raft_lib raft_lib_static raft_objs)
     target_link_libraries(
       ${target}
@@ -599,8 +604,7 @@ if(RAFT_COMPILE_LIBRARY)
              ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
                                            # will just be cublas
              $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-             nccl
-             ucp
+             ${RAFT_BUILD_ANN_MG_DEP}
     )
 
     # So consumers know when using libraft.so/libraft.a

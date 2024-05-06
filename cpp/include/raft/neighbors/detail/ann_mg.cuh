@@ -16,11 +16,13 @@
 
 #pragma once
 
+#include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/comms/std_comms.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/ann_types.hpp>
+#include <raft/neighbors/ann_mg_types.hpp>
 
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include <raft/neighbors/brute_force.cuh>
@@ -38,10 +40,6 @@
 
 // Number of rows per batch (search on shards)
 #define N_ROWS_PER_BATCH 3000
-
-namespace raft::neighbors::mg {
-enum dist_mode { SHARDING, INDEX_DUPLICATION };
-}
 
 namespace raft::neighbors::mg::detail {
 using namespace raft::neighbors;
@@ -198,7 +196,7 @@ class ann_interface {
 template <typename AnnIndexType, typename T, typename IdxT>
 class ann_mg_index {
  public:
-  ann_mg_index(const std::vector<int>& dev_list, dist_mode mode = SHARDING)
+  ann_mg_index(const std::vector<int>& dev_list, parallel_mode mode = SHARDING)
     : mode_(mode),
       root_rank_(0),
       num_ranks_(dev_list.size()),
@@ -213,7 +211,7 @@ class ann_mg_index {
   ann_mg_index(const raft::resources& handle,
                const std::vector<int>& dev_list,
                const std::string& filename)
-    : mode_(INDEX_DUPLICATION),
+    : mode_(REPLICATION),
       root_rank_(0),
       num_ranks_(dev_list.size()),
       dev_ids_(dev_list),
@@ -235,7 +233,7 @@ class ann_mg_index {
       std::ifstream is(filename, std::ios::in | std::ios::binary);
       if (!is) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 
-      mode_ = (raft::neighbors::mg::dist_mode)deserialize_scalar<int>(handle, is);
+      mode_ = (raft::neighbors::mg::parallel_mode)deserialize_scalar<int>(handle, is);
       root_rank_ = 0;
       num_ranks_ = deserialize_scalar<int>(handle, is);
       dev_ids_.resize(num_ranks_);
@@ -284,7 +282,7 @@ class ann_mg_index {
   void build(const ann::index_params* index_params,
              raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
   {
-    if (mode_ == INDEX_DUPLICATION) {
+    if (mode_ == REPLICATION) {
       ann_interfaces_.resize(num_ranks_);
 
       #pragma omp parallel for
@@ -304,7 +302,7 @@ class ann_mg_index {
       #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
         RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
-        IdxT n_rows_per_shard = (n_rows + num_ranks_ - 1) / num_ranks_;
+        IdxT n_rows_per_shard  = raft::ceildiv(n_rows, (IdxT)num_ranks_);
         IdxT offset            = rank * n_rows_per_shard;
         n_rows_per_shard       = std::min(n_rows_per_shard, n_rows - offset);
         const T* partition_ptr = index_dataset.data_handle() + (offset * n_cols);
@@ -323,7 +321,7 @@ class ann_mg_index {
               std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
   {
     IdxT n_rows = new_vectors.extent(0);
-    if (mode_ == INDEX_DUPLICATION) {
+    if (mode_ == REPLICATION) {
       #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
         RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
@@ -337,9 +335,9 @@ class ann_mg_index {
       #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
         RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
-        IdxT n_rows_per_shard   = (n_rows + num_ranks_ - 1) / num_ranks_;
-        IdxT offset             = rank * n_rows_per_shard;
-        n_rows_per_shard        = std::min(n_rows_per_shard, n_rows - offset);
+        IdxT n_rows_per_shard    = raft::ceildiv(n_rows, (IdxT)num_ranks_);
+        IdxT offset              = rank * n_rows_per_shard;
+        n_rows_per_shard         = std::min(n_rows_per_shard, n_rows - offset);
         const T* new_vectors_ptr = new_vectors.data_handle() + (offset * n_cols);
         auto new_vectors_part    = raft::make_host_matrix_view<const T, IdxT, row_major>(
           new_vectors_ptr, n_rows_per_shard, n_cols);
@@ -363,7 +361,7 @@ class ann_mg_index {
               raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
               raft::host_matrix_view<float, IdxT, row_major> distances) const
   {
-    if (mode_ == INDEX_DUPLICATION) {
+    if (mode_ == REPLICATION) {
       IdxT n_rows           = query_dataset.extent(0);
       IdxT n_cols           = query_dataset.extent(1);
       IdxT n_neighbors      = neighbors.extent(1);
@@ -371,7 +369,7 @@ class ann_mg_index {
       #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
         RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
-        IdxT n_rows_per_shard   = (n_rows + num_ranks_ - 1) / num_ranks_;
+        IdxT n_rows_per_shard   = raft::ceildiv(n_rows, (IdxT)num_ranks_);
         IdxT offset             = rank * n_rows_per_shard;
         IdxT query_offset       = offset * n_cols;
         IdxT output_offset      = offset * n_neighbors;
@@ -406,7 +404,7 @@ class ann_mg_index {
       IdxT n_cols      = query_dataset.extent(1);
       IdxT n_neighbors = neighbors.extent(1);
 
-      IdxT n_batches          = (n_rows + N_ROWS_PER_BATCH - 1) / N_ROWS_PER_BATCH;
+      IdxT n_batches   = raft::ceildiv(n_rows, (IdxT)N_ROWS_PER_BATCH);
 
       const auto& root_handle = set_current_device_to_root_rank();
       auto in_neighbors       = raft::make_device_matrix<IdxT, IdxT, row_major>(
@@ -529,7 +527,7 @@ class ann_mg_index {
   }
 
  private:
-  dist_mode mode_;
+  parallel_mode mode_;
   int root_rank_;
   int num_ranks_;
   std::vector<int> dev_ids_;
@@ -540,42 +538,40 @@ class ann_mg_index {
 
 template <typename T, typename IdxT>
 ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> build(
-  const std::vector<int> device_ids,
-  dist_mode mode,
-  const ivf_flat::index_params& index_params,
+  const raft::resources& handle,
+  const ivf_flat::dist_index_params& index_params,
   raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
 {
-  ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> index(device_ids, mode);
+  ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> index(index_params.device_ids, index_params.mode);
   index.build(static_cast<const ann::index_params*>(&index_params), index_dataset);
   return index;
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> build(
-  const std::vector<int> device_ids,
-  dist_mode mode,
-  const ivf_pq::index_params& index_params,
+  const raft::resources& handle,
+  const ivf_pq::dist_index_params& index_params,
   raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
 {
-  ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> index(device_ids, mode);
+  ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> index(index_params.device_ids, index_params.mode);
   index.build(static_cast<const ann::index_params*>(&index_params), index_dataset);
   return index;
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<cagra::index<T, IdxT>, T, IdxT> build(
-  const std::vector<int> device_ids,  
-  dist_mode mode,
-  const cagra::index_params& index_params,
+  const raft::resources& handle,
+  const cagra::dist_index_params& index_params,
   raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
 {
-  ann_mg_index<cagra::index<T, IdxT>, T, IdxT> index(device_ids, mode);
+  ann_mg_index<cagra::index<T, IdxT>, T, IdxT> index(index_params.device_ids, index_params.mode);
   index.build(static_cast<const ann::index_params*>(&index_params), index_dataset);
   return index;
 }
 
 template <typename T, typename IdxT>
-void extend(ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
+void extend(const raft::resources& handle,
+            ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
             raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
             std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
 {
@@ -583,7 +579,8 @@ void extend(ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
 }
 
 template <typename T, typename IdxT>
-void extend(ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
+void extend(const raft::resources& handle,
+            ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
             raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
             std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
 {
@@ -591,7 +588,8 @@ void extend(ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
 }
 
 template <typename T, typename IdxT>
-void search(const ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
+void search(const raft::resources& handle,
+            const ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
             const ivf_flat::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
@@ -602,7 +600,8 @@ void search(const ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
 }
 
 template <typename T, typename IdxT>
-void search(const ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
+void search(const raft::resources& handle,
+            const ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
             const ivf_pq::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
@@ -613,7 +612,8 @@ void search(const ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
 }
 
 template <typename T, typename IdxT>
-void search(const ann_mg_index<cagra::index<T, IdxT>, T, IdxT>& index,
+void search(const raft::resources& handle,
+            const ann_mg_index<cagra::index<T, IdxT>, T, IdxT>& index,
             const cagra::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,

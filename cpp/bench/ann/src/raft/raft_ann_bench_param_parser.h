@@ -48,7 +48,7 @@ extern template class raft::bench::ann::RaftCagra<uint8_t, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG
-#include "raft_ann_mg_wrapper.h"
+#include "raft_ann_mg_wrapper.hpp"
 extern template class raft::bench::ann::RaftAnnMG<float, uint32_t>;
 extern template class raft::bench::ann::RaftAnnMG<uint8_t, uint32_t>;
 extern template class raft::bench::ann::RaftAnnMG<int8_t, uint32_t>;
