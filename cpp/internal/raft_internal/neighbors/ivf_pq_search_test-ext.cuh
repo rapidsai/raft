@@ -25,6 +25,8 @@
 
 #include <raft_internal/neighbors/ivf_pq_compute_similarity_filters_test-ext.cuh>
 
+#include <rmm/resource_ref.hpp>
+
 #include <cstdint>  // int64_t
 
 #define instantiate_raft_neighbors_ivf_pq_search(T, IdxT)            \
@@ -44,8 +46,7 @@
     uint32_t n_queries,                                              \
     uint32_t k,                                                      \
     IdxT* neighbors,                                                 \
-    float* distances,                                                \
-    rmm::mr::device_memory_resource* mr);                            \
+    float* distances);                                               \
                                                                      \
   extern template void raft::neighbors::ivf_pq::search<T, IdxT>(     \
     raft::resources const& handle,                                   \

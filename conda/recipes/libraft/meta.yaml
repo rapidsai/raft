@@ -58,12 +58,13 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - cuda-version ={{ cuda_version }}
         {% if cuda_major != "11" %}
         - cuda-cudart-dev
         {% endif %}
+        - librmm ={{ minor_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -93,6 +94,7 @@ outputs:
     requirements:
       host:
         - cuda-version ={{ cuda_version }}
+        - librmm ={{ minor_version }}
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         - librmm ={{ minor_version }}
@@ -150,7 +152,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-version ={{ cuda_version }}
@@ -212,7 +214,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-version ={{ cuda_version }}
@@ -278,7 +280,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         # We must include both libraft and libraft-static to prevent the test
         # builds from packaging those libraries. However, tests only depend on
@@ -304,9 +306,6 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - benchmark {{ gbench_version }}
-        - gmock {{ gtest_version }}
-        - gtest {{ gtest_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -319,9 +318,6 @@ outputs:
         - libcusparse
         {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
-        - benchmark {{ gbench_version }}
-        - gmock {{ gtest_version }}
-        - gtest {{ gtest_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -353,7 +349,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}

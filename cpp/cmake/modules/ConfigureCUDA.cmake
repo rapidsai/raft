@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -13,8 +13,8 @@
 # =============================================================================
 
 if(DISABLE_DEPRECATION_WARNINGS)
-  list(APPEND RAFT_CXX_FLAGS -Wno-deprecated-declarations)
-  list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
+  list(APPEND RAFT_CXX_FLAGS -Wno-deprecated-declarations -DRAFT_HIDE_DEPRECATION_WARNINGS)
+  list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations -DRAFT_HIDE_DEPRECATION_WARNINGS)
 endif()
 
 # Be very strict when compiling with GCC as host compiler (and thus more lenient when compiling with

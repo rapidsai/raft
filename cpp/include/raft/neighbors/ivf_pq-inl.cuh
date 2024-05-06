@@ -24,8 +24,6 @@
 #include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 
-#include <rmm/mr/device/device_memory_resource.hpp>
-
 #include <memory>  // shared_ptr
 
 namespace raft::neighbors::ivf_pq {
@@ -404,38 +402,6 @@ void search_with_filtering(raft::resources const& handle,
 }
 
 /**
- * This function is deprecated and will be removed in a future.
- * Please drop the `mr` argument and use `raft::resource::set_workspace_resource` instead.
- */
-template <typename T, typename IdxT, typename IvfSampleFilterT>
-[[deprecated(
-  "Drop the `mr` argument and use `raft::resource::set_workspace_resource` instead")]] void
-search_with_filtering(raft::resources const& handle,
-                      const search_params& params,
-                      const index<IdxT>& idx,
-                      const T* queries,
-                      uint32_t n_queries,
-                      uint32_t k,
-                      IdxT* neighbors,
-                      float* distances,
-                      rmm::mr::device_memory_resource* mr,
-                      IvfSampleFilterT sample_filter = IvfSampleFilterT{})
-{
-  if (mr != nullptr) {
-    // Shallow copy of the resource with the automatic lifespan:
-    //                               change the workspace resource temporarily
-    raft::resources res_local(handle);
-    resource::set_workspace_resource(
-      res_local, std::shared_ptr<rmm::mr::device_memory_resource>{mr, void_op{}});
-    return search_with_filtering(
-      res_local, params, idx, queries, n_queries, k, neighbors, distances, sample_filter);
-  } else {
-    return search_with_filtering(
-      handle, params, idx, queries, n_queries, k, neighbors, distances, sample_filter);
-  }
-}
-
-/**
  * @brief Search ANN using the constructed index.
  *
  * See the [ivf_pq::build](#ivf_pq::build) documentation for a usage example.
@@ -446,16 +412,13 @@ search_with_filtering(raft::resources const& handle,
  * eliminate entirely allocations happening within `search`:
  * @code{.cpp}
  *   ...
- *   // Create a pooling memory resource with a pre-defined initial size.
- *   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr(
- *     rmm::mr::get_current_device_resource(), 1024 * 1024);
  *   // use default search parameters
  *   ivf_pq::search_params search_params;
  *   // Use the same allocator across multiple searches to reduce the number of
  *   // cuda memory allocations
- *   ivf_pq::search(handle, search_params, index, queries1, N1, K, out_inds1, out_dists1, &mr);
- *   ivf_pq::search(handle, search_params, index, queries2, N2, K, out_inds2, out_dists2, &mr);
- *   ivf_pq::search(handle, search_params, index, queries3, N3, K, out_inds3, out_dists3, &mr);
+ *   ivf_pq::search(handle, search_params, index, queries1, N1, K, out_inds1, out_dists1);
+ *   ivf_pq::search(handle, search_params, index, queries2, N2, K, out_inds2, out_dists2);
+ *   ivf_pq::search(handle, search_params, index, queries3, N3, K, out_inds3, out_dists3);
  *   ...
  * @endcode
  * The exact size of the temporary buffer depends on multiple factors and is an implementation
@@ -493,35 +456,6 @@ void search(raft::resources const& handle,
                                k,
                                neighbors,
                                distances,
-                               raft::neighbors::filtering::none_ivf_sample_filter{});
-}
-
-/**
- * This function is deprecated and will be removed in a future.
- * Please drop the `mr` argument and use `raft::resource::set_workspace_resource` instead.
- */
-template <typename T, typename IdxT>
-[[deprecated(
-  "Drop the `mr` argument and use `raft::resource::set_workspace_resource` instead")]] void
-search(raft::resources const& handle,
-       const search_params& params,
-       const index<IdxT>& idx,
-       const T* queries,
-       uint32_t n_queries,
-       uint32_t k,
-       IdxT* neighbors,
-       float* distances,
-       rmm::mr::device_memory_resource* mr)
-{
-  return search_with_filtering(handle,
-                               params,
-                               idx,
-                               queries,
-                               n_queries,
-                               k,
-                               neighbors,
-                               distances,
-                               mr,
                                raft::neighbors::filtering::none_ivf_sample_filter{});
 }
 
