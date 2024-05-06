@@ -212,7 +212,7 @@ __global__ void Normalize8bitInt_kernel(T* const datatset_ptr,
   const auto tid      = threadIdx.x + blockDim.x * blockIdx.x;
   std::uint32_t norm2 = 0;
   for (std::uint32_t i = 0; i < dim; i++) {
-    const std::uint32_t v = datatset_ptr[tid * dim + i];
+    const std::int32_t v = datatset_ptr[tid * dim + i];
     norm2 += v * v;
   }
   const float scale = normalized_norm / sqrtf(static_cast<float>(norm2));
@@ -235,7 +235,8 @@ void Normalize8bitInt(const raft::resources& handle,
   const std::uint32_t block_size = 256;
   const std::uint32_t grid_size  = raft::ceildiv<std::uint32_t>(size, block_size);
 
-  const std::uint32_t normalized_norm = (std::is_same_v<T, std::uint8_t> ? 40 : 20) * dim;
+  const std::uint32_t normalized_norm =
+    (std::is_same_v<T, std::uint8_t> ? 40 : 20) * std::sqrt(static_cast<float>(dim));
 
   Normalize8bitInt_kernel<<<grid_size, block_size, 0, raft::resource::get_cuda_stream(handle)>>>(
     datatset_ptr, size, dim, normalized_norm);
@@ -257,8 +258,12 @@ void InitDataset(const raft::resources& handle,
       raft::linalg::row_normalize(
         handle, raft::make_const_mdspan(dataset_view), dataset_view, raft::linalg::L2Norm);
     }
-  } else {
-    raft::random::uniformInt(handle, r, datatset_ptr, size * dim, DataT(1), DataT(20));
+  } else if constexpr (std::is_same_v<DataT, std::uint8_t> || std::is_same_v<DataT, std::int8_t>) {
+    if constexpr (std::is_same_v<DataT, std::int8_t>) {
+      raft::random::uniformInt(handle, r, datatset_ptr, size * dim, DataT(-10), DataT(10));
+    } else {
+      raft::random::uniformInt(handle, r, datatset_ptr, size * dim, DataT(1), DataT(20));
+    }
 
     if (metric == raft::distance::InnerProduct) {
       Normalize8bitInt(handle, datatset_ptr, size, dim);
