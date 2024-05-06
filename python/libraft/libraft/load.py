@@ -21,15 +21,26 @@ def load_library():
     # Dynamically load libraft.so. Prefer a system library if one is present to
     # avoid clobbering symbols that other packages might expect, but if no
     # other library is present use the one in the wheel.
+    libraft_lib = None
     try:
         libraft_lib = ctypes.CDLL("libraft.so", ctypes.RTLD_GLOBAL)
     except OSError:
-        libraft_lib = ctypes.CDLL(
-            # TODO: Do we always know it will be lib64? Should we consider
-            # finding a way for CMake to export the path for us to find here?
-            os.path.join(os.path.dirname(__file__), "lib64", "libraft.so"),
-            ctypes.RTLD_GLOBAL,
-        )
+        # If neither of these directories contain the library, we assume we are
+        # in an environment where the C++ library is already installed
+        # somewhere else and the CMake build of the libraft Python
+        # package was a no-op. Note that this approach won't work for
+        # real editable installs of the libraft package, but that's not a use
+        # case I think we need to support. scikit-build-core has limited
+        # support for importlib.resources so there isn't a clean way to support
+        # that case yet.
+        for lib_dir in ("lib", "lib64"):
+            if os.path.isfile(
+                lib := os.path.join(
+                    os.path.dirname(__file__), lib_dir, "libraft.so"
+                )
+            ):
+                libraft_lib = ctypes.CDLL(lib, ctypes.RTLD_GLOBAL)
+                break
 
     # The caller almost never needs to do anything with this library, but no
     # harm in offering the option since this object at least provides a handle

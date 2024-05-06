@@ -25,6 +25,16 @@ project(
   LANGUAGES CXX CUDA
 )
 
+# Check if raft is already available. If so, it is the user's responsibility to ensure that the
+# CMake package is also available at build time of the Python raft package.
+find_package(raft "${RAPIDS_VERSION}")
+
+if(raft_FOUND)
+  return()
+endif()
+
+unset(raft_FOUND)
+
 set(BUILD_TESTS OFF)
 set(BUILD_PRIMS_BENCH OFF)
 set(BUILD_ANN_BENCH OFF)
