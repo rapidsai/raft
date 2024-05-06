@@ -18,6 +18,7 @@
 
 #include "compute_distance.hpp"
 
+#include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
 namespace raft::neighbors::cagra::detail {
@@ -112,7 +113,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
     }
   }
 
-  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE>
+  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE, raft::distance::DistanceType METRIC>
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
                                            const INDEX_T node_id,
                                            const bool valid) const

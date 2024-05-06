@@ -19,9 +19,11 @@
  * Please use versions in individual header files instead.
  */
 
+#ifndef RAFT_HIDE_DEPRECATION_WARNINGS
 #pragma message(__FILE__                                                    \
                   " is deprecated and will be removed in a future release." \
                   " Please use versions in individual header files instead.")
+#endif
 
 #ifndef __MATRIX_H
 #define __MATRIX_H

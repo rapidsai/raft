@@ -27,6 +27,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/matrix/select_k.cuh>
 #include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
@@ -100,7 +101,8 @@ RAFT_KERNEL random_pickup_kernel(
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
   const std::uint32_t ldr,                                                // (*) ldr >= num_pickup
   typename DATASET_DESCRIPTOR_T::INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
-  const std::uint32_t hash_bitlen)
+  const std::uint32_t hash_bitlen,
+  const raft::distance::DistanceType metric)
 {
   using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
@@ -137,8 +139,22 @@ RAFT_KERNEL random_pickup_kernel(
         device::xorshift64((global_team_index ^ rand_xor_mask) * (i + 1)) % dataset_desc.size;
     }
 
-    const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-      query_buffer, seed_index, true);
+    DISTANCE_T norm2;
+    switch (metric) {
+      case distance::DistanceType::L2Expanded:
+        norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                         TEAM_SIZE,
+                                                         distance::DistanceType::L2Expanded>(
+          query_buffer, seed_index, true);
+        break;
+      case distance::DistanceType::InnerProduct:
+        norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                         TEAM_SIZE,
+                                                         distance::DistanceType::InnerProduct>(
+          query_buffer, seed_index, true);
+        break;
+      default: break;
+    }
 
     if (norm2 < best_norm2_team_local) {
       best_norm2_team_local = norm2;
@@ -175,6 +191,7 @@ void random_pickup(
   const std::size_t ldr,                                                  // (*) ldr >= num_pickup
   typename DATASET_DESCRIPTOR_T::INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
   const std::uint32_t hash_bitlen,
+  const raft::distance::DistanceType metric,
   cudaStream_t const cuda_stream = 0)
 {
   const auto block_size                = 256u;
@@ -198,7 +215,8 @@ void random_pickup(
                                                         result_distances_ptr,
                                                         ldr,
                                                         visited_hashmap_ptr,
-                                                        hash_bitlen);
+                                                        hash_bitlen,
+                                                        metric);
 }
 
 template <class INDEX_T>
@@ -325,7 +343,8 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   typename DATASET_DESCRIPTOR_T::INDEX_T* const result_indices_ptr,       // [num_queries, ldd]
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,  // (*) ldd >= search_width * graph_degree
-  SAMPLE_FILTER_T sample_filter)
+  SAMPLE_FILTER_T sample_filter,
+  const raft::distance::DistanceType metric)
 {
   using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
   using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
@@ -371,8 +390,22 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   const auto compute_distance_flag = hashmap::insert<TEAM_SIZE, INDEX_T>(
     visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id);
 
-  const auto norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM, TEAM_SIZE>(
-    query_buffer, child_id, compute_distance_flag);
+  DISTANCE_T norm2;
+  switch (metric) {
+    case raft::distance::DistanceType::L2Expanded:
+      norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                       TEAM_SIZE,
+                                                       raft::distance::DistanceType::L2Expanded>(
+        query_buffer, child_id, compute_distance_flag);
+      break;
+    case raft::distance::DistanceType::InnerProduct:
+      norm2 = dataset_desc.template compute_similarity<DATASET_BLOCK_DIM,
+                                                       TEAM_SIZE,
+                                                       raft::distance::DistanceType::InnerProduct>(
+        query_buffer, child_id, compute_distance_flag);
+      break;
+    default: break;
+  }
 
   if (compute_distance_flag) {
     if (threadIdx.x % TEAM_SIZE == 0) {
@@ -421,6 +454,7 @@ void compute_distance_to_child_nodes(
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
   const std::uint32_t ldd,  // (*) ldd >= search_width * graph_degree
   SAMPLE_FILTER_T sample_filter,
+  const raft::distance::DistanceType metric,
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
@@ -452,7 +486,8 @@ void compute_distance_to_child_nodes(
                                                         result_indices_ptr,
                                                         result_distances_ptr,
                                                         ldd,
-                                                        sample_filter);
+                                                        sample_filter,
+                                                        metric);
 }
 
 template <class INDEX_T>
@@ -660,8 +695,10 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
          search_params params,
          int64_t dim,
          int64_t graph_degree,
-         uint32_t topk)
-    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk),
+         uint32_t topk,
+         raft::distance::DistanceType metric)
+    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk, metric),
       result_indices(0, resource::get_cuda_stream(res)),
       result_distances(0, resource::get_cuda_stream(res)),
       parent_node_list(0, resource::get_cuda_stream(res)),
@@ -835,6 +872,7 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
                                                 result_buffer_allocation_size,
                                                 hashmap.data(),
                                                 hash_bitlen,
+                                                this->metric,
                                                 stream);
 
     unsigned iter = 0;
@@ -904,6 +942,7 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
         result_distances.data() + itopk_size,
         result_buffer_allocation_size,
         sample_filter,
+        this->metric,
         stream);
 
       iter++;
@@ -1020,8 +1059,10 @@ struct search<TEAM_SIZE,
          search_params params,
          int64_t dim,
          int64_t graph_degree,
-         uint32_t topk)
-    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk)
+         uint32_t topk,
+         raft::distance::DistanceType metric)
+    : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk, metric)
   {
     THROW("The multi-kernel mode does not support VPQ");
   }
