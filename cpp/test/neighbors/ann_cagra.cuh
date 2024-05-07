@@ -232,7 +232,7 @@ void InitDataset(const raft::resources& handle,
 
       using ComputeT    = float;
       auto dataset_view = raft::make_device_matrix_view(datatset_ptr, size, dim);
-      auto dev_row_norm = make_device_vector<ComputeT>(handle, size);
+      auto dev_row_norm = raft::make_device_vector<ComputeT>(handle, size);
       const auto normalized_norm =
         (std::is_same_v<DataT, std::uint8_t> ? 40 : 20) * std::sqrt(static_cast<ComputeT>(dim));
 
