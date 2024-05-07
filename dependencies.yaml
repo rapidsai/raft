@@ -213,9 +213,23 @@ dependencies:
           - libraft==24.6.*
   librmm:
     common:
-      - output_types: [requirements, pyproject]
+      - output_types: requirements
         packages:
-          - librmm==24.6.*
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - librmm-cu12==24.6.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - librmm-cu11==24.6.*
+          - matrix: null
+            packages:
+              - librmm==24.6.*
   build_pylibraft:
     common:
       - output_types: [conda]
