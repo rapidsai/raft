@@ -993,6 +993,9 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
       do {
         worker_data_local = worker_handle.load(cuda::memory_order_relaxed);
       } while (worker_data_local.handle == kWaitForWork);
+      if (worker_data_local.handle != kNoMoreWork) {
+        worker_handle.store({kWaitForWork}, cuda::memory_order_relaxed);
+      }
       job_ix = worker_data_local.value.desc_id;
       cuda::atomic_thread_fence(cuda::memory_order_acquire, cuda::thread_scope_system);
       worker_data = worker_data_local;
@@ -1007,7 +1010,6 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
     }
     __syncthreads();
     if (worker_data.handle == kNoMoreWork) { break; }
-    if (threadIdx.x == 0) { worker_handle.store({kWaitForWork}, cuda::memory_order_relaxed); }
 
     // reading phase
     auto* result_indices_ptr   = job_descriptor.value.result_indices_ptr;
