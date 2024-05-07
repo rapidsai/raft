@@ -1606,10 +1606,12 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
     RAFT_CUDA_TRY(cudaLaunchCooperativeKernel<std::remove_pointer_t<kernel_type>>(
       kernel, gs, bs, args, smem_size, stream));
     RAFT_LOG_INFO(
-      "Initialized the kernel in stream %zd; job_queue size = %u; worker_queue size = %u",
+      "Initialized the kernel %p in stream %zd; job_queue size = %u; worker_queue size = %u",
+      reinterpret_cast<void*>(kernel),
       int64_t((cudaStream_t)stream),
       kMaxJobsNum,
       gs.y);
+    last_touch.store(std::chrono::system_clock::now(), std::memory_order_relaxed);
   }
 
   ~persistent_runner_t() noexcept override
@@ -1706,10 +1708,7 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
   std::lock_guard<std::mutex> guard(persistent.lock);
   // Check if the runner has already been created
   std::shared_ptr<RunnerT> runner_outer = std::dynamic_pointer_cast<RunnerT>(persistent.runner);
-  if (runner_outer) {
-    runner_outer->last_touch.store(std::chrono::system_clock::now(), std::memory_order_relaxed);
-    return runner_outer;
-  }
+  if (runner_outer) { return runner_outer; }
   // Runner has not yet been created (or it's incompatible):
   //   create it in another thread and only then release the lock.
   // Free the resources (if any) in advance
@@ -1720,8 +1719,7 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
   std::thread(
     [&runner_outer, &ready](Args... thread_args) {  // pass everything by values
       // create the runner (the lock is acquired in the parent thread).
-      runner_outer = std::make_shared<RunnerT>(thread_args...);
-      runner_outer->last_touch.store(std::chrono::system_clock::now(), std::memory_order_relaxed);
+      runner_outer      = std::make_shared<RunnerT>(thread_args...);
       persistent.runner = std::static_pointer_cast<persistent_runner_base_t>(runner_outer);
       std::weak_ptr<RunnerT> runner_weak = runner_outer;
       ready.test_and_set(cuda::std::memory_order_release);
