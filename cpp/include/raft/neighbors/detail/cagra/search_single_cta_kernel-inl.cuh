@@ -1227,37 +1227,51 @@ struct alignas(kCacheLineBytes) resource_queue_t {
     }
   }
 
+  /**
+   * A slot in the queue to take the value from.
+   * Once it's obtained, the corresponding value in the queue is lost for other users.
+   */
+  struct promise_t {
+    explicit promise_t(cuda::std::atomic<value_type>& loc) : loc_{loc}, val_{Empty} {}
+    ~promise_t() noexcept { wait(); }
+
+    auto test() noexcept -> bool
+    {
+      if (val_ != Empty) { return true; }
+      val_ = loc_.exchange(kEmpty, kMemOrder);
+      return val_ != Empty;
+    }
+
+    auto test(value_type& e) noexcept -> bool
+    {
+      if (test()) {
+        e = val_;
+        return true;
+      }
+      return false;
+    }
+
+    auto wait() noexcept -> value_type
+    {
+      if (val_ == Empty) {
+        // [HOT SPOT]
+        // Optimize for the case of contention: expect the loc is empty.
+        do {
+          loc_.wait(kEmpty, kMemOrder);
+          val_ = loc_.exchange(kEmpty, kMemOrder);
+        } while (val_ == kEmpty);
+      }
+      return val_;
+    }
+
+   private:
+    cuda::std::atomic<value_type>& loc_;
+    value_type val_;
+  };
+
   void push(value_type x) noexcept
   {
     auto& loc = buf_[head_.fetch_add(kCounterIncrement, kMemOrder) & kCounterLocMask];
-    loc_push(loc, x);
-  }
-
-  auto pop() noexcept -> value_type
-  {
-    auto& loc = buf_[tail_.fetch_add(kCounterIncrement, kMemOrder) & kCounterLocMask];
-    return loc_pop(loc);
-  }
-
-  auto try_pop(value_type& e) noexcept -> bool
-  {
-    auto tail = tail_.load(kMemOrder);
-    do {
-      // NB: static cast is here to avoid the case when the head has recently been incremented
-      // beyond the uint32_t max value.
-      if (static_cast<int32_t>(head_.load(kMemOrder) - tail) <= 0) { return false; }
-    } while (!tail_.compare_exchange_weak(tail, tail + kCounterIncrement, kMemOrder, kMemOrder));
-    e = loc_pop(buf_[tail & kCounterLocMask]);
-    return true;
-  }
-
- private:
-  alignas(kCacheLineBytes) cuda::std::atomic<uint32_t> head_{};
-  alignas(kCacheLineBytes) cuda::std::atomic<uint32_t> tail_{};
-  alignas(kCacheLineBytes) std::array<cuda::std::atomic<value_type>, kSize> buf_{};
-
-  void loc_push(cuda::std::atomic<value_type>& loc, value_type x) noexcept
-  {
     /* [NOT A HOT SPOT]
      We expect there's always enough place in the queue to push the item,
      but also we expect a few pop waiters - notify them the data is available.
@@ -1269,17 +1283,16 @@ struct alignas(kCacheLineBytes) resource_queue_t {
     loc.notify_one();
   }
 
-  auto loc_pop(cuda::std::atomic<value_type>& loc) noexcept -> value_type
+  auto pop() noexcept -> promise_t
   {
-    // [HOT SPOT]
-    // Optimize for the case of contention: expect the loc is empty.
-    value_type x = kEmpty;
-    do {
-      loc.wait(kEmpty, kMemOrder);
-      x = loc.exchange(kEmpty, kMemOrder);
-    } while (x == kEmpty);
-    return x;
+    auto& loc = buf_[tail_.fetch_add(kCounterIncrement, kMemOrder) & kCounterLocMask];
+    return promise_t{loc};
   }
+
+ private:
+  alignas(kCacheLineBytes) cuda::std::atomic<uint32_t> head_{};
+  alignas(kCacheLineBytes) cuda::std::atomic<uint32_t> tail_{};
+  alignas(kCacheLineBytes) std::array<cuda::std::atomic<value_type>, kSize> buf_{};
 };
 
 /** Primitive fixed-size deque for single-threaded use. */
@@ -1379,17 +1392,15 @@ struct alignas(kCacheLineBytes) launcher_t {
       job_ids{job_ids},
       idle_worker_ids{idle_worker_ids},
       worker_handles{worker_handles},
-      job_id{job_ids.pop()},
-      completion_flag{record_work(job_id)}
+      job_id{job_ids.pop().wait()},
   {
     // Wait for the first worker and submit the query immediately.
-    // This is supposed to be slightly faster than `try_get_worker`,
-    // because it does not loop on the queue counter.
-    submit_query(idle_worker_ids.pop(), 0);
+    submit_query(idle_worker_ids.pop().wait(), 0);
     // Submit the rest of the queries in the batch
     for (uint32_t i = 1; i < n_queries; i++) {
+      auto promised_worker = idle_worker_ids.pop();
       uint32_t worker_id;
-      while (!try_get_worker(worker_id)) {
+      while (!promised_worker.test(worker_id)) {
         if (pending_reads.try_pop_front(worker_id)) {
           // TODO optimization: avoid the roundtrip through pending_worker_ids
           if (!try_return_worker(worker_id)) { pending_reads.push_front(worker_id); }
@@ -1432,9 +1443,6 @@ struct alignas(kCacheLineBytes) launcher_t {
       return false;
     }
   }
-
-  /** Try get a free worker if any. */
-  auto try_get_worker(uint32_t& worker_id) -> bool { return idle_worker_ids.try_pop(worker_id); }
 
   /** Check if all workers finished their work. */
   auto is_all_done()
@@ -1618,7 +1626,7 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
   {
     auto whs = worker_handles.data();
     for (auto i = worker_handles.size(); i > 0; i--) {
-      whs[worker_queue.pop()].data.store({kNoMoreWork}, cuda::memory_order_relaxed);
+      whs[worker_queue.pop().wait()].data.store({kNoMoreWork}, cuda::memory_order_relaxed);
     }
     RAFT_CUDA_TRY_NO_THROW(cudaStreamSynchronize(stream));
     RAFT_LOG_INFO("Destroyed the persistent runner.");
