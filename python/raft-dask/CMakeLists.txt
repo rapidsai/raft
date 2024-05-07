@@ -15,6 +15,7 @@
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../../rapids_config.cmake)
+include(rapids-cpm)
 include(rapids-cuda)
 rapids_cuda_init_architectures(raft-dask-python)
 
@@ -23,6 +24,11 @@ project(
   VERSION "${RAPIDS_VERSION}"
   LANGUAGES CXX CUDA
 )
+
+rapids_cpm_init()
+# Once https://github.com/rapidsai/ucxx/issues/173 is resolved we can remove this.
+find_package(ucx REQUIRED)
+include(cmake/thirdparty/get_ucxx.cmake)
 
 find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS distributed)
 

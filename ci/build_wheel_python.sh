@@ -3,6 +3,11 @@
 
 set -euo pipefail
 
+# Clear out system ucx files to ensure that we're getting ucx from the wheel
+# when building raft-dask.
+rm -rf /usr/lib64/ucx
+rm -rf /usr/lib64/libuc*
+
 source rapids-configure-sccache
 source rapids-date-string
 
@@ -50,7 +55,9 @@ build_wheel () {
     sed -i "s/name = \"${package_name}\"/name = \"${package_name}${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
     sed -i "/^__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${version_file}
 
-    for dep in rmm libraft pylibraft ucx-py; do
+    sed -r -i "s/libucx(.*)\"/libucx${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
+
+    for dep in rmm libraft pylibraft ucx-py distributed-ucxx; do
         sed -r -i "s/${dep}==(.*)\"/${dep}${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
     done
 
@@ -73,5 +80,5 @@ build_wheel () {
 build_wheel pylibraft
 build_wheel raft-dask
 
-python -m auditwheel repair -w "${PYTHON_AUDITED_WHEELHOUSE}" --exclude libraft.so "${PYTHON_WHEELHOUSE}"/*
+python -m auditwheel repair -w "${PYTHON_AUDITED_WHEELHOUSE}" --exclude libraft.so --exclude "libucp.so.0" "${PYTHON_WHEELHOUSE}"/*
 RAPIDS_PY_WHEEL_NAME="raft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python "${PYTHON_AUDITED_WHEELHOUSE}"

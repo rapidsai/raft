@@ -15,8 +15,9 @@
 
 from raft_dask._version import __git_commit__, __version__
 
-# If libraft was installed as a wheel, we must request it to load the library symbols.
-# Otherwise, we assume that the library was installed in a system path that ld can find.
+# If libraft or libucx was installed as a wheel, we must request that those packages
+# load the library symbols. Otherwise, we assume that the libraries were installed in a
+# system path that ld can find.
 try:
     import libraft
 except ModuleNotFoundError:
@@ -24,3 +25,11 @@ except ModuleNotFoundError:
 else:
     libraft.load_library()
     del libraft
+
+try:
+    import libucx
+except ModuleNotFoundError:
+    pass
+else:
+    libucx.load_library()
+    del libucx

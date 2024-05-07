@@ -79,7 +79,8 @@ option(RAFT_COMPILE_LIBRARY "Enable building raft library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 option(RAFT_COMPILE_DYNAMIC_ONLY "Only build the static library and skip the
-static library. Has no effect if RAFT_COMPILE_LIBRARY is OFF" OFF)
+static library. Has no effect if RAFT_COMPILE_LIBRARY is OFF" OFF
+)
 
 if(BUILD_CPU_ONLY)
   set(BUILD_SHARED_LIBS OFF)
@@ -627,16 +628,16 @@ target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS
 
 if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
   add_library(raft_compiled_static INTERFACE)
-  
+
   if(TARGET raft_compiled_static AND (NOT TARGET raft::compiled_static))
     add_library(raft::compiled_static ALIAS raft_compiled_static)
   endif()
   set_target_properties(raft_compiled_static PROPERTIES EXPORT_NAME compiled_static)
-  
+
   if(TARGET raft_lib_static AND (NOT TARGET raft::raft_lib_static))
     add_library(raft::raft_lib_static ALIAS raft_lib_static)
   endif()
-  
+
   target_link_libraries(
     raft_compiled_static INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib_static>
   )
@@ -660,12 +661,21 @@ rapids_find_generate_module(
   INSTALL_EXPORT_SET raft-distributed-exports
 )
 
-rapids_export_package(BUILD ucx raft-distributed-exports)
-rapids_export_package(INSTALL ucx raft-distributed-exports)
+rapids_export_package(
+  BUILD ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python
+)
+rapids_export_package(
+  INSTALL ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx
+                                                                              ucxx::python
+)
 rapids_export_package(BUILD NCCL raft-distributed-exports)
 rapids_export_package(INSTALL NCCL raft-distributed-exports)
 
-target_link_libraries(raft_distributed INTERFACE ucx::ucp NCCL::NCCL)
+# ucx is a requirement for raft_distributed, but its config is not safe to be found multiple times,
+# so rather than exporting a package dependency on it above we rely on consumers to find it
+# themselves. Once https://github.com/rapidsai/ucxx/issues/173 is resolved we can export it above
+# again.
+target_link_libraries(raft_distributed INTERFACE ucx::ucp ucxx::ucxx NCCL::NCCL)
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------
