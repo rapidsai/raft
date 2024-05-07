@@ -11,7 +11,13 @@ RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels
 RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-pylibraft-dep
 python -m pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl
 
-# echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install $(echo ./dist/raft_dask*.whl)[test]
+python -m pip install "raft_dask-${RAPIDS_PY_CUDA_SUFFIX}[test]>=0.0.0a0" --find-links dist/
 
-python -m pytest ./python/raft-dask/raft_dask/test
+# rapids-logger "pytest raft-dask"
+# python -m pytest ./python/raft-dask/raft_dask/test
+
+# rapids-logger "pytest raft-dask (ucx-py only)"
+# python -m pytest ./python/raft-dask/raft_dask/test --run_ucx
+
+rapids-logger "pytest raft-dask (ucxx only)"
+python -m pytest ./python/raft-dask/raft_dask/test --run_ucxx

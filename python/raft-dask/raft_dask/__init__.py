@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,3 +14,13 @@
 #
 
 from raft_dask._version import __git_commit__, __version__
+
+# If libucx was installed as a wheel, we must request it to load the library symbols.
+# Otherwise, we assume that the library was installed in a system path that ld can find.
+try:
+    import libucx
+except ModuleNotFoundError:
+    pass
+else:
+    libucx.load_library()
+    del libucx
