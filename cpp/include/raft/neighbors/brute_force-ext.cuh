@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/bitmap.cuh>
 #include <raft/core/device_mdspan.hpp>       // raft::device_matrix_view
 #include <raft/core/operators.hpp>           // raft::identity_op
 #include <raft/core/resources.hpp>           // raft::resources
@@ -64,6 +65,14 @@ void search(raft::resources const& res,
             raft::device_matrix_view<const T, int64_t, row_major> queries,
             raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
             raft::device_matrix_view<T, int64_t, row_major> distances) RAFT_EXPLICIT;
+
+template <typename T, typename IdxT>
+void search_with_filtering(raft::resources const& res,
+                           const index<T>& idx,
+                           raft::device_matrix_view<const T, IdxT, row_major> queries,
+                           raft::core::bitmap_view<const uint32_t, IdxT> filter,
+                           raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
+                           raft::device_matrix_view<T, IdxT, row_major> distances) RAFT_EXPLICIT;
 
 template <typename idx_t,
           typename value_t,
@@ -137,6 +146,14 @@ extern template void search<float, int>(
   raft::device_matrix_view<int, int64_t, row_major> neighbors,
   raft::device_matrix_view<float, int64_t, row_major> distances);
 
+extern template void search_with_filtering<float, int>(
+  raft::resources const& res,
+  const raft::neighbors::brute_force::index<float>& idx,
+  raft::device_matrix_view<const float, int, row_major> queries,
+  raft::core::bitmap_view<const uint32_t, int> filter,
+  raft::device_matrix_view<int, int, row_major> neighbors,
+  raft::device_matrix_view<float, int, row_major> distances);
+
 extern template void search<float, int64_t>(
   raft::resources const& res,
   const raft::neighbors::brute_force::index<float>& idx,
@@ -149,6 +166,14 @@ extern template void search<float, int64_t>(
   search_params const& params,
   const raft::neighbors::brute_force::index<float>& idx,
   raft::device_matrix_view<const float, int64_t, row_major> queries,
+  raft::device_matrix_view<int64_t, int64_t, row_major> neighbors,
+  raft::device_matrix_view<float, int64_t, row_major> distances);
+
+extern template void search_with_filtering<float, int64_t>(
+  raft::resources const& res,
+  const raft::neighbors::brute_force::index<float>& idx,
+  raft::device_matrix_view<const float, int64_t, row_major> queries,
+  raft::core::bitmap_view<const uint32_t, int64_t> filter,
   raft::device_matrix_view<int64_t, int64_t, row_major> neighbors,
   raft::device_matrix_view<float, int64_t, row_major> distances);
 

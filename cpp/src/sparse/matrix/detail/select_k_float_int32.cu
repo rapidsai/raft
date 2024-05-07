@@ -17,7 +17,7 @@
 #include <raft/sparse/matrix/detail/select_k-inl.cuh>
 
 #define instantiate_raft_sparse_matrix_detail_select_k(T, IdxT)       \
-  template void raft::matrix::detail::select_k(                       \
+  template void raft::sparse::matrix::detail::select_k(               \
     raft::resources const& handle,                                    \
     raft::device_csr_matrix_view<const T, IdxT, IdxT, IdxT> in_val,   \
     std::optional<raft::device_vector_view<const IdxT, IdxT>> in_idx, \

@@ -145,6 +145,7 @@ if(BUILD_PRIMS_BENCH)
     NAME
     NEIGHBORS_BENCH
     PATH
+    bench/prims/neighbors/knn/brute_force_filter_float_int64_t.cu
     bench/prims/neighbors/knn/brute_force_float_int64_t.cu
     bench/prims/neighbors/knn/brute_force_float_uint32_t.cu
     bench/prims/neighbors/knn/cagra_float_uint32_t.cu

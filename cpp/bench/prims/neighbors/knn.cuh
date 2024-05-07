@@ -20,6 +20,7 @@
 
 #include <raft/core/bitset.cuh>
 #include <raft/core/resource/device_id.hpp>
+#include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/sample_filter.cuh>
@@ -36,7 +37,10 @@
 
 #include <thrust/sequence.h>
 
+#include <algorithm>
 #include <optional>
+#include <random>
+#include <vector>
 
 namespace raft::bench::spatial {
 
@@ -51,12 +55,19 @@ struct params {
   size_t k;
   /** Ratio of removed indices. */
   double removed_ratio;
+  /** Distance Type. */
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;
 };
 
 inline auto operator<<(std::ostream& os, const params& p) -> std::ostream&
 {
   os << p.n_samples << "#" << p.n_dims << "#" << p.n_queries << "#" << p.k << "#"
      << p.removed_ratio;
+  switch (p.metric) {
+    case raft::distance::DistanceType::InnerProduct: os << "#InnerProduct"; break;
+    case raft::distance::DistanceType::L2Expanded: os << "#L2Expanded"; break;
+    default: os << "UNKNOWN DistanceType, please add one case here.";
+  }
   return os;
 }
 
@@ -149,7 +160,7 @@ struct ivf_flat_knn {
   ivf_flat_knn(const raft::device_resources& handle, const params& ps, const ValT* data) : ps(ps)
   {
     index_params.n_lists = 4096;
-    index_params.metric  = raft::distance::DistanceType::L2Expanded;
+    index_params.metric  = ps.metric;
     index.emplace(raft::neighbors::ivf_flat::build(
       handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
   }
@@ -184,7 +195,7 @@ struct ivf_pq_knn {
   ivf_pq_knn(const raft::device_resources& handle, const params& ps, const ValT* data) : ps(ps)
   {
     index_params.n_lists = 4096;
-    index_params.metric  = raft::distance::DistanceType::L2Expanded;
+    index_params.metric  = ps.metric;
     auto data_view = raft::make_device_matrix_view<const ValT, IdxT>(data, ps.n_samples, ps.n_dims);
     index.emplace(raft::neighbors::ivf_pq::build(handle, index_params, data_view));
   }
@@ -236,6 +247,88 @@ struct brute_force_knn {
   }
 };
 
+template <typename IdxT, typename bitmap_t = std::uint32_t>
+RAFT_KERNEL initialize_random_bits(
+  bitmap_t* data, IdxT N, float sparsity, size_t total_bits, unsigned long seed)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= N) return;
+
+  curandState state;
+  curand_init(seed, idx, 0, &state);
+
+  bitmap_t value = 0;
+  for (int i = 0; i < sizeof(bitmap_t) * 8; i++) {
+    int rnd = curand(&state) % 10000;
+
+    if (rnd < int(10000 * sparsity) && (idx * sizeof(bitmap_t) * 8 + i < total_bits)) {
+      bitmap_t bit_mask = 1u << i;
+      value |= bit_mask;
+    }
+  }
+  data[idx] = value;
+}
+
+template <typename ValT, typename IdxT>
+struct brute_force_filter_knn {
+  using dist_t   = float;
+  using bitmap_t = std::uint32_t;
+
+  std::optional<raft::neighbors::brute_force::index<ValT>> index;
+  raft::neighbors::brute_force::index_params index_params;
+  raft::neighbors::brute_force::search_params search_params;
+  raft::core::bitset<bitmap_t, IdxT> removed_indices_bitset_;
+  params ps;
+
+  brute_force_filter_knn(const raft::device_resources& handle, const params& ps, const ValT* data)
+    : ps(ps), removed_indices_bitset_(handle, ps.n_samples * ps.n_queries)
+  {
+    auto stream         = resource::get_cuda_stream(handle);
+    index_params.metric = ps.metric;
+
+    auto data_view = raft::make_device_matrix_view<const ValT, IdxT>(data, ps.n_samples, ps.n_dims);
+    index.emplace(raft::neighbors::brute_force::build(handle, index_params, data_view));
+
+    IdxT element = raft::ceildiv(IdxT(ps.n_samples * ps.n_queries), IdxT(sizeof(bitmap_t) * 8));
+
+    size_t threadsPerBlock = 256;
+    size_t numBlocks       = (element + threadsPerBlock - 1) / threadsPerBlock;
+    unsigned long seed     = 1234;
+    initialize_random_bits<<<numBlocks, threadsPerBlock, 0, stream>>>(
+      removed_indices_bitset_.data(),
+      removed_indices_bitset_.size(),
+      float(1.0 - ps.removed_ratio),
+      ps.n_samples * ps.n_queries,
+      seed);
+
+    resource::sync_stream(handle);
+  }
+
+  void search(const raft::device_resources& handle,
+              const ValT* search_items,
+              ValT* out_dists,
+              IdxT* out_idxs)
+  {
+    auto queries_view =
+      raft::make_device_matrix_view<const ValT, IdxT>(search_items, ps.n_queries, ps.n_dims);
+    auto neighbors_view =
+      raft::make_device_matrix_view<IdxT, IdxT, raft::row_major>(out_idxs, ps.n_queries, ps.k);
+    auto distance_view =
+      raft::make_device_matrix_view<ValT, IdxT, raft::row_major>(out_dists, ps.n_queries, ps.k);
+
+    if (ps.removed_ratio > 0) {
+      auto filter = raft::core::bitmap_view(
+        (const bitmap_t*)removed_indices_bitset_.data(), IdxT(ps.n_queries), IdxT(ps.n_samples));
+
+      raft::neighbors::brute_force::search_with_filtering(
+        handle, *index, queries_view, filter, neighbors_view, distance_view);
+    } else {
+      raft::neighbors::brute_force::search(
+        handle, search_params, *index, queries_view, neighbors_view, distance_view);
+    }
+  }
+};
+
 template <typename ValT, typename IdxT>
 struct ivf_flat_filter_knn {
   using dist_t = float;
@@ -250,7 +343,7 @@ struct ivf_flat_filter_knn {
     : ps(ps), removed_indices_bitset_(handle, ps.n_samples)
   {
     index_params.n_lists = 4096;
-    index_params.metric  = raft::distance::DistanceType::L2Expanded;
+    index_params.metric  = ps.metric;
     index.emplace(raft::neighbors::ivf_flat::build(
       handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
     auto removed_indices =
@@ -298,7 +391,7 @@ struct ivf_pq_filter_knn {
     : ps(ps), removed_indices_bitset_(handle, ps.n_samples)
   {
     index_params.n_lists = 4096;
-    index_params.metric  = raft::distance::DistanceType::L2Expanded;
+    index_params.metric  = ps.metric;
     auto data_view = raft::make_device_matrix_view<const ValT, IdxT>(data, ps.n_samples, ps.n_dims);
     index.emplace(raft::neighbors::ivf_pq::build(handle, index_params, data_view));
     auto removed_indices =
@@ -500,10 +593,20 @@ const std::vector<params> kInputsFilter =
                                          {size_t(255)},                             // k
                                          {0.0, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64}  // removed_ratio
   );
+
+const std::vector<params> kInputsBruteForceFilter = raft::util::itertools::product<params>(
+  {size_t(1000000)},  // n_samples
+  {size_t(128)},      // n_dim
+  {size_t(1000)},     // n_queries
+  {size_t(255)},      // k
+  {0.0, 0.8, 0.9},    // removed_ratio
+  {raft::distance::DistanceType::InnerProduct, raft::distance::DistanceType::L2Expanded});
+
 inline const std::vector<TransferStrategy> kAllStrategies{
   TransferStrategy::NO_COPY, TransferStrategy::MAP_PINNED, TransferStrategy::MANAGED};
 inline const std::vector<TransferStrategy> kNoCopyOnly{TransferStrategy::NO_COPY};
 
+inline const std::vector<Scope> kScopeOnlySearch{Scope::SEARCH};
 inline const std::vector<Scope> kScopeFull{Scope::BUILD_SEARCH};
 inline const std::vector<Scope> kAllScopes{Scope::BUILD_SEARCH, Scope::SEARCH, Scope::BUILD};
 

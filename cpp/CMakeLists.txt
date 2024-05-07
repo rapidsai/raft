@@ -334,6 +334,14 @@ if(RAFT_COMPILE_LIBRARY)
     src/matrix/detail/select_k_float_int32.cu
     src/matrix/detail/select_k_half_int64_t.cu
     src/matrix/detail/select_k_half_uint32_t.cu
+    src/sparse/matrix/detail/select_k_half_uint32_t.cu
+    src/sparse/matrix/detail/select_k_double_int64_t.cu
+    src/sparse/matrix/detail/select_k_double_uint32_t.cu
+    src/sparse/matrix/detail/select_k_float_int64_t.cu
+    src/sparse/matrix/detail/select_k_float_uint32_t.cu
+    src/sparse/matrix/detail/select_k_float_int32.cu
+    src/sparse/matrix/detail/select_k_half_int64_t.cu
+    src/sparse/matrix/detail/select_k_half_uint32_t.cu
     src/neighbors/ball_cover.cu
     src/neighbors/brute_force_fused_l2_knn_float_int64_t.cu
     src/neighbors/brute_force_knn_int64_t_float_int64_t.cu

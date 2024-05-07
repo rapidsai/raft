@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/detail/mdspan_util.cuh>  // native_popc
+#include <raft/core/detail/popc.cuh>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -326,37 +326,9 @@ struct bitset {
    */
   void count(const raft::resources& res, raft::device_scalar_view<index_t> count_gpu_scalar)
   {
-    auto n_elements_ = n_elements();
-    auto count_gpu =
-      raft::make_device_vector_view<index_t, index_t>(count_gpu_scalar.data_handle(), 1);
-    auto bitset_matrix_view = raft::make_device_matrix_view<const bitset_t, index_t, col_major>(
-      bitset_.data(), n_elements_, 1);
-
-    bitset_t n_last_element = (bitset_len_ % bitset_element_size);
-    bitset_t last_element_mask =
-      n_last_element ? (bitset_t)((bitset_t{1} << n_last_element) - bitset_t{1}) : ~bitset_t{0};
-    raft::linalg::coalesced_reduction(
-      res,
-      bitset_matrix_view,
-      count_gpu,
-      index_t{0},
-      false,
-      [last_element_mask, n_elements_] __device__(bitset_t element, index_t index) {
-        index_t result = 0;
-        if constexpr (bitset_element_size == 64) {
-          if (index == n_elements_ - 1)
-            result = index_t(raft::detail::popc(element & last_element_mask));
-          else
-            result = index_t(raft::detail::popc(element));
-        } else {  // Needed because popc is not overloaded for 16 and 8 bit elements
-          if (index == n_elements_ - 1)
-            result = index_t(raft::detail::popc(uint32_t{element} & last_element_mask));
-          else
-            result = index_t(raft::detail::popc(uint32_t{element}));
-        }
-
-        return result;
-      });
+    auto values =
+      raft::make_device_vector_view<const bitset_t, index_t>(bitset_.data(), n_elements());
+    raft::detail::popc(res, values, bitset_len_, count_gpu_scalar);
   }
   /**
    * @brief Returns the number of bits set to true.

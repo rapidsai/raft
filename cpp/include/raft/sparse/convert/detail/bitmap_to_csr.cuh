@@ -68,7 +68,7 @@ RAFT_KERNEL __launch_bounds__(calc_nnz_by_rows_tpb) calc_nnz_by_rows_kernel(cons
 
     while (offset < num_cols) {
       index_t bitmap_idx = lane_id + (s_bit + offset) / BITS_PER_BITMAP;
-      bitmap_t l_bitmap  = bitmap_t(0);
+      typename std::remove_const<bitmap_t>::type l_bitmap = 0;
 
       if (bitmap_idx * BITS_PER_BITMAP < e_bit) { l_bitmap = bitmap[bitmap_idx]; }
 
@@ -177,8 +177,8 @@ RAFT_KERNEL __launch_bounds__(fill_indices_by_rows_tpb)
 #pragma unroll
     for (index_t offset = 0; offset < num_cols; offset += BITS_PER_BITMAP * warpSize) {
       index_t bitmap_idx = lane_id + (s_bit + offset) / BITS_PER_BITMAP;
-      bitmap_t l_bitmap  = bitmap_t(0);
-      index_t l_offset   = offset + lane_id * BITS_PER_BITMAP - (s_bit % BITS_PER_BITMAP);
+      typename std::remove_const<bitmap_t>::type l_bitmap = 0;
+      index_t l_offset = offset + lane_id * BITS_PER_BITMAP - (s_bit % BITS_PER_BITMAP);
 
       if (bitmap_idx * BITS_PER_BITMAP < e_bit) { l_bitmap = bitmap[bitmap_idx]; }
 

@@ -37,7 +37,7 @@ void select_k(raft::resources const& handle,
               raft::device_matrix_view<IdxT, IdxT, raft::row_major> out_idx,
               bool select_min,
               bool sorted                   = false,
-              raft::matrix::SelectAlgo algo = SelectAlgo::kAuto) RAFT_EXPLICIT;
+              raft::matrix::SelectAlgo algo = raft::matrix::SelectAlgo::kAuto) RAFT_EXPLICIT;
 }  // namespace raft::sparse::matrix::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY

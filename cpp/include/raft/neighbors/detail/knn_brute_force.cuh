@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <raft/core/bitmap.cuh>
+#include <raft/core/detail/popc.cuh>
+#include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cuda_stream_pool.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
@@ -25,12 +28,18 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
+#include <raft/linalg/norm.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/matrix/select_k.cuh>
 #include <raft/neighbors/brute_force_types.hpp>
 #include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
 #include <raft/neighbors/detail/knn_merge_parts.cuh>
+#include <raft/sparse/convert/coo.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/distance/detail/utils.cuh>
+#include <raft/sparse/linalg/sddmm.hpp>
+#include <raft/sparse/matrix/select_k.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 #include <raft/spatial/knn/detail/processing.cuh>
@@ -548,4 +557,123 @@ void brute_force_search(
                                          norms.size() ? &norms : nullptr,
                                          query_norms ? query_norms->data_handle() : nullptr);
 }
+
+template <typename T, typename IdxT, typename BitmapT>
+void brute_force_search(
+  raft::resources const& res,
+  const raft::neighbors::brute_force::index<T>& idx,
+  raft::device_matrix_view<const T, IdxT, row_major> queries,
+  raft::core::bitmap_view<const BitmapT, IdxT> filter,
+  raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
+  raft::device_matrix_view<T, IdxT, row_major> distances,
+  std::optional<raft::device_vector_view<const T, IdxT>> query_norms = std::nullopt)
+{
+  auto metric = idx.metric();
+
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1), "Value of k must match for outputs");
+  RAFT_EXPECTS(idx.dataset().extent(1) == queries.extent(1),
+               "Number of columns in queries must match brute force index");
+  RAFT_EXPECTS(metric == raft::distance::DistanceType::InnerProduct ||
+                 metric == raft::distance::DistanceType::L2Expanded ||
+                 metric == raft::distance::DistanceType::L2SqrtExpanded ||
+                 metric == raft::distance::DistanceType::CosineExpanded,
+               "Only Euclidean, IP, and Cosine are supported!");
+
+  RAFT_EXPECTS(idx.has_norms() || !(metric == raft::distance::DistanceType::L2Expanded ||
+                                    metric == raft::distance::DistanceType::L2SqrtExpanded ||
+                                    metric == raft::distance::DistanceType::CosineExpanded),
+               "Index must has norms when using Euclidean, IP, and Cosine!");
+
+  IdxT n_queries = queries.extent(0);
+  IdxT n_dataset = idx.dataset().extent(0);
+  IdxT dim       = idx.dataset().extent(1);
+
+  auto stream = resource::get_cuda_stream(res);
+
+  // calc nnz
+  IdxT nnz_h = 0;
+  rmm::device_scalar<IdxT> nnz(0, stream);
+  auto nnz_view = make_device_scalar_view<IdxT>(nnz.data());
+  auto filter_view =
+    raft::make_device_vector_view<const BitmapT, IdxT>(filter.data(), filter.n_elements());
+
+  raft::detail::popc(res, filter_view, n_queries * n_dataset, nnz_view);
+  raft::copy(&nnz_h, nnz.data(), 1, stream);
+  auto csr = raft::make_device_csr_matrix<T, IdxT>(res, n_queries, n_dataset, nnz_h);
+
+  // fill csr
+  raft::sparse::convert::bitmap_to_csr(res, filter, csr);
+
+  // create filter csr view
+  auto compressed_csr_view = csr.structure_view();
+  auto csr_view = make_device_csr_matrix_view<T, IdxT, IdxT, IdxT>(csr.get_elements().data(),
+                                                                   compressed_csr_view);
+
+  // create dataset view
+  auto dataset_view = raft::make_device_matrix_view<const T, IdxT, raft::col_major>(
+    idx.dataset().data_handle(), dim, n_dataset);
+
+  // calc dot
+  T alpha = static_cast<T>(1.0f);
+  T beta  = static_cast<T>(0.0f);
+  raft::sparse::linalg::sddmm(res,
+                              queries,
+                              dataset_view,
+                              csr_view,
+                              raft::linalg::Operation::NON_TRANSPOSE,
+                              raft::linalg::Operation::NON_TRANSPOSE,
+                              raft::make_host_scalar_view<T>(&alpha),
+                              raft::make_host_scalar_view<T>(&beta));
+
+  // post process
+  std::optional<device_vector<T, IdxT>> query_norms_;
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded ||
+      metric == raft::distance::DistanceType::CosineExpanded) {
+    if (metric == raft::distance::DistanceType::CosineExpanded) {
+      if (!query_norms) {
+        query_norms_ = make_device_vector<T, IdxT>(res, n_queries);
+        raft::linalg::rowNorm((T*)(query_norms_->data_handle()),
+                              queries.data_handle(),
+                              dim,
+                              n_queries,
+                              raft::linalg::L2Norm,
+                              true,
+                              stream,
+                              raft::sqrt_op{});
+      }
+    } else {
+      if (!query_norms) {
+        query_norms_ = make_device_vector<T, IdxT>(res, n_queries);
+        raft::linalg::rowNorm((T*)(query_norms_->data_handle()),
+                              queries.data_handle(),
+                              dim,
+                              n_queries,
+                              raft::linalg::L2Norm,
+                              true,
+                              stream,
+                              raft::identity_op{});
+      }
+    }
+    raft::sparse::distance::detail::epilogue_on_csr(
+      res,
+      csr.get_elements().data(),
+      compressed_csr_view.get_indptr().data(),
+      compressed_csr_view.get_nnz(),
+      compressed_csr_view.get_n_rows(),
+      compressed_csr_view.get_indices().data(),
+      query_norms ? query_norms->data_handle() : query_norms_->data_handle(),
+      idx.norms().data_handle(),
+      metric);
+  }
+
+  // select k
+  auto const_csr_view = make_device_csr_matrix_view<const T, IdxT, IdxT, IdxT>(
+    csr.get_elements().data(), compressed_csr_view);
+  std::optional<raft::device_vector_view<const IdxT, IdxT>> no_opt = std::nullopt;
+  raft::sparse::matrix::select_k(res, const_csr_view, no_opt, distances, neighbors, true, true);
+
+  return;
+}
+
 }  // namespace raft::neighbors::detail
