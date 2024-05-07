@@ -60,21 +60,21 @@ struct bitset_view {
    * @param sample_index Single index to test
    * @return bool True if index has not been unset in the bitset
    */
-  inline _RAFT_DEVICE auto test(const index_t sample_index) const -> bool;
+  inline _RAFT_HOST_DEVICE auto test(const index_t sample_index) const -> bool;
   /**
    * @brief Device function to test if a given index is set in the bitset.
    *
    * @param sample_index Single index to test
    * @return bool True if index has not been unset in the bitset
    */
-  inline _RAFT_DEVICE auto operator[](const index_t sample_index) const -> bool;
+  inline _RAFT_HOST_DEVICE auto operator[](const index_t sample_index) const -> bool;
   /**
    * @brief Device function to set a given index to set_value in the bitset.
    *
    * @param sample_index index to set
    * @param set_value Value to set the bit to (true or false)
    */
-  inline _RAFT_DEVICE void set(const index_t sample_index, bool set_value) const;
+  inline _RAFT_HOST_DEVICE void set(const index_t sample_index, bool set_value) const;
 
   /**
    * @brief Get the device pointer to the bitset.
@@ -89,10 +89,7 @@ struct bitset_view {
   /**
    * @brief Get the number of elements used by the bitset representation.
    */
-  inline _RAFT_HOST_DEVICE auto n_elements() const -> index_t
-  {
-    return raft::ceildiv(bitset_len_, bitset_element_size);
-  }
+  inline _RAFT_HOST_DEVICE auto n_elements() const -> index_t;
 
   inline auto to_mdspan() -> raft::device_vector_view<bitset_t, index_t>
   {
@@ -133,14 +130,7 @@ struct bitset {
   bitset(const raft::resources& res,
          raft::device_vector_view<const index_t, index_t> mask_index,
          index_t bitset_len,
-         bool default_value = true)
-    : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
-              raft::resource::get_cuda_stream(res)},
-      bitset_len_{bitset_len}
-  {
-    reset(res, default_value);
-    set(res, mask_index, !default_value);
-  }
+         bool default_value = true);
 
   /**
    * @brief Construct a new bitset object
@@ -149,13 +139,7 @@ struct bitset {
    * @param bitset_len Length of the bitset
    * @param default_value Default value to set the bits to. Default is true.
    */
-  bitset(const raft::resources& res, index_t bitset_len, bool default_value = true)
-    : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
-              resource::get_cuda_stream(res)},
-      bitset_len_{bitset_len}
-  {
-    reset(res, default_value);
-  }
+  bitset(const raft::resources& res, index_t bitset_len, bool default_value = true);
   // Disable copy constructor
   bitset(const bitset&)            = delete;
   bitset(bitset&&)                 = default;
@@ -189,10 +173,7 @@ struct bitset {
   /**
    * @brief Get the number of elements used by the bitset representation.
    */
-  inline auto n_elements() const -> index_t
-  {
-    return raft::ceildiv(bitset_len_, bitset_element_size);
-  }
+  inline auto n_elements() const -> index_t;
 
   /** @brief Get an mdspan view of the current bitset */
   inline auto to_mdspan() -> raft::device_vector_view<bitset_t, index_t>

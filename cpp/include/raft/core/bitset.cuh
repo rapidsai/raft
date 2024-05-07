@@ -40,14 +40,14 @@ _RAFT_HOST_DEVICE inline bool bitset_view<bitset_t, index_t>::test(const index_t
 }
 
 template <typename bitset_t, typename index_t>
-_RAFT_DEVICE bool bitset_view<bitset_t, index_t>::operator[](const index_t sample_index) const
+_RAFT_HOST_DEVICE bool bitset_view<bitset_t, index_t>::operator[](const index_t sample_index) const
 {
   return test(sample_index);
 }
 
 template <typename bitset_t, typename index_t>
-_RAFT_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index,
-                                                      bool set_value) const
+_RAFT_HOST_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index,
+                                                           bool set_value) const
 {
   const index_t bit_element = sample_index / bitset_element_size;
   const index_t bit_index   = sample_index % bitset_element_size;
@@ -58,6 +58,36 @@ _RAFT_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index
     const bitset_t bitmask2 = ~bitmask;
     atomicAnd(bitset_ptr_ + bit_element, bitmask2);
   }
+}
+
+template <typename bitset_t, typename index_t>
+bitset<bitset_t, index_t>::bitset(const raft::resources& res,
+                                  raft::device_vector_view<const index_t, index_t> mask_index,
+                                  index_t bitset_len,
+                                  bool default_value)
+  : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
+            raft::resource::get_cuda_stream(res)},
+    bitset_len_{bitset_len}
+{
+  reset(res, default_value);
+  set(res, mask_index, !default_value);
+}
+
+template <typename bitset_t, typename index_t>
+bitset<bitset_t, index_t>::bitset(const raft::resources& res,
+                                  index_t bitset_len,
+                                  bool default_value)
+  : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
+            raft::resource::get_cuda_stream(res)},
+    bitset_len_{bitset_len}
+{
+  reset(res, default_value);
+}
+
+template <typename bitset_t, typename index_t>
+index_t bitset<bitset_t, index_t>::n_elements() const
+{
+  return raft::ceildiv(bitset_len_, bitset_element_size);
 }
 
 template <typename bitset_t, typename index_t>
