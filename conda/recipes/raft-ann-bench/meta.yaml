@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 # Usage:
 #   conda build . -c conda-forge -c nvidia -c rapidsai
@@ -7,7 +7,6 @@
 {% set py_version = environ['CONDA_PY'] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
-{% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
 package:
@@ -40,6 +39,10 @@ build:
   ignore_run_exports_from:
     {% if cuda_major == "11" %}
     - {{ compiler('cuda11') }}
+    {% else %}
+    - {{ compiler('cuda') }}
+    - cuda-cudart-dev
+    - libcublas-dev
     {% endif %}
 
 requirements:
@@ -54,7 +57,7 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
     - ninja
-    - sysroot_{{ target_platform }} {{ sysroot_version }}
+    - {{ stdlib("c") }}
 
   host:
     - python
@@ -65,6 +68,7 @@ requirements:
     - libcublas {{ cuda11_libcublas_host_version }}
     - libcublas-dev {{ cuda11_libcublas_host_version }}
     {% else %}
+    - cuda-cudart-dev
     - cuda-profiler-api
     - libcublas-dev
     {% endif %}
@@ -85,6 +89,9 @@ requirements:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
     - cudatoolkit
+    {% else %}
+    - cuda-cudart
+    - libcublas
     {% endif %}
     - glog {{ glog_version }}
     - h5py {{ h5py_version }}

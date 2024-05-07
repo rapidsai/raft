@@ -17,11 +17,9 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
-
-#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/map_reduce.cuh>
@@ -32,15 +30,17 @@
 #include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 
+#include <raft_internal/neighbors/naive_knn.cuh>
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
 #include <rmm/device_vector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 
-#include <gtest/gtest.h>
-
 #include <cub/cub.cuh>
 #include <thrust/sequence.h>
+
+#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -68,7 +68,7 @@ struct ivf_pq_inputs {
   ivf_pq_inputs()
   {
     index_params.n_lists                  = max(32u, min(1024u, num_db_vecs / 128u));
-    index_params.kmeans_trainset_fraction = 0.95;
+    index_params.kmeans_trainset_fraction = 1.0;
   }
 };
 

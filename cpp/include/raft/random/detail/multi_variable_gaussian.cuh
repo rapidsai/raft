@@ -16,9 +16,7 @@
 
 #pragma once
 #include "curand_wrappers.hpp"
-#include <cmath>
-#include <memory>
-#include <optional>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
@@ -31,8 +29,14 @@
 #include <raft/random/random_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
-#include <stdio.h>
+#include <rmm/resource_ref.hpp>
+
+#include <cmath>
+#include <cstdio>
+#include <memory>
+#include <optional>
 #include <type_traits>
 
 // mvg.cuh takes in matrices that are column major (as in fortran)
@@ -274,7 +278,7 @@ class multi_variable_gaussian_setup_token;
 template <typename ValueType>
 multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
   raft::resources const& handle,
-  rmm::mr::device_memory_resource& mem_resource,
+  rmm::device_async_resource_ref mem_resource,
   const int dim,
   const multi_variable_gaussian_decomposition_method method);
 
@@ -290,7 +294,7 @@ class multi_variable_gaussian_setup_token {
   template <typename T>
   friend multi_variable_gaussian_setup_token<T> build_multi_variable_gaussian_token_impl(
     raft::resources const& handle,
-    rmm::mr::device_memory_resource& mem_resource,
+    rmm::device_async_resource_ref mem_resource,
     const int dim,
     const multi_variable_gaussian_decomposition_method method);
 
@@ -317,7 +321,7 @@ class multi_variable_gaussian_setup_token {
   // Constructor, only for use by friend functions.
   // Hiding this will let us change the implementation in the future.
   multi_variable_gaussian_setup_token(raft::resources const& handle,
-                                      rmm::mr::device_memory_resource& mem_resource,
+                                      rmm::device_async_resource_ref mem_resource,
                                       const int dim,
                                       const multi_variable_gaussian_decomposition_method method)
     : impl_(std::make_unique<multi_variable_gaussian_impl<ValueType>>(
@@ -374,14 +378,14 @@ class multi_variable_gaussian_setup_token {
  private:
   std::unique_ptr<multi_variable_gaussian_impl<ValueType>> impl_;
   raft::resources const& handle_;
-  rmm::mr::device_memory_resource& mem_resource_;
+  rmm::device_async_resource_ref mem_resource_;
   int dim_ = 0;
 
   auto allocate_workspace() const
   {
     const auto num_elements = impl_->get_workspace_size();
     return rmm::device_uvector<ValueType>{
-      num_elements, resource::get_cuda_stream(handle_), &mem_resource_};
+      num_elements, resource::get_cuda_stream(handle_), mem_resource_};
   }
 
   int dim() const { return dim_; }
@@ -390,7 +394,7 @@ class multi_variable_gaussian_setup_token {
 template <typename ValueType>
 multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
   raft::resources const& handle,
-  rmm::mr::device_memory_resource& mem_resource,
+  rmm::device_async_resource_ref mem_resource,
   const int dim,
   const multi_variable_gaussian_decomposition_method method)
 {
@@ -410,7 +414,7 @@ void compute_multi_variable_gaussian_impl(
 template <typename ValueType>
 void compute_multi_variable_gaussian_impl(
   raft::resources const& handle,
-  rmm::mr::device_memory_resource& mem_resource,
+  rmm::device_async_resource_ref mem_resource,
   std::optional<raft::device_vector_view<const ValueType, int>> x,
   raft::device_matrix_view<ValueType, int, raft::col_major> P,
   raft::device_matrix_view<ValueType, int, raft::col_major> X,

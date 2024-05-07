@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,15 @@
 
 #include "../test_utils.cuh"
 #include "reduce.cuh"
-#include <gtest/gtest.h>
+
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
 
 namespace raft {
 namespace linalg {
@@ -37,7 +39,8 @@ struct coalescedReductionInputs {
 template <typename T>
 ::std::ostream& operator<<(::std::ostream& os, const coalescedReductionInputs<T>& dims)
 {
-  return os;
+  return os << "{ " << dims.tolerance << ", " << dims.rows << ", " << dims.cols << ", "
+            << dims.seed;
 }
 
 // Or else, we get the following compilation error
@@ -111,15 +114,40 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
   rmm::device_uvector<T> dots_act;
 };
 
-const std::vector<coalescedReductionInputs<float>> inputsf = {{0.000002f, 1024, 32, 1234ULL},
-                                                              {0.000002f, 1024, 64, 1234ULL},
-                                                              {0.000002f, 1024, 128, 1234ULL},
-                                                              {0.000002f, 1024, 256, 1234ULL}};
+// Note: it's important to have a variety of rows/columns combinations to test all possible code
+// paths: thin (few cols or many rows), medium, thick (many cols, very few rows).
 
-const std::vector<coalescedReductionInputs<double>> inputsd = {{0.000000001, 1024, 32, 1234ULL},
-                                                               {0.000000001, 1024, 64, 1234ULL},
-                                                               {0.000000001, 1024, 128, 1234ULL},
-                                                               {0.000000001, 1024, 256, 1234ULL}};
+const std::vector<coalescedReductionInputs<float>> inputsf = {{0.000002f, 50, 2, 1234ULL},
+                                                              {0.000002f, 50, 3, 1234ULL},
+                                                              {0.000002f, 50, 7, 1234ULL},
+                                                              {0.000002f, 50, 9, 1234ULL},
+                                                              {0.000002f, 50, 20, 1234ULL},
+                                                              {0.000002f, 50, 55, 1234ULL},
+                                                              {0.000002f, 50, 100, 1234ULL},
+                                                              {0.000002f, 50, 270, 1234ULL},
+                                                              {0.000002f, 10000, 3, 1234ULL},
+                                                              {0.000002f, 10000, 9, 1234ULL},
+                                                              {0.000002f, 10000, 20, 1234ULL},
+                                                              {0.000002f, 10000, 55, 1234ULL},
+                                                              {0.000002f, 10000, 100, 1234ULL},
+                                                              {0.000002f, 10000, 270, 1234ULL},
+                                                              {0.0001f, 10, 25000, 1234ULL}};
+
+const std::vector<coalescedReductionInputs<double>> inputsd = {{0.000000001, 50, 2, 1234ULL},
+                                                               {0.000000001, 50, 3, 1234ULL},
+                                                               {0.000000001, 50, 7, 1234ULL},
+                                                               {0.000000001, 50, 9, 1234ULL},
+                                                               {0.000000001, 50, 20, 1234ULL},
+                                                               {0.000000001, 50, 55, 1234ULL},
+                                                               {0.000000001, 50, 100, 1234ULL},
+                                                               {0.000000001, 50, 270, 1234ULL},
+                                                               {0.000000001, 10000, 3, 1234ULL},
+                                                               {0.000000001, 10000, 9, 1234ULL},
+                                                               {0.000000001, 10000, 20, 1234ULL},
+                                                               {0.000000001, 10000, 55, 1234ULL},
+                                                               {0.000000001, 10000, 100, 1234ULL},
+                                                               {0.000000001, 10000, 270, 1234ULL},
+                                                               {0.0000001, 10, 25000, 1234ULL}};
 
 typedef coalescedReductionTest<float> coalescedReductionTestF;
 TEST_P(coalescedReductionTestF, Result)

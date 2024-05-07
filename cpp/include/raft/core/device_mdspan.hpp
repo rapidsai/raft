@@ -16,10 +16,11 @@
 
 #pragma once
 
-#include <cstdint>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/memory_type.hpp>
+
+#include <cstdint>
 
 namespace raft {
 
@@ -207,8 +208,12 @@ auto constexpr make_device_strided_matrix_view(ElementType* ptr,
                                                IndexType stride)
 {
   constexpr auto is_row_major = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
-  IndexType stride0           = is_row_major ? (stride > 0 ? stride : n_cols) : 1;
-  IndexType stride1           = is_row_major ? 1 : (stride > 0 ? stride : n_rows);
+  constexpr auto is_col_major = std::is_same_v<LayoutPolicy, layout_f_contiguous>;
+
+  assert(is_row_major || is_col_major);
+
+  IndexType stride0 = is_row_major ? (stride > 0 ? stride : n_cols) : 1;
+  IndexType stride1 = is_row_major ? 1 : (stride > 0 ? stride : n_rows);
 
   assert(is_row_major ? stride0 >= n_cols : stride1 >= n_rows);
   matrix_extent<IndexType> extents{n_rows, n_cols};

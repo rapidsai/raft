@@ -27,20 +27,17 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/neighbors/refine.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <raft_runtime/neighbors/ivf_pq.hpp>
-#include <raft_runtime/neighbors/refine.hpp>
-
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
 
 #include <type_traits>
 
 namespace raft::bench::ann {
 
 template <typename T, typename IdxT>
-class RaftIvfPQ : public ANN<T> {
+class RaftIvfPQ : public ANN<T>, public AnnGPU {
  public:
   using typename ANN<T>::AnnSearchParam;
   using ANN<T>::dim_;
@@ -59,19 +56,20 @@ class RaftIvfPQ : public ANN<T> {
     index_params_.metric = parse_metric_type(metric);
   }
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
+  void build(const T* dataset, size_t nrow) final;
 
   void set_search_param(const AnnSearchParam& param) override;
   void set_search_dataset(const T* dataset, size_t nrow) override;
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const override;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    return handle_.get_sync_stream();
+  }
 
   // to enable dataset access from GPU memory
   AlgoProperty get_preference() const override
@@ -99,26 +97,23 @@ class RaftIvfPQ : public ANN<T> {
 template <typename T, typename IdxT>
 void RaftIvfPQ<T, IdxT>::save(const std::string& file) const
 {
-  raft::runtime::neighbors::ivf_pq::serialize(handle_, file, *index_);
+  raft::neighbors::ivf_pq::serialize(handle_, file, *index_);
 }
 
 template <typename T, typename IdxT>
 void RaftIvfPQ<T, IdxT>::load(const std::string& file)
 {
-  std::make_shared<raft::neighbors::ivf_pq::index<IdxT>>(handle_, index_params_, dimension_)
-    .swap(index_);
-  raft::runtime::neighbors::ivf_pq::deserialize(handle_, file, index_.get());
-  return;
+  index_ = std::make_shared<raft::neighbors::ivf_pq::index<IdxT>>(
+    std::move(raft::neighbors::ivf_pq::deserialize<IdxT>(handle_, file)));
 }
 
 template <typename T, typename IdxT>
-void RaftIvfPQ<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void RaftIvfPQ<T, IdxT>::build(const T* dataset, size_t nrow)
 {
   auto dataset_v = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dim_);
   std::make_shared<raft::neighbors::ivf_pq::index<IdxT>>(
-    std::move(raft::runtime::neighbors::ivf_pq::build(handle_, index_params_, dataset_v)))
+    std::move(raft::neighbors::ivf_pq::build(handle_, index_params_, dataset_v)))
     .swap(index_);
-  handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
 
 template <typename T, typename IdxT>
@@ -143,21 +138,17 @@ void RaftIvfPQ<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
 }
 
 template <typename T, typename IdxT>
-void RaftIvfPQ<T, IdxT>::search(const T* queries,
-                                int batch_size,
-                                int k,
-                                size_t* neighbors,
-                                float* distances,
-                                cudaStream_t stream) const
+void RaftIvfPQ<T, IdxT>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   if (refine_ratio_ > 1.0f) {
     uint32_t k0 = static_cast<uint32_t>(refine_ratio_ * k);
     auto queries_v =
-      raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, index_->dim());
-    auto distances_tmp = raft::make_device_matrix<float, IdxT>(handle_, batch_size, k0);
-    auto candidates    = raft::make_device_matrix<IdxT, IdxT>(handle_, batch_size, k0);
+      raft::make_device_matrix_view<const T, uint32_t>(queries, batch_size, index_->dim());
+    auto distances_tmp = raft::make_device_matrix<float, uint32_t>(handle_, batch_size, k0);
+    auto candidates    = raft::make_device_matrix<IdxT, uint32_t>(handle_, batch_size, k0);
 
-    raft::runtime::neighbors::ivf_pq::search(
+    raft::neighbors::ivf_pq::search(
       handle_, search_params_, *index_, queries_v, candidates.view(), distances_tmp.view());
 
     if (raft::get_device_for_address(dataset_.data_handle()) >= 0) {
@@ -166,53 +157,48 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
       auto neighbors_v = raft::make_device_matrix_view<IdxT, IdxT>((IdxT*)neighbors, batch_size, k);
       auto distances_v = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
 
-      raft::runtime::neighbors::refine(handle_,
-                                       dataset_,
-                                       queries_v,
-                                       candidates.view(),
-                                       neighbors_v,
-                                       distances_v,
-                                       index_->metric());
-      handle_.stream_wait(stream);  // RAFT stream -> bench stream
+      raft::neighbors::refine<IdxT, T, float, IdxT>(handle_,
+                                                    dataset_,
+                                                    queries_v,
+                                                    candidates.view(),
+                                                    neighbors_v,
+                                                    distances_v,
+                                                    index_->metric());
     } else {
       auto queries_host    = raft::make_host_matrix<T, IdxT>(batch_size, index_->dim());
       auto candidates_host = raft::make_host_matrix<IdxT, IdxT>(batch_size, k0);
       auto neighbors_host  = raft::make_host_matrix<IdxT, IdxT>(batch_size, k);
       auto distances_host  = raft::make_host_matrix<float, IdxT>(batch_size, k);
 
+      auto stream = resource::get_cuda_stream(handle_);
       raft::copy(queries_host.data_handle(), queries, queries_host.size(), stream);
-      raft::copy(candidates_host.data_handle(),
-                 candidates.data_handle(),
-                 candidates_host.size(),
-                 resource::get_cuda_stream(handle_));
+      raft::copy(
+        candidates_host.data_handle(), candidates.data_handle(), candidates_host.size(), stream);
 
       auto dataset_v = raft::make_host_matrix_view<const T, IdxT>(
         dataset_.data_handle(), dataset_.extent(0), dataset_.extent(1));
 
-      // wait for the queries to copy to host in 'stream` and for IVF-PQ::search to finish
-      RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), resource::get_cuda_stream(handle_)));
-      RAFT_CUDA_TRY(cudaEventRecord(handle_.get_sync_event(), stream));
-      RAFT_CUDA_TRY(cudaEventSynchronize(handle_.get_sync_event()));
-      raft::runtime::neighbors::refine(handle_,
-                                       dataset_v,
-                                       queries_host.view(),
-                                       candidates_host.view(),
-                                       neighbors_host.view(),
-                                       distances_host.view(),
-                                       index_->metric());
+      raft::resource::sync_stream(handle_);  // wait for the queries and candidates
+      raft::neighbors::refine<IdxT, T, float, IdxT>(handle_,
+                                                    dataset_v,
+                                                    queries_host.view(),
+                                                    candidates_host.view(),
+                                                    neighbors_host.view(),
+                                                    distances_host.view(),
+                                                    index_->metric());
 
       raft::copy(neighbors, (size_t*)neighbors_host.data_handle(), neighbors_host.size(), stream);
       raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
     }
   } else {
     auto queries_v =
-      raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, index_->dim());
-    auto neighbors_v = raft::make_device_matrix_view<IdxT, IdxT>((IdxT*)neighbors, batch_size, k);
-    auto distances_v = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
+      raft::make_device_matrix_view<const T, uint32_t>(queries, batch_size, index_->dim());
+    auto neighbors_v =
+      raft::make_device_matrix_view<IdxT, uint32_t>((IdxT*)neighbors, batch_size, k);
+    auto distances_v = raft::make_device_matrix_view<float, uint32_t>(distances, batch_size, k);
 
-    raft::runtime::neighbors::ivf_pq::search(
+    raft::neighbors::ivf_pq::search(
       handle_, search_params_, *index_, queries_v, neighbors_v, distances_v);
-    handle_.stream_wait(stream);  // RAFT stream -> bench stream
   }
 }
 }  // namespace raft::bench::ann

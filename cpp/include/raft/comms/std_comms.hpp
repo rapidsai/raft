@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,17 @@
 
 #pragma once
 
+#include <raft/comms/comms.hpp>
+#include <raft/comms/detail/std_comms.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
-#include <raft/comms/comms.hpp>
-#include <raft/comms/detail/std_comms.hpp>
-
-#include <iostream>
 #include <nccl.h>
 #include <ucp/api/ucp.h>
+#include <ucxx/api.h>
+
+#include <iostream>
 
 namespace raft {
 namespace comms {
@@ -81,6 +82,8 @@ void build_comms_nccl_only(resources* handle, ncclComm_t nccl_comm, int num_rank
  *
  * @param handle raft::resources for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
+ * @param is_ucxx whether `ucp_worker` and `eps` objects are UCXX (true) or
+ *                pure UCX (false).
  * @param ucp_worker of local process
  *        Note: This is purposefully left as void* so that the ucp_worker_h
  *        doesn't need to be exposed through the cython layer
@@ -112,30 +115,55 @@ void build_comms_nccl_only(resources* handle, ncclComm_t nccl_comm, int num_rank
  * comm.sync_stream(resource::get_cuda_stream(handle));
  * @endcode
  */
-void build_comms_nccl_ucx(
-  resources* handle, ncclComm_t nccl_comm, void* ucp_worker, void* eps, int num_ranks, int rank)
+void build_comms_nccl_ucx(resources* handle,
+                          ncclComm_t nccl_comm,
+                          bool is_ucxx,
+                          void* ucp_worker,
+                          void* eps,
+                          int num_ranks,
+                          int rank)
 {
-  auto eps_sp = std::make_shared<ucp_ep_h*>(new ucp_ep_h[num_ranks]);
+  detail::ucx_objects_t ucx_objects;
+  if (is_ucxx) {
+    ucx_objects.endpoints = std::make_shared<ucxx::Endpoint**>(new ucxx::Endpoint*[num_ranks]);
+    ucx_objects.worker    = static_cast<ucxx::Worker*>(ucp_worker);
+  } else {
+    ucx_objects.endpoints = std::make_shared<ucp_ep_h*>(new ucp_ep_h[num_ranks]);
+    ucx_objects.worker    = static_cast<ucp_worker_h>(ucp_worker);
+  }
 
   auto size_t_ep_arr = reinterpret_cast<size_t*>(eps);
 
   for (int i = 0; i < num_ranks; i++) {
-    size_t ptr    = size_t_ep_arr[i];
-    auto ucp_ep_v = reinterpret_cast<ucp_ep_h*>(*eps_sp);
+    size_t ptr = size_t_ep_arr[i];
 
-    if (ptr != 0) {
-      auto eps_ptr = reinterpret_cast<ucp_ep_h>(size_t_ep_arr[i]);
-      ucp_ep_v[i]  = eps_ptr;
+    if (is_ucxx) {
+      auto ucp_ep_v = reinterpret_cast<ucxx::Endpoint**>(
+        *std::get<detail::ucxx_endpoint_array_t>(ucx_objects.endpoints));
+
+      if (ptr != 0) {
+        auto eps_ptr = reinterpret_cast<ucxx::Endpoint*>(size_t_ep_arr[i]);
+        ucp_ep_v[i]  = eps_ptr;
+      } else {
+        ucp_ep_v[i] = nullptr;
+      }
     } else {
-      ucp_ep_v[i] = nullptr;
+      auto ucp_ep_v =
+        reinterpret_cast<ucp_ep_h*>(*std::get<detail::ucp_endpoint_array_t>(ucx_objects.endpoints));
+
+      if (ptr != 0) {
+        auto eps_ptr = reinterpret_cast<ucp_ep_h>(size_t_ep_arr[i]);
+        ucp_ep_v[i]  = eps_ptr;
+      } else {
+        ucp_ep_v[i] = nullptr;
+      }
     }
   }
 
   cudaStream_t stream = resource::get_cuda_stream(*handle);
 
-  auto communicator =
-    std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new raft::comms::std_comms(
-      nccl_comm, (ucp_worker_h)ucp_worker, eps_sp, num_ranks, rank, stream)));
+  auto communicator = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(
+    new raft::comms::std_comms(nccl_comm, ucx_objects, num_ranks, rank, stream)));
   resource::set_comms(*handle, communicator);
 }
 

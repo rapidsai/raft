@@ -15,8 +15,7 @@
  */
 
 #include "../test_utils.h"
-#include <cstdint>
-#include <gtest/gtest.h>
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
@@ -28,6 +27,10 @@
 #include <raft/core/pinned_mdarray.hpp>
 #include <raft/core/pinned_mdspan.hpp>
 #include <raft/util/memory_type_dispatcher.cuh>
+
+#include <gtest/gtest.h>
+
+#include <cstdint>
 #include <utility>
 #include <variant>
 

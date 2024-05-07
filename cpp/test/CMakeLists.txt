@@ -101,9 +101,10 @@ if(BUILD_TESTS)
     PATH
     test/cluster/kmeans.cu
     test/cluster/kmeans_balanced.cu
+    test/cluster/kmeans_find_k.cu
     test/cluster/cluster_solvers.cu
     test/cluster/linkage.cu
-    test/cluster/kmeans_find_k.cu
+    test/cluster/spectral.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
@@ -170,6 +171,7 @@ if(BUILD_TESTS)
     test/distance/masked_nn.cu
     test/distance/masked_nn_compress_to_bits.cu
     test/distance/fused_l2_nn.cu
+    test/distance/fused_cosine_nn.cu
     test/distance/gram.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
@@ -186,7 +188,6 @@ if(BUILD_TESTS)
     test/ext_headers/raft_spatial_knn_detail_fused_l2_knn.cu
     test/ext_headers/raft_distance_fused_l2_nn.cu
     test/ext_headers/raft_neighbors_ivf_pq.cu
-    test/ext_headers/raft_util_memory_pool.cpp
     test/ext_headers/raft_neighbors_ivf_flat.cu
     test/ext_headers/raft_core_logger.cpp
     test/ext_headers/raft_neighbors_refine.cu
@@ -265,6 +266,7 @@ if(BUILD_TESTS)
     test/matrix/matrix.cu
     test/matrix/norm.cu
     test/matrix/reverse.cu
+    test/matrix/sample_rows.cu
     test/matrix/slice.cu
     test/matrix/triangular.cu
     test/sparse/spectral_matrix.cu
@@ -292,6 +294,7 @@ if(BUILD_TESTS)
     test/random/rng_int.cu
     test/random/rmat_rectangular_generator.cu
     test/random/sample_without_replacement.cu
+    test/random/excess_sampling.cu
   )
 
   ConfigureTest(
@@ -316,8 +319,10 @@ if(BUILD_TESTS)
     test/sparse/reduce.cu
     test/sparse/row_op.cu
     test/sparse/sddmm.cu
+    test/sparse/select_k_csr.cu
     test/sparse/sort.cu
     test/sparse/spgemmi.cu
+    test/sparse/spmm.cu
     test/sparse/symmetrize.cu
   )
 
@@ -367,6 +372,8 @@ if(BUILD_TESTS)
     test/neighbors/ann_cagra/test_uint8_t_uint32_t.cu
     test/neighbors/ann_cagra/test_float_int64_t.cu
     test/neighbors/ann_cagra/test_half_int64_t.cu
+    test/neighbors/ann_cagra_vpq/test_float_int64_t.cu
+    test/neighbors/ann_cagra_vpq/test_float_uint32_t.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim128_t8.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim256_t16.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim512_t32.cu
@@ -399,6 +406,30 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_flat/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
+    test/neighbors/ann_ivf_pq/ivf_pq_build_float_uint32_t.cu
+    test/neighbors/ann_ivf_pq/ivf_pq_search_float_uint32_t.cu
+    src/neighbors/detail/ivf_pq_search_filtering_float_int64_t.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_float_filt32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_filt32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_filt32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_half_filt32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_filt32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_filt32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_half_filt32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_float_bitset32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_bitset32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_bitset32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_half_bitset32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_bitset32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_bitset32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_half_bitset32.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_float_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_half_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_bitset64.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_half_bitset64.cu
     test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
     test/neighbors/ann_ivf_pq/test_float_int64_t.cu
     test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu

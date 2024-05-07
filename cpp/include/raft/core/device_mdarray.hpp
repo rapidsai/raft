@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,14 @@
 
 #pragma once
 
-#include <cstdint>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/resources.hpp>
+
+#include <rmm/resource_ref.hpp>
+
+#include <cstdint>
 
 namespace raft {
 
@@ -106,7 +109,7 @@ template <typename ElementType,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
 auto make_device_mdarray(raft::resources const& handle,
-                         rmm::mr::device_memory_resource* mr,
+                         rmm::device_async_resource_ref mr,
                          extents<IndexType, Extents...> exts)
 {
   using mdarray_t = device_mdarray<ElementType, decltype(exts), LayoutPolicy>;

@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include <raft/neighbors/ann_types.hpp>
-#include <raft/neighbors/ivf_list_types.hpp>
-
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ann_types.hpp>
+#include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
 #include <thrust/fill.h>
@@ -105,14 +104,36 @@ struct index_params : ann::index_params {
    * flag to `true` if you prefer to use as little GPU memory for the database as possible.
    */
   bool conservative_memory_allocation = false;
+
   /**
-   * The max number of data points to use per PQ code during PQ codebook training. Using more data
-   * points per PQ code may increase the quality of PQ codebook but may also increase the build
-   * time. The parameter is applied to both PQ codebook generation methods, i.e., PER_SUBSPACE and
-   * PER_CLUSTER. In both cases, we will use `pq_book_size * max_train_points_per_pq_code` training
-   * points to train each codebook.
+   * Creates index_params based on shape of the input dataset.
+   * Usage example:
+   * @code{.cpp}
+   *   using namespace raft::neighbors;
+   *   raft::resources res;
+   *   // create index_params for a [N. D] dataset and have InnerProduct as the distance metric
+   *   auto dataset = raft::make_device_matrix<float, int64_t>(res, N, D);
+   *   ivf_pq::index_params index_params =
+   *     ivf_pq::index_params::from_dataset(dataset.view(), raft::distance::InnerProduct);
+   *   // modify/update index_params as needed
+   *   index_params.add_data_on_build = true;
+   * @endcode
    */
-  uint32_t max_train_points_per_pq_code = 256;
+  template <typename DataT, typename Accessor>
+  static index_params from_dataset(
+    mdspan<const DataT, matrix_extent<int64_t>, row_major, Accessor> dataset,
+    raft::distance::DistanceType metric = raft::distance::L2Expanded)
+  {
+    index_params params;
+    params.n_lists =
+      dataset.extent(0) < 4 * 2500 ? 4 : static_cast<uint32_t>(std::sqrt(dataset.extent(0)));
+    params.pq_dim =
+      round_up_safe(static_cast<uint32_t>(dataset.extent(1) / 4), static_cast<uint32_t>(8));
+    params.pq_bits                  = 8;
+    params.kmeans_trainset_fraction = dataset.extent(0) < 10000 ? 1 : 0.1;
+    params.metric                   = metric;
+    return params;
+  }
 };
 
 struct search_params : ann::search_params {

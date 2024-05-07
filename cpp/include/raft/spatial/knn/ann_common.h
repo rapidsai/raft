@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
+#ifndef RAFT_HIDE_DEPRECATION_WARNINGS
 #pragma message(                                              \
     __FILE__                                                  \
     " is deprecated and will be removed in a future release." \
     " Please use the other approximate KNN implementations defined in spatial/knn/*.")
+#endif
 
 #pragma once
 
 #include "detail/processing.hpp"
 #include "ivf_flat_types.hpp"
-#include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ivf_pq_types.hpp>
 
 namespace raft {
 namespace spatial {

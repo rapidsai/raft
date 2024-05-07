@@ -6,7 +6,6 @@
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
-{% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
 package:
@@ -42,6 +41,9 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         {% endif %}
         - librmm
     requirements:
@@ -56,16 +58,19 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
+        - cuda-version ={{ cuda_version }}
         {% if cuda_major != "11" %}
         - cuda-cudart-dev
         {% endif %}
-        - cuda-version ={{ cuda_version }}
+        - librmm ={{ minor_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - cuda-cudart
         {% endif %}
         - librmm ={{ minor_version }}
         - spdlog {{ spdlog_version }}
@@ -82,11 +87,14 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
         {% endif %}
         - librmm
     requirements:
       host:
         - cuda-version ={{ cuda_version }}
+        - librmm ={{ minor_version }}
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         - librmm ={{ minor_version }}
@@ -124,6 +132,13 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
+        - libcublas-dev
+        - libcurand-dev
+        - libcusolver-dev
+        - libcusparse-dev
         {% endif %}
     requirements:
       build:
@@ -137,7 +152,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-version ={{ cuda_version }}
@@ -152,6 +167,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -161,6 +177,13 @@ outputs:
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major != "11" %}
+        - cuda-cudart
+        - libcublas
+        - libcurand
+        - libcusolver
+        - libcusparse
+        {% endif %}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -175,6 +198,9 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         {% endif %}
     requirements:
       build:
@@ -188,7 +214,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-version ={{ cuda_version }}
@@ -203,6 +229,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -212,6 +239,13 @@ outputs:
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major != "11" %}
+        - cuda-cudart
+        - libcublas
+        - libcurand
+        - libcusolver
+        - libcusparse
+        {% endif %}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -226,6 +260,13 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
+        - libcublas-dev
+        - libcurand-dev
+        - libcusolver-dev
+        - libcusparse-dev
         {% endif %}
     requirements:
       build:
@@ -239,9 +280,13 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
+        # We must include both libraft and libraft-static to prevent the test
+        # builds from packaging those libraries. However, tests only depend on
+        # the shared library in libraft.
         - {{ pin_subpackage('libraft', exact=True) }}
+        - {{ pin_subpackage('libraft-static', exact=True) }}
         - cuda-version ={{ cuda_version }}
         {% if cuda_major == "11" %}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
@@ -261,16 +306,18 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - gmock {{ gtest_version }}
-        - gtest {{ gtest_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - cuda-cudart
+        - libcublas
+        - libcurand
+        - libcusolver
+        - libcusparse
         {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
-        - gmock {{ gtest_version }}
-        - gtest {{ gtest_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -285,6 +332,10 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
+        - libcublas-dev
         {% endif %}
     requirements:
       build:
@@ -298,7 +349,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
@@ -308,6 +359,7 @@ outputs:
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
         {% else %}
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         {% endif %}
@@ -315,6 +367,9 @@ outputs:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - cuda-cudart
+        - libcublas
         {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
     about:

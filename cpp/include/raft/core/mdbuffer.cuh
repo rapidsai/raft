@@ -15,9 +15,6 @@
  */
 
 #pragma once
-#include <algorithm>
-#include <execution>
-#include <optional>
 #include <raft/core/cuda_support.hpp>
 #include <raft/core/detail/copy.hpp>
 #include <raft/core/device_container_policy.hpp>
@@ -31,12 +28,17 @@
 #include <raft/core/pinned_container_policy.hpp>
 #include <raft/core/stream_view.hpp>
 #include <raft/util/variant_utils.hpp>
+
+#include <algorithm>
+#include <execution>
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include <variant>
 #ifndef RAFT_DISABLE_CUDA
 #include <raft/core/copy.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <thrust/device_ptr.h>
 #else
 #include <raft/core/copy.hpp>

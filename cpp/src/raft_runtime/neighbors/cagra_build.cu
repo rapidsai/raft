@@ -17,6 +17,7 @@
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
+
 #include <raft_runtime/neighbors/cagra.hpp>
 
 #include <cuda_fp16.h>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,11 @@
 #pragma once
 
 #include "../common/ann_types.hpp"
+#include "../common/util.hpp"
+
+#include <raft/util/cudart_utils.hpp>
 
 #include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
-#include <raft/util/cudart_utils.hpp>
 
 #include <memory>
 #include <stdexcept>
@@ -30,7 +32,7 @@ template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, in
 class GgnnImpl;
 
 template <typename T>
-class Ggnn : public ANN<T> {
+class Ggnn : public ANN<T>, public AnnGPU {
  public:
   struct BuildParam {
     int k_build{24};       // KBuild
@@ -53,20 +55,17 @@ class Ggnn : public ANN<T> {
 
   Ggnn(Metric metric, int dim, const BuildParam& param);
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) override
-  {
-    impl_->build(dataset, nrow, stream);
-  }
+  void build(const T* dataset, size_t nrow) override { impl_->build(dataset, nrow); }
 
   void set_search_param(const AnnSearchParam& param) override { impl_->set_search_param(param); }
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const override
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override
   {
-    impl_->search(queries, batch_size, k, neighbors, distances, stream);
+    impl_->search(queries, batch_size, k, neighbors, distances);
+  }
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    return dynamic_cast<AnnGPU*>(impl_.get())->get_sync_stream();
   }
 
   void save(const std::string& file) const override { impl_->save(file); }
@@ -115,27 +114,27 @@ Ggnn<T>::Ggnn(Metric metric, int dim, const BuildParam& param) : ANN<T>(metric, 
 }
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
-class GgnnImpl : public ANN<T> {
+class GgnnImpl : public ANN<T>, public AnnGPU {
  public:
   using typename ANN<T>::AnnSearchParam;
 
   GgnnImpl(Metric metric, int dim, const typename Ggnn<T>::BuildParam& param);
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) override;
+  void build(const T* dataset, size_t nrow) override;
 
   void set_search_param(const AnnSearchParam& param) override;
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const override;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override { return stream_; }
 
   void save(const std::string& file) const override;
   void load(const std::string& file) override;
   std::unique_ptr<ANN<T>> copy() override
   {
-    return std::make_unique<GgnnImpl<T, measure, D, KBuild, KQuery, S>>(*this);
+    auto r = std::make_unique<GgnnImpl<T, measure, D, KBuild, KQuery, S>>(*this);
+    // set the thread-local stream to the copied handle.
+    r->stream_ = raft::bench::ann::get_stream_from_global_pool();
+    return r;
   };
 
   AlgoProperty get_preference() const override
@@ -166,13 +165,40 @@ class GgnnImpl : public ANN<T> {
   std::shared_ptr<GGNNGPUInstance> ggnn_;
   typename Ggnn<T>::BuildParam build_param_;
   typename Ggnn<T>::SearchParam search_param_;
+  cudaStream_t stream_;
+  const T* base_dataset                 = nullptr;
+  size_t base_n_rows                    = 0;
+  std::optional<std::string> graph_file = std::nullopt;
+
+  void load_impl()
+  {
+    if (base_dataset == nullptr) { return; }
+    if (base_n_rows == 0) { return; }
+    int device;
+    RAFT_CUDA_TRY(cudaGetDevice(&device));
+    ggnn_ = std::make_shared<GGNNGPUInstance>(
+      device, base_n_rows, build_param_.num_layers, true, build_param_.tau);
+    ggnn_->set_base_data(base_dataset);
+    ggnn_->set_stream(get_sync_stream());
+    if (graph_file.has_value()) {
+      auto& ggnn_host   = ggnn_->ggnn_cpu_buffers.at(0);
+      auto& ggnn_device = ggnn_->ggnn_shards.at(0);
+      ggnn_->set_stream(get_sync_stream());
+
+      ggnn_host.load(graph_file.value());
+      ggnn_host.uploadAsync(ggnn_device);
+      RAFT_CUDA_TRY(cudaStreamSynchronize(ggnn_device.stream));
+    }
+  }
 };
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
 GgnnImpl<T, measure, D, KBuild, KQuery, S>::GgnnImpl(Metric metric,
                                                      int dim,
                                                      const typename Ggnn<T>::BuildParam& param)
-  : ANN<T>(metric, dim), build_param_(param)
+  : ANN<T>(metric, dim),
+    build_param_(param),
+    stream_(raft::bench::ann::get_stream_from_global_pool())
 {
   if (metric_ == Metric::kInnerProduct) {
     if (measure != Cosine) { throw std::runtime_error("mis-matched metric"); }
@@ -187,17 +213,12 @@ GgnnImpl<T, measure, D, KBuild, KQuery, S>::GgnnImpl(Metric metric,
 }
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
-void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
-                                                       size_t nrow,
-                                                       cudaStream_t stream)
+void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset, size_t nrow)
 {
-  int device;
-  RAFT_CUDA_TRY(cudaGetDevice(&device));
-  ggnn_ = std::make_shared<GGNNGPUInstance>(
-    device, nrow, build_param_.num_layers, true, build_param_.tau);
-
-  ggnn_->set_base_data(dataset);
-  ggnn_->set_stream(stream);
+  base_dataset = dataset;
+  base_n_rows  = nrow;
+  graph_file   = std::nullopt;
+  load_impl();
   ggnn_->build(0);
   for (int i = 0; i < build_param_.refine_iterations; ++i) {
     ggnn_->refine();
@@ -207,7 +228,11 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
 void GgnnImpl<T, measure, D, KBuild, KQuery, S>::set_search_dataset(const T* dataset, size_t nrow)
 {
-  ggnn_->set_base_data(dataset);
+  if (base_dataset != dataset || base_n_rows != nrow) {
+    base_dataset = dataset;
+    base_n_rows  = nrow;
+    load_impl();
+  }
 }
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
@@ -217,12 +242,8 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::set_search_param(const AnnSearc
 }
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
-void GgnnImpl<T, measure, D, KBuild, KQuery, S>::search(const T* queries,
-                                                        int batch_size,
-                                                        int k,
-                                                        size_t* neighbors,
-                                                        float* distances,
-                                                        cudaStream_t stream) const
+void GgnnImpl<T, measure, D, KBuild, KQuery, S>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   static_assert(sizeof(size_t) == sizeof(int64_t), "sizes of size_t and GGNN's KeyT are different");
   if (k != KQuery) {
@@ -231,7 +252,7 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::search(const T* queries,
       ", but this GGNN instance only supports k = " + std::to_string(KQuery));
   }
 
-  ggnn_->set_stream(stream);
+  ggnn_->set_stream(get_sync_stream());
   RAFT_CUDA_TRY(cudaMemcpyToSymbol(c_tau_query, &search_param_.tau, sizeof(float)));
 
   const int block_dim      = search_param_.block_dim;
@@ -276,7 +297,7 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::save(const std::string& file) c
 {
   auto& ggnn_host   = ggnn_->ggnn_cpu_buffers.at(0);
   auto& ggnn_device = ggnn_->ggnn_shards.at(0);
-  ggnn_->set_stream(0);
+  ggnn_->set_stream(get_sync_stream());
 
   ggnn_host.downloadAsync(ggnn_device);
   RAFT_CUDA_TRY(cudaStreamSynchronize(ggnn_device.stream));
@@ -286,13 +307,10 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::save(const std::string& file) c
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
 void GgnnImpl<T, measure, D, KBuild, KQuery, S>::load(const std::string& file)
 {
-  auto& ggnn_host   = ggnn_->ggnn_cpu_buffers.at(0);
-  auto& ggnn_device = ggnn_->ggnn_shards.at(0);
-  ggnn_->set_stream(0);
-
-  ggnn_host.load(file);
-  ggnn_host.uploadAsync(ggnn_device);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(ggnn_device.stream));
+  if (!graph_file.has_value() || graph_file.value() != file) {
+    graph_file = file;
+    load_impl();
+  }
 }
 
 }  // namespace raft::bench::ann

@@ -15,6 +15,7 @@
  */
 
 #include "common.cuh"
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/thrust_policy.hpp>

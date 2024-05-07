@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,24 +19,7 @@
 
 #pragma once
 
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <string>
-#include <unordered_map>
-#include <utility>
-#include <vector>
-
-#include <cublas_v2.h>
-#include <cuda_runtime.h>
-#include <cusolverDn.h>
-#include <cusolverSp.h>
-#include <cusparse.h>
-
 #include <raft/core/comms.hpp>
-#include <rmm/cuda_stream_pool.hpp>
-#include <rmm/exec_policy.hpp>
-
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_event.hpp>
@@ -51,6 +34,25 @@
 #include <raft/core/resource/sub_comms.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
+
+#include <rmm/cuda_stream_pool.hpp>
+#include <rmm/exec_policy.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+
+#include <cuda_runtime.h>
+
+#include <cublas_v2.h>
+#include <cusolverDn.h>
+#include <cusolverSp.h>
+#include <cusparse.h>
+
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace raft {
 

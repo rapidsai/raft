@@ -22,17 +22,17 @@
  */
 #pragma once
 #ifndef RAFT_DISABLE_CUDA
-#include <raft/core/device_mdspan.hpp>
-#include <raft/util/cudart_utils.hpp>
-
 #include <raft/core/detail/span.hpp>  // dynamic_extent
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_device_accessor.hpp>
-
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/util/cudart_utils.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <thrust/device_ptr.h>
 
@@ -118,7 +118,7 @@ class device_uvector {
    */
   explicit device_uvector(std::size_t size,
                           rmm::cuda_stream_view stream,
-                          rmm::mr::device_memory_resource* mr)
+                          rmm::device_async_resource_ref mr)
     : data_{size, stream, mr}
   {
   }
@@ -165,19 +165,11 @@ class device_uvector_policy {
  public:
   auto create(raft::resources const& res, size_t n) -> container_type
   {
-    if (mr_ == nullptr) {
-      // NB: not using the workspace resource by default!
-      //     The workspace resource is for short-lived temporary allocations.
-      return container_type(n, resource::get_cuda_stream(res));
-    } else {
-      return container_type(n, resource::get_cuda_stream(res), mr_);
-    }
+    return container_type(n, resource::get_cuda_stream(res), mr_);
   }
 
   constexpr device_uvector_policy() = default;
-  constexpr explicit device_uvector_policy(rmm::mr::device_memory_resource* mr) noexcept : mr_(mr)
-  {
-  }
+  explicit device_uvector_policy(rmm::device_async_resource_ref mr) noexcept : mr_(mr) {}
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -193,7 +185,7 @@ class device_uvector_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 
  private:
-  rmm::mr::device_memory_resource* mr_{nullptr};
+  rmm::device_async_resource_ref mr_{rmm::mr::get_current_device_resource()};
 };
 
 }  // namespace raft

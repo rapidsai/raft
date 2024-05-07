@@ -16,16 +16,15 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/neighbors/detail/ivf_flat_search.cuh>
 #include <raft/neighbors/ivf_flat_serialize.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
 
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/resources.hpp>
-
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 namespace raft::neighbors::ivf_flat {
 
@@ -463,8 +462,8 @@ void search_with_filtering(raft::resources const& handle,
                            uint32_t k,
                            IdxT* neighbors,
                            float* distances,
-                           rmm::mr::device_memory_resource* mr = nullptr,
-                           IvfSampleFilterT sample_filter      = IvfSampleFilterT())
+                           rmm::device_async_resource_ref mr,
+                           IvfSampleFilterT sample_filter = IvfSampleFilterT())
 {
   raft::neighbors::ivf_flat::detail::search(
     handle, params, index, queries, n_queries, k, neighbors, distances, mr, sample_filter);
@@ -521,7 +520,7 @@ void search(raft::resources const& handle,
             uint32_t k,
             IdxT* neighbors,
             float* distances,
-            rmm::mr::device_memory_resource* mr = nullptr)
+            rmm::device_async_resource_ref mr)
 {
   raft::neighbors::ivf_flat::detail::search(handle,
                                             params,

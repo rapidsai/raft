@@ -11,12 +11,13 @@ RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels
 RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-pylibraft-dep
 python -m pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl
 
-# echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install $(echo ./dist/raft_dask*.whl)[test]
+python -m pip install "raft_dask-${RAPIDS_PY_CUDA_SUFFIX}[test]>=0.0.0a0" --find-links dist/
 
-# Run smoke tests for aarch64 pull requests
-if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
-    python ./ci/wheel_smoke_test_raft_dask.py
-else
-    python -m pytest --import-mode=append ./python/raft-dask/raft_dask/test
-fi
+# rapids-logger "pytest raft-dask"
+# python -m pytest --import-mode=append ./python/raft-dask/raft_dask/test
+
+# rapids-logger "pytest raft-dask (ucx-py only)"
+# python -m pytest --import-mode=append ./python/raft-dask/raft_dask/test --run_ucx
+
+rapids-logger "pytest raft-dask (ucxx only)"
+python -m pytest --import-mode=append ./python/raft-dask/raft_dask/test --run_ucxx

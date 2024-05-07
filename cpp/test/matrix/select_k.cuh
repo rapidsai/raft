@@ -15,19 +15,18 @@
  */
 
 #include "../test_utils.cuh"
+
 #include <raft/core/resource/cuda_stream.hpp>
-
-#include <raft_internal/matrix/select_k.cuh>
-
 #include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
 
-#include <gtest/gtest.h>
+#include <raft_internal/matrix/select_k.cuh>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
+
+#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <numeric>

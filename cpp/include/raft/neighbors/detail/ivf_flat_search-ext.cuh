@@ -16,12 +16,15 @@
 
 #pragma once
 
-#include <cstdint>                                 // uintX_t
 #include <raft/neighbors/ivf_flat_types.hpp>       // raft::neighbors::ivf_flat::index
 #include <raft/neighbors/sample_filter_types.hpp>  // none_ivf_sample_filter
 #include <raft/util/raft_explicit.hpp>             // RAFT_EXPLICIT
 
+#include <rmm/resource_ref.hpp>
+
 #include <cuda_fp16.h>
+
+#include <cstdint>  // uintX_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -36,8 +39,8 @@ void search(raft::resources const& handle,
             uint32_t k,
             IdxT* neighbors,
             float* distances,
-            rmm::mr::device_memory_resource* mr = nullptr,
-            IvfSampleFilterT sample_filter      = IvfSampleFilterT()) RAFT_EXPLICIT;
+            rmm::device_async_resource_ref mr,
+            IvfSampleFilterT sample_filter = IvfSampleFilterT()) RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors::ivf_flat::detail
 
@@ -53,7 +56,7 @@ void search(raft::resources const& handle,
     uint32_t k,                                                                      \
     IdxT* neighbors,                                                                 \
     float* distances,                                                                \
-    rmm::mr::device_memory_resource* mr,                                             \
+    rmm::device_async_resource_ref mr,                                               \
     IvfSampleFilterT sample_filter)
 
 instantiate_raft_neighbors_ivf_flat_detail_search(

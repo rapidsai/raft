@@ -25,6 +25,7 @@
 #include <rmm/device_buffer.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda_runtime.h>
 
@@ -281,7 +282,8 @@ TEST(Raft, WorkspaceResource)
   raft::handle_t handle;
 
   // The returned resource is always a limiting adaptor
-  auto* orig_mr = resource::get_workspace_resource(handle)->get_upstream();
+  rmm::device_async_resource_ref orig_mr{
+    resource::get_workspace_resource(handle)->get_upstream_resource()};
 
   // Let's create a pooled resource
   auto pool_mr = std::shared_ptr<rmm::mr::device_memory_resource>{new rmm::mr::pool_memory_resource(
@@ -295,8 +297,8 @@ TEST(Raft, WorkspaceResource)
   auto new_mr = resource::get_workspace_resource(handle);
 
   // By this point, the orig_mr likely points to a non-existent resource; don't dereference!
-  ASSERT_NE(orig_mr, new_mr);
-  ASSERT_EQ(pool_mr.get(), new_mr->get_upstream());
+  ASSERT_NE(orig_mr, rmm::device_async_resource_ref{new_mr});
+  ASSERT_EQ(rmm::device_async_resource_ref{pool_mr.get()}, new_mr->get_upstream_resource());
   // We can safely reset pool_mr, because the shared_ptr to the pool memory stays in the resource
   pool_mr.reset();
 

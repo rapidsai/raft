@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,12 @@
  */
 #pragma once
 
-#include <raft/core/error.hpp>
-#include <raft/core/mdspan_types.hpp>
-#include <raft/core/memory_type.hpp>
-
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
+#include <raft/core/error.hpp>
 #include <raft/core/host_device_accessor.hpp>
-
+#include <raft/core/mdspan_types.hpp>
+#include <raft/core/memory_type.hpp>
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
 namespace raft {

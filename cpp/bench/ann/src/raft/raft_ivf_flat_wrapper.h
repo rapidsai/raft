@@ -39,7 +39,7 @@
 namespace raft::bench::ann {
 
 template <typename T, typename IdxT>
-class RaftIvfFlatGpu : public ANN<T> {
+class RaftIvfFlatGpu : public ANN<T>, public AnnGPU {
  public:
   using typename ANN<T>::AnnSearchParam;
 
@@ -57,18 +57,19 @@ class RaftIvfFlatGpu : public ANN<T> {
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
-  void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
+  void build(const T* dataset, size_t nrow) final;
 
   void set_search_param(const AnnSearchParam& param) override;
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              size_t* neighbors,
-              float* distances,
-              cudaStream_t stream = 0) const override;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    return handle_.get_sync_stream();
+  }
 
   // to enable dataset access from GPU memory
   AlgoProperty get_preference() const override
@@ -93,11 +94,10 @@ class RaftIvfFlatGpu : public ANN<T> {
 };
 
 template <typename T, typename IdxT>
-void RaftIvfFlatGpu<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void RaftIvfFlatGpu<T, IdxT>::build(const T* dataset, size_t nrow)
 {
   index_ = std::make_shared<raft::neighbors::ivf_flat::index<T, IdxT>>(std::move(
     raft::neighbors::ivf_flat::build(handle_, index_params_, dataset, IdxT(nrow), dimension_)));
-  handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
 
 template <typename T, typename IdxT>
@@ -130,16 +130,18 @@ std::unique_ptr<ANN<T>> RaftIvfFlatGpu<T, IdxT>::copy()
 }
 
 template <typename T, typename IdxT>
-void RaftIvfFlatGpu<T, IdxT>::search(const T* queries,
-                                     int batch_size,
-                                     int k,
-                                     size_t* neighbors,
-                                     float* distances,
-                                     cudaStream_t stream) const
+void RaftIvfFlatGpu<T, IdxT>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   static_assert(sizeof(size_t) == sizeof(IdxT), "IdxT is incompatible with size_t");
-  raft::neighbors::ivf_flat::search(
-    handle_, search_params_, *index_, queries, batch_size, k, (IdxT*)neighbors, distances);
-  handle_.stream_wait(stream);  // RAFT stream -> bench stream
+  raft::neighbors::ivf_flat::search(handle_,
+                                    search_params_,
+                                    *index_,
+                                    queries,
+                                    batch_size,
+                                    k,
+                                    (IdxT*)neighbors,
+                                    distances,
+                                    resource::get_workspace_resource(handle_));
 }
 }  // namespace raft::bench::ann
