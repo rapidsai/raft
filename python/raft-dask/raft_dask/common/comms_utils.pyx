@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
 
     void build_comms_nccl_ucx(device_resources *handle,
                               ncclComm_t comm,
+                              bint is_ucxx,
                               void *ucp_worker,
                               void *eps,
                               int size,
@@ -285,7 +286,7 @@ def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
                           rank)
 
 
-def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
+def inject_comms_on_handle(handle, nccl_inst, is_ucxx, ucp_worker, eps, size,
                            rank, verbose):
     """
     Given a handle and initialized comms, creates a comms_t instance
@@ -308,7 +309,10 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
 
     for i in range(len(eps)):
         if eps[i] is not None:
-            ep_st = <uintptr_t>eps[i].get_ucp_endpoint()
+            if is_ucxx:
+                ep_st = <uintptr_t>eps[i].ucxx_endpoint
+            else:
+                ep_st = <uintptr_t>eps[i].get_ucp_endpoint()
             ucp_eps[i] = <size_t>ep_st
         else:
             ucp_eps[i] = 0
@@ -323,6 +327,7 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
 
     build_comms_nccl_ucx(handle_,
                          deref(nccl_comm_),
+                         is_ucxx,
                          <void*>ucp_worker_st,
                          <void*>ucp_eps,
                          size,

@@ -46,9 +46,7 @@ struct ucx_context {
 class ucp_request {
  public:
   struct ucx_context* req;
-  bool needs_release   = true;
-  int other_rank       = -1;
-  bool is_send_request = false;
+  bool needs_release = true;
 };
 
 // by default, match the whole tag
@@ -72,17 +70,16 @@ static void recv_callback(void* request, ucs_status_t status, ucp_tag_recv_info_
   context->completed          = 1;
 }
 
+ucp_tag_t build_message_tag(int rank, int tag)
+{
+  // keeping the rank in the lower bits enables debugging.
+  return ((uint32_t)tag << 31) | (uint32_t)rank;
+}
+
 /**
  * Helper class for interacting with ucp.
  */
 class comms_ucp_handler {
- private:
-  ucp_tag_t build_message_tag(int rank, int tag) const
-  {
-    // keeping the rank in the lower bits enables debugging.
-    return ((uint32_t)tag << 31) | (uint32_t)rank;
-  }
-
  public:
   /**
    * @brief Frees any memory underlying the given ucp request object
@@ -132,9 +129,7 @@ class comms_ucp_handler {
       req->needs_release = false;
     }
 
-    req->other_rank      = rank;
-    req->is_send_request = true;
-    req->req             = ucp_req;
+    req->req = ucp_req;
   }
 
   /**
@@ -156,10 +151,8 @@ class comms_ucp_handler {
 
     struct ucx_context* ucp_req = (struct ucx_context*)recv_result;
 
-    req->req             = ucp_req;
-    req->needs_release   = true;
-    req->is_send_request = false;
-    req->other_rank      = sender_rank;
+    req->req           = ucp_req;
+    req->needs_release = true;
 
     ASSERT(!UCS_PTR_IS_ERR(recv_result),
            "unable to receive UCX data message (%d)\n",
