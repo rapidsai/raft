@@ -405,6 +405,12 @@ TEST_P(PrefilteredBruteForceTest_float_int64, Result) { Run(); }
 
 template <typename index_t>
 const std::vector<PrefilteredBruteForceInputs<index_t>> selectk_inputs = {
+  {1, 100000, 255, 255, 0.4, raft::distance::DistanceType::L2Expanded},
+  {10, 100000, 512, 16, 0.5, raft::distance::DistanceType::L2Expanded},
+  {20, 100000, 2052, 16, 0.2, raft::distance::DistanceType::L2Expanded},
+  {1, 10000, 255, 16, 0.4, raft::distance::DistanceType::InnerProduct},
+  {20, 10000, 512, 16, 0.5, raft::distance::DistanceType::InnerProduct},
+  {100, 10000, 2052, 16, 0.2, raft::distance::DistanceType::InnerProduct},
   {1000, 10000, 1, 0, 0.1, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 3, 0, 0.1, raft::distance::DistanceType::InnerProduct},
   {1000, 10000, 5, 0, 0.1, raft::distance::DistanceType::L2SqrtExpanded},

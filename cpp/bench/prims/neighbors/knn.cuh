@@ -61,8 +61,13 @@ struct params {
 
 inline auto operator<<(std::ostream& os, const params& p) -> std::ostream&
 {
-  os << p.n_samples << "#" << p.n_dims << "#" << p.n_queries << "#" << p.k << "#"
-     << p.removed_ratio;
+  os << p.n_samples << "#" << p.n_dims << "#" << p.n_queries << "#" << p.k;
+  if (p.removed_ratio > 0.0) {
+    os << "#" << p.removed_ratio;
+  } else {
+    os << "#"
+       << "[No filtered]";
+  }
   switch (p.metric) {
     case raft::distance::DistanceType::InnerProduct: os << "#InnerProduct"; break;
     case raft::distance::DistanceType::L2Expanded: os << "#L2Expanded"; break;
@@ -595,11 +600,11 @@ const std::vector<params> kInputsFilter =
   );
 
 const std::vector<params> kInputsBruteForceFilter = raft::util::itertools::product<params>(
-  {size_t(1000000)},  // n_samples
-  {size_t(128)},      // n_dim
-  {size_t(1000)},     // n_queries
-  {size_t(255)},      // k
-  {0.0, 0.8, 0.9},    // removed_ratio
+  {size_t(1000000)},                         // n_samples
+  {size_t(4096), size_t(512), size_t(128)},  // n_dim
+  {size_t(1), size_t(10), size_t(1000)},     // n_queries
+  {size_t(255)},                             // k
+  {0.0, 0.8, 0.9, 0.99},                     // removed_ratio
   {raft::distance::DistanceType::InnerProduct, raft::distance::DistanceType::L2Expanded});
 
 inline const std::vector<TransferStrategy> kAllStrategies{
