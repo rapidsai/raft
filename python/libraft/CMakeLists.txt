@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -15,25 +15,31 @@
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../../rapids_config.cmake)
-include(rapids-cpm)
+
 include(rapids-cuda)
-rapids_cuda_init_architectures(raft-dask-python)
+rapids_cuda_init_architectures(libraft-python)
 
 project(
-  raft-dask-python
+  libraft-python
   VERSION "${RAPIDS_VERSION}"
   LANGUAGES CXX CUDA
 )
 
-rapids_cpm_init()
-# Once https://github.com/rapidsai/ucxx/issues/173 is resolved we can remove this.
-find_package(ucx REQUIRED)
-include(cmake/thirdparty/get_ucxx.cmake)
+# Check if raft is already available. If so, it is the user's responsibility to ensure that the
+# CMake package is also available at build time of the Python raft package.
+find_package(raft "${RAPIDS_VERSION}")
 
-find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS distributed)
+if(raft_FOUND)
+  return()
+endif()
 
-include(rapids-cython-core)
-rapids_cython_init()
+unset(raft_FOUND)
 
-add_subdirectory(raft_dask/common)
-add_subdirectory(raft_dask/include_test)
+set(BUILD_TESTS OFF)
+set(BUILD_PRIMS_BENCH OFF)
+set(BUILD_ANN_BENCH OFF)
+set(RAFT_COMPILE_LIBRARY ON)
+set(RAFT_COMPILE_DYNAMIC_ONLY ON)
+set(CUDA_STATIC_RUNTIME ON)
+
+add_subdirectory(../../cpp raft-cpp)
