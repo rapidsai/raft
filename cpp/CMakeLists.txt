@@ -22,7 +22,6 @@ option(BUILD_CPU_ONLY "Build CPU only components. Applies to RAFT ANN benchmarks
 # workaround for rapids_cuda_init_architectures not working for arch detection with
 # enable_language(CUDA)
 set(lang_list "CXX")
-set(CMAKE_INSTALL_MESSAGE LAZY)
 
 if(NOT BUILD_CPU_ONLY)
   include(rapids-cuda)
