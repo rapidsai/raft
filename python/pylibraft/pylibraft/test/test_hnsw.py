@@ -38,9 +38,13 @@ def run_hnsw_build_search_test(
     if metric == "inner_product":
         dataset = normalize(dataset, norm="l2", axis=1)
         if dtype in [np.int8, np.uint8]:
-            pytest.skip("inner_product metric is not supported for int8/uint8 data")
-        if dataset == "nn_descent":
-            pytest.skip("inner_product metric is not supported for nn_descent build_algo")
+            pytest.skip(
+                "inner_product metric is not supported for int8/uint8 data"
+            )
+        if build_algo == "nn_descent":
+            pytest.skip(
+                "inner_product metric is not supported for nn_descent build_algo"
+            )
 
     build_params = cagra.IndexParams(
         metric=metric,
@@ -68,7 +72,9 @@ def run_hnsw_build_search_test(
         "inner_product": "cosine",
         "euclidean": "euclidean",
     }[metric]
-    nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
+    nn_skl = NearestNeighbors(
+        n_neighbors=k, algorithm="brute", metric=skl_metric
+    )
     nn_skl.fit(dataset)
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
@@ -86,6 +92,9 @@ def test_hnsw(dtype, k, ef, num_threads, metric, build_algo):
     # Note that inner_product tests use normalized input which we cannot
     # represent in int8, therefore we test only sqeuclidean metric here.
     run_hnsw_build_search_test(
-        dtype=dtype, k=k, metric=metric, build_algo=build_algo,
+        dtype=dtype,
+        k=k,
+        metric=metric,
+        build_algo=build_algo,
         search_params={"ef": ef, "num_threads": num_threads}
     )
