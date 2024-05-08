@@ -26,21 +26,18 @@ namespace raft::neighbors::mg {
 
 namespace raft::neighbors::ivf_flat {
   struct dist_index_params : raft::neighbors::ivf_flat::index_params {
-    std::vector<int> device_ids;
     raft::neighbors::mg::parallel_mode mode;
   };
 }
 
 namespace raft::neighbors::ivf_pq {
   struct dist_index_params : raft::neighbors::ivf_pq::index_params {
-    std::vector<int> device_ids;
     raft::neighbors::mg::parallel_mode mode;
   };
 }
 
 namespace raft::neighbors::cagra {
   struct dist_index_params : raft::neighbors::cagra::index_params {
-    std::vector<int> device_ids;
     raft::neighbors::mg::parallel_mode mode;
   };
 }

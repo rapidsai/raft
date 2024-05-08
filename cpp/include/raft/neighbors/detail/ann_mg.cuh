@@ -23,6 +23,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/ann_types.hpp>
 #include <raft/neighbors/ann_mg_types.hpp>
+#include <raft/neighbors/ann_mg_helpers.cuh>
 
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include <raft/neighbors/brute_force.cuh>
@@ -196,60 +197,15 @@ class ann_interface {
 template <typename AnnIndexType, typename T, typename IdxT>
 class ann_mg_index {
  public:
-  ann_mg_index(const std::vector<int>& dev_list, parallel_mode mode = SHARDING)
+  ann_mg_index(parallel_mode mode, int num_ranks_)
     : mode_(mode),
-      root_rank_(0),
-      num_ranks_(dev_list.size()),
-      dev_ids_(dev_list),
-      nccl_comms_(dev_list.size())
-  {
-    init_device_resources();
-    init_nccl_clique();
-  }
+      num_ranks_(num_ranks_)
+  {}
 
-  // index deserialization and distribution
   ann_mg_index(const raft::resources& handle,
-               const std::vector<int>& dev_list,
-               const std::string& filename)
-    : mode_(REPLICATION),
-      root_rank_(0),
-      num_ranks_(dev_list.size()),
-      dev_ids_(dev_list),
-      nccl_comms_(dev_list.size())
-  {
-      init_device_resources();
-      init_nccl_clique();
-
-      for (int rank = 0; rank < num_ranks_; rank++) {
-        RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
-        auto& ann_if = ann_interfaces_.emplace_back();
-        ann_if.deserialize(dev_resources_[rank], filename);
-      }
-  }
-
-  // MG index deserialization
-  ann_mg_index(const raft::resources& handle,
+               const raft::neighbors::mg::nccl_clique& clique,
                const std::string& filename) {
-      std::ifstream is(filename, std::ios::in | std::ios::binary);
-      if (!is) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
-
-      mode_ = (raft::neighbors::mg::parallel_mode)deserialize_scalar<int>(handle, is);
-      root_rank_ = 0;
-      num_ranks_ = deserialize_scalar<int>(handle, is);
-      dev_ids_.resize(num_ranks_);
-      std::iota(std::begin(dev_ids_), std::end(dev_ids_), 0);
-      nccl_comms_.resize(num_ranks_);
-
-      init_device_resources();
-      init_nccl_clique();
-
-      for (int rank = 0; rank < num_ranks_; rank++) {
-        RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
-        auto& ann_if = ann_interfaces_.emplace_back();
-        ann_if.deserialize(dev_resources_[rank], is);
-      }
-
-      is.close();
+    deserialize_mg_index(handle, clique, filename);
   }
 
   ann_mg_index(const ann_mg_index&)                    = delete;
@@ -257,29 +213,44 @@ class ann_mg_index {
   auto operator=(const ann_mg_index&) -> ann_mg_index& = delete;
   auto operator=(ann_mg_index&&) -> ann_mg_index&      = default;
 
-  void init_device_resources() {
+  // local index deserialization and distribution
+  void deserialize_and_distribute(const raft::resources& handle,
+                                  const raft::neighbors::mg::nccl_clique& clique,
+                                  const std::string& filename)
+  {
     for (int rank = 0; rank < num_ranks_; rank++) {
-      RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
-      dev_resources_.emplace_back();
+      int dev_id = clique.device_ids_[rank];
+      const raft::device_resources& dev_res = clique.device_resources_[rank];
+      RAFT_CUDA_TRY(cudaSetDevice(dev_id));
+      auto& ann_if = ann_interfaces_.emplace_back();
+      ann_if.deserialize(dev_res, filename);
     }
   }
 
-  void init_nccl_clique() {
-    RAFT_NCCL_TRY(ncclCommInitAll(nccl_comms_.data(), num_ranks_, dev_ids_.data()));
+  // MG index deserialization
+  void deserialize_mg_index(const raft::resources& handle,
+                            const raft::neighbors::mg::nccl_clique& clique,
+                            const std::string& filename)
+  {
+    std::ifstream is(filename, std::ios::in | std::ios::binary);
+    if (!is) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
+
+    mode_ = (raft::neighbors::mg::parallel_mode)deserialize_scalar<int>(handle, is);
+    num_ranks_ = deserialize_scalar<int>(handle, is);
+
     for (int rank = 0; rank < num_ranks_; rank++) {
-      RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
-      raft::comms::build_comms_nccl_only(&dev_resources_[rank], nccl_comms_[rank], num_ranks_, rank);
+      int dev_id = clique.device_ids_[rank];
+      const raft::device_resources& dev_res = clique.device_resources_[rank];
+      RAFT_CUDA_TRY(cudaSetDevice(dev_id));
+      auto& ann_if = ann_interfaces_.emplace_back();
+      ann_if.deserialize(dev_res, is);
     }
+
+    is.close();
   }
 
-  void destroy_nccl_clique() {
-    for (int rank = 0; rank < num_ranks_; rank++) {
-      cudaSetDevice(dev_ids_[rank]);
-      ncclCommDestroy(nccl_comms_[rank]);
-    }
-  }
-
-  void build(const ann::index_params* index_params,
+  void build(const raft::neighbors::mg::nccl_clique& clique,
+             const ann::index_params* index_params,
              raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
   {
     if (mode_ == REPLICATION) {
@@ -287,10 +258,12 @@ class ann_mg_index {
 
       #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
-        RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
+        int dev_id = clique.device_ids_[rank];
+        const raft::device_resources& dev_res = clique.device_resources_[rank];
+        RAFT_CUDA_TRY(cudaSetDevice(dev_id));
         auto& ann_if = ann_interfaces_[rank];
-        ann_if.build(dev_resources_[rank], index_params, index_dataset);
-        resource::sync_stream(dev_resources_[rank]);
+        ann_if.build(dev_res, index_params, index_dataset);
+        resource::sync_stream(dev_res);
       }
       #pragma omp barrier
     } else if (mode_ == SHARDING) {
@@ -301,7 +274,9 @@ class ann_mg_index {
 
       #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
-        RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
+        int dev_id = clique.device_ids_[rank];
+        const raft::device_resources& dev_res = clique.device_resources_[rank];
+        RAFT_CUDA_TRY(cudaSetDevice(dev_id));
         IdxT n_rows_per_shard  = raft::ceildiv(n_rows, (IdxT)num_ranks_);
         IdxT offset            = rank * n_rows_per_shard;
         n_rows_per_shard       = std::min(n_rows_per_shard, n_rows - offset);
@@ -309,32 +284,36 @@ class ann_mg_index {
         auto partition         = raft::make_host_matrix_view<const T, IdxT, row_major>(
           partition_ptr, n_rows_per_shard, n_cols);
         auto& ann_if = ann_interfaces_[rank];
-        ann_if.build(dev_resources_[rank], index_params, partition);
-        resource::sync_stream(dev_resources_[rank]);
+        ann_if.build(dev_res, index_params, partition);
+        resource::sync_stream(dev_res);
       }
       #pragma omp barrier
     }
-    set_current_device_to_root_rank();
   }
 
-  void extend(raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
+  void extend(const raft::neighbors::mg::nccl_clique& clique,
+              raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
               std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
   {
     IdxT n_rows = new_vectors.extent(0);
     if (mode_ == REPLICATION) {
       #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
-        RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
+        int dev_id = clique.device_ids_[rank];
+        const raft::device_resources& dev_res = clique.device_resources_[rank];
+        RAFT_CUDA_TRY(cudaSetDevice(dev_id));
         auto& ann_if = ann_interfaces_[rank];
-        ann_if.extend(dev_resources_[rank], new_vectors, new_indices);
-        resource::sync_stream(dev_resources_[rank]);
+        ann_if.extend(dev_res, new_vectors, new_indices);
+        resource::sync_stream(dev_res);
       }
       #pragma omp barrier
     } else if (mode_ == SHARDING) {
       IdxT n_cols           = new_vectors.extent(1);
       #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
-        RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
+        int dev_id = clique.device_ids_[rank];
+        const raft::device_resources& dev_res = clique.device_resources_[rank];
+        RAFT_CUDA_TRY(cudaSetDevice(dev_id));
         IdxT n_rows_per_shard    = raft::ceildiv(n_rows, (IdxT)num_ranks_);
         IdxT offset              = rank * n_rows_per_shard;
         n_rows_per_shard         = std::min(n_rows_per_shard, n_rows - offset);
@@ -348,15 +327,15 @@ class ann_mg_index {
           new_indices_part = raft::make_host_vector_view<const IdxT, IdxT>(new_indices_ptr, n_rows_per_shard);
         }
         auto& ann_if = ann_interfaces_[rank];
-        ann_if.extend(dev_resources_[rank], new_vectors_part, new_indices_part);
-        resource::sync_stream(dev_resources_[rank]);
+        ann_if.extend(dev_res, new_vectors_part, new_indices_part);
+        resource::sync_stream(dev_res);
       }
       #pragma omp barrier
     }
-    set_current_device_to_root_rank();
   }
 
-  void search(const ann::search_params* search_params,
+  void search(const raft::neighbors::mg::nccl_clique& clique,
+              const ann::search_params* search_params,
               raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
               raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
               raft::host_matrix_view<float, IdxT, row_major> distances) const
@@ -368,7 +347,9 @@ class ann_mg_index {
 
       #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
-        RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
+        int dev_id = clique.device_ids_[rank];
+        const raft::device_resources& dev_res = clique.device_resources_[rank];
+        RAFT_CUDA_TRY(cudaSetDevice(dev_id));
         IdxT n_rows_per_shard   = raft::ceildiv(n_rows, (IdxT)num_ranks_);
         IdxT offset             = rank * n_rows_per_shard;
         IdxT query_offset       = offset * n_cols;
@@ -377,12 +358,11 @@ class ann_mg_index {
         auto query_partition = raft::make_host_matrix_view<const T, IdxT, row_major>(
           query_dataset.data_handle() + query_offset, n_rows_per_shard, n_cols);
 
-        auto& handle = dev_resources_[rank];
-        auto d_neighbors = raft::make_device_matrix<IdxT, IdxT, row_major>(handle, n_rows_per_shard, n_neighbors);
-        auto d_distances = raft::make_device_matrix<float, IdxT, row_major>(handle, n_rows_per_shard, n_neighbors);
+        auto d_neighbors = raft::make_device_matrix<IdxT, IdxT, row_major>(dev_res, n_rows_per_shard, n_neighbors);
+        auto d_distances = raft::make_device_matrix<float, IdxT, row_major>(dev_res, n_rows_per_shard, n_neighbors);
 
         auto& ann_if = ann_interfaces_[rank];
-        ann_if.search(handle,
+        ann_if.search(dev_res,
                       search_params,
                       query_partition,
                       d_neighbors.view(),
@@ -391,12 +371,12 @@ class ann_mg_index {
         raft::copy(neighbors.data_handle() + output_offset,
                    d_neighbors.data_handle(),
                    n_rows_per_shard * n_neighbors,
-                   resource::get_cuda_stream(handle));
+                   resource::get_cuda_stream(dev_res));
         raft::copy(distances.data_handle() + output_offset,
                    d_distances.data_handle(),
                    n_rows_per_shard * n_neighbors,
-                   resource::get_cuda_stream(handle));
-        resource::sync_stream(handle);
+                   resource::get_cuda_stream(dev_res));
+        resource::sync_stream(dev_res);
       }
       #pragma omp barrier
     } else if (mode_ == SHARDING) {
@@ -406,7 +386,7 @@ class ann_mg_index {
 
       IdxT n_batches   = raft::ceildiv(n_rows, (IdxT)N_ROWS_PER_BATCH);
 
-      const auto& root_handle = set_current_device_to_root_rank();
+      const auto& root_handle = clique.set_current_device_to_root_rank();
       auto in_neighbors       = raft::make_device_matrix<IdxT, IdxT, row_major>(
         root_handle, num_ranks_ * N_ROWS_PER_BATCH, n_neighbors);
       auto in_distances = raft::make_device_matrix<float, IdxT, row_major>(
@@ -426,28 +406,29 @@ class ann_mg_index {
 
         #pragma omp parallel for
         for (int rank = 0; rank < num_ranks_; rank++) {
-          RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
-          auto& handle = dev_resources_[rank];
-          auto d_neighbors = raft::make_device_matrix<IdxT, IdxT, row_major>(handle, n_rows_per_batches, n_neighbors);
-          auto d_distances = raft::make_device_matrix<float, IdxT, row_major>(handle, n_rows_per_batches, n_neighbors);
+          int dev_id = clique.device_ids_[rank];
+          const raft::device_resources& dev_res = clique.device_resources_[rank];
+          RAFT_CUDA_TRY(cudaSetDevice(dev_id));
+          auto d_neighbors = raft::make_device_matrix<IdxT, IdxT, row_major>(dev_res, n_rows_per_batches, n_neighbors);
+          auto d_distances = raft::make_device_matrix<float, IdxT, row_major>(dev_res, n_rows_per_batches, n_neighbors);
 
           auto& ann_if = ann_interfaces_[rank];
-          ann_if.search(handle, search_params, query_partition, d_neighbors.view(), d_distances.view());
+          ann_if.search(dev_res, search_params, query_partition, d_neighbors.view(), d_distances.view());
 
           RAFT_NCCL_TRY(ncclGroupStart());
           uint64_t batch_offset   = rank * n_rows_per_batches * n_neighbors;
 
-          const auto& comms = resource::get_comms(handle);
+          const auto& comms = resource::get_comms(dev_res);
           comms.device_send(d_neighbors.data_handle(),
                             n_rows_per_batches * n_neighbors,
-                            root_rank_,
-                            resource::get_cuda_stream(handle));
+                            clique.root_rank_,
+                            resource::get_cuda_stream(dev_res));
           comms.device_send(d_distances.data_handle(),
                             n_rows_per_batches * n_neighbors,
-                            root_rank_,
-                            resource::get_cuda_stream(handle));
+                            clique.root_rank_,
+                            resource::get_cuda_stream(dev_res));
 
-          const auto& root_handle = set_current_device_to_root_rank();
+          const auto& root_handle = clique.set_current_device_to_root_rank();
           const auto& root_comms  = resource::get_comms(root_handle);
           root_comms.device_recv(in_neighbors.data_handle() + batch_offset,
                                  n_rows_per_batches * n_neighbors,
@@ -470,7 +451,7 @@ class ann_mg_index {
         auto out_distances_view = raft::make_device_matrix_view<float, IdxT, row_major>(
           out_distances.data_handle(), n_rows_per_batches, n_neighbors);
 
-        const auto& root_handle_ = set_current_device_to_root_rank();
+        const auto& root_handle_ = clique.set_current_device_to_root_rank();
         auto h_trans = std::vector<IdxT>(num_ranks_);
         IdxT translation_offset = 0;
         for (int rank = 0; rank < num_ranks_; rank++) {
@@ -498,11 +479,10 @@ class ann_mg_index {
                    resource::get_cuda_stream(root_handle_));
       }
     }
-
-    set_current_device_to_root_rank();
   }
 
   void serialize(raft::resources const& handle,
+                 const raft::neighbors::mg::nccl_clique& clique,
                  const std::string& filename) const
   {
     std::ofstream of(filename, std::ios::out | std::ios::binary);
@@ -511,185 +491,197 @@ class ann_mg_index {
     serialize_scalar(handle, of, (int)mode_);
     serialize_scalar(handle, of, num_ranks_);
     for (int rank = 0; rank < num_ranks_; rank++) {
-        RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
+        int dev_id = clique.device_ids_[rank];
+        const raft::device_resources& dev_res = clique.device_resources_[rank];
+        RAFT_CUDA_TRY(cudaSetDevice(dev_id));
         auto& ann_if = ann_interfaces_[rank];
-        ann_if.serialize(dev_resources_[rank], of);
+        ann_if.serialize(dev_res, of);
     }
 
     of.close();
     if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
   }
 
-  inline const raft::device_resources& set_current_device_to_root_rank() const
-  {
-    RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[root_rank_]));
-    return dev_resources_[root_rank_];
-  }
-
  private:
   parallel_mode mode_;
-  int root_rank_;
   int num_ranks_;
-  std::vector<int> dev_ids_;
-  std::vector<raft::device_resources> dev_resources_;
   std::vector<ann_interface<AnnIndexType, T, IdxT>> ann_interfaces_;
-  std::vector<ncclComm_t> nccl_comms_;
 };
 
 template <typename T, typename IdxT>
 ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> build(
   const raft::resources& handle,
+  const raft::neighbors::mg::nccl_clique& clique,
   const ivf_flat::dist_index_params& index_params,
   raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
 {
-  ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> index(index_params.device_ids, index_params.mode);
-  index.build(static_cast<const ann::index_params*>(&index_params), index_dataset);
+  ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> index(index_params.mode, clique.num_ranks_);
+  index.build(clique, static_cast<const ann::index_params*>(&index_params), index_dataset);
   return index;
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> build(
   const raft::resources& handle,
+  const raft::neighbors::mg::nccl_clique& clique,
   const ivf_pq::dist_index_params& index_params,
   raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
 {
-  ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> index(index_params.device_ids, index_params.mode);
-  index.build(static_cast<const ann::index_params*>(&index_params), index_dataset);
+  ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> index(index_params.mode, clique.num_ranks_);
+  index.build(clique, static_cast<const ann::index_params*>(&index_params), index_dataset);
   return index;
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<cagra::index<T, IdxT>, T, IdxT> build(
   const raft::resources& handle,
+  const raft::neighbors::mg::nccl_clique& clique,
   const cagra::dist_index_params& index_params,
   raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
 {
-  ann_mg_index<cagra::index<T, IdxT>, T, IdxT> index(index_params.device_ids, index_params.mode);
-  index.build(static_cast<const ann::index_params*>(&index_params), index_dataset);
+  ann_mg_index<cagra::index<T, IdxT>, T, IdxT> index(index_params.mode, clique.num_ranks_);
+  index.build(clique, static_cast<const ann::index_params*>(&index_params), index_dataset);
   return index;
 }
 
 template <typename T, typename IdxT>
 void extend(const raft::resources& handle,
+            const raft::neighbors::mg::nccl_clique& clique,
             ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
             raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
             std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
 {
-  index.extend(new_vectors, new_indices);
+  index.extend(clique, new_vectors, new_indices);
 }
 
 template <typename T, typename IdxT>
 void extend(const raft::resources& handle,
+            const raft::neighbors::mg::nccl_clique& clique,
             ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
             raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
             std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
 {
-  index.extend(new_vectors, new_indices);
+  index.extend(clique, new_vectors, new_indices);
 }
 
 template <typename T, typename IdxT>
 void search(const raft::resources& handle,
+            const raft::neighbors::mg::nccl_clique& clique,
             const ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
             const ivf_flat::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::host_matrix_view<float, IdxT, row_major> distances)
 {
-  index.search(
-    static_cast<const ann::search_params*>(&search_params), query_dataset, neighbors, distances);
+  index.search(clique, static_cast<const ann::search_params*>(&search_params), query_dataset, neighbors, distances);
 }
 
 template <typename T, typename IdxT>
 void search(const raft::resources& handle,
+            const raft::neighbors::mg::nccl_clique& clique,
             const ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
             const ivf_pq::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::host_matrix_view<float, IdxT, row_major> distances)
 {
-  index.search(
-    static_cast<const ann::search_params*>(&search_params), query_dataset, neighbors, distances);
+  index.search(clique, static_cast<const ann::search_params*>(&search_params), query_dataset, neighbors, distances);
 }
 
 template <typename T, typename IdxT>
 void search(const raft::resources& handle,
+            const raft::neighbors::mg::nccl_clique& clique,
             const ann_mg_index<cagra::index<T, IdxT>, T, IdxT>& index,
             const cagra::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::host_matrix_view<float, IdxT, row_major> distances)
 {
-  index.search(
-    static_cast<const ann::search_params*>(&search_params), query_dataset, neighbors, distances);
+  index.search(clique, static_cast<const ann::search_params*>(&search_params), query_dataset, neighbors, distances);
 }
 
 template <typename T, typename IdxT>
 void serialize(const raft::resources& handle,
+               const raft::neighbors::mg::nccl_clique& clique,
                const ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
                const std::string& filename)
 {
-  index.serialize(handle, filename);
+  index.serialize(handle, clique, filename);
 }
 
 template <typename T, typename IdxT>
 void serialize(const raft::resources& handle,
+               const raft::neighbors::mg::nccl_clique& clique,
                const ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
                const std::string& filename)
 {
-  index.serialize(handle, filename);
+  index.serialize(handle, clique, filename);
 }
 
 template <typename T, typename IdxT>
 void serialize(const raft::resources& handle,
+               const raft::neighbors::mg::nccl_clique& clique,
                const ann_mg_index<cagra::index<T, IdxT>, T, IdxT>& index,
                const std::string& filename)
 {
-  index.serialize(handle, filename);
+  index.serialize(handle, clique, filename);
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize_flat(const raft::resources& handle,
+                                                                 const raft::neighbors::mg::nccl_clique& clique,
                                                                  const std::string& filename)
 {
-  return ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>(handle, filename);
+  auto index = ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>(handle, clique, filename);
+  return index;
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> deserialize_pq(const raft::resources& handle,
+                                                          const raft::neighbors::mg::nccl_clique& clique,
                                                           const std::string& filename)
 {
-  return ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>(handle, filename);
+  auto index = ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>(handle, clique, filename);
+  return index;
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<cagra::index<T, IdxT>, T, IdxT> deserialize_cagra(const raft::resources& handle,
+                                                               const raft::neighbors::mg::nccl_clique& clique,
                                                                const std::string& filename)
 {
-  return ann_mg_index<cagra::index<T, IdxT>, T, IdxT>(handle, filename);
+  auto index = ann_mg_index<cagra::index<T, IdxT>, T, IdxT>(handle, clique, filename);
+  return index;
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> distribute_flat(const raft::resources& handle,
-                                                                const std::vector<int>& dev_list,
+                                                                const raft::neighbors::mg::nccl_clique& clique,
                                                                 const std::string& filename)
 {
-  return ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>(handle, dev_list, filename);
+  auto index = ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>(REPLICATION, clique.num_ranks_);
+  index.deserialize_and_distribute(handle, clique, filename);
+  return index;
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> distribute_pq(const raft::resources& handle,
-                                                         const std::vector<int>& dev_list,
+                                                         const raft::neighbors::mg::nccl_clique& clique,
                                                          const std::string& filename)
 {
-  return ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>(handle, dev_list, filename);
+  auto index = ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>(REPLICATION, clique.num_ranks_);
+  index.deserialize_and_distribute(handle, clique, filename);
+  return index;
 }
 
 template <typename T, typename IdxT>
 ann_mg_index<cagra::index<T, IdxT>, T, IdxT> distribute_cagra(const raft::resources& handle,
-                                                              const std::vector<int>& dev_list,
+                                                              const raft::neighbors::mg::nccl_clique& clique,
                                                               const std::string& filename)
 {
-  return ann_mg_index<cagra::index<T, IdxT>, T, IdxT>(handle, dev_list, filename);
+  auto index = ann_mg_index<cagra::index<T, IdxT>, T, IdxT>(REPLICATION, clique.num_ranks_);
+  index.deserialize_and_distribute(handle, clique, filename);
+  return index;
 }
 
 }  // namespace raft::neighbors::mg::detail

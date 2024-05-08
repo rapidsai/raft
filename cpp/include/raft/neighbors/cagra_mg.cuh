@@ -23,22 +23,24 @@ namespace raft::neighbors::mg {
 
 template <typename T, typename IdxT>
 auto build(const raft::resources& handle,
+           const raft::neighbors::mg::nccl_clique& clique,
            const cagra::dist_index_params& index_params,
            raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
   -> detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT>
 {
-  return mg::detail::build<T, IdxT>(handle, index_params, index_dataset);
+  return mg::detail::build<T, IdxT>(handle, clique, index_params, index_dataset);
 }
 
 template <typename T, typename IdxT>
 void search(const raft::resources& handle,
+            const raft::neighbors::mg::nccl_clique& clique,
             const detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT>& index,
             const cagra::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::host_matrix_view<float, IdxT, row_major> distances)
 {
-  mg::detail::search<T, IdxT>(handle, index, search_params, query_dataset, neighbors, distances);
+  mg::detail::search<T, IdxT>(handle, clique, index, search_params, query_dataset, neighbors, distances);
 }
 
 }  // namespace raft::neighbors::mg

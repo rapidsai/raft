@@ -22,18 +22,28 @@
 namespace raft::neighbors::mg {
 
 template <typename T, typename IdxT>
+void serialize(const raft::resources& handle,
+               const raft::neighbors::mg::nccl_clique& clique,
+               const detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
+               const std::string& filename)
+{
+  mg::detail::serialize(handle, clique, index, filename);
+}
+
+template <typename T, typename IdxT>
 detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> deserialize_pq(const raft::resources& handle,
+                                                                  const raft::neighbors::mg::nccl_clique& clique,
                                                                   const std::string& filename)
 {
-  return mg::detail::deserialize_pq<T, IdxT>(handle, filename);
+  return mg::detail::deserialize_pq<T, IdxT>(handle, clique, filename);
 }
 
 template <typename T, typename IdxT>
 detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> distribute_pq(const raft::resources& handle,
-                                                         const std::vector<int>& dev_list,
-                                                         const std::string& filename)
+                                                                 const raft::neighbors::mg::nccl_clique& clique,
+                                                                 const std::string& filename)
 {
-  return mg::detail::distribute_pq<T, IdxT>(handle, dev_list, filename);
+  return mg::detail::distribute_pq<T, IdxT>(handle, clique, filename);
 }
 
 }  // namespace raft::neighbors::mg

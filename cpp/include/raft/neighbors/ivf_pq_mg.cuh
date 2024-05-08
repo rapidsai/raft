@@ -23,39 +23,34 @@ namespace raft::neighbors::mg {
 
 template <typename T, typename IdxT>
 auto build(const raft::resources& handle,
+           const raft::neighbors::mg::nccl_clique& clique,
            const ivf_pq::dist_index_params& index_params,
            raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
   -> detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>
 {
-  return mg::detail::build<T>(handle, index_params, index_dataset);
+  return mg::detail::build<T>(handle, clique, index_params, index_dataset);
 }
 
 template <typename T, typename IdxT>
 void extend(const raft::resources& handle,
+            const raft::neighbors::mg::nccl_clique& clique,
             detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
             raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
             std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
 {
-  mg::detail::extend<T>(handle, index, new_vectors, new_indices);
+  mg::detail::extend<T>(handle, clique, index, new_vectors, new_indices);
 }
 
 template <typename T, typename IdxT>
 void search(const raft::resources& handle,
+            const raft::neighbors::mg::nccl_clique& clique,
             const detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
             const ivf_pq::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::host_matrix_view<float, IdxT, row_major> distances)
 {
-  mg::detail::search<T>(handle, index, search_params, query_dataset, neighbors, distances);
-}
-
-template <typename T, typename IdxT>
-void serialize(const raft::resources& handle,
-               const detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>& index,
-               const std::string& filename)
-{
-  mg::detail::serialize(handle, index, filename);
+  mg::detail::search<T>(handle, clique, index, search_params, query_dataset, neighbors, distances);
 }
 
 }  // namespace raft::neighbors::mg
