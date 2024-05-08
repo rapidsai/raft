@@ -68,7 +68,6 @@ jobs:
       run_script: "ci/build_docs.sh"
       sha: ${{ inputs.sha }}
   wheel-build-cpp:
-    needs: checks
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.06
     with:
