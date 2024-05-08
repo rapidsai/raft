@@ -123,6 +123,7 @@ files:
       table: project
     includes:
       - run_raft_dask
+      - depends_on_ucx_run
   py_test_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -132,7 +133,6 @@ files:
     includes:
       - test_python_common
       - depends_on_distributed_ucxx
-      - depends_on_ucx_run
   py_build_raft_ann_bench:
     output: pyproject
     pyproject_dir: python/raft-ann-bench
