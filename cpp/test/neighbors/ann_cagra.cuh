@@ -948,16 +948,8 @@ class AnnCagraAddNodesTest : public ::testing::TestWithParam<AnnCagraInputs> {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     raft::random::RngState r(1234ULL);
-    if constexpr (std::is_same_v<DataT, float> || std::is_same_v<DataT, half>) {
-      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
-      GenerateRoundingErrorFreeDataset(
-        handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
-    } else {
-      raft::random::uniformInt(
-        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
-      raft::random::uniformInt(
-        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20));
-    }
+    InitDataset(handle_, database.data(), ps.n_rows, ps.dim, ps.metric, r);
+    InitDataset(handle_, search_queries.data(), ps.n_queries, ps.dim, ps.metric, r);
     resource::sync_stream(handle_);
   }
 
