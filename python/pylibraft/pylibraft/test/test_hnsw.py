@@ -96,5 +96,5 @@ def test_hnsw(dtype, k, ef, num_threads, metric, build_algo):
         k=k,
         metric=metric,
         build_algo=build_algo,
-        search_params={"ef": ef, "num_threads": num_threads}
+        search_params={"ef": ef, "num_threads": num_threads},
     )
