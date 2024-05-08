@@ -42,9 +42,7 @@ def run_hnsw_build_search_test(
                 "inner_product metric is not supported for int8/uint8 data"
             )
         if build_algo == "nn_descent":
-            pytest.skip(
-                "inner_product metric is not supported for nn_descent build_algo"
-            )
+            pytest.skip("inner_product metric is not supported for nn_descent")
 
     build_params = cagra.IndexParams(
         metric=metric,
