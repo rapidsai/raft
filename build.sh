@@ -43,6 +43,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. NEIGHBORS_PRIMS_BENCH;CLUSTER_PRIMS_BENCH)
    --limit-bench-ann           - semicolon-separated list of ann benchmark executables to compute (e.g. HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH)
+   --gpuarch                   - semicolon-separated list of integers to build for targeted GPU architectures
    --allgpuarch                - build for all supported GPU architectures
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
@@ -100,6 +101,27 @@ export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
+
+function gpuarch {
+    # Check for multiple gpuarchs args options
+    if [[ $(echo $ARGS | { grep -Eo "\-\-gpuarch" || true; } | wc -l ) -gt 1 ]]; then
+        echo "Multiple --gpuarch options were provided, please provide only one: ${ARGS}"
+        exit 1
+    fi
+
+    # Check for gpuarchs args option
+    if [[ -n $(echo $ARGS | { grep -E "\-\-gpuarch" || true; } ) ]]; then
+        GPU_ARCHS=$(echo $ARGS | grep -Eo "\-\-gpuarch=(.*?)" )
+        if [[ -n ${GPU_ARCHS} ]]; then
+            # Remove the full  EXTRA_CMAKE_ARGS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//$GPU_ARCHS/}
+            # Filter the full argument down to just the extra string that will be added to cmake call
+            RAFT_CMAKE_CUDA_ARCHITECTURES=$(echo $GPU_ARCHS | grep -Eo "\-\-gpuarch=(.*?)" | cut -d'=' -f2 )
+        fi
+    fi
+    echo ${RAFT_CMAKE_CUDA_ARCHITECTURES}
+}
+
 
 function cmakeArgs {
     # Check for multiple cmake args options
@@ -216,6 +238,7 @@ fi
 # Check for valid usage
 if (( ${NUMARGS} != 0 )); then
     cmakeArgs
+    gpuarch
     cacheTool
     limitTests
     limitBench
@@ -406,12 +429,14 @@ fi
 ################################################################################
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench-prims || hasArg bench-ann || [[ ${COMPILE_LIBRARY} == ON ]]; then
-    if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
-        RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
-        echo "Building for the architecture of the GPU in the system..."
-    else
-        RAFT_CMAKE_CUDA_ARCHITECTURES="RAPIDS"
-        echo "Building for *ALL* supported GPU architectures..."
+    if [ ! "$RAFT_CMAKE_CUDA_ARCHITECTURES" ]; then
+        if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
+            RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
+            echo "Building for the architecture of the GPU in the system..."
+        else 
+            RAFT_CMAKE_CUDA_ARCHITECTURES="RAPIDS"
+            echo "Building for *ALL* supported GPU architectures..."
+        fi
     fi
 
     # get the current count before the compile starts
