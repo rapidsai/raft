@@ -67,7 +67,18 @@ jobs:
       node_type: "gpu-v100-latest-1"
       run_script: "ci/build_docs.sh"
       sha: ${{ inputs.sha }}
-  wheel-build-pylibraft:
+  wheel-build-cpp:
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.06
+    with:
+      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      build_type: ${{ inputs.build_type || 'branch' }}
+      branch: ${{ inputs.branch }}
+      sha: ${{ inputs.sha }}
+      date: ${{ inputs.date }}
+      script: ci/build_wheel_cpp.sh
+  wheel-build-python:
+    needs: wheel-build-cpp
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.06
     with:
@@ -75,9 +86,9 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      script: ci/build_wheel_pylibraft.sh
-  wheel-publish-pylibraft:
-    needs: wheel-build-pylibraft
+      script: ci/build_wheel_python.sh
+  wheel-publish-cpp:
+    needs: wheel-build-cpp
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.06
     with:
@@ -85,19 +96,10 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      package-name: pylibraft
-  wheel-build-raft-dask:
-    needs: wheel-publish-pylibraft
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.06
-    with:
-      build_type: ${{ inputs.build_type || 'branch' }}
-      branch: ${{ inputs.branch }}
-      sha: ${{ inputs.sha }}
-      date: ${{ inputs.date }}
-      script: ci/build_wheel_raft_dask.sh
-  wheel-publish-raft-dask:
-    needs: wheel-build-raft-dask
+      package-name: raft
+      package-type: cpp
+  wheel-publish-python:
+    needs: wheel-build-python
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.06
     with:
@@ -105,4 +107,5 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      package-name: raft_dask
+      package-name: raft
+      package-type: python
