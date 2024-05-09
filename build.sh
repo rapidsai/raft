@@ -111,7 +111,7 @@ function gpuarch {
 
     # Check for gpuarchs args option
     if [[ -n $(echo $ARGS | { grep -E "\-\-gpuarch" || true; } ) ]]; then
-        GPU_ARCHS=$(echo $ARGS | grep -Eo "\-\-gpuarch=(.*?)" )
+        GPU_ARCHS=$(echo $ARGS | grep -Eo "\-\-gpuarch=([^\s]+) " )
         if [[ -n ${GPU_ARCHS} ]]; then
             # Remove the full  EXTRA_CMAKE_ARGS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//$GPU_ARCHS/}
@@ -119,7 +119,6 @@ function gpuarch {
             RAFT_CMAKE_CUDA_ARCHITECTURES=$(echo $GPU_ARCHS | grep -Eo "\-\-gpuarch=(.*?)" | cut -d'=' -f2 )
         fi
     fi
-    echo ${RAFT_CMAKE_CUDA_ARCHITECTURES}
 }
 
 
