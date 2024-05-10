@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -252,9 +252,6 @@ def create_plot_build(
         ls = points[:, 0]
         idxs = points[:, 1]
 
-        print("bt_80:", bt_80)
-        print("build_results:", build_results)
-
         len_80, len_90, len_95, len_99 = 0, 0, 0, 0
         for i in range(len(xs)):
             if xs[i] >= 0.80 and xs[i] < 0.90:
@@ -311,10 +308,6 @@ def create_plot_build(
 def load_lines(results_path, result_files, method, index_key, mode, time_unit):
     results = dict()
 
-    print("method", method)
-    print("result_files", result_files)
-    print("index_key", index_key)
-
     for result_filename in result_files:
         try:
             with open(os.path.join(results_path, result_filename), "r") as f:
@@ -329,7 +322,6 @@ def load_lines(results_path, result_files, method, index_key, mode, time_unit):
 
                 for line in lines[1:]:
                     split_lines = line.split(",")
-                    print("split_lines", split_lines)
 
                     algo_name = split_lines[0]
                     index_name = split_lines[1]
@@ -384,7 +376,6 @@ def load_all_results(
             for result_file in result_files
             if ".csv" in result_file
         ]
-        print("result_files", result_files)
     elif method == "search":
         if raw:
             suffix = ",raw"
@@ -415,9 +406,6 @@ def load_all_results(
     ]
     algo_group_files = list(zip(*algo_group_files))
 
-    print("algorithms", algorithms)
-    print("groups", groups)
-    print("algo_group_files", algo_group_files)
     if len(algorithms) > 0:
         final_results = [
             result_files[i]
@@ -431,7 +419,6 @@ def load_all_results(
             for i in range(len(result_files))
             if (algo_group_files[1][i] in groups)
         ]
-    print("final results", final_results)
 
     if len(algo_groups) > 0:
         split_algo_groups = [
