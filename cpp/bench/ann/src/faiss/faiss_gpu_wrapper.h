@@ -241,11 +241,11 @@ void FaissGpu<T>::search(
 
       raft::device_resources handle_ = gpu_resource_->getRaftHandle(device_);
 
-      raft::copy(queries_host.data_handle(), queries, queries_host.size(), stream);
+      raft::copy(queries_host.data_handle(), queries, queries_host.size(), handle_.get_stream());
       raft::copy(candidates_host.data_handle(),
                  candidates.data_handle(),
                  candidates_host.size(),
-                 resource::get_cuda_stream(handle_));
+                 handle_.get_stream());
 
       // wait for the queries to copy to host in 'stream`
       handle_.sync_stream();
@@ -258,8 +258,12 @@ void FaissGpu<T>::search(
                                        distances_host.view(),
                                        metric_faiss_to_raft(index_->metric_type));
 
-      raft::copy(neighbors, (size_t*)neighbors_host.data_handle(), neighbors_host.size(), stream);
-      raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
+      raft::copy(neighbors,
+                 (size_t*)neighbors_host.data_handle(),
+                 neighbors_host.size(),
+                 handle_.get_stream());
+      raft::copy(
+        distances, distances_host.data_handle(), distances_host.size(), handle_.get_stream());
     } else {
       index_refine_->search(batch_size,
                             queries,

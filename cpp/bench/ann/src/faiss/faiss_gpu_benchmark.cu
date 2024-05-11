@@ -179,11 +179,14 @@ int main(int argc, char** argv)
 {
   rmm::mr::cuda_memory_resource cuda_mr;
   // Construct a resource that uses a coalescing best-fit pool allocator
-  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr};
-  rmm::mr::set_current_device_resource(
-    &pool_mr);  // Updates the current device resource pointer to `pool_mr`
-  rmm::mr::device_memory_resource* mr =
-    rmm::mr::get_current_device_resource();  // Points to `pool_mr`
-  return raft::bench::ann::run_main(argc, argv);
+  // and is initially sized to half of free device memory.
+  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{
+    &cuda_mr, rmm::percent_of_free_device_memory(50)};
+  // Updates the current device resource pointer to `pool_mr`
+  auto old_mr = rmm::mr::set_current_device_resource(&pool_mr);
+  auto ret    = raft::bench::ann::run_main(argc, argv);
+  // Restores the current device resource pointer to its previous value
+  rmm::mr::set_current_device_resource(old_mr);
+  return ret;
 }
 #endif
