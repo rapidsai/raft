@@ -180,7 +180,7 @@ class FaissGpu : public ANN<T>, public AnnGPU {
 };
 
 template <typename T>
-void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void FaissGpu<T>::build(const T* dataset, size_t nrow)
 {
   OmpSingleThreadScope omp_single_thread;
   auto index_ivf = dynamic_cast<faiss::gpu::GpuIndexIVF*>(index_.get());
