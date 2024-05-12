@@ -75,19 +75,7 @@ cdef extern from "raft_runtime/neighbors/hnsw.hpp" \
         host_matrix_view[uint64_t, int64_t, row_major] neighbors,
         host_matrix_view[float, int64_t, row_major] distances) except +
 
-    cdef unique_ptr[index[float]] deserialize_file[float](
-        const device_resources& handle,
-        const string& filename,
-        int dim,
-        DistanceType metric) except +
-
-    cdef unique_ptr[index[int8_t]] deserialize_file[int8_t](
-        const device_resources& handle,
-        const string& filename,
-        int dim,
-        DistanceType metric) except +
-
-    cdef unique_ptr[index[uint8_t]] deserialize_file[uint8_t](
+    cdef unique_ptr[index[T]] deserialize_file[T](
         const device_resources& handle,
         const string& filename,
         int dim,

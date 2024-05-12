@@ -29,6 +29,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>
@@ -485,7 +486,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   const std::uint32_t hash_bitlen,
   const std::uint32_t small_hash_bitlen,
   const std::uint32_t small_hash_reset_interval,
-  SAMPLE_FILTER_T sample_filter)
+  SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric)
 {
   using LOAD_T = device::LOAD_128BIT_T;
 
@@ -581,7 +583,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
                                                                          local_seed_ptr,
                                                                          num_seeds,
                                                                          local_visited_hashmap_ptr,
-                                                                         hash_bitlen);
+                                                                         hash_bitlen,
+                                                                         metric);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 
@@ -718,7 +721,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
       hash_bitlen,
       parent_list_buffer,
       result_indices_buffer,
-      search_width);
+      search_width,
+      metric);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
@@ -930,6 +934,7 @@ void select_and_run(
   size_t min_iterations,
   size_t max_iterations,
   SAMPLE_FILTER_T sample_filter,
+  raft::distance::DistanceType metric,
   cudaStream_t stream)
 {
   auto kernel =
@@ -962,7 +967,8 @@ void select_and_run(
                                                          hash_bitlen,
                                                          small_hash_bitlen,
                                                          small_hash_reset_interval,
-                                                         sample_filter);
+                                                         sample_filter,
+                                                         metric);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 }  // namespace single_cta_search
