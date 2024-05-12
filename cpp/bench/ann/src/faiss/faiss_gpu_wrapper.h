@@ -17,6 +17,7 @@
 #define FAISS_WRAPPER_H_
 
 #include "../common/ann_types.hpp"
+#include "../raft/raft_ann_bench_utils.h"
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
@@ -56,7 +57,7 @@
 
 namespace {
 
-faiss::MetricType parse_metric_type(raft::bench::ann::Metric metric)
+faiss::MetricType parse_metric_faiss(raft::bench::ann::Metric metric)
 {
   if (metric == raft::bench::ann::Metric::kInnerProduct) {
     return faiss::METRIC_INNER_PRODUCT;
@@ -108,7 +109,7 @@ class FaissGpu : public ANN<T>, public AnnGPU {
   FaissGpu(Metric metric, int dim, const BuildParam& param)
     : ANN<T>(metric, dim),
       gpu_resource_{std::make_shared<faiss::gpu::StandardGpuResources>()},
-      metric_type_(parse_metric_type(metric)),
+      metric_type_(parse_metric_faiss(metric)),
       nlist_{param.nlist},
       training_sample_fraction_{1.0 / double(param.ratio)}
   {
@@ -254,7 +255,7 @@ void FaissGpu<T>::search(
                                        candidates_host.view(),
                                        neighbors_host.view(),
                                        distances_host.view(),
-                                       this->metric_);
+                                       parse_metric_type(this->metric_));
 
       raft::copy(neighbors,
                  (size_t*)neighbors_host.data_handle(),
