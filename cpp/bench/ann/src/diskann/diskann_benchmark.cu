@@ -50,8 +50,8 @@ template <typename T>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::DiskANNMemory<T>::SearchParam& param)
 {
-  param.L_search = conf.at("Ls");
-  if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
+  param.L_search = conf.at("L_search");
+  std::cout << "param.L_search" << param.L_search;
 }
 
 template <typename T, template <typename> class Algo>

@@ -5,10 +5,8 @@ groups:
       R: [32]
       Lb: [64]
       alpha: [0]
-      pq_dim: [64]
       cagra_intermediate_graph_degree: [128]
       cagra_graph_degree: [64]
       use_cagra_graph: [True]
     search:
       L_search: [10, 20, 50, 100]
-      L_load: [100]
