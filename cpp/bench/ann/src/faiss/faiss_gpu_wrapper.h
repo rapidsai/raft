@@ -141,7 +141,14 @@ class FaissGpu : public ANN<T>, public AnnGPU {
     return property;
   }
 
-  auto metric_faiss_to_raft(faiss::MetricType metric) const -> raft::distance::DistanceType;
+  auto metric_faiss_to_raft(faiss::MetricType metric) const -> raft::distance::DistanceType
+  {
+    switch (metric) {
+      case faiss::MetricType::METRIC_INNER_PRODUCT: return raft::distance::DistanceType::InnerProduct;
+      case faiss::MetricType::METRIC_L2: return raft::distance::DistanceType::L2Expanded;
+      default: RAFT_FAIL("Distance type not supported");
+    }
+  }
 
  protected:
   template <typename GpuIndex, typename CpuIndex>
