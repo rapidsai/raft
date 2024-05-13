@@ -22,6 +22,7 @@ dependencies:
 - cxx-compiler
 - cython>=3.0.0
 - dask-cuda==24.6.*
+- distributed-ucxx==0.38.*
 - doxygen>=1.8.20
 - gcc_linux-aarch64=11.*
 - graphviz
@@ -31,6 +32,7 @@ dependencies:
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
+- libucxx==0.38.*
 - nccl>=2.9.9
 - ninja
 - numba>=0.57
@@ -49,7 +51,5 @@ dependencies:
 - sphinx-copybutton
 - sphinx-markdown-tables
 - sysroot_linux-aarch64==2.17
-- ucx-proc=*=gpu
 - ucx-py==0.38.*
-- ucx>=1.15.0,<1.16.0
 name: all_cuda-122_arch-aarch64

@@ -58,7 +58,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - cuda-version ={{ cuda_version }}
         {% if cuda_major != "11" %}
@@ -152,7 +152,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-version ={{ cuda_version }}
@@ -214,7 +214,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-version ={{ cuda_version }}
@@ -280,7 +280,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         # We must include both libraft and libraft-static to prevent the test
         # builds from packaging those libraries. However, tests only depend on
@@ -349,7 +349,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - {{ stdlib("c") }}
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
