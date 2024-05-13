@@ -161,7 +161,7 @@ class FaissGpu : public ANN<T>, public AnnGPU {
    * This means faiss GPU streams are possibly shared among the CPU threads;
    * the throughput search mode may be inaccurate.
    *
-   * TODO: (tarang-jain) Use the correct stream for each CPU thread after FAISS issues
+   * TODO: Use the correct stream for each CPU thread after FAISS issues
    * https://github.com/facebookresearch/faiss/issues/3424 and
    * https://github.com/facebookresearch/faiss/issues/3425 have been addressed.
    *
