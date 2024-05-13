@@ -15,11 +15,11 @@ python -m pip install "raft_dask-${RAPIDS_PY_CUDA_SUFFIX}[test]>=0.0.0a0" --find
 
 test_dir="python/raft-dask/raft_dask/test"
 
-# rapids-logger "pytest raft-dask"
-# python -m pytest --import-mode=append ${test_dir}
+rapids-logger "pytest raft-dask"
+python -m pytest --import-mode=append ${test_dir}
 
-# rapids-logger "pytest raft-dask (ucx-py only)"
-# python -m pytest --import-mode=append ${test_dir} --run_ucx
+rapids-logger "pytest raft-dask (ucx-py only)"
+python -m pytest --import-mode=append ${test_dir} --run_ucx
 
 rapids-logger "pytest raft-dask (ucxx only)"
 python -m pytest --import-mode=append ${test_dir} --run_ucxx
