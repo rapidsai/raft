@@ -19,7 +19,11 @@
 
 namespace raft::bench::spatial {
 
-KNN_REGISTER(
-  float, int64_t, brute_force_filter_knn, kInputsBruteForceFilter, kNoCopyOnly, kScopeOnlySearch);
+KNN_REGISTER(float,
+             int64_t,
+             brute_force_filter_knn,
+             kInputsBruteForceFilterExtra,
+             kNoCopyOnly,
+             kScopeOnlySearch);
 
 }  // namespace raft::bench::spatial

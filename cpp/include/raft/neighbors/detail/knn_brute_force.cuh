@@ -616,10 +616,11 @@ void brute_force_search(
   raft::sparse::distance::detail::faster_dot_on_csr(res,
                                                     csr.get_elements().data(),
                                                     compressed_csr_view.get_nnz(),
-                                                    rows.data(),
+                                                    compressed_csr_view.get_indptr().data(),
                                                     compressed_csr_view.get_indices().data(),
                                                     queries.data_handle(),
                                                     idx.dataset().data_handle(),
+                                                    compressed_csr_view.get_n_rows(),
                                                     dim);
 
   // post process

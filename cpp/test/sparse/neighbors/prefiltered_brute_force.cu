@@ -29,6 +29,7 @@
 #include <raft/random/make_blobs.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/itertools.hpp>
 
 #include <gtest/gtest.h>
 
@@ -443,8 +444,25 @@ const std::vector<PrefilteredBruteForceInputs<index_t>> selectk_inputs = {
   {1000, 10000, 5, 16, 0.5, raft::distance::DistanceType::CosineExpanded},
   {1000, 10000, 8, 16, 0.2, raft::distance::DistanceType::CosineExpanded}};
 
+template <typename index_t>
+const std::vector<PrefilteredBruteForceInputs<index_t>> selectk_inputs_extra =
+  raft::util::itertools::product<PrefilteredBruteForceInputs<index_t>>(
+    {index_t(1), index_t(10), index_t(1000)},                   // n_queries
+    {index_t(10 * 1024), index_t(100 * 1024)},                  // n_dataset
+    {index_t(128), index_t(256), index_t(768), index_t(4096)},  // n_dim
+    {index_t(1), index_t(255), index_t(1024)},                  // k
+    {float(0.0), float(0.2), float(0.01)},                      // sparsity
+    {raft::distance::DistanceType::InnerProduct,
+     raft::distance::DistanceType::L2Expanded,
+     raft::distance::DistanceType::L2SqrtExpanded,
+     raft::distance::DistanceType::CosineExpanded});
+
 INSTANTIATE_TEST_CASE_P(PrefilteredBruteForceTest,
                         PrefilteredBruteForceTest_float_int64,
                         ::testing::ValuesIn(selectk_inputs<int64_t>));
+
+INSTANTIATE_TEST_CASE_P(PrefilteredBruteForceExtraTest,
+                        PrefilteredBruteForceTest_float_int64,
+                        ::testing::ValuesIn(selectk_inputs_extra<int64_t>));
 
 }  // namespace raft::neighbors::brute_force

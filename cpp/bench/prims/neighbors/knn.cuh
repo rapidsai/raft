@@ -600,12 +600,26 @@ const std::vector<params> kInputsFilter =
   );
 
 const std::vector<params> kInputsBruteForceFilter = raft::util::itertools::product<params>(
-  {size_t(1000000)},                         // n_samples
-  {size_t(4096), size_t(512), size_t(128)},  // n_dim
-  {size_t(1), size_t(10), size_t(1000)},     // n_queries
-  {size_t(255)},                             // k
-  {0.0, 0.8, 0.9, 0.99},                     // removed_ratio
-  {raft::distance::DistanceType::InnerProduct, raft::distance::DistanceType::L2Expanded});
+  {size_t(10 * 1024 * 1024)},                                            // n_samples
+  {size_t(256), size_t(768), size_t(1024), size_t(2048), size_t(4096)},  // n_dim
+  {size_t(10), size_t(1000)},                                            // n_queries
+  {size_t(255)},                                                         // k
+  {0.0, 0.8, 0.9, 0.99},                                                 // removed_ratio
+  {raft::distance::DistanceType::InnerProduct});
+
+const std::vector<params> kInputsBruteForceFilterExtra =
+  raft::util::itertools::product<params>({size_t(1024 * 1024)},       // n_samples
+                                         {size_t(256), size_t(768)},  // n_dim
+                                         {size_t(10),
+                                          size_t(20),
+                                          size_t(40),
+                                          size_t(60),
+                                          size_t(80),
+                                          size_t(100),
+                                          size_t(300)},    // n_queries
+                                         {size_t(255)},    // k
+                                         {0.3, 0.4, 0.9},  // removed_ratio
+                                         {raft::distance::DistanceType::InnerProduct});
 
 inline const std::vector<TransferStrategy> kAllStrategies{
   TransferStrategy::NO_COPY, TransferStrategy::MAP_PINNED, TransferStrategy::MANAGED};

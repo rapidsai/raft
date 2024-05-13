@@ -61,6 +61,12 @@ _RAFT_HOST_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_
 }
 
 template <typename bitset_t, typename index_t>
+_RAFT_HOST_DEVICE inline index_t bitset_view<bitset_t, index_t>::n_elements() const
+{
+  return raft::ceildiv(bitset_len_, bitset_element_size);
+}
+
+template <typename bitset_t, typename index_t>
 bitset<bitset_t, index_t>::bitset(const raft::resources& res,
                                   raft::device_vector_view<const index_t, index_t> mask_index,
                                   index_t bitset_len,
