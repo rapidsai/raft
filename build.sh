@@ -381,14 +381,6 @@ if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
 fi
 
-# Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
-SKBUILD_EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS}"
-if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
-    SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
-fi
-# Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
-SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${SKBUILD_EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
-
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
     # If the dirs to clean are mounted dirs in a container, the
@@ -495,13 +487,13 @@ fi
 
 # Build and (optionally) install the pylibraft Python package
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
-    SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
+    CMAKE_ARGS="${EXTRA_CMAKE_ARGS}" \
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/pylibraft
 fi
 
 # Build and (optionally) install the raft-dask Python package
 if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
-    SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
+    CMAKE_ARGS="${EXTRA_CMAKE_ARGS}" \
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-dask
 fi
 

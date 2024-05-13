@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,23 +13,13 @@
 # limitations under the License.
 #
 
-from raft_dask._version import __git_commit__, __version__
 
-# If libraft or libucx was installed as a wheel, we must request that those packages
-# load the library symbols. Otherwise, we assume that the libraries were installed in a
-# system path that ld can find.
-try:
-    import libraft
-except ModuleNotFoundError:
-    pass
-else:
-    libraft.load_library()
-    del libraft
+import importlib.resources
 
-try:
-    import libucx
-except ModuleNotFoundError:
-    pass
-else:
-    libucx.load_library()
-    del libucx
+__version__ = (
+    importlib.resources.files("libraft")
+    .joinpath("VERSION")
+    .read_text()
+    .strip()
+)
+__git_commit__ = ""
