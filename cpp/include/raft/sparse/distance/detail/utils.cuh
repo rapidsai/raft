@@ -111,7 +111,7 @@ void epilogue_on_csr(raft::resources const& handle,
 }
 
 template <typename value_idx, typename value_t>
-__global__ void faster_dot_on_csr_kernel(value_t* __restrict__ dot,
+RAFT_KERNEL void faster_dot_on_csr_kernel(value_t* __restrict__ dot,
                                          const value_idx* __restrict__ indptr,
                                          const value_idx* __restrict__ cols,
                                          const value_t* __restrict__ A,
