@@ -35,7 +35,7 @@ Homepage = "https://github.com/rapidsai/raft"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.*"]
+"*" = ["*.*", "VERSION"]
 
 [tool.isort]
 line_length = 79

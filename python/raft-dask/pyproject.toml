@@ -18,7 +18,6 @@ build-backend = "scikit_build_core.build"
 requires = [
     "cmake>=3.26.4",
     "cython>=3.0.0",
-    "libraft==24.6.*",
     "libucx==1.15.0",
     "ninja",
     "scikit-build-core[pyproject]>=0.7.0",
@@ -38,7 +37,6 @@ dependencies = [
     "dask-cuda==24.6.*",
     "distributed-ucxx==0.38.*",
     "joblib>=0.11",
-    "libraft==24.6.*",
     "numba>=0.57",
     "numpy>=1.23,<2.0a0",
     "pylibraft==24.6.*",
