@@ -111,14 +111,14 @@ void epilogue_on_csr(raft::resources const& handle,
 }
 
 template <typename value_idx, typename value_t>
-RAFT_KERNEL void faster_dot_on_csr_kernel(value_t* __restrict__ dot,
-                                         const value_idx* __restrict__ indptr,
-                                         const value_idx* __restrict__ cols,
-                                         const value_t* __restrict__ A,
-                                         const value_t* __restrict__ B,
-                                         const value_idx nnz,
-                                         const value_idx n_rows,
-                                         const value_idx dim)
+RAFT_KERNEL faster_dot_on_csr_kernel(value_t* __restrict__ dot,
+                                     const value_idx* __restrict__ indptr,
+                                     const value_idx* __restrict__ cols,
+                                     const value_t* __restrict__ A,
+                                     const value_t* __restrict__ B,
+                                     const value_idx nnz,
+                                     const value_idx n_rows,
+                                     const value_idx dim)
 {
   auto vec_id  = threadIdx.x;
   auto lane_id = threadIdx.x & 0x1f;
