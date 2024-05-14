@@ -249,6 +249,7 @@ void parse_search_param(const nlohmann::json& conf,
   if (conf.contains("itopk")) { param.p.itopk_size = conf.at("itopk"); }
   if (conf.contains("search_width")) { param.p.search_width = conf.at("search_width"); }
   if (conf.contains("max_iterations")) { param.p.max_iterations = conf.at("max_iterations"); }
+  if (conf.contains("persistent")) { param.p.persistent = conf.at("persistent"); }
   if (conf.contains("thread_block_size")) {
     param.p.thread_block_size = conf.at("thread_block_size");
   }
@@ -274,12 +275,5 @@ void parse_search_param(const nlohmann::json& conf,
   }
   // Same ratio as in IVF-PQ
   param.refine_ratio = conf.value("refine_ratio", 1.0f);
-
-  uint64_t pmask = 0x8000000000000000LL;
-  if (conf.contains("persistent") && conf.at("persistent")) {
-    param.p.rand_xor_mask |= pmask;
-  } else {
-    param.p.rand_xor_mask &= ~pmask;
-  }
 }
 #endif
