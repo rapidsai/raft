@@ -201,7 +201,7 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
     }
     RAFT_LOG_DEBUG("# smem_size: %u", smem_size);
     hashmap_size = 0;
-    if (small_hash_bitlen == 0 && !this->is_persistent) {
+    if (small_hash_bitlen == 0 && !this->persistent) {
       hashmap_size = max_queries * hashmap::get_size(hash_bitlen);
       hashmap.resize(hashmap_size, resource::get_cuda_stream(res));
     }
@@ -221,6 +221,12 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
                   SAMPLE_FILTER_T sample_filter)
   {
     cudaStream_t stream = resource::get_cuda_stream(res);
+
+    // Set the 'persistent' flag as the first bit of rand_xor_mask to avoid changing the signature
+    // of the select_and_run for now.
+    constexpr uint64_t kPMask = 0x8000000000000000LL;
+    auto rand_xor_mask_augmented =
+      this->persistent ? (rand_xor_mask | kPMask) : (rand_xor_mask & ~kPMask);
     select_and_run<TEAM_SIZE, DATASET_BLOCK_DIM, DATASET_DESCRIPTOR_T>(
       dataset_desc,
       graph,
@@ -239,7 +245,7 @@ struct search : search_plan_impl<DATASET_DESCRIPTOR_T, SAMPLE_FILTER_T> {
       small_hash_bitlen,
       small_hash_reset_interval,
       num_random_samplings,
-      rand_xor_mask,
+      rand_xor_mask_augmented,
       num_seeds,
       itopk_size,
       search_width,

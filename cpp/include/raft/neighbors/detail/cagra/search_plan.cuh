@@ -107,21 +107,13 @@ struct search_plan_impl_base : public search_params {
   int64_t graph_degree;
   uint32_t topk;
   raft::distance::DistanceType metric;
-  bool is_persistent;
-
-  static constexpr uint64_t kPMask = 0x8000000000000000LL;
 
   search_plan_impl_base(search_params params,
                         int64_t dim,
                         int64_t graph_degree,
                         uint32_t topk,
                         raft::distance::DistanceType metric)
-    : search_params(params),
-      dim(dim),
-      graph_degree(graph_degree),
-      topk(topk),
-      metric(metric),
-      is_persistent(params.rand_xor_mask & kPMask)
+    : search_params(params), dim(dim), graph_degree(graph_degree), topk(topk), metric(metric)
   {
     set_dataset_block_and_team_size(dim);
     if (algo == search_algo::AUTO) {
@@ -194,7 +186,7 @@ struct search_plan_impl : public search_plan_impl_base {
     check_params();
     calc_hashmap_params(res);
     set_dataset_block_and_team_size(dim);
-    if (!is_persistent) {  // Persistent kernel does not provide this functionality
+    if (!persistent) {  // Persistent kernel does not provide this functionality
       num_executed_iterations.resize(max_queries, resource::get_cuda_stream(res));
     }
     RAFT_LOG_DEBUG("# algo = %d", static_cast<int>(algo));
