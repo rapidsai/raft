@@ -7,7 +7,7 @@ groups:
       useFloat16: [False]
       useRaft: [False]
     search:
-      nprobe: [2048]
+      nprobe: [50]
       refine_ratio: [1]
 groups:
   raft_enabed:
