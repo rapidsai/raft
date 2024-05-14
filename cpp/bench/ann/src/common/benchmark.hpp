@@ -282,8 +282,8 @@ void bench_search(::benchmark::State& state,
    */
   std::shared_ptr<buf<float>> distances =
     std::make_shared<buf<float>>(current_algo_props->query_memory_type, k * query_set_size);
-  std::shared_ptr<buf<std::size_t>> neighbors =
-    std::make_shared<buf<std::size_t>>(current_algo_props->query_memory_type, k * query_set_size);
+  std::shared_ptr<buf<AnnBase::index_type>> neighbors = std::make_shared<buf<AnnBase::index_type>>(
+    current_algo_props->query_memory_type, k * query_set_size);
 
   {
     nvtx_case nvtx{state.name()};
@@ -338,12 +338,12 @@ void bench_search(::benchmark::State& state,
   // Each thread calculates recall on their partition of queries.
   // evaluate recall
   if (dataset->max_k() >= k) {
-    const std::int32_t* gt          = dataset->gt_set();
-    const std::uint32_t max_k       = dataset->max_k();
-    buf<std::size_t> neighbors_host = neighbors->move(MemoryType::Host);
-    std::size_t rows                = std::min(queries_processed, query_set_size);
-    std::size_t match_count         = 0;
-    std::size_t total_count         = rows * static_cast<size_t>(k);
+    const std::int32_t* gt                  = dataset->gt_set();
+    const std::uint32_t max_k               = dataset->max_k();
+    buf<AnnBase::index_type> neighbors_host = neighbors->move(MemoryType::Host);
+    std::size_t rows                        = std::min(queries_processed, query_set_size);
+    std::size_t match_count                 = 0;
+    std::size_t total_count                 = rows * static_cast<size_t>(k);
 
     // We go through the groundtruth with same stride as the benchmark loop.
     size_t out_offset   = 0;

@@ -61,10 +61,11 @@ class RaftIvfFlatGpu : public ANN<T>, public AnnGPU {
 
   void set_search_param(const AnnSearchParam& param) override;
 
-  // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
-  // will be filled with (size_t)-1
-  void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              AnnBase::index_type* neighbors,
+              float* distances) const override;
 
   [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
   {
@@ -131,16 +132,22 @@ std::unique_ptr<ANN<T>> RaftIvfFlatGpu<T, IdxT>::copy()
 
 template <typename T, typename IdxT>
 void RaftIvfFlatGpu<T, IdxT>::search(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
-  static_assert(sizeof(size_t) == sizeof(IdxT), "IdxT is incompatible with size_t");
+  static_assert(std::is_integral_v<AnnBase::index_type>);
+  static_assert(std::is_integral_v<IdxT>);
+  static_assert(sizeof(AnnBase::index_type) == sizeof(IdxT),
+                "IdxT is incompatible with the index_type");
+  // Assuming the returned and the required index types have the same size, we can just coerce the
+  // pointers to avoid extra mapping pass over the results.
+  // TODO: add a linalg::map() over the result indices if the type representations do not match.
   raft::neighbors::ivf_flat::search(handle_,
                                     search_params_,
                                     *index_,
                                     queries,
                                     batch_size,
                                     k,
-                                    (IdxT*)neighbors,
+                                    reinterpret_cast<IdxT*>(neighbors),
                                     distances,
                                     resource::get_workspace_resource(handle_));
 }

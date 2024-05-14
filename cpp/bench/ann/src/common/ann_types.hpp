@@ -73,6 +73,8 @@ struct AlgoProperty {
 
 class AnnBase {
  public:
+  using index_type = size_t;
+
   inline AnnBase(Metric metric, int dim) : metric_(metric), dim_(dim) {}
   virtual ~AnnBase() noexcept = default;
 
@@ -118,8 +120,11 @@ class ANN : public AnnBase {
   virtual void set_search_param(const AnnSearchParam& param) = 0;
   // TODO: this assumes that an algorithm can always return k results.
   // This is not always possible.
-  virtual void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const = 0;
+  virtual void search(const T* queries,
+                      int batch_size,
+                      int k,
+                      AnnBase::index_type* neighbors,
+                      float* distances) const = 0;
 
   virtual void save(const std::string& file) const = 0;
   virtual void load(const std::string& file)       = 0;
