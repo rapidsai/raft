@@ -87,7 +87,6 @@ jobs:
       date: ${{ inputs.date }}
       package-name: pylibraft
   wheel-build-raft-dask:
-    needs: wheel-publish-pylibraft
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.06
     with:
