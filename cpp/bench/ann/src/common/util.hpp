@@ -232,8 +232,10 @@ struct result_buffer {
     auto dst_ptr = data(dst);
     auto src_ptr = data(src);
     if (dst_ptr == src_ptr) { return; }
+#ifndef BUILD_CPU_ONLY
     cudaMemcpyAsync(dst_ptr, src_ptr, size_, cudaMemcpyDefault, stream_);
     cudaStreamSynchronize(stream_);
+#endif
   }
 
  private:
@@ -248,25 +250,41 @@ inline std::vector<std::unique_ptr<result_buffer>> global_result_buffer_pool(0);
 inline std::mutex grp_mutex;
 }  // namespace detail
 
+/**
+ * Get a result buffer associated with the current benchmark thread.
+ *
+ * Note, the allocations are reused between the benchmark cases.
+ * This reduces the setup overhead and number of times the context is being blocked
+ * (this is relevant if there is a persistent kernel running across multiples benchmark cases).
+ */
 inline auto get_result_buffer_from_global_pool(size_t size) -> result_buffer&
 {
   auto stream = get_stream_from_global_pool();
-  std::lock_guard guard(detail::grp_mutex);
-  if (int(detail::global_result_buffer_pool.size()) < benchmark_n_threads) {
-    detail::global_result_buffer_pool.resize(benchmark_n_threads);
-  }
-  auto& rb = detail::global_result_buffer_pool[benchmark_thread_id];
-  if (!rb || rb->size() < size) { rb = std::make_unique<result_buffer>(size, stream); }
-  return *rb;
+  auto& rb    = [stream, size]() -> result_buffer& {
+    std::lock_guard guard(detail::grp_mutex);
+    if (static_cast<int>(detail::global_result_buffer_pool.size()) < benchmark_n_threads) {
+      detail::global_result_buffer_pool.resize(benchmark_n_threads);
+    }
+    auto& rb = detail::global_result_buffer_pool[benchmark_thread_id];
+    if (!rb || rb->size() < size) { rb = std::make_unique<result_buffer>(size, stream); }
+    return *rb;
+  }();
+
+  memset(rb.data(MemoryType::Host), 0, size);
+#ifndef BUILD_CPU_ONLY
+  cudaMemsetAsync(rb.data(MemoryType::Device), 0, size, stream);
+  cudaStreamSynchronize(stream);
+#endif
+  return rb;
 }
 
 /**
- * Delete all streams in the global pool.
+ * Delete all streams and memory allocations in the global pool.
  * It's called at the end of the `main` function - before global/static variables and cuda context
  * is destroyed - to make sure they are destroyed gracefully and correctly seen by analysis tools
  * such as nsys.
  */
-inline void reset_global_stream_pool()
+inline void reset_global_device_resources()
 {
 #ifndef BUILD_CPU_ONLY
   std::lock_guard guard(detail::gsp_mutex);

@@ -280,14 +280,15 @@ void bench_search(::benchmark::State& state,
   /**
    * Each thread will manage its own outputs
    */
+  using index_type                 = AnnBase::index_type;
   constexpr size_t kAlignResultBuf = 64;
   size_t result_elem_count         = k * query_set_size;
   result_elem_count =
     ((result_elem_count + kAlignResultBuf - 1) / kAlignResultBuf) * kAlignResultBuf;
-  auto& result_buf = get_result_buffer_from_global_pool(
-    result_elem_count * (sizeof(float) + sizeof(AnnBase::index_type)));
+  auto& result_buf =
+    get_result_buffer_from_global_pool(result_elem_count * (sizeof(float) + sizeof(index_type)));
   auto* neighbors_ptr =
-    reinterpret_cast<AnnBase::index_type*>(result_buf.data(current_algo_props->query_memory_type));
+    reinterpret_cast<index_type*>(result_buf.data(current_algo_props->query_memory_type));
   auto* distances_ptr = reinterpret_cast<float*>(neighbors_ptr + result_elem_count);
 
   {
@@ -346,8 +347,7 @@ void bench_search(::benchmark::State& state,
     const std::int32_t* gt    = dataset->gt_set();
     const std::uint32_t max_k = dataset->max_k();
     result_buf.transfer_data(MemoryType::Host, current_algo_props->query_memory_type);
-    auto* neighbors_host =
-      reinterpret_cast<AnnBase::index_type*>(result_buf.data(MemoryType::Host));
+    auto* neighbors_host    = reinterpret_cast<index_type*>(result_buf.data(MemoryType::Host));
     std::size_t rows        = std::min(queries_processed, query_set_size);
     std::size_t match_count = 0;
     std::size_t total_count = rows * static_cast<size_t>(k);
@@ -724,7 +724,7 @@ inline auto run_main(int argc, char** argv) -> int
   // to a shared library it depends on (dynamic benchmark executable).
   current_algo.reset();
   current_algo_props.reset();
-  reset_global_stream_pool();
+  reset_global_device_resources();
   return 0;
 }
 };  // namespace raft::bench::ann
