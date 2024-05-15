@@ -116,14 +116,11 @@ class RaftCagra : public ANN<T>, public AnnGPU {
 
   [[nodiscard]] auto uses_stream() const noexcept -> bool override
   {
-    // To avoid too much api changes in the prototype, I encode whether the algorithm runs
-    // persistent kernel using the highest bit in the `rand_xor_mask` parameter.
-    uint64_t pmask = 0x8000000000000000LL;
     // If the algorithm uses persistent kernel, the CPU has to synchronize by the end of computing
     // the result. Hence it guarantees the benchmark CUDA stream is empty by the end of the
-    // execution. Hence we notify the benchmark to not waste the time on recording & synchronizing
+    // execution. Hence we inform the benchmark to not waste the time on recording & synchronizing
     // the event.
-    return !(search_params_.rand_xor_mask & pmask);
+    return !search_params_.persistent;
   }
 
   // to enable dataset access from GPU memory
