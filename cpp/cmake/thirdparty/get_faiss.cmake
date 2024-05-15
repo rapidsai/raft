@@ -30,7 +30,7 @@ function(find_and_configure_faiss)
             set(CPM_DOWNLOAD_faiss ON)
         endif()
 
-        include(cmake/modules/FindAVX.cmake)
+        include(cmake/modules/FindAVX)
 
         # Link against AVX CPU lib if it exists
         set(RAFT_FAISS_GLOBAL_TARGETS faiss::faiss)
