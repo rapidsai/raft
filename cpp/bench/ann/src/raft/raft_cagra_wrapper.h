@@ -314,66 +314,20 @@ void RaftCagra<T, IdxT>::search(
   auto k0                       = static_cast<size_t>(refine_ratio_ * k);
   const bool disable_refinement = k0 <= static_cast<size_t>(k);
   const raft::resources& res    = handle_;
-  auto stream                   = resource::get_cuda_stream(res);
 
   if (disable_refinement) {
     search_base(queries, batch_size, k, neighbors, distances);
   } else {
+    auto queries_v =
+      raft::make_device_matrix_view<const T, AnnBase::index_type>(queries, batch_size, dimension_);
     auto candidate_ixs =
       raft::make_device_matrix<AnnBase::index_type, AnnBase::index_type>(res, batch_size, k0);
     auto candidate_dists =
       raft::make_device_matrix<float, AnnBase::index_type>(res, batch_size, k0);
-    search_base(queries,
-                batch_size,
-                k0,
-                reinterpret_cast<AnnBase::index_type*>(candidate_ixs.data_handle()),
-                candidate_dists.data_handle());
-
-    if (raft::get_device_for_address(input_dataset_v_->data_handle()) >= 0) {
-      auto queries_v = raft::make_device_matrix_view<const T, AnnBase::index_type>(
-        queries, batch_size, dimension_);
-      auto neighours_v = raft::make_device_matrix_view<AnnBase::index_type, AnnBase::index_type>(
-        reinterpret_cast<AnnBase::index_type*>(neighbors), batch_size, k);
-      auto distances_v =
-        raft::make_device_matrix_view<float, AnnBase::index_type>(distances, batch_size, k);
-      raft::neighbors::refine<AnnBase::index_type, T, float, AnnBase::index_type>(
-        res,
-        *input_dataset_v_,
-        queries_v,
-        raft::make_const_mdspan(candidate_ixs.view()),
-        neighours_v,
-        distances_v,
-        index_->metric());
-    } else {
-      auto dataset_host = raft::make_host_matrix_view<const T, AnnBase::index_type>(
-        input_dataset_v_->data_handle(), input_dataset_v_->extent(0), input_dataset_v_->extent(1));
-      auto queries_host = raft::make_host_matrix<T, AnnBase::index_type>(batch_size, dimension_);
-      auto candidates_host =
-        raft::make_host_matrix<AnnBase::index_type, AnnBase::index_type>(batch_size, k0);
-      auto neighbors_host =
-        raft::make_host_matrix<AnnBase::index_type, AnnBase::index_type>(batch_size, k);
-      auto distances_host = raft::make_host_matrix<float, AnnBase::index_type>(batch_size, k);
-
-      raft::copy(queries_host.data_handle(), queries, queries_host.size(), stream);
-      raft::copy(
-        candidates_host.data_handle(), candidate_ixs.data_handle(), candidates_host.size(), stream);
-
-      raft::resource::sync_stream(res);  // wait for the queries and candidates
-      raft::neighbors::refine<AnnBase::index_type, T, float, AnnBase::index_type>(
-        res,
-        dataset_host,
-        queries_host.view(),
-        candidates_host.view(),
-        neighbors_host.view(),
-        distances_host.view(),
-        index_->metric());
-
-      raft::copy(neighbors,
-                 reinterpret_cast<AnnBase::index_type*>(neighbors_host.data_handle()),
-                 neighbors_host.size(),
-                 stream);
-      raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
-    }
+    search_base(
+      queries, batch_size, k0, candidate_ixs.data_handle(), candidate_dists.data_handle());
+    refine_helper(
+      res, *input_dataset_v_, queries_v, candidate_ixs, k, neighbors, distances, index_->metric());
   }
 }
 }  // namespace raft::bench::ann

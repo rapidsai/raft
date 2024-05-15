@@ -136,19 +136,30 @@ void RaftIvfFlatGpu<T, IdxT>::search(
 {
   static_assert(std::is_integral_v<AnnBase::index_type>);
   static_assert(std::is_integral_v<IdxT>);
-  static_assert(sizeof(AnnBase::index_type) == sizeof(IdxT),
-                "IdxT is incompatible with the index_type");
-  // Assuming the returned and the required index types have the same size, we can just coerce the
-  // pointers to avoid extra mapping pass over the results.
-  // TODO: add a linalg::map() over the result indices if the type representations do not match.
+
+  IdxT* neighbors_IdxT;
+  std::optional<rmm::device_uvector<IdxT>> neighbors_storage{std::nullopt};
+  if constexpr (sizeof(IdxT) == sizeof(AnnBase::index_type)) {
+    neighbors_IdxT = reinterpret_cast<IdxT*>(neighbors);
+  } else {
+    neighbors_storage.emplace(batch_size * k, resource::get_cuda_stream(handle_));
+    neighbors_IdxT = neighbors_storage->data();
+  }
   raft::neighbors::ivf_flat::search(handle_,
                                     search_params_,
                                     *index_,
                                     queries,
                                     batch_size,
                                     k,
-                                    reinterpret_cast<IdxT*>(neighbors),
+                                    neighbors_IdxT,
                                     distances,
                                     resource::get_workspace_resource(handle_));
+  if constexpr (sizeof(IdxT) != sizeof(AnnBase::index_type)) {
+    raft::linalg::unaryOp(neighbors,
+                          neighbors_IdxT,
+                          batch_size * k,
+                          raft::cast_op<AnnBase::index_type>(),
+                          raft::resource::get_cuda_stream(handle_));
+  }
 }
 }  // namespace raft::bench::ann
