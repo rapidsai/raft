@@ -56,8 +56,6 @@ class RaftGpu : public ANN<T>, public AnnGPU {
 
   void set_search_param(const AnnSearchParam& param) override;
 
-  // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
-  // will be filled with (size_t)-1
   void search(const T* queries,
               int batch_size,
               int k,
@@ -141,7 +139,8 @@ void RaftGpu<T>::search(
   auto queries_view =
     raft::make_device_matrix_view<const T, int64_t>(queries, batch_size, this->dim_);
 
-  auto neighbors_view = raft::make_device_matrix_view<size_t, int64_t>(neighbors, batch_size, k);
+  auto neighbors_view =
+    raft::make_device_matrix_view<AnnBase::index_type, int64_t>(neighbors, batch_size, k);
   auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, batch_size, k);
 
   raft::neighbors::brute_force::search<T, AnnBase::index_type>(

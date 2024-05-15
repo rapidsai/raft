@@ -61,8 +61,6 @@ class RaftIvfFlatGpu : public ANN<T>, public AnnGPU {
 
   void set_search_param(const AnnSearchParam& param) override;
 
-  // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
-  // will be filled with (size_t)-1
   void search(const T* queries,
               int batch_size,
               int k,
@@ -136,8 +134,32 @@ template <typename T, typename IdxT>
 void RaftIvfFlatGpu<T, IdxT>::search(
   const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
-  static_assert(sizeof(AnnBase::index_type) == sizeof(IdxT), "IdxT is incompatible with size_t");
-  raft::neighbors::ivf_flat::search(
-    handle_, search_params_, *index_, queries, batch_size, k, (IdxT*)neighbors, distances);
+  static_assert(std::is_integral_v<AnnBase::index_type>);
+  static_assert(std::is_integral_v<IdxT>);
+
+  IdxT* neighbors_IdxT;
+  std::optional<rmm::device_uvector<IdxT>> neighbors_storage{std::nullopt};
+  if constexpr (sizeof(IdxT) == sizeof(AnnBase::index_type)) {
+    neighbors_IdxT = reinterpret_cast<IdxT*>(neighbors);
+  } else {
+    neighbors_storage.emplace(batch_size * k, resource::get_cuda_stream(handle_));
+    neighbors_IdxT = neighbors_storage->data();
+  }
+  raft::neighbors::ivf_flat::search(handle_,
+                                    search_params_,
+                                    *index_,
+                                    queries,
+                                    batch_size,
+                                    k,
+                                    neighbors_IdxT,
+                                    distances,
+                                    resource::get_workspace_resource(handle_));
+  if constexpr (sizeof(IdxT) != sizeof(AnnBase::index_type)) {
+    raft::linalg::unaryOp(neighbors,
+                          neighbors_IdxT,
+                          batch_size * k,
+                          raft::cast_op<AnnBase::index_type>(),
+                          raft::resource::get_cuda_stream(handle_));
+  }
 }
 }  // namespace raft::bench::ann

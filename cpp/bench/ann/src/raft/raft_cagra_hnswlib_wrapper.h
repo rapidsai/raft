@@ -41,8 +41,6 @@ class RaftCagraHnswlib : public ANN<T>, public AnnGPU {
 
   void set_search_param(const AnnSearchParam& param) override;
 
-  // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
-  // will be filled with (size_t)-1
   void search(const T* queries,
               int batch_size,
               int k,
