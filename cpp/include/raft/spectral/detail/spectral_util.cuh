@@ -39,30 +39,6 @@
 namespace raft {
 namespace spectral {
 
-template <typename index_type_t, typename value_type_t>
-cudaError_t scale_obs(raft::resources const& handle,
-                      index_type_t m,
-                      index_type_t n,
-                      value_type_t* obs)
-{
-  auto thrust_exec_policy = resource::get_thrust_policy(handle);
-  thrust::for_each(thrust_exec_policy,
-                   thrust::make_counting_iterator<index_type_t>(0),
-                   thrust::make_counting_iterator<index_type_t>(n),
-                   [m, obs] __device__(index_type_t j) {
-                     value_type_t norm{0};
-                     for (index_type_t i = 0; i < m; ++i) {
-                       norm += obs[i + j * m] * obs[i + j * m];
-                     }
-                     norm = raft::sqrt(norm);
-                     for (index_type_t i = 0; i < m; ++i) {
-                       obs[i + j * m] /= norm;
-                     }
-                   });
-
-  return cudaSuccess;
-}
-
 template <typename vertex_t, typename edge_t, typename weight_t>
 void transform_eigen_matrix(raft::resources const& handle,
                             edge_t n,

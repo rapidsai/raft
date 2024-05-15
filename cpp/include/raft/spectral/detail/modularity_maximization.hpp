@@ -19,6 +19,7 @@
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/normalize.cuh>
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/detail/spectral_util.cuh>
 #include <raft/spectral/eigen_solvers.cuh>
@@ -101,8 +102,9 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
 
   // notice that at this point the matrix has already been transposed, so we are scaling
   // columns
-  scale_obs(handle, nEigVecs, n, eigVecs);
-  RAFT_CHECK_CUDA(stream);
+  auto dataset_view = raft::make_device_matrix_view(eigVecs, nEigVecs, n);
+  raft::linalg::row_normalize(
+    handle, raft::make_const_mdspan(dataset_view), dataset_view, raft::linalg::L2Norm);
 
   // Find partition clustering
   auto pair_cluster = cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);
