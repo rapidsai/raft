@@ -612,16 +612,36 @@ void brute_force_search(
                                     rows.data(),
                                     compressed_csr_view.get_nnz(),
                                     stream);
+  if (n_queries > 10 || (1.0f * nnz_h / (1.0f * n_queries * n_dataset)) > 0.01f) {
+    auto csr_view = make_device_csr_matrix_view<T, IdxT, IdxT, IdxT>(csr.get_elements().data(),
+                                                                     compressed_csr_view);
 
-  raft::sparse::distance::detail::faster_dot_on_csr(res,
-                                                    csr.get_elements().data(),
-                                                    compressed_csr_view.get_nnz(),
-                                                    compressed_csr_view.get_indptr().data(),
-                                                    compressed_csr_view.get_indices().data(),
-                                                    queries.data_handle(),
-                                                    idx.dataset().data_handle(),
-                                                    compressed_csr_view.get_n_rows(),
-                                                    dim);
+    // create dataset view
+    auto dataset_view = raft::make_device_matrix_view<const T, IdxT, raft::col_major>(
+      idx.dataset().data_handle(), dim, n_dataset);
+
+    // calc dot
+    T alpha = static_cast<T>(1.0f);
+    T beta  = static_cast<T>(0.0f);
+    raft::sparse::linalg::sddmm(res,
+                                queries,
+                                dataset_view,
+                                csr_view,
+                                raft::linalg::Operation::NON_TRANSPOSE,
+                                raft::linalg::Operation::NON_TRANSPOSE,
+                                raft::make_host_scalar_view<T>(&alpha),
+                                raft::make_host_scalar_view<T>(&beta));
+  } else {
+    raft::sparse::distance::detail::faster_dot_on_csr(res,
+                                                      csr.get_elements().data(),
+                                                      compressed_csr_view.get_nnz(),
+                                                      compressed_csr_view.get_indptr().data(),
+                                                      compressed_csr_view.get_indices().data(),
+                                                      queries.data_handle(),
+                                                      idx.dataset().data_handle(),
+                                                      compressed_csr_view.get_n_rows(),
+                                                      dim);
+  }
 
   // post process
   std::optional<device_vector<T, IdxT>> query_norms_;
