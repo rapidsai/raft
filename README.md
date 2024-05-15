@@ -370,6 +370,7 @@ If citing the k-selection routines, please consider the following bibtex:
     publisher = {Association for Computing Machinery},
     address = {New York, NY, USA},
     location = {Denver, CO, USA}
+    series = {SC '23}
 }
 ```
 
