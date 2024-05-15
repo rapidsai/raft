@@ -280,7 +280,7 @@ void bench_search(::benchmark::State& state,
   /**
    * Each thread will manage its own outputs
    */
-  using index_type                 = size_t;
+  using index_type                 = AnnBase::index_type;
   constexpr size_t kAlignResultBuf = 64;
   size_t result_elem_count         = k * query_set_size;
   result_elem_count =
