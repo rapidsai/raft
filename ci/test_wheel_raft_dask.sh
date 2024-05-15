@@ -13,11 +13,13 @@ python -m pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl
 
 python -m pip install "raft_dask-${RAPIDS_PY_CUDA_SUFFIX}[test]>=0.0.0a0" --find-links dist/
 
-# rapids-logger "pytest raft-dask"
-# python -m pytest ./python/raft-dask/raft_dask/test
+test_dir="python/raft-dask/raft_dask/test"
 
-# rapids-logger "pytest raft-dask (ucx-py only)"
-# python -m pytest ./python/raft-dask/raft_dask/test --run_ucx
+rapids-logger "pytest raft-dask"
+python -m pytest --import-mode=append ${test_dir}
+
+rapids-logger "pytest raft-dask (ucx-py only)"
+python -m pytest --import-mode=append ${test_dir} --run_ucx
 
 rapids-logger "pytest raft-dask (ucxx only)"
-python -m pytest ./python/raft-dask/raft_dask/test --run_ucxx
+python -m pytest --import-mode=append ${test_dir} --run_ucxx

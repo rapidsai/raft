@@ -57,7 +57,6 @@ requirements:
     - scikit-build-core >=0.7.0
     - setuptools
     - ucx-py {{ ucx_py_version }}
-    - libucxx {{ ucxx_version }}
     - ucxx {{ ucxx_version }}
   run:
     {% if cuda_major == "11" %}
@@ -74,7 +73,7 @@ requirements:
     - python x.x
     - rmm ={{ minor_version }}
     - ucx-py {{ ucx_py_version }}
-    - ucxx {{ ucxx_version }}
+    - distributed-ucxx {{ ucxx_version }}
 
 tests:
   requirements:
