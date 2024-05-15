@@ -58,8 +58,11 @@ class Ggnn : public ANN<T>, public AnnGPU {
   void build(const T* dataset, size_t nrow) override { impl_->build(dataset, nrow); }
 
   void set_search_param(const AnnSearchParam& param) override { impl_->set_search_param(param); }
-  void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              AnnBase::index_type* neighbors,
+              float* distances) const override
   {
     impl_->search(queries, batch_size, k, neighbors, distances);
   }
@@ -123,8 +126,11 @@ class GgnnImpl : public ANN<T>, public AnnGPU {
   void build(const T* dataset, size_t nrow) override;
 
   void set_search_param(const AnnSearchParam& param) override;
-  void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              AnnBase::index_type* neighbors,
+              float* distances) const override;
   [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override { return stream_; }
 
   void save(const std::string& file) const override;
@@ -243,7 +249,7 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::set_search_param(const AnnSearc
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
 void GgnnImpl<T, measure, D, KBuild, KQuery, S>::search(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
   static_assert(sizeof(size_t) == sizeof(int64_t), "sizes of size_t and GGNN's KeyT are different");
   if (k != KQuery) {

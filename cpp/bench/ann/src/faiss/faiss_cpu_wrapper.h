@@ -88,8 +88,11 @@ class FaissCpu : public ANN<T> {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const final;
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              AnnBase::index_type* neighbors,
+              float* distances) const final;
 
   AlgoProperty get_preference() const override
   {
@@ -169,7 +172,7 @@ void FaissCpu<T>::set_search_param(const AnnSearchParam& param)
 
 template <typename T>
 void FaissCpu<T>::search(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
