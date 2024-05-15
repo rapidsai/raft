@@ -98,7 +98,16 @@ class AnnGPU {
    * end.
    */
   [[nodiscard]] virtual auto get_sync_stream() const noexcept -> cudaStream_t = 0;
-  virtual ~AnnGPU() noexcept                                                  = default;
+  /**
+   * By default a GPU algorithm uses a fixed stream to order GPU operations.
+   * However, an algorithm may need to synchronize with the host at the end of its execution.
+   * In that case, also synchronizing with a benchmark event would put it at disadvantage.
+   *
+   * We can disable event sync by passing `false` here
+   *   - ONLY IF THE ALGORITHM HAS PRODUCED ITS OUTPUT BY THE TIME IT SYNCHRONIZES WITH CPU.
+   */
+  [[nodiscard]] virtual auto uses_stream() const noexcept -> bool { return true; }
+  virtual ~AnnGPU() noexcept = default;
 };
 
 template <typename T>

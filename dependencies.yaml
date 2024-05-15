@@ -46,7 +46,6 @@ files:
       - test_python_common
       - test_pylibraft
       - depends_on_cupy
-      - depends_on_distributed_ucxx
   checks:
     output: none
     includes:
@@ -100,7 +99,7 @@ files:
       table: project
     includes:
       - run_raft_dask
-      - depends_on_ucx_run
+      - depends_on_distributed_ucxx
   py_test_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -109,7 +108,6 @@ files:
       key: test
     includes:
       - test_python_common
-      - depends_on_distributed_ucxx
   py_build_raft_ann_bench:
     output: pyproject
     pyproject_dir: python/raft-ann-bench
@@ -447,8 +445,6 @@ dependencies:
           - ucx-py==0.38.*
       - output_types: conda
         packages:
-          - ucx>=1.15.0,<1.16.0
-          - ucx-proc=*=gpu
           - &ucx_py_conda ucx-py==0.38.*
       - output_types: pyproject
         packages:

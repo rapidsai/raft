@@ -129,7 +129,7 @@ class vector_t {
  private:
   using thrust_exec_policy_t =
     thrust::detail::execute_with_allocator<rmm::mr::thrust_allocator<char>,
-                                           thrust::cuda_cub::execute_on_stream_base>;
+                                           thrust::cuda_cub::execute_on_stream_nosync_base>;
   rmm::device_uvector<value_type> buffer_;
   const thrust_exec_policy_t thrust_policy;
 };
