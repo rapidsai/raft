@@ -8,7 +8,6 @@ files:
     includes:
       - build
       - build_pylibraft
-      - cython_build
       - cuda
       - cuda_version
       - depends_on_cupy
@@ -29,7 +28,6 @@ files:
       arch: [x86_64, aarch64]
     includes:
       - build
-      - cython_build
       - cuda
       - cuda_version
       - develop
@@ -48,7 +46,6 @@ files:
       - test_python_common
       - test_pylibraft
       - depends_on_cupy
-      - depends_on_distributed_ucxx
   checks:
     output: none
     includes:
@@ -62,25 +59,6 @@ files:
       - docs
       - py_version
       - test_pylibraft
-  py_build_libraft:
-    output: pyproject
-    pyproject_dir: python/libraft
-    extras:
-      table: build-system
-    includes:
-      - build
-      - librmm
-  py_run_libraft:
-    output: pyproject
-    pyproject_dir: python/libraft
-    extras:
-      table: project
-    includes:
-      # This is really a build requirement for anything using libraft to build
-      # against, but is not required when _running_ with libraft. There isn't a
-      # great way to express that without separating libraft into libraft and
-      # libraft-dev packages, though.
-      - librmm
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -89,7 +67,6 @@ files:
     includes:
       - build
       - build_pylibraft
-      - cython_build
   py_run_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -114,7 +91,6 @@ files:
       table: build-system
     includes:
       - build
-      - cython_build
       - depends_on_ucx_build
   py_run_raft_dask:
     output: pyproject
@@ -123,7 +99,7 @@ files:
       table: project
     includes:
       - run_raft_dask
-      - depends_on_ucx_run
+      - depends_on_distributed_ucxx
   py_test_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -132,7 +108,6 @@ files:
       key: test
     includes:
       - test_python_common
-      - depends_on_distributed_ucxx
   py_build_raft_ann_bench:
     output: pyproject
     pyproject_dir: python/raft-ann-bench
@@ -159,6 +134,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cmake_ver cmake>=3.26.4
+          - cython>=3.0.0
           - ninja
       - output_types: [conda]
         packages:
@@ -203,33 +179,7 @@ dependencies:
             packages: [nvcc_linux-64=11.2]
           - matrix: {cuda: "11.2", arch: aarch64}
             packages: [nvcc_linux-aarch64=11.2]
-  cython_build:
-    common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - cython>=3.0.0
-      - output_types: [requirements, pyproject]
-        packages:
-          - libraft==24.6.*
-  librmm:
-    common:
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix: {cuda: "12.*"}
-            packages:
-              - librmm-cu12==24.6.*
-          - matrix: {cuda: "11.*"}
-            packages:
-              - librmm-cu11==24.6.*
-          - matrix: null
-            packages:
-              - librmm==24.6.*
+
   build_pylibraft:
     common:
       - output_types: [conda]
@@ -479,15 +429,10 @@ dependencies:
           - matrix: {cuda: "12.*"}
             packages:
               - *rmm_cu12
-              - libraft-cu12==24.6.*
           - matrix: {cuda: "11.*"}
             packages:
               - *rmm_cu11
-              - libraft-cu11==24.6.*
-          - matrix: null
-            packages:
-              - *rmm_conda
-              - libraft==24.6.*
+          - {matrix: null, packages: [*rmm_conda]}
   run_raft_dask:
     common:
       - output_types: [conda, pyproject]
@@ -500,8 +445,6 @@ dependencies:
           - ucx-py==0.38.*
       - output_types: conda
         packages:
-          - ucx>=1.15.0,<1.16.0
-          - ucx-proc=*=gpu
           - &ucx_py_conda ucx-py==0.38.*
       - output_types: pyproject
         packages:
@@ -519,17 +462,11 @@ dependencies:
             packages:
               - &pylibraft_cu12 pylibraft-cu12==24.6.*
               - &ucx_py_cu12 ucx-py-cu12==0.38.*
-              - libraft-cu12==24.6.*
           - matrix: {cuda: "11.*"}
             packages:
               - &pylibraft_cu11 pylibraft-cu11==24.6.*
               - &ucx_py_cu11 ucx-py-cu11==0.38.*
-              - libraft-cu11==24.6.*
-          - matrix: null
-            packages: 
-              - *pylibraft_conda
-              - *ucx_py_conda
-              - libraft==24.6.*
+          - {matrix: null, packages: [*pylibraft_conda, *ucx_py_conda]}
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]

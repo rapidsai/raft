@@ -130,7 +130,9 @@ class configured_raft_resources {
    * It's used by the copy constructor.
    */
   explicit configured_raft_resources(const std::shared_ptr<shared_raft_resources>& shared_res)
-    : shared_res_{shared_res}, res_{rmm::cuda_stream_view(get_stream_from_global_pool())}
+    : shared_res_{shared_res},
+      res_{std::make_unique<raft::device_resources>(
+        rmm::cuda_stream_view(get_stream_from_global_pool()))}
   {
     // set the large workspace resource to the raft handle, but without the deleter
     // (this resource is managed by the shared_res).
@@ -145,9 +147,9 @@ class configured_raft_resources {
   {
   }
 
-  configured_raft_resources(configured_raft_resources&&)            = delete;
-  configured_raft_resources& operator=(configured_raft_resources&&) = delete;
-  ~configured_raft_resources()                                      = default;
+  configured_raft_resources(configured_raft_resources&&);
+  configured_raft_resources& operator=(configured_raft_resources&&);
+  ~configured_raft_resources() = default;
   configured_raft_resources(const configured_raft_resources& res)
     : configured_raft_resources{res.shared_res_}
   {
@@ -158,11 +160,11 @@ class configured_raft_resources {
     return *this;
   }
 
-  operator raft::resources&() noexcept { return res_; }
-  operator const raft::resources&() const noexcept { return res_; }
+  operator raft::resources&() noexcept { return *res_; }
+  operator const raft::resources&() const noexcept { return *res_; }
 
   /** Get the main stream */
-  [[nodiscard]] auto get_sync_stream() const noexcept { return resource::get_cuda_stream(res_); }
+  [[nodiscard]] auto get_sync_stream() const noexcept { return resource::get_cuda_stream(*res_); }
 
  private:
   /** The resources shared among multiple raft handles / threads. */
@@ -171,7 +173,11 @@ class configured_raft_resources {
    * Until we make the use of copies of raft::resources thread-safe, each benchmark wrapper must
    * have its own copy of it.
    */
-  raft::device_resources res_;
+  std::unique_ptr<raft::device_resources> res_ = std::make_unique<raft::device_resources>();
 };
+
+inline configured_raft_resources::configured_raft_resources(configured_raft_resources&&) = default;
+inline configured_raft_resources& configured_raft_resources::operator=(
+  configured_raft_resources&&) = default;
 
 }  // namespace raft::bench::ann

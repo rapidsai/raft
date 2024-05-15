@@ -27,9 +27,42 @@ project(
   LANGUAGES CXX CUDA
 )
 
-find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS compiled)
+option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
+       ON
+)
+
+# If the user requested it we attempt to find RAFT.
+if(FIND_RAFT_CPP)
+  find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS compiled)
+  if(NOT TARGET raft::raft_lib)
+    message(
+      FATAL_ERROR
+        "Building against a preexisting libraft library requires the compiled libraft to have been built!"
+    )
+
+  endif()
+else()
+  set(raft_FOUND OFF)
+endif()
 
 include(rapids-cython-core)
+
+if(NOT raft_FOUND)
+  set(BUILD_TESTS OFF)
+  set(BUILD_PRIMS_BENCH OFF)
+  set(BUILD_ANN_BENCH OFF)
+  set(RAFT_COMPILE_LIBRARY ON)
+  set(CUDA_STATIC_RUNTIME ON)
+
+  add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
+
+  # When building the C++ libraries from source we must copy libraft.so alongside the
+  # pairwise_distance and random Cython libraries TODO: when we have a single 'compiled' raft
+  # library, we shouldn't need this
+  set(cython_lib_dir pylibraft)
+  install(TARGETS raft_lib DESTINATION ${cython_lib_dir})
+endif()
+
 rapids_cython_init()
 
 add_subdirectory(pylibraft/common)
@@ -38,3 +71,7 @@ add_subdirectory(pylibraft/matrix)
 add_subdirectory(pylibraft/neighbors)
 add_subdirectory(pylibraft/random)
 add_subdirectory(pylibraft/cluster)
+
+if(DEFINED cython_lib_dir)
+  rapids_cython_add_rpath_entries(TARGET raft PATHS "${cython_lib_dir}")
+endif()
