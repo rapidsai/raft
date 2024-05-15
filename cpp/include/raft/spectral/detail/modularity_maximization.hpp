@@ -101,7 +101,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
 
   // notice that at this point the matrix has already been transposed, so we are scaling
   // columns
-  scale_obs(nEigVecs, n, eigVecs);
+  scale_obs(handle, nEigVecs, n, eigVecs);
   RAFT_CHECK_CUDA(stream);
 
   // Find partition clustering
