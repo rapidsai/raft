@@ -56,57 +56,6 @@ inline thread_local int benchmark_thread_id = 0;
  */
 inline thread_local int benchmark_n_threads = 1;
 
-template <typename T>
-struct buf {
-  MemoryType memory_type;
-  std::size_t size;
-  T* data;
-  buf(MemoryType memory_type, std::size_t size)
-    : memory_type(memory_type), size(size), data(nullptr)
-  {
-    switch (memory_type) {
-#ifndef BUILD_CPU_ONLY
-      case MemoryType::Device: {
-        cudaMalloc(reinterpret_cast<void**>(&data), size * sizeof(T));
-        cudaMemset(data, 0, size * sizeof(T));
-      } break;
-#endif
-      default: {
-        data = reinterpret_cast<T*>(malloc(size * sizeof(T)));
-        std::memset(data, 0, size * sizeof(T));
-      }
-    }
-  }
-  ~buf() noexcept
-  {
-    if (data == nullptr) { return; }
-    switch (memory_type) {
-#ifndef BUILD_CPU_ONLY
-      case MemoryType::Device: {
-        cudaFree(data);
-      } break;
-#endif
-      default: {
-        free(data);
-      }
-    }
-  }
-
-  [[nodiscard]] auto move(MemoryType target_memory_type) -> buf<T>
-  {
-    buf<T> r{target_memory_type, size};
-#ifndef BUILD_CPU_ONLY
-    if ((memory_type == MemoryType::Device && target_memory_type != MemoryType::Device) ||
-        (memory_type != MemoryType::Device && target_memory_type == MemoryType::Device)) {
-      cudaMemcpy(r.data, data, size * sizeof(T), cudaMemcpyDefault);
-      return r;
-    }
-#endif
-    std::swap(data, r.data);
-    return r;
-  }
-};
-
 struct cuda_timer {
  private:
   std::optional<cudaStream_t> stream_;
@@ -242,16 +191,102 @@ inline auto get_stream_from_global_pool() -> cudaStream_t
 #endif
 }
 
+struct result_buffer {
+  explicit result_buffer(size_t size, cudaStream_t stream) : size_{size}, stream_{stream}
+  {
+    if (size_ == 0) { return; }
+    data_host_ = malloc(size_);
+#ifndef BUILD_CPU_ONLY
+    cudaMallocAsync(&data_device_, size_, stream_);
+    cudaStreamSynchronize(stream_);
+#endif
+  }
+  result_buffer()                                = delete;
+  result_buffer(result_buffer&&)                 = delete;
+  result_buffer& operator=(result_buffer&&)      = delete;
+  result_buffer(const result_buffer&)            = delete;
+  result_buffer& operator=(const result_buffer&) = delete;
+  ~result_buffer() noexcept
+  {
+    if (size_ == 0) { return; }
+#ifndef BUILD_CPU_ONLY
+    cudaFreeAsync(data_device_, stream_);
+    cudaStreamSynchronize(stream_);
+#endif
+    free(data_host_);
+  }
+
+  [[nodiscard]] auto size() const noexcept { return size_; }
+  [[nodiscard]] auto data(ann::MemoryType loc) const noexcept
+  {
+    switch (loc) {
+      case MemoryType::Device: return data_device_;
+      default: return data_host_;
+    }
+  }
+
+  void transfer_data(ann::MemoryType dst, ann::MemoryType src)
+  {
+    auto dst_ptr = data(dst);
+    auto src_ptr = data(src);
+    if (dst_ptr == src_ptr) { return; }
+#ifndef BUILD_CPU_ONLY
+    cudaMemcpyAsync(dst_ptr, src_ptr, size_, cudaMemcpyDefault, stream_);
+    cudaStreamSynchronize(stream_);
+#endif
+  }
+
+ private:
+  size_t size_{0};
+  cudaStream_t stream_ = nullptr;
+  void* data_host_     = nullptr;
+  void* data_device_   = nullptr;
+};
+
+namespace detail {
+inline std::vector<std::unique_ptr<result_buffer>> global_result_buffer_pool(0);
+inline std::mutex grp_mutex;
+}  // namespace detail
+
 /**
- * Delete all streams in the global pool.
+ * Get a result buffer associated with the current benchmark thread.
+ *
+ * Note, the allocations are reused between the benchmark cases.
+ * This reduces the setup overhead and number of times the context is being blocked
+ * (this is relevant if there is a persistent kernel running across multiples benchmark cases).
+ */
+inline auto get_result_buffer_from_global_pool(size_t size) -> result_buffer&
+{
+  auto stream = get_stream_from_global_pool();
+  auto& rb    = [stream, size]() -> result_buffer& {
+    std::lock_guard guard(detail::grp_mutex);
+    if (static_cast<int>(detail::global_result_buffer_pool.size()) < benchmark_n_threads) {
+      detail::global_result_buffer_pool.resize(benchmark_n_threads);
+    }
+    auto& rb = detail::global_result_buffer_pool[benchmark_thread_id];
+    if (!rb || rb->size() < size) { rb = std::make_unique<result_buffer>(size, stream); }
+    return *rb;
+  }();
+
+  memset(rb.data(MemoryType::Host), 0, size);
+#ifndef BUILD_CPU_ONLY
+  cudaMemsetAsync(rb.data(MemoryType::Device), 0, size, stream);
+  cudaStreamSynchronize(stream);
+#endif
+  return rb;
+}
+
+/**
+ * Delete all streams and memory allocations in the global pool.
  * It's called at the end of the `main` function - before global/static variables and cuda context
  * is destroyed - to make sure they are destroyed gracefully and correctly seen by analysis tools
  * such as nsys.
  */
-inline void reset_global_stream_pool()
+inline void reset_global_device_resources()
 {
 #ifndef BUILD_CPU_ONLY
   std::lock_guard guard(detail::gsp_mutex);
+  detail::global_result_buffer_pool.resize(0);
   detail::global_stream_pool.resize(0);
 #endif
 }
