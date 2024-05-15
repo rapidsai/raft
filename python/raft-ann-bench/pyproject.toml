@@ -9,7 +9,7 @@ requires = [
 
 [project]
 name = "raft-ann-bench"
-version = "24.06.00"
+dynamic = ["version"]
 description = "RAFT ANN benchmarks"
 authors = [
     { name = "NVIDIA Corporation" },
@@ -35,7 +35,7 @@ Homepage = "https://github.com/rapidsai/raft"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.*"]
+"*" = ["*.*", "VERSION"]
 
 [tool.isort]
 line_length = 79
@@ -57,3 +57,6 @@ skip = [
     "build",
     "dist",
 ]
+
+[tool.setuptools.dynamic]
+version = { attr = "raft-ann-bench.__version__" }
