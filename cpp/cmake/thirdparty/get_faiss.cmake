@@ -54,13 +54,22 @@ function(find_and_configure_faiss)
       )
 
     if(TARGET faiss AND NOT TARGET faiss::faiss)
-        add_library(faiss::faiss ALIAS faiss)
+      add_library(faiss::faiss ALIAS faiss)
+      # We need to ensure that faiss has all the conda information. So we use this approach so that
+      # faiss will have the conda includes/link dirs
+      target_link_libraries(faiss PRIVATE $<TARGET_NAME_IF_EXISTS:conda_env>)
     endif()
     if(TARGET faiss_avx2 AND NOT TARGET faiss::faiss_avx2)
-        add_library(faiss::faiss_avx2 ALIAS faiss_avx2)
+      add_library(faiss::faiss_avx2 ALIAS faiss_avx2)
+      # We need to ensure that faiss has all the conda information. So we use this approach so that
+      # faiss will have the conda includes/link dirs
+      target_link_libraries(faiss_avx2 PRIVATE $<TARGET_NAME_IF_EXISTS:conda_env>)
     endif()
     if(TARGET faiss_gpu AND NOT TARGET faiss::faiss_gpu)
-        add_library(faiss::faiss_gpu ALIAS faiss_gpu)
+      add_library(faiss::faiss_gpu ALIAS faiss_gpu)
+      # We need to ensure that faiss has all the conda information. So we use this approach so that
+      # faiss will have the conda includes/link dirs
+      target_link_libraries(faiss_gpu PRIVATE $<TARGET_NAME_IF_EXISTS:conda_env>)
     endif()
 
   if(faiss_ADDED)
