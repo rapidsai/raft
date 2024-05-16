@@ -266,7 +266,10 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
     RAFT_CAGRA
     PATH
     bench/ann/src/raft/raft_benchmark.cu
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra.cu>
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra_float.cu>
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra_half.cu>
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra_int8_t.cu>
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra_uint8_t.cu>
     LINKS
     raft::compiled
   )

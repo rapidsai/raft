@@ -121,7 +121,7 @@ class device_resources : public resources {
 
   cusparseHandle_t get_cusparse_handle() const { return resource::get_cusparse_handle(*this); }
 
-  rmm::exec_policy& get_thrust_policy() const { return resource::get_thrust_policy(*this); }
+  rmm::exec_policy_nosync& get_thrust_policy() const { return resource::get_thrust_policy(*this); }
 
   /**
    * @brief synchronize a stream on the current container
