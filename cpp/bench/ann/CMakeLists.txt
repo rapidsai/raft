@@ -238,7 +238,7 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
     RAFT_IVF_PQ
     PATH
     src/raft/raft_benchmark.cu
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}>:src/raft/raft_ivf_pq.cu>
+    src/raft/raft_ivf_pq.cu
     LINKS
     raft::compiled
   )
@@ -250,7 +250,7 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT)
     RAFT_IVF_FLAT
     PATH
     src/raft/raft_benchmark.cu
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}>:src/raft/raft_ivf_flat.cu>
+    src/raft/raft_ivf_flat.cu
     LINKS
     raft::compiled
   )
