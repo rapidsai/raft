@@ -140,7 +140,7 @@ class configured_raft_resources {
     // set the large workspace resource to the raft handle, but without the deleter
     // (this resource is managed by the shared_res).
     raft::resource::set_large_workspace_resource(
-      res_,
+      *res_,
       std::shared_ptr<rmm::mr::device_memory_resource>(shared_res_->get_large_memory_resource(),
                                                        raft::void_op{}));
   }
