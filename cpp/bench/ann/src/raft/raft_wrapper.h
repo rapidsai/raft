@@ -56,10 +56,11 @@ class RaftGpu : public ANN<T>, public AnnGPU {
 
   void set_search_param(const AnnSearchParam& param) override;
 
-  // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
-  // will be filled with (size_t)-1
-  void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const final;
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              AnnBase::index_type* neighbors,
+              float* distances) const final;
 
   // to enable dataset access from GPU memory
   AlgoProperty get_preference() const override
@@ -133,15 +134,16 @@ void RaftGpu<T>::load(const std::string& file)
 
 template <typename T>
 void RaftGpu<T>::search(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
   auto queries_view =
     raft::make_device_matrix_view<const T, int64_t>(queries, batch_size, this->dim_);
 
-  auto neighbors_view = raft::make_device_matrix_view<size_t, int64_t>(neighbors, batch_size, k);
+  auto neighbors_view =
+    raft::make_device_matrix_view<AnnBase::index_type, int64_t>(neighbors, batch_size, k);
   auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, batch_size, k);
 
-  raft::neighbors::brute_force::search<T, size_t>(
+  raft::neighbors::brute_force::search<T, AnnBase::index_type>(
     handle_, *index_, queries_view, neighbors_view, distances_view);
 }
 
