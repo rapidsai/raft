@@ -284,11 +284,6 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
   )
 endif()
 
-set(RAFT_FAISS_TARGETS faiss::faiss)
-if(TARGET faiss::faiss_avx2)
-  set(RAFT_FAISS_TARGETS faiss::faiss_avx2)
-endif()
-
 message("RAFT_FAISS_TARGETS: ${RAFT_FAISS_TARGETS}")
 message("CUDAToolkit_LIBRARY_DIR: ${CUDAToolkit_LIBRARY_DIR}")
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT)
