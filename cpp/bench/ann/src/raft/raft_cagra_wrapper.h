@@ -112,6 +112,15 @@ class RaftCagra : public ANN<T>, public AnnGPU {
     return handle_.get_sync_stream();
   }
 
+  [[nodiscard]] auto uses_stream() const noexcept -> bool override
+  {
+    // If the algorithm uses persistent kernel, the CPU has to synchronize by the end of computing
+    // the result. Hence it guarantees the benchmark CUDA stream is empty by the end of the
+    // execution. Hence we inform the benchmark to not waste the time on recording & synchronizing
+    // the event.
+    return !search_params_.persistent;
+  }
+
   // to enable dataset access from GPU memory
   AlgoProperty get_preference() const override
   {
