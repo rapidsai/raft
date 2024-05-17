@@ -86,10 +86,11 @@ function(find_and_configure_faiss)
   elseif(PKG_ENABLE_GPU AND  PKG_BUILD_STATIC_LIBS)
     set(RAFT_FAISS_TARGETS "$<LINK_GROUP:RESCAN,$<LINK_LIBRARY:WHOLE_ARCHIVE,faiss_gpu>,faiss::faiss_avx>" PARENT_SCOPE)
   elseif(TARGET faiss::faiss_avx2)
-    set(RAFT_FAISS_TARGETS faiss::faiss_avx2)
+    set(RAFT_FAISS_TARGETS faiss::faiss_avx2 PARENT_SCOPE)
   else()
-    set(RAFT_FAISS_TARGETS faiss::faiss)
+    set(RAFT_FAISS_TARGETS faiss::faiss PARENT_SCOPE)
   endif()
+
 endfunction()
 
 if(NOT RAFT_FAISS_GIT_TAG)
