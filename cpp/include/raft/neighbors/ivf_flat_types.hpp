@@ -272,10 +272,10 @@ struct index : ann::index {
       metric_(metric),
       adaptive_centers_(adaptive_centers),
       conservative_memory_allocation_{conservative_memory_allocation},
-      centers_(make_device_matrix<float, uint32_t>(res, n_lists, dim)),
-      center_norms_(std::nullopt),
       lists_{n_lists},
       list_sizes_{make_device_vector<uint32_t, uint32_t>(res, n_lists)},
+      centers_(make_device_matrix<float, uint32_t>(res, n_lists, dim)),
+      center_norms_(std::nullopt),
       data_ptrs_{make_device_vector<T*, uint32_t>(res, n_lists)},
       inds_ptrs_{make_device_vector<IdxT*, uint32_t>(res, n_lists)},
       accum_sorted_sizes_{make_host_vector<IdxT, uint32_t>(n_lists + 1)}
