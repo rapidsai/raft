@@ -51,14 +51,8 @@ function(find_and_configure_hnswlib)
 
   if(hnswlib_ADDED)
     # write build export rules
-    rapids_export(
-      BUILD hnswlib
-      VERSION ${version}
-      EXPORT_SET hnswlib-exports
-      GLOBAL_TARGETS hnswlib
-      NAMESPACE hnswlib::)
+    install(TARGETS hnswlib EXPORT hnswlib-exports)
     if(NOT exclude)
-      install(TARGETS hnswlib EXPORT hnswlib-exports)
       install(DIRECTORY "${hnswlib_SOURCE_DIR}/hnswlib/" DESTINATION include/hnswlib)
 
       # write install export rules
@@ -69,6 +63,13 @@ function(find_and_configure_hnswlib)
         GLOBAL_TARGETS hnswlib
         NAMESPACE hnswlib::)
     endif()
+
+    rapids_export(
+      BUILD hnswlib
+      VERSION ${version}
+      EXPORT_SET hnswlib-exports
+      GLOBAL_TARGETS hnswlib
+      NAMESPACE hnswlib::)
 
     include("${rapids-cmake-dir}/export/package.cmake")
     rapids_export_package(INSTALL hnswlib raft-exports VERSION ${version} GLOBAL_TARGETS hnswlib hnswlib::hnswlib)
