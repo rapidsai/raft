@@ -30,8 +30,6 @@ function(find_and_configure_hnswlib)
   rapids_cpm_find(
     hnswlib ${version}
     GLOBAL_TARGETS hnswlib hnswlib::hnswlib
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
     CPM_ARGS
     GIT_REPOSITORY ${repository}
     GIT_TAG ${tag}
@@ -55,7 +53,7 @@ function(find_and_configure_hnswlib)
     # write build export rules
     rapids_export(
       BUILD hnswlib
-      VERSION ${PKG_VERSION}
+      VERSION ${version}
       EXPORT_SET hnswlib-exports
       GLOBAL_TARGETS hnswlib
       NAMESPACE hnswlib::)
@@ -66,11 +64,15 @@ function(find_and_configure_hnswlib)
       # write install export rules
       rapids_export(
         INSTALL hnswlib
-        VERSION ${PKG_VERSION}
+        VERSION ${version}
         EXPORT_SET hnswlib-exports
         GLOBAL_TARGETS hnswlib
         NAMESPACE hnswlib::)
     endif()
+
+    include("${rapids-cmake-dir}/export/package.cmake")
+    rapids_export_package(INSTALL hnswlib raft-exports VERSION ${version} GLOBAL_TARGETS hnswlib hnswlib::hnswlib)
+    rapids_export_package(BUILD ${name} raft-exports VERSION ${version} GLOBAL_TARGETS hnswlib hnswlib::hnswlib)
 
 
     # When using RAFT from the build dir, ensure hnswlib is also found in RAFT's build dir. This
