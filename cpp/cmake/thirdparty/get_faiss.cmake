@@ -34,12 +34,12 @@ function(find_and_configure_faiss)
 
   # Link against AVX CPU lib if it exists
   set(RAFT_FAISS_OPT_LEVEL "generic")
-  if(CXX_AVX_FOUND)
+  if(CXX_AVX2_FOUND)
     set(RAFT_FAISS_OPT_LEVEL "avx2")
   endif()
 
     rapids_cpm_find(faiss ${PKG_VERSION}
-      GLOBAL_TARGETS faiss::faiss faiss::faiss_avx2
+      GLOBAL_TARGETS faiss faiss_avx2 faiss_gpu faiss::faiss faiss::faiss_avx2
       CPM_ARGS
       GIT_REPOSITORY   ${PKG_REPOSITORY}
       GIT_TAG          ${PKG_PINNED_TAG}
@@ -81,9 +81,9 @@ function(find_and_configure_faiss)
 
   # Need to tell CMake to rescan the link group of faiss::faiss_gpu and faiss
   # so that we get proper link order
-  if(PKG_BUILD_STATIC_LIBS AND TARGET faiss::faiss_avx2)
+  if(PKG_ENABLE_GPU AND PKG_BUILD_STATIC_LIBS AND TARGET faiss::faiss_avx2)
     set(RAFT_FAISS_TARGETS "$<LINK_GROUP:RESCAN,$<LINK_LIBRARY:WHOLE_ARCHIVE,faiss_gpu>,faiss::faiss_avx2>" PARENT_SCOPE)
-  elseif(PKG_BUILD_STATIC_LIBS)
+  elseif(PKG_ENABLE_GPU AND  PKG_BUILD_STATIC_LIBS)
     set(RAFT_FAISS_TARGETS "$<LINK_GROUP:RESCAN,$<LINK_LIBRARY:WHOLE_ARCHIVE,faiss_gpu>,faiss::faiss_avx>" PARENT_SCOPE)
   elseif(TARGET faiss::faiss_avx2)
     set(RAFT_FAISS_TARGETS faiss::faiss_avx2)

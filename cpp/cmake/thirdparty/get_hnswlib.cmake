@@ -29,7 +29,7 @@ function(find_and_configure_hnswlib)
 
   rapids_cpm_find(
     hnswlib ${version}
-    GLOBAL_TARGETS hnswlib::hnswlib
+    GLOBAL_TARGETS hnswlib hnswlib::hnswlib
     BUILD_EXPORT_SET raft-exports
     INSTALL_EXPORT_SET raft-exports
     CPM_ARGS
@@ -49,8 +49,17 @@ function(find_and_configure_hnswlib)
     target_include_directories(hnswlib INTERFACE
      "$<BUILD_INTERFACE:${hnswlib_SOURCE_DIR}>"
      "$<INSTALL_INTERFACE:include>")
+  endif()
 
-    if(NOT PKG_EXCLUDE_FROM_ALL)
+  if(hnswlib_ADDED)
+    # write build export rules
+    rapids_export(
+      BUILD hnswlib
+      VERSION ${PKG_VERSION}
+      EXPORT_SET hnswlib-exports
+      GLOBAL_TARGETS hnswlib
+      NAMESPACE hnswlib::)
+    if(NOT exclude)
       install(TARGETS hnswlib EXPORT hnswlib-exports)
       install(DIRECTORY "${hnswlib_SOURCE_DIR}/hnswlib/" DESTINATION include/hnswlib)
 
@@ -63,18 +72,10 @@ function(find_and_configure_hnswlib)
         NAMESPACE hnswlib::)
     endif()
 
-    # write build export rules
-    rapids_export(
-      BUILD hnswlib
-      VERSION ${PKG_VERSION}
-      EXPORT_SET hnswlib-exports
-      GLOBAL_TARGETS hnswlib
-      NAMESPACE hnswlib::)
-
-    include("${rapids-cmake-dir}/export/find_package_root.cmake")
 
     # When using RAFT from the build dir, ensure hnswlib is also found in RAFT's build dir. This
     # line adds `set(hnswlib_ROOT "${CMAKE_CURRENT_LIST_DIR}")` to build/raft-dependencies.cmake
+    include("${rapids-cmake-dir}/export/find_package_root.cmake")
     rapids_export_find_package_root(
       BUILD hnswlib [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET raft-exports
     )
