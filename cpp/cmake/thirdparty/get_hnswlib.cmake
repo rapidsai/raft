@@ -73,7 +73,7 @@ function(find_and_configure_hnswlib)
 
     include("${rapids-cmake-dir}/export/package.cmake")
     rapids_export_package(INSTALL hnswlib raft-exports VERSION ${version} GLOBAL_TARGETS hnswlib hnswlib::hnswlib)
-    rapids_export_package(BUILD ${name} raft-exports VERSION ${version} GLOBAL_TARGETS hnswlib hnswlib::hnswlib)
+    rapids_export_package(BUILD hnswlib raft-exports VERSION ${version} GLOBAL_TARGETS hnswlib hnswlib::hnswlib)
 
 
     # When using RAFT from the build dir, ensure hnswlib is also found in RAFT's build dir. This
