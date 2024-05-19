@@ -46,6 +46,13 @@ set(RAFT_ANN_BENCH_USE_FAISS ON)
 set(RAFT_FAISS_ENABLE_GPU ON)
 set(RAFT_USE_FAISS_STATIC ON)
 
+# Faiss doesn't support ARM currently
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  set(RAFT_ANN_BENCH_USE_FAISS OFF)
+  set(RAFT_FAISS_ENABLE_GPU OFF)
+  set(RAFT_USE_FAISS_STATIC OFF)
+endif()
+
 if(BUILD_CPU_ONLY)
 
   # Include necessary logging dependencies
