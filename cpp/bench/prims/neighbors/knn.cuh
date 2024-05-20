@@ -601,7 +601,7 @@ const std::vector<params> kInputsFilter =
 
 const std::vector<params> kInputsBruteForceFilter = raft::util::itertools::product<params>(
   {size_t(10000000), size_t(1 * 1024 * 1024)},         // n_samples
-  {size_t(256), size_t(2048)},                         // n_dim
+  {size_t(256)},                                       // n_dim
   {size_t(1), size_t(10), size_t(100), size_t(1000)},  // n_queries
   {size_t(256)},                                       // k
   {0.0, 0.8, 0.99},                                    // removed_ratio

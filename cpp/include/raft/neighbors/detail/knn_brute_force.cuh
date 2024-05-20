@@ -626,7 +626,7 @@ void brute_force_search(
   resource::sync_stream(res, stream);
   float sparsity = (1.0f * nnz_h / (1.0f * n_queries * n_dataset));
 
-  if (sparsity > 0.01f) {
+  if (sparsity > 0.011f) {
     raft::resources stream_pool_handle(res);
     raft::resource::set_cuda_stream(stream_pool_handle, stream);
     auto idx_norm = idx.has_norms() ? const_cast<T*>(idx.norms().data_handle()) : nullptr;
