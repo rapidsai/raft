@@ -312,8 +312,11 @@ class PrefilteredBruteForceTest
 
     cpu_sddmm(queries_h, dataset_h, values_h, indices_h, indptr_h, true, false);
 
+    bool select_min = raft::distance::is_min_close(params.metric);
+
     std::vector<value_t> out_val_h(params.n_queries * params.top_k,
-                                   std::numeric_limits<value_t>::infinity());
+                                   select_min ? std::numeric_limits<value_t>::infinity()
+                                              : std::numeric_limits<value_t>::lowest());
     std::vector<index_t> out_idx_h(params.n_queries * params.top_k, static_cast<index_t>(0));
 
     out_val_d.resize(params.n_queries * params.top_k, stream);
@@ -336,7 +339,7 @@ class PrefilteredBruteForceTest
                  params.top_k,
                  out_val_h,
                  out_idx_h,
-                 params.select_min);
+                 select_min);
 
     out_val_expected_d.resize(params.n_queries * params.top_k, stream);
     out_idx_expected_d.resize(params.n_queries * params.top_k, stream);

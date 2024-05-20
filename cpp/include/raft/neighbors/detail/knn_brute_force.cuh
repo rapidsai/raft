@@ -81,7 +81,8 @@ void tiled_brute_force_knn(const raft::resources& handle,
                            size_t max_col_tile_size                    = 0,
                            DistanceEpilogue distance_epilogue          = raft::identity_op(),
                            const ElementType* precomputed_index_norms  = nullptr,
-                           const ElementType* precomputed_search_norms = nullptr)
+                           const ElementType* precomputed_search_norms = nullptr,
+                           const uint32_t* filter_bitmap               = nullptr)
 {
   // Figure out the number of rows/cols to tile for
   size_t tile_rows   = 0;
@@ -244,6 +245,27 @@ void tiled_brute_force_knn(const raft::resources& handle,
               return distance_epilogue(distances_ptr[idx], row, col);
             });
         }
+      }
+
+      if (filter_bitmap != nullptr) {
+        auto distances_ptr          = temp_distances.data();
+        auto count                  = thrust::make_counting_iterator<IndexType>(0);
+        ElementType masked_distance = select_min ? std::numeric_limits<ElementType>::infinity()
+                                                 : std::numeric_limits<ElementType>::lowest();
+        thrust::for_each(resource::get_thrust_policy(handle),
+                         count,
+                         count + current_query_size * current_centroid_size,
+                         [=] __device__(IndexType idx) {
+                           IndexType row      = i + (idx / current_centroid_size);
+                           IndexType col      = j + (idx % current_centroid_size);
+                           IndexType g_idx    = row * n + col;
+                           IndexType item_idx = (g_idx) >> 5;
+                           uint32_t bit_idx   = (g_idx)&31;
+                           uint32_t filter    = filter_bitmap[item_idx];
+                           if ((filter & (uint32_t(1) << bit_idx)) == 0) {
+                             distances_ptr[idx] = masked_distance;
+                           }
+                         });
       }
 
       matrix::select_k<ElementType, IndexType>(
@@ -587,6 +609,7 @@ void brute_force_search(
   IdxT n_queries = queries.extent(0);
   IdxT n_dataset = idx.dataset().extent(0);
   IdxT dim       = idx.dataset().extent(1);
+  IdxT k         = neighbors.extent(1);
 
   auto stream = resource::get_cuda_stream(res);
 
@@ -599,6 +622,35 @@ void brute_force_search(
 
   raft::detail::popc(res, filter_view, n_queries * n_dataset, nnz_view);
   raft::copy(&nnz_h, nnz.data(), 1, stream);
+
+  resource::sync_stream(res, stream);
+  float sparsity = (1.0f * nnz_h / (1.0f * n_queries * n_dataset));
+
+  if (sparsity > 0.01f) {
+    raft::resources stream_pool_handle(res);
+    raft::resource::set_cuda_stream(stream_pool_handle, stream);
+    auto idx_norm = idx.has_norms() ? const_cast<T*>(idx.norms().data_handle()) : nullptr;
+
+    tiled_brute_force_knn<T, IdxT>(stream_pool_handle,
+                                   queries.data_handle(),
+                                   idx.dataset().data_handle(),
+                                   n_queries,
+                                   n_dataset,
+                                   dim,
+                                   k,
+                                   distances.data_handle(),
+                                   neighbors.data_handle(),
+                                   metric,
+                                   2.0,
+                                   0,
+                                   0,
+                                   raft::identity_op(),
+                                   idx_norm,
+                                   nullptr,
+                                   filter.data());
+    return;
+  }
+
   auto csr = raft::make_device_csr_matrix<T, IdxT>(res, n_queries, n_dataset, nnz_h);
 
   // fill csr
@@ -612,7 +664,7 @@ void brute_force_search(
                                     rows.data(),
                                     compressed_csr_view.get_nnz(),
                                     stream);
-  if (n_queries > 10 || (1.0f * nnz_h / (1.0f * n_queries * n_dataset)) > 0.01f) {
+  if (n_queries > 10) {
     auto csr_view = make_device_csr_matrix_view<T, IdxT, IdxT, IdxT>(csr.get_elements().data(),
                                                                      compressed_csr_view);
 
@@ -688,7 +740,9 @@ void brute_force_search(
   auto const_csr_view = make_device_csr_matrix_view<const T, IdxT, IdxT, IdxT>(
     csr.get_elements().data(), compressed_csr_view);
   std::optional<raft::device_vector_view<const IdxT, IdxT>> no_opt = std::nullopt;
-  raft::sparse::matrix::select_k(res, const_csr_view, no_opt, distances, neighbors, true, true);
+  bool select_min = raft::distance::is_min_close(metric);
+  raft::sparse::matrix::select_k(
+    res, const_csr_view, no_opt, distances, neighbors, select_min, true);
 
   return;
 }

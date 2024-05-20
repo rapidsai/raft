@@ -599,16 +599,13 @@ const std::vector<params> kInputsFilter =
                                          {0.0, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64}  // removed_ratio
   );
 
-const std::vector<params> kInputsBruteForceFilter =
-  raft::util::itertools::product<params>({size_t(1 * 1024 * 1024)},    // n_samples
-                                         {size_t(256), size_t(2051)},  // n_dim
-                                         {size_t(1000)},               // n_queries
-                                         {size_t(1), size_t(255)},     // k
-                                         {0.0, 0.8, 0.99},             // removed_ratio
-                                         {raft::distance::DistanceType::InnerProduct,
-                                          raft::distance::DistanceType::L2Expanded,
-                                          raft::distance::DistanceType::L2SqrtExpanded,
-                                          raft::distance::DistanceType::CosineExpanded});
+const std::vector<params> kInputsBruteForceFilter = raft::util::itertools::product<params>(
+  {size_t(10000000), size_t(1 * 1024 * 1024)},         // n_samples
+  {size_t(256), size_t(2048)},                         // n_dim
+  {size_t(1), size_t(10), size_t(100), size_t(1000)},  // n_queries
+  {size_t(256)},                                       // k
+  {0.0, 0.8, 0.99},                                    // removed_ratio
+  {raft::distance::DistanceType::InnerProduct});
 
 const std::vector<params> kInputsBruteForceFilterExtra =
   raft::util::itertools::product<params>({size_t(1024 * 1024)},       // n_samples
