@@ -327,11 +327,15 @@ def get_ucx(dask_worker=None):
                   (Note: if called by client.run(), this is supplied by Dask
                    and not the client)
     """
+    protocol = (
+        "ucxx" if dask_worker._protocol.split("://")[0] == "ucxx" else "ucx"
+    )
+
     raft_comm_state = get_raft_comm_state(
         sessionId="ucp", state_object=dask_worker
     )
     if "ucx" not in raft_comm_state:
-        raft_comm_state["ucx"] = UCX.get()
+        raft_comm_state["ucx"] = UCX.get(protocol=protocol)
 
     return raft_comm_state["ucx"]
 
@@ -535,7 +539,9 @@ def _func_build_handle_p2p(
     if verbose:
         dask_worker.log_event(topic="info", msg="Building p2p handle.")
 
-    ucp_worker = get_ucx(dask_worker).get_worker()
+    ucx = get_ucx(dask_worker)
+    is_ucxx = ucx._protocol == "ucxx"
+    ucx_worker = ucx.get_worker()
     raft_comm_state = get_raft_comm_state(
         sessionId=sessionId, state_object=dask_worker
     )
@@ -550,7 +556,14 @@ def _func_build_handle_p2p(
         dask_worker.log_event(topic="info", msg="Injecting comms on handle.")
 
     inject_comms_on_handle(
-        handle, nccl_comm, ucp_worker, eps, nWorkers, workerId, verbose
+        handle,
+        nccl_comm,
+        is_ucxx,
+        ucx_worker,
+        eps,
+        nWorkers,
+        workerId,
+        verbose,
     )
 
     if verbose:
