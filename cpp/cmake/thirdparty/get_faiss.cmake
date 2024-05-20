@@ -93,11 +93,17 @@ function(find_and_configure_faiss)
 
   # Need to tell CMake to rescan the link group of faiss::faiss_gpu and faiss
   # so that we get proper link order when they are static
-  if(PKG_ENABLE_GPU AND PKG_BUILD_STATIC_LIBS AND TARGET faiss::faiss_avx2)
+  #
+  # We don't look at the existence of `faiss_avx2` as it will always exist
+  # even when CXX_AVX2_FOUND is false. In addition for arm builds the
+  # faiss_avx2 is marked as `EXCLUDE_FROM_ALL` so we don't want to add
+  # a dependency to it. Adding a dependency will cause it to compile,
+  # and fail due to invalid compiler flags.
+  if(PKG_ENABLE_GPU AND PKG_BUILD_STATIC_LIBS AND CXX_AVX2_FOUND)
     set(RAFT_FAISS_TARGETS "$<LINK_GROUP:RESCAN,$<LINK_LIBRARY:WHOLE_ARCHIVE,faiss_gpu>,faiss::faiss_avx2>" PARENT_SCOPE)
   elseif(PKG_ENABLE_GPU AND  PKG_BUILD_STATIC_LIBS)
     set(RAFT_FAISS_TARGETS "$<LINK_GROUP:RESCAN,$<LINK_LIBRARY:WHOLE_ARCHIVE,faiss_gpu>,faiss::faiss_avx>" PARENT_SCOPE)
-  elseif(TARGET faiss::faiss_avx2)
+  elseif(CXX_AVX2_FOUND)
     set(RAFT_FAISS_TARGETS faiss::faiss_avx2 PARENT_SCOPE)
   else()
     set(RAFT_FAISS_TARGETS faiss::faiss PARENT_SCOPE)
