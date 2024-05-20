@@ -141,7 +141,7 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - nccl>=2.9.9
-          - libucxx==0.38.*
+          - libucxx==0.39.*
           - scikit-build-core>=0.7.0
       - output_types: [requirements, pyproject]
         packages:
@@ -184,7 +184,7 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - &rmm_conda rmm==24.6.*
+          - &rmm_conda rmm==24.8.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -205,10 +205,10 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - &rmm_cu12 rmm-cu12==24.6.*
+              - &rmm_cu12 rmm-cu12==24.8.*
           - matrix: {cuda: "11.*"}
             packages:
-              - &rmm_cu11 rmm-cu11==24.6.*
+              - &rmm_cu11 rmm-cu11==24.8.*
           - {matrix: null, packages: [*rmm_conda] }
   checks:
     common:
@@ -437,18 +437,18 @@ dependencies:
     common:
       - output_types: [conda, pyproject]
         packages:
-          - dask-cuda==24.6.*
+          - dask-cuda==24.8.*
           - joblib>=0.11
           - numba>=0.57
           - *numpy
-          - rapids-dask-dependency==24.6.*
-          - ucx-py==0.38.*
+          - rapids-dask-dependency==24.8.*
+          - ucx-py==0.39.*
       - output_types: conda
         packages:
-          - &ucx_py_conda ucx-py==0.38.*
+          - &ucx_py_conda ucx-py==0.39.*
       - output_types: pyproject
         packages:
-          - &pylibraft_conda pylibraft==24.6.*
+          - &pylibraft_conda pylibraft==24.8.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -460,12 +460,12 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - &pylibraft_cu12 pylibraft-cu12==24.6.*
-              - &ucx_py_cu12 ucx-py-cu12==0.38.*
+              - &pylibraft_cu12 pylibraft-cu12==24.8.*
+              - &ucx_py_cu12 ucx-py-cu12==0.39.*
           - matrix: {cuda: "11.*"}
             packages:
-              - &pylibraft_cu11 pylibraft-cu11==24.6.*
-              - &ucx_py_cu11 ucx-py-cu11==0.38.*
+              - &pylibraft_cu11 pylibraft-cu11==24.8.*
+              - &ucx_py_cu11 ucx-py-cu11==0.39.*
           - {matrix: null, packages: [*pylibraft_conda, *ucx_py_conda]}
   test_python_common:
     common:
@@ -485,7 +485,7 @@ dependencies:
         packages:
           # UCXX is not currently a hard-dependency thus only installed during tests,
           # this will change in the future.
-          - &distributed_ucxx_conda distributed-ucxx==0.38.*
+          - &distributed_ucxx_conda distributed-ucxx==0.39.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -496,10 +496,10 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - distributed-ucxx-cu12==0.38.*
+              - distributed-ucxx-cu12==0.39.*
           - matrix: {cuda: "11.*"}
             packages:
-              - distributed-ucxx-cu11==0.38.*
+              - distributed-ucxx-cu11==0.39.*
           - {matrix: null, packages: [*distributed_ucxx_conda]}
   depends_on_ucx_build:
     common:
