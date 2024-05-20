@@ -51,3 +51,7 @@ def raft_cagra_search_constraints(params, build_params, k, batch_size):
 def hnswlib_search_constraints(params, build_params, k, batch_size):
     if "ef" in params:
         return params["ef"] >= k
+
+
+def diskann_search_constraints(params, build_params, k, batch_size):
+    return params["L_search"] >= k

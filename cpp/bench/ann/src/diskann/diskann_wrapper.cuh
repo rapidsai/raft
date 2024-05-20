@@ -98,7 +98,7 @@ class DiskANNMemory : public ANN<T> {
   std::shared_ptr<diskann::Index<T>> diskann_index_{nullptr};
   // uint32_t L_load_;
   uint32_t L_search_;
-  uint32_t cagra_graph_degree_;
+  uint32_t cagra_graph_degree_ = 0;
   uint32_t cagra_intermediate_graph_degree_;
   uint32_t max_points_;
 };
@@ -205,7 +205,7 @@ void DiskANNMemory<T>::load(const std::string& path_to_index)
                                                              false,
                                                              this->use_cagra_graph_,
                                                              cagra_graph_degree_);
-  diskann_index_->load(path_to_index.c_str(), diskann_index_write_params_->num_threads, 0);
+  diskann_index_->load(path_to_index.c_str(), diskann_index_write_params_->num_threads, 500);
 }
 
 };  // namespace raft::bench::ann
