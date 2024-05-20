@@ -2,8 +2,8 @@ name: diskann
 groups:
   base:
     build:
-      R: [32]
-      Lb: [64]
+      R: [64]
+      Lb: [128]
       alpha: [0]
       cagra_intermediate_graph_degree: [128]
       cagra_graph_degree: [64]

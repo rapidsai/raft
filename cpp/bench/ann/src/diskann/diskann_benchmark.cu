@@ -34,15 +34,14 @@ template <typename T>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::DiskANNMemory<T>::BuildParam& param)
 {
-  param.R               = conf.at("R");
-  param.L_build              = conf.at("Lb");
-  param.alpha           = conf.at("alpha");
+  param.R       = conf.at("R");
+  param.L_build = conf.at("Lb");
+  param.alpha   = conf.at("alpha");
   if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
   param.use_cagra_graph = conf.at("use_cagra_graph");
   if (param.use_cagra_graph) {
-    param.cagra_graph_degree = conf.at("cagra_graph_degree");
-    param.cagra_intermediate_graph_degree =
-      conf.at("cagra_intermediate_graph_degree");
+    param.cagra_graph_degree              = conf.at("cagra_graph_degree");
+    param.cagra_intermediate_graph_degree = conf.at("cagra_intermediate_graph_degree");
   }
 }
 
@@ -92,7 +91,9 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
 
   if constexpr (std::is_same_v<T, float> || std::is_same_v<T, uint8_t> ||
                 std::is_same_v<T, int8_t>) {
-    if (algo == "diskann") { ann = make_algo<T, raft::bench::ann::DiskANNMemory>(metric, dim, conf); }
+    if (algo == "diskann") {
+      ann = make_algo<T, raft::bench::ann::DiskANNMemory>(metric, dim, conf);
+    }
   }
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 

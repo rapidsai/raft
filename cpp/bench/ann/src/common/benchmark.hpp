@@ -235,11 +235,8 @@ void bench_search(::benchmark::State& state,
         auto ualgo = ann::create_algo<T>(
           index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
         algo = ualgo.get();
-        std::cout << "now doing index loading" << std::endl;
         algo->load(index_file);
-        std::cout << "now done index loading" << std::endl;
         current_algo = std::move(ualgo);
-        std::cout << "move done" << std::endl;
       }
       search_param                   = ann::create_search_param<T>(index.algo, sp_json);
       search_param->metric_objective = metric_objective;
@@ -263,7 +260,6 @@ void bench_search(::benchmark::State& state,
       }
     }
     try {
-      std::cout << "now setting search params" << std::endl;
       algo->set_search_param(*search_param);
     } catch (const std::exception& ex) {
       state.SkipWithError("An error occurred setting search parameters: " + std::string(ex.what()));
@@ -299,6 +295,7 @@ void bench_search(::benchmark::State& state,
       state.SkipWithError("Algo::copy: " + std::string(e.what()));
       return;
     }
+
     // Initialize with algo, so that the timer.lap() object can sync with algo::get_sync_stream()
     cuda_timer gpu_timer{algo};
     auto start = std::chrono::high_resolution_clock::now();
