@@ -25,7 +25,8 @@
       "installcuRAND": true,
       "installcuSPARSE": true
     },
-    "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils:24.6": {}
+    "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils:24.6": {},
+    "ghcr.io/rapidsai/devcontainers/features/oneapi:24.6.0": {}
   },
   "overrideFeatureInstallOrder": [
     "ghcr.io/rapidsai/devcontainers/features/ucx",
