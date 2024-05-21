@@ -24,23 +24,19 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <mutex>
+#include <limits>
 #include <string>
 #include <type_traits>
-#include <unordered_map>
 #include <vector>
 
 namespace raft::common::nvtx::detail {
 
 /**
- * @brief An internal struct to store associated state with the color
- * generator
+ * @brief An internal struct to to initialize the color generator
  */
-struct color_gen_state {
-  /** collection of all tagged colors generated so far */
-  static inline std::unordered_map<std::string, uint32_t> all_colors_;
-  /** mutex for accessing the above map */
-  static inline std::mutex map_mutex_;
+struct color_gen {
+  /** This determines how many bits of the hash to use for the generator */
+  using hash_type = uint16_t;
   /** saturation */
   static inline constexpr float kS = 0.9f;
   /** value */
@@ -109,32 +105,22 @@ inline auto hsv2rgb(float h, float s, float v) -> uint32_t
 /**
  * @brief Helper method to generate 'visually distinct' colors.
  * Inspired from https://martin.ankerl.com/2009/12/09/how-to-create-random-colors-programmatically/
- * However, if an associated tag is passed, it will look up in its history for
- * any generated color against this tag and if found, just returns it, else
- * generates a new color, assigns a tag to it and stores it for future usage.
+ * It calculates a hash of the passed string and uses the result to generate
+ * distinct yet deterministic colors.
  * Such a thing is very useful for nvtx markers where the ranges associated
  * with a specific tag should ideally get the same color for the purpose of
  * visualizing it on nsight-systems timeline.
- * @param tag look for any previously generated colors with this tag or
- * associate the currently generated color with it
+ * @param tag a string used as an input to generate a distinct color.
  * @return returns 32b RGB integer with alpha channel set of 0xff
  */
 inline auto generate_next_color(const std::string& tag) -> uint32_t
 {
-  // std::unordered_map<std::string, uint32_t> color_gen_state::all_colors_;
-  // std::mutex color_gen_state::map_mutex_;
-
-  std::lock_guard<std::mutex> guard(color_gen_state::map_mutex_);
-  if (!tag.empty()) {
-    auto itr = color_gen_state::all_colors_.find(tag);
-    if (itr != color_gen_state::all_colors_.end()) { return itr->second; }
-  }
-  auto h = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-  h += color_gen_state::kInvPhi;
+  auto x = static_cast<color_gen::hash_type>(std::hash<std::string>{}(tag));
+  auto u = std::numeric_limits<color_gen::hash_type>::max();
+  auto h = static_cast<float>(x) / static_cast<float>(u);
+  h += color_gen::kInvPhi;
   if (h >= 1.f) h -= 1.f;
-  auto rgb = hsv2rgb(h, color_gen_state::kS, color_gen_state::kV);
-  if (!tag.empty()) { color_gen_state::all_colors_[tag] = rgb; }
-  return rgb;
+  return hsv2rgb(h, color_gen::kS, color_gen::kV);
 }
 
 template <typename Domain, typename = Domain>

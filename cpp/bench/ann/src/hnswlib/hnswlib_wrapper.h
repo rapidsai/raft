@@ -79,8 +79,11 @@ class HnswLib : public ANN<T> {
   void build(const T* dataset, size_t nrow) override;
 
   void set_search_param(const AnnSearchParam& param) override;
-  void search(
-    const T* query, int batch_size, int k, size_t* indices, float* distances) const override;
+  void search(const T* query,
+              int batch_size,
+              int k,
+              AnnBase::index_type* indices,
+              float* distances) const override;
 
   void save(const std::string& path_to_index) const override;
   void load(const std::string& path_to_index) override;
@@ -97,7 +100,10 @@ class HnswLib : public ANN<T> {
   void set_base_layer_only() { appr_alg_->base_layer_only = true; }
 
  private:
-  void get_search_knn_results_(const T* query, int k, size_t* indices, float* distances) const;
+  void get_search_knn_results_(const T* query,
+                               int k,
+                               AnnBase::index_type* indices,
+                               float* distances) const;
 
   std::shared_ptr<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>> appr_alg_;
   std::shared_ptr<hnswlib::SpaceInterface<typename hnsw_dist_t<T>::type>> space_;
@@ -176,7 +182,7 @@ void HnswLib<T>::set_search_param(const AnnSearchParam& param_)
 
 template <typename T>
 void HnswLib<T>::search(
-  const T* query, int batch_size, int k, size_t* indices, float* distances) const
+  const T* query, int batch_size, int k, AnnBase::index_type* indices, float* distances) const
 {
   auto f = [&](int i) {
     // hnsw can only handle a single vector at a time.
@@ -217,7 +223,7 @@ void HnswLib<T>::load(const std::string& path_to_index)
 template <typename T>
 void HnswLib<T>::get_search_knn_results_(const T* query,
                                          int k,
-                                         size_t* indices,
+                                         AnnBase::index_type* indices,
                                          float* distances) const
 {
   auto result = appr_alg_->searchKnn(query, k);

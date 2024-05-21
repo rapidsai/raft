@@ -354,10 +354,8 @@ If citing CAGRA, please consider the following bibtex:
 @misc{ootomo2023cagra,
       title={CAGRA: Highly Parallel Graph Construction and Approximate Nearest Neighbor Search for GPUs},
       author={Hiroyuki Ootomo and Akira Naruse and Corey Nolet and Ray Wang and Tamas Feher and Yong Wang},
-      year={2023},
-      eprint={2308.15136},
-      archivePrefix={arXiv},
-      primaryClass={cs.DS}
+      year={2024},
+      series = {ICDE '24}
 }
 ```
 
@@ -365,13 +363,14 @@ If citing the k-selection routines, please consider the following bibtex:
 
 ```bibtex
 @proceedings{10.1145/3581784,
-    title = {SC '23: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
+    title = {Parallel Top-K Algorithms on GPU: A Comprehensive Study and New Methods},
+    author={Jingrong Zhang, Akira Naruse, Xipeng Li, and Yong Wang},
     year = {2023},
     isbn = {9798400701092},
     publisher = {Association for Computing Machinery},
     address = {New York, NY, USA},
-    abstract = {Started in 1988, the SC Conference has become the annual nexus for researchers and practitioners from academia, industry and government to share information and foster collaborations to advance the state of the art in High Performance Computing (HPC), Networking, Storage, and Analysis.},
-    location = {, Denver, CO, USA, }
+    location = {Denver, CO, USA}
+    series = {SC '23}
 }
 ```
 

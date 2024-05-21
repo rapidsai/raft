@@ -894,7 +894,7 @@ void radix_topk(const T* in,
                 unsigned grid_dim,
                 int sm_cnt,
                 rmm::cuda_stream_view stream,
-                rmm::device_async_resource_ref mr = rmm::mr::get_current_device_resource())
+                rmm::device_async_resource_ref mr)
 {
   // TODO: is it possible to relax this restriction?
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
