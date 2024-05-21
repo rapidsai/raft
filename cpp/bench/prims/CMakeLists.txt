@@ -75,31 +75,31 @@ endfunction()
 
 if(BUILD_PRIMS_BENCH)
   ConfigureBench(
-    NAME CORE_BENCH PATH bench/prims/core/bitset.cu bench/prims/core/copy.cu bench/prims/main.cpp
+    NAME CORE_BENCH PATH core/bitset.cu core/copy.cu main.cpp
   )
 
   ConfigureBench(
-    NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
-    bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME CLUSTER_BENCH PATH cluster/kmeans_balanced.cu cluster/kmeans.cu
+    main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
-    NAME TUNE_DISTANCE PATH bench/prims/distance/tune_pairwise/kernel.cu
-    bench/prims/distance/tune_pairwise/bench.cu bench/prims/main.cpp
+    NAME TUNE_DISTANCE PATH distance/tune_pairwise/kernel.cu
+    distance/tune_pairwise/bench.cu main.cpp
   )
 
   ConfigureBench(
     NAME
     DISTANCE_BENCH
     PATH
-    bench/prims/distance/distance_cosine.cu
-    bench/prims/distance/distance_exp_l2.cu
-    bench/prims/distance/distance_l1.cu
-    bench/prims/distance/distance_unexp_l2.cu
-    bench/prims/distance/fused_l2_nn.cu
-    bench/prims/distance/masked_nn.cu
-    bench/prims/distance/kernels.cu
-    bench/prims/main.cpp
+    distance/distance_cosine.cu
+    distance/distance_exp_l2.cu
+    distance/distance_l1.cu
+    distance/distance_unexp_l2.cu
+    distance/fused_l2_nn.cu
+    distance/masked_nn.cu
+    distance/kernels.cu
+    main.cpp
     OPTIONAL
     LIB
     EXPLICIT_INSTANTIATE_ONLY
@@ -109,59 +109,64 @@ if(BUILD_PRIMS_BENCH)
     NAME
     LINALG_BENCH
     PATH
-    bench/prims/linalg/add.cu
-    bench/prims/linalg/map_then_reduce.cu
-    bench/prims/linalg/matrix_vector_op.cu
-    bench/prims/linalg/norm.cu
-    bench/prims/linalg/normalize.cu
-    bench/prims/linalg/reduce_cols_by_key.cu
-    bench/prims/linalg/reduce_rows_by_key.cu
-    bench/prims/linalg/reduce.cu
-    bench/prims/linalg/sddmm.cu
-    bench/prims/main.cpp
+    linalg/add.cu
+    linalg/map_then_reduce.cu
+    linalg/matrix_vector_op.cu
+    linalg/norm.cu
+    linalg/normalize.cu
+    linalg/reduce_cols_by_key.cu
+    linalg/reduce_rows_by_key.cu
+    linalg/reduce.cu
+    linalg/sddmm.cu
+    main.cpp
   )
 
   ConfigureBench(
-    NAME MATRIX_BENCH PATH bench/prims/matrix/argmin.cu bench/prims/matrix/gather.cu
-    bench/prims/matrix/select_k.cu bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu
+    matrix/select_k.cu main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
-    NAME RANDOM_BENCH PATH bench/prims/random/make_blobs.cu bench/prims/random/permute.cu
-    bench/prims/random/rng.cu bench/prims/random/subsample.cu bench/prims/main.cpp
+    NAME RANDOM_BENCH PATH random/make_blobs.cu random/permute.cu
+   random/rng.cu random/subsample.cu main.cpp
   )
 
   ConfigureBench(
-    NAME SPARSE_BENCH PATH bench/prims/sparse/bitmap_to_csr.cu bench/prims/sparse/convert_csr.cu
-    bench/prims/sparse/select_k_csr.cu bench/prims/main.cpp
+    NAME
+    SPARSE_BENCH
+    PATH
+    sparse/bitmap_to_csr.cu
+    sparse/convert_csr.cu
+    sparse/select_k_csr.cu
+    main.cpp
   )
 
   ConfigureBench(
     NAME
     NEIGHBORS_BENCH
     PATH
-    bench/prims/neighbors/knn/brute_force_float_int64_t.cu
-    bench/prims/neighbors/knn/brute_force_float_uint32_t.cu
-    bench/prims/neighbors/knn/cagra_float_uint32_t.cu
-    bench/prims/neighbors/knn/ivf_flat_filter_float_int64_t.cu
-    bench/prims/neighbors/knn/ivf_flat_float_int64_t.cu
-    bench/prims/neighbors/knn/ivf_flat_int8_t_int64_t.cu
-    bench/prims/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_float_int64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_filter_float_int64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_int8_t_int64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_uint8_t_int64_t.cu
-    src/neighbors/detail/ivf_pq_search_filtering_float_int64_t.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_float_bitset64.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_bitset64.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_bitset64.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_half_bitset64.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_bitset64.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_bitset64.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_half_bitset64.cu
-    bench/prims/neighbors/refine_float_int64_t.cu
-    bench/prims/neighbors/refine_uint8_t_int64_t.cu
-    bench/prims/main.cpp
+    neighbors/knn/brute_force_float_int64_t.cu
+    neighbors/knn/brute_force_float_uint32_t.cu
+    neighbors/knn/cagra_float_uint32_t.cu
+    neighbors/knn/ivf_flat_filter_float_int64_t.cu
+    neighbors/knn/ivf_flat_float_int64_t.cu
+    neighbors/knn/ivf_flat_int8_t_int64_t.cu
+    neighbors/knn/ivf_flat_uint8_t_int64_t.cu
+    neighbors/knn/ivf_pq_float_int64_t.cu
+    neighbors/knn/ivf_pq_filter_float_int64_t.cu
+    neighbors/knn/ivf_pq_int8_t_int64_t.cu
+    neighbors/knn/ivf_pq_uint8_t_int64_t.cu
+    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_search_filtering_float_int64_t.cu
+    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_float_bitset64.cu
+    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_bitset64.cu
+    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_bitset64.cu
+    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_half_bitset64.cu
+    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_bitset64.cu
+    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_bitset64.cu
+    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_half_bitset64.cu
+    neighbors/refine_float_int64_t.cu
+    neighbors/refine_uint8_t_int64_t.cu
+    main.cpp
     OPTIONAL
     LIB
     EXPLICIT_INSTANTIATE_ONLY
