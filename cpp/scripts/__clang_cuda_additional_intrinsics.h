@@ -1,4 +1,4 @@
-// Copyright (c) 2022, NVIDIA CORPORATION.
+// Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #ifndef __CLANG_CUDA_ADDITIONAL_INTRINSICS_H__
 #define __CLANG_CUDA_ADDITIONAL_INTRINSICS_H__
 #ifndef __CUDA__
@@ -233,7 +233,7 @@ __MAKE_LD4(cv, float4, float, "f32", "f", : "memory")
   }
 
 #define __MAKE_ST4(cop, c_typ, int_typ, ptx_typ, inl_typ)                       \
-  __device__ __forceinline__ c_typ __st##cop(c_typ* addr, c_typ v)              \
+  __device__ __forceinline__ void __st##cop(c_typ* addr, c_typ v)               \
   {                                                                             \
     int_typ v1 = v.x, v2 = v.y, v3 = v.z, v4 = v.w;                             \
     asm("st." #cop ".v4." ptx_typ " [%0], {%1, %2, %3, %4};" ::__LDG_PTR(addr), \
