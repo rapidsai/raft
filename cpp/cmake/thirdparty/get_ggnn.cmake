@@ -15,29 +15,31 @@
 #=============================================================================
 
 function(find_and_configure_ggnn)
-  set(oneValueArgs VERSION REPOSITORY PINNED_TAG)
-  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-          "${multiValueArgs}" ${ARGN} )
 
+  include(${rapids-cmake-dir}/cpm/package_override.cmake)
+  set(patch_dir "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../patches")
+  rapids_cpm_package_override("${patch_dir}/ggnn_override.json")
 
-  set(patch_files_to_run "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/ggnn.diff")
-  set(patch_issues_to_ref "fix compile issues")
-  set(patch_script "${CMAKE_BINARY_DIR}/rapids-cmake/patches/ggnn/patch.cmake")
-  set(log_file "${CMAKE_BINARY_DIR}/rapids-cmake/patches/ggnn/log")
-  string(TIMESTAMP current_year "%Y" UTC)
-  configure_file(${rapids-cmake-dir}/cpm/patches/command_template.cmake.in "${patch_script}"
-                @ONLY)
+  include("${rapids-cmake-dir}/cpm/detail/package_details.cmake")
+  rapids_cpm_package_details(ggnn version repository tag shallow exclude)
+
+  include("${rapids-cmake-dir}/cpm/detail/generate_patch_command.cmake")
+  rapids_cpm_generate_patch_command(ggnn ${version} patch_command)
 
   rapids_cpm_find(
-    ggnn ${PKG_VERSION}
+    ggnn ${version}
     GLOBAL_TARGETS ggnn::ggnn
     CPM_ARGS
-    GIT_REPOSITORY ${PKG_REPOSITORY}
-    GIT_TAG ${PKG_PINNED_TAG}
-    GIT_SHALLOW TRUE
+    GIT_REPOSITORY ${repository}
+    GIT_TAG ${tag}
+    GIT_SHALLOW ${shallow} ${patch_command}
+    EXCLUDE_FROM_ALL ${exclude}
     DOWNLOAD_ONLY ON
-    PATCH_COMMAND ${CMAKE_COMMAND} -P ${patch_script}
   )
+
+  include("${rapids-cmake-dir}/cpm/detail/display_patch_status.cmake")
+  rapids_cpm_display_patch_status(ggnn)
+
   if(NOT TARGET ggnn::ggnn)
     add_library(ggnn INTERFACE)
     target_include_directories(ggnn INTERFACE "$<BUILD_INTERFACE:${ggnn_SOURCE_DIR}/include>")
@@ -45,14 +47,4 @@ function(find_and_configure_ggnn)
   endif()
 
 endfunction()
-if(NOT RAFT_GGNN_GIT_TAG)
-  set(RAFT_GGNN_GIT_TAG release_0.5)
-endif()
-
-if(NOT RAFT_GGNN_GIT_REPOSITORY)
-  set(RAFT_GGNN_GIT_REPOSITORY https://github.com/cgtuebingen/ggnn.git)
-endif()
-find_and_configure_ggnn(VERSION 0.5
-        REPOSITORY       ${RAFT_GGNN_GIT_REPOSITORY}
-        PINNED_TAG       ${RAFT_GGNN_GIT_TAG}
-        )
+find_and_configure_ggnn()
