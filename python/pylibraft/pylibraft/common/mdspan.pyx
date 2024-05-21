@@ -22,6 +22,7 @@ import io
 
 import numpy as np
 
+from cpython.buffer cimport PyBUF_FULL_RO, PyBuffer_Release, PyObject_GetBuffer
 from cpython.object cimport PyObject
 from cython.operator cimport dereference as deref
 from libc.stddef cimport size_t
@@ -47,10 +48,6 @@ from pylibraft.common.optional cimport make_optional, optional
 from pylibraft.common import DeviceResources
 
 
-cdef extern from "Python.h":
-    Py_buffer* PyMemoryView_GET_BUFFER(PyObject* mview)
-
-
 def run_roundtrip_test_for_mdspan(X, fortran_order=False):
     if not isinstance(X, np.ndarray) or len(X.shape) != 2:
         raise ValueError("Please call this function with a NumPy array with"
@@ -59,6 +56,9 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
     cdef device_resources * handle_ = \
         <device_resources *> <size_t> handle.getHandle()
     cdef ostringstream oss
+    cdef Py_buffer buf
+    PyObject_GetBuffer(X, &buf, PyBUF_FULL_RO)
+    cdef uintptr_t buf_ptr = <uintptr_t>buf.buf
     if X.dtype == np.float32:
         if fortran_order:
             serialize_mdspan[float, matrix_extent[size_t], col_major](
@@ -67,8 +67,7 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
                 <const host_mdspan[float, matrix_extent[size_t],
                                    col_major] &>
                 make_host_matrix_view[float, size_t, col_major](
-                    <float *><uintptr_t>PyMemoryView_GET_BUFFER(
-                        <PyObject *> X.data).buf,
+                    <float *>buf_ptr,
                     X.shape[0], X.shape[1]))
         else:
             serialize_mdspan[float, matrix_extent[size_t], row_major](
@@ -77,8 +76,7 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
                 <const host_mdspan[float, matrix_extent[size_t],
                                    row_major]&>
                 make_host_matrix_view[float, size_t, row_major](
-                    <float *><uintptr_t>PyMemoryView_GET_BUFFER(
-                        <PyObject *> X.data).buf,
+                    <float *>buf_ptr,
                     X.shape[0], X.shape[1]))
     elif X.dtype == np.float64:
         if fortran_order:
@@ -88,8 +86,7 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
                 <const host_mdspan[double, matrix_extent[size_t],
                                    col_major]&>
                 make_host_matrix_view[double, size_t, col_major](
-                    <double *><uintptr_t>PyMemoryView_GET_BUFFER(
-                        <PyObject *> X.data).buf,
+                    <double *>buf_ptr,
                     X.shape[0], X.shape[1]))
         else:
             serialize_mdspan[double, matrix_extent[size_t], row_major](
@@ -98,8 +95,7 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
                 <const host_mdspan[double, matrix_extent[size_t],
                                    row_major]&>
                 make_host_matrix_view[double, size_t, row_major](
-                    <double *><uintptr_t>PyMemoryView_GET_BUFFER(
-                        <PyObject *> X.data).buf,
+                    <double *>buf_ptr,
                     X.shape[0], X.shape[1]))
     elif X.dtype == np.int32:
         if fortran_order:
@@ -109,8 +105,7 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
                 <const host_mdspan[int32_t, matrix_extent[size_t],
                                    col_major]&>
                 make_host_matrix_view[int32_t, size_t, col_major](
-                    <int32_t *><uintptr_t>PyMemoryView_GET_BUFFER(
-                        <PyObject *> X.data).buf,
+                    <int32_t *>buf_ptr,
                     X.shape[0], X.shape[1]))
         else:
             serialize_mdspan[int32_t, matrix_extent[size_t], row_major](
@@ -119,8 +114,7 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
                 <const host_mdspan[int32_t, matrix_extent[size_t],
                                    row_major]&>
                 make_host_matrix_view[int32_t, size_t, row_major](
-                    <int32_t *><uintptr_t>PyMemoryView_GET_BUFFER(
-                        <PyObject *> X.data).buf,
+                    <int32_t *>buf_ptr,
                     X.shape[0], X.shape[1]))
     elif X.dtype == np.uint32:
         if fortran_order:
@@ -130,8 +124,7 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
                 <const host_mdspan[uint32_t, matrix_extent[size_t],
                                    col_major]&>
                 make_host_matrix_view[uint32_t, size_t, col_major](
-                    <uint32_t *><uintptr_t>PyMemoryView_GET_BUFFER(
-                        <PyObject *> X.data).buf,
+                    <uint32_t *>buf_ptr,
                     X.shape[0], X.shape[1]))
         else:
             serialize_mdspan[uint32_t, matrix_extent[size_t], row_major](
@@ -140,11 +133,12 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
                 <const host_mdspan[uint32_t, matrix_extent[size_t],
                                    row_major]&>
                 make_host_matrix_view[uint32_t, size_t, row_major](
-                    <uint32_t *><uintptr_t>PyMemoryView_GET_BUFFER(
-                        <PyObject *> X.data).buf,
+                    <uint32_t *>buf_ptr,
                     X.shape[0], X.shape[1]))
     else:
+        PyBuffer_Release(&buf)
         raise NotImplementedError()
+    PyBuffer_Release(&buf)
     f = io.BytesIO(oss.str())
     X2 = np.load(f)
     assert np.all(X.shape == X2.shape)
