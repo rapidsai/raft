@@ -125,8 +125,11 @@ class FaissGpu : public ANN<T>, public AnnGPU {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const final;
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              AnnBase::index_type* neighbors,
+              float* distances) const final;
 
   [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
   {
@@ -211,7 +214,7 @@ void FaissGpu<T>::build(const T* dataset, size_t nrow)
 
 template <typename T>
 void FaissGpu<T>::search(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
   using IdxT = faiss::idx_t;
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
