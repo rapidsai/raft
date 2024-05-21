@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -553,7 +553,11 @@ def main():
                             index["build_param"], conf_file["dataset"]["dims"]
                         ):
                             continue
-                index_filename = index_name if len(index_name) < 128 else str(hash(index_name))
+                index_filename = (
+                    index_name 
+                    if len(index_name) < 128 
+                    else str(hash(index_name))
+                )
                 index["name"] = index_name
                 index["file"] = os.path.join(
                     args.dataset_path, args.dataset, "index", index_filename
