@@ -16,6 +16,7 @@
 #pragma once
 
 #include "../common/ann_types.hpp"
+// #include "../common/thread_pool.hpp"
 
 #include <raft/core/host_mdspan.hpp>
 #include <raft/neighbors/cagra.cuh>
@@ -25,6 +26,7 @@
 #include <omp.h>
 #include <utils.h>
 
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -101,6 +103,8 @@ class DiskANNMemory : public ANN<T> {
   uint32_t cagra_graph_degree_ = 0;
   uint32_t cagra_intermediate_graph_degree_;
   uint32_t max_points_;
+  // std::shared_ptr<FixedThreadPool> thread_pool_;
+  Objective metric_objective_;
 };
 
 template <typename T>
@@ -142,17 +146,24 @@ void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
                                                              cagra_graph_degree_);
 
   if (use_cagra_graph_) {
-    auto intermediate_graph =
-      raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_intermediate_graph_degree_);
+    std::optional<raft::host_matrix<uint32_t, int64_t>> intermediate_graph(
+    raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_intermediate_graph_degree_));
+
     std::vector<uint32_t> knn_graph(nrow * cagra_graph_degree_);
     auto knn_graph_view =
       raft::make_host_matrix_view<uint32_t, int64_t>(knn_graph.data(), nrow, cagra_graph_degree_);
     auto dataset_view = raft::make_host_matrix_view<const T, int64_t>(
       dataset, static_cast<int64_t>(nrow), (int64_t)this->dim_);
     raft::resources res;
-    raft::neighbors::cagra::build_knn_graph(res, dataset_view, intermediate_graph.view());
-    raft::neighbors::cagra::optimize(res, intermediate_graph.view(), knn_graph_view);
-    resource::sync_stream(res);
+    auto start = std::chrono::high_resolution_clock::now();
+    raft::neighbors::cagra::build_knn_graph(res, dataset_view, intermediate_graph->view());
+    raft::neighbors::cagra::optimize(res, intermediate_graph->view(), knn_graph_view);
+    // free intermediate graph before trying to create the index
+    intermediate_graph.reset();
+    // resource::sync_stream(res);
+    auto end      = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+    std::cout << "cagra graph built in" << duration << " seconds" << std::endl;
     diskann_index_->build(dataset, nrow, std::vector<uint32_t>(), knn_graph);
   } else {
     diskann_index_->build(dataset, nrow, std::vector<uint32_t>());
@@ -162,16 +173,18 @@ void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
 template <typename T>
 void DiskANNMemory<T>::set_search_param(const AnnSearchParam& param_)
 {
-  auto param      = dynamic_cast<const SearchParam&>(param_);
-  this->L_search_ = param.L_search;
+  auto param        = dynamic_cast<const SearchParam&>(param_);
+  this->L_search_   = param.L_search;
+  metric_objective_ = param.metric_objective;
 }
 
 template <typename T>
 void DiskANNMemory<T>::search(
   const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
-  omp_set_num_threads(diskann_index_write_params_->num_threads);
-#pragma omp parallel for schedule(dynamic, 1)
+  if (this->metric_objective_ == Objective::LATENCY)
+    omp_set_num_threads(diskann_index_write_params_->num_threads);
+#pragma omp parallel for
   for (int64_t i = 0; i < (int64_t)batch_size; i++) {
     diskann_index_->search(queries + i * this->dim_,
                            static_cast<size_t>(k),
@@ -207,5 +220,4 @@ void DiskANNMemory<T>::load(const std::string& path_to_index)
                                                              cagra_graph_degree_);
   diskann_index_->load(path_to_index.c_str(), diskann_index_write_params_->num_threads, 500);
 }
-
 };  // namespace raft::bench::ann

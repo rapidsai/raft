@@ -78,6 +78,19 @@ index 0000000..a5a12fe
 +
 +make -j30
 \ No newline at end of file
+diff --git a/include/abstract_graph_store.h b/include/abstract_graph_store.h
+index 4d6906c..80c8dc4 100644
+--- a/include/abstract_graph_store.h
++++ b/include/abstract_graph_store.h
+@@ -48,6 +48,8 @@ class AbstractGraphStore
+         return _capacity;
+     }
+ 
++    virtual std::vector<std::vector<uint32_t>>& graph() = 0;
++
+   protected:
+     // Internal function, changes total points when resize_graph is called.
+     void set_total_points(size_t new_capacity)
 diff --git a/include/distance.h b/include/distance.h
 index f3b1de2..c2f0728 100644
 --- a/include/distance.h
@@ -185,6 +198,27 @@ index f3b1de2..c2f0728 100644
      {
          // Inner product returns negative values to indicate distance.
          // This will ensure that cosine is between -1 and 1.
+diff --git a/include/in_mem_graph_store.h b/include/in_mem_graph_store.h
+index d0206a7..46cdee4 100644
+--- a/include/in_mem_graph_store.h
++++ b/include/in_mem_graph_store.h
+@@ -32,6 +32,8 @@ class InMemGraphStore : public AbstractGraphStore
+     virtual size_t get_max_range_of_graph() override;
+     virtual uint32_t get_max_observed_degree() override;
+ 
++    std::vector<std::vector<uint32_t>>& graph() override;
++
+   protected:
+     virtual std::tuple<uint32_t, uint32_t, size_t> load_impl(const std::string &filename, size_t expected_num_points);
+ #ifdef EXEC_ENV_OLS
+@@ -45,6 +47,7 @@ class InMemGraphStore : public AbstractGraphStore
+     size_t _max_range_of_graph = 0;
+     uint32_t _max_observed_degree = 0;
+ 
++  public:
+     std::vector<std::vector<uint32_t>> _graph;
+ };
+ 
 diff --git a/include/index.h b/include/index.h
 index b9bf4f3..4890f00 100644
 --- a/include/index.h
@@ -328,8 +362,21 @@ index d3af5c3..417af31 100644
  
  #ifdef EXEC_ENV_OLS
  #include "content_buf.h"
+diff --git a/src/in_mem_graph_store.cpp b/src/in_mem_graph_store.cpp
+index c12b251..ea39001 100644
+--- a/src/in_mem_graph_store.cpp
++++ b/src/in_mem_graph_store.cpp
+@@ -239,4 +239,8 @@ uint32_t InMemGraphStore::get_max_observed_degree()
+     return _max_observed_degree;
+ }
+ 
++std::vector<std::vector<uint32_t>>& InMemGraphStore::graph() {
++    return _graph;
++}
++
+ } // namespace diskann
 diff --git a/src/index.cpp b/src/index.cpp
-index bf93344..283e3a3 100644
+index bf93344..08c275c 100644
 --- a/src/index.cpp
 +++ b/src/index.cpp
 @@ -37,8 +37,10 @@ Index<T, TagT, LabelT>::Index(const IndexConfig &index_config, std::shared_ptr<A
@@ -364,7 +411,7 @@ index bf93344..283e3a3 100644
                .build(),
            IndexFactory::construct_datastore<T>(DataStoreStrategy::MEMORY,
                                                 (max_points == 0 ? (size_t)1 : max_points) +
-@@ -1505,6 +1510,30 @@ void Index<T, TagT, LabelT>::set_start_points_at_random(T radius, uint32_t rando
+@@ -1505,6 +1510,41 @@ void Index<T, TagT, LabelT>::set_start_points_at_random(T radius, uint32_t rando
      set_start_points(points_data.data(), points_data.size());
  }
  
@@ -372,21 +419,32 @@ index bf93344..283e3a3 100644
 +void Index<T, TagT, LabelT>::add_raft_cagra_neighbours(const std::vector<uint32_t> &raft_cagra_graph_vec)
 +{
 +    const uint32_t *raw_ptr = raft_cagra_graph_vec.data();
++    std::vector<std::vector<uint32_t>> &graph = _graph_store->graph();
 +#pragma omp parallel for schedule(dynamic, 2048)
-+    for (int64_t node = 0; node < _nd; node++)
++    for (int i = 0; i < graph.size(); i++)
 +    {
-+        std::vector<uint32_t> node_nbrs(_raft_cagra_graph_degree);
-+        const uint32_t *nbr_start_ptr = raw_ptr + node * _raft_cagra_graph_degree;
-+        const uint32_t *nbr_end_ptr = nbr_start_ptr + _raft_cagra_graph_degree;
-+        std::copy(nbr_start_ptr, nbr_end_ptr, node_nbrs.data());
++        graph[i].resize(_raft_cagra_graph_degree);
++    }
++//     for (int64_t node = 0; node < _nd; node++)
++//     {
++//         std::vector<uint32_t> node_nbrs(_raft_cagra_graph_degree);
++//         const uint32_t *nbr_start_ptr = raw_ptr + node * _raft_cagra_graph_degree;
++//         const uint32_t *nbr_end_ptr = nbr_start_ptr + _raft_cagra_graph_degree;
++//         std::copy(nbr_start_ptr, nbr_end_ptr, node_nbrs.data());
 +
-+        assert(node_nbrs.size() > 0);
++//         assert(node_nbrs.size() > 0);
 +
++//             _graph_store->set_neighbours(node, node_nbrs);
++//             assert(_graph_store->get_neighbours((location_t)node).size() <= _indexingRange);
++//         }
++//     }
++    std::cout << "_indexingThreads" << _indexingThreads << std::endl;
++#pragma omp parallel for num_threads(_indexingThreads) collapse(2)
++    for (int i = 0; i < graph.size(); i++)
++    {
++        for (int j = 0; j < _raft_cagra_graph_degree; j++)
 +        {
-+            LockGuard guard(_locks[node]);
-+
-+            _graph_store->set_neighbours(node, node_nbrs);
-+            assert(_graph_store->get_neighbours((location_t)node).size() <= _indexingRange);
++            graph[i][j] = raft_cagra_graph_vec[i * _raft_cagra_graph_degree + j];
 +        }
 +    }
 +    _has_built = true;
@@ -395,7 +453,7 @@ index bf93344..283e3a3 100644
  template <typename T, typename TagT, typename LabelT>
  void Index<T, TagT, LabelT>::build_with_data_populated(const std::vector<TagT> &tags)
  {
-@@ -1576,7 +1605,8 @@ void Index<T, TagT, LabelT>::_build(const DataType &data, const size_t num_point
+@@ -1576,7 +1616,8 @@ void Index<T, TagT, LabelT>::_build(const DataType &data, const size_t num_point
      }
  }
  template <typename T, typename TagT, typename LabelT>
@@ -405,7 +463,7 @@ index bf93344..283e3a3 100644
  {
      if (num_points_to_load == 0)
      {
-@@ -1593,11 +1623,18 @@ void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_loa
+@@ -1593,11 +1634,18 @@ void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_loa
      {
          std::unique_lock<std::shared_timed_mutex> tl(_tag_lock);
          _nd = num_points_to_load;
