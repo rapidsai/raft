@@ -12,6 +12,8 @@
 # the License.
 # =============================================================================
 
+list(APPEND CMAKE_MODULE_PATH "${RAFT_SOURCE_DIR}")
+
 # ##################################################################################################
 # * benchmark options ------------------------------------------------------------------------------
 
@@ -40,48 +42,26 @@ option(RAFT_ANN_BENCH_SINGLE_EXE
 
 find_package(Threads REQUIRED)
 
+set(RAFT_ANN_BENCH_USE_FAISS ON)
+set(RAFT_FAISS_ENABLE_GPU ON)
+set(RAFT_USE_FAISS_STATIC ON)
+
 if(BUILD_CPU_ONLY)
 
   # Include necessary logging dependencies
-  include(cmake/thirdparty/get_fmt.cmake)
-  include(cmake/thirdparty/get_spdlog.cmake)
-
+  include(cmake/thirdparty/get_fmt)
+  include(cmake/thirdparty/get_spdlog)
   set(RAFT_FAISS_ENABLE_GPU OFF)
-  set(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT OFF)
-  set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT OFF)
-  set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB OFF)
   set(RAFT_ANN_BENCH_USE_GGNN OFF)
-else()
+elseif(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
   # Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
   # https://github.com/rapidsai/raft/issues/1627
-  if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
-    set(RAFT_FAISS_ENABLE_GPU OFF)
-    set(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT OFF)
-    set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT OFF)
-    set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ OFF)
-    set(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT OFF)
-    set(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ OFF)
-    set(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT OFF)
-  else()
-    set(RAFT_FAISS_ENABLE_GPU ON)
-  endif()
-endif()
-
-set(RAFT_ANN_BENCH_USE_FAISS OFF)
-if(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT
-   OR RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ
-   OR RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT
-   OR RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT
-   OR RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ
-   OR RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT
-)
-  set(RAFT_ANN_BENCH_USE_FAISS ON)
-  set(RAFT_USE_FAISS_STATIC ON)
+  set(RAFT_FAISS_ENABLE_GPU OFF)
 endif()
 
 set(RAFT_ANN_BENCH_USE_RAFT OFF)
@@ -98,21 +78,17 @@ endif()
 # * Fetch requirements -------------------------------------------------------------
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB OR RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
-  include(cmake/thirdparty/get_hnswlib.cmake)
+  include(cmake/thirdparty/get_hnswlib)
 endif()
 
-include(cmake/thirdparty/get_nlohmann_json.cmake)
+include(cmake/thirdparty/get_nlohmann_json)
 
 if(RAFT_ANN_BENCH_USE_GGNN)
-  include(cmake/thirdparty/get_ggnn.cmake)
+  include(cmake/thirdparty/get_ggnn)
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS)
-  # We need to ensure that faiss has all the conda information. So we currently use the very ugly
-  # hammer of `link_libraries` to ensure that all targets in this directory and the faiss directory
-  # will have the conda includes/link dirs
-  link_libraries($<TARGET_NAME_IF_EXISTS:conda_env>)
-  include(cmake/thirdparty/get_faiss.cmake)
+  include(cmake/thirdparty/get_faiss)
 endif()
 
 # ##################################################################################################
@@ -173,8 +149,6 @@ function(ConfigureAnnBench)
             $<$<BOOL:${GPU_BUILD}>:${RAFT_CTK_MATH_DEPENDENCIES}>
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
-            -static-libgcc
-            -static-libstdc++
             $<$<BOOL:${BUILD_CPU_ONLY}>:fmt::fmt-header-only>
             $<$<BOOL:${BUILD_CPU_ONLY}>:spdlog::spdlog_header_only>
   )
@@ -225,7 +199,7 @@ endfunction()
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   ConfigureAnnBench(
-    NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp LINKS hnswlib::hnswlib
+    NAME HNSWLIB PATH src/hnswlib/hnswlib_benchmark.cpp LINKS hnswlib::hnswlib
   )
 
 endif()
@@ -235,8 +209,8 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
     NAME
     RAFT_IVF_PQ
     PATH
-    bench/ann/src/raft/raft_benchmark.cu
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}>:bench/ann/src/raft/raft_ivf_pq.cu>
+    src/raft/raft_benchmark.cu
+    src/raft/raft_ivf_pq.cu
     LINKS
     raft::compiled
   )
@@ -247,8 +221,8 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT)
     NAME
     RAFT_IVF_FLAT
     PATH
-    bench/ann/src/raft/raft_benchmark.cu
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}>:bench/ann/src/raft/raft_ivf_flat.cu>
+    src/raft/raft_benchmark.cu
+    src/raft/raft_ivf_flat.cu
     LINKS
     raft::compiled
   )
@@ -256,7 +230,7 @@ endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE)
   ConfigureAnnBench(
-    NAME RAFT_BRUTE_FORCE PATH bench/ann/src/raft/raft_benchmark.cu LINKS raft::compiled
+    NAME RAFT_BRUTE_FORCE PATH src/raft/raft_benchmark.cu LINKS raft::compiled
   )
 endif()
 
@@ -265,11 +239,11 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
     NAME
     RAFT_CAGRA
     PATH
-    bench/ann/src/raft/raft_benchmark.cu
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra_float.cu>
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra_half.cu>
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra_int8_t.cu>
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra_uint8_t.cu>
+    src/raft/raft_benchmark.cu
+    src/raft/raft_cagra_float.cu
+    src/raft/raft_cagra_half.cu
+    src/raft/raft_cagra_int8_t.cu
+    src/raft/raft_cagra_uint8_t.cu
     LINKS
     raft::compiled
   )
@@ -277,76 +251,63 @@ endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
   ConfigureAnnBench(
-    NAME RAFT_CAGRA_HNSWLIB PATH bench/ann/src/raft/raft_cagra_hnswlib.cu LINKS raft::compiled
+    NAME RAFT_CAGRA_HNSWLIB PATH src/raft/raft_cagra_hnswlib.cu LINKS raft::compiled
     hnswlib::hnswlib
   )
-endif()
-
-set(RAFT_FAISS_TARGETS faiss::faiss)
-if(TARGET faiss::faiss_avx2)
-  set(RAFT_FAISS_TARGETS faiss::faiss_avx2)
 endif()
 
 message("RAFT_FAISS_TARGETS: ${RAFT_FAISS_TARGETS}")
 message("CUDAToolkit_LIBRARY_DIR: ${CUDAToolkit_LIBRARY_DIR}")
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_CPU_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS
+    NAME FAISS_CPU_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS
     ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_CPU_IVF_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS
+    NAME FAISS_CPU_IVF_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS
     ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ)
   ConfigureAnnBench(
-    NAME FAISS_CPU_IVF_PQ PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS
+    NAME FAISS_CPU_IVF_PQ PATH src/faiss/faiss_cpu_benchmark.cpp LINKS
     ${RAFT_FAISS_TARGETS}
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT)
+if(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT AND RAFT_FAISS_ENABLE_GPU)
   ConfigureAnnBench(
-    NAME FAISS_GPU_IVF_FLAT PATH bench/ann/src/faiss/faiss_gpu_benchmark.cu LINKS
+    NAME FAISS_GPU_IVF_FLAT PATH src/faiss/faiss_gpu_benchmark.cu LINKS
     ${RAFT_FAISS_TARGETS}
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ)
+if(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ AND RAFT_FAISS_ENABLE_GPU)
   ConfigureAnnBench(
-    NAME FAISS_GPU_IVF_PQ PATH bench/ann/src/faiss/faiss_gpu_benchmark.cu LINKS
+    NAME FAISS_GPU_IVF_PQ PATH src/faiss/faiss_gpu_benchmark.cu LINKS
     ${RAFT_FAISS_TARGETS}
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT)
+if(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT AND RAFT_FAISS_ENABLE_GPU)
   ConfigureAnnBench(
-    NAME FAISS_GPU_FLAT PATH bench/ann/src/faiss/faiss_gpu_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
+    NAME FAISS_GPU_FLAT PATH src/faiss/faiss_gpu_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)
-  include(cmake/thirdparty/get_glog.cmake)
-  ConfigureAnnBench(NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu LINKS glog::glog ggnn::ggnn)
+  include(cmake/thirdparty/get_glog)
+  ConfigureAnnBench(NAME GGNN PATH src/ggnn/ggnn_benchmark.cu LINKS glog::glog ggnn::ggnn)
 endif()
 
 # ##################################################################################################
 # * Dynamically-loading ANN_BENCH executable -------------------------------------------------------
 if(RAFT_ANN_BENCH_SINGLE_EXE)
-  add_executable(ANN_BENCH bench/ann/src/common/benchmark.cpp)
-
-  # Build and link static version of the GBench to keep ANN_BENCH self-contained.
-  get_target_property(TMP_PROP benchmark::benchmark SOURCES)
-  add_library(benchmark_static STATIC ${TMP_PROP})
-  get_target_property(TMP_PROP benchmark::benchmark INCLUDE_DIRECTORIES)
-  target_include_directories(benchmark_static PUBLIC ${TMP_PROP})
-  get_target_property(TMP_PROP benchmark::benchmark LINK_LIBRARIES)
-  target_link_libraries(benchmark_static PUBLIC ${TMP_PROP})
+  add_executable(ANN_BENCH src/common/benchmark.cpp)
 
   target_include_directories(ANN_BENCH PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
@@ -354,7 +315,7 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
     ANN_BENCH
     PRIVATE raft::raft
             nlohmann_json::nlohmann_json
-            benchmark_static
+            benchmark::benchmark
             dl
             -static-libgcc
             fmt::fmt-header-only

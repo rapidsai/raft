@@ -15,78 +15,74 @@
 #=============================================================================
 
 function(find_and_configure_hnswlib)
-  set(oneValueArgs VERSION REPOSITORY PINNED_TAG EXCLUDE_FROM_ALL)
-  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-          "${multiValueArgs}" ${ARGN} )
+  set(oneValueArgs)
 
-  set(patch_files_to_run "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/hnswlib.diff")
-  set(patch_issues_to_ref "fix compile issues")
-  set(patch_script "${CMAKE_BINARY_DIR}/rapids-cmake/patches/hnswlib/patch.cmake")
-  set(log_file "${CMAKE_BINARY_DIR}/rapids-cmake/patches/hnswlib/log")
-  string(TIMESTAMP current_year "%Y" UTC)
-  configure_file(${rapids-cmake-dir}/cpm/patches/command_template.cmake.in "${patch_script}"
-                @ONLY)
+  include(${rapids-cmake-dir}/cpm/package_override.cmake)
+  set(patch_dir "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../patches")
+  rapids_cpm_package_override("${patch_dir}/hnswlib_override.json")
+
+  include("${rapids-cmake-dir}/cpm/detail/package_details.cmake")
+  rapids_cpm_package_details(hnswlib version repository tag shallow exclude)
+
+  include("${rapids-cmake-dir}/cpm/detail/generate_patch_command.cmake")
+  rapids_cpm_generate_patch_command(hnswlib ${version} patch_command)
 
   rapids_cpm_find(
-    hnswlib ${PKG_VERSION}
-    GLOBAL_TARGETS hnswlib::hnswlib
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
+    hnswlib ${version}
+    GLOBAL_TARGETS hnswlib hnswlib::hnswlib
     CPM_ARGS
-    GIT_REPOSITORY ${PKG_REPOSITORY}
-    GIT_TAG ${PKG_PINNED_TAG}
-    GIT_SHALLOW TRUE
+    GIT_REPOSITORY ${repository}
+    GIT_TAG ${tag}
+    GIT_SHALLOW ${shallow} ${patch_command}
+    EXCLUDE_FROM_ALL ${exclude}
     DOWNLOAD_ONLY ON
-    PATCH_COMMAND ${CMAKE_COMMAND} -P ${patch_script}
   )
+
+  include("${rapids-cmake-dir}/cpm/detail/display_patch_status.cmake")
+  rapids_cpm_display_patch_status(hnswlib)
+
   if(NOT TARGET hnswlib::hnswlib)
     add_library(hnswlib INTERFACE )
     add_library(hnswlib::hnswlib ALIAS hnswlib)
     target_include_directories(hnswlib INTERFACE
      "$<BUILD_INTERFACE:${hnswlib_SOURCE_DIR}>"
      "$<INSTALL_INTERFACE:include>")
+  endif()
 
-    if(NOT PKG_EXCLUDE_FROM_ALL)
-      install(TARGETS hnswlib EXPORT hnswlib-exports)
+  if(hnswlib_ADDED)
+    # write build export rules
+    install(TARGETS hnswlib EXPORT hnswlib-exports)
+    if(NOT exclude)
       install(DIRECTORY "${hnswlib_SOURCE_DIR}/hnswlib/" DESTINATION include/hnswlib)
 
       # write install export rules
       rapids_export(
         INSTALL hnswlib
-        VERSION ${PKG_VERSION}
+        VERSION ${version}
         EXPORT_SET hnswlib-exports
         GLOBAL_TARGETS hnswlib
         NAMESPACE hnswlib::)
     endif()
 
-    # write build export rules
     rapids_export(
       BUILD hnswlib
-      VERSION ${PKG_VERSION}
+      VERSION ${version}
       EXPORT_SET hnswlib-exports
       GLOBAL_TARGETS hnswlib
       NAMESPACE hnswlib::)
 
-    include("${rapids-cmake-dir}/export/find_package_root.cmake")
+    include("${rapids-cmake-dir}/export/package.cmake")
+    rapids_export_package(INSTALL hnswlib raft-exports VERSION ${version} GLOBAL_TARGETS hnswlib hnswlib::hnswlib)
+    rapids_export_package(BUILD hnswlib raft-exports VERSION ${version} GLOBAL_TARGETS hnswlib hnswlib::hnswlib)
+
 
     # When using RAFT from the build dir, ensure hnswlib is also found in RAFT's build dir. This
     # line adds `set(hnswlib_ROOT "${CMAKE_CURRENT_LIST_DIR}")` to build/raft-dependencies.cmake
+    include("${rapids-cmake-dir}/export/find_package_root.cmake")
     rapids_export_find_package_root(
       BUILD hnswlib [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET raft-exports
     )
   endif()
 endfunction()
 
-
-if(NOT RAFT_HNSWLIB_GIT_TAG)
-  set(RAFT_HNSWLIB_GIT_TAG v0.6.2)
-endif()
-
-if(NOT RAFT_HNSWLIB_GIT_REPOSITORY)
-  set(RAFT_HNSWLIB_GIT_REPOSITORY https://github.com/nmslib/hnswlib.git)
-endif()
-find_and_configure_hnswlib(VERSION 0.6.2
-        REPOSITORY       ${RAFT_HNSWLIB_GIT_REPOSITORY}
-        PINNED_TAG       ${RAFT_HNSWLIB_GIT_TAG}
-        EXCLUDE_FROM_ALL OFF
-        )
+find_and_configure_hnswlib()
