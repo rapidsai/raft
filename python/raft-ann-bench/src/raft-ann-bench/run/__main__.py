@@ -554,8 +554,8 @@ def main():
                         ):
                             continue
                 index_filename = (
-                    index_name 
-                    if len(index_name) < 128 
+                    index_name
+                    if len(index_name) < 128
                     else str(hash(index_name))
                 )
                 index["name"] = index_name
