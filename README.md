@@ -27,7 +27,7 @@
 - [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
 - [RAFT Getting Started](./docs/source/quick_start.md): Getting started with RAFT.
 - [Build and Install RAFT](./docs/source/build.md): Instructions for installing and building RAFT.
-- [Example Notebooks](./notebooks): Example jupyer notebooks
+- [Example Notebooks](./notebooks): Example jupyter notebooks
 - [RAPIDS Community](https://rapids.ai/community.html): Get help, contribute, and collaborate.
 - [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
 - [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
