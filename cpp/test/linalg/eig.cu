@@ -161,12 +161,17 @@ TEST(Raft, EigStream)
   // Separate test to check eig_dc stream workaround for CUDA 12+
   raft::resources handle;
   auto n_rows = 5000;
-  auto cov_matrix_large = raft::make_device_matrix<float, std::uint32_t, raft::col_major>(handle, n_rows, n_rows);
-  auto eig_vectors_large = raft::make_device_matrix<float, std::uint32_t, raft::col_major>(handle, n_rows, n_rows);
+  auto cov_matrix_large =
+    raft::make_device_matrix<float, std::uint32_t, raft::col_major>(handle, n_rows, n_rows);
+  auto eig_vectors_large =
+    raft::make_device_matrix<float, std::uint32_t, raft::col_major>(handle, n_rows, n_rows);
   auto eig_vals_large = raft::make_device_vector<float, std::uint32_t>(handle, n_rows);
 
-  raft::linalg::eig_dc(handle, raft::make_const_mdspan(cov_matrix_large.view()), eig_vectors_large.view(), eig_vals_large.view());
-  raft::resource::sync_stream(handle, raft::resource::get_cuda_stream(handle)); 
+  raft::linalg::eig_dc(handle,
+                       raft::make_const_mdspan(cov_matrix_large.view()),
+                       eig_vectors_large.view(),
+                       eig_vals_large.view());
+  raft::resource::sync_stream(handle, raft::resource::get_cuda_stream(handle));
 }
 
 const std::vector<EigInputs<float>> inputsf2 = {{0.001f, 4 * 4, 4, 4, 1234ULL, 256}};
