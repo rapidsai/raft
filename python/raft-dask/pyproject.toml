@@ -117,6 +117,7 @@ input = "raft_dask/VERSION"
 regex = "(?P<value>.*)"
 
 [tool.rapids-build-backend]
+build-backend = "scikit_build_core.build"
 requires = [
     "cmake>=3.26.4",
     "cython>=3.0.0",
