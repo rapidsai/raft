@@ -67,4 +67,4 @@ version = { file = "raft_ann_bench/VERSION" }
 build-backend = "setuptools.build_meta"
 requires = []
 dependencies-file = "../../dependencies.yaml"
-commit-files = ["src/raft-ann-bench/GIT_COMMIT"]
+commit-files = ["src/raft_ann_bench/GIT_COMMIT"]
