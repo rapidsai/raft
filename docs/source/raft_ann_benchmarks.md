@@ -441,7 +441,7 @@ Note the following:
 
 A single configuration will often define a set of algorithms, with associated index and search parameters, that can be generalize across datasets. We use YAML to define dataset specific and algorithm specific configurations.
 
-<a id='yaml-dataset-config'></a>A default `datasets.yaml` is provided by RAFT in `${RAFT_HOME}/python/raft-ann-bench/src/raft-ann-bench/run/conf` with configurations available for several datasets. Here's a simple example entry for the `sift-128-euclidean` dataset:
+<a id='yaml-dataset-config'></a>A default `datasets.yaml` is provided by RAFT in `${RAFT_HOME}/python/raft-ann-bench/src/raft_ann_bench/run/conf` with configurations available for several datasets. Here's a simple example entry for the `sift-128-euclidean` dataset:
 
 ```yaml
 - name: sift-128-euclidean
@@ -452,7 +452,7 @@ A single configuration will often define a set of algorithms, with associated in
   distance: euclidean
 ```
 
-<a id='yaml-algo-config'></a>Configuration files for ANN algorithms supported by `raft-ann-bench` are provided in `${RAFT_HOME}/python/raft-ann-bench/src/raft-ann-bench/run/conf`. `raft_cagra` algorithm configuration looks like:
+<a id='yaml-algo-config'></a>Configuration files for ANN algorithms supported by `raft-ann-bench` are provided in `${RAFT_HOME}/python/raft-ann-bench/src/raft_ann_bench/run/conf`. `raft_cagra` algorithm configuration looks like:
 ```yaml
 name: raft_cagra
 groups:
