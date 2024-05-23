@@ -265,16 +265,16 @@ The steps below demonstrate how to download, install, and run benchmarks on a su
 ```bash
 
 # (1) prepare dataset.
-python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
+python -m raft_ann_bench.get_dataset --dataset deep-image-96-angular --normalize
 
 # (2) build and search index
-python -m raft-ann-bench.run --dataset deep-image-96-inner --algorithms raft_cagra --batch-size 10 -k 10
+python -m raft_ann_bench.run --dataset deep-image-96-inner --algorithms raft_cagra --batch-size 10 -k 10
 
 # (3) export data
-python -m raft-ann-bench.data_export --dataset deep-image-96-inner
+python -m raft_ann_bench.data_export --dataset deep-image-96-inner
 
 # (4) plot results
-python -m raft-ann-bench.plot --dataset deep-image-96-inner
+python -m raft_ann_bench.plot --dataset deep-image-96-inner
 ```
 
 Configuration files already exist for the following list of the million-scale datasets. Please refer to [ann-benchmarks datasets](https://github.com/erikbern/ann-benchmarks/#data-sets) for more information, including actual train and sizes. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `$CONDA_PREFIX/lib/python3.xx/site-packages/raft-ann-bench/run/conf`, or you can specify the `--configuration` option to use a specific file.
@@ -308,20 +308,20 @@ mkdir -p datasets/deep-1B
 # (1) prepare dataset
 # download manually "Ground Truth" file of "Yandex DEEP"
 # suppose the file name is deep_new_groundtruth.public.10K.bin
-python -m raft-ann-bench.split_groundtruth --groundtruth datasets/deep-1B/deep_new_groundtruth.public.10K.bin
+python -m raft_ann_bench.split_groundtruth --groundtruth datasets/deep-1B/deep_new_groundtruth.public.10K.bin
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python -m raft-ann-bench.run --dataset deep-1B --algorithms raft_cagra --batch-size 10 -k 10
+python -m raft_ann_bench.run --dataset deep-1B --algorithms raft_cagra --batch-size 10 -k 10
 
 # (3) export data
-python -m raft-ann-bench.data_export --dataset deep-1B
+python -m raft_ann_bench.data_export --dataset deep-1B
 
 # (4) plot results
-python -m raft-ann-bench.plot --dataset deep-1B
+python -m raft_ann_bench.plot --dataset deep-1B
 ```
 
-The usage of `python -m raft-ann-bench.split_groundtruth` is:
+The usage of `python -m raft_ann_bench.split_groundtruth` is:
 ```bash
 usage: split_groundtruth.py [-h] --groundtruth GROUNDTRUTH
 
@@ -395,7 +395,7 @@ docker run --gpus all --rm -it -u $(id -u)          \
 This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) section above:
 
 ```
-(base) root@00b068fbb862:/data/benchmarks# python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
+(base) root@00b068fbb862:/data/benchmarks# python -m raft_ann_bench.get_dataset --dataset deep-image-96-angular --normalize
 ```
 
 Additionally, the containers can be run in detached mode without any issue.
