@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/bitmap.hpp>
+#include <raft/core/bitset.cuh>
 #include <raft/core/detail/mdspan_util.cuh>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
