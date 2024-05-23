@@ -58,9 +58,7 @@ RAFT_KERNEL faster_dot_on_csr_kernel(value_t* __restrict__ dot,
   value_t* s_A      = (value_t*)smem;
   value_idx cur_row = -1;
 
-#pragma unroll
   for (int row = blockIdx.x; row < n_rows; row += gridDim.x) {
-#pragma unroll
     for (int dot_id = blockIdx.y + indptr[row]; dot_id < indptr[row + 1]; dot_id += gridDim.y) {
       if (dot_id >= nnz) { return; }
       const value_idx col               = cols[dot_id] * dim;
@@ -70,7 +68,6 @@ RAFT_KERNEL faster_dot_on_csr_kernel(value_t* __restrict__ dot,
       __syncthreads();
 
       if (cur_row != row) {
-#pragma unroll
         for (value_idx k = vec_id; k < dim; k += blockDim.x) {
           s_A[k] = A[row * dim + k];
         }
@@ -78,7 +75,6 @@ RAFT_KERNEL faster_dot_on_csr_kernel(value_t* __restrict__ dot,
       }
 
       value_t l_dot_ = 0.0;
-#pragma unroll
       for (value_idx k = vec_id; k < dim; k += blockDim.x) {
         asm("prefetch.global.L2 [%0];" ::"l"(B_col + k + blockDim.x));
         l_dot_ += s_A[k] * __ldcg(B_col + k);
