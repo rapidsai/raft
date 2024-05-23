@@ -27,6 +27,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 
 [project.urls]
@@ -60,7 +61,7 @@ skip = [
 ]
 
 [tool.setuptools.dynamic]
-version = { attr = "raft-ann-bench.__version__" }
+version = { file = "raft_ann_bench/VERSION" }
 
 [tool.rapids-build-backend]
 build-backend = "setuptools.build_meta"
