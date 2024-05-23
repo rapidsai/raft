@@ -496,18 +496,18 @@ fi
 # Build and (optionally) install the pylibraft Python package
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
     SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-setting disable-cuda=true ${REPODIR}/python/pylibraft
+        python -m pip install --no-build-isolation --no-deps --config-setting rapidsai.disable-cuda=true ${REPODIR}/python/pylibraft
 fi
 
 # Build and (optionally) install the raft-dask Python package
 if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
     SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-setting disable-cuda=true ${REPODIR}/python/raft-dask
+        python -m pip install --no-build-isolation --no-deps --config-setting rapidsai.disable-cuda=true ${REPODIR}/python/raft-dask
 fi
 
 # Build and (optionally) install the raft-ann-bench Python package
 if (( ${NUMARGS} == 0 )) || hasArg bench-ann; then
-    python -m pip install --no-build-isolation --no-deps --config-setting disable-cuda=true ${REPODIR}/python/raft-ann-bench -vvv
+    python -m pip install --no-build-isolation --no-deps --config-setting rapidsai.disable-cuda=true ${REPODIR}/python/raft-ann-bench -vvv
 fi
 
 if hasArg docs; then
