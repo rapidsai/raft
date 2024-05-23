@@ -60,4 +60,4 @@ skip = [
 ]
 
 [tool.setuptools.dynamic]
-version = { attr = "raft_ann_bench.__version__" }
+version = { file = "raft_ann_bench/VERSION" }
