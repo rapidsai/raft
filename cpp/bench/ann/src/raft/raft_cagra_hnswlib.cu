@@ -22,6 +22,8 @@
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
+#include <cstdint>
+
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
 

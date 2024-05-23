@@ -20,6 +20,7 @@ list(APPEND CMAKE_MODULE_PATH "${RAFT_SOURCE_DIR}")
 option(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_GPU_CAGRA "Include faiss' cagra algorithm wrapper in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT "Include faiss' cpu brute-force algorithm in benchmark" ON)
 
 option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT "Include faiss' cpu ivf flat algorithm in benchmark"
@@ -52,16 +53,19 @@ if(BUILD_CPU_ONLY)
   include(cmake/thirdparty/get_fmt)
   include(cmake/thirdparty/get_spdlog)
   set(RAFT_FAISS_ENABLE_GPU OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_GPU_CAGRA OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB OFF)
   set(RAFT_ANN_BENCH_USE_GGNN OFF)
-elseif(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
-  # Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
-  # https://github.com/rapidsai/raft/issues/1627
-  set(RAFT_FAISS_ENABLE_GPU OFF)
+  # elseif(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0) # Disable faiss benchmarks
+  # on CUDA 12 since faiss is not yet CUDA 12-enabled. #
+  # https://github.com/rapidsai/raft/issues/1627 set(RAFT_FAISS_ENABLE_GPU ON)
 endif()
 
 set(RAFT_ANN_BENCH_USE_RAFT OFF)
@@ -198,40 +202,25 @@ endfunction()
 # * Configure tests-------------------------------------------------------------
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
-  ConfigureAnnBench(
-    NAME HNSWLIB PATH src/hnswlib/hnswlib_benchmark.cpp LINKS hnswlib::hnswlib
-  )
+  ConfigureAnnBench(NAME HNSWLIB PATH src/hnswlib/hnswlib_benchmark.cpp LINKS hnswlib::hnswlib)
 
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
   ConfigureAnnBench(
-    NAME
-    RAFT_IVF_PQ
-    PATH
-    src/raft/raft_benchmark.cu
-    src/raft/raft_ivf_pq.cu
-    LINKS
-    raft::compiled
+    NAME RAFT_IVF_PQ PATH src/raft/raft_benchmark.cu src/raft/raft_ivf_pq.cu LINKS raft::compiled
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT)
   ConfigureAnnBench(
-    NAME
-    RAFT_IVF_FLAT
-    PATH
-    src/raft/raft_benchmark.cu
-    src/raft/raft_ivf_flat.cu
-    LINKS
+    NAME RAFT_IVF_FLAT PATH src/raft/raft_benchmark.cu src/raft/raft_ivf_flat.cu LINKS
     raft::compiled
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE)
-  ConfigureAnnBench(
-    NAME RAFT_BRUTE_FORCE PATH src/raft/raft_benchmark.cu LINKS raft::compiled
-  )
+  ConfigureAnnBench(NAME RAFT_BRUTE_FORCE PATH src/raft/raft_benchmark.cu LINKS raft::compiled)
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
@@ -260,36 +249,37 @@ message("RAFT_FAISS_TARGETS: ${RAFT_FAISS_TARGETS}")
 message("CUDAToolkit_LIBRARY_DIR: ${CUDAToolkit_LIBRARY_DIR}")
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_CPU_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_CPU_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_CPU_IVF_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_CPU_IVF_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ)
   ConfigureAnnBench(
-    NAME FAISS_CPU_IVF_PQ PATH src/faiss/faiss_cpu_benchmark.cpp LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_CPU_IVF_PQ PATH src/faiss/faiss_cpu_benchmark.cpp LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT AND RAFT_FAISS_ENABLE_GPU)
   ConfigureAnnBench(
-    NAME FAISS_GPU_IVF_FLAT PATH src/faiss/faiss_gpu_benchmark.cu LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_GPU_IVF_FLAT PATH src/faiss/faiss_gpu_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ AND RAFT_FAISS_ENABLE_GPU)
   ConfigureAnnBench(
-    NAME FAISS_GPU_IVF_PQ PATH src/faiss/faiss_gpu_benchmark.cu LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_GPU_IVF_PQ PATH src/faiss/faiss_gpu_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_GPU_CAGRA AND RAFT_FAISS_ENABLE_GPU)
+  ConfigureAnnBench(
+    NAME FAISS_GPU_CAGRA PATH src/faiss/faiss_gpu_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 

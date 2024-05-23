@@ -22,15 +22,18 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <faiss/IndexFlat.h>
+#include <faiss/IndexHNSW.h>
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexRefine.h>
 #include <faiss/IndexScalarQuantizer.h>
+#include <faiss/gpu/GpuIndexCagra.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuIndexIVFFlat.h>
 #include <faiss/gpu/GpuIndexIVFPQ.h>
 #include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 #include <faiss/gpu/StandardGpuResources.h>
+#include <faiss/impl/HNSW.h>
 #include <faiss/impl/ScalarQuantizer.h>
 #include <faiss/index_io.h>
 #include <omp.h>
@@ -101,9 +104,10 @@ class FaissGpu : public ANN<T>, public AnnGPU {
   {
     static_assert(std::is_same_v<T, float>, "faiss support only float type");
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
+    gpu_resource_->noTempMemory();
   }
 
-  void build(const T* dataset, size_t nrow) final;
+  virtual void build(const T* dataset, size_t nrow);
 
   virtual void set_search_param(const FaissGpu<T>::AnnSearchParam& param) {}
 
@@ -111,11 +115,11 @@ class FaissGpu : public ANN<T>, public AnnGPU {
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
-  void search(const T* queries,
-              int batch_size,
-              int k,
-              AnnBase::index_type* neighbors,
-              float* distances) const final;
+  virtual void search(const T* queries,
+                      int batch_size,
+                      int k,
+                      AnnBase::index_type* neighbors,
+                      float* distances) const;
 
   [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
   {
@@ -126,8 +130,8 @@ class FaissGpu : public ANN<T>, public AnnGPU {
   {
     AlgoProperty property;
     // to enable building big dataset which is larger than GPU memory
-    property.dataset_memory_type = MemoryType::Host;
-    property.query_memory_type   = MemoryType::Host;
+    property.dataset_memory_type = MemoryType::HostMmap;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
 
@@ -269,7 +273,7 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
   {
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
     int nprobe        = search_param.nprobe;
-    assert(nprobe <= nlist_);
+    assert(nprobe <= this->nlist_);
 
     faiss::IVFSearchParameters faiss_search_params;
     faiss_search_params.nprobe = nprobe;
@@ -318,7 +322,7 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
   {
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
     int nprobe        = search_param.nprobe;
-    assert(nprobe <= nlist_);
+    assert(nprobe <= this->nlist_);
     this->refine_ratio_ = search_param.refine_ratio;
     faiss::IVFPQSearchParameters faiss_search_params;
     faiss_search_params.nprobe = nprobe;
@@ -374,7 +378,7 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
   {
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
     int nprobe        = search_param.nprobe;
-    assert(nprobe <= nlist_);
+    assert(nprobe <= this->nlist_);
 
     faiss::IVFSearchParameters faiss_search_params;
     faiss_search_params.nprobe = nprobe;
@@ -416,7 +420,7 @@ class FaissGpuFlat : public FaissGpu<T> {
   {
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
     int nprobe        = search_param.nprobe;
-    assert(nprobe <= nlist_);
+    assert(nprobe <= this->nlist_);
 
     this->search_params_ = std::make_shared<faiss::SearchParameters>();
   }
@@ -430,6 +434,211 @@ class FaissGpuFlat : public FaissGpu<T> {
     this->template load_<faiss::gpu::GpuIndexFlat, faiss::IndexFlat>(file);
   }
   std::unique_ptr<ANN<T>> copy() override { return std::make_unique<FaissGpuFlat<T>>(*this); };
+};
+
+template <typename T>
+class FaissGpuCagra : public FaissGpu<T> {
+ public:
+  using typename ANN<T>::AnnSearchParam;
+  struct SearchParam : public AnnSearchParam {
+    faiss::gpu::SearchParametersCagra search_params;
+    auto needs_dataset() const -> bool override { return false; }
+  };
+
+  struct BuildParam {
+    faiss::gpu::GpuIndexCagraConfig build_params;
+  };
+
+  FaissGpuCagra(Metric metric, int dim, BuildParam params = {})
+    : FaissGpu<T>(metric, dim, typename FaissGpu<T>::BuildParam{})
+  {
+    params.build_params.device = this->device_;
+    this->index_               = std::make_shared<faiss::gpu::GpuIndexCagra>(
+      this->gpu_resource_.get(), dim, this->metric_type_, params.build_params);
+  }
+  void set_search_param(const AnnSearchParam& param) override
+  {
+    auto search_param    = dynamic_cast<const SearchParam&>(param);
+    faiss_search_params  = search_param.search_params;
+    this->search_params_ = std::shared_ptr<faiss::gpu::SearchParametersCagra>(
+      &faiss_search_params, [](faiss::gpu::SearchParametersCagra*) {});
+  }
+
+  virtual void build(const T* dataset, size_t nrow)
+  {
+    this->index_->train(nrow,
+                        dataset);  // faiss::gpu::GpuIndexCagra::train() adds vectors exactly 1 time
+    assert(this->index_->is_trained);
+  }
+
+  void save(const std::string& file) const override
+  {
+    this->template save_<faiss::gpu::GpuIndexCagra, faiss::IndexHNSWCagra>(file);
+  }
+  void load(const std::string& file) override
+  {
+    this->template load_<faiss::gpu::GpuIndexCagra, faiss::IndexHNSWCagra>(file);
+  }
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<FaissGpuCagra<T>>(*this); };
+
+ private:
+  faiss::gpu::SearchParametersCagra faiss_search_params;
+};
+
+template <typename T>
+class FaissGpuCagraHnsw : public FaissGpuCagra<T> {
+ public:
+  using typename ANN<T>::AnnSearchParam;
+  struct SearchParam : public AnnSearchParam {
+    faiss::SearchParametersHNSW search_params;
+    int num_threads = omp_get_num_procs();
+    auto needs_dataset() const -> bool override { return false; }
+  };
+
+  using typename FaissGpuCagra<T>::BuildParam;
+
+  AlgoProperty get_preference() const override
+  {
+    AlgoProperty property;
+    // to enable building big dataset which is larger than GPU memory
+    property.dataset_memory_type = MemoryType::HostMmap;
+    property.query_memory_type   = MemoryType::Host;
+    return property;
+  }
+
+  FaissGpuCagraHnsw(Metric metric, int dim, BuildParam& params)
+    : FaissGpuCagra<T>(metric, dim, params)
+  {
+    params.build_params.device = this->device_;
+    this->index_               = std::make_shared<faiss::gpu::GpuIndexCagra>(
+      this->gpu_resource_.get(), dim, this->metric_type_, params.build_params);
+  }
+  void set_search_param(const AnnSearchParam& param) override
+  {
+    auto search_param = dynamic_cast<const SearchParam&>(param);
+    if (param.metric_objective == Objective::LATENCY) {
+      omp_set_num_threads(search_param.num_threads);
+    } else if (param.metric_objective == Objective::THROUGHPUT) {
+      omp_set_num_threads(1);
+    }
+    faiss_search_params  = search_param.search_params;
+    this->search_params_ = std::shared_ptr<faiss::SearchParametersHNSW>(
+      &faiss_search_params, [](faiss::SearchParametersHNSW*) {});
+  }
+
+  virtual void build(const T* dataset, size_t nrow)
+  {
+    this->index_->train(nrow,
+                        dataset);  // faiss::gpu::GpuIndexCagra::train() adds vectors exactly 1 time
+    assert(this->index_->is_trained);
+
+    // This adds the time of conversion from CAGRA to HNSW to the index build itself
+    faiss::IndexHNSWCagra throwaway;
+    dynamic_cast<faiss::gpu::GpuIndexCagra*>(this->index_.get())->copyTo(&throwaway);
+  }
+
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override
+  {
+    static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
+                  "sizes of size_t and faiss::idx_t are different");
+
+    cpu_index_->search(batch_size,
+                       queries,
+                       k,
+                       distances,
+                       reinterpret_cast<faiss::idx_t*>(neighbors),
+                       this->search_params_.get());
+  }
+
+  void save(const std::string& file) const override
+  {
+    auto cpu_index             = std::make_unique<faiss::IndexHNSWCagra>();
+    cpu_index->base_level_only = true;
+    dynamic_cast<faiss::gpu::GpuIndexCagra*>(this->index_.get())->copyTo(cpu_index.get());
+    faiss::write_index(cpu_index.get(), file.c_str());
+    // this->template save_<faiss::gpu::GpuIndexCagra, faiss::IndexHNSWCagra>(file);
+  }
+  void load(const std::string& file) override
+  {
+    OmpSingleThreadScope omp_single_thread;
+
+    cpu_index_ = std::shared_ptr<faiss::IndexHNSWCagra>(
+      dynamic_cast<faiss::IndexHNSWCagra*>(faiss::read_index(file.c_str())));
+    cpu_index_->base_level_only = true;
+    assert(cpu_index_);
+  }
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<FaissGpuCagraHnsw<T>>(*this); };
+
+ private:
+  faiss::SearchParametersHNSW faiss_search_params;
+  std::shared_ptr<faiss::IndexHNSWCagra> cpu_index_;
+};
+
+template <typename T>
+class FaissGpuHnswCagra : public FaissGpuCagra<T> {
+ public:
+  struct BuildParam {
+    int M;
+    int efConstruction;
+  };
+
+  using typename ANN<T>::AnnSearchParam;
+  using typename FaissGpuCagra<T>::SearchParam;
+
+  FaissGpuHnswCagra(Metric metric, int dim, BuildParam& params) : FaissGpuCagra<T>(metric, dim)
+  {
+    cpu_index_                      = std::make_shared<faiss::IndexHNSWCagra>(dim, params.M);
+    cpu_index_->hnsw.efConstruction = params.efConstruction;
+  }
+  void set_search_param(const AnnSearchParam& param) override
+  {
+    auto search_param    = dynamic_cast<const SearchParam&>(param);
+    faiss_search_params  = search_param.search_params;
+    this->search_params_ = std::shared_ptr<faiss::gpu::SearchParametersCagra>(
+      &faiss_search_params, [](faiss::gpu::SearchParametersCagra*) {});
+  }
+
+  virtual void build(const T* dataset, size_t nrow)
+  {
+    cpu_index_->train(nrow, dataset);
+    assert(this->index_->is_trained);
+    cpu_index_->add(nrow, dataset);
+
+    // This adds the time of conversion from HNSW to CAGRA to the index build itself
+    faiss::gpu::GpuIndexCagra throwaway(this->gpu_resource_.get(), this->dim_);
+    throwaway.copyFrom(cpu_index_.get());
+  }
+
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override
+  {
+    static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
+                  "sizes of size_t and faiss::idx_t are different");
+
+    this->index_->search(batch_size,
+                         queries,
+                         k,
+                         distances,
+                         reinterpret_cast<faiss::idx_t*>(neighbors),
+                         this->search_params_.get());
+  }
+
+  void save(const std::string& file) const override
+  {
+    OmpSingleThreadScope omp_single_thread;
+
+    faiss::write_index(cpu_index_.get(), file.c_str());
+  }
+  void load(const std::string& file) override
+  {
+    this->template load_<faiss::gpu::GpuIndexCagra, faiss::IndexHNSWCagra>(file);
+  }
+  std::unique_ptr<ANN<T>> copy() override { return std::make_unique<FaissGpuHnswCagra<T>>(*this); };
+
+ private:
+  faiss::gpu::SearchParametersCagra faiss_search_params;
+  std::shared_ptr<faiss::IndexHNSWCagra> cpu_index_;
 };
 
 }  // namespace raft::bench::ann

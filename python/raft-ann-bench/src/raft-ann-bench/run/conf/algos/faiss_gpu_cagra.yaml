@@ -1,0 +1,13 @@
+name: faiss_gpu_cagra
+constraints:
+  build: raft-ann-bench.constraints.raft_cagra_build_constraints
+  search: raft-ann-bench.constraints.raft_cagra_search_constraints
+groups:
+  base:
+    build:
+      graph_degree: [4, 32]
+      intermediate_graph_degree: [8, 64]
+      graph_build_algo: ["IVF_PQ"]
+    search:
+      itopk: [32, 64, 128, 256, 512]
+      search_width: [1, 2, 4, 8, 16, 32, 64]

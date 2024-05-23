@@ -343,6 +343,7 @@ void bench_search(::benchmark::State& state,
 
   // Each thread calculates recall on their partition of queries.
   // evaluate recall
+  // std::cout << "max k: " << dataset->max_k() << std::endl;
   if (dataset->max_k() >= k) {
     const std::int32_t* gt    = dataset->gt_set();
     const std::uint32_t max_k = dataset->max_k();

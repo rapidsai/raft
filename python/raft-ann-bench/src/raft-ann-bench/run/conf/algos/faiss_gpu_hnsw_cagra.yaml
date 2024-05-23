@@ -1,0 +1,11 @@
+name: faiss_gpu_hnsw_cagra
+constraints:
+  search: raft-ann-bench.constraints.raft_cagra_search_constraints
+groups:
+  base:
+    build:
+      M: [12, 16, 24, 36]
+      efConstruction: [64, 128, 256, 512]
+    search:
+      itopk: [32, 64, 128, 256, 512]
+      search_width: [1, 2, 4, 8, 16, 32, 64]

@@ -49,8 +49,8 @@ function(find_and_configure_faiss)
   rapids_cpm_find(faiss ${version}
     GLOBAL_TARGETS faiss faiss_avx2 faiss_gpu faiss::faiss faiss::faiss_avx2
     CPM_ARGS
-    GIT_REPOSITORY ${repository}
-    GIT_TAG ${tag}
+    GIT_REPOSITORY https://github.com/facebookresearch/faiss/
+    GIT_TAG pull/3252
     GIT_SHALLOW ${shallow} ${patch_command}
     EXCLUDE_FROM_ALL ${exclude}
     OPTIONS
@@ -60,6 +60,7 @@ function(find_and_configure_faiss)
     "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
     "BUILD_TESTING OFF"
     "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
+    "FAISS_ENABLE_RAFT ON"
     )
 
   include("${rapids-cmake-dir}/cpm/detail/display_patch_status.cmake")

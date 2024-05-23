@@ -164,14 +164,14 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow)
   bool shall_include_dataset = params.compression.has_value();
 
   index_ = std::make_shared<raft::neighbors::cagra::index<T, IdxT>>(
-    std::move(raft::neighbors::cagra::detail::build(handle_,
-                                                    params,
-                                                    dataset_view,
-                                                    index_params_.nn_descent_params,
-                                                    index_params_.ivf_pq_refine_rate,
-                                                    index_params_.ivf_pq_build_params,
-                                                    index_params_.ivf_pq_search_params,
-                                                    shall_include_dataset)));
+    std::move(raft::neighbors::cagra::detail::build<T, IdxT>(handle_,
+                                                             params,
+                                                             dataset_view,
+                                                             index_params_.nn_descent_params,
+                                                             index_params_.ivf_pq_refine_rate,
+                                                             index_params_.ivf_pq_build_params,
+                                                             index_params_.ivf_pq_search_params,
+                                                             shall_include_dataset)));
 }
 
 inline std::string allocator_to_string(AllocatorType mem_type)
