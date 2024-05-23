@@ -16,10 +16,12 @@
 #pragma once
 
 #include "../../cagra_types.hpp"
+#include "../../vpq_dataset.cuh"
 #include "graph_core.cuh"
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/error.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -32,6 +34,8 @@
 #include <raft/neighbors/nn_descent.cuh>
 #include <raft/neighbors/refine.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
+
+#include <rmm/resource_ref.hpp>
 
 #include <chrono>
 #include <cstdio>
@@ -47,8 +51,9 @@ void build_knn_graph(raft::resources const& res,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
-  RAFT_EXPECTS(!build_params || build_params->metric == distance::DistanceType::L2Expanded,
-               "Currently only L2Expanded metric is supported");
+  RAFT_EXPECTS(!build_params || build_params->metric == distance::DistanceType::L2Expanded ||
+                 build_params->metric == distance::DistanceType::InnerProduct,
+               "Currently only L2Expanded or InnerProduct metric are supported");
 
   uint32_t node_degree = knn_graph.extent(1);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::build_graph(%zu, %zu, %u)",
@@ -56,15 +61,7 @@ void build_knn_graph(raft::resources const& res,
                                                             size_t(dataset.extent(1)),
                                                             node_degree);
 
-  if (!build_params) {
-    build_params          = ivf_pq::index_params{};
-    build_params->n_lists = dataset.extent(0) < 4 * 2500 ? 4 : (uint32_t)(dataset.extent(0) / 2500);
-    build_params->pq_dim  = raft::Pow2<8>::roundUp(dataset.extent(1) / 2);
-    build_params->pq_bits = 8;
-    build_params->kmeans_trainset_fraction = dataset.extent(0) < 10000 ? 1 : 10;
-    build_params->kmeans_n_iters           = 25;
-    build_params->add_data_on_build        = true;
-  }
+  if (!build_params) { build_params = ivf_pq::index_params::from_dataset(dataset); }
 
   // Make model name
   const std::string model_name = [&]() {
@@ -123,7 +120,7 @@ void build_knn_graph(raft::resources const& res,
   bool first                    = true;
   const auto start_clock        = std::chrono::system_clock::now();
 
-  rmm::mr::device_memory_resource* device_memory = raft::resource::get_workspace_resource(res);
+  rmm::device_async_resource_ref device_memory = raft::resource::get_workspace_resource(res);
 
   raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(
     dataset.data_handle(),
@@ -321,8 +318,10 @@ index<T, IdxT> build(
 
   if (params.build_algo == graph_build_algo::IVF_PQ) {
     build_knn_graph(res, dataset, knn_graph->view(), refine_rate, pq_build_params, search_params);
-
   } else {
+    RAFT_EXPECTS(
+      params.metric == raft::distance::DistanceType::L2Expanded,
+      "L2Expanded is the only distance metrics supported for CAGRA build with nn_descent");
     // Use nn-descent to build CAGRA knn graph
     if (!nn_descent_params) {
       nn_descent_params                            = experimental::nn_descent::index_params();
@@ -344,6 +343,17 @@ index<T, IdxT> build(
   RAFT_LOG_INFO("Graph optimized, creating index");
   // Construct an index from dataset and optimized knn graph.
   if (construct_index_with_dataset) {
+    if (params.compression.has_value()) {
+      RAFT_EXPECTS(params.metric == raft::distance::DistanceType::L2Expanded,
+                   "VPQ compression is only supported with L2Expanded distance mertric");
+      index<T, IdxT> idx(res, params.metric);
+      idx.update_graph(res, raft::make_const_mdspan(cagra_graph.view()));
+      idx.update_dataset(
+        res,
+        // TODO: hardcoding codebook math to `half`, we can do runtime dispatching later
+        neighbors::vpq_build<decltype(dataset), half, int64_t>(res, *params.compression, dataset));
+      return idx;
+    }
     return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
   } else {
     // We just add the graph. User is expected to update dataset separately. This branch is used

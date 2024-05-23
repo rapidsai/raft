@@ -16,33 +16,48 @@
 
 #include <common/benchmark.hpp>
 
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
 
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 
 namespace raft::bench::matrix {
 
 template <typename IdxT>
 struct GatherParams {
   IdxT rows, cols, map_length;
+  bool host;
 };
 
 template <typename IdxT>
 inline auto operator<<(std::ostream& os, const GatherParams<IdxT>& p) -> std::ostream&
 {
-  os << p.rows << "#" << p.cols << "#" << p.map_length;
+  os << p.rows << "#" << p.cols << "#" << p.map_length << (p.host ? "#host" : "#device");
   return os;
 }
 
 template <typename T, typename MapT, typename IdxT, bool Conditional = false>
 struct Gather : public fixture {
   Gather(const GatherParams<IdxT>& p)
-    : params(p), matrix(this->handle), map(this->handle), out(this->handle), stencil(this->handle)
+    : params(p),
+      old_mr(rmm::mr::get_current_device_resource()),
+      pool_mr(rmm::mr::get_current_device_resource(), 2 * (1ULL << 30)),
+      matrix(this->handle),
+      map(this->handle),
+      out(this->handle),
+      stencil(this->handle),
+      matrix_h(this->handle)
   {
+    rmm::mr::set_current_device_resource(&pool_mr);
   }
+
+  ~Gather() { rmm::mr::set_current_device_resource(old_mr); }
 
   void allocate_data(const ::benchmark::State& state) override
   {
@@ -58,6 +73,11 @@ struct Gather : public fixture {
       handle, rng, map.data_handle(), params.map_length, (MapT)0, (MapT)params.rows);
     if constexpr (Conditional) {
       raft::random::uniform(handle, rng, stencil.data_handle(), params.map_length, T(-1), T(1));
+    }
+
+    if (params.host) {
+      matrix_h = raft::make_host_matrix<T, IdxT>(handle, params.rows, params.cols);
+      raft::copy(matrix_h.data_handle(), matrix.data_handle(), matrix.size(), stream);
     }
     resource::sync_stream(handle, stream);
   }
@@ -77,14 +97,22 @@ struct Gather : public fixture {
         raft::matrix::gather_if(
           handle, matrix_const_view, out.view(), map_const_view, stencil_const_view, pred_op);
       } else {
-        raft::matrix::gather(handle, matrix_const_view, map_const_view, out.view());
+        if (params.host) {
+          raft::matrix::detail::gather(
+            handle, make_const_mdspan(matrix_h.view()), map_const_view, out.view());
+        } else {
+          raft::matrix::gather(handle, matrix_const_view, map_const_view, out.view());
+        }
       }
     });
   }
 
  private:
   GatherParams<IdxT> params;
+  rmm::mr::device_memory_resource* old_mr;
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr;
   raft::device_matrix<T, IdxT> matrix, out;
+  raft::host_matrix<T, IdxT> matrix_h;
   raft::device_vector<T, IdxT> stencil;
   raft::device_vector<MapT, IdxT> map;
 };  // struct Gather
@@ -100,4 +128,9 @@ RAFT_BENCH_REGISTER((Gather<float, uint32_t, int64_t>), "", gather_inputs_i64);
 RAFT_BENCH_REGISTER((Gather<double, uint32_t, int64_t>), "", gather_inputs_i64);
 RAFT_BENCH_REGISTER((GatherIf<float, uint32_t, int64_t>), "", gather_inputs_i64);
 RAFT_BENCH_REGISTER((GatherIf<double, uint32_t, int64_t>), "", gather_inputs_i64);
+
+auto inputs_host = raft::util::itertools::product<GatherParams<int64_t>>(
+  {10000000}, {100}, {1000, 1000000, 10000000}, {true});
+RAFT_BENCH_REGISTER((Gather<float, uint32_t, int64_t>), "Host", inputs_host);
+
 }  // namespace raft::bench::matrix

@@ -28,13 +28,10 @@
 
 #include <raft_internal/neighbors/naive_knn.cuh>
 
-#include <rmm/cuda_stream_view.hpp>
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
-
 #include <gtest/gtest.h>
 
 #include <iostream>
+#include <limits>
 
 namespace raft::neighbors {
 
@@ -153,13 +150,40 @@ auto calc_recall(const std::vector<T>& expected_idx,
     static_cast<double>(match_count) / static_cast<double>(total_count), match_count, total_count);
 }
 
+/** check uniqueness of indices
+ */
+template <typename T>
+auto check_unique_indices(const std::vector<T>& actual_idx, size_t rows, size_t cols)
+{
+  size_t max_count;
+  std::set<T> unique_indices;
+  for (size_t i = 0; i < rows; ++i) {
+    unique_indices.clear();
+    max_count = 0;
+    for (size_t k = 0; k < cols; ++k) {
+      size_t idx_k = i * cols + k;  // row major assumption!
+      auto act_idx = actual_idx[idx_k];
+      if (act_idx == std::numeric_limits<T>::max()) {
+        max_count++;
+      } else if (unique_indices.find(act_idx) == unique_indices.end()) {
+        unique_indices.insert(act_idx);
+      } else {
+        return testing::AssertionFailure()
+               << "Duplicated index " << act_idx << " at k " << k << " for query " << i << "! ";
+      }
+    }
+  }
+  return testing::AssertionSuccess();
+}
+
 template <typename T>
 auto eval_recall(const std::vector<T>& expected_idx,
                  const std::vector<T>& actual_idx,
                  size_t rows,
                  size_t cols,
                  double eps,
-                 double min_recall) -> testing::AssertionResult
+                 double min_recall,
+                 bool test_unique = true) -> testing::AssertionResult
 {
   auto [actual_recall, match_count, total_count] =
     calc_recall(expected_idx, actual_idx, rows, cols);
@@ -176,7 +200,10 @@ auto eval_recall(const std::vector<T>& expected_idx,
            << "actual recall (" << actual_recall << ") is lower than the minimum expected recall ("
            << min_recall << "); eps = " << eps << ". ";
   }
-  return testing::AssertionSuccess();
+  if (test_unique)
+    return check_unique_indices(actual_idx, rows, cols);
+  else
+    return testing::AssertionSuccess();
 }
 
 /** Overload of calc_recall to account for distances
@@ -224,7 +251,8 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
                      size_t rows,
                      size_t cols,
                      double eps,
-                     double min_recall) -> testing::AssertionResult
+                     double min_recall,
+                     bool test_unique = true) -> testing::AssertionResult
 {
   auto [actual_recall, match_count, total_count] =
     calc_recall(expected_idx, actual_idx, expected_dist, actual_dist, rows, cols, eps);
@@ -241,7 +269,10 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
            << "actual recall (" << actual_recall << ") is lower than the minimum expected recall ("
            << min_recall << "); eps = " << eps << ". ";
   }
-  return testing::AssertionSuccess();
+  if (test_unique)
+    return check_unique_indices(actual_idx, rows, cols);
+  else
+    return testing::AssertionSuccess();
 }
 
 template <typename T, typename DistT, typename IdxT>
@@ -265,7 +296,7 @@ auto eval_distances(raft::resources const& handle,
 
     raft::matrix::copy_rows<T, IdxT>(
       handle,
-      make_device_matrix_view<const T, IdxT>(x, k, n_cols),
+      make_device_matrix_view<const T, IdxT>(x, n_rows, n_cols),
       y.view(),
       make_device_vector_view<const IdxT, IdxT>(neighbors + i * k, k));
 

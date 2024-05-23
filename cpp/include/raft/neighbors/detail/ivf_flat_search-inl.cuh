@@ -30,7 +30,7 @@
 #include <raft/neighbors/sample_filter_types.hpp>               // none_ivf_sample_filter
 #include <raft/spatial/knn/detail/ann_utils.cuh>                // utils::mapping
 
-#include <rmm/mr/device/per_device_resource.hpp>  // rmm::device_memory_resource
+#include <rmm/resource_ref.hpp>
 
 namespace raft::neighbors::ivf_flat::detail {
 
@@ -48,7 +48,7 @@ void search_impl(raft::resources const& handle,
                  bool select_min,
                  IdxT* neighbors,
                  AccT* distances,
-                 rmm::mr::device_memory_resource* search_mr,
+                 rmm::device_async_resource_ref search_mr,
                  IvfSampleFilterT sample_filter)
 {
   auto stream = resource::get_cuda_stream(handle);
@@ -67,12 +67,15 @@ void search_impl(raft::resources const& handle,
   // Optional structures if postprocessing is required
   // The topk distance value of candidate vectors from each cluster(list)
   rmm::device_uvector<AccT> distances_tmp_dev(0, stream, search_mr);
-  // The topk index of candidate vectors from each cluster(list)
-  rmm::device_uvector<IdxT> indices_tmp_dev(0, stream, search_mr);
   // Number of samples for each query
   rmm::device_uvector<uint32_t> num_samples(0, stream, search_mr);
   // Offsets per probe for each query
   rmm::device_uvector<uint32_t> chunk_index(0, stream, search_mr);
+
+  // The topk index of candidate vectors from each cluster(list), local index offset
+  // also we might need additional storage for select_k
+  rmm::device_uvector<uint32_t> indices_tmp_dev(0, stream, search_mr);
+  rmm::device_uvector<uint32_t> neighbors_uint32_buf(0, stream, search_mr);
 
   size_t float_query_size;
   if constexpr (std::is_integral_v<T>) {
@@ -175,23 +178,29 @@ void search_impl(raft::resources const& handle,
     grid_dim_x = 1;
   }
 
+  num_samples.resize(n_queries, stream);
+  chunk_index.resize(n_queries_probes, stream);
+
+  ivf::detail::calc_chunk_indices::configure(n_probes, n_queries)(index.list_sizes().data_handle(),
+                                                                  coarse_indices_dev.data(),
+                                                                  chunk_index.data(),
+                                                                  num_samples.data(),
+                                                                  stream);
+
   auto distances_dev_ptr = distances;
-  auto indices_dev_ptr   = neighbors;
+
+  uint32_t* neighbors_uint32 = nullptr;
+  if constexpr (sizeof(IdxT) == sizeof(uint32_t)) {
+    neighbors_uint32 = reinterpret_cast<uint32_t*>(neighbors);
+  } else {
+    neighbors_uint32_buf.resize(std::size_t(n_queries) * std::size_t(k), stream);
+    neighbors_uint32 = neighbors_uint32_buf.data();
+  }
+
+  uint32_t* indices_dev_ptr = nullptr;
 
   bool manage_local_topk = is_local_topk_feasible(k);
   if (!manage_local_topk || grid_dim_x > 1) {
-    if (!manage_local_topk) {
-      num_samples.resize(n_queries, stream);
-      chunk_index.resize(n_queries_probes, stream);
-
-      ivf::detail::calc_chunk_indices::configure(n_probes, n_queries)(
-        index.list_sizes().data_handle(),
-        coarse_indices_dev.data(),
-        chunk_index.data(),
-        num_samples.data(),
-        stream);
-    }
-
     auto target_size = std::size_t(n_queries) * (manage_local_topk ? grid_dim_x * k : max_samples);
 
     distances_tmp_dev.resize(target_size, stream);
@@ -199,6 +208,8 @@ void search_impl(raft::resources const& handle,
 
     distances_dev_ptr = distances_tmp_dev.data();
     indices_dev_ptr   = indices_tmp_dev.data();
+  } else {
+    indices_dev_ptr = neighbors_uint32;
   }
 
   ivfflat_interleaved_scan<T, typename utils::config<T>::value_t, IdxT, IvfSampleFilterT>(
@@ -224,31 +235,33 @@ void search_impl(raft::resources const& handle,
 
   // Merge topk values from different blocks
   if (!manage_local_topk || grid_dim_x > 1) {
-    matrix::detail::select_k<AccT, IdxT>(handle,
-                                         distances_tmp_dev.data(),
-                                         indices_tmp_dev.data(),
-                                         n_queries,
-                                         manage_local_topk ? (k * grid_dim_x) : max_samples,
-                                         k,
-                                         distances,
-                                         neighbors,
-                                         select_min);
-
-    if (!manage_local_topk) {
-      // post process distances && neighbor IDs
-      ivf::detail::postprocess_distances(
-        distances, distances, index.metric(), n_queries, k, 1.0, false, stream);
-      ivf::detail::postprocess_neighbors(neighbors,
-                                         neighbors,
-                                         index.inds_ptrs().data_handle(),
-                                         coarse_indices_dev.data(),
-                                         chunk_index.data(),
-                                         n_queries,
-                                         n_probes,
-                                         k,
-                                         stream);
-    }
+    matrix::detail::select_k<AccT, uint32_t>(handle,
+                                             distances_tmp_dev.data(),
+                                             indices_tmp_dev.data(),
+                                             n_queries,
+                                             manage_local_topk ? (k * grid_dim_x) : max_samples,
+                                             k,
+                                             distances,
+                                             neighbors_uint32,
+                                             select_min,
+                                             false,
+                                             matrix::SelectAlgo::kAuto,
+                                             manage_local_topk ? nullptr : num_samples.data());
   }
+  if (!manage_local_topk) {
+    // post process distances && neighbor IDs
+    ivf::detail::postprocess_distances(
+      distances, distances, index.metric(), n_queries, k, 1.0, false, stream);
+  }
+  ivf::detail::postprocess_neighbors(neighbors,
+                                     neighbors_uint32,
+                                     index.inds_ptrs().data_handle(),
+                                     coarse_indices_dev.data(),
+                                     chunk_index.data(),
+                                     n_queries,
+                                     n_probes,
+                                     k,
+                                     stream);
 }
 
 /** See raft::neighbors::ivf_flat::search docs */
@@ -263,13 +276,12 @@ inline void search(raft::resources const& handle,
                    uint32_t k,
                    IdxT* neighbors,
                    float* distances,
-                   rmm::mr::device_memory_resource* mr = nullptr,
-                   IvfSampleFilterT sample_filter      = IvfSampleFilterT())
+                   rmm::device_async_resource_ref mr = rmm::mr::get_current_device_resource(),
+                   IvfSampleFilterT sample_filter    = IvfSampleFilterT())
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());
 
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
   auto n_probes          = std::min<uint32_t>(params.n_probes, index.n_lists());

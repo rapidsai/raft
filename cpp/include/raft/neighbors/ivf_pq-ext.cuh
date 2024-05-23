@@ -21,8 +21,6 @@
 #include <raft/neighbors/ivf_pq_types.hpp>  // raft::neighbors::ivf_pq::index
 #include <raft/util/raft_explicit.hpp>      // RAFT_EXPLICIT
 
-#include <rmm/mr/device/per_device_resource.hpp>  // rmm::mr::device_memory_resource
-
 #include <cstdint>  // int64_t
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -105,33 +103,6 @@ void search(raft::resources const& handle,
             IdxT* neighbors,
             float* distances) RAFT_EXPLICIT;
 
-template <typename T, typename IdxT, typename IvfSampleFilterT>
-[[deprecated(
-  "Drop the `mr` argument and use `raft::resource::set_workspace_resource` instead")]] void
-search_with_filtering(raft::resources const& handle,
-                      const raft::neighbors::ivf_pq::search_params& params,
-                      const index<IdxT>& idx,
-                      const T* queries,
-                      uint32_t n_queries,
-                      uint32_t k,
-                      IdxT* neighbors,
-                      float* distances,
-                      rmm::mr::device_memory_resource* mr,
-                      IvfSampleFilterT sample_filter = IvfSampleFilterT{}) RAFT_EXPLICIT;
-
-template <typename T, typename IdxT>
-[[deprecated(
-  "Drop the `mr` argument and use `raft::resource::set_workspace_resource` instead")]] void
-search(raft::resources const& handle,
-       const raft::neighbors::ivf_pq::search_params& params,
-       const index<IdxT>& idx,
-       const T* queries,
-       uint32_t n_queries,
-       uint32_t k,
-       IdxT* neighbors,
-       float* distances,
-       rmm::mr::device_memory_resource* mr) RAFT_EXPLICIT;
-
 }  // namespace raft::neighbors::ivf_pq
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -209,8 +180,7 @@ instantiate_raft_neighbors_ivf_pq_extend(uint8_t, int64_t);
     uint32_t n_queries,                                              \
     uint32_t k,                                                      \
     IdxT* neighbors,                                                 \
-    float* distances,                                                \
-    rmm::mr::device_memory_resource* mr);                            \
+    float* distances);                                               \
                                                                      \
   extern template void raft::neighbors::ivf_pq::search<T, IdxT>(     \
     raft::resources const& handle,                                   \

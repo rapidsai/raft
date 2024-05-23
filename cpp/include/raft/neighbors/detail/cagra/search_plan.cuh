@@ -25,6 +25,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/pow2_utils.cuh>
 
@@ -35,8 +36,13 @@ struct search_plan_impl_base : public search_params {
   int64_t dim;
   int64_t graph_degree;
   uint32_t topk;
-  search_plan_impl_base(search_params params, int64_t dim, int64_t graph_degree, uint32_t topk)
-    : search_params(params), dim(dim), graph_degree(graph_degree), topk(topk)
+  raft::distance::DistanceType metric;
+  search_plan_impl_base(search_params params,
+                        int64_t dim,
+                        int64_t graph_degree,
+                        uint32_t topk,
+                        raft::distance::DistanceType metric)
+    : search_params(params), dim(dim), graph_degree(graph_degree), topk(topk), metric(metric)
   {
     set_dataset_block_and_team_size(dim);
     if (algo == search_algo::AUTO) {
@@ -71,8 +77,12 @@ struct search_plan_impl_base : public search_params {
   }
 };
 
-template <class DATA_T, class INDEX_T, class DISTANCE_T, class SAMPLE_FILTER_T>
+template <class DATASET_DESCRIPTOR_T, class SAMPLE_FILTER_T>
 struct search_plan_impl : public search_plan_impl_base {
+  using INDEX_T    = typename DATASET_DESCRIPTOR_T::INDEX_T;
+  using DISTANCE_T = typename DATASET_DESCRIPTOR_T::DISTANCE_T;
+  using DATA_T     = typename DATASET_DESCRIPTOR_T::DATA_T;
+
   int64_t hash_bitlen;
 
   size_t small_hash_bitlen;
@@ -93,8 +103,9 @@ struct search_plan_impl : public search_plan_impl_base {
                    search_params params,
                    int64_t dim,
                    int64_t graph_degree,
-                   uint32_t topk)
-    : search_plan_impl_base(params, dim, graph_degree, topk),
+                   uint32_t topk,
+                   raft::distance::DistanceType metric)
+    : search_plan_impl_base(params, dim, graph_degree, topk, metric),
       hashmap(0, resource::get_cuda_stream(res)),
       num_executed_iterations(0, resource::get_cuda_stream(res)),
       dev_seed(0, resource::get_cuda_stream(res)),
@@ -111,7 +122,7 @@ struct search_plan_impl : public search_plan_impl_base {
   virtual ~search_plan_impl() {}
 
   virtual void operator()(raft::resources const& res,
-                          raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                          DATASET_DESCRIPTOR_T dataset_desc,
                           raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                           INDEX_T* const result_indices_ptr,       // [num_queries, topk]
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]

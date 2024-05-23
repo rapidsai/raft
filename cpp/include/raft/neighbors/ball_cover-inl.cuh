@@ -333,7 +333,7 @@ void eps_nn(raft::resources const& handle,
     query.extent(0),
     adj.data_handle(),
     vd.data_handle(),
-    spatial::knn::detail::EuclideanFunc<value_t, int_t>());
+    spatial::knn::detail::EuclideanSqFunc<value_t, int_t>());
 }
 
 /**
@@ -392,7 +392,7 @@ void eps_nn(raft::resources const& handle,
     adj_ia.data_handle(),
     adj_ja.data_handle(),
     vd.data_handle(),
-    spatial::knn::detail::EuclideanFunc<value_t, int_t>());
+    spatial::knn::detail::EuclideanSqFunc<value_t, int_t>());
 }
 
 /**

@@ -187,7 +187,7 @@ RAFT relies on `clang-format` to enforce code style across all C++ and CUDA sour
 1. Do not split empty functions/records/namespaces.
 2. Two-space indentation everywhere, including the line continuations.
 3. Disable reflowing of comments.
-   The reasons behind these deviations from the Google style guide are given in comments [here](https://github.com/rapidsai/raft/blob/branch-24.04/cpp/.clang-format).
+   The reasons behind these deviations from the Google style guide are given in comments [here](https://github.com/rapidsai/raft/blob/branch-24.06/cpp/.clang-format).
 
 [`doxygen`](https://doxygen.nl/) is used as documentation generator and also as a documentation linter.
 In order to run doxygen as a linter on C++/CUDA code, run
@@ -205,7 +205,7 @@ you can run  `codespell -i 3 -w .` from the repository root directory.
 This will bring up an interactive prompt to select which spelling fixes to apply.
 
 ### #include style
-[include_checker.py](https://github.com/rapidsai/raft/blob/branch-24.04/cpp/scripts/include_checker.py) is used to enforce the include style as follows:
+[include_checker.py](https://github.com/rapidsai/raft/blob/branch-24.06/cpp/scripts/include_checker.py) is used to enforce the include style as follows:
 1. `#include "..."` should be used for referencing local files only. It is acceptable to be used for referencing files in a sub-folder/parent-folder of the same algorithm, but should never be used to include files in other algorithms or between algorithms and the primitives or other dependencies.
 2. `#include <...>` should be used for referencing everything else
 
@@ -215,13 +215,14 @@ python ./cpp/scripts/include_checker.py --inplace [cpp/include cpp/test ... list
 ```
 
 ### Copyright header
-[copyright.py](https://github.com/rapidsai/raft/blob/branch-24.04/ci/checks/copyright.py) checks the Copyright header for all git-modified files
+RAPIDS [pre-commit-hooks](https://github.com/rapidsai/pre-commit-hooks) checks the Copyright
+header for all git-modified files.
 
-Manually, you can run the following to bulk-fix the header if only the years need to be updated:
+Manually, you can run the following to bulk-fix the header on all files in the repository:
 ```bash
-python ./ci/checks/copyright.py --update-current-year
+pre-commit run -a verify-copyright
 ```
-Keep in mind that this only applies to files tracked by git and having been modified.
+Keep in mind that this only applies to files tracked by git that have been modified.
 
 ## Error handling
 Call CUDA APIs via the provided helper macros `RAFT_CUDA_TRY`, `RAFT_CUBLAS_TRY` and `RAFT_CUSOLVER_TRY`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `RAFT_CUDA_TRY_NO_THROW`, `RAFT_CUBLAS_TRY_NO_THROW ` and `RAFT_CUSOLVER_TRY_NO_THROW`. These macros log the error but do not throw an exception.
@@ -229,7 +230,7 @@ Call CUDA APIs via the provided helper macros `RAFT_CUDA_TRY`, `RAFT_CUBLAS_TRY`
 ## Logging
 
 ### Introduction
-Anything and everything about logging is defined inside [logger.hpp](https://github.com/rapidsai/raft/blob/branch-24.04/cpp/include/raft/core/logger.hpp). It uses [spdlog](https://github.com/gabime/spdlog) underneath, but this information is transparent to all.
+Anything and everything about logging is defined inside [logger.hpp](https://github.com/rapidsai/raft/blob/branch-24.06/cpp/include/raft/core/logger.hpp). It uses [spdlog](https://github.com/gabime/spdlog) underneath, but this information is transparent to all.
 
 ### Usage
 ```cpp

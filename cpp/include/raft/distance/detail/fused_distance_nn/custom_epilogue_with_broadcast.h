@@ -611,6 +611,7 @@ class EpilogueWithBroadcastCustom : public EpilogueBase<Shape_,
         ++tensor_iterator;
       }
     }
+    tensor_iterator.dumpToGmem();
   }
 
   /// Helper to invoke the output functor over each vector of output

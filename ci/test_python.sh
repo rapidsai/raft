@@ -14,7 +14,7 @@ rapids-dependency-file-generator \
   --file_key test_python \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
 
-rapids-mamba-retry env create --force -f env.yaml -n test
+rapids-mamba-retry env create --yes -f env.yaml -n test
 
 # Temporarily allow unbound variables for conda activation.
 set +u
@@ -58,6 +58,24 @@ rapids-logger "pytest raft-dask"
   --cov=raft_dask \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/raft-dask-coverage.xml" \
   --cov-report=term
+
+rapids-logger "pytest raft-dask (ucx-py only)"
+./ci/run_raft_dask_pytests.sh \
+  --junitxml="${RAPIDS_TESTS_DIR}/junit-raft-dask-ucx.xml" \
+  --cov-config=../.coveragerc \
+  --cov=raft_dask \
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/raft-dask-ucx-coverage.xml" \
+  --cov-report=term \
+  --run_ucx
+
+rapids-logger "pytest raft-dask (ucxx only)"
+./ci/run_raft_dask_pytests.sh \
+  --junitxml="${RAPIDS_TESTS_DIR}/junit-raft-dask-ucxx.xml" \
+  --cov-config=../.coveragerc \
+  --cov=raft_dask \
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/raft-dask-ucxx-coverage.xml" \
+  --cov-report=term \
+  --run_ucxx
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}

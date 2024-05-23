@@ -1,11 +1,15 @@
 #!/bin/bash
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
 package_name=$1
 package_dir=$2
 underscore_package_name=$(echo "${package_name}" | tr "-" "_")
+
+# Clear out system ucx files to ensure that we're getting ucx from the wheel.
+rm -rf /usr/lib64/ucx
+rm -rf /usr/lib64/libuc*
 
 source rapids-configure-sccache
 source rapids-date-string
@@ -38,9 +42,11 @@ fi
 
 if [[ ${package_name} == "raft-dask" ]]; then
     sed -r -i "s/pylibraft==(.*)\"/pylibraft${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
+    sed -r -i "s/libucx(.*)\"/libucx${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
     sed -r -i "s/ucx-py==(.*)\"/ucx-py${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
     sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
     sed -r -i "s/dask-cuda==(.*)\"/dask-cuda==\1${alpha_spec}\"/g" ${pyproject_file}
+    sed -r -i "s/distributed-ucxx==(.*)\"/distributed-ucxx${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
 else
     sed -r -i "s/rmm(.*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
 fi
@@ -56,6 +62,6 @@ cd "${package_dir}"
 python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
 mkdir -p final_dist
-python -m auditwheel repair -w final_dist dist/*
+python -m auditwheel repair -w final_dist --exclude "libucp.so.0" dist/*
 
 RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 final_dist

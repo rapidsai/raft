@@ -29,13 +29,14 @@
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/neighbors/cagra_types.hpp>
+#include <raft/neighbors/dataset.hpp>
 #include <raft/neighbors/detail/cagra/cagra_build.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cassert>
 #include <fstream>
@@ -56,6 +57,7 @@ class RaftCagra : public ANN<T>, public AnnGPU {
 
   struct SearchParam : public AnnSearchParam {
     raft::neighbors::experimental::cagra::search_params p;
+    float refine_ratio;
     AllocatorType graph_mem   = AllocatorType::Device;
     AllocatorType dataset_mem = AllocatorType::Device;
     auto needs_dataset() const -> bool override { return true; }
@@ -94,10 +96,16 @@ class RaftCagra : public ANN<T>, public AnnGPU {
 
   void set_search_dataset(const T* dataset, size_t nrow) override;
 
-  // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
-  // will be filled with (size_t)-1
-  void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              AnnBase::index_type* neighbors,
+              float* distances) const override;
+  void search_base(const T* queries,
+                   int batch_size,
+                   int k,
+                   AnnBase::index_type* neighbors,
+                   float* distances) const;
 
   [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
   {
@@ -124,6 +132,7 @@ class RaftCagra : public ANN<T>, public AnnGPU {
   raft::mr::cuda_huge_page_resource mr_huge_page_;
   AllocatorType graph_mem_;
   AllocatorType dataset_mem_;
+  float refine_ratio_;
   BuildParam index_params_;
   bool need_dataset_update_;
   raft::neighbors::cagra::search_params search_params_;
@@ -133,7 +142,7 @@ class RaftCagra : public ANN<T>, public AnnGPU {
   std::shared_ptr<raft::device_matrix<T, int64_t, row_major>> dataset_;
   std::shared_ptr<raft::device_matrix_view<const T, int64_t, row_major>> input_dataset_v_;
 
-  inline rmm::mr::device_memory_resource* get_mr(AllocatorType mem_type)
+  inline rmm::device_async_resource_ref get_mr(AllocatorType mem_type)
   {
     switch (mem_type) {
       case (AllocatorType::HostPinned): return &mr_pinned_;
@@ -151,15 +160,18 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow)
 
   auto& params = index_params_.cagra_params;
 
+  // Do include the compressed dataset for the CAGRA-Q
+  bool shall_include_dataset = params.compression.has_value();
+
   index_ = std::make_shared<raft::neighbors::cagra::index<T, IdxT>>(
     std::move(raft::neighbors::cagra::detail::build<T, IdxT>(handle_,
-                                                    params,
-                                                    dataset_view,
-                                                    index_params_.nn_descent_params,
-                                                    index_params_.ivf_pq_refine_rate,
-                                                    index_params_.ivf_pq_build_params,
-                                                    index_params_.ivf_pq_search_params,
-                                                    false)));
+                                                             params,
+                                                             dataset_view,
+                                                             index_params_.nn_descent_params,
+                                                             index_params_.ivf_pq_refine_rate,
+                                                             index_params_.ivf_pq_build_params,
+                                                             index_params_.ivf_pq_search_params,
+                                                             shall_include_dataset)));
 }
 
 inline std::string allocator_to_string(AllocatorType mem_type)
@@ -179,6 +191,7 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
 {
   auto search_param = dynamic_cast<const SearchParam&>(param);
   search_params_    = search_param.p;
+  refine_ratio_     = search_param.refine_ratio;
   if (search_param.graph_mem != graph_mem_) {
     // Move graph to correct memory space
     graph_mem_ = search_param.graph_mem;
@@ -223,12 +236,16 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
 {
+  using ds_idx_type = decltype(index_->data().n_rows());
+  bool is_vpq =
+    dynamic_cast<const raft::neighbors::vpq_dataset<half, ds_idx_type>*>(&index_->data()) ||
+    dynamic_cast<const raft::neighbors::vpq_dataset<float, ds_idx_type>*>(&index_->data());
   // It can happen that we are re-using a previous algo object which already has
   // the dataset set. Check if we need update.
   if (static_cast<size_t>(input_dataset_v_->extent(0)) != nrow ||
       input_dataset_v_->data_handle() != dataset) {
     *input_dataset_v_    = make_device_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
-    need_dataset_update_ = true;
+    need_dataset_update_ = !is_vpq;  // ignore update if this is a VPQ dataset.
   }
 }
 
@@ -258,16 +275,19 @@ std::unique_ptr<ANN<T>> RaftCagra<T, IdxT>::copy()
 }
 
 template <typename T, typename IdxT>
-void RaftCagra<T, IdxT>::search(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+void RaftCagra<T, IdxT>::search_base(
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
+  static_assert(std::is_integral_v<AnnBase::index_type>);
+  static_assert(std::is_integral_v<IdxT>);
+
   IdxT* neighbors_IdxT;
-  rmm::device_uvector<IdxT> neighbors_storage(0, resource::get_cuda_stream(handle_));
-  if constexpr (std::is_same_v<IdxT, size_t>) {
-    neighbors_IdxT = neighbors;
+  std::optional<rmm::device_uvector<IdxT>> neighbors_storage{std::nullopt};
+  if constexpr (sizeof(IdxT) == sizeof(AnnBase::index_type)) {
+    neighbors_IdxT = reinterpret_cast<IdxT*>(neighbors);
   } else {
-    neighbors_storage.resize(batch_size * k, resource::get_cuda_stream(handle_));
-    neighbors_IdxT = neighbors_storage.data();
+    neighbors_storage.emplace(batch_size * k, resource::get_cuda_stream(handle_));
+    neighbors_IdxT = neighbors_storage->data();
   }
 
   auto queries_view =
@@ -278,12 +298,36 @@ void RaftCagra<T, IdxT>::search(
   raft::neighbors::cagra::search(
     handle_, search_params_, *index_, queries_view, neighbors_view, distances_view);
 
-  if constexpr (!std::is_same_v<IdxT, size_t>) {
+  if constexpr (sizeof(IdxT) != sizeof(AnnBase::index_type)) {
     raft::linalg::unaryOp(neighbors,
                           neighbors_IdxT,
                           batch_size * k,
-                          raft::cast_op<size_t>(),
+                          raft::cast_op<AnnBase::index_type>(),
                           raft::resource::get_cuda_stream(handle_));
+  }
+}
+
+template <typename T, typename IdxT>
+void RaftCagra<T, IdxT>::search(
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
+{
+  auto k0                       = static_cast<size_t>(refine_ratio_ * k);
+  const bool disable_refinement = k0 <= static_cast<size_t>(k);
+  const raft::resources& res    = handle_;
+
+  if (disable_refinement) {
+    search_base(queries, batch_size, k, neighbors, distances);
+  } else {
+    auto queries_v =
+      raft::make_device_matrix_view<const T, AnnBase::index_type>(queries, batch_size, dimension_);
+    auto candidate_ixs =
+      raft::make_device_matrix<AnnBase::index_type, AnnBase::index_type>(res, batch_size, k0);
+    auto candidate_dists =
+      raft::make_device_matrix<float, AnnBase::index_type>(res, batch_size, k0);
+    search_base(
+      queries, batch_size, k0, candidate_ixs.data_handle(), candidate_dists.data_handle());
+    refine_helper(
+      res, *input_dataset_v_, queries_v, candidate_ixs, k, neighbors, distances, index_->metric());
   }
 }
 }  // namespace raft::bench::ann

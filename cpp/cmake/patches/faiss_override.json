@@ -1,0 +1,9 @@
+{
+  "packages": {
+    "faiss": {
+      "version": "1.7.4",
+      "git_url": "https://github.com/divyegala/faiss",
+      "git_tag": "raft-cagra-hnsw"
+    }
+  }
+}

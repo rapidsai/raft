@@ -17,6 +17,7 @@
 #pragma once
 
 #include "ann_types.hpp"
+#include "dataset.hpp"
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
@@ -35,6 +36,7 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+
 namespace raft::neighbors::cagra {
 /**
  * @addtogroup cagra
@@ -61,6 +63,12 @@ struct index_params : ann::index_params {
   graph_build_algo build_algo = graph_build_algo::IVF_PQ;
   /** Number of Iterations to run if building with NN_DESCENT */
   size_t nn_descent_niter = 20;
+  /**
+   * Specify compression params if compression is desired.
+   *
+   * NOTE: this is experimental new API, consider it unsafe.
+   */
+  std::optional<vpq_params> compression = std::nullopt;
 };
 
 enum class search_algo {
@@ -145,25 +153,37 @@ struct index : ann::index {
   /** Total length of the index (number of vectors). */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
-    return dataset_view_.extent(0) ? dataset_view_.extent(0) : graph_view_.extent(0);
+    auto data_rows = dataset_->n_rows();
+    return data_rows > 0 ? data_rows : graph_view_.extent(0);
   }
 
   /** Dimensionality of the data. */
-  [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
-  {
-    return dataset_view_.extent(1);
-  }
+  [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t { return dataset_->dim(); }
   /** Graph degree */
   [[nodiscard]] constexpr inline auto graph_degree() const noexcept -> uint32_t
   {
     return graph_view_.extent(1);
   }
 
-  /** Dataset [size, dim] */
-  [[nodiscard]] inline auto dataset() const noexcept
+  /**
+   * DEPRECATED: please use data() instead.
+   *   If you need to query dataset dimensions, use the dim() and size() of the cagra index.
+   *   The data_handle() is not always available: you need to do a dynamic_cast to the expected
+   *   dataset type at runtime.
+   */
+  [[nodiscard]] [[deprecated("Use data()")]] inline auto dataset() const noexcept
     -> device_matrix_view<const T, int64_t, layout_stride>
   {
-    return dataset_view_;
+    auto p = dynamic_cast<strided_dataset<T, int64_t>*>(dataset_.get());
+    if (p != nullptr) { return p->view(); }
+    auto d = dataset_->dim();
+    return make_device_strided_matrix_view<const T, int64_t>(nullptr, 0, d, d);
+  }
+
+  /** Dataset [size, dim] */
+  [[nodiscard]] inline auto data() const noexcept -> const neighbors::dataset<int64_t>&
+  {
+    return *dataset_;
   }
 
   /** neighborhood graph [size, graph-degree] */
@@ -185,8 +205,8 @@ struct index : ann::index {
         raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
     : ann::index(),
       metric_(metric),
-      dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
-      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      dataset_(new neighbors::empty_dataset<int64_t>(0))
   {
   }
 
@@ -251,12 +271,11 @@ struct index : ann::index {
         mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph)
     : ann::index(),
       metric_(metric),
-      dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
-      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      dataset_(make_aligned_dataset(res, dataset, 16))
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
                  "Dataset and knn_graph must have equal number of rows");
-    update_dataset(res, dataset);
     update_graph(res, knn_graph);
     resource::sync_stream(res);
   }
@@ -271,21 +290,14 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, int64_t, row_major> dataset)
   {
-    if (dataset.extent(1) * sizeof(T) % 16 != 0) {
-      RAFT_LOG_DEBUG("Creating a padded copy of CAGRA dataset in device memory");
-      copy_padded(res, dataset);
-    } else {
-      dataset_view_ = make_device_strided_matrix_view<const T, int64_t>(
-        dataset.data_handle(), dataset.extent(0), dataset.extent(1), dataset.extent(1));
-    }
+    dataset_ = make_aligned_dataset(res, dataset, 16);
   }
 
   /** Set the dataset reference explicitly to a device matrix view with padding. */
-  void update_dataset(raft::resources const&,
+  void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, int64_t, layout_stride> dataset)
   {
-    RAFT_EXPECTS(dataset.stride(0) * sizeof(T) % 16 == 0, "Incorrect data padding.");
-    dataset_view_ = dataset;
+    dataset_ = make_aligned_dataset(res, dataset, 16);
   }
 
   /**
@@ -296,8 +308,22 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::host_matrix_view<const T, int64_t, row_major> dataset)
   {
-    RAFT_LOG_DEBUG("Copying CAGRA dataset from host to device");
-    copy_padded(res, dataset);
+    dataset_ = make_aligned_dataset(res, dataset, 16);
+  }
+
+  /** Replace the dataset with a new dataset. */
+  template <typename DatasetT>
+  auto update_dataset(raft::resources const& res, DatasetT&& dataset)
+    -> std::enable_if_t<std::is_base_of_v<neighbors::dataset<int64_t>, DatasetT>>
+  {
+    dataset_ = std::make_unique<DatasetT>(std::move(dataset));
+  }
+
+  template <typename DatasetT>
+  auto update_dataset(raft::resources const& res, std::unique_ptr<DatasetT>&& dataset)
+    -> std::enable_if_t<std::is_base_of_v<neighbors::dataset<int64_t>, DatasetT>>
+  {
+    dataset_ = std::move(dataset);
   }
 
   /**
@@ -334,26 +360,10 @@ struct index : ann::index {
   }
 
  private:
-  /** Create a device copy of the dataset, and pad it if necessary. */
-  template <typename data_accessor>
-  void copy_padded(raft::resources const& res,
-                   mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset)
-  {
-    detail::copy_with_padding(res, dataset_, dataset);
-
-    dataset_view_ = make_device_strided_matrix_view<const T, int64_t>(
-      dataset_.data_handle(), dataset_.extent(0), dataset.extent(1), dataset_.extent(1));
-    RAFT_LOG_DEBUG("CAGRA dataset strided matrix view %zux%zu, stride %zu",
-                   static_cast<size_t>(dataset_view_.extent(0)),
-                   static_cast<size_t>(dataset_view_.extent(1)),
-                   static_cast<size_t>(dataset_view_.stride(0)));
-  }
-
   raft::distance::DistanceType metric_;
-  raft::device_matrix<T, int64_t, row_major> dataset_;
   raft::device_matrix<IdxT, int64_t, row_major> graph_;
-  raft::device_matrix_view<const T, int64_t, layout_stride> dataset_view_;
   raft::device_matrix_view<const IdxT, int64_t, row_major> graph_view_;
+  std::unique_ptr<neighbors::dataset<int64_t>> dataset_;
 };
 
 /** @} */
