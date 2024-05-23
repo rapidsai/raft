@@ -156,7 +156,11 @@ void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
       dataset, static_cast<int64_t>(nrow), (int64_t)this->dim_);
     raft::resources res;
     auto start = std::chrono::high_resolution_clock::now();
-    raft::neighbors::cagra::build_knn_graph(res, dataset_view, intermediate_graph->view());
+    auto nn_descent_params                            = raft::neighbors::experimental::nn_descent::index_params();
+    nn_descent_params.graph_degree              = cagra_intermediate_graph_degree_;
+      nn_descent_params.intermediate_graph_degree = 1.5 * cagra_intermediate_graph_degree_;
+      nn_descent_params.max_iterations            = 20;
+    raft::neighbors::cagra::build_knn_graph(res, dataset_view, intermediate_graph->view(), nn_descent_params);
     raft::neighbors::cagra::optimize(res, intermediate_graph->view(), knn_graph_view);
     // free intermediate graph before trying to create the index
     intermediate_graph.reset();
