@@ -8,7 +8,7 @@ cd raft
 
 # (1) prepare a dataset
 export PYTHONPATH=python/raft-ann-bench/src:$PYTHONPATH
-python -m raft-ann-bench.get_dataset --dataset glove-100-angular --normalize
+python -m raft_ann_bench.get_dataset --dataset glove-100-angular --normalize
 
 # option --normalize is used here to normalize vectors so cosine distance is converted
 # to inner product; don't use -n for l2 distance
