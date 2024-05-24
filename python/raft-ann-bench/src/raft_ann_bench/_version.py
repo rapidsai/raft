@@ -17,7 +17,7 @@
 import importlib.resources
 
 __version__ = (
-    importlib.resources.files("raft-ann-bench")
+    importlib.resources.files("raft_ann_bench")
     .joinpath("VERSION")
     .read_text()
     .strip()
