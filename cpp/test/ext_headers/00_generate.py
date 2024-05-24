@@ -54,6 +54,7 @@ ext_headers = [
     "raft/neighbors/refine-ext.cuh",
     "raft/neighbors/detail/ivf_flat_search-ext.cuh",
     "raft/linalg/detail/coalesced_reduction-ext.cuh",
+    "raft/sparse/matrix/detail/select_k-ext.cuh",
     "raft/spatial/knn/detail/ball_cover/registers-ext.cuh",
     "raft/neighbors/detail/ivf_flat_interleaved_scan-ext.cuh",
     "raft/neighbors/detail/ivf_pq_compute_similarity-ext.cuh",
