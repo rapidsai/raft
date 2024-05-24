@@ -28,6 +28,7 @@ for package_name in pylibraft raft-dask; do
   sed -i "/^__git_commit__/ s/= .*/= \"${git_commit}\"/g" "${package_dir}/${package_name}/${underscore_package_name}/_version.py"
 done
 
+conda config --set path_conflict prevent
 # TODO: Remove `--no-test` flags once importing on a CPU
 # node works correctly
 rapids-conda-retry mambabuild \
