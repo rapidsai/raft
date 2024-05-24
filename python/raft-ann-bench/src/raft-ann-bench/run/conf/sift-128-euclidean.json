@@ -473,19 +473,6 @@
       ]
     },
     {
-      "name": "raft_ann_mg.nlist16384",
-      "algo": "raft_ann_mg",
-      "build_param": {"nlist": 16384, "ratio": 2, "niter": 20},
-      "file": "sift-128-euclidean/raft_ann_mg/nlist16384",
-      "dataset_memory_type": "host",
-      "query_memory_type": "host",
-      "search_params": [
-        {"nprobe": 100},
-        {"nprobe": 200},
-        {"nprobe": 500}
-      ]
-    },
-    {
       "name": "raft_cagra.dim32",
       "algo": "raft_cagra",
       "build_param": {"graph_degree": 32},

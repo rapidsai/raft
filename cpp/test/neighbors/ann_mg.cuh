@@ -30,6 +30,9 @@
 
 #include <raft_internal/neighbors/naive_knn.cuh>
 
+#include <raft/comms/std_comms.hpp>
+
+
 namespace raft::neighbors::mg {
 
 template <typename IdxT>
@@ -181,6 +184,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
     // CAGRA
     for (parallel_mode d_mode : {parallel_mode::REPLICATION, parallel_mode::SHARDING}) {
       cagra::dist_index_params index_params;
+      index_params.add_data_on_build              = true;
       index_params.intermediate_graph_degree      = 128;
       index_params.graph_degree                   = 64;
       index_params.build_algo                     = cagra::graph_build_algo::IVF_PQ;
@@ -198,22 +202,16 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto distances = raft::make_host_matrix_view<float, uint32_t, row_major>(
         distances_ann.data(), ps.num_queries, ps.k);
 
-      /*
-      TODO : fix CAGRA serialization issue
-
-      {
-        auto index = raft::neighbors::mg::build<DataT, IdxT>(device_ids, d_mode, index_params, index_dataset);
-        raft::neighbors::mg::serialize<DataT>(handle_, index, "ann_mg_cagra_index");
-      }
-      auto new_index = raft::neighbors::mg::deserialize_cagra<DataT, IdxT>(handle_, "ann_mg_cagra_index");
-      raft::neighbors::mg::search<DataT, IdxT>(new_index, search_params, query_dataset, neighbors, distances);
-      */
-
       raft::neighbors::mg::nccl_clique clique(device_ids);
-
-      auto index = raft::neighbors::mg::build<DataT, uint32_t>(handle_, clique, index_params, index_dataset);
-      raft::neighbors::mg::search<DataT, uint32_t>(handle_, clique, index, search_params, query_dataset, neighbors, distances);
-
+      /*
+      {
+        auto index = raft::neighbors::mg::build<DataT, uint32_t>(handle_, clique, index_params, index_dataset);
+        raft::neighbors::mg::serialize<DataT, uint32_t>(handle_, clique, index, "./cpp/build/ann_mg_cagra_index");
+      }
+      auto new_index = raft::neighbors::mg::deserialize_cagra<DataT, uint32_t>(handle_, clique, "./cpp/build/ann_mg_cagra_index");
+      */
+      auto new_index = raft::neighbors::mg::build<DataT, uint32_t>(handle_, clique, index_params, index_dataset);
+      raft::neighbors::mg::search<DataT, uint32_t>(handle_, clique, new_index, search_params, query_dataset, neighbors, distances);
       resource::sync_stream(handle_);
 
       double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);

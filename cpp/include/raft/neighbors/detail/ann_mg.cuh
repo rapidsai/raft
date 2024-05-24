@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/util/cuda_dev_essentials.cuh>
-#include <raft/comms/std_comms.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/resources.hpp>

@@ -47,11 +47,17 @@ extern template class raft::bench::ann::RaftCagra<half, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<uint8_t, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
 #endif
-#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG
-#include "raft_ann_mg_wrapper.hpp"
-extern template class raft::bench::ann::RaftAnnMG<float, uint32_t>;
-extern template class raft::bench::ann::RaftAnnMG<uint8_t, uint32_t>;
-extern template class raft::bench::ann::RaftAnnMG<int8_t, uint32_t>;
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_FLAT
+#include "raft_ann_mg_ivf_flat_wrapper.hpp"
+extern template class raft::bench::ann::RaftAnnMG_IvfFlat<float, int64_t>;
+extern template class raft::bench::ann::RaftAnnMG_IvfFlat<uint8_t, int64_t>;
+extern template class raft::bench::ann::RaftAnnMG_IvfFlat<int8_t, int64_t>;
+#endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ
+#include "raft_ann_mg_ivf_pq_wrapper.hpp"
+extern template class raft::bench::ann::RaftAnnMG_IvfPq<float, int64_t>;
+extern template class raft::bench::ann::RaftAnnMG_IvfPq<uint8_t, int64_t>;
+extern template class raft::bench::ann::RaftAnnMG_IvfPq<int8_t, int64_t>;
 #endif
 
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
@@ -72,10 +78,10 @@ void parse_search_param(const nlohmann::json& conf,
 }
 #endif
 
-#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_FLAT
 template <typename T, typename IdxT>
 void parse_build_param(const nlohmann::json& conf,
-                       typename raft::bench::ann::RaftAnnMG<T, IdxT>::BuildParam& param)
+                       typename raft::bench::ann::RaftAnnMG_IvfFlat<T, IdxT>::BuildParam& param)
 {
   param.n_lists = conf.at("nlist");
   if (conf.contains("niter")) { param.kmeans_n_iters = conf.at("niter"); }
@@ -84,7 +90,7 @@ void parse_build_param(const nlohmann::json& conf,
 
 template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
-                        typename raft::bench::ann::RaftAnnMG<T, IdxT>::SearchParam& param)
+                        typename raft::bench::ann::RaftAnnMG_IvfFlat<T, IdxT>::SearchParam& param)
 {
   param.ivf_flat_params.n_probes = conf.at("nprobe");
 }
@@ -117,6 +123,72 @@ void parse_build_param(const nlohmann::json& conf,
 template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftIvfPQ<T, IdxT>::SearchParam& param)
+{
+  if (conf.contains("nprobe")) { param.pq_param.n_probes = conf.at("nprobe"); }
+  if (conf.contains("internalDistanceDtype")) {
+    std::string type = conf.at("internalDistanceDtype");
+    if (type == "float") {
+      param.pq_param.internal_distance_dtype = CUDA_R_32F;
+    } else if (type == "half") {
+      param.pq_param.internal_distance_dtype = CUDA_R_16F;
+    } else {
+      throw std::runtime_error("internalDistanceDtype: '" + type +
+                               "', should be either 'float' or 'half'");
+    }
+  } else {
+    // set half as default type
+    param.pq_param.internal_distance_dtype = CUDA_R_16F;
+  }
+
+  if (conf.contains("smemLutDtype")) {
+    std::string type = conf.at("smemLutDtype");
+    if (type == "float") {
+      param.pq_param.lut_dtype = CUDA_R_32F;
+    } else if (type == "half") {
+      param.pq_param.lut_dtype = CUDA_R_16F;
+    } else if (type == "fp8") {
+      param.pq_param.lut_dtype = CUDA_R_8U;
+    } else {
+      throw std::runtime_error("smemLutDtype: '" + type +
+                               "', should be either 'float', 'half' or 'fp8'");
+    }
+  } else {
+    // set half as default
+    param.pq_param.lut_dtype = CUDA_R_16F;
+  }
+  if (conf.contains("refine_ratio")) {
+    param.refine_ratio = conf.at("refine_ratio");
+    if (param.refine_ratio < 1.0f) { throw std::runtime_error("refine_ratio should be >= 1.0"); }
+  }
+}
+#endif
+
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ
+template <typename T, typename IdxT>
+void parse_build_param(const nlohmann::json& conf,
+                       typename raft::bench::ann::RaftAnnMG_IvfPq<T, IdxT>::BuildParam& param)
+{
+  if (conf.contains("nlist")) { param.n_lists = conf.at("nlist"); }
+  if (conf.contains("niter")) { param.kmeans_n_iters = conf.at("niter"); }
+  if (conf.contains("ratio")) { param.kmeans_trainset_fraction = 1.0 / (double)conf.at("ratio"); }
+  if (conf.contains("pq_bits")) { param.pq_bits = conf.at("pq_bits"); }
+  if (conf.contains("pq_dim")) { param.pq_dim = conf.at("pq_dim"); }
+  if (conf.contains("codebook_kind")) {
+    std::string kind = conf.at("codebook_kind");
+    if (kind == "cluster") {
+      param.codebook_kind = raft::neighbors::ivf_pq::codebook_gen::PER_CLUSTER;
+    } else if (kind == "subspace") {
+      param.codebook_kind = raft::neighbors::ivf_pq::codebook_gen::PER_SUBSPACE;
+    } else {
+      throw std::runtime_error("codebook_kind: '" + kind +
+                               "', should be either 'cluster' or 'subspace'");
+    }
+  }
+}
+
+template <typename T, typename IdxT>
+void parse_search_param(const nlohmann::json& conf,
+                        typename raft::bench::ann::RaftAnnMG_IvfPq<T, IdxT>::SearchParam& param)
 {
   if (conf.contains("nprobe")) { param.pq_param.n_probes = conf.at("nprobe"); }
   if (conf.contains("internalDistanceDtype")) {

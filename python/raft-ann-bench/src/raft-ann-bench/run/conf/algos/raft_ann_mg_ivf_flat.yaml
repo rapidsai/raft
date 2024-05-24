@@ -1,4 +1,4 @@
-name: raft_ann_mg
+name: raft_ann_mg_ivf_flat
 groups:
   base:
     build:

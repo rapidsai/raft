@@ -19,17 +19,22 @@
 #include <vector>
 #include <nccl.h>
 #include <raft/core/resources.hpp>
-#include <raft/comms/std_comms.hpp>
+#include <raft/comms/detail/util.hpp>
 
+namespace raft::comms {
+  void build_comms_nccl_only(resources* handle, ncclComm_t nccl_comm, int num_ranks, int rank);
+}
 
 namespace raft::neighbors::mg {
 
 struct nccl_clique {
+
   nccl_clique(const std::vector<int>& device_ids)
     : root_rank_(0),
       num_ranks_(device_ids.size()),
       device_ids_(device_ids),
-      nccl_comms_(device_ids.size())
+      nccl_comms_(device_ids.size()),
+      device_resources_(0)
   {
     RAFT_NCCL_TRY(ncclCommInitAll(nccl_comms_.data(), num_ranks_, device_ids_.data()));
 

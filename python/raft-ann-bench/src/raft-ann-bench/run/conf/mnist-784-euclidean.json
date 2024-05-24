@@ -1279,24 +1279,6 @@
       "search_result_file": "result/mnist-784-euclidean/raft_ivf_flat/nlist1024"
     },
     {
-      "name": "raft_ann_mg.nlist1024",
-      "algo": "raft_ann_mg",
-      "build_param": {
-        "nlist": 1024,
-        "ratio": 1,
-        "niter": 25
-      },
-      "file": "index/mnist-784-euclidean/raft_ann_mg/nlist1024",
-      "dataset_memory_type": "host",
-      "query_memory_type": "host",
-      "search_params": [
-        {
-          "nprobe": 5
-        }
-      ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ann_mg/nlist1024"
-    },
-    {
       "name": "raft_ivf_flat.nlist16384",
       "algo": "raft_ivf_flat",
       "build_param": {
