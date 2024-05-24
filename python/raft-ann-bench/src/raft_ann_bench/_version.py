@@ -13,13 +13,22 @@
 # limitations under the License.
 #
 
-
 import importlib.resources
 
 __version__ = (
-    importlib.resources.files("raft_ann_bench")
+    importlib.resources.files(__package__)
     .joinpath("VERSION")
     .read_text()
     .strip()
 )
-__git_commit__ = ""
+try:
+    __git_commit__ = (
+        importlib.resources.files(__package__)
+        .joinpath("GIT_COMMIT")
+        .read_text()
+        .strip()
+    )
+except FileNotFoundError:
+    __git_commit__ = ""
+
+__all__ = ["__version__", "__git_commit__"]
