@@ -28,7 +28,9 @@ class RaftAnnMG : public ANN<T>, public AnnGPU {
   public:
     RaftAnnMG(Metric metric, int dim)
       : ANN<T>(metric, dim), dimension_(dim)
-    {}
+    {
+      this->init_nccl_clique();
+    }
 
     AlgoProperty get_preference() const override
     {
@@ -38,7 +40,7 @@ class RaftAnnMG : public ANN<T>, public AnnGPU {
       return property;
     }
 
-  protected:
+  private:
     void init_nccl_clique() {
       int n_devices;
       cudaGetDeviceCount(&n_devices);
@@ -55,6 +57,7 @@ class RaftAnnMG : public ANN<T>, public AnnGPU {
       return resource::get_cuda_stream(handle);
     }
 
+  protected:
     std::shared_ptr<raft::neighbors::mg::nccl_clique> clique_;
     int dimension_;
 };

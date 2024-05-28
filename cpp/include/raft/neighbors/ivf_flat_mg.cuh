@@ -24,7 +24,7 @@ namespace raft::neighbors::mg {
 template <typename T, typename IdxT>
 auto build(const raft::resources& handle,
            const raft::neighbors::mg::nccl_clique& clique,
-           const ivf_flat::dist_index_params& index_params,
+           const ivf_flat::mg_index_params& index_params,
            raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
   -> detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>
 {
@@ -48,9 +48,10 @@ void search(const raft::resources& handle,
             const ivf_flat::search_params& search_params,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
-            raft::host_matrix_view<float, IdxT, row_major> distances)
+            raft::host_matrix_view<float, IdxT, row_major> distances,
+            uint64_t n_rows_per_batch = 1 << 20) // 2^20
 {
-  mg::detail::search<T, IdxT>(handle, clique, index, search_params, query_dataset, neighbors, distances);
+  mg::detail::search<T, IdxT>(handle, clique, index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
 }
 
 }  // namespace raft::neighbors::mg

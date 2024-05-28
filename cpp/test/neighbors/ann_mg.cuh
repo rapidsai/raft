@@ -88,11 +88,18 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       resource::sync_stream(handle_);
     }
 
-    std::vector<int> device_ids{0, 1};
+    uint64_t n_rows_per_batch = 3000; // [3000, 3000, 1000] == 7000 rows
+
+    int n_devices;
+    cudaGetDeviceCount(&n_devices);
+    std::cout << n_devices << " GPUs detected" << std::endl;
+
+    std::vector<int> device_ids(n_devices);
+    std::iota(device_ids.begin(), device_ids.end(), 0);
 
     // IVF-Flat
     for (parallel_mode d_mode : {parallel_mode::REPLICATION, parallel_mode::SHARDING}) {
-      ivf_flat::dist_index_params index_params;
+      ivf_flat::mg_index_params index_params;
       index_params.n_lists                  = ps.nlist;
       index_params.metric                   = ps.metric;
       index_params.adaptive_centers         = ps.adaptive_centers;
@@ -120,7 +127,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
         raft::neighbors::mg::serialize<DataT, IdxT>(handle_, clique, index, "./cpp/build/ann_mg_ivf_flat_index");
       }
       auto new_index = raft::neighbors::mg::deserialize_flat<DataT, IdxT>(handle_, clique, "./cpp/build/ann_mg_ivf_flat_index");
-      raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, new_index, search_params, query_dataset, neighbors, distances);
+      raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, new_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
       resource::sync_stream(handle_);
 
       double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
@@ -138,7 +145,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
 
     // IVF-PQ
     for (parallel_mode d_mode : {parallel_mode::REPLICATION, parallel_mode::SHARDING}) {
-      ivf_pq::dist_index_params index_params;
+      ivf_pq::mg_index_params index_params;
       index_params.n_lists                  = ps.nlist;
       index_params.metric                   = ps.metric;
       index_params.add_data_on_build        = false;
@@ -165,7 +172,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
         raft::neighbors::mg::serialize<DataT, IdxT>(handle_, clique, index, "./cpp/build/ann_mg_ivf_pq_index");
       }
       auto new_index = raft::neighbors::mg::deserialize_pq<DataT, IdxT>(handle_, clique, "./cpp/build/ann_mg_ivf_pq_index");
-      raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, new_index, search_params, query_dataset, neighbors, distances);
+      raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, new_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
       resource::sync_stream(handle_);
 
       double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
@@ -183,7 +190,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
 
     // CAGRA
     for (parallel_mode d_mode : {parallel_mode::REPLICATION, parallel_mode::SHARDING}) {
-      cagra::dist_index_params index_params;
+      cagra::mg_index_params index_params;
       index_params.add_data_on_build              = true;
       index_params.intermediate_graph_degree      = 128;
       index_params.graph_degree                   = 64;
@@ -211,7 +218,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto new_index = raft::neighbors::mg::deserialize_cagra<DataT, uint32_t>(handle_, clique, "./cpp/build/ann_mg_cagra_index");
       */
       auto new_index = raft::neighbors::mg::build<DataT, uint32_t>(handle_, clique, index_params, index_dataset);
-      raft::neighbors::mg::search<DataT, uint32_t>(handle_, clique, new_index, search_params, query_dataset, neighbors, distances);
+      raft::neighbors::mg::search<DataT, uint32_t>(handle_, clique, new_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
       resource::sync_stream(handle_);
 
       double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
@@ -253,7 +260,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
 
       raft::neighbors::mg::nccl_clique clique(device_ids);
       auto distributed_index = raft::neighbors::mg::distribute_flat<DataT, IdxT>(handle_, clique, "./cpp/build/local_ivf_flat_index");
-      raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, distributed_index, search_params, query_dataset, neighbors, distances);
+      raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, distributed_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
 
       resource::sync_stream(handle_);
 
@@ -295,7 +302,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
 
       raft::neighbors::mg::nccl_clique clique(device_ids);
       auto distributed_index = raft::neighbors::mg::distribute_pq<DataT, IdxT>(handle_, clique, "./cpp/build/local_ivf_pq_index");
-      raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, distributed_index, search_params, query_dataset, neighbors, distances);
+      raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, distributed_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
 
       resource::sync_stream(handle_);
 
@@ -335,7 +342,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
 
       raft::neighbors::mg::nccl_clique clique(device_ids);
       auto distributed_index = raft::neighbors::mg::distribute_cagra<DataT, uint32_t>(handle_, clique, "./cpp/build/local_cagra_index");
-      raft::neighbors::mg::search<DataT, uint32_t>(handle_, clique, distributed_index, search_params, query_dataset, neighbors, distances);
+      raft::neighbors::mg::search<DataT, uint32_t>(handle_, clique, distributed_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
 
       resource::sync_stream(handle_);
 
@@ -405,6 +412,6 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
 };
 
 const std::vector<AnnMGInputs<int64_t>> inputs = {
-  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {7000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
 };
 }  // namespace raft::neighbors::mg

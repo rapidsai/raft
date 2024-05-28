@@ -33,16 +33,14 @@ class RaftAnnMG_IvfPq : public RaftAnnMG<T> {
     auto needs_dataset() const -> bool override { return refine_ratio > 1.0f; }
   };
 
-  using BuildParam = raft::neighbors::ivf_pq::dist_index_params;
+  using BuildParam = raft::neighbors::ivf_pq::mg_index_params;
 
   RaftAnnMG_IvfPq(Metric metric, int dim, const BuildParam& param)
     : RaftAnnMG<T>(metric, dim), index_params_(param)
   {
-    this->init_nccl_clique();
-
     index_params_.metric                         = parse_metric_type(metric);
     index_params_.conservative_memory_allocation = true;
-    index_params_.mode                           = raft::neighbors::mg::parallel_mode::REPLICATION;
+    index_params_.mode                           = raft::neighbors::mg::parallel_mode::SHARDING;
   }
 
   void build(const T* dataset, size_t nrow) final;

@@ -31,16 +31,14 @@ class RaftAnnMG_IvfFlat : public RaftAnnMG<T> {
     raft::neighbors::ivf_flat::search_params ivf_flat_params;
   };
 
-  using BuildParam = raft::neighbors::ivf_flat::dist_index_params;
+  using BuildParam = raft::neighbors::ivf_flat::mg_index_params;
 
   RaftAnnMG_IvfFlat(Metric metric, int dim, const BuildParam& param)
     : RaftAnnMG<T>(metric, dim), index_params_(param)
   {
-    this->init_nccl_clique();
-
     index_params_.metric                         = parse_metric_type(metric);
     index_params_.conservative_memory_allocation = true;
-    index_params_.mode                           = raft::neighbors::mg::parallel_mode::REPLICATION;
+    index_params_.mode                           = raft::neighbors::mg::parallel_mode::SHARDING;
   }
 
   void build(const T* dataset, size_t nrow) final;
