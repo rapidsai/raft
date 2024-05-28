@@ -74,18 +74,16 @@ function(ConfigureBench)
 endfunction()
 
 if(BUILD_PRIMS_BENCH)
+  ConfigureBench(NAME CORE_BENCH PATH core/bitset.cu core/copy.cu main.cpp)
+
   ConfigureBench(
-    NAME CORE_BENCH PATH core/bitset.cu core/copy.cu main.cpp
+    NAME CLUSTER_BENCH PATH cluster/kmeans_balanced.cu cluster/kmeans.cu main.cpp OPTIONAL LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
-    NAME CLUSTER_BENCH PATH cluster/kmeans_balanced.cu cluster/kmeans.cu
-    main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureBench(
-    NAME TUNE_DISTANCE PATH distance/tune_pairwise/kernel.cu
-    distance/tune_pairwise/bench.cu main.cpp
+    NAME TUNE_DISTANCE PATH distance/tune_pairwise/kernel.cu distance/tune_pairwise/bench.cu
+    main.cpp
   )
 
   ConfigureBench(
@@ -122,22 +120,17 @@ if(BUILD_PRIMS_BENCH)
   )
 
   ConfigureBench(
-    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu
-    matrix/select_k.cu main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu matrix/select_k.cu main.cpp OPTIONAL
+    LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
-    NAME RANDOM_BENCH PATH random/make_blobs.cu random/permute.cu
-   random/rng.cu random/subsample.cu main.cpp
+    NAME RANDOM_BENCH PATH random/make_blobs.cu random/permute.cu random/rng.cu random/subsample.cu
+    main.cpp
   )
 
   ConfigureBench(
-    NAME
-    SPARSE_BENCH
-    PATH
-    sparse/bitmap_to_csr.cu
-    sparse/convert_csr.cu
-    sparse/select_k_csr.cu
+    NAME SPARSE_BENCH PATH sparse/bitmap_to_csr.cu sparse/convert_csr.cu sparse/select_k_csr.cu
     main.cpp
   )
 

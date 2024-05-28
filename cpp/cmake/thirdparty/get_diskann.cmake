@@ -15,45 +15,35 @@
 #=============================================================================
 
 function(find_and_configure_diskann)
-    set(oneValueArgs VERSION REPOSITORY PINNED_TAG)
-    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-            "${multiValueArgs}" ${ARGN} )
-    
-    set(patch_files_to_run "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/diskann.diff")
-    set(patch_issues_to_ref "fix compile issues")
-    set(patch_script "${CMAKE_BINARY_DIR}/rapids-cmake/patches/diskann/patch.cmake")
-    set(log_file "${CMAKE_BINARY_DIR}/rapids-cmake/patches/diskann/log")
-    string(TIMESTAMP current_year "%Y" UTC)
-    configure_file(${rapids-cmake-dir}/cpm/patches/command_template.cmake.in "${patch_script}"
-                   @ONLY)
+    include(${rapids-cmake-dir}/cpm/package_override.cmake)
+  set(patch_dir "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../patches")
+  rapids_cpm_package_override("${patch_dir}/diskann_override.json")
 
-    rapids_cpm_find(diskann ${PKG_VERSION}
-            GLOBAL_TARGETS diskann::diskann
-            CPM_ARGS
-            GIT_REPOSITORY   ${PKG_REPOSITORY}
-            GIT_TAG          ${PKG_PINNED_TAG}
-            PATCH_COMMAND ${CMAKE_COMMAND} -P ${patch_script}
-            OPTIONS
-            "PYBIND OFF"
-            "UNIT_TEST OFF"
-            "RESTAPI OFF"
-            "PORTABLE OFF"
-            )
+  include("${rapids-cmake-dir}/cpm/detail/package_details.cmake")
+  rapids_cpm_package_details(diskann version repository tag shallow exclude)
+
+  include("${rapids-cmake-dir}/cpm/detail/generate_patch_command.cmake")
+  rapids_cpm_generate_patch_command(diskann ${version} patch_command)
+
+  rapids_cpm_find(diskann ${version}
+          GLOBAL_TARGETS diskann::diskann
+          CPM_ARGS
+          GIT_REPOSITORY ${repository}
+          GIT_TAG ${tag}
+          GIT_SHALLOW ${patch_command}
+          OPTIONS
+          "PYBIND OFF"
+          "UNIT_TEST OFF"
+          "RESTAPI OFF"
+          "PORTABLE OFF"
+          )
+
+  include("${rapids-cmake-dir}/cpm/detail/display_patch_status.cmake")
+  rapids_cpm_display_patch_status(diskann)
     
-    if(NOT TARGET diskann::diskann)
-        target_include_directories(diskann INTERFACE "$<BUILD_INTERFACE:${diskann_SOURCE_DIR}/include>")
-        add_library(diskann::diskann ALIAS diskann)
-    endif()
+  if(NOT TARGET diskann::diskann)
+      target_include_directories(diskann INTERFACE "$<BUILD_INTERFACE:${diskann_SOURCE_DIR}/include>")
+      add_library(diskann::diskann ALIAS diskann)
+  endif()
 endfunction()
-
-if(NOT RAFT_DISKANN_GIT_TAG)
-    set(RAFT_DISKANN_GIT_TAG main)
-endif()
-
-if(NOT RAFT_DISKANN_GIT_REPOSITORY)
-    set(RAFT_DISKANN_GIT_REPOSITORY https://github.com/microsoft/DiskANN.git)
-endif()
-
-find_and_configure_diskann(VERSION 0.7.0
-        REPOSITORY  ${RAFT_DISKANN_GIT_REPOSITORY}
-        PINNED_TAG  ${RAFT_DISKANN_GIT_TAG})
+find_and_configure_diskann()

@@ -207,40 +207,25 @@ endfunction()
 # * Configure tests-------------------------------------------------------------
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
-  ConfigureAnnBench(
-    NAME HNSWLIB PATH src/hnswlib/hnswlib_benchmark.cpp LINKS hnswlib::hnswlib
-  )
+  ConfigureAnnBench(NAME HNSWLIB PATH src/hnswlib/hnswlib_benchmark.cpp LINKS hnswlib::hnswlib)
 
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
   ConfigureAnnBench(
-    NAME
-    RAFT_IVF_PQ
-    PATH
-    src/raft/raft_benchmark.cu
-    src/raft/raft_ivf_pq.cu
-    LINKS
-    raft::compiled
+    NAME RAFT_IVF_PQ PATH src/raft/raft_benchmark.cu src/raft/raft_ivf_pq.cu LINKS raft::compiled
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT)
   ConfigureAnnBench(
-    NAME
-    RAFT_IVF_FLAT
-    PATH
-    src/raft/raft_benchmark.cu
-    src/raft/raft_ivf_flat.cu
-    LINKS
+    NAME RAFT_IVF_FLAT PATH src/raft/raft_benchmark.cu src/raft/raft_ivf_flat.cu LINKS
     raft::compiled
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE)
-  ConfigureAnnBench(
-    NAME RAFT_BRUTE_FORCE PATH src/raft/raft_benchmark.cu LINKS raft::compiled
-  )
+  ConfigureAnnBench(NAME RAFT_BRUTE_FORCE PATH src/raft/raft_benchmark.cu LINKS raft::compiled)
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
@@ -269,36 +254,31 @@ message("RAFT_FAISS_TARGETS: ${RAFT_FAISS_TARGETS}")
 message("CUDAToolkit_LIBRARY_DIR: ${CUDAToolkit_LIBRARY_DIR}")
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_CPU_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_CPU_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_CPU_IVF_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_CPU_IVF_FLAT PATH src/faiss/faiss_cpu_benchmark.cpp LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ)
   ConfigureAnnBench(
-    NAME FAISS_CPU_IVF_PQ PATH src/faiss/faiss_cpu_benchmark.cpp LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_CPU_IVF_PQ PATH src/faiss/faiss_cpu_benchmark.cpp LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT AND RAFT_FAISS_ENABLE_GPU)
   ConfigureAnnBench(
-    NAME FAISS_GPU_IVF_FLAT PATH src/faiss/faiss_gpu_benchmark.cu LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_GPU_IVF_FLAT PATH src/faiss/faiss_gpu_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ AND RAFT_FAISS_ENABLE_GPU)
   ConfigureAnnBench(
-    NAME FAISS_GPU_IVF_PQ PATH src/faiss/faiss_gpu_benchmark.cu LINKS
-    ${RAFT_FAISS_TARGETS}
+    NAME FAISS_GPU_IVF_PQ PATH src/faiss/faiss_gpu_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
@@ -314,9 +294,7 @@ if(RAFT_ANN_BENCH_USE_GGNN)
 endif()
 
 if(RAFT_ANN_BENCH_USE_DISKANN)
-  ConfigureAnnBench(
-    NAME DISKANN PATH src/diskann/diskann_benchmark.cu LINKS diskann::diskann
-  )
+  ConfigureAnnBench(NAME DISKANN PATH src/diskann/diskann_benchmark.cu LINKS diskann::diskann)
 endif()
 
 # ##################################################################################################
