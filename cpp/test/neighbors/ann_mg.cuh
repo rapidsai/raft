@@ -88,17 +88,17 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       resource::sync_stream(handle_);
     }
 
-    uint64_t n_rows_per_batch = 3000; // [3000, 3000, 1000] == 7000 rows
-
     int n_devices;
     cudaGetDeviceCount(&n_devices);
     std::cout << n_devices << " GPUs detected" << std::endl;
-
     std::vector<int> device_ids(n_devices);
     std::iota(device_ids.begin(), device_ids.end(), 0);
 
+    uint64_t n_rows_per_batch = 3000; // [3000, 3000, 1000] == 7000 rows
+    raft::neighbors::mg::nccl_clique clique(device_ids);
+
     // IVF-Flat
-    for (parallel_mode d_mode : {parallel_mode::REPLICATION, parallel_mode::SHARDING}) {
+    for (parallel_mode d_mode : {parallel_mode::REPLICATED, parallel_mode::SHARDED}) {
       ivf_flat::mg_index_params index_params;
       index_params.n_lists                  = ps.nlist;
       index_params.metric                   = ps.metric;
@@ -120,7 +120,6 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(
         distances_ann.data(), ps.num_queries, ps.k);
 
-      raft::neighbors::mg::nccl_clique clique(device_ids);
       {
         auto index = raft::neighbors::mg::build<DataT, IdxT>(handle_, clique, index_params, index_dataset);
         raft::neighbors::mg::extend<DataT, IdxT>(handle_, clique, index, index_dataset, std::nullopt);
@@ -144,7 +143,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
     }
 
     // IVF-PQ
-    for (parallel_mode d_mode : {parallel_mode::REPLICATION, parallel_mode::SHARDING}) {
+    for (parallel_mode d_mode : {parallel_mode::REPLICATED, parallel_mode::SHARDED}) {
       ivf_pq::mg_index_params index_params;
       index_params.n_lists                  = ps.nlist;
       index_params.metric                   = ps.metric;
@@ -165,7 +164,6 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(
         distances_ann.data(), ps.num_queries, ps.k);
 
-      raft::neighbors::mg::nccl_clique clique(device_ids);
       {
         auto index = raft::neighbors::mg::build<DataT, IdxT>(handle_, clique, index_params, index_dataset);
         raft::neighbors::mg::extend<DataT, IdxT>(handle_, clique, index, index_dataset, std::nullopt);
@@ -189,7 +187,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
     }
 
     // CAGRA
-    for (parallel_mode d_mode : {parallel_mode::REPLICATION, parallel_mode::SHARDING}) {
+    for (parallel_mode d_mode : {parallel_mode::REPLICATED, parallel_mode::SHARDED}) {
       cagra::mg_index_params index_params;
       index_params.add_data_on_build              = true;
       index_params.intermediate_graph_degree      = 128;
@@ -209,7 +207,6 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto distances = raft::make_host_matrix_view<float, uint32_t, row_major>(
         distances_ann.data(), ps.num_queries, ps.k);
 
-      raft::neighbors::mg::nccl_clique clique(device_ids);
       /*
       {
         auto index = raft::neighbors::mg::build<DataT, uint32_t>(handle_, clique, index_params, index_dataset);
@@ -258,7 +255,6 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(indices_ann.data(), ps.num_queries, ps.k);
       auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(distances_ann.data(), ps.num_queries, ps.k);
 
-      raft::neighbors::mg::nccl_clique clique(device_ids);
       auto distributed_index = raft::neighbors::mg::distribute_flat<DataT, IdxT>(handle_, clique, "./cpp/build/local_ivf_flat_index");
       raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, distributed_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
 
@@ -300,7 +296,6 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(indices_ann.data(), ps.num_queries, ps.k);
       auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(distances_ann.data(), ps.num_queries, ps.k);
 
-      raft::neighbors::mg::nccl_clique clique(device_ids);
       auto distributed_index = raft::neighbors::mg::distribute_pq<DataT, IdxT>(handle_, clique, "./cpp/build/local_ivf_pq_index");
       raft::neighbors::mg::search<DataT, IdxT>(handle_, clique, distributed_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
 
@@ -340,7 +335,6 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto neighbors = raft::make_host_matrix_view<uint32_t, int64_t, row_major>(indices_ann_32bits.data(), ps.num_queries, ps.k);
       auto distances = raft::make_host_matrix_view<float, int64_t, row_major>(distances_ann.data(), ps.num_queries, ps.k);
 
-      raft::neighbors::mg::nccl_clique clique(device_ids);
       auto distributed_index = raft::neighbors::mg::distribute_cagra<DataT, uint32_t>(handle_, clique, "./cpp/build/local_cagra_index");
       raft::neighbors::mg::search<DataT, uint32_t>(handle_, clique, distributed_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
 

@@ -36,6 +36,8 @@ struct nccl_clique {
       nccl_comms_(device_ids.size()),
       device_resources_(0)
   {
+    RAFT_LOG_INFO("Starting NCCL initialization...");
+
     RAFT_NCCL_TRY(ncclCommInitAll(nccl_comms_.data(), num_ranks_, device_ids_.data()));
 
     for (int rank = 0; rank < num_ranks_; rank++) {
@@ -43,6 +45,13 @@ struct nccl_clique {
       device_resources_.emplace_back();
       raft::comms::build_comms_nccl_only(&device_resources_[rank], nccl_comms_[rank], num_ranks_, rank);
     }
+
+    for (int rank = 0; rank < num_ranks_; rank++) {
+      RAFT_CUDA_TRY(cudaSetDevice(device_ids[rank]));
+      resource::sync_stream(device_resources_[rank]);
+    }
+
+    RAFT_LOG_INFO("NCCL initialization completed");
   }
 
   const raft::device_resources& set_current_device_to_root_rank() const

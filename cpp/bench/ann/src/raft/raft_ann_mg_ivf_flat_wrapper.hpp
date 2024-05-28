@@ -38,7 +38,7 @@ class RaftAnnMG_IvfFlat : public RaftAnnMG<T> {
   {
     index_params_.metric                         = parse_metric_type(metric);
     index_params_.conservative_memory_allocation = true;
-    index_params_.mode                           = raft::neighbors::mg::parallel_mode::SHARDING;
+    index_params_.mode                           = raft::neighbors::mg::parallel_mode::SHARDED;
   }
 
   void build(const T* dataset, size_t nrow) final;

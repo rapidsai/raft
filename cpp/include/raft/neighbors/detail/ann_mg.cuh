@@ -252,9 +252,9 @@ class ann_mg_index {
              const ann::index_params* index_params,
              raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
   {
-    if (mode_ == REPLICATION) {
+    if (mode_ == REPLICATED) {
       IdxT n_rows = index_dataset.extent(0);
-      std::cout << "REPLICATION BUILD: " << num_ranks_ << "x" << n_rows << "rows" << std::endl;
+      RAFT_LOG_INFO("REPLICATED BUILD: %d*%drows", num_ranks_, n_rows);
 
       ann_interfaces_.resize(num_ranks_);
       #pragma omp parallel for num_threads(num_ranks_)
@@ -267,12 +267,12 @@ class ann_mg_index {
         resource::sync_stream(dev_res);
       }
       #pragma omp barrier
-    } else if (mode_ == SHARDING) {
+    } else if (mode_ == SHARDED) {
       IdxT n_rows             = index_dataset.extent(0);
       IdxT n_cols             = index_dataset.extent(1);
       IdxT n_rows_per_shard   = raft::ceildiv(n_rows, (IdxT)num_ranks_);
 
-      std::cout << "SHARDED BUILD: " << num_ranks_ << "x" << n_rows_per_shard << "rows" << std::endl;
+      RAFT_LOG_INFO("SHARDED BUILD: %d*%drows", num_ranks_, n_rows_per_shard);
 
       ann_interfaces_.resize(num_ranks_);
       #pragma omp parallel for num_threads(num_ranks_)
@@ -297,8 +297,8 @@ class ann_mg_index {
               std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices)
   {
     IdxT n_rows = new_vectors.extent(0);
-    if (mode_ == REPLICATION) {
-      std::cout << "REPLICATION EXTEND: " << num_ranks_ << "x" << n_rows << "rows" << std::endl;
+    if (mode_ == REPLICATED) {
+      RAFT_LOG_INFO("REPLICATED EXTEND: %d*%drows", num_ranks_, n_rows);
 
       #pragma omp parallel for num_threads(num_ranks_)
       for (int rank = 0; rank < num_ranks_; rank++) {
@@ -310,11 +310,11 @@ class ann_mg_index {
         resource::sync_stream(dev_res);
       }
       #pragma omp barrier
-    } else if (mode_ == SHARDING) {
+    } else if (mode_ == SHARDED) {
       IdxT n_cols           = new_vectors.extent(1);
       IdxT n_rows_per_shard    = raft::ceildiv(n_rows, (IdxT)num_ranks_);
 
-      std::cout << "SHARDED EXTEND: " << num_ranks_ << "x" << n_rows_per_shard << "rows" << std::endl;
+      RAFT_LOG_INFO("SHARDED EXTEND: %d*%drows", num_ranks_, n_rows_per_shard);
 
       #pragma omp parallel for num_threads(num_ranks_)
       for (int rank = 0; rank < num_ranks_; rank++) {
@@ -354,8 +354,8 @@ class ann_mg_index {
     if (n_batches == 1)
       n_rows_per_batch = n_rows;
 
-    if (mode_ == REPLICATION) {
-      std::cout << "REPLICATION SEARCH: " << n_batches << "x" << n_rows_per_batch << "rows" << std::endl;
+    if (mode_ == REPLICATED) {
+      RAFT_LOG_INFO("REPLICATED SEARCH: %d*%drows", n_batches, n_rows_per_batch);
 
       #pragma omp parallel for num_threads(num_ranks_) // avoid oversubscribing any given GPU
       for (IdxT batch_idx = 0; batch_idx < n_batches; batch_idx++) {
@@ -392,8 +392,8 @@ class ann_mg_index {
         resource::sync_stream(dev_res);
       }
       #pragma omp barrier
-    } else if (mode_ == SHARDING) {
-      std::cout << "SHARDED SEARCH: " << n_batches << "x" << n_rows_per_batch << "rows" << std::endl;
+    } else if (mode_ == SHARDED) {
+      RAFT_LOG_INFO("SHARDED SEARCH: %d*%drows", n_batches, n_rows_per_batch);
 
       const auto& root_handle = clique.set_current_device_to_root_rank();
       auto in_neighbors       = raft::make_device_matrix<IdxT, IdxT, row_major>(
@@ -687,7 +687,7 @@ ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> distribute_flat(const raft::reso
                                                                 const raft::neighbors::mg::nccl_clique& clique,
                                                                 const std::string& filename)
 {
-  auto index = ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>(REPLICATION, clique.num_ranks_);
+  auto index = ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>(REPLICATED, clique.num_ranks_);
   index.deserialize_and_distribute(handle, clique, filename);
   return index;
 }
@@ -697,7 +697,7 @@ ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> distribute_pq(const raft::resources& 
                                                          const raft::neighbors::mg::nccl_clique& clique,
                                                          const std::string& filename)
 {
-  auto index = ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>(REPLICATION, clique.num_ranks_);
+  auto index = ann_mg_index<ivf_pq::index<IdxT>, T, IdxT>(REPLICATED, clique.num_ranks_);
   index.deserialize_and_distribute(handle, clique, filename);
   return index;
 }
@@ -707,7 +707,7 @@ ann_mg_index<cagra::index<T, IdxT>, T, IdxT> distribute_cagra(const raft::resour
                                                               const raft::neighbors::mg::nccl_clique& clique,
                                                               const std::string& filename)
 {
-  auto index = ann_mg_index<cagra::index<T, IdxT>, T, IdxT>(REPLICATION, clique.num_ranks_);
+  auto index = ann_mg_index<cagra::index<T, IdxT>, T, IdxT>(REPLICATED, clique.num_ranks_);
   index.deserialize_and_distribute(handle, clique, filename);
   return index;
 }

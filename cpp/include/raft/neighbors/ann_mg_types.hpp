@@ -21,7 +21,7 @@
 #include <raft/neighbors/cagra_types.hpp>
 
 namespace raft::neighbors::mg {
-  enum parallel_mode { REPLICATION, SHARDING };
+  enum parallel_mode { REPLICATED, SHARDED };
 }
 
 namespace raft::neighbors::ivf_flat {
