@@ -52,7 +52,7 @@ struct index_params : ann::index_params {
   size_t intermediate_graph_degree = 128;     // Degree of input graph for pruning.
   size_t max_iterations            = 20;      // Number of nn-descent iterations.
   float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
-  bool return_distances            = 0;       // return distances if 1
+  int return_distances             = 0;       // return distances if 1
 };
 
 /**
