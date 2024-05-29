@@ -26,6 +26,7 @@
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::neighbors::experimental::nn_descent {
+using DistData_t = float;
 /**
  * @ingroup nn-descent
  * @{
@@ -51,6 +52,7 @@ struct index_params : ann::index_params {
   size_t intermediate_graph_degree = 128;     // Degree of input graph for pruning.
   size_t max_iterations            = 20;      // Number of nn-descent iterations.
   float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
+  bool return_distances            = 0;       // return distances if 1
 };
 
 /**
@@ -85,6 +87,7 @@ struct index : ann::index {
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
       graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(n_rows, n_cols)},
+      distances_{raft::make_host_matrix<DistData_t, int64_t, row_major>(n_rows, n_cols)},
       graph_view_{graph_.view()}
   {
   }
@@ -105,6 +108,7 @@ struct index : ann::index {
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
       graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(0, 0)},
+      distances_{raft::make_host_matrix<DistData_t, int64_t, row_major>(0, 0)},
       graph_view_{graph_view}
   {
   }
@@ -133,6 +137,11 @@ struct index : ann::index {
     return graph_view_;
   }
 
+  [[nodiscard]] inline auto distances() noexcept -> host_matrix_view<DistData_t, int64_t, row_major>
+  {
+    return distances_.view();
+  }
+
   // Don't allow copying the index for performance reasons (try avoiding copying data)
   index(const index&)                    = delete;
   index(index&&)                         = default;
@@ -144,6 +153,7 @@ struct index : ann::index {
   raft::resources const& res_;
   raft::distance::DistanceType metric_;
   raft::host_matrix<IdxT, int64_t, row_major> graph_;  // graph to return for non-int IdxT
+  raft::host_matrix<DistData_t, int64_t, row_major> distances_;
   raft::host_matrix_view<IdxT, int64_t, row_major>
     graph_view_;  // view of graph for user provided matrix
 };
