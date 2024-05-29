@@ -96,7 +96,7 @@ We provide a collection of lightweight Python scripts to run the benchmarks. The
 4. Plot Results
 
 ### Step 1: Prepare Dataset
-The script `raft-ann-bench.get_dataset` will download and unpack the dataset in directory
+The script `raft_ann_bench.get_dataset` will download and unpack the dataset in directory
 that the user provides. As of now, only million-scale datasets are supported by this
 script. For more information on [datasets and formats](ann_benchmarks_dataset.md).
 
@@ -117,10 +117,10 @@ will be normalized to inner product. So, for example, the dataset `glove-100-ang
 will be written at location `datasets/glove-100-inner/`.
 
 ### Step 2: Build and Search Index
-The script `raft-ann-bench.run` will build and search indices for a given dataset and its
+The script `raft_ann_bench.run` will build and search indices for a given dataset and its
 specified configuration.
 
-The usage of the script `raft-ann-bench.run` is:
+The usage of the script `raft_ann_bench.run` is:
 ```bash
 usage: __main__.py [-h] [--subset-size SUBSET_SIZE] [-k COUNT] [-bs BATCH_SIZE] [--dataset-configuration DATASET_CONFIGURATION] [--configuration CONFIGURATION] [--dataset DATASET]
                    [--dataset-path DATASET_PATH] [--build] [--search] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS] [-f] [-m SEARCH_MODE]
@@ -186,8 +186,8 @@ it is assumed both are `True`.
 is available in `algos.yaml` and not disabled, as well as having an associated executable.
 
 ### Step 3: Data Export
-The script `raft-ann-bench.data_export` will convert the intermediate JSON outputs produced by `raft-ann-bench.run` to more
-easily readable CSV files, which are needed to build charts made by `raft-ann-bench.plot`.
+The script `raft_ann_bench.data_export` will convert the intermediate JSON outputs produced by `raft_ann_bench.run` to more
+easily readable CSV files, which are needed to build charts made by `raft_ann_bench.plot`.
 
 ```bash
 usage: data_export.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH]
@@ -206,7 +206,7 @@ and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<
 
 
 ### Step 4: Plot Results
-The script `raft-ann-bench.plot` will plot results for all algorithms found in index search statistics
+The script `raft_ann_bench.plot` will plot results for all algorithms found in index search statistics
 CSV files `<dataset-path/<dataset>/result/search/*.csv`.
 
 The usage of this script is:
@@ -265,19 +265,19 @@ The steps below demonstrate how to download, install, and run benchmarks on a su
 ```bash
 
 # (1) prepare dataset.
-python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
+python -m raft_ann_bench.get_dataset --dataset deep-image-96-angular --normalize
 
 # (2) build and search index
-python -m raft-ann-bench.run --dataset deep-image-96-inner --algorithms raft_cagra --batch-size 10 -k 10
+python -m raft_ann_bench.run --dataset deep-image-96-inner --algorithms raft_cagra --batch-size 10 -k 10
 
 # (3) export data
-python -m raft-ann-bench.data_export --dataset deep-image-96-inner
+python -m raft_ann_bench.data_export --dataset deep-image-96-inner
 
 # (4) plot results
-python -m raft-ann-bench.plot --dataset deep-image-96-inner
+python -m raft_ann_bench.plot --dataset deep-image-96-inner
 ```
 
-Configuration files already exist for the following list of the million-scale datasets. Please refer to [ann-benchmarks datasets](https://github.com/erikbern/ann-benchmarks/#data-sets) for more information, including actual train and sizes. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `$CONDA_PREFIX/lib/python3.xx/site-packages/raft-ann-bench/run/conf`, or you can specify the `--configuration` option to use a specific file.
+Configuration files already exist for the following list of the million-scale datasets. Please refer to [ann-benchmarks datasets](https://github.com/erikbern/ann-benchmarks/#data-sets) for more information, including actual train and sizes. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `$CONDA_PREFIX/lib/python3.xx/site-packages/raft_ann_bench/run/conf`, or you can specify the `--configuration` option to use a specific file.
 
 | Dataset Name | Train Rows | Columns | Test Rows      | Distance   | 
 |-----|------------|----|----------------|------------|
@@ -293,7 +293,7 @@ All of the datasets above contain ground test datasets with 100 neighbors. Thus 
 
 ### End to end: large-scale benchmarks (>10M vectors)
 
-`raft-ann-bench.get_dataset` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale)
+`raft_ann_bench.get_dataset` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale)
 due to their size. You should instead use our billion-scale datasets guide to download and prepare them.
 All other python commands mentioned below work as intended once the
 billion-scale dataset has been downloaded.
@@ -308,20 +308,20 @@ mkdir -p datasets/deep-1B
 # (1) prepare dataset
 # download manually "Ground Truth" file of "Yandex DEEP"
 # suppose the file name is deep_new_groundtruth.public.10K.bin
-python -m raft-ann-bench.split_groundtruth --groundtruth datasets/deep-1B/deep_new_groundtruth.public.10K.bin
+python -m raft_ann_bench.split_groundtruth --groundtruth datasets/deep-1B/deep_new_groundtruth.public.10K.bin
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python -m raft-ann-bench.run --dataset deep-1B --algorithms raft_cagra --batch-size 10 -k 10
+python -m raft_ann_bench.run --dataset deep-1B --algorithms raft_cagra --batch-size 10 -k 10
 
 # (3) export data
-python -m raft-ann-bench.data_export --dataset deep-1B
+python -m raft_ann_bench.data_export --dataset deep-1B
 
 # (4) plot results
-python -m raft-ann-bench.plot --dataset deep-1B
+python -m raft_ann_bench.plot --dataset deep-1B
 ```
 
-The usage of `python -m raft-ann-bench.split_groundtruth` is:
+The usage of `python -m raft_ann_bench.split_groundtruth` is:
 ```bash
 usage: split_groundtruth.py [-h] --groundtruth GROUNDTRUTH
 
@@ -395,7 +395,7 @@ docker run --gpus all --rm -it -u $(id -u)          \
 This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) section above:
 
 ```
-(base) root@00b068fbb862:/data/benchmarks# python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
+(base) root@00b068fbb862:/data/benchmarks# python -m raft_ann_bench.get_dataset --dataset deep-image-96-angular --normalize
 ```
 
 Additionally, the containers can be run in detached mode without any issue.
@@ -441,7 +441,7 @@ Note the following:
 
 A single configuration will often define a set of algorithms, with associated index and search parameters, that can be generalize across datasets. We use YAML to define dataset specific and algorithm specific configurations.
 
-<a id='yaml-dataset-config'></a>A default `datasets.yaml` is provided by RAFT in `${RAFT_HOME}/python/raft-ann-bench/src/raft-ann-bench/run/conf` with configurations available for several datasets. Here's a simple example entry for the `sift-128-euclidean` dataset:
+<a id='yaml-dataset-config'></a>A default `datasets.yaml` is provided by RAFT in `${RAFT_HOME}/python/raft-ann-bench/src/raft_ann_bench/run/conf` with configurations available for several datasets. Here's a simple example entry for the `sift-128-euclidean` dataset:
 
 ```yaml
 - name: sift-128-euclidean
@@ -452,7 +452,7 @@ A single configuration will often define a set of algorithms, with associated in
   distance: euclidean
 ```
 
-<a id='yaml-algo-config'></a>Configuration files for ANN algorithms supported by `raft-ann-bench` are provided in `${RAFT_HOME}/python/raft-ann-bench/src/raft-ann-bench/run/conf`. `raft_cagra` algorithm configuration looks like:
+<a id='yaml-algo-config'></a>Configuration files for ANN algorithms supported by `raft-ann-bench` are provided in `${RAFT_HOME}/python/raft-ann-bench/src/raft_ann_bench/run/conf`. `raft_cagra` algorithm configuration looks like:
 ```yaml
 name: raft_cagra
 groups:
