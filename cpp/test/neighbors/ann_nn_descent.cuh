@@ -121,8 +121,14 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
       }
 
       double min_recall = ps.min_recall;
-      EXPECT_TRUE(eval_neighbours(
-        indices_naive, indices_NNDescent, distances_naive, distances_NNDescent, ps.n_rows, ps.graph_degree, 0.001, min_recall));
+      EXPECT_TRUE(eval_neighbours(indices_naive,
+                                  indices_NNDescent,
+                                  distances_naive,
+                                  distances_NNDescent,
+                                  ps.n_rows,
+                                  ps.graph_degree,
+                                  0.001,
+                                  min_recall));
     }
   }
 

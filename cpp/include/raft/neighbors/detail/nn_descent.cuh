@@ -345,7 +345,11 @@ class GNND {
   GNND(const GNND&)            = delete;
   GNND& operator=(const GNND&) = delete;
 
-  void build(Data_t* data, const Index_t nrow, Index_t* output_graph, bool return_distances, DistData_t *output_distances);
+  void build(Data_t* data,
+             const Index_t nrow,
+             Index_t* output_graph,
+             bool return_distances,
+             DistData_t* output_distances);
   ~GNND()    = default;
   using ID_t = InternalID_t<Index_t>;
 
@@ -1212,7 +1216,11 @@ void GNND<Data_t, Index_t>::local_join(cudaStream_t stream)
 }
 
 template <typename Data_t, typename Index_t>
-void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* output_graph, bool return_distances, DistData_t *output_distances)
+void GNND<Data_t, Index_t>::build(Data_t* data,
+                                  const Index_t nrow,
+                                  Index_t* output_graph,
+                                  bool return_distances,
+                                  DistData_t* output_distances)
 {
   using input_t = typename std::remove_const<Data_t>::type;
 
@@ -1339,7 +1347,7 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
   // Reuse graph_.h_dists as the buffer for shrink the lists in graph
   static_assert(sizeof(decltype(*(graph_.h_dists.data_handle()))) >= sizeof(Index_t));
 
-  if(return_distances) {
+  if (return_distances) {
     raft::copy(output_distances,
                graph_.h_dists.data_handle(),
                nrow_ * build_config_.node_degree,
@@ -1412,9 +1420,9 @@ void build(raft::resources const& res,
 
   auto int_graph = raft::make_host_matrix<int, int64_t, row_major>(
     dataset.extent(0), static_cast<int64_t>(extended_graph_degree));
-  
-  auto distances_graph = raft::make_host_matrix<DistData_t, int64_t, row_major>(0,0);
-  if(params.return_distances) {
+
+  auto distances_graph = raft::make_host_matrix<DistData_t, int64_t, row_major>(0, 0);
+  if (params.return_distances) {
     distances_graph = raft::make_host_matrix<DistData_t, int64_t, row_major>(
       dataset.extent(0), static_cast<int64_t>(extended_graph_degree));
   }
@@ -1427,16 +1435,21 @@ void build(raft::resources const& res,
                            .termination_threshold = params.termination_threshold};
 
   GNND<const T, int> nnd(res, build_config);
-  nnd.build(dataset.data_handle(), dataset.extent(0), int_graph.data_handle(), params.return_distances, distances_graph.data_handle());
+  nnd.build(dataset.data_handle(),
+            dataset.extent(0),
+            int_graph.data_handle(),
+            params.return_distances,
+            distances_graph.data_handle());
 
 #pragma omp parallel for
   for (size_t i = 0; i < static_cast<size_t>(dataset.extent(0)); i++) {
     for (size_t j = 0; j < graph_degree; j++) {
       auto graph                  = idx.graph().data_handle();
       graph[i * graph_degree + j] = int_graph.data_handle()[i * extended_graph_degree + j];
-      if(params.return_distances) {
+      if (params.return_distances) {
         auto dist_graph = idx.distances().data_handle();
-        dist_graph[i * graph_degree + j] = distances_graph.data_handle()[i * extended_graph_degree + j];
+        dist_graph[i * graph_degree + j] =
+          distances_graph.data_handle()[i * extended_graph_degree + j];
       }
     }
   }
