@@ -75,7 +75,13 @@ endfunction()
 
 if(BUILD_PRIMS_BENCH)
   ConfigureBench(
-    NAME CORE_BENCH PATH core/bitset.cu core/copy.cu main.cpp
+    NAME
+    CORE_BENCH
+    PATH
+    core/bitset.cu
+    core/copy.cu
+    core/popc.cu
+    main.cpp
   )
 
   ConfigureBench(
