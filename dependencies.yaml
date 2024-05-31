@@ -477,8 +477,8 @@ dependencies:
           - rapids-dask-dependency==24.8.*,>=0.0.0a0
       - output_types: conda
         packages:
-          - &ucx_py_conda ucx-py==0.39.*,>=0.0.0a0
           - &pylibraft_conda pylibraft==24.8.*,>=0.0.0a0
+          - &ucx_py_conda ucx-py==0.39.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
