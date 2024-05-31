@@ -40,6 +40,7 @@ dependencies:
 - numpydoc
 - pre-commit
 - pydata-sphinx-theme
+- pylibraft==24.8.*,>=0.0.0a0
 - pytest-cov
 - pytest==7.*
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
