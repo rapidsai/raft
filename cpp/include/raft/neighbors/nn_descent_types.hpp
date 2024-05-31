@@ -24,6 +24,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+
 #include <optional>
 
 namespace raft::neighbors::experimental::nn_descent {
@@ -53,7 +54,7 @@ struct index_params : ann::index_params {
   size_t intermediate_graph_degree = 128;     // Degree of input graph for pruning.
   size_t max_iterations            = 20;      // Number of nn-descent iterations.
   float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
-  bool return_distances             = false;       // return distances if true
+  bool return_distances            = false;   // return distances if true
 };
 
 /**
@@ -91,8 +92,8 @@ struct index : ann::index {
       graph_view_{graph_.view()},
       return_distances_(return_distances)
   {
-    if(return_distances) {
-      distances_ = raft::make_host_matrix<DistData_t, int64_t, row_major>(n_rows, n_cols);
+    if (return_distances) {
+      distances_      = raft::make_host_matrix<DistData_t, int64_t, row_major>(n_rows, n_cols);
       distances_view_ = distances_.value().view();
     }
   }
@@ -109,7 +110,8 @@ struct index : ann::index {
    */
   index(raft::resources const& res,
         raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view,
-        std::optional<raft::host_matrix_view<DistData_t, int64_t, raft::row_major>> distances_view = std::nullopt,
+        std::optional<raft::host_matrix_view<DistData_t, int64_t, raft::row_major>> distances_view =
+          std::nullopt,
         bool return_distances = false)
     : ann::index(),
       res_{res},
