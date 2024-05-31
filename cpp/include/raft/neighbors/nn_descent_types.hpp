@@ -24,6 +24,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <optional>
 
 namespace raft::neighbors::experimental::nn_descent {
 using DistData_t = float;
@@ -82,14 +83,18 @@ struct index : ann::index {
    * @param n_rows number of rows in knn-graph
    * @param n_cols number of cols in knn-graph
    */
-  index(raft::resources const& res, int64_t n_rows, int64_t n_cols)
+  index(raft::resources const& res, int64_t n_rows, int64_t n_cols, bool return_distances = false)
     : ann::index(),
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
       graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(n_rows, n_cols)},
-      distances_{raft::make_host_matrix<DistData_t, int64_t, row_major>(n_rows, n_cols)},
-      graph_view_{graph_.view()}
+      graph_view_{graph_.view()},
+      return_distances_(return_distances)
   {
+    if(return_distances) {
+      distances_ = raft::make_host_matrix<DistData_t, int64_t, row_major>(n_rows, n_cols);
+      distances_view_ = distances_.value().view();
+    }
   }
 
   /**
@@ -103,13 +108,17 @@ struct index : ann::index {
    * @param graph_view raft::host_matrix_view<IdxT, int64_t, raft::row_major> for storing knn-graph
    */
   index(raft::resources const& res,
-        raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view)
+        raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view,
+        std::optional<raft::host_matrix_view<DistData_t, int64_t, raft::row_major>> distances_view = std::nullopt,
+        bool return_distances = false)
     : ann::index(),
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
       graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(0, 0)},
       distances_{raft::make_host_matrix<DistData_t, int64_t, row_major>(0, 0)},
-      graph_view_{graph_view}
+      graph_view_{graph_view},
+      distances_view_(distances_view),
+      return_distances_(return_distances)
   {
   }
 
@@ -139,7 +148,9 @@ struct index : ann::index {
 
   [[nodiscard]] inline auto distances() noexcept -> host_matrix_view<DistData_t, int64_t, row_major>
   {
-    return distances_.view();
+    assert(return_distances_);
+    assert(distances_view_.has_value());
+    return distances_view_.value();
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
@@ -153,9 +164,11 @@ struct index : ann::index {
   raft::resources const& res_;
   raft::distance::DistanceType metric_;
   raft::host_matrix<IdxT, int64_t, row_major> graph_;  // graph to return for non-int IdxT
-  raft::host_matrix<DistData_t, int64_t, row_major> distances_;
+  std::optional<raft::host_matrix<DistData_t, int64_t, row_major>> distances_;
   raft::host_matrix_view<IdxT, int64_t, row_major>
     graph_view_;  // view of graph for user provided matrix
+  std::optional<raft::host_matrix_view<DistData_t, int64_t, row_major>> distances_view_;
+  bool return_distances_;
 };
 
 /** @} */

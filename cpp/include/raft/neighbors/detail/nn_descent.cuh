@@ -45,6 +45,7 @@
 #include <omp.h>
 
 #include <limits>
+#include <optional>
 #include <queue>
 #include <random>
 
@@ -1475,7 +1476,7 @@ index<IdxT> build(raft::resources const& res,
     graph_degree = intermediate_degree;
   }
 
-  index<IdxT> idx{res, dataset.extent(0), static_cast<int64_t>(graph_degree)};
+  index<IdxT> idx{res, dataset.extent(0), static_cast<int64_t>(graph_degree), params.return_distances};
 
   build(res, params, dataset, idx);
 
