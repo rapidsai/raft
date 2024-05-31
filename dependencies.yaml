@@ -477,7 +477,7 @@ dependencies:
           - rapids-dask-dependency==24.8.*,>=0.0.0a0
       - output_types: conda
         packages:
-          - &ucx_py_conda ucx-py==0.39.*
+          - &ucx_py_conda ucx-py==0.39.*,>=0.0.0a0
           - &pylibraft_conda pylibraft==24.8.*,>=0.0.0a0
       - output_types: requirements
         packages:
@@ -491,11 +491,11 @@ dependencies:
           - matrix: {cuda: "12.*"}
             packages:
               - &pylibraft_cu12 pylibraft-cu12==24.8.*,>=0.0.0a0
-              - &ucx_py_cu12 ucx-py-cu12==0.39.*
+              - &ucx_py_cu12 ucx-py-cu12==0.39.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
               - &pylibraft_cu11 pylibraft-cu11==24.8.*,>=0.0.0a0
-              - &ucx_py_cu11 ucx-py-cu11==0.39.*
+              - &ucx_py_cu11 ucx-py-cu11==0.39.*,>=0.0.0a0
           - {matrix: null, packages: [*pylibraft_conda, *ucx_py_conda]}
   test_python_common:
     common:
@@ -515,7 +515,7 @@ dependencies:
         packages:
           # UCXX is not currently a hard-dependency thus only installed during tests,
           # this will change in the future.
-          - &distributed_ucxx_conda distributed-ucxx==0.39.*,>0.0.0a0
+          - &distributed_ucxx_conda distributed-ucxx==0.39.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -526,10 +526,10 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - distributed-ucxx-cu12==0.39.*,>0.0.0a0
+              - distributed-ucxx-cu12==0.39.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
-              - distributed-ucxx-cu11==0.39.*,>0.0.0a0
+              - distributed-ucxx-cu11==0.39.*,>=0.0.0a0
           - {matrix: null, packages: [*distributed_ucxx_conda]}
   depends_on_ucx_build:
     common:
