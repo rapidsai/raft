@@ -36,6 +36,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdio>
 #include <iostream>
 #include <memory>
 #include <numeric>
@@ -209,7 +210,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
 
 #if 0
     /* debug */
-    for (unsigned i = threadIdx.x; i < result_buffer_size_32; i += BLOCK_SIZE) {
+    for (unsigned i = threadIdx.x; i < result_buffer_size_32; i += blockDim.x) {
         result_indices_buffer[i] = utils::get_max_value<INDEX_T>();
         result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
     }
@@ -351,16 +352,18 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   }
 
 #ifdef _CLK_BREAKDOWN
-  if ((threadIdx.x == 0 || threadIdx.x == BLOCK_SIZE - 1) && (blockIdx.x == 0) &&
+  if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
       ((query_id * 3) % gridDim.y < 3)) {
-    RAFT_LOG_DEBUG(
+    printf(
+      "%s:%d "
       "query, %d, thread, %d"
-      ", init, %d"
+      ", init, %lu"
       ", 1st_distance, %lu"
       ", topk, %lu"
       ", pickup_parents, %lu"
       ", distance, %lu"
       "\n",
+      __FILE__, __LINE__,
       query_id,
       threadIdx.x,
       clk_init,
