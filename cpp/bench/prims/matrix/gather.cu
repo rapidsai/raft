@@ -24,6 +24,7 @@
 #include <raft/util/itertools.hpp>
 
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 namespace raft::bench::matrix {

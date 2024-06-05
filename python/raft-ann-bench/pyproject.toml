@@ -9,7 +9,7 @@ requires = [
 
 [project]
 name = "raft-ann-bench"
-version = "24.04.00"
+dynamic = ["version"]
 description = "RAFT ANN benchmarks"
 authors = [
     { name = "NVIDIA Corporation" },
@@ -26,6 +26,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 
 [project.urls]
@@ -35,7 +36,7 @@ Homepage = "https://github.com/rapidsai/raft"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.*"]
+"*" = ["*.*", "VERSION"]
 
 [tool.isort]
 line_length = 79
@@ -57,3 +58,6 @@ skip = [
     "build",
     "dist",
 ]
+
+[tool.setuptools.dynamic]
+version = { file = "raft_ann_bench/VERSION" }

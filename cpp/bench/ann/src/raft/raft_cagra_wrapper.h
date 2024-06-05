@@ -36,7 +36,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cassert>
 #include <fstream>
@@ -96,12 +96,16 @@ class RaftCagra : public ANN<T>, public AnnGPU {
 
   void set_search_dataset(const T* dataset, size_t nrow) override;
 
-  // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
-  // will be filled with (size_t)-1
-  void search(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
-  void search_base(
-    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const;
+  void search(const T* queries,
+              int batch_size,
+              int k,
+              AnnBase::index_type* neighbors,
+              float* distances) const override;
+  void search_base(const T* queries,
+                   int batch_size,
+                   int k,
+                   AnnBase::index_type* neighbors,
+                   float* distances) const;
 
   [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
   {
@@ -138,7 +142,7 @@ class RaftCagra : public ANN<T>, public AnnGPU {
   std::shared_ptr<raft::device_matrix<T, int64_t, row_major>> dataset_;
   std::shared_ptr<raft::device_matrix_view<const T, int64_t, row_major>> input_dataset_v_;
 
-  inline rmm::mr::device_memory_resource* get_mr(AllocatorType mem_type)
+  inline rmm::device_async_resource_ref get_mr(AllocatorType mem_type)
   {
     switch (mem_type) {
       case (AllocatorType::HostPinned): return &mr_pinned_;
@@ -272,15 +276,18 @@ std::unique_ptr<ANN<T>> RaftCagra<T, IdxT>::copy()
 
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::search_base(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
+  static_assert(std::is_integral_v<AnnBase::index_type>);
+  static_assert(std::is_integral_v<IdxT>);
+
   IdxT* neighbors_IdxT;
-  rmm::device_uvector<IdxT> neighbors_storage(0, resource::get_cuda_stream(handle_));
-  if constexpr (std::is_same_v<IdxT, size_t>) {
-    neighbors_IdxT = neighbors;
+  std::optional<rmm::device_uvector<IdxT>> neighbors_storage{std::nullopt};
+  if constexpr (sizeof(IdxT) == sizeof(AnnBase::index_type)) {
+    neighbors_IdxT = reinterpret_cast<IdxT*>(neighbors);
   } else {
-    neighbors_storage.resize(batch_size * k, resource::get_cuda_stream(handle_));
-    neighbors_IdxT = neighbors_storage.data();
+    neighbors_storage.emplace(batch_size * k, resource::get_cuda_stream(handle_));
+    neighbors_IdxT = neighbors_storage->data();
   }
 
   auto queries_view =
@@ -291,76 +298,36 @@ void RaftCagra<T, IdxT>::search_base(
   raft::neighbors::cagra::search(
     handle_, search_params_, *index_, queries_view, neighbors_view, distances_view);
 
-  if constexpr (!std::is_same_v<IdxT, size_t>) {
+  if constexpr (sizeof(IdxT) != sizeof(AnnBase::index_type)) {
     raft::linalg::unaryOp(neighbors,
                           neighbors_IdxT,
                           batch_size * k,
-                          raft::cast_op<size_t>(),
+                          raft::cast_op<AnnBase::index_type>(),
                           raft::resource::get_cuda_stream(handle_));
   }
 }
 
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::search(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+  const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
   auto k0                       = static_cast<size_t>(refine_ratio_ * k);
   const bool disable_refinement = k0 <= static_cast<size_t>(k);
   const raft::resources& res    = handle_;
-  auto stream                   = resource::get_cuda_stream(res);
 
   if (disable_refinement) {
     search_base(queries, batch_size, k, neighbors, distances);
   } else {
-    auto candidate_ixs   = raft::make_device_matrix<int64_t, int64_t>(res, batch_size, k0);
-    auto candidate_dists = raft::make_device_matrix<float, int64_t>(res, batch_size, k0);
-    search_base(queries,
-                batch_size,
-                k0,
-                reinterpret_cast<size_t*>(candidate_ixs.data_handle()),
-                candidate_dists.data_handle());
-
-    if (raft::get_device_for_address(input_dataset_v_->data_handle()) >= 0) {
-      auto queries_v =
-        raft::make_device_matrix_view<const T, int64_t>(queries, batch_size, dimension_);
-      auto neighours_v = raft::make_device_matrix_view<int64_t, int64_t>(
-        reinterpret_cast<int64_t*>(neighbors), batch_size, k);
-      auto distances_v = raft::make_device_matrix_view<float, int64_t>(distances, batch_size, k);
-      raft::neighbors::refine<int64_t, T, float, int64_t>(
-        res,
-        *input_dataset_v_,
-        queries_v,
-        raft::make_const_mdspan(candidate_ixs.view()),
-        neighours_v,
-        distances_v,
-        index_->metric());
-    } else {
-      auto dataset_host = raft::make_host_matrix_view<const T, int64_t>(
-        input_dataset_v_->data_handle(), input_dataset_v_->extent(0), input_dataset_v_->extent(1));
-      auto queries_host    = raft::make_host_matrix<T, int64_t>(batch_size, dimension_);
-      auto candidates_host = raft::make_host_matrix<int64_t, int64_t>(batch_size, k0);
-      auto neighbors_host  = raft::make_host_matrix<int64_t, int64_t>(batch_size, k);
-      auto distances_host  = raft::make_host_matrix<float, int64_t>(batch_size, k);
-
-      raft::copy(queries_host.data_handle(), queries, queries_host.size(), stream);
-      raft::copy(
-        candidates_host.data_handle(), candidate_ixs.data_handle(), candidates_host.size(), stream);
-
-      raft::resource::sync_stream(res);  // wait for the queries and candidates
-      raft::neighbors::refine<int64_t, T, float, int64_t>(res,
-                                                          dataset_host,
-                                                          queries_host.view(),
-                                                          candidates_host.view(),
-                                                          neighbors_host.view(),
-                                                          distances_host.view(),
-                                                          index_->metric());
-
-      raft::copy(neighbors,
-                 reinterpret_cast<size_t*>(neighbors_host.data_handle()),
-                 neighbors_host.size(),
-                 stream);
-      raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
-    }
+    auto queries_v =
+      raft::make_device_matrix_view<const T, AnnBase::index_type>(queries, batch_size, dimension_);
+    auto candidate_ixs =
+      raft::make_device_matrix<AnnBase::index_type, AnnBase::index_type>(res, batch_size, k0);
+    auto candidate_dists =
+      raft::make_device_matrix<float, AnnBase::index_type>(res, batch_size, k0);
+    search_base(
+      queries, batch_size, k0, candidate_ixs.data_handle(), candidate_dists.data_handle());
+    refine_helper(
+      res, *input_dataset_v_, queries_v, candidate_ixs, k, neighbors, distances, index_->metric());
   }
 }
 }  // namespace raft::bench::ann

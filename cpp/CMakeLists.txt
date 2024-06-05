@@ -185,12 +185,13 @@ if(NOT BUILD_CPU_ONLY)
 endif()
 
 if(BUILD_TESTS)
-  include(cmake/thirdparty/get_gtest.cmake)
+  include(${rapids-cmake-dir}/cpm/gtest.cmake)
+  rapids_cpm_gtest(BUILD_STATIC)
 endif()
 
 if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
-  rapids_cpm_gbench()
+  rapids_cpm_gbench(BUILD_STATIC)
 endif()
 
 if(BUILD_CAGRA_HNSWLIB)
@@ -274,7 +275,7 @@ else()
       "\" OFF)"
       [=[
 
-target_link_libraries(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:CUDA::nvToolsExt>)
+target_link_libraries(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:CUDA::nvtx3>)
 target_compile_definitions(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:NVTX_ENABLED>)
 
   ]=]
@@ -564,7 +565,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
-    src/util/memory_pool.cpp
   )
   set_target_properties(
     raft_objs
@@ -650,12 +650,21 @@ rapids_find_generate_module(
   INSTALL_EXPORT_SET raft-distributed-exports
 )
 
-rapids_export_package(BUILD ucx raft-distributed-exports)
-rapids_export_package(INSTALL ucx raft-distributed-exports)
+rapids_export_package(
+  BUILD ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python
+)
+rapids_export_package(
+  INSTALL ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx
+                                                                              ucxx::python
+)
 rapids_export_package(BUILD NCCL raft-distributed-exports)
 rapids_export_package(INSTALL NCCL raft-distributed-exports)
 
-target_link_libraries(raft_distributed INTERFACE ucx::ucp NCCL::NCCL)
+# ucx is a requirement for raft_distributed, but its config is not safe to be found multiple times,
+# so rather than exporting a package dependency on it above we rely on consumers to find it
+# themselves. Once https://github.com/rapidsai/ucxx/issues/173 is resolved we can export it above
+# again.
+target_link_libraries(raft_distributed INTERFACE ucx::ucp ucxx::ucxx NCCL::NCCL)
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------
@@ -816,26 +825,26 @@ rapids_export(
 # * shared test/bench headers ------------------------------------------------
 
 if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
-  include(internal/CMakeLists.txt)
+  add_subdirectory(internal)
 endif()
 
 # ##################################################################################################
 # * build test executable ----------------------------------------------------
 
 if(BUILD_TESTS)
-  include(test/CMakeLists.txt)
+  add_subdirectory(test)
 endif()
 
 # ##################################################################################################
 # * build benchmark executable -----------------------------------------------
 
 if(BUILD_PRIMS_BENCH)
-  include(bench/prims/CMakeLists.txt)
+  add_subdirectory(bench/prims/)
 endif()
 
 # ##################################################################################################
 # * build ann benchmark executable -----------------------------------------------
 
 if(BUILD_ANN_BENCH)
-  include(bench/ann/CMakeLists.txt)
+  add_subdirectory(bench/ann/)
 endif()

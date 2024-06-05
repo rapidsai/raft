@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 #include <raft/neighbors/ivf_pq-inl.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>  // raft::neighbors::ivf_pq::index
+
+#include <rmm/resource_ref.hpp>
 
 #define instantiate_raft_neighbors_ivf_pq_search(T, IdxT)            \
   template void raft::neighbors::ivf_pq::search<T, IdxT>(            \
@@ -34,8 +36,7 @@
     uint32_t n_queries,                                              \
     uint32_t k,                                                      \
     IdxT* neighbors,                                                 \
-    float* distances,                                                \
-    rmm::mr::device_memory_resource* mr)
+    float* distances)
 
 instantiate_raft_neighbors_ivf_pq_search(uint8_t, int64_t);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,11 @@
 
 #pragma once
 
+#ifndef RAFT_HIDE_DEPRECATION_WARNINGS
 #pragma message(__FILE__                                                    \
                   " is deprecated and will be removed in a future release." \
                   " Please use raft/cluster/single_linkage_types.hpp instead.")
+#endif
 
 #include <raft/cluster/single_linkage_types.hpp>
 

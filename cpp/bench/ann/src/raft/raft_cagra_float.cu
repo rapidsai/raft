@@ -13,16 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "raft_cagra_wrapper.h"
 
-#pragma once
-#include <rmm/mr/device/device_memory_resource.hpp>  // rmm::mr::device_memory_resource
-
-#include <cstddef>  // size_t
-#include <memory>   // std::unique_ptr
-
-namespace raft {
-
-std::unique_ptr<rmm::mr::device_memory_resource> get_pool_memory_resource(
-  rmm::mr::device_memory_resource*& mr, size_t initial_size);
-
-}  // namespace raft
+namespace raft::bench::ann {
+template class RaftCagra<float, uint32_t>;
+}  // namespace raft::bench::ann
