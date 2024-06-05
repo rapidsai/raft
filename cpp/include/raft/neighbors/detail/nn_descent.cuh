@@ -218,6 +218,7 @@ struct BuildConfig {
   // If internal_node_degree == 0, the value of node_degree will be assigned to it
   size_t max_iterations{50};
   float termination_threshold{0.0001};
+  size_t output_graph_degree{32};
 };
 
 template <typename Index_t>
@@ -1349,10 +1350,12 @@ void GNND<Data_t, Index_t>::build(Data_t* data,
   static_assert(sizeof(decltype(*(graph_.h_dists.data_handle()))) >= sizeof(Index_t));
 
   if (return_distances) {
-    raft::copy(output_distances,
-               graph_.h_dists.data_handle(),
-               nrow_ * build_config_.node_degree,
+    for (size_t i = 0; i < (size_t)nrow_; i++) {
+      raft::copy(output_distances + i * build_config_.output_graph_degree,
+               graph_.h_dists.data_handle() + i * build_config_.node_degree,
+               build_config_.output_graph_degree,
                raft::resource::get_cuda_stream(res));
+    }
   }
 
   Index_t* graph_shrink_buffer = (Index_t*)graph_.h_dists.data_handle();
@@ -1422,36 +1425,26 @@ void build(raft::resources const& res,
   auto int_graph = raft::make_host_matrix<int, int64_t, row_major>(
     dataset.extent(0), static_cast<int64_t>(extended_graph_degree));
 
-  auto distances_graph = raft::make_host_matrix<DistData_t, int64_t, row_major>(0, 0);
-  if (params.return_distances) {
-    distances_graph = raft::make_host_matrix<DistData_t, int64_t, row_major>(
-      dataset.extent(0), static_cast<int64_t>(extended_graph_degree));
-  }
-
   BuildConfig build_config{.max_dataset_size      = static_cast<size_t>(dataset.extent(0)),
                            .dataset_dim           = static_cast<size_t>(dataset.extent(1)),
                            .node_degree           = extended_graph_degree,
                            .internal_node_degree  = extended_intermediate_degree,
                            .max_iterations        = params.max_iterations,
-                           .termination_threshold = params.termination_threshold};
+                           .termination_threshold = params.termination_threshold,
+                           .output_graph_degree    = params.graph_degree};
 
   GNND<const T, int> nnd(res, build_config);
   nnd.build(dataset.data_handle(),
             dataset.extent(0),
             int_graph.data_handle(),
             params.return_distances,
-            distances_graph.data_handle());
+            idx.distances().data_handle());
 
 #pragma omp parallel for
   for (size_t i = 0; i < static_cast<size_t>(dataset.extent(0)); i++) {
     for (size_t j = 0; j < graph_degree; j++) {
       auto graph                  = idx.graph().data_handle();
       graph[i * graph_degree + j] = int_graph.data_handle()[i * extended_graph_degree + j];
-      if (params.return_distances) {
-        auto dist_graph = idx.distances().data_handle();
-        dist_graph[i * graph_degree + j] =
-          distances_graph.data_handle()[i * extended_graph_degree + j];
-      }
     }
   }
 }
