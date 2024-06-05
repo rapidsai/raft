@@ -148,6 +148,7 @@ void eigDC(raft::resources const& handle,
   // Synchronize the created stream with the original stream before return
   RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream_new));
   RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_event));
+  RAFT_CUDA_TRY(cudaEventDestroy(sync_event));
   RAFT_CUDA_TRY(cudaStreamDestroy(stream_new));
 #endif
 }
