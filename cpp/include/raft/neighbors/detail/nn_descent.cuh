@@ -1391,7 +1391,7 @@ template <typename T,
 void build(raft::resources const& res,
            const index_params& params,
            mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
-           index<IdxT>& idx)
+           index<DistData_t, IdxT>& idx)
 {
   RAFT_EXPECTS(dataset.extent(0) < std::numeric_limits<int>::max() - 1,
                "The dataset size for GNND should be less than %d",
@@ -1453,7 +1453,7 @@ template <typename T,
           typename IdxT = uint32_t,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
-index<IdxT> build(raft::resources const& res,
+index<DistData_t, IdxT> build(raft::resources const& res,
                   const index_params& params,
                   mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
 {
@@ -1469,7 +1469,7 @@ index<IdxT> build(raft::resources const& res,
     graph_degree = intermediate_degree;
   }
 
-  index<IdxT> idx{
+  index<DistData_t, IdxT> idx{
     res, dataset.extent(0), static_cast<int64_t>(graph_degree), params.return_distances};
 
   build(res, params, dataset, idx);

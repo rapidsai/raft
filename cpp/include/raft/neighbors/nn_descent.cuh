@@ -56,7 +56,7 @@ namespace raft::neighbors::experimental::nn_descent {
  * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
 template <typename T, typename IdxT = uint32_t>
-index<IdxT> build(raft::resources const& res,
+index<detail::DistData_t, IdxT> build(raft::resources const& res,
                   index_params const& params,
                   raft::device_matrix_view<const T, int64_t, row_major> dataset)
 {
@@ -97,7 +97,7 @@ template <typename T, typename IdxT = uint32_t>
 void build(raft::resources const& res,
            index_params const& params,
            raft::device_matrix_view<const T, int64_t, row_major> dataset,
-           index<IdxT>& idx)
+           index<detail::DistData_t, IdxT>& idx)
 {
   detail::build<T, IdxT>(res, params, dataset, idx);
 }
@@ -130,7 +130,7 @@ void build(raft::resources const& res,
  * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
 template <typename T, typename IdxT = uint32_t>
-index<IdxT> build(raft::resources const& res,
+index<detail::DistData_t, IdxT> build(raft::resources const& res,
                   index_params const& params,
                   raft::host_matrix_view<const T, int64_t, row_major> dataset)
 {
@@ -171,7 +171,7 @@ template <typename T, typename IdxT = uint32_t>
 void build(raft::resources const& res,
            index_params const& params,
            raft::host_matrix_view<const T, int64_t, row_major> dataset,
-           index<IdxT>& idx)
+           index<detail::DistData_t, IdxT>& idx)
 {
   detail::build<T, IdxT>(res, params, dataset, idx);
 }
