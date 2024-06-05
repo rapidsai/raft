@@ -150,9 +150,11 @@ struct index : ann::index {
 
   [[nodiscard]] inline auto distances() noexcept -> host_matrix_view<DistData_t, int64_t, row_major>
   {
-    assert(return_distances_);
-    assert(distances_view_.has_value());
-    return distances_view_.value();
+    if (distances_view_.has_value()) {
+      return distances_view_.value();
+    } else {
+      return raft::make_host_matrix<DistData_t, int64_t, row_major>(0, 0).view();
+    }
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
