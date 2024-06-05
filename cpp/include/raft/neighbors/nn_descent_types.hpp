@@ -20,6 +20,8 @@
 
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -93,7 +95,7 @@ struct index : ann::index {
       return_distances_(return_distances)
   {
     if (return_distances) {
-      distances_      = raft::make_host_matrix<DistData_t, int64_t, row_major>(n_rows, n_cols);
+      distances_      = raft::make_device_matrix<DistData_t, int64_t>(res_, n_rows, n_cols);
       distances_view_ = distances_.value().view();
     }
   }
@@ -110,14 +112,14 @@ struct index : ann::index {
    */
   index(raft::resources const& res,
         raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view,
-        std::optional<raft::host_matrix_view<DistData_t, int64_t, raft::row_major>> distances_view =
+        std::optional<raft::device_matrix_view<DistData_t, int64_t, row_major>> distances_view =
           std::nullopt,
         bool return_distances = false)
     : ann::index(),
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
       graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(0, 0)},
-      distances_{raft::make_host_matrix<DistData_t, int64_t, row_major>(0, 0)},
+      distances_{raft::make_device_matrix<DistData_t, int64_t>(res_, 0, 0)},
       graph_view_{graph_view},
       distances_view_(distances_view),
       return_distances_(return_distances)
@@ -151,12 +153,12 @@ struct index : ann::index {
     return graph_view_;
   }
 
-  [[nodiscard]] inline auto distances() noexcept -> host_matrix_view<DistData_t, int64_t, row_major>
+  [[nodiscard]] inline auto distances() noexcept -> device_matrix_view<DistData_t, int64_t, row_major>
   {
     if (distances_view_.has_value()) {
       return distances_view_.value();
     } else {
-      return raft::make_host_matrix<DistData_t, int64_t, row_major>(0, 0).view();
+      return raft::make_device_matrix<DistData_t, int64_t>(res_, 0, 0).view();
     }
   }
 
@@ -171,10 +173,10 @@ struct index : ann::index {
   raft::resources const& res_;
   raft::distance::DistanceType metric_;
   raft::host_matrix<IdxT, int64_t, row_major> graph_;  // graph to return for non-int IdxT
-  std::optional<raft::host_matrix<DistData_t, int64_t, row_major>> distances_;
+  std::optional<raft::device_matrix<DistData_t, int64_t, row_major>> distances_;
   raft::host_matrix_view<IdxT, int64_t, row_major>
     graph_view_;  // view of graph for user provided matrix
-  std::optional<raft::host_matrix_view<DistData_t, int64_t, row_major>> distances_view_;
+  std::optional<raft::device_matrix_view<DistData_t, int64_t, row_major>> distances_view_;
   bool return_distances_;
 };
 
