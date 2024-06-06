@@ -18,10 +18,10 @@
 
 #include "ann_types.hpp"
 
-#include <raft/core/host_mdarray.hpp>
-#include <raft/core/host_mdspan.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -109,11 +109,11 @@ struct index : ann::index {
    * @param res raft::resources is an object mangaging resources
    * @param graph_view raft::host_matrix_view<IdxT, int64_t, raft::row_major> for storing knn-graph
    */
-  index(raft::resources const& res,
-        raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view,
-        std::optional<raft::device_matrix_view<T, int64_t, row_major>> distances_view =
-          std::nullopt,
-        bool return_distances = false)
+  index(
+    raft::resources const& res,
+    raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view,
+    std::optional<raft::device_matrix_view<T, int64_t, row_major>> distances_view = std::nullopt,
+    bool return_distances                                                         = false)
     : ann::index(),
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
@@ -123,9 +123,7 @@ struct index : ann::index {
       distances_view_(distances_view),
       return_distances_(return_distances)
   {
-    if(!distances_view.has_value()) {
-      distances_view_ = distances_.value().view();
-    }
+    if (!distances_view.has_value()) { distances_view_ = distances_.value().view(); }
   }
 
   /** Distance metric used for clustering. */

@@ -1352,9 +1352,9 @@ void GNND<Data_t, Index_t>::build(Data_t* data,
   if (return_distances) {
     for (size_t i = 0; i < (size_t)nrow_; i++) {
       raft::copy(output_distances + i * build_config_.output_graph_degree,
-               graph_.h_dists.data_handle() + i * build_config_.node_degree,
-               build_config_.output_graph_degree,
-               raft::resource::get_cuda_stream(res));
+                 graph_.h_dists.data_handle() + i * build_config_.node_degree,
+                 build_config_.output_graph_degree,
+                 raft::resource::get_cuda_stream(res));
     }
   }
 
@@ -1431,7 +1431,7 @@ void build(raft::resources const& res,
                            .internal_node_degree  = extended_intermediate_degree,
                            .max_iterations        = params.max_iterations,
                            .termination_threshold = params.termination_threshold,
-                           .output_graph_degree    = params.graph_degree};
+                           .output_graph_degree   = params.graph_degree};
 
   GNND<const T, int> nnd(res, build_config);
   nnd.build(dataset.data_handle(),
@@ -1454,8 +1454,8 @@ template <typename T,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
 index<DistData_t, IdxT> build(raft::resources const& res,
-                  const index_params& params,
-                  mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
+                              const index_params& params,
+                              mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
 {
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
