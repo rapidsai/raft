@@ -17,6 +17,7 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+#include "raft/util/cudart_utils.hpp"
 
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/nn_descent.cuh>
@@ -94,6 +95,7 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
         index_params.graph_degree              = ps.graph_degree;
         index_params.intermediate_graph_degree = 2 * ps.graph_degree;
         index_params.max_iterations            = 100;
+        index_params.return_distances          = true;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
@@ -105,16 +107,12 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
             auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
               (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
             auto index = nn_descent::build<DataT, IdxT>(handle_, index_params, database_host_view);
-            update_host(
-              indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
-            update_host(
-              distances_NNDescent.data(), index.distances().data_handle(), queries_size, stream_);
+            raft::copy(indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
+            raft::copy(distances_NNDescent.data(), index.distances().data_handle(), queries_size, stream_);
           } else {
             auto index = nn_descent::build<DataT, IdxT>(handle_, index_params, database_view);
-            update_host(
-              indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
-            update_host(
-              distances_NNDescent.data(), index.distances().data_handle(), queries_size, stream_);
+            raft::copy(indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
+            raft::copy(distances_NNDescent.data(), index.distances().data_handle(), queries_size, stream_);
           };
         }
         resource::sync_stream(handle_);
