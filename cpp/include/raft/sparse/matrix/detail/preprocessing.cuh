@@ -23,11 +23,12 @@
 #include <raft/core/resources.hpp>
 #include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/sort.cuh>
-#include <raft/sparse/selection/knn.cuh>
 
 #include <thrust/fill.h>
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
+
+namespace raft::sparse::matrix::detail {
 
 struct bm25 {
   bm25(int num_docs, float avg_doc_len, float k_param, float b_param)
@@ -192,17 +193,17 @@ void encode_tfidf(raft::resources& handle,
                     raft::make_const_mdspan(term_counts.view()));
 }
 
-template <typename T1, typename T2>
+template <typename T1, typename T2, typename IdxT>
 void encode_bm25(raft::resources& handle,
-                 raft::device_vector_view<T1, int64_t> rows,
-                 raft::device_vector_view<T1, int64_t> columns,
-                 raft::device_vector_view<T2, int64_t> values,
-                 raft::device_vector_view<T2, int64_t> values_out,
+                 raft::device_vector_view<T1, IdxT> rows,
+                 raft::device_vector_view<T1, IdxT> columns,
+                 raft::device_vector_view<T2, IdxT> values,
+                 raft::device_vector_view<T2, IdxT> values_out,
                  float k_param = 1.6f,
                  float b_param = 0.75)
 {
-  auto doc_lengths = raft::make_device_vector<float, int64_t>(handle, columns.size());
-  auto term_counts = raft::make_device_vector<float, int64_t>(handle, rows.size());
+  auto doc_lengths                 = raft::make_device_vector<T2, IdxT>(handle, columns.size());
+  auto term_counts                 = raft::make_device_vector<T2, IdxT>(handle, rows.size());
   auto [doc_count, avg_doc_length] = sparse_search_preprocess<int, float>(
     handle, rows, columns, values, doc_lengths.view(), term_counts.view());
 
@@ -213,3 +214,4 @@ void encode_bm25(raft::resources& handle,
                     raft::make_const_mdspan(doc_lengths.view()),
                     raft::make_const_mdspan(term_counts.view()));
 }
+}  // namespace raft::sparse::matrix::detail
