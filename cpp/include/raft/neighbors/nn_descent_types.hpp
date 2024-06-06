@@ -30,7 +30,6 @@
 #include <optional>
 
 namespace raft::neighbors::experimental::nn_descent {
-// using DistData_t = float;
 /**
  * @ingroup nn-descent
  * @{
