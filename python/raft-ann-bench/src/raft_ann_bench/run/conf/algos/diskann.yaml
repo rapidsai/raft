@@ -1,6 +1,6 @@
 name: diskann
 constraints:
-  search: raft-ann-bench.constraints.diskann_search_constraints
+  search: raft_ann_bench.constraints.diskann_search_constraints
 groups:
   base:
     build:

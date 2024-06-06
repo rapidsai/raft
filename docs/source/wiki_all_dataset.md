@@ -12,7 +12,7 @@ To form the final dataset, the Wiki texts were chunked into 85 million 128-token
 
 ### Full dataset
 
-A version of the dataset is made available in the binary format that can be used directly by the [raft-ann-bench](https://docs.rapids.ai/api/raft/nightly/raft_ann_benchmarks/) tool. The full 88M dataset is ~251GB and the download link below contains tarballs that have been split into multiple parts.
+A version of the dataset is made available in the binary format that can be used directly by the [raft_ann_bench](https://docs.rapids.ai/api/raft/nightly/raft_ann_benchmarks/) tool. The full 88M dataset is ~251GB and the download link below contains tarballs that have been split into multiple parts.
 
 The following will download all 10 the parts and untar them to a `wiki_all_88M` directory:
 ```bash

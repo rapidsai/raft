@@ -129,6 +129,7 @@ void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
 {
   max_points_ = nrow;
   std::cout << "num_threads" << this->diskann_index_write_params_->num_threads << std::endl;
+
   this->diskann_index_ = std::make_shared<diskann::Index<T>>(parse_metric_type(this->metric_),
                                                              this->dim_,
                                                              max_points_,
@@ -149,9 +150,9 @@ void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
     std::optional<raft::host_matrix<uint32_t, int64_t>> intermediate_graph(
       raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_intermediate_graph_degree_));
 
-    std::vector<uint32_t> knn_graph(nrow * cagra_graph_degree_);
-    auto knn_graph_view =
-      raft::make_host_matrix_view<uint32_t, int64_t>(knn_graph.data(), nrow, cagra_graph_degree_);
+    std::vector<std::vector<uint32_t>> knn_graph(nrow, std::vector<uint32_t>(cagra_graph_degree_));
+    auto knn_graph_view = raft::make_host_matrix_view<uint32_t, int64_t>(
+      knn_graph[0].data(), nrow, cagra_graph_degree_);
     auto dataset_view = raft::make_host_matrix_view<const T, int64_t>(
       dataset, static_cast<int64_t>(nrow), (int64_t)this->dim_);
     raft::resources res;

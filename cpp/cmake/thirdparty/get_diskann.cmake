@@ -36,6 +36,8 @@ function(find_and_configure_diskann)
           "UNIT_TEST OFF"
           "RESTAPI OFF"
           "PORTABLE OFF"
+          "-DOMP_PATH /raid/tarangj/miniconda3/envs/all_cuda-122_arch-x86_64/lib/libiomp5.so"
+          "-DMKL_PATH /raid/tarangj/miniconda3/envs/all_cuda-122_arch-x86_64/lib"
           )
 
   include("${rapids-cmake-dir}/cpm/detail/display_patch_status.cmake")

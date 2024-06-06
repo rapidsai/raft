@@ -128,14 +128,14 @@ files:
       - test_python_common
   py_build_raft_ann_bench:
     output: pyproject
-    pyproject_dir: python/raft-ann-bench
+    pyproject_dir: python/raft_ann_bench
     extras:
       table: build-system
     includes:
       - build_wheels
   py_run_raft_ann_bench:
     output: pyproject
-    pyproject_dir: python/raft-ann-bench
+    pyproject_dir: python/raft_ann_bench
     extras:
       table: project
     includes:
