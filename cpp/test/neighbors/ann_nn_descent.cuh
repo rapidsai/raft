@@ -15,12 +15,11 @@
  */
 #pragma once
 
-#include "../test_utils.cuh"
 #include "ann_utils.cuh"
-#include "raft/util/cudart_utils.hpp"
 
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/nn_descent.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
