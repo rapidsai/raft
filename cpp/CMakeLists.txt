@@ -825,26 +825,26 @@ rapids_export(
 # * shared test/bench headers ------------------------------------------------
 
 if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
-  include(internal/CMakeLists.txt)
+  add_subdirectory(internal)
 endif()
 
 # ##################################################################################################
 # * build test executable ----------------------------------------------------
 
 if(BUILD_TESTS)
-  include(test/CMakeLists.txt)
+  add_subdirectory(test)
 endif()
 
 # ##################################################################################################
 # * build benchmark executable -----------------------------------------------
 
 if(BUILD_PRIMS_BENCH)
-  include(bench/prims/CMakeLists.txt)
+  add_subdirectory(bench/prims/)
 endif()
 
 # ##################################################################################################
 # * build ann benchmark executable -----------------------------------------------
 
 if(BUILD_ANN_BENCH)
-  include(bench/ann/CMakeLists.txt)
+  add_subdirectory(bench/ann/)
 endif()
