@@ -84,6 +84,7 @@ struct index : ann::index {
    * @param res raft::resources is an object mangaging resources
    * @param n_rows number of rows in knn-graph
    * @param n_cols number of cols in knn-graph
+   * @param return_distances whether to allocate and get distances information
    */
   index(raft::resources const& res, int64_t n_rows, int64_t n_cols, bool return_distances = false)
     : ann::index(),
