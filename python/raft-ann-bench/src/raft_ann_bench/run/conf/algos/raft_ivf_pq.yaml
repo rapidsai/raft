@@ -1,7 +1,7 @@
 name: raft_ivf_pq
 constraints:
-  build: raft-ann-bench.constraints.raft_ivf_pq_build_constraints
-  search: raft-ann-bench.constraints.raft_ivf_pq_search_constraints
+  build: raft_ann_bench.constraints.raft_ivf_pq_build_constraints
+  search: raft_ann_bench.constraints.raft_ivf_pq_search_constraints
 groups:
   base:
     build:
