@@ -41,10 +41,8 @@ popd
 rapids-logger "Build Python docs"
 pushd docs
 sphinx-build -b dirhtml source _html
-sphinx-build -b text source _text
-mkdir -p "${RAPIDS_DOCS_DIR}/raft/"{html,txt}
+mkdir -p "${RAPIDS_DOCS_DIR}/raft/"html
 mv _html/* "${RAPIDS_DOCS_DIR}/raft/html"
-mv _text/* "${RAPIDS_DOCS_DIR}/raft/txt"
 popd
 
 rapids-upload-docs
