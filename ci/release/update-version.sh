@@ -56,21 +56,21 @@ DEPENDENCIES=(
 )
 for FILE in dependencies.yaml conda/environments/*.yaml; do
   for DEP in "${DEPENDENCIES[@]}"; do
-    sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
+    sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
   done
-  sed_runner "/-.* ucx-py==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/-.* ucx-py-cu11==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/-.* ucx-py-cu12==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/-.* libucxx==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/-.* distributed-ucxx==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/-.* distributed-ucxx-cu11==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/-.* distributed-ucxx-cu12==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*/g" ${FILE};
+  sed_runner "/-.* ucx-py==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
+  sed_runner "/-.* ucx-py-cu11==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
+  sed_runner "/-.* ucx-py-cu12==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
+  sed_runner "/-.* libucxx==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
+  sed_runner "/-.* distributed-ucxx==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
+  sed_runner "/-.* distributed-ucxx-cu11==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
+  sed_runner "/-.* distributed-ucxx-cu12==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
 done
 for FILE in python/*/pyproject.toml; do
   for DEP in "${DEPENDENCIES[@]}"; do
-    sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}.*\"/g" ${FILE}
+    sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\"/g" ${FILE}
   done
-  sed_runner "/\"ucx-py==/ s/==.*\"/==${NEXT_UCX_PY_SHORT_TAG_PEP440}.*\"/g" ${FILE}
+  sed_runner "/\"ucx-py==/ s/==.*\"/==${NEXT_UCX_PY_SHORT_TAG_PEP440}.*,>=0.0.0a0\"/g" ${FILE}
 done
 
 sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCX_PY_VERSION}\"/}" conda/recipes/raft-dask/conda_build_config.yaml
