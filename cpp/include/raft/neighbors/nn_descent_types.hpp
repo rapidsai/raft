@@ -109,6 +109,9 @@ struct index : ann::index {
    *
    * @param res raft::resources is an object mangaging resources
    * @param graph_view raft::host_matrix_view<IdxT, int64_t, raft::row_major> for storing knn-graph
+   * @param distances_view std::optional<raft::device_matrix_view<T, int64_t, row_major>> for
+   * storing knn-graph distances
+   * @param return_distances whether to allocate and get distances information
    */
   index(
     raft::resources const& res,
@@ -151,6 +154,7 @@ struct index : ann::index {
     return graph_view_;
   }
 
+  /** neighborhood graph distances [size, graph-degree] */
   [[nodiscard]] inline auto distances() noexcept -> device_matrix_view<T, int64_t, row_major>
   {
     if (distances_view_.has_value()) {
