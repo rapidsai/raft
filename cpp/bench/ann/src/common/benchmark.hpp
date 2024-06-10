@@ -459,8 +459,7 @@ void register_search(std::shared_ptr<const Dataset<T>> dataset,
                    */
                   ->MeasureProcessCPUTime()
                   ->UseRealTime();
-    if (metric_objective == Objective::THROUGHPUT)
-      {
+      if (metric_objective == Objective::THROUGHPUT) {
         if (index.algo.find("faiss_gpu") != std::string::npos) {
           log_warn(
             "FAISS GPU does not work in throughput mode because the underlying "
