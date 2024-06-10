@@ -363,7 +363,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
       ", pickup_parents, %lu"
       ", distance, %lu"
       "\n",
-      __FILE__, __LINE__,
+      __FILE__,
+      __LINE__,
       query_id,
       threadIdx.x,
       clk_init,
