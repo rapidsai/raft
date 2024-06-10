@@ -217,8 +217,7 @@ template <typename T>
 void FaissGpu<T>::search(
   const T* queries, int batch_size, int k, AnnBase::index_type* neighbors, float* distances) const
 {
-  ASSERT(Objective::LATENCY,
-         "l2Knn: rowMajorIndex and rowMajorQuery should have same layout");
+  ASSERT(Objective::LATENCY, "l2Knn: rowMajorIndex and rowMajorQuery should have same layout");
   using IdxT = faiss::idx_t;
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
@@ -333,7 +332,6 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
 
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
   {
-    this->metric_objective_ = param.metric_objective;
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
     int nprobe        = search_param.nprobe;
     assert(nprobe <= nlist_);
