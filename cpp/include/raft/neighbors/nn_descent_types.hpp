@@ -69,6 +69,7 @@ struct index_params : ann::index_params {
  * International Conference on Information & Knowledge Management (CIKM '21). Association for
  * Computing Machinery, New York, NY, USA, 1929–1938. https://doi.org/10.1145/3459637.3482344
  *
+ * @tparam T dtype to be used for constructing distances graph
  * @tparam IdxT dtype to be used for constructing knn-graph
  */
 template <typename T, typename IdxT>
