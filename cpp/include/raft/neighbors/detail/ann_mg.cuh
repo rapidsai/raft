@@ -257,7 +257,7 @@ class ann_mg_index {
       RAFT_LOG_INFO("REPLICATED BUILD: %d*%drows", num_ranks_, n_rows);
 
       ann_interfaces_.resize(num_ranks_);
-      #pragma omp parallel for num_threads(num_ranks_)
+      #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
         int dev_id = clique.device_ids_[rank];
         const raft::device_resources& dev_res = clique.device_resources_[rank];
@@ -275,7 +275,7 @@ class ann_mg_index {
       RAFT_LOG_INFO("SHARDED BUILD: %d*%drows", num_ranks_, n_rows_per_shard);
 
       ann_interfaces_.resize(num_ranks_);
-      #pragma omp parallel for num_threads(num_ranks_)
+      #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
         int dev_id = clique.device_ids_[rank];
         const raft::device_resources& dev_res = clique.device_resources_[rank];
@@ -300,7 +300,7 @@ class ann_mg_index {
     if (mode_ == REPLICATED) {
       RAFT_LOG_INFO("REPLICATED EXTEND: %d*%drows", num_ranks_, n_rows);
 
-      #pragma omp parallel for num_threads(num_ranks_)
+      #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
         int dev_id = clique.device_ids_[rank];
         const raft::device_resources& dev_res = clique.device_resources_[rank];
@@ -316,7 +316,7 @@ class ann_mg_index {
 
       RAFT_LOG_INFO("SHARDED EXTEND: %d*%drows", num_ranks_, n_rows_per_shard);
 
-      #pragma omp parallel for num_threads(num_ranks_)
+      #pragma omp parallel for
       for (int rank = 0; rank < num_ranks_; rank++) {
         int dev_id = clique.device_ids_[rank];
         const raft::device_resources& dev_res = clique.device_resources_[rank];
@@ -357,7 +357,7 @@ class ann_mg_index {
     if (mode_ == REPLICATED) {
       RAFT_LOG_INFO("REPLICATED SEARCH: %d*%drows", n_batches, n_rows_per_batch);
 
-      #pragma omp parallel for num_threads(num_ranks_) // avoid oversubscribing any given GPU
+      #pragma omp parallel for
       for (IdxT batch_idx = 0; batch_idx < n_batches; batch_idx++) {
         int rank = batch_idx % num_ranks_; // alternate GPUs
         int dev_id = clique.device_ids_[rank];
@@ -413,6 +413,7 @@ class ann_mg_index {
         auto query_partition = raft::make_host_matrix_view<const T, IdxT, row_major>(
           query_dataset.data_handle() + query_offset, n_rows_of_current_batch, n_cols);
 
+        // should use at least num_ranks_ threads to avoid NCCL hang
         #pragma omp parallel for num_threads(num_ranks_)
         for (int rank = 0; rank < num_ranks_; rank++) {
           int dev_id = clique.device_ids_[rank];
@@ -450,6 +451,7 @@ class ann_mg_index {
               auto d_distances = raft::make_device_matrix<float, IdxT, row_major>(dev_res, n_rows_of_current_batch, n_neighbors);
               ann_if.search(dev_res, search_params, query_partition, d_neighbors.view(), d_distances.view());
 
+              // send results to root rank
               RAFT_NCCL_TRY(ncclGroupStart());
               comms.device_send(d_neighbors.data_handle(),
                                 n_rows_of_current_batch * n_neighbors,

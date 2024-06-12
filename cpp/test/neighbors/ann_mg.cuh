@@ -207,14 +207,11 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       auto distances = raft::make_host_matrix_view<float, uint32_t, row_major>(
         distances_ann.data(), ps.num_queries, ps.k);
 
-      /*
       {
         auto index = raft::neighbors::mg::build<DataT, uint32_t>(handle_, clique, index_params, index_dataset);
         raft::neighbors::mg::serialize<DataT, uint32_t>(handle_, clique, index, "./cpp/build/ann_mg_cagra_index");
       }
       auto new_index = raft::neighbors::mg::deserialize_cagra<DataT, uint32_t>(handle_, clique, "./cpp/build/ann_mg_cagra_index");
-      */
-      auto new_index = raft::neighbors::mg::build<DataT, uint32_t>(handle_, clique, index_params, index_dataset);
       raft::neighbors::mg::search<DataT, uint32_t>(handle_, clique, new_index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
       resource::sync_stream(handle_);
 
