@@ -128,7 +128,6 @@ struct index : ann::index {
       distances_view_(distances_view),
       return_distances_(return_distances)
   {
-    if (!distances_view.has_value()) { distances_view_ = distances_.value().view(); }
   }
 
   /** Distance metric used for clustering. */
