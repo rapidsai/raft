@@ -19,6 +19,7 @@
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/distance_ops/all_ops.cuh>
+#include <raft/distance/detail/pairwise_matrix/dispatch-ext.cuh>
 #include <raft/distance/detail/pairwise_matrix/dispatch.cuh>
 #include <raft/distance/detail/pairwise_matrix/dispatch_sm60.cuh>
 #include <raft/distance/detail/pairwise_matrix/dispatch_sm80.cuh>
@@ -52,6 +53,7 @@ using distance_tag = std::integral_constant<DistanceType, d>;
  * They are implemented below. The documentation of this function serves as
  * documentation for all functions. The following overloads are defined:
  *
+ * - DistanceType::DiceExpanded:
  * - DistanceType::Canberra:
  * - DistanceType::CorrelationExpanded:
  * - DistanceType::CosineExpanded:
@@ -190,6 +192,70 @@ void distance_impl(raft::resources const& handle,
   OpT corr_op(is_row_major, sq_x_norm, sq_y_norm, m, n, k);
   pairwise_matrix_dispatch<decltype(corr_op), DataT, AccT, OutT, FinOpT, IdxT>(
     corr_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
+}
+
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(raft::resources const& handle,
+                   distance_tag<DistanceType::DiceExpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT* workspace,
+                   size_t worksize,
+                   FinOpT fin_op,
+                   bool is_row_major,
+                   DataT)  // unused
+{
+  // raft distance support inputs as float/double and output as uint8_t/float/double.
+  static_assert(!((sizeof(OutT) > 1) && (sizeof(AccT) != sizeof(OutT))),
+                "OutT can be uint8_t, float, double,"
+                "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
+
+  ASSERT(!(worksize < (m + n) * sizeof(AccT)), "workspace size error");
+  ASSERT(workspace != nullptr, "workspace is null");
+
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+
+  DataT* x_norm = workspace;
+  DataT* y_norm = workspace;
+  // TODO: Column major case looks to have lower accuracy for X == Y,
+  // perhaps the use of stridedSummationKernel could be causing this,
+  // need to investigate and fix.
+  if (x == y && is_row_major) {
+    raft::linalg::rowNorm(
+      x_norm, x, k, std::max(m, n), raft::linalg::L1Norm, is_row_major, stream, {});
+  } else {
+    y_norm += m;
+    raft::linalg::reduce(x_norm,
+                         x,
+                         k,
+                         m,
+                         (AccT)0,
+                         is_row_major,
+                         true,
+                         stream,
+                         false,
+                         raft::identity_op(),
+                         raft::add_op());
+    raft::linalg::reduce(y_norm,
+                         y,
+                         k,
+                         n,
+                         (AccT)0,
+                         is_row_major,
+                         true,
+                         stream,
+                         false,
+                         raft::identity_op(),
+                         raft::add_op());
+  }
+
+  ops::dice_distance_op<DataT, AccT, IdxT> distance_op{};
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -794,9 +860,11 @@ template <raft::distance::DistanceType distanceType,
           typename Index_ = int>
 size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, Index_ k)
 {
-  size_t worksize             = 0;
-  constexpr bool is_allocated = (distanceType <= raft::distance::DistanceType::CosineExpanded) ||
-                                (distanceType == raft::distance::DistanceType::CorrelationExpanded);
+  size_t worksize = 0;
+  constexpr bool is_allocated =
+    (distanceType <= raft::distance::DistanceType::CosineExpanded) ||
+    (distanceType == raft::distance::DistanceType::CorrelationExpanded) ||
+    (distanceType == raft::distance::DistanceType::DiceExpanded);
   constexpr int numOfBuffers =
     (distanceType == raft::distance::DistanceType::CorrelationExpanded) ? 2 : 1;
 

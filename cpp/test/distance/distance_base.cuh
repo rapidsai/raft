@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include "../test_utils.cuh"
-
 #include <raft/common/nvtx.hpp>         // common::nvtx::range
 #include <raft/core/device_mdspan.hpp>  // make_device_matrix_view
 #include <raft/core/operators.hpp>      // raft::sqrt
@@ -28,6 +26,8 @@
 #include <rmm/device_uvector.hpp>  // rmm::device_uvector
 
 #include <gtest/gtest.h>
+
+#include <vector>
 
 namespace raft {
 namespace distance {
@@ -94,6 +94,34 @@ RAFT_KERNEL naiveL1_Linf_CanberraDistanceKernel(DataType* dist,
 
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
+}
+
+template <typename DataType>
+RAFT_KERNEL naiveDiceDistanceKernel(
+  DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
+{
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) { return; }
+
+  DataType acc_a  = DataType(0);
+  DataType acc_b  = DataType(0);
+  DataType acc_ab = DataType(0);
+
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a   = x[xidx];
+    auto b   = y[yidx];
+    acc_a += a;
+    acc_b += b;
+    acc_ab += a * b;
+  }
+
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+
+  // Use 1.0 - (dice similarity) to calc the distance
+  dist[outidx] = (DataType)1.0 - (2 * acc_ab / ((acc_a) + (acc_b)));
 }
 
 template <typename DataType>
@@ -390,6 +418,9 @@ void naiveDistance(DataType* dist,
     case raft::distance::DistanceType::CorrelationExpanded:
       naiveCorrelationDistanceKernel<DataType>
         <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::DiceExpanded:
+      naiveDiceDistanceKernel<DataType><<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default: FAIL() << "should be here\n";
   }
