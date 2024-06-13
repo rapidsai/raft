@@ -155,7 +155,8 @@ struct index : ann::index {
   }
 
   /** neighborhood graph distances [size, graph-degree] */
-  [[nodiscard]] inline auto distances() noexcept -> std::optional<device_matrix_view<T, int64_t, row_major>>
+  [[nodiscard]] inline auto distances() noexcept
+    -> std::optional<device_matrix_view<T, int64_t, row_major>>
   {
     return distances_view_;
   }
