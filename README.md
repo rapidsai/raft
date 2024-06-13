@@ -27,7 +27,7 @@
 - [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
 - [RAFT Getting Started](./docs/source/quick_start.md): Getting started with RAFT.
 - [Build and Install RAFT](./docs/source/build.md): Instructions for installing and building RAFT.
-- [Example Notebooks](./notebooks): Example jupyer notebooks
+- [Example Notebooks](./notebooks): Example jupyter notebooks
 - [RAPIDS Community](https://rapids.ai/community.html): Get help, contribute, and collaborate.
 - [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
 - [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
@@ -293,7 +293,7 @@ You can also install the conda packages individually using the `mamba` command a
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
 ```
 
-If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.06/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
+If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.08/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
 
 ### Installing Python through Pip
 

@@ -82,6 +82,7 @@ requirements:
     - pyyaml
     # rmm is needed to determine if package is gpu-enabled
     - rmm ={{ minor_version }}
+    - rapids-build-backend>=0.3.0,<0.4.0.dev0
 
   run:
     - python

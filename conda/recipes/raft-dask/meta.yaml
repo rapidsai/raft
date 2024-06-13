@@ -55,9 +55,9 @@ requirements:
     - python x.x
     - rmm ={{ minor_version }}
     - scikit-build-core >=0.7.0
-    - setuptools
     - ucx-py {{ ucx_py_version }}
     - ucxx {{ ucxx_version }}
+    - rapids-build-backend>=0.3.0,<0.4.0.dev0
   run:
     {% if cuda_major == "11" %}
     - cudatoolkit
