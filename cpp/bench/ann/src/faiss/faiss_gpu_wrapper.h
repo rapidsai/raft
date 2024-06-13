@@ -205,7 +205,7 @@ void FaissGpu<T>::build(const T* dataset, size_t nrow)
         nlist_,
         index_ivf->cp.min_points_per_centroid);
     }
-    index_ivf->cp.max_points_per_centroid = 300;
+    index_ivf->cp.max_points_per_centroid = max_ppc;
     index_ivf->cp.min_points_per_centroid = min_ppc;
   }
   index_->train(nrow, dataset);  // faiss::gpu::GpuIndexFlat::train() will do nothing
