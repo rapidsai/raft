@@ -108,14 +108,19 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
             auto index = nn_descent::build<DataT, IdxT>(handle_, index_params, database_host_view);
             raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
-            raft::copy(
-              distances_NNDescent.data(), index.distances().data_handle(), queries_size, stream_);
+            if(index.distances().has_value()) {
+              raft::copy(
+              distances_NNDescent.data(), index.distances().value().data_handle(), queries_size, stream_);
+            }
+            
           } else {
             auto index = nn_descent::build<DataT, IdxT>(handle_, index_params, database_view);
             raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
-            raft::copy(
-              distances_NNDescent.data(), index.distances().data_handle(), queries_size, stream_);
+            if(index.distances().has_value()) {
+              raft::copy(
+              distances_NNDescent.data(), index.distances().value().data_handle(), queries_size, stream_);
+            }
           };
         }
         resource::sync_stream(handle_);

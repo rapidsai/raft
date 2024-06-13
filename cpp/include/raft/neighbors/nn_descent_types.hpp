@@ -155,13 +155,9 @@ struct index : ann::index {
   }
 
   /** neighborhood graph distances [size, graph-degree] */
-  [[nodiscard]] inline auto distances() noexcept -> device_matrix_view<T, int64_t, row_major>
+  [[nodiscard]] inline auto distances() noexcept -> std::optional<device_matrix_view<T, int64_t, row_major>>
   {
-    if (distances_view_.has_value()) {
-      return distances_view_.value();
-    } else {
-      return raft::make_device_matrix<T, int64_t>(res_, 0, 0).view();
-    }
+    return distances_view_;
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
