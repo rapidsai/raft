@@ -1444,7 +1444,7 @@ void build(raft::resources const& res,
                 .value_or(raft::make_device_matrix<float, int64_t>(res, 0, 0).view())
                 .data_handle());
   } else {
-    RAFT_EXPECTS(false,
+    RAFT_EXPECTS(!params.return_distances,
                  "Distance view not allocated. Using return_distances set to true requires "
                  "distance view to be allocated.");
   }
