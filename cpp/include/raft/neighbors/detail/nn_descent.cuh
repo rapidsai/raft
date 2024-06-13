@@ -1435,16 +1435,12 @@ void build(raft::resources const& res,
 
   GNND<const T, int> nnd(res, build_config);
 
-  if (idx.distances().has_value()) {
-    nnd.build(dataset.data_handle(),
-              dataset.extent(0),
-              int_graph.data_handle(),
-              params.return_distances,
-              idx.distances().value().data_handle());
-  } else {
-    RAFT_EXPECTS(
-      false, "Distance view not allocated. Using NN Descent requires return_distances to be true");
-  }
+  // auto distances_graph = raft::make_device_matrix<float, int64_t>(res, 0, 0)
+  nnd.build(dataset.data_handle(),
+            dataset.extent(0),
+            int_graph.data_handle(),
+            params.return_distances,
+            idx.distances().value_or(raft::make_device_matrix<float, int64_t>(res, 0, 0).view()).data_handle());
 
 #pragma omp parallel for
   for (size_t i = 0; i < static_cast<size_t>(dataset.extent(0)); i++) {
