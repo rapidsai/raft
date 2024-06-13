@@ -240,7 +240,7 @@ void build_knn_graph(raft::resources const& res,
                      raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
                      experimental::nn_descent::index_params build_params)
 {
-  auto nn_descent_idx = experimental::nn_descent::index<float, IdxT>(res, knn_graph);
+  auto nn_descent_idx = experimental::nn_descent::index<IdxT>(res, knn_graph);
   experimental::nn_descent::build<DataT, IdxT>(res, build_params, dataset, nn_descent_idx);
 
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;

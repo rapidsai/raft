@@ -1391,7 +1391,7 @@ template <typename T,
 void build(raft::resources const& res,
            const index_params& params,
            mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
-           index<DistData_t, IdxT>& idx)
+           index<IdxT>& idx)
 {
   RAFT_EXPECTS(dataset.extent(0) < std::numeric_limits<int>::max() - 1,
                "The dataset size for GNND should be less than %d",
@@ -1435,12 +1435,19 @@ void build(raft::resources const& res,
 
   GNND<const T, int> nnd(res, build_config);
 
-  // auto distances_graph = raft::make_device_matrix<float, int64_t>(res, 0, 0)
-  nnd.build(dataset.data_handle(),
-            dataset.extent(0),
-            int_graph.data_handle(),
-            params.return_distances,
-            idx.distances().value_or(raft::make_device_matrix<float, int64_t>(res, 0, 0).view()).data_handle());
+  if (idx.distances().has_value() || !params.return_distances) {
+    nnd.build(dataset.data_handle(),
+              dataset.extent(0),
+              int_graph.data_handle(),
+              params.return_distances,
+              idx.distances()
+                .value_or(raft::make_device_matrix<float, int64_t>(res, 0, 0).view())
+                .data_handle());
+  } else {
+    RAFT_EXPECTS(false,
+                 "Distance view not allocated. Using return_distances set to true requires "
+                 "distance view to be allocated.");
+  }
 
 #pragma omp parallel for
   for (size_t i = 0; i < static_cast<size_t>(dataset.extent(0)); i++) {
@@ -1455,9 +1462,9 @@ template <typename T,
           typename IdxT = uint32_t,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
-index<DistData_t, IdxT> build(raft::resources const& res,
-                              const index_params& params,
-                              mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
+index<IdxT> build(raft::resources const& res,
+                  const index_params& params,
+                  mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
 {
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
@@ -1471,7 +1478,7 @@ index<DistData_t, IdxT> build(raft::resources const& res,
     graph_degree = intermediate_degree;
   }
 
-  index<DistData_t, IdxT> idx{
+  index<IdxT> idx{
     res, dataset.extent(0), static_cast<int64_t>(graph_degree), params.return_distances};
 
   build(res, params, dataset, idx);

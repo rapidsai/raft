@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,9 +56,9 @@ namespace raft::neighbors::experimental::nn_descent {
  * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
 template <typename T, typename IdxT = uint32_t>
-index<detail::DistData_t, IdxT> build(raft::resources const& res,
-                                      index_params const& params,
-                                      raft::device_matrix_view<const T, int64_t, row_major> dataset)
+index<IdxT> build(raft::resources const& res,
+                  index_params const& params,
+                  raft::device_matrix_view<const T, int64_t, row_major> dataset)
 {
   return detail::build<T, IdxT>(res, params, dataset);
 }
@@ -97,7 +97,7 @@ template <typename T, typename IdxT = uint32_t>
 void build(raft::resources const& res,
            index_params const& params,
            raft::device_matrix_view<const T, int64_t, row_major> dataset,
-           index<detail::DistData_t, IdxT>& idx)
+           index<IdxT>& idx)
 {
   detail::build<T, IdxT>(res, params, dataset, idx);
 }
@@ -130,9 +130,9 @@ void build(raft::resources const& res,
  * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
 template <typename T, typename IdxT = uint32_t>
-index<detail::DistData_t, IdxT> build(raft::resources const& res,
-                                      index_params const& params,
-                                      raft::host_matrix_view<const T, int64_t, row_major> dataset)
+index<IdxT> build(raft::resources const& res,
+                  index_params const& params,
+                  raft::host_matrix_view<const T, int64_t, row_major> dataset)
 {
   return detail::build<T, IdxT>(res, params, dataset);
 }
@@ -171,7 +171,7 @@ template <typename T, typename IdxT = uint32_t>
 void build(raft::resources const& res,
            index_params const& params,
            raft::host_matrix_view<const T, int64_t, row_major> dataset,
-           index<detail::DistData_t, IdxT>& idx)
+           index<IdxT>& idx)
 {
   detail::build<T, IdxT>(res, params, dataset, idx);
 }
