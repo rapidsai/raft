@@ -24,7 +24,7 @@ template <typename DataType>
 class DistanceExpDice : public DistanceTest<raft::distance::DistanceType::DiceExpanded, DataType> {
 };
 
-const std::vector<DistanceInputs<float>> inputsd = {
+const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL},
   {0.001, 1024, 32, 1024, true, 1234ULL},
   {0.001, 32, 1024, 1024, true, 1234ULL},
@@ -34,7 +34,7 @@ const std::vector<DistanceInputs<float>> inputsd = {
   {0.001f, 32, 1024, 1024, false, 1234ULL},
   {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
-typedef DistanceExpDice<float> DistanceExpDiceD;
+typedef DistanceExpDice<double> DistanceExpDiceD;
 TEST_P(DistanceExpDiceD, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;

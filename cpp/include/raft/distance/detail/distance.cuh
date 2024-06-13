@@ -19,7 +19,6 @@
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/distance_ops/all_ops.cuh>
-#include <raft/distance/detail/pairwise_matrix/dispatch-ext.cuh>
 #include <raft/distance/detail/pairwise_matrix/dispatch.cuh>
 #include <raft/distance/detail/pairwise_matrix/dispatch_sm60.cuh>
 #include <raft/distance/detail/pairwise_matrix/dispatch_sm80.cuh>
