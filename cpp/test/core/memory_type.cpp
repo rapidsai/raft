@@ -49,7 +49,7 @@ TEST(MemoryTypeFromPointer, Host)
   auto ptr1 = static_cast<void*>(nullptr);
   cudaMallocHost(&ptr1, 1);
   EXPECT_EQ(memory_type_from_pointer(ptr1), memory_type::host);
-  cudaFree(ptr1);
+  cudaFreeHost(ptr1);
   auto ptr2 = static_cast<void*>(nullptr);
   EXPECT_EQ(memory_type_from_pointer(ptr2), memory_type::host);
 }
