@@ -145,7 +145,7 @@ class ann_interface {
     } else if constexpr (std::is_same<AnnIndexType, ivf_pq::index<IdxT>>::value) {
       ivf_pq::serialize<IdxT>(handle, os, index_.value());
     } else if constexpr (std::is_same<AnnIndexType, cagra::index<T, IdxT>>::value) {
-      cagra::serialize<T, IdxT>(handle, os, index_.value());
+      cagra::serialize<T, IdxT>(handle, os, index_.value(), true);
     }
   }
 

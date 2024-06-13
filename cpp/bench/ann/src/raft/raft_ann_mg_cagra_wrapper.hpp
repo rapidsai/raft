@@ -50,8 +50,10 @@ class RaftAnnMG_Cagra : public RaftAnnMG<T> {
       index_params_(param),
       dimension_(dim)
   {
-    index_params_.cagra_params.metric         = parse_metric_type(metric);
-    index_params_.ivf_pq_build_params->metric = parse_metric_type(metric);
+    index_params_.cagra_params.add_data_on_build  = true;
+    index_params_.cagra_params.mode               = raft::neighbors::mg::parallel_mode::SHARDED;
+    index_params_.cagra_params.metric             = parse_metric_type(metric);
+    index_params_.ivf_pq_build_params->metric     = parse_metric_type(metric);
   }
 
   void build(const T* dataset, size_t nrow) final;
