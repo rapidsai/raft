@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,12 +55,13 @@ namespace raft::neighbors::experimental::nn_descent {
  *                in device memory
  * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
-template <typename T, typename IdxT = uint32_t>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
 index<IdxT> build(raft::resources const& res,
                   index_params const& params,
-                  raft::device_matrix_view<const T, int64_t, row_major> dataset)
+                  raft::device_matrix_view<const T, int64_t, row_major> dataset,
+                  epilogue_op distance_epilogue = raft::identity_op())
 {
-  return detail::build<T, IdxT>(res, params, dataset);
+  return detail::build<T, IdxT>(res, params, dataset, distance_epilogue);
 }
 
 /**
@@ -93,13 +94,14 @@ index<IdxT> build(raft::resources const& res,
  * @param[out] idx raft::neighbors::experimental::nn_descentindex containing all-neighbors knn graph
  * in host memory
  */
-template <typename T, typename IdxT = uint32_t>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
 void build(raft::resources const& res,
            index_params const& params,
            raft::device_matrix_view<const T, int64_t, row_major> dataset,
-           index<IdxT>& idx)
+           index<IdxT>& idx,
+           epilogue_op distance_epilogue = raft::identity_op())
 {
-  detail::build<T, IdxT>(res, params, dataset, idx);
+  detail::build<T, IdxT>(res, params, dataset, idx, distance_epilogue);
 }
 
 /**
@@ -129,12 +131,13 @@ void build(raft::resources const& res,
  *                in host memory
  * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
-template <typename T, typename IdxT = uint32_t>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
 index<IdxT> build(raft::resources const& res,
                   index_params const& params,
-                  raft::host_matrix_view<const T, int64_t, row_major> dataset)
+                  raft::host_matrix_view<const T, int64_t, row_major> dataset,
+                  epilogue_op distance_epilogue = raft::identity_op())
 {
-  return detail::build<T, IdxT>(res, params, dataset);
+  return detail::build<T, IdxT>(res, params, dataset, distance_epilogue);
 }
 
 /**
@@ -167,13 +170,14 @@ index<IdxT> build(raft::resources const& res,
  * @param[out] idx raft::neighbors::experimental::nn_descentindex containing all-neighbors knn graph
  * in host memory
  */
-template <typename T, typename IdxT = uint32_t>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
 void build(raft::resources const& res,
            index_params const& params,
            raft::host_matrix_view<const T, int64_t, row_major> dataset,
-           index<IdxT>& idx)
+           index<IdxT>& idx,
+           epilogue_op distance_epilogue = raft::identity_op())
 {
-  detail::build<T, IdxT>(res, params, dataset, idx);
+  detail::build<T, IdxT>(res, params, dataset, idx, distance_epilogue);
 }
 
 /** @} */  // end group nn-descent
