@@ -505,9 +505,9 @@ if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
         python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/raft-dask
 fi
 
-# Build and (optionally) install the raft-ann-bench Python package
+# Build and (optionally) install the raft_ann_bench Python package
 if (( ${NUMARGS} == 0 )) || hasArg bench-ann; then
-    python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/raft-ann-bench -vvv
+    python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/raft_ann_bench -vvv
 fi
 
 if hasArg docs; then

@@ -39,10 +39,10 @@ mamba create --name raft_ann_benchmarks
 conda activate raft_ann_benchmarks
 
 # to install GPU package:
-mamba install -c rapidsai -c conda-forge -c nvidia raft-ann-bench=<rapids_version> cuda-version=11.8*
+mamba install -c rapidsai -c conda-forge -c nvidia raft_ann_bench=<rapids_version> cuda-version=11.8*
 
 # to install CPU package for usage in CPU-only systems:
-mamba install -c rapidsai -c conda-forge  raft-ann-bench-cpu
+mamba install -c rapidsai -c conda-forge  raft_ann_bench-cpu
 ```
 
 The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired. The CPU package currently allows to run the HNSW benchmarks.
@@ -53,16 +53,16 @@ Please see the [build instructions](ann_benchmarks_build.md) to build the benchm
 
 We provide images for GPU enabled systems, as well as systems without a GPU. The following images are available:
 
-- `raft-ann-bench`: Contains GPU and CPU benchmarks, can run all algorithms supported. Will download million-scale datasets as required. Best suited for users that prefer a smaller container size for GPU based systems. Requires the NVIDIA Container Toolkit to run GPU algorithms, can run CPU algorithms without it.
-- `raft-ann-bench-datasets`: Contains the GPU and CPU benchmarks with million-scale datasets already included in the container. Best suited for users that want to run multiple million scale datasets already included in the image.
-- `raft-ann-bench-cpu`: Contains only CPU benchmarks with minimal size. Best suited for users that want the smallest containers to reproduce benchmarks on systems without a GPU.
+- `raft_ann_bench`: Contains GPU and CPU benchmarks, can run all algorithms supported. Will download million-scale datasets as required. Best suited for users that prefer a smaller container size for GPU based systems. Requires the NVIDIA Container Toolkit to run GPU algorithms, can run CPU algorithms without it.
+- `raft_ann_bench-datasets`: Contains the GPU and CPU benchmarks with million-scale datasets already included in the container. Best suited for users that want to run multiple million scale datasets already included in the image.
+- `raft_ann_bench-cpu`: Contains only CPU benchmarks with minimal size. Best suited for users that want the smallest containers to reproduce benchmarks on systems without a GPU.
 
-Nightly images are located in [dockerhub](https://hub.docker.com/r/rapidsai/raft-ann-bench/tags), meanwhile release (stable) versions are located in [NGC](https://hub.docker.com/r/rapidsai/raft-ann-bench), starting with release 23.12.
+Nightly images are located in [dockerhub](https://hub.docker.com/r/rapidsai/raft_ann_bench/tags), meanwhile release (stable) versions are located in [NGC](https://hub.docker.com/r/rapidsai/raft_ann_bench), starting with release 23.12.
 
 - The following command pulls the nightly container for python version 10, cuda version 12, and RAFT version 23.10:
 
 ```bash
-docker pull rapidsai/raft-ann-bench:24.08a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
+docker pull rapidsai/raft_ann_bench:24.08a-cuda12.0-py3.10 #substitute raft_ann_bench for the exact desired container.
 ```
 
 The CUDA and python versions can be changed for the supported values:
@@ -72,9 +72,9 @@ Supported Python versions: 3.9 and 3.10.
 
 You can see the exact versions as well in the dockerhub site:
 
-- [RAFT ANN Benchmark images](https://hub.docker.com/r/rapidsai/raft-ann-bench/tags)
-- [RAFT ANN Benchmark with datasets preloaded images](https://hub.docker.com/r/rapidsai/raft-ann-bench-cpu/tags)
-- [RAFT ANN Benchmark CPU only images](https://hub.docker.com/r/rapidsai/raft-ann-bench-datasets/tags)
+- [RAFT ANN Benchmark images](https://hub.docker.com/r/rapidsai/raft_ann_bench/tags)
+- [RAFT ANN Benchmark with datasets preloaded images](https://hub.docker.com/r/rapidsai/raft_ann_bench-cpu/tags)
+- [RAFT ANN Benchmark CPU only images](https://hub.docker.com/r/rapidsai/raft_ann_bench-datasets/tags)
 
 **Note:** GPU containers use the CUDA toolkit from inside the container, the only requirement is a driver installed on the host machine that supports that version. So, for example, CUDA 11.8 containers can run in systems with a CUDA 12.x capable driver. Please also note that the Nvidia-Docker runtime from the [Nvidia Container Toolkit](https://github.com/NVIDIA/nvidia-docker) is required to use GPUs inside docker containers.
 
@@ -83,7 +83,7 @@ You can see the exact versions as well in the dockerhub site:
 [//]: # ()
 [//]: # (```bash)
 
-[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:24.08-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.)
+[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft_ann_bench:24.08-cuda11.8-py3.10 #substitute raft_ann_bench for the exact desired container.)
 
 [//]: # (```)
 
@@ -344,7 +344,7 @@ For GPU-enabled systems, the `DATA_FOLDER` variable should be a local folder whe
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run --gpus all --rm -it -u $(id -u)                      \
     -v $DATA_FOLDER:/data/benchmarks                            \
-    rapidsai/raft-ann-bench:24.08a-cuda11.8-py3.10              \
+    rapidsai/raft_ann_bench:24.08a-cuda11.8-py3.10              \
     "--dataset deep-image-96-angular"                           \
     "--normalize"                                               \
     "--algorithms raft_cagra,raft_ivf_pq --batch-size 10 -k 10" \
@@ -355,7 +355,7 @@ Usage of the above command is as follows:
 
 | Argument                                                  | Description                                                                                        |
 |-----------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| `rapidsai/raft-ann-bench:24.08a-cuda11.8-py3.10`          | Image to use. Can be either `raft-ann-bench` or `raft-ann-bench-datasets`                          |
+| `rapidsai/raft_ann_bench:24.08a-cuda11.8-py3.10`          | Image to use. Can be either `raft_ann_bench` or `raft_ann_bench-datasets`                          |
 | `"--dataset deep-image-96-angular"`                       | Dataset name                                                                                       |
 | `"--normalize"`                                           | Whether to normalize the dataset                                                                   |
 | `"--algorithms raft_cagra,hnswlib --batch-size 10 -k 10"` | Arguments passed to the `run` script, such as the algorithms to benchmark, the batch size, and `k` |
@@ -367,12 +367,12 @@ Usage of the above command is as follows:
 
 The container arguments in the above section also be used for the CPU-only container, which can be used on systems that don't have a GPU installed. 
 
-***Note:*** the image changes to `raft-ann-bench-cpu` container and the `--gpus all` argument is no longer used:
+***Note:*** the image changes to `raft_ann_bench-cpu` container and the `--gpus all` argument is no longer used:
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run  --rm -it -u $(id -u)                  \
     -v $DATA_FOLDER:/data/benchmarks              \
-    rapidsai/raft-ann-bench-cpu:24.08a-py3.10     \
+    rapidsai/raft_ann_bench-cpu:24.08a-py3.10     \
      "--dataset deep-image-96-angular"            \
      "--normalize"                                \
      "--algorithms hnswlib --batch-size 10 -k 10" \
@@ -381,7 +381,7 @@ docker run  --rm -it -u $(id -u)                  \
 
 #### Manually run the scripts inside the container
 
-All of the `raft-ann-bench` images contain the Conda packages, so they can be used directly by logging directly into the container itself:
+All of the `raft_ann_bench` images contain the Conda packages, so they can be used directly by logging directly into the container itself:
 
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
@@ -389,10 +389,10 @@ docker run --gpus all --rm -it -u $(id -u)          \
     --entrypoint /bin/bash                          \
     --workdir /data/benchmarks                      \
     -v $DATA_FOLDER:/data/benchmarks                \
-    rapidsai/raft-ann-bench:24.08a-cuda11.8-py3.10 
+    rapidsai/raft_ann_bench:24.08a-cuda11.8-py3.10 
 ```
 
-This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) section above:
+This will drop you into a command line in the container, with the `raft_ann_bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) section above:
 
 ```
 (base) root@00b068fbb862:/data/benchmarks# python -m raft_ann_bench.get_dataset --dataset deep-image-96-angular --normalize
@@ -441,7 +441,7 @@ Note the following:
 
 A single configuration will often define a set of algorithms, with associated index and search parameters, that can be generalize across datasets. We use YAML to define dataset specific and algorithm specific configurations.
 
-<a id='yaml-dataset-config'></a>A default `datasets.yaml` is provided by RAFT in `${RAFT_HOME}/python/raft-ann-bench/src/raft_ann_bench/run/conf` with configurations available for several datasets. Here's a simple example entry for the `sift-128-euclidean` dataset:
+<a id='yaml-dataset-config'></a>A default `datasets.yaml` is provided by RAFT in `${RAFT_HOME}/python/raft_ann_bench/src/raft_ann_bench/run/conf` with configurations available for several datasets. Here's a simple example entry for the `sift-128-euclidean` dataset:
 
 ```yaml
 - name: sift-128-euclidean
@@ -452,7 +452,7 @@ A single configuration will often define a set of algorithms, with associated in
   distance: euclidean
 ```
 
-<a id='yaml-algo-config'></a>Configuration files for ANN algorithms supported by `raft-ann-bench` are provided in `${RAFT_HOME}/python/raft-ann-bench/src/raft_ann_bench/run/conf`. `raft_cagra` algorithm configuration looks like:
+<a id='yaml-algo-config'></a>Configuration files for ANN algorithms supported by `raft_ann_bench` are provided in `${RAFT_HOME}/python/raft_ann_bench/src/raft_ann_bench/run/conf`. `raft_cagra` algorithm configuration looks like:
 ```yaml
 name: raft_cagra
 groups:

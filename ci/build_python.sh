@@ -40,7 +40,7 @@ rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   --channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
-  conda/recipes/raft-ann-bench
+  conda/recipes/raft_ann_bench
 
 # Build ann-bench-cpu only in CUDA 11 jobs since it only depends on python
 # version
@@ -50,7 +50,7 @@ if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
   --no-test \
   --channel "${CPP_CHANNEL}" \
   --channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
-  conda/recipes/raft-ann-bench-cpu
+  conda/recipes/raft_ann_bench-cpu
 fi
 
 rapids-upload-conda-to-s3 python

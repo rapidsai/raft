@@ -40,3 +40,6 @@ hnswlib:
 raft_cagra_hnswlib:
   executable: RAFT_CAGRA_HNSWLIB_ANN_BENCH
   requires_gpu: true
+diskann:
+  executable: DISKANN_ANN_BENCH
+  requires_gpu: true

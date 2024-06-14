@@ -1,0 +1,509 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 3d3d2b8..1f6ca4f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -145,7 +145,7 @@ if (MSVC)
+         "${DISKANN_MKL_LIB_PATH}/mkl_intel_thread.lib")
+ else()
+     # expected path for manual intel mkl installs
+-    set(POSSIBLE_OMP_PATHS "/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin/libiomp5.so;/usr/lib/x86_64-linux-gnu/libiomp5.so;/opt/intel/lib/intel64_lin/libiomp5.so")
++    set(POSSIBLE_OMP_PATHS "/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin/libiomp5.so;/usr/lib/x86_64-linux-gnu/libiomp5.so;/opt/intel/lib/intel64_lin/libiomp5.so;/raid/tarangj/miniconda3/envs/all_cuda-122_arch-x86_64/lib/libiomp5.so")
+     foreach(POSSIBLE_OMP_PATH ${POSSIBLE_OMP_PATHS})
+         if (EXISTS ${POSSIBLE_OMP_PATH})
+             get_filename_component(OMP_PATH ${POSSIBLE_OMP_PATH} DIRECTORY)
+@@ -157,7 +157,7 @@ else()
+     endif()
+     link_directories(${OMP_PATH})
+ 
+-    set(POSSIBLE_MKL_LIB_PATHS "/opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_core.so;/usr/lib/x86_64-linux-gnu/libmkl_core.so;/opt/intel/mkl/lib/intel64/libmkl_core.so")
++    set(POSSIBLE_MKL_LIB_PATHS "/opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_core.so;/usr/lib/x86_64-linux-gnu/libmkl_core.so;/opt/intel/mkl/lib/intel64/libmkl_core.so;/raid/tarangj/miniconda3/envs/all_cuda-122_arch-x86_64/lib/libmkl_core.so")
+     foreach(POSSIBLE_MKL_LIB_PATH ${POSSIBLE_MKL_LIB_PATHS})
+         if (EXISTS ${POSSIBLE_MKL_LIB_PATH})
+             get_filename_component(MKL_PATH ${POSSIBLE_MKL_LIB_PATH} DIRECTORY)
+@@ -188,7 +188,7 @@ else()
+     # compile flags and link libraries
+     add_compile_options(-m64 -Wl,--no-as-needed)
+     if (NOT PYBIND)
+-        link_libraries(mkl_intel_ilp64 mkl_intel_thread mkl_core iomp5 pthread m dl)
++        link_libraries(mkl_intel_ilp64 mkl_intel_thread mkl_core iomp5 pthread m dl aio)
+     else()
+         # static linking for python so as to minimize customer dependency issues
+         link_libraries(
+@@ -286,7 +286,7 @@ if(MSVC)
+ 	set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${PROJECT_SOURCE_DIR}/x64/Release)
+ else()
+     set(ENV{TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD} 500000000000)
+-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2")
++    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -fno-finite-math-only")
+     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DDEBUG")
+     if (NOT PYBIND)
+         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG -Ofast")
+@@ -300,10 +300,10 @@ else()
+ endif()
+ 
+ add_subdirectory(src)
+-if (NOT PYBIND)
+-    add_subdirectory(apps)
+-    add_subdirectory(apps/utils)
+-endif()
++#if (NOT PYBIND)
++#    add_subdirectory(apps)
++#    add_subdirectory(apps/utils)
++#endif()
+ 
+ if (UNIT_TEST)
+     enable_testing()
+diff --git a/build.sh b/build.sh
+new file mode 100755
+index 0000000..a5a12fe
+--- /dev/null
++++ b/build.sh
+@@ -0,0 +1,36 @@
++#!/bin/bash
++
++# NOTE: This file is temporary for the proof-of-concept branch and will be removed before this PR is merged
++
++BUILD_TYPE=Release
++BUILD_DIR=build/
++
++RAFT_REPO_REL=""
++EXTRA_CMAKE_ARGS=""
++set -e
++
++if [[ ${RAFT_REPO_REL} != "" ]]; then
++  RAFT_REPO_PATH="`readlink -f \"${RAFT_REPO_REL}\"`"
++  EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DCPM_raft_SOURCE=${RAFT_REPO_PATH}"
++fi
++
++if [ "$1" == "clean" ]; then
++  rm -rf build
++  rm -rf .cache
++  exit 0
++fi
++
++mkdir -p $BUILD_DIR
++cd $BUILD_DIR
++
++cmake \
++ -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
++ -DCMAKE_CUDA_ARCHITECTURES="NATIVE" \
++ -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
++ -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache \
++ -DCMAKE_C_COMPILER_LAUNCHER=ccache \
++ -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
++ ${EXTRA_CMAKE_ARGS} \
++ ../
++
++make -j30
+\ No newline at end of file
+diff --git a/include/abstract_graph_store.h b/include/abstract_graph_store.h
+index 4d6906c..80c8dc4 100644
+--- a/include/abstract_graph_store.h
++++ b/include/abstract_graph_store.h
+@@ -48,6 +48,8 @@ class AbstractGraphStore
+         return _capacity;
+     }
+ 
++    virtual std::vector<std::vector<uint32_t>>& graph() = 0;
++
+   protected:
+     // Internal function, changes total points when resize_graph is called.
+     void set_total_points(size_t new_capacity)
+diff --git a/include/distance.h b/include/distance.h
+index f3b1de2..c2f0728 100644
+--- a/include/distance.h
++++ b/include/distance.h
+@@ -77,7 +77,8 @@ class DistanceCosineInt8 : public Distance<int8_t>
+     DistanceCosineInt8() : Distance<int8_t>(diskann::Metric::COSINE)
+     {
+     }
+-    DISKANN_DLLEXPORT virtual float compare(const int8_t *a, const int8_t *b, uint32_t length) const;
++    using Distance<int8_t>::compare;
++    DISKANN_DLLEXPORT virtual float compare(const int8_t *a, const int8_t *b, uint32_t length) const override;
+ };
+ 
+ class DistanceL2Int8 : public Distance<int8_t>
+@@ -86,7 +87,8 @@ class DistanceL2Int8 : public Distance<int8_t>
+     DistanceL2Int8() : Distance<int8_t>(diskann::Metric::L2)
+     {
+     }
+-    DISKANN_DLLEXPORT virtual float compare(const int8_t *a, const int8_t *b, uint32_t size) const;
++    using Distance<int8_t>::compare;
++    DISKANN_DLLEXPORT virtual float compare(const int8_t *a, const int8_t *b, uint32_t size) const override;
+ };
+ 
+ // AVX implementations. Borrowed from HNSW code.
+@@ -96,7 +98,8 @@ class AVXDistanceL2Int8 : public Distance<int8_t>
+     AVXDistanceL2Int8() : Distance<int8_t>(diskann::Metric::L2)
+     {
+     }
+-    DISKANN_DLLEXPORT virtual float compare(const int8_t *a, const int8_t *b, uint32_t length) const;
++    using Distance<int8_t>::compare;
++    DISKANN_DLLEXPORT virtual float compare(const int8_t *a, const int8_t *b, uint32_t length) const override;
+ };
+ 
+ class DistanceCosineFloat : public Distance<float>
+@@ -105,7 +108,8 @@ class DistanceCosineFloat : public Distance<float>
+     DistanceCosineFloat() : Distance<float>(diskann::Metric::COSINE)
+     {
+     }
+-    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t length) const;
++    using Distance<float>::compare;
++    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t length) const override;
+ };
+ 
+ class DistanceL2Float : public Distance<float>
+@@ -115,10 +119,11 @@ class DistanceL2Float : public Distance<float>
+     {
+     }
+ 
++    using Distance<float>::compare;
+ #ifdef _WINDOWS
+     DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t size) const;
+ #else
+-    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t size) const __attribute__((hot));
++    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t size) const override __attribute__((hot));
+ #endif
+ };
+ 
+@@ -128,7 +133,8 @@ class AVXDistanceL2Float : public Distance<float>
+     AVXDistanceL2Float() : Distance<float>(diskann::Metric::L2)
+     {
+     }
+-    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t length) const;
++    using Distance<float>::compare;
++    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t length) const override;
+ };
+ 
+ template <typename T> class SlowDistanceL2 : public Distance<T>
+@@ -146,7 +152,8 @@ class SlowDistanceCosineUInt8 : public Distance<uint8_t>
+     SlowDistanceCosineUInt8() : Distance<uint8_t>(diskann::Metric::COSINE)
+     {
+     }
+-    DISKANN_DLLEXPORT virtual float compare(const uint8_t *a, const uint8_t *b, uint32_t length) const;
++    using Distance<uint8_t>::compare;
++    DISKANN_DLLEXPORT virtual float compare(const uint8_t *a, const uint8_t *b, uint32_t length) const override;
+ };
+ 
+ class DistanceL2UInt8 : public Distance<uint8_t>
+@@ -155,7 +162,8 @@ class DistanceL2UInt8 : public Distance<uint8_t>
+     DistanceL2UInt8() : Distance<uint8_t>(diskann::Metric::L2)
+     {
+     }
+-    DISKANN_DLLEXPORT virtual float compare(const uint8_t *a, const uint8_t *b, uint32_t size) const;
++    using Distance<uint8_t>::compare;
++    DISKANN_DLLEXPORT virtual float compare(const uint8_t *a, const uint8_t *b, uint32_t size) const override;
+ };
+ 
+ template <typename T> class DistanceInnerProduct : public Distance<T>
+@@ -198,7 +206,8 @@ class AVXDistanceInnerProductFloat : public Distance<float>
+     AVXDistanceInnerProductFloat() : Distance<float>(diskann::Metric::INNER_PRODUCT)
+     {
+     }
+-    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t length) const;
++    using Distance<float>::compare;
++    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t length) const override;
+ };
+ 
+ class AVXNormalizedCosineDistanceFloat : public Distance<float>
+@@ -213,7 +222,8 @@ class AVXNormalizedCosineDistanceFloat : public Distance<float>
+     AVXNormalizedCosineDistanceFloat() : Distance<float>(diskann::Metric::COSINE)
+     {
+     }
+-    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t length) const
++    using Distance<float>::compare;
++    DISKANN_DLLEXPORT virtual float compare(const float *a, const float *b, uint32_t length) const override
+     {
+         // Inner product returns negative values to indicate distance.
+         // This will ensure that cosine is between -1 and 1.
+diff --git a/include/in_mem_graph_store.h b/include/in_mem_graph_store.h
+index d0206a7..46cdee4 100644
+--- a/include/in_mem_graph_store.h
++++ b/include/in_mem_graph_store.h
+@@ -32,6 +32,8 @@ class InMemGraphStore : public AbstractGraphStore
+     virtual size_t get_max_range_of_graph() override;
+     virtual uint32_t get_max_observed_degree() override;
+ 
++    std::vector<std::vector<uint32_t>>& graph() override;
++
+   protected:
+     virtual std::tuple<uint32_t, uint32_t, size_t> load_impl(const std::string &filename, size_t expected_num_points);
+ #ifdef EXEC_ENV_OLS
+@@ -45,6 +47,7 @@ class InMemGraphStore : public AbstractGraphStore
+     size_t _max_range_of_graph = 0;
+     uint32_t _max_observed_degree = 0;
+ 
++  public:
+     std::vector<std::vector<uint32_t>> _graph;
+ };
+ 
+diff --git a/include/index.h b/include/index.h
+index b9bf4f3..88939a9 100644
+--- a/include/index.h
++++ b/include/index.h
+@@ -66,7 +66,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
+                             const size_t num_frozen_pts = 0, const bool dynamic_index = false,
+                             const bool enable_tags = false, const bool concurrent_consolidate = false,
+                             const bool pq_dist_build = false, const size_t num_pq_chunks = 0,
+-                            const bool use_opq = false, const bool filtered_index = false);
++                            const bool use_opq = false, const bool filtered_index = false,
++                            const bool raft_cagra_graph = false, const size_t raft_cagra_graph_degree = 0);
+ 
+     DISKANN_DLLEXPORT ~Index();
+ 
+@@ -100,6 +101,10 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
+     // Batch build from a data array, which must pad vectors to aligned_dim
+     DISKANN_DLLEXPORT void build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags);
+ 
++    // Batch build from a data array, which must pad vectors to aligned_dim
++    DISKANN_DLLEXPORT void build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags,
++                                 std::vector<std::vector<uint32_t>> &raft_cagra_graph_vec);
++
+     // Based on filter params builds a filtered or unfiltered index
+     DISKANN_DLLEXPORT void build(const std::string &data_file, const size_t num_points_to_load,
+                                  IndexFilterParams &filter_params);
+@@ -236,6 +241,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
+     Index(const Index<T, TagT, LabelT> &) = delete;
+     Index<T, TagT, LabelT> &operator=(const Index<T, TagT, LabelT> &) = delete;
+ 
++    void add_raft_cagra_neighbours(std::vector<std::vector<uint32_t>>& raft_cagra_graph_vec);
++
+     // Use after _data and _nd have been populated
+     // Acquire exclusive _update_lock before calling
+     void build_with_data_populated(const std::vector<TagT> &tags);
+@@ -444,5 +451,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
+     std::vector<non_recursive_mutex> _locks;
+ 
+     static const float INDEX_GROWTH_FACTOR;
++
++    bool _raft_cagra_graph = false;
++    size_t _raft_cagra_graph_degree = 0;
+ };
+ } // namespace diskann
+diff --git a/include/index_config.h b/include/index_config.h
+index 452498b..b6bcdce 100644
+--- a/include/index_config.h
++++ b/include/index_config.h
+@@ -28,9 +28,11 @@ struct IndexConfig
+     bool concurrent_consolidate;
+     bool use_opq;
+     bool filtered_index;
++    bool raft_cagra_graph;
+ 
+     size_t num_pq_chunks;
+     size_t num_frozen_pts;
++    size_t raft_cagra_graph_degree;
+ 
+     std::string label_type;
+     std::string tag_type;
+@@ -43,15 +45,16 @@ struct IndexConfig
+ 
+   private:
+     IndexConfig(DataStoreStrategy data_strategy, GraphStoreStrategy graph_strategy, Metric metric, size_t dimension,
+-                size_t max_points, size_t num_pq_chunks, size_t num_frozen_points, bool dynamic_index, bool enable_tags,
+-                bool pq_dist_build, bool concurrent_consolidate, bool use_opq, bool filtered_index,
+-                std::string &data_type, const std::string &tag_type, const std::string &label_type,
+-                std::shared_ptr<IndexWriteParameters> index_write_params,
++                size_t max_points, size_t num_pq_chunks, size_t num_frozen_points, size_t raft_cagra_graph_degree,
++                bool dynamic_index, bool enable_tags, bool pq_dist_build, bool concurrent_consolidate, bool use_opq,
++                bool filtered_index, bool raft_cagra_graph, std::string &data_type, const std::string &tag_type,
++                const std::string &label_type, std::shared_ptr<IndexWriteParameters> index_write_params,
+                 std::shared_ptr<IndexSearchParams> index_search_params)
+         : data_strategy(data_strategy), graph_strategy(graph_strategy), metric(metric), dimension(dimension),
+           max_points(max_points), dynamic_index(dynamic_index), enable_tags(enable_tags), pq_dist_build(pq_dist_build),
+           concurrent_consolidate(concurrent_consolidate), use_opq(use_opq), filtered_index(filtered_index),
+-          num_pq_chunks(num_pq_chunks), num_frozen_pts(num_frozen_points), label_type(label_type), tag_type(tag_type),
++          raft_cagra_graph(raft_cagra_graph), num_pq_chunks(num_pq_chunks), num_frozen_pts(num_frozen_points),
++          raft_cagra_graph_degree(raft_cagra_graph_degree), label_type(label_type), tag_type(tag_type),
+           data_type(data_type), index_write_params(index_write_params), index_search_params(index_search_params)
+     {
+     }
+@@ -130,6 +133,12 @@ class IndexConfigBuilder
+         return *this;
+     }
+ 
++    IndexConfigBuilder &is_raft_cagra_graph(bool raft_cagra_graph)
++    {
++        this->_raft_cagra_graph = raft_cagra_graph;
++        return *this;
++    }
++
+     IndexConfigBuilder &with_num_pq_chunks(size_t num_pq_chunks)
+     {
+         this->_num_pq_chunks = num_pq_chunks;
+@@ -142,6 +151,12 @@ class IndexConfigBuilder
+         return *this;
+     }
+ 
++    IndexConfigBuilder &with_raft_cagra_graph_degree(size_t raft_cagra_graph_degree)
++    {
++        this->_raft_cagra_graph_degree = raft_cagra_graph_degree;
++        return *this;
++    }
++
+     IndexConfigBuilder &with_label_type(const std::string &label_type)
+     {
+         this->_label_type = label_type;
+@@ -218,9 +233,9 @@ class IndexConfigBuilder
+         }
+ 
+         return IndexConfig(_data_strategy, _graph_strategy, _metric, _dimension, _max_points, _num_pq_chunks,
+-                           _num_frozen_pts, _dynamic_index, _enable_tags, _pq_dist_build, _concurrent_consolidate,
+-                           _use_opq, _filtered_index, _data_type, _tag_type, _label_type, _index_write_params,
+-                           _index_search_params);
++                           _num_frozen_pts, _raft_cagra_graph_degree, _dynamic_index, _enable_tags, _pq_dist_build,
++                           _concurrent_consolidate, _use_opq, _filtered_index, _raft_cagra_graph, _data_type, _tag_type,
++                           _label_type, _index_write_params, _index_search_params);
+     }
+ 
+     IndexConfigBuilder(const IndexConfigBuilder &) = delete;
+@@ -240,9 +255,11 @@ class IndexConfigBuilder
+     bool _concurrent_consolidate = false;
+     bool _use_opq = false;
+     bool _filtered_index{defaults::HAS_LABELS};
++    bool _raft_cagra_graph = false;
+ 
+     size_t _num_pq_chunks = 0;
+     size_t _num_frozen_pts{defaults::NUM_FROZEN_POINTS_STATIC};
++    size_t _raft_cagra_graph_degree = 0;
+ 
+     std::string _label_type{"uint32"};
+     std::string _tag_type{"uint32"};
+diff --git a/include/utils.h b/include/utils.h
+index d3af5c3..417af31 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -29,6 +29,7 @@ typedef int FileHandle;
+ #include "types.h"
+ #include "tag_uint128.h"
+ #include <any>
++#include <xmmintrin.h>
+ 
+ #ifdef EXEC_ENV_OLS
+ #include "content_buf.h"
+diff --git a/src/in_mem_graph_store.cpp b/src/in_mem_graph_store.cpp
+index c12b251..ea39001 100644
+--- a/src/in_mem_graph_store.cpp
++++ b/src/in_mem_graph_store.cpp
+@@ -239,4 +239,8 @@ uint32_t InMemGraphStore::get_max_observed_degree()
+     return _max_observed_degree;
+ }
+ 
++std::vector<std::vector<uint32_t>>& InMemGraphStore::graph() {
++    return _graph;
++}
++
+ } // namespace diskann
+diff --git a/src/index.cpp b/src/index.cpp
+index bf93344..014ed66 100644
+--- a/src/index.cpp
++++ b/src/index.cpp
+@@ -37,8 +37,10 @@ Index<T, TagT, LabelT>::Index(const IndexConfig &index_config, std::shared_ptr<A
+       _num_frozen_pts(index_config.num_frozen_pts), _dynamic_index(index_config.dynamic_index),
+       _enable_tags(index_config.enable_tags), _indexingMaxC(DEFAULT_MAXC), _query_scratch(nullptr),
+       _pq_dist(index_config.pq_dist_build), _use_opq(index_config.use_opq),
+-      _filtered_index(index_config.filtered_index), _num_pq_chunks(index_config.num_pq_chunks),
+-      _delete_set(new tsl::robin_set<uint32_t>), _conc_consolidate(index_config.concurrent_consolidate)
++      _filtered_index(index_config.filtered_index), _raft_cagra_graph(index_config.raft_cagra_graph),
++      _num_pq_chunks(index_config.num_pq_chunks), _delete_set(new tsl::robin_set<uint32_t>),
++      _conc_consolidate(index_config.concurrent_consolidate),
++      _raft_cagra_graph_degree(index_config.raft_cagra_graph_degree)
+ {
+     if (_dynamic_index && !_enable_tags)
+     {
+@@ -117,7 +119,8 @@ Index<T, TagT, LabelT>::Index(Metric m, const size_t dim, const size_t max_point
+                               const std::shared_ptr<IndexSearchParams> index_search_params, const size_t num_frozen_pts,
+                               const bool dynamic_index, const bool enable_tags, const bool concurrent_consolidate,
+                               const bool pq_dist_build, const size_t num_pq_chunks, const bool use_opq,
+-                              const bool filtered_index)
++                              const bool filtered_index, const bool raft_cagra_graph,
++                              const size_t raft_cagra_graph_degree)
+     : Index(
+           IndexConfigBuilder()
+               .with_metric(m)
+@@ -134,6 +137,8 @@ Index<T, TagT, LabelT>::Index(Metric m, const size_t dim, const size_t max_point
+               .is_use_opq(use_opq)
+               .is_filtered(filtered_index)
+               .with_data_type(diskann_type_to_name<T>())
++              .is_raft_cagra_graph(raft_cagra_graph)
++              .with_raft_cagra_graph_degree(raft_cagra_graph_degree)
+               .build(),
+           IndexFactory::construct_datastore<T>(DataStoreStrategy::MEMORY,
+                                                (max_points == 0 ? (size_t)1 : max_points) +
+@@ -1505,6 +1510,21 @@ void Index<T, TagT, LabelT>::set_start_points_at_random(T radius, uint32_t rando
+     set_start_points(points_data.data(), points_data.size());
+ }
+ 
++template <typename T, typename TagT, typename LabelT>
++void Index<T, TagT, LabelT>::add_raft_cagra_neighbours(std::vector<std::vector<uint32_t>> &raft_cagra_graph_vec)
++{
++    std::vector<std::vector<uint32_t>> &graph = _graph_store->graph();
++#pragma omp parallel for num_threads(_indexingThreads)
++    for (int i = 0; i < graph.size(); i++)
++    {
++        _graph_store->set_neighbours(i, raft_cagra_graph_vec[i]);
++        assert(_graph_store->get_neighbours((location_t)i).size() <= _indexingRange);
++        raft_cagra_graph_vec[i].clear();
++    }
++    std::cout << "_indexingThreads" << _indexingThreads << std::endl;
++    _has_built = true;
++}
++
+ template <typename T, typename TagT, typename LabelT>
+ void Index<T, TagT, LabelT>::build_with_data_populated(const std::vector<TagT> &tags)
+ {
+@@ -1575,6 +1595,7 @@ void Index<T, TagT, LabelT>::_build(const DataType &data, const size_t num_point
+         throw ANNException("Error" + std::string(e.what()), -1);
+     }
+ }
++
+ template <typename T, typename TagT, typename LabelT>
+ void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags)
+ {
+@@ -1593,13 +1614,44 @@ void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_loa
+     {
+         std::unique_lock<std::shared_timed_mutex> tl(_tag_lock);
+         _nd = num_points_to_load;
+-
+         _data_store->populate_data(data, (location_t)num_points_to_load);
+     }
+-
+     build_with_data_populated(tags);
+ }
+ 
++template <typename T, typename TagT, typename LabelT>
++void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags,
++                                   std::vector<std::vector<uint32_t>> &raft_cagra_graph_vec)
++{
++    if (num_points_to_load == 0)
++    {
++        throw ANNException("Do not call build with 0 points", -1, __FUNCSIG__, __FILE__, __LINE__);
++    }
++    if (_pq_dist)
++    {
++        throw ANNException("ERROR: DO not use this build interface with PQ distance", -1, __FUNCSIG__, __FILE__,
++                           __LINE__);
++    }
++
++    std::unique_lock<std::shared_timed_mutex> ul(_update_lock);
++
++    {
++        std::unique_lock<std::shared_timed_mutex> tl(_tag_lock);
++        _nd = num_points_to_load;
++        _data_store->populate_data(data, (location_t)num_points_to_load);
++    }
++    if (!_raft_cagra_graph)
++        build_with_data_populated(tags);
++    else
++    {
++        if (_num_frozen_pts > 0)
++            _start = (uint32_t)_max_points;
++        else
++            _start = calculate_entry_point();
++        add_raft_cagra_neighbours(raft_cagra_graph_vec);
++    }
++}
++
+ template <typename T, typename TagT, typename LabelT>
+ void Index<T, TagT, LabelT>::build(const char *filename, const size_t num_points_to_load, const std::vector<TagT> &tags)
+ {

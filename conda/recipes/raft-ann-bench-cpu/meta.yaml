@@ -9,7 +9,7 @@
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
 package:
-  name: raft-ann-bench-cpu
+  name: raft_ann_bench-cpu
   version: {{ version }}
   script: build.sh
 
