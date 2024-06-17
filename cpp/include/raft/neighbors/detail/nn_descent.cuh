@@ -45,6 +45,7 @@
 #include <omp.h>
 
 #include <limits>
+#include <optional>
 #include <queue>
 #include <random>
 
@@ -217,6 +218,7 @@ struct BuildConfig {
   // If internal_node_degree == 0, the value of node_degree will be assigned to it
   size_t max_iterations{50};
   float termination_threshold{0.0001};
+  size_t output_graph_degree{32};
 };
 
 template <typename Index_t>
@@ -345,7 +347,11 @@ class GNND {
   GNND(const GNND&)            = delete;
   GNND& operator=(const GNND&) = delete;
 
-  void build(Data_t* data, const Index_t nrow, Index_t* output_graph);
+  void build(Data_t* data,
+             const Index_t nrow,
+             Index_t* output_graph,
+             bool return_distances,
+             DistData_t* output_distances);
   ~GNND()    = default;
   using ID_t = InternalID_t<Index_t>;
 
@@ -1212,7 +1218,11 @@ void GNND<Data_t, Index_t>::local_join(cudaStream_t stream)
 }
 
 template <typename Data_t, typename Index_t>
-void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* output_graph)
+void GNND<Data_t, Index_t>::build(Data_t* data,
+                                  const Index_t nrow,
+                                  Index_t* output_graph,
+                                  bool return_distances,
+                                  DistData_t* output_distances)
 {
   using input_t = typename std::remove_const<Data_t>::type;
 
@@ -1338,6 +1348,16 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
 
   // Reuse graph_.h_dists as the buffer for shrink the lists in graph
   static_assert(sizeof(decltype(*(graph_.h_dists.data_handle()))) >= sizeof(Index_t));
+
+  if (return_distances) {
+    for (size_t i = 0; i < (size_t)nrow_; i++) {
+      raft::copy(output_distances + i * build_config_.output_graph_degree,
+                 graph_.h_dists.data_handle() + i * build_config_.node_degree,
+                 build_config_.output_graph_degree,
+                 raft::resource::get_cuda_stream(res));
+    }
+  }
+
   Index_t* graph_shrink_buffer = (Index_t*)graph_.h_dists.data_handle();
 
 #pragma omp parallel for
@@ -1410,10 +1430,24 @@ void build(raft::resources const& res,
                            .node_degree           = extended_graph_degree,
                            .internal_node_degree  = extended_intermediate_degree,
                            .max_iterations        = params.max_iterations,
-                           .termination_threshold = params.termination_threshold};
+                           .termination_threshold = params.termination_threshold,
+                           .output_graph_degree   = params.graph_degree};
 
   GNND<const T, int> nnd(res, build_config);
-  nnd.build(dataset.data_handle(), dataset.extent(0), int_graph.data_handle());
+
+  if (idx.distances().has_value() || !params.return_distances) {
+    nnd.build(dataset.data_handle(),
+              dataset.extent(0),
+              int_graph.data_handle(),
+              params.return_distances,
+              idx.distances()
+                .value_or(raft::make_device_matrix<float, int64_t>(res, 0, 0).view())
+                .data_handle());
+  } else {
+    RAFT_EXPECTS(!params.return_distances,
+                 "Distance view not allocated. Using return_distances set to true requires "
+                 "distance view to be allocated.");
+  }
 
 #pragma omp parallel for
   for (size_t i = 0; i < static_cast<size_t>(dataset.extent(0)); i++) {
@@ -1444,7 +1478,8 @@ index<IdxT> build(raft::resources const& res,
     graph_degree = intermediate_degree;
   }
 
-  index<IdxT> idx{res, dataset.extent(0), static_cast<int64_t>(graph_degree)};
+  index<IdxT> idx{
+    res, dataset.extent(0), static_cast<int64_t>(graph_degree), params.return_distances};
 
   build(res, params, dataset, idx);
 

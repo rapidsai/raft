@@ -15,11 +15,11 @@
  */
 #pragma once
 
-#include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/nn_descent.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
@@ -65,7 +65,9 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
   {
     size_t queries_size = ps.n_rows * ps.graph_degree;
     std::vector<IdxT> indices_NNDescent(queries_size);
+    std::vector<DistanceT> distances_NNDescent(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
+    std::vector<DistanceT> distances_naive(queries_size);
 
     {
       rmm::device_uvector<DistanceT> distances_naive_dev(queries_size, stream_);
@@ -81,6 +83,7 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
                                         ps.graph_degree,
                                         ps.metric);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
+      update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       resource::sync_stream(handle_);
     }
 
@@ -91,6 +94,7 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
         index_params.graph_degree              = ps.graph_degree;
         index_params.intermediate_graph_degree = 2 * ps.graph_degree;
         index_params.max_iterations            = 100;
+        index_params.return_distances          = true;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
@@ -102,20 +106,39 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
             auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
               (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
             auto index = nn_descent::build<DataT, IdxT>(handle_, index_params, database_host_view);
-            update_host(
+            raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
+            if (index.distances().has_value()) {
+              raft::copy(distances_NNDescent.data(),
+                         index.distances().value().data_handle(),
+                         queries_size,
+                         stream_);
+            }
+
           } else {
             auto index = nn_descent::build<DataT, IdxT>(handle_, index_params, database_view);
-            update_host(
+            raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
+            if (index.distances().has_value()) {
+              raft::copy(distances_NNDescent.data(),
+                         index.distances().value().data_handle(),
+                         queries_size,
+                         stream_);
+            }
           };
         }
         resource::sync_stream(handle_);
       }
 
       double min_recall = ps.min_recall;
-      EXPECT_TRUE(eval_recall(
-        indices_naive, indices_NNDescent, ps.n_rows, ps.graph_degree, 0.001, min_recall));
+      EXPECT_TRUE(eval_neighbours(indices_naive,
+                                  indices_NNDescent,
+                                  distances_naive,
+                                  distances_NNDescent,
+                                  ps.n_rows,
+                                  ps.graph_degree,
+                                  0.001,
+                                  min_recall));
     }
   }
 
