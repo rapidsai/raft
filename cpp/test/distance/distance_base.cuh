@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
+
 #include <raft/common/nvtx.hpp>         // common::nvtx::range
 #include <raft/core/device_mdspan.hpp>  // make_device_matrix_view
 #include <raft/core/operators.hpp>      // raft::sqrt
@@ -26,8 +28,6 @@
 #include <rmm/device_uvector.hpp>  // rmm::device_uvector
 
 #include <gtest/gtest.h>
-
-#include <vector>
 
 namespace raft {
 namespace distance {
