@@ -39,8 +39,8 @@ DI T logicalWarpReduce(T val, ReduceLambda reduce_op)
 {
 #pragma unroll
   for (int i = logicalWarpSize / 2; i > 0; i >>= 1) {
-    T tmp = shfl_xor(val, i);
-    val   = reduce_op(val, tmp);
+    const T tmp = shfl_xor(val, i, logicalWarpSize);
+    val         = reduce_op(val, tmp);
   }
   return val;
 }
@@ -98,7 +98,7 @@ DI T blockReduce(T val, char* smem, ReduceLambda reduce_op = raft::add_op{})
   val         = warpReduce(val, reduce_op);
   if (lid == 0) sTemp[wid] = val;
   __syncthreads();
-  val = lid < nWarps ? sTemp[lid] : T(0);
+  val = lid < nWarps ? sTemp[lid] : T();
   return warpReduce(val, reduce_op);
 }
 
@@ -194,6 +194,106 @@ DI i_t binaryBlockReduce(i_t val, i_t* shmem)
   // Only first warp gets the results
   else {
     return -1;
+  }
+}
+
+/**
+ * @brief Executes a collaborative vector reduction per sub-warp
+ *
+ * This uses fewer shuffles than naively reducing each element independently.
+ * Better performance is achieved with a larger vector width, up to vecWidth == warpSize/2.
+ * For example, for logicalWarpSize == 32 and vecWidth == 16, the naive method requires 80
+ * shuffles, this one only 31, 2.58x fewer.
+ *
+ * However, the output of the reduction is not broadcasted. The vector is modified in place and
+ * each thread holds a part of the output vector. The outputs are distributed in a round-robin
+ * pattern between the threads to facilitate coalesced IO. There are 2 possible layouts based on
+ * which of logicalWarpSize and vecWidth is larger:
+ * - If vecWidth >= logicalWarpSize, each thread has vecWidth/logicalWarpSize outputs.
+ * - If logicalWarpSize > vecWidth, logicalWarpSize/vecWidth threads have a copy of the same output.
+ *
+ * Example 1: logicalWarpSize == 4, vecWidth == 8, v = a+b+c+d
+ *           IN                        OUT
+ *  lane 0 | a0 a1 a2 a3 a4 a5 a6 a7 | v0 v4 - - - - - -
+ *  lane 1 | b0 b1 b2 b3 b4 b5 b6 b7 | v1 v5 - - - - - -
+ *  lane 2 | c0 c1 c2 c3 c4 c5 c6 c7 | v2 v6 - - - - - -
+ *  lane 3 | d0 d1 d2 d3 d4 d5 d6 d7 | v3 v7 - - - - - -
+ *
+ * Example 2: logicalWarpSize == 8, vecWidth == 4, v = a+b+c+d+e+f+g+h
+ *           IN            OUT
+ *  lane 0 | a0 a1 a2 a3 | v0 - - -
+ *  lane 1 | b0 b1 b2 b3 | v0 - - -
+ *  lane 2 | c0 c1 c2 c3 | v1 - - -
+ *  lane 3 | d0 d1 d2 d3 | v1 - - -
+ *  lane 4 | e0 e1 e2 e3 | v2 - - -
+ *  lane 5 | f0 f1 f2 f3 | v2 - - -
+ *  lane 6 | g0 g1 g2 g3 | v3 - - -
+ *  lane 7 | h0 h1 h2 h3 | v3 - - -
+ *
+ * @tparam logicalWarpSize Sub-warp size. Must be 2, 4, 8, 16 or 32.
+ * @tparam vecWidth Vector width. Must be a power of two.
+ * @tparam T Vector element type.
+ * @tparam ReduceLambda Reduction operator type.
+ * @param[in,out] acc Pointer to a vector of size vecWidth or more in registers
+ * @param[in] lane_id Lane id between 0 and logicalWarpSize-1
+ * @param[in] reduce_op Reduction operator, assumed to be commutative and associative.
+ */
+template <int logicalWarpSize, int vecWidth, typename T, typename ReduceLambda>
+DI void logicalWarpReduceVector(T* acc, int lane_id, ReduceLambda reduce_op)
+{
+  static_assert(vecWidth > 0, "Vec width must be strictly positive.");
+  static_assert(!(vecWidth & (vecWidth - 1)), "Vec width must be a power of two.");
+  static_assert(logicalWarpSize >= 2 && logicalWarpSize <= 32,
+                "Logical warp size must be between 2 and 32");
+  static_assert(!(logicalWarpSize & (logicalWarpSize - 1)),
+                "Logical warp size must be a power of two.");
+
+  constexpr int shflStride   = logicalWarpSize / 2;
+  constexpr int nextWarpSize = logicalWarpSize / 2;
+
+  // One step of the butterfly reduction, applied to each element of the vector.
+#pragma unroll
+  for (int k = 0; k < vecWidth; k++) {
+    const T tmp = shfl_xor(acc[k], shflStride, logicalWarpSize);
+    acc[k]      = reduce_op(acc[k], tmp);
+  }
+
+  constexpr int nextVecWidth = std::max(1, vecWidth / 2);
+
+  /* Split into 2 smaller logical warps and distribute half of the data to each for the next step.
+   * The distribution pattern is designed so that at the end the outputs are coalesced/round-robin.
+   * The idea is to distribute contiguous "chunks" of the vectors based on the new warp size. These
+   * chunks will be halved in the next step and so on.
+   *
+   * Example for logicalWarpSize == 4, vecWidth == 8:
+   *  lane 0 | 0 1 2 3 4 5 6 7 | [0 1] [4 5] - - - - | [0] [4] - - - - - -
+   *  lane 1 | 0 1 2 3 4 5 6 7 | [0 1] [4 5] - - - - | [1] [5] - - - - - -
+   *  lane 2 | 0 1 2 3 4 5 6 7 | [2 3] [6 7] - - - - | [2] [6] - - - - - -
+   *  lane 3 | 0 1 2 3 4 5 6 7 | [2 3] [6 7] - - - - | [3] [7] - - - - - -
+   *                      chunkSize=2           chunkSize=1
+   */
+  if constexpr (nextVecWidth < vecWidth) {
+    T tmp[nextVecWidth];
+    const bool firstHalf    = (lane_id % logicalWarpSize) < nextWarpSize;
+    constexpr int chunkSize = std::min(nextVecWidth, nextWarpSize);
+    constexpr int numChunks = nextVecWidth / chunkSize;
+#pragma unroll
+    for (int c = 0; c < numChunks; c++) {
+#pragma unroll
+      for (int i = 0; i < chunkSize; i++) {
+        const int k = c * chunkSize + i;
+        tmp[k]      = firstHalf ? acc[2 * c * chunkSize + i] : acc[(2 * c + 1) * chunkSize + i];
+      }
+    }
+#pragma unroll
+    for (int k = 0; k < nextVecWidth; k++) {
+      acc[k] = tmp[k];
+    }
+  }
+
+  // Recursively call with smaller sub-warps and possibly smaller vector width.
+  if constexpr (nextWarpSize > 1) {
+    logicalWarpReduceVector<nextWarpSize, nextVecWidth>(acc, lane_id % nextWarpSize, reduce_op);
   }
 }
 

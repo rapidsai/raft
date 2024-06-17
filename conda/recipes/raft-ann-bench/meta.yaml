@@ -57,7 +57,7 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
     - ninja
-    - sysroot_{{ target_platform }} {{ sysroot_version }}
+    - {{ stdlib("c") }}
 
   host:
     - python
@@ -82,6 +82,7 @@ requirements:
     - pyyaml
     # rmm is needed to determine if package is gpu-enabled
     - rmm ={{ minor_version }}
+    - rapids-build-backend>=0.3.0,<0.4.0.dev0
 
   run:
     - python

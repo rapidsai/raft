@@ -1,5 +1,4 @@
-#=============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,11 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#=============================================================================
+#
 
-function(find_and_configure_gtest )
-    include(${rapids-cmake-dir}/cpm/gtest.cmake)
-    rapids_cpm_gtest()
-endfunction()
+import importlib.resources
 
-find_and_configure_gtest()
+__version__ = (
+    importlib.resources.files(__package__)
+    .joinpath("VERSION")
+    .read_text()
+    .strip()
+)
+try:
+    __git_commit__ = (
+        importlib.resources.files(__package__)
+        .joinpath("GIT_COMMIT")
+        .read_text()
+        .strip()
+    )
+except FileNotFoundError:
+    __git_commit__ = ""
+
+__all__ = ["__version__", "__git_commit__"]

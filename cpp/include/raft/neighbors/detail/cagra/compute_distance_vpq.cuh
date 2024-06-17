@@ -18,6 +18,7 @@
 
 #include "compute_distance.hpp"
 
+#include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
 namespace raft::neighbors::cagra::detail {
@@ -32,6 +33,8 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
   using DATA_T      = DATA_T_;
   using CODE_BOOK_T = CODE_BOOK_T_;
   using QUERY_T     = typename dataset_descriptor_base_t<half, DISTANCE_T, INDEX_T>::QUERY_T;
+
+  static_assert(std::is_same_v<CODE_BOOK_T, half>, "Only CODE_BOOK_T = `half` is supported now");
 
   const std::uint8_t* encoded_dataset_ptr;
   const std::uint32_t encoded_dataset_dim;
@@ -53,18 +56,19 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
     smem_pq_code_book_ptr = reinterpret_cast<CODE_BOOK_T*>(smem_ptr);
 
     // Copy PQ table
-    if constexpr (std::is_same<CODE_BOOK_T, half>::value) {
-      for (unsigned i = threadIdx.x * 2; i < (1 << PQ_BITS) * PQ_LEN; i += blockDim.x * 2) {
-        half2 buf2;
-        buf2.x                                                   = pq_code_book_ptr[i];
-        buf2.y                                                   = pq_code_book_ptr[i + 1];
-        (reinterpret_cast<half2*>(smem_pq_code_book_ptr + i))[0] = buf2;
-      }
-    } else {
-      for (unsigned i = threadIdx.x; i < (1 << PQ_BITS) * PQ_LEN; i += blockDim.x) {
-        // TODO: vectorize
-        smem_pq_code_book_ptr[i] = pq_code_book_ptr[i];
-      }
+    for (unsigned i = threadIdx.x * 2; i < (1 << PQ_BITS) * PQ_LEN; i += blockDim.x * 2) {
+      half2 buf2;
+      buf2.x = pq_code_book_ptr[i];
+      buf2.y = pq_code_book_ptr[i + 1];
+
+      // Change the order of PQ code book array to reduce the
+      // frequency of bank conflicts.
+      constexpr auto num_elements_per_bank  = 4 / utils::size_of<CODE_BOOK_T>();
+      constexpr auto num_banks_per_subspace = PQ_LEN / num_elements_per_bank;
+      const auto j                          = i / num_elements_per_bank;
+      const auto smem_index =
+        (j / num_banks_per_subspace) + (j % num_banks_per_subspace) * (1 << PQ_BITS);
+      reinterpret_cast<half2*>(smem_pq_code_book_ptr)[smem_index] = buf2;
     }
   }
 
@@ -109,7 +113,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
     }
   }
 
-  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE>
+  template <uint32_t DATASET_BLOCK_DIM, uint32_t TEAM_SIZE, raft::distance::DistanceType METRIC>
   __device__ DISTANCE_T compute_similarity(const QUERY_T* const query_ptr,
                                            const INDEX_T node_id,
                                            const bool valid) const
@@ -136,7 +140,7 @@ struct cagra_q_dataset_descriptor_t : public dataset_descriptor_base_t<half, DIS
               4 + k));
           }
           //
-          if constexpr ((std::is_same<CODE_BOOK_T, half>::value) && (PQ_LEN % 2 == 0)) {
+          if constexpr (PQ_LEN % 2 == 0) {
             // **** Use half2 for distance computation ****
             half2 norm2{0, 0};
 #pragma unroll

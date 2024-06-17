@@ -27,7 +27,7 @@
 - [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
 - [RAFT Getting Started](./docs/source/quick_start.md): Getting started with RAFT.
 - [Build and Install RAFT](./docs/source/build.md): Instructions for installing and building RAFT.
-- [Example Notebooks](./notebooks): Example jupyer notebooks
+- [Example Notebooks](./notebooks): Example jupyter notebooks
 - [RAPIDS Community](https://rapids.ai/community.html): Get help, contribute, and collaborate.
 - [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
 - [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
@@ -293,7 +293,7 @@ You can also install the conda packages individually using the `mamba` command a
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
 ```
 
-If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.04/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
+If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.08/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
 
 ### Installing Python through Pip
 
@@ -354,10 +354,8 @@ If citing CAGRA, please consider the following bibtex:
 @misc{ootomo2023cagra,
       title={CAGRA: Highly Parallel Graph Construction and Approximate Nearest Neighbor Search for GPUs},
       author={Hiroyuki Ootomo and Akira Naruse and Corey Nolet and Ray Wang and Tamas Feher and Yong Wang},
-      year={2023},
-      eprint={2308.15136},
-      archivePrefix={arXiv},
-      primaryClass={cs.DS}
+      year={2024},
+      series = {ICDE '24}
 }
 ```
 
@@ -365,13 +363,14 @@ If citing the k-selection routines, please consider the following bibtex:
 
 ```bibtex
 @proceedings{10.1145/3581784,
-    title = {SC '23: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
+    title = {Parallel Top-K Algorithms on GPU: A Comprehensive Study and New Methods},
+    author={Jingrong Zhang, Akira Naruse, Xipeng Li, and Yong Wang},
     year = {2023},
     isbn = {9798400701092},
     publisher = {Association for Computing Machinery},
     address = {New York, NY, USA},
-    abstract = {Started in 1988, the SC Conference has become the annual nexus for researchers and practitioners from academia, industry and government to share information and foster collaborations to advance the state of the art in High Performance Computing (HPC), Networking, Storage, and Analysis.},
-    location = {, Denver, CO, USA, }
+    location = {Denver, CO, USA}
+    series = {SC '23}
 }
 ```
 

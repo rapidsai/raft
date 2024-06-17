@@ -39,7 +39,7 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
     - ninja
-    - sysroot_{{ target_platform }} {{ sysroot_version }}
+    - {{ stdlib("c") }}
   host:
     {% if cuda_major == "11" %}
     - cuda-python >=11.7.1,<12.0a0
@@ -55,10 +55,9 @@ requirements:
     - python x.x
     - rmm ={{ minor_version }}
     - scikit-build-core >=0.7.0
-    - setuptools
-    - ucx {{ ucx_version }}
-    - ucx-proc=*=gpu
     - ucx-py {{ ucx_py_version }}
+    - ucxx {{ ucxx_version }}
+    - rapids-build-backend>=0.3.0,<0.4.0.dev0
   run:
     {% if cuda_major == "11" %}
     - cudatoolkit
@@ -73,9 +72,8 @@ requirements:
     - pylibraft {{ version }}
     - python x.x
     - rmm ={{ minor_version }}
-    - ucx {{ ucx_version }}
-    - ucx-proc=*=gpu
     - ucx-py {{ ucx_py_version }}
+    - distributed-ucxx {{ ucxx_version }}
 
 tests:
   requirements:

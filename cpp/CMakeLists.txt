@@ -55,7 +55,6 @@ option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
 option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
 option(BUILD_CAGRA_HNSWLIB "Build CAGRA+hnswlib interface" ON)
-option(RAFT_BUILD_ANN_MG_API "Build SNMG ANN interface" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -186,12 +185,13 @@ if(NOT BUILD_CPU_ONLY)
 endif()
 
 if(BUILD_TESTS)
-  include(cmake/thirdparty/get_gtest.cmake)
+  include(${rapids-cmake-dir}/cpm/gtest.cmake)
+  rapids_cpm_gtest(BUILD_STATIC)
 endif()
 
 if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
-  rapids_cpm_gbench()
+  rapids_cpm_gbench(BUILD_STATIC)
 endif()
 
 if(BUILD_CAGRA_HNSWLIB)
@@ -275,7 +275,7 @@ else()
       "\" OFF)"
       [=[
 
-target_link_libraries(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:CUDA::nvToolsExt>)
+target_link_libraries(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:CUDA::nvtx3>)
 target_compile_definitions(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:NVTX_ENABLED>)
 
   ]=]
@@ -565,7 +565,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
-    src/util/memory_pool.cpp
   )
   set_target_properties(
     raft_objs
@@ -593,9 +592,7 @@ if(RAFT_COMPILE_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  if(RAFT_BUILD_ANN_MG_API)
-    set(RAFT_BUILD_ANN_MG_DEP nccl ucp)
-  endif()
+
 
   foreach(target raft_lib raft_lib_static raft_objs)
     target_link_libraries(
@@ -604,7 +601,6 @@ if(RAFT_COMPILE_LIBRARY)
              ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
                                            # will just be cublas
              $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-             ${RAFT_BUILD_ANN_MG_DEP}
     )
 
     # So consumers know when using libraft.so/libraft.a
@@ -656,12 +652,21 @@ rapids_find_generate_module(
   INSTALL_EXPORT_SET raft-distributed-exports
 )
 
-rapids_export_package(BUILD ucx raft-distributed-exports)
-rapids_export_package(INSTALL ucx raft-distributed-exports)
+rapids_export_package(
+  BUILD ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx ucxx::python
+)
+rapids_export_package(
+  INSTALL ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx
+                                                                              ucxx::python
+)
 rapids_export_package(BUILD NCCL raft-distributed-exports)
 rapids_export_package(INSTALL NCCL raft-distributed-exports)
 
-target_link_libraries(raft_distributed INTERFACE ucx::ucp NCCL::NCCL)
+# ucx is a requirement for raft_distributed, but its config is not safe to be found multiple times,
+# so rather than exporting a package dependency on it above we rely on consumers to find it
+# themselves. Once https://github.com/rapidsai/ucxx/issues/173 is resolved we can export it above
+# again.
+target_link_libraries(raft_distributed INTERFACE ucx::ucp ucxx::ucxx NCCL::NCCL)
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------
@@ -822,26 +827,26 @@ rapids_export(
 # * shared test/bench headers ------------------------------------------------
 
 if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
-  include(internal/CMakeLists.txt)
+  add_subdirectory(internal)
 endif()
 
 # ##################################################################################################
 # * build test executable ----------------------------------------------------
 
 if(BUILD_TESTS)
-  include(test/CMakeLists.txt)
+  add_subdirectory(test)
 endif()
 
 # ##################################################################################################
 # * build benchmark executable -----------------------------------------------
 
 if(BUILD_PRIMS_BENCH)
-  include(bench/prims/CMakeLists.txt)
+  add_subdirectory(bench/prims/)
 endif()
 
 # ##################################################################################################
 # * build ann benchmark executable -----------------------------------------------
 
 if(BUILD_ANN_BENCH)
-  include(bench/ann/CMakeLists.txt)
+  add_subdirectory(bench/ann/)
 endif()

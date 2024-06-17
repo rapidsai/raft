@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -12,11 +12,15 @@ RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels
 python -m pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl
 
 # echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install $(echo ./dist/raft_dask*.whl)[test]
+python -m pip install -v "$(echo ./dist/raft_dask_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
-# Run smoke tests for aarch64 pull requests
-if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
-    python ./ci/wheel_smoke_test_raft_dask.py
-else
-    python -m pytest ./python/raft-dask/raft_dask/test
-fi
+test_dir="python/raft-dask/raft_dask/test"
+
+rapids-logger "pytest raft-dask"
+python -m pytest --import-mode=append ${test_dir}
+
+rapids-logger "pytest raft-dask (ucx-py only)"
+python -m pytest --import-mode=append ${test_dir} --run_ucx
+
+rapids-logger "pytest raft-dask (ucxx only)"
+python -m pytest --import-mode=append ${test_dir} --run_ucxx

@@ -95,7 +95,7 @@ repos:
                 args: ["--toml", "pyproject.toml"]
                 exclude: (?x)^(^CHANGELOG.md$)
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.8.0
+        rev: v1.13.11
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
@@ -104,7 +104,7 @@ repos:
         hooks:
               - id: check-json
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.0.1
+        rev: v0.0.3
         hooks:
           - id: verify-copyright
             files: |

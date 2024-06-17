@@ -30,6 +30,7 @@ dependencies:
 - libcusolver=11.4.1.48
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
+- libucxx==0.39.*
 - matplotlib
 - nccl>=2.9.9
 - ninja
@@ -38,7 +39,8 @@ dependencies:
 - openblas
 - pandas
 - pyyaml
-- rmm==24.4.*
+- rapids-build-backend>=0.3.0,<0.4.0.dev0
+- rmm==24.8.*,>=0.0.0a0
 - scikit-build-core>=0.7.0
 - sysroot_linux-aarch64==2.17
 name: bench_ann_cuda-118_arch-aarch64

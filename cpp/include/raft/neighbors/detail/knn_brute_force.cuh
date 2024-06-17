@@ -38,7 +38,6 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/cuda_device.hpp>
-#include <rmm/cuda_stream_pool.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/iterator/transform_iterator.h>
