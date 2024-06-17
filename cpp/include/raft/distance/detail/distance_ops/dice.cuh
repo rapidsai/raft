@@ -36,7 +36,7 @@ struct dice_cutlass_op {
  *
  * It computes the following equation:
  *
- * d(x, y) = 1 - 2*(x ⋅ y) / ( ||x||_1 + ||y||_1 )
+ * d(x, y) = 1 - 2*(x ⋅ y) / ( Σ(x) + Σ(y) )
  */
 template <typename DataType, typename AccType, typename IdxType>
 struct dice_distance_op {

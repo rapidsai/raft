@@ -120,7 +120,7 @@ RAFT_KERNEL naiveDiceDistanceKernel(
 
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
 
-  // Use 1.0 - (dice similarity) to calc the distance
+  // Use 1.0 - (dice dissimilarity) to calc the distance
   dist[outidx] = (DataType)1.0 - (2 * acc_ab / ((acc_a) + (acc_b)));
 }
 
