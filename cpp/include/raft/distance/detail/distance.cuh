@@ -195,6 +195,52 @@ void distance_impl(raft::resources const& handle,
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
 void distance_impl(raft::resources const& handle,
+                   distance_tag<DistanceType::CosineExpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT* workspace,
+                   size_t worksize,
+                   FinOpT fin_op,
+                   bool is_row_major,
+                   DataT)  // unused
+{
+  // raft distance support inputs as float/double and output as uint8_t/float/double.
+  static_assert(!((sizeof(OutT) > 1) && (sizeof(AccT) != sizeof(OutT))),
+                "OutT can be uint8_t, float, double,"
+                "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
+
+  ASSERT(!(worksize < (m + n) * sizeof(AccT)), "workspace size error");
+  ASSERT(workspace != nullptr, "workspace is null");
+
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+
+  DataT* x_norm = workspace;
+  DataT* y_norm = workspace;
+  // TODO: Column major case looks to have lower accuracy for X == Y,
+  // perhaps the use of stridedSummationKernel could be causing this,
+  // need to investigate and fix.
+  if (x == y && is_row_major) {
+    raft::linalg::rowNorm(
+      x_norm, x, k, std::max(m, n), raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
+  } else {
+    y_norm += m;
+    raft::linalg::rowNorm(
+      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
+    raft::linalg::rowNorm(
+      y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
+  }
+
+  ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
+}
+
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(raft::resources const& handle,
                    distance_tag<DistanceType::DiceExpanded> distance_type,
                    const DataT* x,
                    const DataT* y,
@@ -262,52 +308,6 @@ void distance_impl(raft::resources const& handle,
   }
 
   ops::dice_distance_op<DataT, AccT, IdxT> distance_op{};
-  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
-}
-
-template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
-void distance_impl(raft::resources const& handle,
-                   distance_tag<DistanceType::CosineExpanded> distance_type,
-                   const DataT* x,
-                   const DataT* y,
-                   OutT* out,
-                   IdxT m,
-                   IdxT n,
-                   IdxT k,
-                   AccT* workspace,
-                   size_t worksize,
-                   FinOpT fin_op,
-                   bool is_row_major,
-                   DataT)  // unused
-{
-  // raft distance support inputs as float/double and output as uint8_t/float/double.
-  static_assert(!((sizeof(OutT) > 1) && (sizeof(AccT) != sizeof(OutT))),
-                "OutT can be uint8_t, float, double,"
-                "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
-
-  ASSERT(!(worksize < (m + n) * sizeof(AccT)), "workspace size error");
-  ASSERT(workspace != nullptr, "workspace is null");
-
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-
-  DataT* x_norm = workspace;
-  DataT* y_norm = workspace;
-  // TODO: Column major case looks to have lower accuracy for X == Y,
-  // perhaps the use of stridedSummationKernel could be causing this,
-  // need to investigate and fix.
-  if (x == y && is_row_major) {
-    raft::linalg::rowNorm(
-      x_norm, x, k, std::max(m, n), raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
-  } else {
-    y_norm += m;
-    raft::linalg::rowNorm(
-      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
-    raft::linalg::rowNorm(
-      y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
-  }
-
-  ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
   pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
