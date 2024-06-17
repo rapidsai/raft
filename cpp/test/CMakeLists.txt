@@ -451,8 +451,9 @@ if(BUILD_TESTS)
     NEIGHBORS_ANN_MG_TEST
     PATH
     neighbors/ann_mg/test_ann_mg.cu
-    LIB
+    ADDITIONAL_LIBS
     ucp ucs ucxx nccl
+    LIB
     EXPLICIT_INSTANTIATE_ONLY
     GPUS
     1

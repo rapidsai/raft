@@ -39,7 +39,7 @@
 
 
 // Number of rows per batch (search on shards)
-#define N_ROWS_PER_BATCH 3000
+#define N_ROWS_PER_BATCH 2^24
 
 namespace raft::neighbors::mg::detail {
 using namespace raft::neighbors;
