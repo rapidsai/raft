@@ -1050,6 +1050,10 @@ __launch_bounds__(1024, 1) RAFT_KERNEL search_kernel_p(
                                  sample_filter,
                                  metric);
 
+    // make sure all writes are visible even for the host
+    //     (e.g. when result buffers are in pinned memory)
+    cuda::atomic_thread_fence(cuda::memory_order_release, cuda::thread_scope_system);
+
     // arrive to mark the end of the work phase
     __syncthreads();
     if (threadIdx.x == 0) {

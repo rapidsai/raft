@@ -33,6 +33,7 @@ enum Objective {
 enum class MemoryType {
   Host,
   HostMmap,
+  HostPinned,
   Device,
 };
 
@@ -58,6 +59,8 @@ inline auto parse_memory_type(const std::string& memory_type) -> MemoryType
     return MemoryType::Host;
   } else if (memory_type == "mmap") {
     return MemoryType::HostMmap;
+  } else if (memory_type == "pinned") {
+    return MemoryType::HostPinned;
   } else if (memory_type == "device") {
     return MemoryType::Device;
   } else {
