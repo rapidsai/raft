@@ -34,6 +34,7 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 32, 1024, true, 1234ULL},
   {0.001f, 32, 1024, 1024, true, 1234ULL},
   {0.003f, 1024, 1024, 1024, true, 1234ULL},
+  {0.001f, (65536 + 128) * 128, 128, 8, false, 1234ULL},
   {0.001f, 1024, 1024, 32, false, 1234ULL},
   {0.001f, 1024, 32, 1024, false, 1234ULL},
   {0.001f, 32, 1024, 1024, false, 1234ULL},
@@ -51,26 +52,13 @@ const std::vector<DistanceInputs<float>> inputsXeqYf = {
   {0.03f, 1024, 1024, 1024, false, 1234ULL},
 };
 
-const std::vector<DistanceInputs<float>> inputsNaN = {
-  {0.001f, (65536 + 128) * 128, 128, 8, false, 1234ULL}};
-
-typedef DistanceExpDice<float> DistanceExpDiceNaN;
-TEST_P(DistanceExpDiceNaN, Result)
-{
-  int m = params.isRowMajor ? params.m : params.n;
-  int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_FALSE(devArrMatch(
-    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
-}
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpDiceNaN, ::testing::ValuesIn(inputsNaN));
-
 typedef DistanceExpDice<float> DistanceExpDiceF;
 TEST_P(DistanceExpDiceF, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
   ASSERT_TRUE(devArrMatch(
-    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
+    dist_ref.data(), dist.data(), m, n, raft::CompareApproxNaN<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpDiceF, ::testing::ValuesIn(inputsf));
 
@@ -83,7 +71,7 @@ TEST_P(DistanceExpDiceXequalYF, Result)
                                 dist[0].data(),
                                 m,
                                 n,
-                                raft::CompareApprox<float>(params.tolerance),
+                                raft::CompareApproxNaN<float>(params.tolerance),
                                 stream));
   n = params.isRowMajor ? m : m / 2;
   m = params.isRowMajor ? m / 2 : m;
@@ -92,7 +80,7 @@ TEST_P(DistanceExpDiceXequalYF, Result)
                                 dist[1].data(),
                                 m,
                                 n,
-                                raft::CompareApprox<float>(params.tolerance),
+                                raft::CompareApproxNaN<float>(params.tolerance),
                                 stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpDiceXequalYF, ::testing::ValuesIn(inputsXeqYf));
@@ -113,7 +101,7 @@ TEST_P(DistanceExpDiceD, Result)
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
   ASSERT_TRUE(devArrMatch(
-    dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
+    dist_ref.data(), dist.data(), m, n, raft::CompareApproxNaN<float>(params.tolerance), stream));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpDiceD, ::testing::ValuesIn(inputsd));
 
