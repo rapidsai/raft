@@ -1580,10 +1580,39 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
   rmm::device_uvector<uint32_t> completion_counters;
   rmm::device_uvector<index_type> hashmap;
   std::atomic<std::chrono::time_point<std::chrono::system_clock>> last_touch;
+  uint64_t param_hash;
 
   // This should be large enough to make the runner live through restarts of the benchmark cases.
   // Otherwise, the benchmarks slowdown significantly.
   constexpr static auto kLiveInterval = std::chrono::milliseconds(2000);
+
+  /**
+   * Calculate the hash of the parameters to detect if they've changed across the calls.
+   * NB: this must have the same argument types as the constructor.
+   */
+  static inline auto calculate_parameter_hash(
+    DATASET_DESCRIPTOR_T dataset_desc,
+    raft::device_matrix_view<const index_type, int64_t, row_major> graph,
+    uint32_t num_itopk_candidates,
+    uint32_t block_size,  //
+    uint32_t smem_size,
+    int64_t hash_bitlen,
+    size_t small_hash_bitlen,
+    size_t small_hash_reset_interval,
+    uint32_t num_random_samplings,
+    uint64_t rand_xor_mask,
+    uint32_t num_seeds,
+    size_t itopk_size,
+    size_t search_width,
+    size_t min_iterations,
+    size_t max_iterations,
+    SAMPLE_FILTER_T sample_filter,
+    raft::distance::DistanceType metric) -> uint64_t
+  {
+    return uint64_t(graph.data_handle()) ^ num_itopk_candidates ^ block_size ^ smem_size ^
+           hash_bitlen ^ small_hash_reset_interval ^ num_random_samplings ^ rand_xor_mask ^
+           num_seeds ^ itopk_size ^ search_width ^ min_iterations ^ max_iterations ^ metric;
+  }
 
   persistent_runner_t(DATASET_DESCRIPTOR_T dataset_desc,
                       raft::device_matrix_view<const index_type, int64_t, row_major> graph,
@@ -1609,7 +1638,24 @@ struct alignas(kCacheLineBytes) persistent_runner_t : public persistent_runner_b
       worker_handles(0, stream, worker_handles_mr),
       job_descriptors(kMaxJobsNum, stream, job_descriptor_mr),
       completion_counters(kMaxJobsNum, stream, device_mr),
-      hashmap(0, stream, device_mr)
+      hashmap(0, stream, device_mr),
+      param_hash(calculate_parameter_hash(dataset_desc,
+                                          graph,
+                                          num_itopk_candidates,
+                                          block_size,
+                                          smem_size,
+                                          hash_bitlen,
+                                          small_hash_bitlen,
+                                          small_hash_reset_interval,
+                                          num_random_samplings,
+                                          rand_xor_mask,
+                                          num_seeds,
+                                          itopk_size,
+                                          search_width,
+                                          min_iterations,
+                                          max_iterations,
+                                          sample_filter,
+                                          metric))
   {
     // set kernel attributes same as in normal kernel
     RAFT_CUDA_TRY(
@@ -1778,7 +1824,13 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
   std::lock_guard<std::mutex> guard(persistent.lock);
   // Check if the runner has already been created
   std::shared_ptr<RunnerT> runner_outer = std::dynamic_pointer_cast<RunnerT>(persistent.runner);
-  if (runner_outer) { return runner_outer; }
+  if (runner_outer) {
+    if (runner_outer->param_hash == RunnerT::calculate_parameter_hash(args...)) {
+      return runner_outer;
+    } else {
+      runner_outer.reset();
+    }
+  }
   // Runner has not yet been created (or it's incompatible):
   //   create it in another thread and only then release the lock.
   // Free the resources (if any) in advance
@@ -1817,18 +1869,25 @@ auto create_runner(Args... args) -> std::shared_ptr<RunnerT>  // it's ok.. pass 
 }
 
 template <typename RunnerT, typename... Args>
-auto get_runner(Args&&... args) -> std::shared_ptr<RunnerT>
+auto get_runner(Args... args) -> std::shared_ptr<RunnerT>
 {
   // Using a thread-local weak pointer allows us to avoid using locks/atomics,
   // since the control block of weak/shared pointers is thread-safe.
   static thread_local std::weak_ptr<RunnerT> weak;
   auto runner = weak.lock();
-  if (runner) { return runner; }
+  if (runner) {
+    if (runner->param_hash == RunnerT::calculate_parameter_hash(args...)) {
+      return runner;
+    } else {
+      weak.reset();
+      runner.reset();
+    }
+  }
   // Thread-local variable expected_latency makes sense only for a current RunnerT configuration.
   // If `weak` is not alive, it's a hint the configuration has changed and we should reset our
   // estimate of the expected launch latency.
   launcher_t::expected_latency = launcher_t::kDefaultLatency;
-  runner                       = create_runner<RunnerT>(std::forward<Args>(args)...);
+  runner                       = create_runner<RunnerT>(args...);
   weak                         = runner;
   return runner;
 }
