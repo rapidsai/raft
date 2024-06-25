@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_span.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -21,6 +22,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/core/sparse_types.hpp>
 #include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/sort.cuh>
 
@@ -107,9 +109,9 @@ void get_uniques_counts(raft::resources& handle,
 
 template <typename T1, typename T2>
 void create_mapped_vector(raft::resources& handle,
-                          raft::device_vector_view<T1, int64_t> origin,
-                          raft::device_vector_view<T1, int64_t> keys,
-                          raft::device_vector_view<T2, int64_t> counts,
+                          const raft::device_vector_view<T1, int64_t> origin,
+                          const raft::device_vector_view<T1, int64_t> keys,
+                          const raft::device_vector_view<T2, int64_t> counts,
                           raft::device_vector_view<T2, int64_t> result)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
@@ -117,14 +119,14 @@ void create_mapped_vector(raft::resources& handle,
 
   raft::copy(host_keys.data_handle(), keys.data_handle(), keys.size(), stream);
   raft::linalg::map(handle, result, raft::cast_op<T2>{}, raft::make_const_mdspan(origin));
-  auto origin_map = raft::make_device_vector<T2, int64_t>(handle, host_keys(host_keys.size()) + 1);
+  int new_key_size = host_keys(host_keys.size() - 1) + 1;
+  auto origin_map  = raft::make_device_vector<T2, int64_t>(handle, new_key_size);
 
   thrust::scatter(raft::resource::get_thrust_policy(handle),
                   counts.data_handle(),
                   counts.data_handle() + counts.size(),
                   keys.data_handle(),
                   origin_map.data_handle());
-
   thrust::for_each(raft::resource::get_thrust_policy(handle),
                    result.data_handle(),
                    result.data_handle() + result.size(),
@@ -174,15 +176,35 @@ std::tuple<int, int> sparse_search_preprocess(raft::resources& handle,
   return {col_keys.size(), avg_doc_length};
 }
 
-template <typename T1, typename T2>
+template <typename T1, typename T2, typename IdxT>
 void encode_tfidf(raft::resources& handle,
-                  raft::device_vector_view<T1, int64_t> rows,
-                  raft::device_vector_view<T1, int64_t> columns,
-                  raft::device_vector_view<T2, int64_t> values,
-                  raft::device_vector_view<T2, int64_t> values_out)
+                  raft::device_coordinate_structure_view<T1, T1, T2> coo_in,
+                  raft::device_vector_view<T2, IdxT> values_out)
 {
-  auto doc_lengths = raft::make_device_vector<float, int64_t>(handle, columns.size());
-  auto term_counts = raft::make_device_vector<float, int64_t>(handle, rows.size());
+  auto rows                        = coo_in.get_rows();
+  auto columns                     = coo_in.get_columns();
+  auto values                      = coo_in.get_elements();
+  auto doc_lengths                 = raft::make_device_vector<float, IdxT>(handle, columns.size());
+  auto term_counts                 = raft::make_device_vector<float, IdxT>(handle, rows.size());
+  auto [doc_count, avg_doc_length] = sparse_search_preprocess<int, float>(
+    handle, rows, columns, values, doc_lengths.view(), term_counts.view());
+
+  raft::linalg::map(handle,
+                    values_out,
+                    tfidf(doc_count),
+                    raft::make_const_mdspan(values),
+                    raft::make_const_mdspan(term_counts.view()));
+}
+
+template <typename T1, typename T2, typename IdxT>
+void encode_tfidf(raft::resources& handle,
+                  raft::device_vector_view<T1, IdxT> rows,
+                  raft::device_vector_view<T1, IdxT> columns,
+                  raft::device_vector_view<T2, IdxT> values,
+                  raft::device_vector_view<T2, IdxT> values_out)
+{
+  auto doc_lengths                 = raft::make_device_vector<float, IdxT>(handle, columns.size());
+  auto term_counts                 = raft::make_device_vector<float, IdxT>(handle, rows.size());
   auto [doc_count, avg_doc_length] = sparse_search_preprocess<int, float>(
     handle, rows, columns, values, doc_lengths.view(), term_counts.view());
 
@@ -200,7 +222,7 @@ void encode_bm25(raft::resources& handle,
                  raft::device_vector_view<T2, IdxT> values,
                  raft::device_vector_view<T2, IdxT> values_out,
                  float k_param = 1.6f,
-                 float b_param = 0.75)
+                 float b_param = 0.75f)
 {
   auto doc_lengths                 = raft::make_device_vector<T2, IdxT>(handle, columns.size());
   auto term_counts                 = raft::make_device_vector<T2, IdxT>(handle, rows.size());
