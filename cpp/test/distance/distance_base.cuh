@@ -97,6 +97,34 @@ RAFT_KERNEL naiveL1_Linf_CanberraDistanceKernel(DataType* dist,
 }
 
 template <typename DataType>
+RAFT_KERNEL naiveDiceDistanceKernel(
+  DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
+{
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) { return; }
+
+  DataType acc_a  = DataType(0);
+  DataType acc_b  = DataType(0);
+  DataType acc_ab = DataType(0);
+
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a   = x[xidx];
+    auto b   = y[yidx];
+    acc_a += a;
+    acc_b += b;
+    acc_ab += a * b;
+  }
+
+  int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
+
+  // Use 1.0 - (dice dissimilarity) to calc the distance
+  dist[outidx] = (DataType)1.0 - (2 * acc_ab / ((acc_a) + (acc_b)));
+}
+
+template <typename DataType>
 RAFT_KERNEL naiveCosineDistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
@@ -391,6 +419,9 @@ void naiveDistance(DataType* dist,
       naiveCorrelationDistanceKernel<DataType>
         <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
+    case raft::distance::DistanceType::DiceExpanded:
+      naiveDiceDistanceKernel<DataType><<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
     default: FAIL() << "should be here\n";
   }
   RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -482,7 +513,8 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       // Hellinger works only on positive numbers
       uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
       uniform(handle, r, y.data(), n * k, DataType(0.0), DataType(1.0));
-    } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded) {
+    } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded ||
+               distanceType == raft::distance::DistanceType::DiceExpanded) {
       uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
       uniform(handle, r, y.data(), n * k, DataType(0.0), DataType(1.0));
       // Russel rao works on boolean values.
@@ -571,7 +603,8 @@ class DistanceTestSameBuffer : public ::testing::TestWithParam<DistanceInputs<Da
         distanceType == raft::distance::DistanceType::KLDivergence) {
       // Hellinger works only on positive numbers
       uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
-    } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded) {
+    } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded ||
+               distanceType == raft::distance::DistanceType::DiceExpanded) {
       uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
       // Russel rao works on boolean values.
       bernoulli(handle, r, x.data(), m * k, 0.5f);

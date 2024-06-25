@@ -58,10 +58,6 @@ if(BUILD_CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB OFF)
   set(RAFT_ANN_BENCH_USE_GGNN OFF)
-elseif(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
-  # Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
-  # https://github.com/rapidsai/raft/issues/1627
-  set(RAFT_FAISS_ENABLE_GPU OFF)
 endif()
 
 set(RAFT_ANN_BENCH_USE_RAFT OFF)
