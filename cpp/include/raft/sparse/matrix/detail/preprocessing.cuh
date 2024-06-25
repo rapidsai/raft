@@ -181,19 +181,10 @@ void encode_tfidf(raft::resources& handle,
                   raft::device_coordinate_structure_view<T1, T1, T2> coo_in,
                   raft::device_vector_view<T2, IdxT> values_out)
 {
-  auto rows                        = coo_in.get_rows();
-  auto columns                     = coo_in.get_columns();
-  auto values                      = coo_in.get_elements();
-  auto doc_lengths                 = raft::make_device_vector<float, IdxT>(handle, columns.size());
-  auto term_counts                 = raft::make_device_vector<float, IdxT>(handle, rows.size());
-  auto [doc_count, avg_doc_length] = sparse_search_preprocess<int, float>(
-    handle, rows, columns, values, doc_lengths.view(), term_counts.view());
-
-  raft::linalg::map(handle,
-                    values_out,
-                    tfidf(doc_count),
-                    raft::make_const_mdspan(values),
-                    raft::make_const_mdspan(term_counts.view()));
+  auto rows    = coo_in.get_rows();
+  auto columns = coo_in.get_columns();
+  auto values  = coo_in.get_elements();
+  encode_tfidf(handle, rows, columns, values, values_out);
 }
 
 template <typename T1, typename T2, typename IdxT>
@@ -213,6 +204,19 @@ void encode_tfidf(raft::resources& handle,
                     tfidf(doc_count),
                     raft::make_const_mdspan(values),
                     raft::make_const_mdspan(term_counts.view()));
+}
+
+template <typename T1, typename T2, typename IdxT>
+void encode_bm25(raft::resources& handle,
+                 raft::device_coordinate_structure_view<T1, T1, T2> coo_in,
+                 raft::device_vector_view<T2, IdxT> values_out,
+                 float k_param = 1.6f,
+                 float b_param = 0.75f)
+{
+  auto rows    = coo_in.get_rows();
+  auto columns = coo_in.get_columns();
+  auto values  = coo_in.get_elements();
+  encode_bm25(handle, rows, columns, values, values_out, k_param, b_param);
 }
 
 template <typename T1, typename T2, typename IdxT>
