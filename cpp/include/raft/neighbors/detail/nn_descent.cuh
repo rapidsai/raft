@@ -831,10 +831,11 @@ __launch_bounds__(BLOCK_SIZE, 4)
   __syncthreads();
 
   for (int i = threadIdx.x; i < MAX_NUM_BI_SAMPLES * SKEWED_MAX_NUM_BI_SAMPLES; i += blockDim.x) {
-    if (i % SKEWED_MAX_NUM_BI_SAMPLES < list_new_size &&
-        i / SKEWED_MAX_NUM_BI_SAMPLES < list_new_size) {
-      auto r = new_neighbors[i % SKEWED_MAX_NUM_BI_SAMPLES];
-      auto c = new_neighbors[i / SKEWED_MAX_NUM_BI_SAMPLES];
+    auto row_idx = i % SKEWED_MAX_NUM_BI_SAMPLES;
+    auto col_idx = i / SKEWED_MAX_NUM_BI_SAMPLES;
+    if (row_idx < list_new_size && col_idx < list_new_size) {
+      auto r = new_neighbors[row_idx];
+      auto c = new_neighbors[col_idx];
       if (l2_norms == nullptr) {
         auto dist_val  = -s_distances[i];
         s_distances[i] = distance_epilogue(dist_val, r, c);
@@ -912,10 +913,11 @@ __launch_bounds__(BLOCK_SIZE, 4)
   __syncthreads();
 
   for (int i = threadIdx.x; i < MAX_NUM_BI_SAMPLES * SKEWED_MAX_NUM_BI_SAMPLES; i += blockDim.x) {
-    if (i % SKEWED_MAX_NUM_BI_SAMPLES < list_old_size &&
-        i / SKEWED_MAX_NUM_BI_SAMPLES < list_new_size) {
-      auto r = old_neighbors[i % SKEWED_MAX_NUM_BI_SAMPLES];
-      auto c = new_neighbors[i / SKEWED_MAX_NUM_BI_SAMPLES];
+    auto row_idx = i % SKEWED_MAX_NUM_BI_SAMPLES;
+    auto col_idx = i / SKEWED_MAX_NUM_BI_SAMPLES;
+    if (row_idx < list_old_size && col_idx < list_new_size) {
+      auto r = old_neighbors[row_idx];
+      auto c = new_neighbors[col_idx];
       if (l2_norms == nullptr) {
         auto dist_val  = -s_distances[i];
         s_distances[i] = distance_epilogue(dist_val, r, c);
