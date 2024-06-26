@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,3 +51,27 @@ def raft_cagra_search_constraints(params, build_params, k, batch_size):
 def hnswlib_search_constraints(params, build_params, k, batch_size):
     if "ef" in params:
         return params["ef"] >= k
+
+
+def faiss_gpu_ivf_pq_build_constraints(params, dims):
+    ret = True
+    # M must be defined
+    ret = params["M"] <= dims and dims % params["M"] == 0
+    if "use_raft" in params and params["use_raft"]:
+        return ret
+    pq_bits = 8
+    if "bitsPerCode" in params:
+        pq_bits = params["bitsPerCode"]
+    lookup_table_size = 4
+    if "useFloat16" in params and params["useFloat16"]:
+        lookup_table_size = 2
+    # FAISS constraint to check if lookup table fits in shared memory
+    # for now hard code maximum shared memory per block to 49 kB (the value for A100 and V100)
+    return ret and lookup_table_size * params["M"] * (2**pq_bits) <= 49152
+
+
+def faiss_gpu_ivf_pq_search_constraints(params, build_params, k, batch_size):
+    ret = True
+    if "nlist" in build_params and "nprobe" in params:
+        ret = ret and build_params["nlist"] >= params["nprobe"]
+    return ret

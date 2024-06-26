@@ -229,7 +229,7 @@ class FaissCpuIVFPQ : public FaissCpu<T> {
   struct BuildParam : public FaissCpu<T>::BuildParam {
     int M;
     int bitsPerCode;
-    bool usePrecomputed;
+    bool use_precomputed_table;
   };
 
   FaissCpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)

@@ -36,9 +36,12 @@ You can limit the algorithms that are built by providing a semicolon-delimited l
 ```
 
 Available targets to use with `--limit-bench-ann` are:
-- FAISS_IVF_FLAT_ANN_BENCH
-- FAISS_IVF_PQ_ANN_BENCH
-- FAISS_BFKNN_ANN_BENCH
+- FAISS_GPU_IVF_FLAT_ANN_BENCH
+- FAISS_GPU_IVF_PQ_ANN_BENCH
+- FAISS_CPU_IVF_FLAT_ANN_BENCH
+- FAISS_CPU_IVF_PQ_ANN_BENCH
+- FAISS_GPU_FLAT_ANN_BENCH
+- FAISS_CPU_FLAT_ANN_BENCH
 - GGNN_ANN_BENCH
 - HNSWLIB_ANN_BENCH
 - RAFT_CAGRA_ANN_BENCH

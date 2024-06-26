@@ -55,6 +55,23 @@ struct CompareApprox {
   T eps;
 };
 
+template <typename T>
+struct CompareApproxNaN {
+  CompareApproxNaN(T eps_) : eps(eps_) {}
+  bool operator()(const T& a, const T& b) const
+  {
+    T diff  = std::abs(a - b);
+    T m     = std::max(std::abs(a), std::abs(b));
+    T ratio = diff > eps ? diff / m : diff;
+
+    if (std::isnan(a) && std::isnan(b)) { return true; }
+    return (ratio <= eps);
+  }
+
+ private:
+  T eps;
+};
+
 template <typename Key, typename Value>
 ::std::ostream& operator<<(::std::ostream& os, const raft::KeyValuePair<Key, Value>& kv)
 {

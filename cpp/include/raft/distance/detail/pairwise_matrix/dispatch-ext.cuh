@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,6 +120,10 @@ instantiate_raft_distance_detail_pairwise_matrix_dispatch(
   raft::distance::detail::ops::cosine_distance_op, float, float, float, raft::identity_op, int);
 instantiate_raft_distance_detail_pairwise_matrix_dispatch(
   raft::distance::detail::ops::cosine_distance_op, double, double, double, raft::identity_op, int);
+instantiate_raft_distance_detail_pairwise_matrix_dispatch(
+  raft::distance::detail::ops::dice_distance_op, float, float, float, raft::identity_op, int);
+instantiate_raft_distance_detail_pairwise_matrix_dispatch(
+  raft::distance::detail::ops::dice_distance_op, double, double, double, raft::identity_op, int);
 instantiate_raft_distance_detail_pairwise_matrix_dispatch(
   raft::distance::detail::ops::hamming_distance_op, float, float, float, raft::identity_op, int);
 instantiate_raft_distance_detail_pairwise_matrix_dispatch(

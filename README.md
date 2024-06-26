@@ -369,7 +369,7 @@ If citing the k-selection routines, please consider the following bibtex:
     isbn = {9798400701092},
     publisher = {Association for Computing Machinery},
     address = {New York, NY, USA},
-    location = {Denver, CO, USA}
+    location = {Denver, CO, USA},
     series = {SC '23}
 }
 ```

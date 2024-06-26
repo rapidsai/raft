@@ -302,6 +302,8 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/detail/pairwise_matrix/dispatch_correlation_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_cosine_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_cosine_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_dice_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_dice_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_hellinger_expanded_double_double_double_int.cu
