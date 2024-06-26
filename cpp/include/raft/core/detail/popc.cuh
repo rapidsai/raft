@@ -17,6 +17,7 @@
 
 #include <raft/core/detail/mdspan_util.cuh>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 
@@ -28,15 +29,15 @@ namespace raft::detail {
  * @tparam value_t the value type of the vector.
  * @tparam index_t the index type of vector and scalar.
  *
- * @param[in] res raft handle for managing expensive resources
- * @param[in] values Number of row in the matrix.
+ * @param[in] res RAFT handle for managing expensive resources
+ * @param[in] values Device vector view containing the values to be processed.
  * @param[in] max_len Maximum number of bits to count.
- * @param[out] counter Number of bits that are set to 1.
+ * @param[out] counter Device scalar view to store the number of bits that are set to 1.
  */
 template <typename value_t, typename index_t>
 void popc(const raft::resources& res,
           device_vector_view<value_t, index_t> values,
-          index_t max_len,
+          raft::host_scalar_view<index_t> max_len,
           raft::device_scalar_view<index_t> counter)
 {
   auto values_size   = values.size();
@@ -46,7 +47,7 @@ void popc(const raft::resources& res,
 
   static constexpr index_t len_per_item = sizeof(value_t) * 8;
 
-  value_t tail_len  = (max_len % len_per_item);
+  value_t tail_len  = (max_len[0] % len_per_item);
   value_t tail_mask = tail_len ? (value_t)((value_t{1} << tail_len) - value_t{1}) : ~value_t{0};
   raft::linalg::coalesced_reduction(
     res,

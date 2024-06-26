@@ -17,9 +17,9 @@
 #pragma once
 
 #include <raft/core/bitset.hpp>
-#include <raft/core/detail/popc.cuh>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/popc.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
@@ -167,9 +167,10 @@ template <typename bitset_t, typename index_t>
 void bitset<bitset_t, index_t>::count(const raft::resources& res,
                                       raft::device_scalar_view<index_t> count_gpu_scalar)
 {
+  auto max_len = raft::make_host_scalar_view<index_t>(&bitset_len_);
   auto values =
     raft::make_device_vector_view<const bitset_t, index_t>(bitset_.data(), n_elements());
-  raft::detail::popc(res, values, bitset_len_, count_gpu_scalar);
+  raft::popc(res, values, max_len, count_gpu_scalar);
 }
 
 }  // end namespace raft::core

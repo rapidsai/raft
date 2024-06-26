@@ -121,6 +121,7 @@ if(BUILD_TESTS)
     core/math_host.cpp
     core/operators_device.cu
     core/operators_host.cpp
+    core/popc.cu
     core/handle.cpp
     core/interruptible.cu
     core/nvtx.cpp
