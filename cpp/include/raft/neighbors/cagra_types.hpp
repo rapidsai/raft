@@ -124,6 +124,8 @@ struct search_params : ann::search_params {
   uint32_t num_random_samplings = 1;
   /** Bit mask used for initial random seed node selection. */
   uint64_t rand_xor_mask = 0x128394;
+  /** Whether to use the persistent version of the kernel (only SINGLE_CTA is supported a.t.m.) */
+  bool persistent = false;
 };
 
 static_assert(std::is_aggregate_v<index_params>);

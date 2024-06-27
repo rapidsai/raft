@@ -117,6 +117,15 @@ class RaftCagra : public ANN<T>, public AnnGPU {
     return handle_.get_sync_stream();
   }
 
+  [[nodiscard]] auto uses_stream() const noexcept -> bool override
+  {
+    // If the algorithm uses persistent kernel, the CPU has to synchronize by the end of computing
+    // the result. Hence it guarantees the benchmark CUDA stream is empty by the end of the
+    // execution. Hence we inform the benchmark to not waste the time on recording & synchronizing
+    // the event.
+    return !search_params_.persistent;
+  }
+
   // to enable dataset access from GPU memory
   AlgoProperty get_preference() const override
   {
@@ -326,14 +335,33 @@ void RaftCagra<T, IdxT>::search(
   } else {
     auto queries_v =
       raft::make_device_matrix_view<const T, AnnBase::index_type>(queries, batch_size, dimension_);
-    auto candidate_ixs =
-      raft::make_device_matrix<AnnBase::index_type, AnnBase::index_type>(res, batch_size, k0);
-    auto candidate_dists =
-      raft::make_device_matrix<float, AnnBase::index_type>(res, batch_size, k0);
-    search_base(
-      queries, batch_size, k0, candidate_ixs.data_handle(), candidate_dists.data_handle());
-    refine_helper(
-      res, *input_dataset_v_, queries_v, candidate_ixs, k, neighbors, distances, index_->metric());
+
+    auto& tmp_buf = get_tmp_buffer_from_global_pool((sizeof(float) + sizeof(AnnBase::index_type)) *
+                                                    batch_size * k0);
+    auto mem_type =
+      raft::get_device_for_address(neighbors) >= 0 ? MemoryType::Device : MemoryType::HostPinned;
+
+    auto candidate_ixs = raft::make_device_matrix_view<AnnBase::index_type, AnnBase::index_type>(
+      reinterpret_cast<AnnBase::index_type*>(tmp_buf.data(mem_type)), batch_size, k0);
+    auto candidate_dists = reinterpret_cast<float*>(candidate_ixs.data_handle() + batch_size * k0);
+
+    search_base(queries, batch_size, k0, candidate_ixs.data_handle(), candidate_dists);
+
+    if (mem_type == MemoryType::HostPinned && uses_stream()) {
+      // If the algorithm uses a stream to synchronize (non-persistent kernel), but the data is in
+      // the pinned host memory, we need top synchronize before the refinement operation to wait for
+      // the data being available for the host.
+      raft::resource::sync_stream(res);
+    }
+
+    refine_helper(res,
+                  *input_dataset_v_,
+                  queries_v,
+                  raft::make_const_mdspan(candidate_ixs),
+                  k,
+                  neighbors,
+                  distances,
+                  index_->metric());
   }
 }
 }  // namespace raft::bench::ann

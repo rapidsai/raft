@@ -33,6 +33,7 @@ enum Objective {
 enum class MemoryType {
   Host,
   HostMmap,
+  HostPinned,
   Device,
 };
 
@@ -58,6 +59,8 @@ inline auto parse_memory_type(const std::string& memory_type) -> MemoryType
     return MemoryType::Host;
   } else if (memory_type == "mmap") {
     return MemoryType::HostMmap;
+  } else if (memory_type == "pinned") {
+    return MemoryType::HostPinned;
   } else if (memory_type == "device") {
     return MemoryType::Device;
   } else {
@@ -73,7 +76,7 @@ struct AlgoProperty {
 
 class AnnBase {
  public:
-  using index_type = size_t;
+  using index_type = uint32_t;
 
   inline AnnBase(Metric metric, int dim) : metric_(metric), dim_(dim) {}
   virtual ~AnnBase() noexcept = default;

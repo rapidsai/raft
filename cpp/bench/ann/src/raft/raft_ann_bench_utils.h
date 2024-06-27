@@ -228,27 +228,47 @@ void refine_helper(const raft::resources& res,
   } else {
     auto dataset_host = raft::make_host_matrix_view<const data_type, extents_type>(
       dataset.data_handle(), dataset.extent(0), dataset.extent(1));
-    auto queries_host    = raft::make_host_matrix<data_type, extents_type>(batch_size, dim);
-    auto candidates_host = raft::make_host_matrix<index_type, extents_type>(batch_size, k0);
-    auto neighbors_host  = raft::make_host_matrix<index_type, extents_type>(batch_size, k);
-    auto distances_host  = raft::make_host_matrix<float, extents_type>(batch_size, k);
 
-    auto stream = resource::get_cuda_stream(res);
-    raft::copy(queries_host.data_handle(), queries.data_handle(), queries_host.size(), stream);
-    raft::copy(
-      candidates_host.data_handle(), candidates.data_handle(), candidates_host.size(), stream);
+    if (raft::get_device_for_address(queries.data_handle()) >= 0) {
+      // Queries & results are on the device
 
-    raft::resource::sync_stream(res);  // wait for the queries and candidates
-    raft::neighbors::refine<index_type, data_type, float, extents_type>(res,
-                                                                        dataset_host,
-                                                                        queries_host.view(),
-                                                                        candidates_host.view(),
-                                                                        neighbors_host.view(),
-                                                                        distances_host.view(),
-                                                                        metric);
+      auto queries_host    = raft::make_host_matrix<data_type, extents_type>(batch_size, dim);
+      auto candidates_host = raft::make_host_matrix<index_type, extents_type>(batch_size, k0);
+      auto neighbors_host  = raft::make_host_matrix<index_type, extents_type>(batch_size, k);
+      auto distances_host  = raft::make_host_matrix<float, extents_type>(batch_size, k);
 
-    raft::copy(neighbors, neighbors_host.data_handle(), neighbors_host.size(), stream);
-    raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
+      auto stream = resource::get_cuda_stream(res);
+      raft::copy(queries_host.data_handle(), queries.data_handle(), queries_host.size(), stream);
+      raft::copy(
+        candidates_host.data_handle(), candidates.data_handle(), candidates_host.size(), stream);
+
+      raft::resource::sync_stream(res);  // wait for the queries and candidates
+      raft::neighbors::refine<index_type, data_type, float, extents_type>(res,
+                                                                          dataset_host,
+                                                                          queries_host.view(),
+                                                                          candidates_host.view(),
+                                                                          neighbors_host.view(),
+                                                                          distances_host.view(),
+                                                                          metric);
+
+      raft::copy(neighbors, neighbors_host.data_handle(), neighbors_host.size(), stream);
+      raft::copy(distances, distances_host.data_handle(), distances_host.size(), stream);
+
+    } else {
+      // Queries & results are on the host - no device sync / copy needed
+
+      auto queries_host = raft::make_host_matrix_view<const data_type, extents_type>(
+        queries.data_handle(), batch_size, dim);
+      auto candidates_host = raft::make_host_matrix_view<const index_type, extents_type>(
+        candidates.data_handle(), batch_size, k0);
+      auto neighbors_host =
+        raft::make_host_matrix_view<index_type, extents_type>(neighbors, batch_size, k);
+      auto distances_host =
+        raft::make_host_matrix_view<float, extents_type>(distances, batch_size, k);
+
+      raft::neighbors::refine<index_type, data_type, float, extents_type>(
+        res, dataset_host, queries_host, candidates_host, neighbors_host, distances_host, metric);
+    }
   }
 }
 
