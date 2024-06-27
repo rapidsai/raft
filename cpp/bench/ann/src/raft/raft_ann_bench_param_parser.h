@@ -30,7 +30,7 @@ extern template class raft::bench::ann::RaftIvfFlatGpu<uint8_t, int64_t>;
 extern template class raft::bench::ann::RaftIvfFlatGpu<int8_t, int64_t>;
 #endif
 #if defined(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || \
-  defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+  defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB) || defined(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA)
 #include "raft_ivf_pq_wrapper.h"
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
@@ -38,7 +38,8 @@ extern template class raft::bench::ann::RaftIvfPQ<float, int64_t>;
 extern template class raft::bench::ann::RaftIvfPQ<uint8_t, int64_t>;
 extern template class raft::bench::ann::RaftIvfPQ<int8_t, int64_t>;
 #endif
-#if defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+#if defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB) || \
+    defined(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA)
 #include "raft_cagra_wrapper.h"
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
@@ -47,11 +48,33 @@ extern template class raft::bench::ann::RaftCagra<half, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<uint8_t, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
 #endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_FLAT
+#include "raft_ann_mg_ivf_flat_wrapper.hpp"
+extern template class raft::bench::ann::RaftAnnMG_IvfFlat<float, int64_t>;
+extern template class raft::bench::ann::RaftAnnMG_IvfFlat<uint8_t, int64_t>;
+extern template class raft::bench::ann::RaftAnnMG_IvfFlat<int8_t, int64_t>;
+#endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ
+#include "raft_ann_mg_ivf_pq_wrapper.hpp"
+extern template class raft::bench::ann::RaftAnnMG_IvfPq<float, int64_t>;
+extern template class raft::bench::ann::RaftAnnMG_IvfPq<uint8_t, int64_t>;
+extern template class raft::bench::ann::RaftAnnMG_IvfPq<int8_t, int64_t>;
+#endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA
+#include "raft_ann_mg_cagra_wrapper.hpp"
+extern template class raft::bench::ann::RaftAnnMG_Cagra<float, uint32_t>;
+extern template class raft::bench::ann::RaftAnnMG_Cagra<uint8_t, uint32_t>;
+extern template class raft::bench::ann::RaftAnnMG_Cagra<int8_t, uint32_t>;
+#endif
 
-#ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
+#if defined(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT) || defined(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_FLAT)
 template <typename T, typename IdxT>
 void parse_build_param(const nlohmann::json& conf,
+                       #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
                        typename raft::bench::ann::RaftIvfFlatGpu<T, IdxT>::BuildParam& param)
+                       #else
+                       typename raft::bench::ann::RaftAnnMG_IvfFlat<T, IdxT>::BuildParam& param)
+                       #endif
 {
   param.n_lists = conf.at("nlist");
   if (conf.contains("niter")) { param.kmeans_n_iters = conf.at("niter"); }
@@ -60,17 +83,26 @@ void parse_build_param(const nlohmann::json& conf,
 
 template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
+                        #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
                         typename raft::bench::ann::RaftIvfFlatGpu<T, IdxT>::SearchParam& param)
+                        #else
+                        typename raft::bench::ann::RaftAnnMG_IvfFlat<T, IdxT>::SearchParam& param)
+                        #endif
 {
   param.ivf_flat_params.n_probes = conf.at("nprobe");
 }
 #endif
 
 #if defined(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || \
-  defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+  defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB) || defined(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ) || \
+  defined(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA)
 template <typename T, typename IdxT>
 void parse_build_param(const nlohmann::json& conf,
+                       #ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ
+                       typename raft::bench::ann::RaftAnnMG_IvfPq<T, IdxT>::BuildParam& param)
+                       #else
                        typename raft::bench::ann::RaftIvfPQ<T, IdxT>::BuildParam& param)
+                       #endif
 {
   if (conf.contains("nlist")) { param.n_lists = conf.at("nlist"); }
   if (conf.contains("niter")) { param.kmeans_n_iters = conf.at("niter"); }
@@ -92,7 +124,11 @@ void parse_build_param(const nlohmann::json& conf,
 
 template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
+                        #ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ
+                        typename raft::bench::ann::RaftAnnMG_IvfPq<T, IdxT>::SearchParam& param)
+                        #else
                         typename raft::bench::ann::RaftIvfPQ<T, IdxT>::SearchParam& param)
+                        #endif
 {
   if (conf.contains("nprobe")) { param.pq_param.n_probes = conf.at("nprobe"); }
   if (conf.contains("internalDistanceDtype")) {
@@ -133,7 +169,8 @@ void parse_search_param(const nlohmann::json& conf,
 }
 #endif
 
-#if defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+#if defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB) || \
+    defined(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA)
 template <typename T, typename IdxT>
 void parse_build_param(const nlohmann::json& conf,
                        raft::neighbors::experimental::nn_descent::index_params& param)
@@ -180,7 +217,11 @@ nlohmann::json collect_conf_with_prefix(const nlohmann::json& conf,
 
 template <typename T, typename IdxT>
 void parse_build_param(const nlohmann::json& conf,
+                       #ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA
+                       typename raft::bench::ann::RaftAnnMG_Cagra<T, IdxT>::BuildParam& param)
+                       #else
                        typename raft::bench::ann::RaftCagra<T, IdxT>::BuildParam& param)
+                       #endif
 {
   if (conf.contains("graph_degree")) {
     param.cagra_params.graph_degree              = conf.at("graph_degree");
@@ -244,7 +285,11 @@ raft::bench::ann::AllocatorType parse_allocator(std::string mem_type)
 
 template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
-                        typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
+                       #ifdef RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA
+                       typename raft::bench::ann::RaftAnnMG_Cagra<T, IdxT>::SearchParam& param)
+                       #else
+                       typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
+                       #endif
 {
   if (conf.contains("itopk")) { param.p.itopk_size = conf.at("itopk"); }
   if (conf.contains("search_width")) { param.p.search_width = conf.at("search_width"); }
@@ -263,12 +308,15 @@ void parse_search_param(const nlohmann::json& conf,
       THROW("Invalid value for algo: %s", tmp.c_str());
     }
   }
+
+  #if defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
   if (conf.contains("graph_memory_type")) {
     param.graph_mem = parse_allocator(conf.at("graph_memory_type"));
   }
   if (conf.contains("internal_dataset_memory_type")) {
     param.dataset_mem = parse_allocator(conf.at("internal_dataset_memory_type"));
   }
+  #endif
   // Same ratio as in IVF-PQ
   param.refine_ratio = conf.value("refine_ratio", 1.0f);
 }

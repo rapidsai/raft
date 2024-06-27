@@ -23,7 +23,7 @@ function(ConfigureTest)
 
   set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY NOCUDA)
   set(oneValueArgs NAME GPUS PERCENT)
-  set(multiValueArgs PATH TARGETS CONFIGURATIONS)
+  set(multiValueArgs PATH ADDITIONAL_LIBS TARGETS CONFIGURATIONS)
 
   cmake_parse_arguments(_RAFT_TEST "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
   if(NOT DEFINED _RAFT_TEST_GPUS AND NOT DEFINED _RAFT_TEST_PERCENT)
@@ -55,6 +55,7 @@ function(ConfigureTest)
             ${RAFT_CTK_MATH_DEPENDENCIES}
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
+            ${_RAFT_TEST_ADDITIONAL_LIBS}
   )
   set_target_properties(
     ${TEST_NAME}
@@ -439,6 +440,20 @@ if(BUILD_TESTS)
     neighbors/ann_ivf_pq/test_filter_float_int64_t.cu
     neighbors/ann_ivf_pq/test_filter_int8_t_int64_t.cu
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
+  )
+
+  ConfigureTest(
+    NAME
+    NEIGHBORS_ANN_MG_TEST
+    PATH
+    neighbors/ann_mg/test_ann_mg.cu
+    LIB
+    ucp ucs ucxx nccl
     EXPLICIT_INSTANTIATE_ONLY
     GPUS
     1

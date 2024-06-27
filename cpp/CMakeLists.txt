@@ -594,6 +594,8 @@ if(RAFT_COMPILE_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
+
+
   foreach(target raft_lib raft_lib_static raft_objs)
     target_link_libraries(
       ${target}

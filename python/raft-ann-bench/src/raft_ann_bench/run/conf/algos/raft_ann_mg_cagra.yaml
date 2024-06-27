@@ -1,0 +1,13 @@
+name: raft_ann_mg_cagra
+constraints:
+  build: raft-ann-bench.constraints.raft_cagra_build_constraints
+  search: raft-ann-bench.constraints.raft_cagra_search_constraints
+groups:
+  base:
+    build:
+      graph_degree: [32, 64, 128, 256]
+      intermediate_graph_degree: [32, 64, 96, 128]
+      graph_build_algo: ["NN_DESCENT"]
+    search:
+      itopk: [32, 64, 128, 256, 512]
+      search_width: [1, 2, 4, 8, 16, 32, 64]
