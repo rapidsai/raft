@@ -58,7 +58,10 @@ struct dice_distance_op {
     return Policy::SmemSize + ((Policy::Mblk + Policy::Nblk) * sizeof(DataT));
   }
 
-  DI void core(AccT& acc, DataT& x, DataT& y) const { acc += x * y; };
+  DI void core(AccT& acc, DataT& x, DataT& y) const
+  {
+    acc += (x != DataT(0) ? DataT(1) : DataT(0)) * (y != DataT(0) ? DataT(1) : DataT(0));
+  };
 
   template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
