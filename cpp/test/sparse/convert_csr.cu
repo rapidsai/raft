@@ -116,7 +116,6 @@ TEST_P(SortedLongCOOToCSR, Result)
   raft::update_device(exp.data(), exp_h, rows_size, stream);
 
   convert::sorted_coo_to_csr<int>(in.data(), nnz, out.data(), rows_size, stream);
-  std::cout << "assert is next " << std::endl;
   ASSERT_TRUE(
     raft::devArrMatch<int>(out.data(), exp.data(), rows_size, raft::Compare<int>(), stream));
 
