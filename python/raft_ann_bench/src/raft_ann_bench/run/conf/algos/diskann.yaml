@@ -1,22 +1,23 @@
 name: diskann
 constraints:
+  build: raft_ann_bench.constraints.diskann_build_constraints
   search: raft_ann_bench.constraints.diskann_search_constraints
 groups:
   base:
     build:
-      R: [32, 64]
-      Lb: [64, 128]
+      R: [16, 24, 32, 64]
+      Lb: [24, 32, 64, 128]
       alpha: [1.0, 1.2]
       use_cagra_graph: [False]
     search:
       L_search: [10, 20, 50, 100, 200, 300]
   cagra:
     build:
-      R: [32, 64]
-      Lb: [128]
+      R: [16, 24, 32, 64]
+      Lb: [32]
       alpha: [1.2]
-      cagra_intermediate_graph_degree: [64, 128]
-      cagra_graph_degree: [32, 64]
+      cagra_intermediate_graph_degree: [24, 32, 64, 128]
+      cagra_graph_degree: [16, 24, 32, 64]
       use_cagra_graph: [True]
     search:
       L_search: [10, 20, 50, 100, 200, 300]

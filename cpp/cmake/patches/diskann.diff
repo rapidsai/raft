@@ -238,7 +238,7 @@ index d0206a7..46cdee4 100644
  };
  
 diff --git a/include/index.h b/include/index.h
-index b9bf4f3..88939a9 100644
+index b9bf4f3..4890f00 100644
 --- a/include/index.h
 +++ b/include/index.h
 @@ -66,7 +66,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
@@ -251,27 +251,26 @@ index b9bf4f3..88939a9 100644
  
      DISKANN_DLLEXPORT ~Index();
  
-@@ -100,6 +101,10 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
-     // Batch build from a data array, which must pad vectors to aligned_dim
-     DISKANN_DLLEXPORT void build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags);
+@@ -98,7 +99,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
+     DISKANN_DLLEXPORT void build(const char *filename, const size_t num_points_to_load, const char *tag_filename);
  
-+    // Batch build from a data array, which must pad vectors to aligned_dim
+     // Batch build from a data array, which must pad vectors to aligned_dim
+-    DISKANN_DLLEXPORT void build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags);
 +    DISKANN_DLLEXPORT void build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags,
-+                                 std::vector<std::vector<uint32_t>> &raft_cagra_graph_vec);
-+
++                                 const std::vector<uint32_t> &raft_cagra_graph_vec = std::vector<uint32_t>());
+ 
      // Based on filter params builds a filtered or unfiltered index
      DISKANN_DLLEXPORT void build(const std::string &data_file, const size_t num_points_to_load,
-                                  IndexFilterParams &filter_params);
-@@ -236,6 +241,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
+@@ -236,6 +238,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
      Index(const Index<T, TagT, LabelT> &) = delete;
      Index<T, TagT, LabelT> &operator=(const Index<T, TagT, LabelT> &) = delete;
  
-+    void add_raft_cagra_neighbours(std::vector<std::vector<uint32_t>>& raft_cagra_graph_vec);
++    void add_raft_cagra_neighbours(const std::vector<uint32_t>& raft_cagra_graph_vec);
 +
      // Use after _data and _nd have been populated
      // Acquire exclusive _update_lock before calling
      void build_with_data_populated(const std::vector<TagT> &tags);
-@@ -444,5 +451,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
+@@ -444,5 +448,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
      std::vector<non_recursive_mutex> _locks;
  
      static const float INDEX_GROWTH_FACTOR;
@@ -395,7 +394,7 @@ index c12b251..ea39001 100644
 +
  } // namespace diskann
 diff --git a/src/index.cpp b/src/index.cpp
-index bf93344..014ed66 100644
+index bf93344..665f45a 100644
 --- a/src/index.cpp
 +++ b/src/index.cpp
 @@ -37,8 +37,10 @@ Index<T, TagT, LabelT>::Index(const IndexConfig &index_config, std::shared_ptr<A
@@ -430,20 +429,29 @@ index bf93344..014ed66 100644
                .build(),
            IndexFactory::construct_datastore<T>(DataStoreStrategy::MEMORY,
                                                 (max_points == 0 ? (size_t)1 : max_points) +
-@@ -1505,6 +1510,21 @@ void Index<T, TagT, LabelT>::set_start_points_at_random(T radius, uint32_t rando
+@@ -1505,6 +1510,30 @@ void Index<T, TagT, LabelT>::set_start_points_at_random(T radius, uint32_t rando
      set_start_points(points_data.data(), points_data.size());
  }
  
 +template <typename T, typename TagT, typename LabelT>
-+void Index<T, TagT, LabelT>::add_raft_cagra_neighbours(std::vector<std::vector<uint32_t>> &raft_cagra_graph_vec)
++void Index<T, TagT, LabelT>::add_raft_cagra_neighbours(const std::vector<uint32_t> &raft_cagra_graph_vec)
 +{
++    std::cout << "inside add_raft_cagra_neighbours" << std::endl;
 +    std::vector<std::vector<uint32_t>> &graph = _graph_store->graph();
++    std::cout << "accessed graph" << std::endl;
++    std::cout << "graph size " << graph.size() << std::endl;
++
 +#pragma omp parallel for num_threads(_indexingThreads)
 +    for (int i = 0; i < graph.size(); i++)
 +    {
-+        _graph_store->set_neighbours(i, raft_cagra_graph_vec[i]);
-+        assert(_graph_store->get_neighbours((location_t)i).size() <= _indexingRange);
-+        raft_cagra_graph_vec[i].clear();
++        graph[i].resize(_raft_cagra_graph_degree);
++        for (int j = 0; j < _raft_cagra_graph_degree; j++)
++        {
++            graph[i][j] = raft_cagra_graph_vec[i * _raft_cagra_graph_degree + j];
++        }
++        // if (i % 100000 == 0) {
++        //     std::cout << "resized " << i << " rows" << std::endl;
++        // }
 +    }
 +    std::cout << "_indexingThreads" << _indexingThreads << std::endl;
 +    _has_built = true;
@@ -452,15 +460,19 @@ index bf93344..014ed66 100644
  template <typename T, typename TagT, typename LabelT>
  void Index<T, TagT, LabelT>::build_with_data_populated(const std::vector<TagT> &tags)
  {
-@@ -1575,6 +1595,7 @@ void Index<T, TagT, LabelT>::_build(const DataType &data, const size_t num_point
+@@ -1575,8 +1604,10 @@ void Index<T, TagT, LabelT>::_build(const DataType &data, const size_t num_point
          throw ANNException("Error" + std::string(e.what()), -1);
      }
  }
 +
  template <typename T, typename TagT, typename LabelT>
- void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags)
+-void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags)
++void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags,
++                                   const std::vector<uint32_t> &raft_cagra_graph_vec)
  {
-@@ -1593,13 +1614,44 @@ void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_loa
+     if (num_points_to_load == 0)
+     {
+@@ -1593,11 +1624,18 @@ void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_loa
      {
          std::unique_lock<std::shared_timed_mutex> tl(_tag_lock);
          _nd = num_points_to_load;
@@ -468,30 +480,7 @@ index bf93344..014ed66 100644
          _data_store->populate_data(data, (location_t)num_points_to_load);
      }
 -
-     build_with_data_populated(tags);
- }
- 
-+template <typename T, typename TagT, typename LabelT>
-+void Index<T, TagT, LabelT>::build(const T *data, const size_t num_points_to_load, const std::vector<TagT> &tags,
-+                                   std::vector<std::vector<uint32_t>> &raft_cagra_graph_vec)
-+{
-+    if (num_points_to_load == 0)
-+    {
-+        throw ANNException("Do not call build with 0 points", -1, __FUNCSIG__, __FILE__, __LINE__);
-+    }
-+    if (_pq_dist)
-+    {
-+        throw ANNException("ERROR: DO not use this build interface with PQ distance", -1, __FUNCSIG__, __FILE__,
-+                           __LINE__);
-+    }
-+
-+    std::unique_lock<std::shared_timed_mutex> ul(_update_lock);
-+
-+    {
-+        std::unique_lock<std::shared_timed_mutex> tl(_tag_lock);
-+        _nd = num_points_to_load;
-+        _data_store->populate_data(data, (location_t)num_points_to_load);
-+    }
+-    build_with_data_populated(tags);
 +    if (!_raft_cagra_graph)
 +        build_with_data_populated(tags);
 +    else
@@ -502,8 +491,6 @@ index bf93344..014ed66 100644
 +            _start = calculate_entry_point();
 +        add_raft_cagra_neighbours(raft_cagra_graph_vec);
 +    }
-+}
-+
+ }
+ 
  template <typename T, typename TagT, typename LabelT>
- void Index<T, TagT, LabelT>::build(const char *filename, const size_t num_points_to_load, const std::vector<TagT> &tags)
- {

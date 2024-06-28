@@ -228,6 +228,13 @@ def create_plot_search(
 def create_plot_build(
     build_results, search_results, linestyles, fn_out, dataset, k, batch_size
 ):
+    for key in list(build_results.keys()):
+        if key[0].endswith(".json"):
+            new_key = (key[0][:-5], key[1])
+            build_results[new_key] = build_results.pop(key)
+    
+    print(build_results.keys())
+
     bt_80 = [0] * len(linestyles)
 
     bt_90 = [0] * len(linestyles)

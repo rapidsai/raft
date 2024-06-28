@@ -94,7 +94,7 @@ class DiskANNMemory : public ANN<T> {
   bool use_cagra_graph_;
   bool use_pq_build_       = false;
   uint32_t build_pq_bytes_ = 0;
-  std::shared_ptr<diskann::IndexWriteParameters> diskann_index_write_params_{nullptr};
+  // std::shared_ptr<diskann::IndexWriteParameters> diskann_index_write_params_{nullptr};
   std::shared_ptr<diskann::IndexSearchParams> diskann_index_search_params_{nullptr};
   std::shared_ptr<diskann::Index<T>> diskann_index_{nullptr};
   // uint32_t L_load_;
@@ -111,7 +111,7 @@ DiskANNMemory<T>::DiskANNMemory(Metric metric, int dim, const BuildParam& param)
   : ANN<T>(metric, dim)
 {
   assert(this->dim_ > 0);
-  diskann_index_write_params_ = std::make_shared<diskann::IndexWriteParameters>(
+  auto diskann_index_write_params = std::make_shared<diskann::IndexWriteParameters>(
     diskann::IndexWriteParametersBuilder(param.L_build, param.R)
       .with_filter_list_size(0)
       .with_alpha(param.alpha)
@@ -122,37 +122,37 @@ DiskANNMemory<T>::DiskANNMemory(Metric metric, int dim, const BuildParam& param)
   build_pq_bytes_                  = 0;
   cagra_graph_degree_              = param.cagra_graph_degree;
   cagra_intermediate_graph_degree_ = param.cagra_intermediate_graph_degree;
+
+  this->diskann_index_ = std::make_shared<diskann::Index<T>>(parse_metric_type(metric),
+                                                             dim,
+                                                             10000000,
+                                                             diskann_index_write_params,
+                                                             nullptr,
+                                                             0,
+                                                             false,
+                                                             false,
+                                                             false,
+                                                             false,
+                                                             this->build_pq_bytes_,
+                                                             false,
+                                                             false,
+                                                             param.use_cagra_graph,
+                                                             param.cagra_graph_degree);
 }
 
 template <typename T>
 void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
 {
   max_points_ = nrow;
-  std::cout << "num_threads" << this->diskann_index_write_params_->num_threads << std::endl;
-
-  this->diskann_index_ = std::make_shared<diskann::Index<T>>(parse_metric_type(this->metric_),
-                                                             this->dim_,
-                                                             max_points_,
-                                                             this->diskann_index_write_params_,
-                                                             nullptr,
-                                                             0,
-                                                             false,
-                                                             false,
-                                                             false,
-                                                             this->use_pq_build_,
-                                                             this->build_pq_bytes_,
-                                                             false,
-                                                             false,
-                                                             this->use_cagra_graph_,
-                                                             cagra_graph_degree_);
+  // std::cout << "num_threads" << this->diskann_index_write_params_->num_threads << std::endl;
 
   if (use_cagra_graph_) {
     std::optional<raft::host_matrix<uint32_t, int64_t>> intermediate_graph(
       raft::make_host_matrix<uint32_t, int64_t>(nrow, cagra_intermediate_graph_degree_));
 
-    std::vector<std::vector<uint32_t>> knn_graph(nrow, std::vector<uint32_t>(cagra_graph_degree_));
-    auto knn_graph_view = raft::make_host_matrix_view<uint32_t, int64_t>(
-      knn_graph[0].data(), nrow, cagra_graph_degree_);
+    std::vector<uint32_t> knn_graph(nrow * cagra_graph_degree_);
+    auto knn_graph_view =
+      raft::make_host_matrix_view<uint32_t, int64_t>(knn_graph.data(), nrow, cagra_graph_degree_);
     auto dataset_view = raft::make_host_matrix_view<const T, int64_t>(
       dataset, static_cast<int64_t>(nrow), (int64_t)this->dim_);
     raft::resources res;
@@ -161,6 +161,10 @@ void DiskANNMemory<T>::build(const T* dataset, size_t nrow)
     nn_descent_params.graph_degree = cagra_intermediate_graph_degree_;
     nn_descent_params.intermediate_graph_degree = 1.5 * cagra_intermediate_graph_degree_;
     nn_descent_params.max_iterations            = 20;
+    // auto ivf_pq_params         =
+    // raft::neighbors::ivf_pq::index_params::from_dataset(dataset_view); ivf_pq_params.n_lists =
+    // static_cast<uint32_t>(nrow / 2500);
+
     raft::neighbors::cagra::build_knn_graph(
       res, dataset_view, intermediate_graph->view(), nn_descent_params);
     raft::neighbors::cagra::optimize(res, intermediate_graph->view(), knn_graph_view);
@@ -188,15 +192,25 @@ template <typename T>
 void DiskANNMemory<T>::search(
   const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
-  if (this->metric_objective_ == Objective::LATENCY)
-    omp_set_num_threads(diskann_index_write_params_->num_threads);
+  // std::cout << "num_search_threads" << diskann_index_write_params_->num_threads << std::endl;
+  if (this->metric_objective_ == Objective::LATENCY) {
+    omp_set_num_threads(omp_get_num_procs());
 #pragma omp parallel for
-  for (int64_t i = 0; i < (int64_t)batch_size; i++) {
-    diskann_index_->search(queries + i * this->dim_,
-                           static_cast<size_t>(k),
-                           L_search_,
-                           neighbors + i * k,
-                           distances + i * k);
+    for (int64_t i = 0; i < (int64_t)batch_size; i++) {
+      diskann_index_->search(queries + i * this->dim_,
+                             static_cast<size_t>(k),
+                             L_search_,
+                             neighbors + i * k,
+                             distances + i * k);
+    }
+  } else {
+    for (int64_t i = 0; i < (int64_t)batch_size; i++) {
+      diskann_index_->search(queries + i * this->dim_,
+                             static_cast<size_t>(k),
+                             L_search_,
+                             neighbors + i * k,
+                             distances + i * k);
+    }
   }
 }
 
@@ -209,21 +223,6 @@ void DiskANNMemory<T>::save(const std::string& path_to_index) const
 template <typename T>
 void DiskANNMemory<T>::load(const std::string& path_to_index)
 {
-  this->diskann_index_ = std::make_shared<diskann::Index<T>>(parse_metric_type(this->metric_),
-                                                             this->dim_,
-                                                             max_points_,
-                                                             this->diskann_index_write_params_,
-                                                             nullptr,
-                                                             0,
-                                                             false,
-                                                             false,
-                                                             false,
-                                                             this->use_pq_build_,
-                                                             this->build_pq_bytes_,
-                                                             false,
-                                                             false,
-                                                             this->use_cagra_graph_,
-                                                             cagra_graph_degree_);
-  diskann_index_->load(path_to_index.c_str(), diskann_index_write_params_->num_threads, 100);
+  diskann_index_->load(path_to_index.c_str(), 80, 100);
 }
 };  // namespace raft::bench::ann

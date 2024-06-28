@@ -31,8 +31,8 @@ option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchm
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE "Include raft's brute force knn in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB "Include raft's CAGRA in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" OFF)
 option(RAFT_ANN_BENCH_USE_DISKANN "Include diskann algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_SINGLE_EXE
        "Make a single executable with benchmark as shared library modules" OFF
