@@ -113,6 +113,7 @@ if(BUILD_TESTS)
     NAME
     CORE_TEST
     PATH
+    core/bitmap.cu
     core/bitset.cu
     core/device_resources_manager.cpp
     core/device_setter.cpp
@@ -308,24 +309,7 @@ if(BUILD_TESTS)
     NAME
     SPARSE_TEST
     PATH
-    sparse/add.cu
-    sparse/convert_coo.cu
     sparse/convert_csr.cu
-    sparse/csr_row_slice.cu
-    sparse/csr_to_dense.cu
-    sparse/csr_transpose.cu
-    sparse/degree.cu
-    sparse/filter.cu
-    sparse/norm.cu
-    sparse/normalize.cu
-    sparse/reduce.cu
-    sparse/row_op.cu
-    sparse/sddmm.cu
-    sparse/select_k_csr.cu
-    sparse/sort.cu
-    sparse/spgemmi.cu
-    sparse/spmm.cu
-    sparse/symmetrize.cu
   )
 
   ConfigureTest(
