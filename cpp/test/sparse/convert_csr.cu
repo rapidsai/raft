@@ -89,6 +89,45 @@ TEST_P(SortedCOOToCSR, Result)
 
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR, ::testing::ValuesIn(inputsf));
 
+typedef SparseConvertCSRTest<float> SortedLongCOOToCSR;
+TEST_P(SortedLongCOOToCSR, Result)
+{
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+
+  int nnz       = 90;
+  int rows_size = 14;
+
+  int* in_h  = new int[nnz]{0,  0,  0,  0,  2,  2,  2,  2,  2,  8,  16, 16, 16, 16, 18, 18, 18, 18,
+                            18, 18, 18, 18, 18, 18, 18, 18, 24, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+                            64, 64, 64, 64, 64, 66, 66, 66, 66, 66, 66, 66, 66, 72, 74, 80, 80, 80,
+                            80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 82, 82, 82, 82,
+                            82, 82, 82, 82, 82, 82, 82, 82, 82, 82, 82, 82, 82, 82, 82, 88, 90, 90};
+  int* exp_h = new int[rows_size]{0, 4, 9, 10, 14, 26, 27, 41, 49, 50, 51, 68, 87, 88};
+
+  rmm::device_uvector<int> in(nnz, stream);
+  rmm::device_uvector<int> exp(rows_size, stream);
+  rmm::device_uvector<int> out(rows_size, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(in.data(), 0, in.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(exp.data(), 0, exp.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(int), stream));
+
+  raft::update_device(in.data(), in_h, nnz, stream);
+  raft::update_device(exp.data(), exp_h, rows_size, stream);
+
+  convert::sorted_coo_to_csr<int>(in.data(), nnz, out.data(), rows_size, stream);
+  std::cout << "assert is next " << std::endl;
+  ASSERT_TRUE(
+    raft::devArrMatch<int>(out.data(), exp.data(), rows_size, raft::Compare<int>(), stream));
+
+  cudaStreamDestroy(stream);
+
+  delete[] in_h;
+  delete[] exp_h;
+}
+
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedLongCOOToCSR, ::testing::ValuesIn(inputsf));
+
 /******************************** adj graph ********************************/
 
 template <typename index_t>
