@@ -111,6 +111,7 @@ if(BUILD_PRIMS_BENCH)
     PATH
     linalg/add.cu
     linalg/map_then_reduce.cu
+    linalg/masked_matmul.cu
     linalg/matrix_vector_op.cu
     linalg/norm.cu
     linalg/normalize.cu
