@@ -156,6 +156,7 @@ if(BUILD_TESTS)
     distance/dist_canberra.cu
     distance/dist_correlation.cu
     distance/dist_cos.cu
+    distance/dist_dice.cu
     distance/dist_hamming.cu
     distance/dist_hellinger.cu
     distance/dist_inner_product.cu

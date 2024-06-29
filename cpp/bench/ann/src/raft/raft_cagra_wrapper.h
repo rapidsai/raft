@@ -72,11 +72,16 @@ class RaftCagra : public ANN<T>, public AnnGPU {
     std::optional<raft::neighbors::ivf_pq::search_params> ivf_pq_search_params = std::nullopt;
   };
 
-  RaftCagra(Metric metric, int dim, const BuildParam& param, int concurrent_searches = 1)
+  RaftCagra(Metric metric,
+            int dim,
+            const BuildParam& param,
+            int concurrent_searches    = 1,
+            bool shall_include_dataset = false)
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
       need_dataset_update_(true),
+      shall_include_dataset_(shall_include_dataset),
       dataset_(std::make_shared<raft::device_matrix<T, int64_t, row_major>>(
         std::move(make_device_matrix<T, int64_t>(handle_, 0, 0)))),
       graph_(std::make_shared<raft::device_matrix<IdxT, int64_t, row_major>>(
@@ -135,6 +140,7 @@ class RaftCagra : public ANN<T>, public AnnGPU {
   float refine_ratio_;
   BuildParam index_params_;
   bool need_dataset_update_;
+  bool shall_include_dataset_;
   raft::neighbors::cagra::search_params search_params_;
   std::shared_ptr<raft::neighbors::cagra::index<T, IdxT>> index_;
   int dimension_;
@@ -161,7 +167,7 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow)
   auto& params = index_params_.cagra_params;
 
   // Do include the compressed dataset for the CAGRA-Q
-  bool shall_include_dataset = params.compression.has_value();
+  bool include_dataset = params.compression.has_value() || shall_include_dataset_;
 
   index_ = std::make_shared<raft::neighbors::cagra::index<T, IdxT>>(
     std::move(raft::neighbors::cagra::detail::build(handle_,
@@ -171,7 +177,7 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow)
                                                     index_params_.ivf_pq_refine_rate,
                                                     index_params_.ivf_pq_build_params,
                                                     index_params_.ivf_pq_search_params,
-                                                    shall_include_dataset)));
+                                                    include_dataset)));
 }
 
 inline std::string allocator_to_string(AllocatorType mem_type)
