@@ -113,6 +113,7 @@ if(BUILD_TESTS)
     NAME
     CORE_TEST
     PATH
+    core/bitmap.cu
     core/bitset.cu
     core/device_resources_manager.cpp
     core/device_setter.cpp
