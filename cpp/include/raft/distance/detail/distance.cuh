@@ -279,32 +279,14 @@ void distance_impl(raft::resources const& handle,
                          true,
                          stream,
                          false,
-                         raft::identity_op(),
+                         raft::nz_op(),
                          raft::add_op());
   } else {
     y_norm += m;
-    raft::linalg::reduce(x_norm,
-                         x,
-                         k,
-                         m,
-                         (AccT)0,
-                         is_row_major,
-                         true,
-                         stream,
-                         false,
-                         raft::identity_op(),
-                         raft::add_op());
-    raft::linalg::reduce(y_norm,
-                         y,
-                         k,
-                         n,
-                         (AccT)0,
-                         is_row_major,
-                         true,
-                         stream,
-                         false,
-                         raft::identity_op(),
-                         raft::add_op());
+    raft::linalg::reduce(
+      x_norm, x, k, m, (AccT)0, is_row_major, true, stream, false, raft::nz_op(), raft::add_op());
+    raft::linalg::reduce(
+      y_norm, y, k, n, (AccT)0, is_row_major, true, stream, false, raft::nz_op(), raft::add_op());
   }
 
   ops::dice_distance_op<DataT, AccT, IdxT> distance_op{};
