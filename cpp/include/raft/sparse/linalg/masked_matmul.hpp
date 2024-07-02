@@ -22,6 +22,11 @@ namespace sparse {
 namespace linalg {
 
 /**
+ * @defgroup masked_matmul Masked Matrix Multiplication
+ * @{
+ */
+
+/**
  * @brief Performs a masked multiplication of dense matrices A and B, followed by an element-wise
  * multiplication with the sparsity pattern defined by the mask, resulting in the computation
  * C = alpha * ((A * B) ∘ spy(mask)) + beta * C.
@@ -58,6 +63,8 @@ void masked_matmul(raft::resources const& handle,
 {
   detail::masked_matmul(handle, A, B, mask, C, alpha, beta);
 }
+
+/** @} */  // end of masked_matmul
 
 }  // end namespace linalg
 }  // end namespace sparse
