@@ -39,7 +39,7 @@ _RAFT_HOST_DEVICE void bitmap_view<bitmap_t, index_t>::set(const index_t row,
                                                            const index_t col,
                                                            bool new_value) const
 {
-  set(row * cols_ + col, &new_value);
+  set(row * cols_ + col, new_value);
 }
 
 }  // end namespace raft::core
