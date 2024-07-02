@@ -170,7 +170,7 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - nccl>=2.9.9
-          - libucxx==0.39.*
+          - libucxx==0.39.*,>=0.0.0a0
     specific:
       - output_types: conda
         matrices:
