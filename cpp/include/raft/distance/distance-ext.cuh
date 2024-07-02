@@ -205,6 +205,10 @@ instantiate_raft_distance_distance(
 instantiate_raft_distance_distance(
   raft::distance::DistanceType::CosineExpanded, double, double, double, raft::identity_op, int);
 instantiate_raft_distance_distance(
+  raft::distance::DistanceType::DiceExpanded, float, float, float, raft::identity_op, int);
+instantiate_raft_distance_distance(
+  raft::distance::DistanceType::DiceExpanded, double, double, double, raft::identity_op, int);
+instantiate_raft_distance_distance(
   raft::distance::DistanceType::HammingUnexpanded, float, float, float, raft::identity_op, int);
 instantiate_raft_distance_distance(
   raft::distance::DistanceType::HammingUnexpanded, double, double, double, raft::identity_op, int);
@@ -287,6 +291,10 @@ instantiate_raft_distance_distance(
 instantiate_raft_distance_distance(
   raft::distance::DistanceType::CosineExpanded, double, double, double, int);
 instantiate_raft_distance_distance(
+  raft::distance::DistanceType::DiceExpanded, float, float, float, int);
+instantiate_raft_distance_distance(
+  raft::distance::DistanceType::DiceExpanded, double, double, double, int);
+instantiate_raft_distance_distance(
   raft::distance::DistanceType::HammingUnexpanded, float, float, float, int);
 instantiate_raft_distance_distance(
   raft::distance::DistanceType::HammingUnexpanded, double, double, double, int);
@@ -363,6 +371,10 @@ instantiate_raft_distance_distance(
 instantiate_raft_distance_distance(
   raft::distance::DistanceType::CosineExpanded, double, double, double, int);
 instantiate_raft_distance_distance(
+  raft::distance::DistanceType::DiceExpanded, float, float, float, int);
+instantiate_raft_distance_distance(
+  raft::distance::DistanceType::DiceExpanded, double, double, double, int);
+instantiate_raft_distance_distance(
   raft::distance::DistanceType::HammingUnexpanded, float, float, float, int);
 instantiate_raft_distance_distance(
   raft::distance::DistanceType::HammingUnexpanded, double, double, double, int);
@@ -429,6 +441,10 @@ instantiate_raft_distance_getWorkspaceSize(
   raft::distance::DistanceType::CosineExpanded, float, float, float, int);
 instantiate_raft_distance_getWorkspaceSize(
   raft::distance::DistanceType::CosineExpanded, double, double, double, int);
+instantiate_raft_distance_getWorkspaceSize(
+  raft::distance::DistanceType::DiceExpanded, float, float, float, int);
+instantiate_raft_distance_getWorkspaceSize(
+  raft::distance::DistanceType::DiceExpanded, double, double, double, int);
 instantiate_raft_distance_getWorkspaceSize(
   raft::distance::DistanceType::HammingUnexpanded, float, float, float, int);
 instantiate_raft_distance_getWorkspaceSize(
@@ -542,6 +558,22 @@ instantiate_raft_distance_getWorkspaceSize(raft::distance::DistanceType::CosineE
                                            int,
                                            raft::layout_f_contiguous);
 instantiate_raft_distance_getWorkspaceSize(raft::distance::DistanceType::CosineExpanded,
+                                           double,
+                                           double,
+                                           double,
+                                           int,
+                                           raft::layout_f_contiguous);
+instantiate_raft_distance_getWorkspaceSize(
+  raft::distance::DistanceType::DiceExpanded, float, float, float, int, raft::layout_c_contiguous);
+instantiate_raft_distance_getWorkspaceSize(raft::distance::DistanceType::DiceExpanded,
+                                           double,
+                                           double,
+                                           double,
+                                           int,
+                                           raft::layout_c_contiguous);
+instantiate_raft_distance_getWorkspaceSize(
+  raft::distance::DistanceType::DiceExpanded, float, float, float, int, raft::layout_f_contiguous);
+instantiate_raft_distance_getWorkspaceSize(raft::distance::DistanceType::DiceExpanded,
                                            double,
                                            double,
                                            double,
@@ -817,6 +849,22 @@ instantiate_raft_distance_distance(raft::distance::DistanceType::CosineExpanded,
                                    raft::layout_f_contiguous,
                                    int);
 instantiate_raft_distance_distance(raft::distance::DistanceType::CosineExpanded,
+                                   double,
+                                   double,
+                                   double,
+                                   raft::layout_f_contiguous,
+                                   int);
+instantiate_raft_distance_distance(
+  raft::distance::DistanceType::DiceExpanded, float, float, float, raft::layout_c_contiguous, int);
+instantiate_raft_distance_distance(raft::distance::DistanceType::DiceExpanded,
+                                   double,
+                                   double,
+                                   double,
+                                   raft::layout_c_contiguous,
+                                   int);
+instantiate_raft_distance_distance(
+  raft::distance::DistanceType::DiceExpanded, float, float, float, raft::layout_f_contiguous, int);
+instantiate_raft_distance_distance(raft::distance::DistanceType::DiceExpanded,
                                    double,
                                    double,
                                    double,
