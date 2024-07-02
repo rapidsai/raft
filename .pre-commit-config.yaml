@@ -94,17 +94,12 @@ repos:
                 additional_dependencies: [tomli]
                 args: ["--toml", "pyproject.toml"]
                 exclude: (?x)^(^CHANGELOG.md$)
-      - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.13.11
-        hooks:
-            - id: rapids-dependency-file-generator
-              args: ["--clean"]
       - repo: https://github.com/pre-commit/pre-commit-hooks
         rev: v4.5.0
         hooks:
               - id: check-json
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.0.3
+        rev: v0.2.0
         hooks:
           - id: verify-copyright
             files: |
@@ -120,6 +115,12 @@ repos:
                   cpp/include/raft/thirdparty/|
                   docs/source/sphinxext/github_link[.]py|
                   cpp/cmake/modules/FindAVX[.]cmake
+          - id: verify-alpha-spec
+      - repo: https://github.com/rapidsai/dependency-file-generator
+        rev: v1.13.11
+        hooks:
+            - id: rapids-dependency-file-generator
+              args: ["--clean"]
 
 default_language_version:
       python: python3
