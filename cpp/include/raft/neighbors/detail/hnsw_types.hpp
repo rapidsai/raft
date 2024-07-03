@@ -93,6 +93,11 @@ struct index_impl : index<T> {
   */
   auto get_index() const -> void const* override { return appr_alg_.get(); }
 
+  /**
+  @brief Set ef for search
+  */
+  void set_ef(int ef) const override { appr_alg_->ef_ = ef; }
+
  private:
   std::unique_ptr<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>> appr_alg_;
   std::unique_ptr<hnswlib::SpaceInterface<typename hnsw_dist_t<T>::type>> space_;

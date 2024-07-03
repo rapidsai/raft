@@ -62,6 +62,11 @@ struct index : ann::index {
 
   auto metric() const -> raft::distance::DistanceType { return metric_; }
 
+  /**
+  @brief Set ef for search
+  */
+  virtual void set_ef(int ef) const;
+
  private:
   int dim_;
   raft::distance::DistanceType metric_;
