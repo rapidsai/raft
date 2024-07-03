@@ -30,8 +30,11 @@
                   " Please use the sparse/spatial version instead.")
 #endif
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/neighbors/brute_force.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 namespace raft::sparse::neighbors {
 
@@ -99,6 +102,172 @@ void brute_force_knn(const value_idx* idxIndptr,
                                        handle,
                                        batch_size_index,
                                        batch_size_query,
+                                       metric,
+                                       metricArg);
+}
+
+/**
+ * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
+ * using some distance implementation
+ * @param[in] csr_idx index csr matrix
+ * @param[in] csr_query query csr matrix
+ * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
+ * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
+ * @param[in] k the number of neighbors to query
+ * @param[in] handle CUDA resource::get_cuda_stream(handle) to order operations with respect to
+ * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
+ * @param[in] batch_size_query maximum number of rows to use from query matrix per batch
+ * @param[in] metric distance metric/measure to use
+ * @param[in] metricArg potential argument for metric (currently unused)
+ */
+template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
+void brute_force_knn(raft::device_csr_matrix<value_t,
+                                             value_idx,
+                                             value_idx,
+                                             value_idx,
+                                             raft::device_uvector_policy,
+                                             raft::PRESERVING> csr_idx,
+                     raft::device_csr_matrix<value_t,
+                                             value_idx,
+                                             value_idx,
+                                             value_idx,
+                                             raft::device_uvector_policy,
+                                             raft::PRESERVING> csr_query,
+                     value_idx* output_indices,
+                     value_t* output_dists,
+                     int k,
+                     raft::resources const& handle,
+                     size_t batch_size_index             = 2 << 14,  // approx 1M
+                     size_t batch_size_query             = 2 << 14,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+                     float metricArg                     = 0)
+{
+  auto idxIndptr  = csr_idx.structure_view().get_indptr();
+  auto idxIndices = csr_idx.structure_view().get_indices();
+  auto idxData    = csr_idx.view().get_elements();
+
+  auto queryIndptr  = csr_query.structure_view().get_indptr();
+  auto queryIndices = csr_query.structure_view().get_indices();
+  auto queryData    = csr_query.view().get_elements();
+  brute_force::knn<value_idx, value_t>(idxIndptr.data(),
+                                       idxIndices.data(),
+                                       idxData.data(),
+                                       idxData.size(),
+                                       csr_idx.structure_view().get_n_rows() - 1,
+                                       csr_idx.structure_view().get_n_cols(),
+                                       queryIndptr.data(),
+                                       queryIndices.data(),
+                                       queryData.data(),
+                                       queryData.size(),
+                                       csr_query.structure_view().get_n_rows() - 1,
+                                       csr_query.structure_view().get_n_cols(),
+                                       output_indices,
+                                       output_dists,
+                                       k,
+                                       handle,
+                                       batch_size_index,
+                                       batch_size_query,
+                                       metric,
+                                       metricArg);
+}
+
+/**
+ * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
+ * using some distance implementation
+ * @param[in] coo_idx index coo matrix
+ * @param[in] coo_query query coo matrix
+ * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
+ * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
+ * @param[in] k the number of neighbors to query
+ * @param[in] handle CUDA resource::get_cuda_stream(handle) to order operations with respect to
+ * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
+ * @param[in] batch_size_query maximum number of rows to use from query matrix per batch
+ * @param[in] metric distance metric/measure to use
+ * @param[in] metricArg potential argument for metric (currently unused)
+ */
+template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
+void brute_force_knn(raft::device_coo_matrix<value_t,
+                                             value_idx,
+                                             value_idx,
+                                             value_idx,
+                                             raft::device_uvector_policy,
+                                             raft::PRESERVING> coo_idx,
+                     raft::device_coo_matrix<value_t,
+                                             value_idx,
+                                             value_idx,
+                                             value_idx,
+                                             raft::device_uvector_policy,
+                                             raft::PRESERVING> coo_query,
+                     value_idx* output_indices,
+                     value_t* output_dists,
+                     int k,
+                     raft::resources const& handle,
+                     size_t batch_size_index             = 2 << 14,  // approx 1M
+                     size_t batch_size_query             = 2 << 14,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+                     float metricArg                     = 0)
+{
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+
+  auto idxRows = coo_idx.structure_view().get_rows();
+  auto idxCols = coo_idx.structure_view().get_cols();
+  auto idxData = coo_idx.view().get_elements();
+
+  auto queryRows = coo_query.structure_view().get_rows();
+  auto queryCols = coo_query.structure_view().get_cols();
+  auto queryData = coo_query.view().get_elements();
+
+  raft::sparse::op::coo_sort(idxRows.size(),
+                             idxCols.size(),
+                             idxData.size(),
+                             idxRows.data(),
+                             idxCols.data(),
+                             idxRows.data(),
+                             stream);
+
+  raft::sparse::op::coo_sort(queryRows.size(),
+                             queryCols.size(),
+                             queryData.size(),
+                             queryRows.data(),
+                             queryCols.data(),
+                             queryData.data(),
+                             stream);
+
+  auto idxRowsCsr =
+    raft::make_device_vector<value_idx, int64_t>(handle, coo_query.structure_view().get_n_rows());
+  auto queryRowsCsr =
+    raft::make_device_vector<value_idx, int64_t>(handle, coo_query.structure_view().get_n_rows());
+
+  raft::sparse::convert::sorted_coo_to_csr(idxRows.data(),
+                                           int(idxRows.size()),
+                                           idxRowsCsr.data_handle(),
+                                           coo_idx.structure_view().get_n_rows(),
+                                           stream);
+
+  raft::sparse::convert::sorted_coo_to_csr(queryRows.data(),
+                                           int(queryRows.size()),
+                                           queryRowsCsr.data_handle(),
+                                           coo_query.structure_view().get_n_rows(),
+                                           stream);
+
+  brute_force::knn<value_idx, value_t>(idxRowsCsr.data_handle(),
+                                       idxCols.data(),
+                                       idxData.data(),
+                                       idxData.size(),
+                                       coo_idx.structure_view().get_n_rows() - 1,
+                                       coo_idx.structure_view().get_n_cols(),
+                                       queryRowsCsr.data_handle(),
+                                       queryCols.data(),
+                                       queryData.data(),
+                                       queryData.size(),
+                                       coo_query.structure_view().get_n_rows() - 1,
+                                       coo_query.structure_view().get_n_cols(),
+                                       output_indices,
+                                       output_dists,
+                                       k,
+                                       handle,
+                                       coo_idx.structure_view().get_n_rows(),
+                                       coo_query.structure_view().get_n_rows(),
                                        metric,
                                        metricArg);
 }
