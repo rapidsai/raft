@@ -48,6 +48,14 @@ void encode_bm25(raft::resources& handle,
 }
 
 template <typename T1, typename T2, typename IdxT>
+void encode_bm25(raft::resources& handle,
+                 raft::device_csr_matrix_view<T2, T1, T1, T1> csr_in,
+                 raft::device_vector_view<T2, IdxT> values_out)
+{
+  return matrix::detail::encode_bm25<T1, T2, IdxT>(handle, csr_in, values_out);
+}
+
+template <typename T1, typename T2, typename IdxT>
 void encode_tfidf(raft::resources& handle,
                   raft::device_vector_view<T1, IdxT> rows,
                   raft::device_vector_view<T1, IdxT> columns,
@@ -63,6 +71,14 @@ void encode_tfidf(raft::resources& handle,
                   raft::device_vector_view<T2, IdxT> values_out)
 {
   return matrix::detail::encode_tfidf<T1, T2, IdxT>(handle, coo_in, values_out);
+}
+
+template <typename T1, typename T2, typename IdxT>
+void encode_tfidf(raft::resources& handle,
+                  raft::device_csr_matrix_view<T2, T1, T1, T1> csr_in,
+                  raft::device_vector_view<T2, IdxT> values_out)
+{
+  return matrix::detail::encode_tfidf<T1, T2, IdxT>(handle, csr_in, values_out);
 }
 
 }  // namespace raft::sparse::matrix
