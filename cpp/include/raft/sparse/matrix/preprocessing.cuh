@@ -32,11 +32,13 @@ void encode_bm25(raft::resources& handle,
                  raft::device_vector_view<T1, IdxT> columns,
                  raft::device_vector_view<T2, IdxT> values,
                  raft::device_vector_view<T2, IdxT> values_out,
+                 int n_rows,
+                 int n_cols,
                  float k_param = 1.6f,
                  float b_param = 0.75)
 {
-  return matrix::detail::encode_bm25<T1, T2, IdxT>(
-    handle, rows, columns, values, values_out, k_param, b_param);
+  return matrix::detail::base_encode_bm25<T1, T2, IdxT>(
+    handle, rows, columns, values, values_out, n_rows, n_cols, k_param, b_param);
 }
 
 template <typename T1, typename T2, typename IdxT>
@@ -60,9 +62,12 @@ void encode_tfidf(raft::resources& handle,
                   raft::device_vector_view<T1, IdxT> rows,
                   raft::device_vector_view<T1, IdxT> columns,
                   raft::device_vector_view<T2, IdxT> values,
-                  raft::device_vector_view<T2, IdxT> values_out)
+                  raft::device_vector_view<T2, IdxT> values_out,
+                  int n_rows,
+                  int n_cols)
 {
-  return matrix::detail::encode_tfidf<T1, T2, IdxT>(handle, rows, columns, values, values_out);
+  return matrix::detail::base_encode_tfidf<T1, T2, IdxT>(
+    handle, rows, columns, values, values_out, n_rows, n_cols);
 }
 
 template <typename T1, typename T2, typename IdxT>

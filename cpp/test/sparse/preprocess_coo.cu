@@ -37,11 +37,7 @@ struct SparsePreprocessInputs {
   int n_cols;
   std::vector<Index_> rows_h;
   std::vector<Index_> columns_h;
-  // std::vector<Type_f> tfidf_vals_h;
-  // std::vector<Index_> out_idxs_bm25_h;
-  // std::vector<Type_f> out_dists_bm25_h;
-  // std::vector<Index_> out_idxs_tfidf_h;
-  // std::vector<Type_f> out_dists_tfidf_h;
+
   std::vector<Type_f> values_h;
 };
 
@@ -70,33 +66,33 @@ class SparsePreprocessCoo
     std::vector<Type_f> bm25_vals_h       = {0.850086,
                                              1.15525,
                                              0.682645,
+                                             0.421071,
+                                             0.421071,
                                              0.860915,
-                                             0.99021,
-                                             0.860915,
+                                             1.40796,
+                                             1.15525,
                                              0.850086,
-                                             0.850086,
-                                             0.850086,
-                                             1.25152};  // bm25
+                                             1.39344};  // bm25
     std::vector<Type_f> tfidf_vals_h      = {0.480453,
                                              0.7615,
                                              0.7615,
+                                             0.480453,
+                                             0.480453,
                                              0.960906,
                                              1.11558,
-                                             0.960906,
+                                             0.7615,
                                              0.480453,
-                                             0.480453,
-                                             0.480453,
-                                             0.7615};  // tfidf
-    std::vector<Index_> out_idxs_bm25_h   = {0, 3, 1, 2, 1, 2, 3, 0, 4,  8, 5, 10,
-                                             6, 5, 7, 8, 8, 7, 9, 1, 10, 5, 0, 0};
-    std::vector<Type_f> out_dists_bm25_h  = {0, 0.305159,  0, 0,         0, 0,         0, 0.305159,
-                                             0, 0.167441,  0, 0.0108292, 0, 0.129295,  0, 0.0108292,
-                                             0, 0.0108292, 0, 0.850086,  0, 0.0108292, 0, 0};
-    std::vector<Index_> out_idxs_tfidf_h  = {0, 3, 1, 2, 1, 2, 3, 0, 4,  7, 5, 6,
-                                             6, 5, 7, 4, 8, 4, 9, 1, 10, 1, 0, 0};
-    std::vector<Type_f> out_dists_tfidf_h = {0, 0.281047, 0, 0,        0, 0,        0, 0.281047,
-                                             0, 0.199406, 0, 0.154671, 0, 0.154671, 0, 0.199406,
-                                             0, 0.281047, 0, 0.480453, 0, 0.480453, 0, 0};
+                                             0.960906};  // tfidf
+    std::vector<Index_> out_idxs_bm25_h   = {0, 3, 1, 2, 1, 2, 3, 0, 4,  7, 5, 6,
+                                             5, 6, 7, 4, 8, 7, 9, 1, 10, 5, 0, 0};
+    std::vector<Type_f> out_dists_bm25_h  = {0, 0.305159, 0, 0,       0, 0,        0, 0.305159,
+                                             0, 0.17827,  0, 0,       0, 0,        0, 0.17827,
+                                             0, 0.54704,  0, 1.15525, 0, 0.429015, 0, 0};
+    std::vector<Index_> out_idxs_tfidf_h  = {0, 3,  1, 2, 1, 2, 3, 0, 4, 7,  5, 10,
+                                             5, 10, 7, 8, 8, 7, 9, 1, 5, 10, 0, 0};
+    std::vector<Type_f> out_dists_tfidf_h = {0, 0.281047, 0, 0,      0, 0, 0, 0.281047,
+                                             0, 0.199406, 0, 0,      0, 0, 0, 0.154671,
+                                             0, 0.154671, 0, 0.7615, 0, 0, 0, 0};
 
     cudaStream_t stream = raft::resource::get_cuda_stream(handle);
     auto rows           = raft::make_device_vector<Index_, int64_t>(handle, params.rows_h.size());
