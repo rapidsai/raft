@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-
 #include "raft_ann_mg_cagra_wrapper.hpp"
-#include <raft/neighbors/ann_mg_helpers.cuh>
+
 #include <raft/comms/std_comms.hpp>
+#include <raft/neighbors/ann_mg_helpers.cuh>
 
 namespace raft::bench::ann {
 
-    template class RaftAnnMG_Cagra<float, uint32_t>;
-    template class RaftAnnMG_Cagra<uint8_t, uint32_t>;
-    template class RaftAnnMG_Cagra<int8_t, uint32_t>;
+template class RaftAnnMG_Cagra<float, uint32_t>;
+template class RaftAnnMG_Cagra<uint8_t, uint32_t>;
+template class RaftAnnMG_Cagra<int8_t, uint32_t>;
 
 }  // namespace raft::bench::ann

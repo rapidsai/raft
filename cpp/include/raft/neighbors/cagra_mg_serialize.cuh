@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,17 +31,19 @@ void serialize(const raft::resources& handle,
 }
 
 template <typename T, typename IdxT>
-detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT> deserialize_cagra(const raft::resources& handle,
-                                                                       const raft::neighbors::mg::nccl_clique& clique,
-                                                                       const std::string& filename)
+detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT> deserialize_cagra(
+  const raft::resources& handle,
+  const raft::neighbors::mg::nccl_clique& clique,
+  const std::string& filename)
 {
   return mg::detail::deserialize_cagra<T, IdxT>(handle, clique, filename);
 }
 
 template <typename T, typename IdxT>
-detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT> distribute_cagra(const raft::resources& handle,
-                                                                      const raft::neighbors::mg::nccl_clique& clique,
-                                                                      const std::string& filename)
+detail::ann_mg_index<cagra::index<T, IdxT>, T, IdxT> distribute_cagra(
+  const raft::resources& handle,
+  const raft::neighbors::mg::nccl_clique& clique,
+  const std::string& filename)
 {
   return mg::detail::distribute_cagra<T, IdxT>(handle, clique, filename);
 }

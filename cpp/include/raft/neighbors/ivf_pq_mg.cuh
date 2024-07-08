@@ -49,9 +49,10 @@ void search(const raft::resources& handle,
             raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
             raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::host_matrix_view<float, IdxT, row_major> distances,
-            uint64_t n_rows_per_batch = 1 << 20) // 2^20
+            uint64_t n_rows_per_batch = 1 << 20)  // 2^20
 {
-  mg::detail::search<T>(handle, clique, index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
+  mg::detail::search<T>(
+    handle, clique, index, search_params, query_dataset, neighbors, distances, n_rows_per_batch);
 }
 
 }  // namespace raft::neighbors::mg

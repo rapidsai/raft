@@ -31,17 +31,19 @@ void serialize(const raft::resources& handle,
 }
 
 template <typename T, typename IdxT>
-detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize_flat(const raft::resources& handle,
-                                                                         const raft::neighbors::mg::nccl_clique& clique,
-                                                                         const std::string& filename)
+detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> deserialize_flat(
+  const raft::resources& handle,
+  const raft::neighbors::mg::nccl_clique& clique,
+  const std::string& filename)
 {
   return mg::detail::deserialize_flat<T, IdxT>(handle, clique, filename);
 }
 
 template <typename T, typename IdxT>
-detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> distribute_flat(const raft::resources& handle,
-                                                                        const raft::neighbors::mg::nccl_clique& clique,
-                                                                        const std::string& filename)
+detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> distribute_flat(
+  const raft::resources& handle,
+  const raft::neighbors::mg::nccl_clique& clique,
+  const std::string& filename)
 {
   return mg::detail::distribute_flat<T, IdxT>(handle, clique, filename);
 }

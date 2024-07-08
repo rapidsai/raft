@@ -31,17 +31,19 @@ void serialize(const raft::resources& handle,
 }
 
 template <typename T, typename IdxT>
-detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> deserialize_pq(const raft::resources& handle,
-                                                                  const raft::neighbors::mg::nccl_clique& clique,
-                                                                  const std::string& filename)
+detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> deserialize_pq(
+  const raft::resources& handle,
+  const raft::neighbors::mg::nccl_clique& clique,
+  const std::string& filename)
 {
   return mg::detail::deserialize_pq<T, IdxT>(handle, clique, filename);
 }
 
 template <typename T, typename IdxT>
-detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> distribute_pq(const raft::resources& handle,
-                                                                 const raft::neighbors::mg::nccl_clique& clique,
-                                                                 const std::string& filename)
+detail::ann_mg_index<ivf_pq::index<IdxT>, T, IdxT> distribute_pq(
+  const raft::resources& handle,
+  const raft::neighbors::mg::nccl_clique& clique,
+  const std::string& filename)
 {
   return mg::detail::distribute_pq<T, IdxT>(handle, clique, filename);
 }

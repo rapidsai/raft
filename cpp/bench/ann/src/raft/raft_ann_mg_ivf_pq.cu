@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-
 #include "raft_ann_mg_ivf_pq_wrapper.hpp"
-#include <raft/neighbors/ann_mg_helpers.cuh>
+
 #include <raft/comms/std_comms.hpp>
+#include <raft/neighbors/ann_mg_helpers.cuh>
 
 namespace raft::bench::ann {
 
-    template class RaftAnnMG_IvfPq<float, int64_t>;
-    template class RaftAnnMG_IvfPq<uint8_t, int64_t>;
-    template class RaftAnnMG_IvfPq<int8_t, int64_t>;
+template class RaftAnnMG_IvfPq<float, int64_t>;
+template class RaftAnnMG_IvfPq<uint8_t, int64_t>;
+template class RaftAnnMG_IvfPq<int8_t, int64_t>;
 
 }  // namespace raft::bench::ann

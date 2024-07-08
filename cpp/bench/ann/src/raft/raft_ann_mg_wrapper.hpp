@@ -18,48 +18,48 @@
 
 #include "../common/ann_types.hpp"
 #include "raft_ann_bench_utils.h"
+
 #include <raft/neighbors/ann_mg_helpers.cuh>
 
 namespace raft::bench::ann {
 
 template <typename T>
 class RaftAnnMG : public ANN<T>, public AnnGPU {
+ public:
+  RaftAnnMG(Metric metric, int dim) : ANN<T>(metric, dim), dimension_(dim)
+  {
+    this->init_nccl_clique();
+  }
 
-  public:
-    RaftAnnMG(Metric metric, int dim)
-      : ANN<T>(metric, dim), dimension_(dim)
-    {
-      this->init_nccl_clique();
-    }
+  AlgoProperty get_preference() const override
+  {
+    AlgoProperty property;
+    property.dataset_memory_type = MemoryType::HostMmap;
+    property.query_memory_type   = MemoryType::HostMmap;
+    return property;
+  }
 
-    AlgoProperty get_preference() const override
-    {
-      AlgoProperty property;
-      property.dataset_memory_type = MemoryType::HostMmap;
-      property.query_memory_type   = MemoryType::HostMmap;
-      return property;
-    }
+ private:
+  void init_nccl_clique()
+  {
+    int n_devices;
+    cudaGetDeviceCount(&n_devices);
+    std::cout << n_devices << " GPUs detected" << std::endl;
 
-  private:
-    void init_nccl_clique() {
-      int n_devices;
-      cudaGetDeviceCount(&n_devices);
-      std::cout << n_devices << " GPUs detected" << std::endl;
+    std::vector<int> device_ids(n_devices);
+    std::iota(device_ids.begin(), device_ids.end(), 0);
+    clique_ = std::make_shared<raft::neighbors::mg::nccl_clique>(device_ids);
+  }
 
-      std::vector<int> device_ids(n_devices);
-      std::iota(device_ids.begin(), device_ids.end(), 0);
-      clique_ = std::make_shared<raft::neighbors::mg::nccl_clique>(device_ids);
-    }
+  [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
+  {
+    const auto& handle = clique_->set_current_device_to_root_rank();
+    return resource::get_cuda_stream(handle);
+  }
 
-    [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
-    {
-      const auto& handle = clique_->set_current_device_to_root_rank();
-      return resource::get_cuda_stream(handle);
-    }
-
-  protected:
-    std::shared_ptr<raft::neighbors::mg::nccl_clique> clique_;
-    int dimension_;
+ protected:
+  std::shared_ptr<raft::neighbors::mg::nccl_clique> clique_;
+  int dimension_;
 };
 
-}
+}  // namespace raft::bench::ann

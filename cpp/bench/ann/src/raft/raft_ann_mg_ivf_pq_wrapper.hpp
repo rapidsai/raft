@@ -17,6 +17,7 @@
 #pragma once
 
 #include "raft_ann_mg_wrapper.hpp"
+
 #include <raft/neighbors/ivf_pq_mg.cuh>
 #include <raft/neighbors/ivf_pq_mg_serialize.cuh>
 
@@ -45,7 +46,8 @@ class RaftAnnMG_IvfPq : public RaftAnnMG<T> {
 
   void build(const T* dataset, size_t nrow) final;
   void set_search_param(const AnnSearchParam& param) override;
-  void search(const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
+  void search(
+    const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const override;
   void save(const std::string& file) const override;
   void load(const std::string&) override;
   std::unique_ptr<ANN<T>> copy() override;
@@ -53,17 +55,23 @@ class RaftAnnMG_IvfPq : public RaftAnnMG<T> {
  private:
   BuildParam index_params_;
   raft::neighbors::ivf_pq::search_params search_params_;
-  std::shared_ptr<raft::neighbors::mg::detail::ann_mg_index<raft::neighbors::ivf_pq::index<IdxT>, T, IdxT>> index_;
+  std::shared_ptr<
+    raft::neighbors::mg::detail::ann_mg_index<raft::neighbors::ivf_pq::index<IdxT>, T, IdxT>>
+    index_;
   float refine_ratio_ = 1.0;
 };
 
 template <typename T, typename IdxT>
 void RaftAnnMG_IvfPq<T, IdxT>::build(const T* dataset, size_t nrow)
 {
-  const auto& handle = this->clique_->set_current_device_to_root_rank();
-  auto dataset_matrix = raft::make_host_matrix_view<const T, IdxT, row_major>(dataset, IdxT(nrow), IdxT(this->dimension_));
-  auto idx = raft::neighbors::mg::build<T, IdxT>(handle, *this->clique_, index_params_, dataset_matrix);
-  index_ = std::make_shared<raft::neighbors::mg::detail::ann_mg_index<raft::neighbors::ivf_pq::index<IdxT>, T, IdxT>>(std::move(idx));
+  const auto& handle  = this->clique_->set_current_device_to_root_rank();
+  auto dataset_matrix = raft::make_host_matrix_view<const T, IdxT, row_major>(
+    dataset, IdxT(nrow), IdxT(this->dimension_));
+  auto idx =
+    raft::neighbors::mg::build<T, IdxT>(handle, *this->clique_, index_params_, dataset_matrix);
+  index_ = std::make_shared<
+    raft::neighbors::mg::detail::ann_mg_index<raft::neighbors::ivf_pq::index<IdxT>, T, IdxT>>(
+    std::move(idx));
   return;
 }
 
@@ -88,7 +96,9 @@ template <typename T, typename IdxT>
 void RaftAnnMG_IvfPq<T, IdxT>::load(const std::string& file)
 {
   const auto& handle = this->clique_->set_current_device_to_root_rank();
-  index_ = std::make_shared<raft::neighbors::mg::detail::ann_mg_index<raft::neighbors::ivf_pq::index<IdxT>, T, IdxT>>(std::move(raft::neighbors::mg::deserialize_pq<T, IdxT>(handle, *this->clique_, file)));
+  index_             = std::make_shared<
+    raft::neighbors::mg::detail::ann_mg_index<raft::neighbors::ivf_pq::index<IdxT>, T, IdxT>>(
+    std::move(raft::neighbors::mg::deserialize_pq<T, IdxT>(handle, *this->clique_, file)));
 }
 
 template <typename T, typename IdxT>
@@ -98,17 +108,27 @@ std::unique_ptr<ANN<T>> RaftAnnMG_IvfPq<T, IdxT>::copy()
 }
 
 template <typename T, typename IdxT>
-void RaftAnnMG_IvfPq<T, IdxT>::search(const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
+void RaftAnnMG_IvfPq<T, IdxT>::search(
+  const T* queries, int batch_size, int k, size_t* neighbors, float* distances) const
 {
   static_assert(sizeof(size_t) == sizeof(IdxT), "IdxT is incompatible with size_t");
 
   const auto& handle = this->clique_->set_current_device_to_root_rank();
 
-  auto query_matrix = raft::make_host_matrix_view<const T, IdxT, row_major>(queries, IdxT(batch_size), IdxT(this->dimension_));
-  auto neighbors_matrix = raft::make_host_matrix_view<IdxT, IdxT, row_major>((IdxT*)neighbors, IdxT(batch_size), IdxT(k));
-  auto distances_matrix = raft::make_host_matrix_view<float, IdxT, row_major>(distances, IdxT(batch_size), IdxT(k));
+  auto query_matrix = raft::make_host_matrix_view<const T, IdxT, row_major>(
+    queries, IdxT(batch_size), IdxT(this->dimension_));
+  auto neighbors_matrix =
+    raft::make_host_matrix_view<IdxT, IdxT, row_major>((IdxT*)neighbors, IdxT(batch_size), IdxT(k));
+  auto distances_matrix =
+    raft::make_host_matrix_view<float, IdxT, row_major>(distances, IdxT(batch_size), IdxT(k));
 
-  raft::neighbors::mg::search<T, IdxT>(handle, *this->clique_, *index_, search_params_, query_matrix, neighbors_matrix, distances_matrix);
+  raft::neighbors::mg::search<T, IdxT>(handle,
+                                       *this->clique_,
+                                       *index_,
+                                       search_params_,
+                                       query_matrix,
+                                       neighbors_matrix,
+                                       distances_matrix);
   resource::sync_stream(handle);
   return;
 }

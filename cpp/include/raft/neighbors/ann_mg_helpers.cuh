@@ -16,14 +16,17 @@
 
 #pragma once
 
-#include <vector>
-#include <nccl.h>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <raft/core/resources.hpp>
 #include <raft/comms/detail/util.hpp>
+#include <raft/core/resources.hpp>
+
+#include <rmm/mr/device/per_device_resource.hpp>
+
+#include <nccl.h>
+
+#include <vector>
 
 namespace raft::comms {
-  void build_comms_nccl_only(resources* handle, ncclComm_t nccl_comm, int num_ranks, int rank);
+void build_comms_nccl_only(resources* handle, ncclComm_t nccl_comm, int num_ranks, int rank);
 }
 
 namespace raft::neighbors::mg {
@@ -31,7 +34,6 @@ namespace raft::neighbors::mg {
 using pool_mr = rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>;
 
 struct nccl_clique {
-
   nccl_clique(const std::vector<int>& device_ids)
     : root_rank_(0),
       num_ranks_(device_ids.size()),
@@ -48,7 +50,8 @@ struct nccl_clique {
 
       // create a pool memory resource for each device
       auto old_mr = rmm::mr::get_current_device_resource();
-      per_device_pools_.push_back(std::make_unique<pool_mr>(old_mr, rmm::percent_of_free_device_memory(80)));
+      per_device_pools_.push_back(
+        std::make_unique<pool_mr>(old_mr, rmm::percent_of_free_device_memory(80)));
       rmm::cuda_device_id id(device_ids[rank]);
       rmm::mr::set_per_device_resource(id, per_device_pools_.back().get());
 
@@ -56,7 +59,8 @@ struct nccl_clique {
       device_resources_.emplace_back();
 
       // add NCCL communications to the device resource handle
-      raft::comms::build_comms_nccl_only(&device_resources_[rank], nccl_comms_[rank], num_ranks_, rank);
+      raft::comms::build_comms_nccl_only(
+        &device_resources_[rank], nccl_comms_[rank], num_ranks_, rank);
     }
 
     for (int rank = 0; rank < num_ranks_; rank++) {
