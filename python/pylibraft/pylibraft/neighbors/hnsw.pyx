@@ -52,6 +52,7 @@ from pylibraft.common.mdspan cimport (
 from pylibraft.neighbors.common cimport _get_metric_string
 
 import os
+import uuid
 
 import numpy as np
 
@@ -292,7 +293,7 @@ def from_cagra(Index index, handle=None):
     Returns an hnswlib base-layer-only index from a CAGRA index.
 
     NOTE: This method uses the filesystem to write the CAGRA index in
-          `/tmp/cagra_index.bin` before reading it as an hnswlib index,
+          `/tmp/<random_number>.bin` before reading it as an hnswlib index,
           then deleting the temporary file.
 
     Saving / loading the index is experimental. The serialization format is
@@ -320,7 +321,8 @@ def from_cagra(Index index, handle=None):
     >>> # Serialize the CAGRA index to hnswlib base layer only index format
     >>> hnsw_index = hnsw.from_cagra(index, handle=handle)
     """
-    filename = "/tmp/cagra_index.bin"
+    uuid_num = uuid.uuid4()
+    filename = f"/tmp/{uuid_num}.bin"
     save(filename, index, handle=handle)
     hnsw_index = load(filename, index.dim, np.dtype(index.active_index_type),
                       _get_metric_string(index.metric), handle=handle)

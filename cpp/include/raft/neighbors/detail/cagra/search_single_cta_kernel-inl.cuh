@@ -49,6 +49,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -459,14 +460,6 @@ __device__ inline void hashmap_restore(INDEX_T* const hashmap_ptr,
   }
 }
 
-template <class T, unsigned BLOCK_SIZE>
-__device__ inline void set_value_device(T* const ptr, const T fill, const std::uint32_t count)
-{
-  for (std::uint32_t i = threadIdx.x; i < count; i += BLOCK_SIZE) {
-    ptr[i] = fill;
-  }
-}
-
 // One query one thread block
 template <uint32_t TEAM_SIZE,
           uint32_t DATASET_BLOCK_DIM,
@@ -801,10 +794,11 @@ __device__ void search_core(
     num_executed_iterations[query_id] = iter + 1;
   }
 #ifdef _CLK_BREAKDOWN
-  if ((threadIdx.x == 0 || threadIdx.x == BLOCK_SIZE - 1) && ((query_id * 3) % gridDim.y < 3)) {
-    RAFT_LOG_DEBUG(
+  if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && ((query_id * 3) % gridDim.y < 3)) {
+    printf(
+      "%s:%d "
       "query, %d, thread, %d"
-      ", init, %d"
+      ", init, %lu"
       ", 1st_distance, %lu"
       ", topk, %lu"
       ", reset_hash, %lu"
@@ -812,6 +806,8 @@ __device__ void search_core(
       ", restore_hash, %lu"
       ", distance, %lu"
       "\n",
+      __FILE__,
+      __LINE__,
       query_id,
       threadIdx.x,
       clk_init,

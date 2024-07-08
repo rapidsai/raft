@@ -31,7 +31,7 @@ class RaftCagraHnswlib : public ANN<T>, public AnnGPU {
 
   RaftCagraHnswlib(Metric metric, int dim, const BuildParam& param, int concurrent_searches = 1)
     : ANN<T>(metric, dim),
-      cagra_build_{metric, dim, param, concurrent_searches},
+      cagra_build_{metric, dim, param, concurrent_searches, true},
       // HnswLib param values don't matter since we don't build with HnswLib
       hnswlib_search_{metric, dim, typename HnswLib<T>::BuildParam{50, 100}}
   {

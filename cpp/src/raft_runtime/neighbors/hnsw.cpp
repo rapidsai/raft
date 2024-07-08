@@ -21,6 +21,8 @@
 #include <raft_runtime/neighbors/hnsw.hpp>
 
 #include <filesystem>
+#include <random>
+#include <string>
 
 namespace raft::neighbors::hnsw {
 #define RAFT_INST_HNSW(T)                                                               \
@@ -28,7 +30,11 @@ namespace raft::neighbors::hnsw {
   std::unique_ptr<raft::neighbors::hnsw::index<T>> from_cagra(                          \
     raft::resources const& res, raft::neighbors::cagra::index<T, uint32_t> cagra_index) \
   {                                                                                     \
-    std::string filepath = "/tmp/cagra_index.bin";                                      \
+    std::random_device dev;                                                             \
+    std::mt19937 rng(dev());                                                            \
+    std::uniform_int_distribution<std::mt19937::result_type> dist(0);                   \
+    auto uuid            = std::to_string(dist(rng));                                   \
+    std::string filepath = "/tmp/" + uuid + ".bin";                                     \
     raft::runtime::neighbors::cagra::serialize_to_hnswlib(res, filepath, cagra_index);  \
     auto hnsw_index = raft::runtime::neighbors::hnsw::deserialize_file<T>(              \
       res, filepath, cagra_index.dim(), cagra_index.metric());                          \

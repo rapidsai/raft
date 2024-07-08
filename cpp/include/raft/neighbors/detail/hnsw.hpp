@@ -53,6 +53,7 @@ void search(raft::resources const& res,
             raft::host_matrix_view<uint64_t, int64_t, row_major> neighbors,
             raft::host_matrix_view<float, int64_t, row_major> distances)
 {
+  idx.set_ef(params.ef);
   auto const* hnswlib_index =
     reinterpret_cast<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type> const*>(
       idx.get_index());
