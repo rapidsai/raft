@@ -59,7 +59,8 @@ option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
 )
-option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
+option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime" OFF)
+option(CUDA_STATIC_MATH_LIBRARIES "Statically link the CUDA toolkit math libraries" OFF)
 option(CUDA_LOG_COMPILE_TIME "Write a log of compilation times to nvcc_compile_log.csv" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
@@ -105,7 +106,10 @@ message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELIN
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${RAFT_NVTX}")
 message(VERBOSE
-        "RAFT: Statically link the CUDA toolkit runtime and libraries: ${CUDA_STATIC_RUNTIME}"
+        "RAFT: Statically link the CUDA toolkit runtime: ${CUDA_STATIC_RUNTIME}"
+)
+message(VERBOSE
+        "RAFT: Statically link the CUDA toolkit math libraries: ${CUDA_STATIC_MATH_LIBRARIES}"
 )
 
 # Set RMM logging level
@@ -135,7 +139,7 @@ endif()
 # * compiler options ----------------------------------------------------------
 
 set(_ctk_static_suffix "")
-if(CUDA_STATIC_RUNTIME)
+if(CUDA_STATIC_MATH_LIBRARIES)
   set(_ctk_static_suffix "_static")
 endif()
 
