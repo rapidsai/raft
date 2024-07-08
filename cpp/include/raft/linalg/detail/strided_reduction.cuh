@@ -33,33 +33,43 @@ namespace detail {
 // for column major layout
 template <typename Type, typename MainLambda>
 RAFT_KERNEL stridedSummationKernel(
-  Type* dots, const Type* data, int D, int N, Type init, MainLambda main_op)
+  Type* out, const Type* data, int D, int N, Type init, MainLambda main_op)
 {
   // Thread reduction
-  Type thread_data = Type(init);
-  int colStart     = blockIdx.x * blockDim.x + threadIdx.x;
+  Type thread_sum = Type(init);
+  Type thread_c   = Type(0);
+  int colStart    = blockIdx.x * blockDim.x + threadIdx.x;
   if (colStart < D) {
     int rowStart = blockIdx.y * blockDim.y + threadIdx.y;
     int stride   = blockDim.y * gridDim.y;
     for (int j = rowStart; j < N; j += stride) {
       int idx = colStart + j * D;
-      thread_data += main_op(data[idx], j);
+
+      // KahanBabushkaNeumaierSum
+      const Type cur_value = main_op(data[idx], j);
+      const Type t         = thread_sum + cur_value;
+      if (abs(thread_sum) >= abs(cur_value)) {
+        thread_c += (thread_sum - t) + cur_value;
+      } else {
+        thread_c += (cur_value - t) + thread_sum;
+      }
+      thread_sum = t;
     }
   }
 
+  // add correction term
+  thread_sum += thread_c;
+
   // Block reduction
-  extern __shared__ char tmp[];  // One element per thread in block
-  Type* temp  = (Type*)tmp;      // Cast to desired type
-  int myidx   = threadIdx.x + blockDim.x * threadIdx.y;
-  temp[myidx] = thread_data;
+  extern __shared__ char tmp[];
+  auto* block_sum = (Type*)tmp;
+  if (threadIdx.x < blockDim.x) block_sum[threadIdx.x] = Type(0);
   __syncthreads();
-  for (int j = blockDim.y / 2; j > 0; j /= 2) {
-    if (threadIdx.y < j) temp[myidx] += temp[myidx + j * blockDim.x];
-    __syncthreads();
-  }
+  raft::myAtomicAdd(block_sum + threadIdx.x, thread_sum);
+  __syncthreads();
 
   // Grid reduction
-  if ((colStart < D) && (threadIdx.y == 0)) raft::myAtomicAdd(dots + colStart, temp[myidx]);
+  if (colStart < D && (threadIdx.y == 0)) raft::myAtomicAdd(out + colStart, block_sum[threadIdx.x]);
 }
 
 // Kernel to perform reductions along the strided dimension
@@ -127,23 +137,35 @@ void stridedReduction(OutType* dots,
   /// for atomics in stridedKernel (redesign for this is already underway)
   if (!inplace) raft::linalg::unaryOp(dots, dots, D, raft::const_op(init), stream);
 
-  // Arbitrary numbers for now, probably need to tune
-  const dim3 thrds(32, 16);
-  IdxType elemsPerThread = raft::ceildiv(N, (IdxType)thrds.y);
-  elemsPerThread         = (elemsPerThread > 8) ? 8 : elemsPerThread;
-  const dim3 nblks(raft::ceildiv(D, (IdxType)thrds.x),
-                   raft::ceildiv(N, (IdxType)thrds.y * elemsPerThread));
-  const size_t shmemSize = sizeof(OutType) * thrds.x * thrds.y;
-
   ///@todo: this complication should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
   if constexpr (std::is_same<ReduceLambda, raft::add_op>::value &&
-                std::is_same<InType, OutType>::value)
+                std::is_same<InType, OutType>::value) {
+    constexpr int TPB        = 256;
+    constexpr int ColsPerBlk = 8;
+    constexpr dim3 Block(ColsPerBlk, TPB / ColsPerBlk);
+    constexpr int MinRowsPerThread = 16;
+    constexpr int MinRowsPerBlk    = Block.y * MinRowsPerThread;
+    constexpr int MaxBlocksDimY    = 8192;
+
+    const dim3 grid(raft::ceildiv(D, (IdxType)ColsPerBlk),
+                    raft::min((IdxType)MaxBlocksDimY, raft::ceildiv(N, (IdxType)MinRowsPerBlk)));
+    const size_t shmemSize = sizeof(OutType) * Block.x;
+
     stridedSummationKernel<InType>
-      <<<nblks, thrds, shmemSize, stream>>>(dots, data, D, N, init, main_op);
-  else
+      <<<grid, Block, shmemSize, stream>>>(dots, data, D, N, init, main_op);
+  } else {
+    // Arbitrary numbers for now, probably need to tune
+    const dim3 thrds(32, 16);
+    IdxType elemsPerThread = raft::ceildiv(N, (IdxType)thrds.y);
+    elemsPerThread         = (elemsPerThread > 8) ? 8 : elemsPerThread;
+    const dim3 nblks(raft::ceildiv(D, (IdxType)thrds.x),
+                     raft::ceildiv(N, (IdxType)thrds.y * elemsPerThread));
+    const size_t shmemSize = sizeof(OutType) * thrds.x * thrds.y;
+
     stridedReductionKernel<InType, OutType, IdxType>
       <<<nblks, thrds, shmemSize, stream>>>(dots, data, D, N, init, main_op, reduce_op);
+  }
 
   ///@todo: this complication should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)

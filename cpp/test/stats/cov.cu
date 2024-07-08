@@ -40,7 +40,8 @@ struct CovInputs {
 template <typename T>
 ::std::ostream& operator<<(::std::ostream& os, const CovInputs<T>& dims)
 {
-  return os;
+  return os << "{ " << dims.tolerance << ", " << dims.rows << ", " << dims.cols << ", "
+            << dims.sample << ", " << dims.rowMajor << "}" << std::endl;
 }
 
 template <typename T>

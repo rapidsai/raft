@@ -39,7 +39,8 @@ struct StdDevInputs {
 template <typename T>
 ::std::ostream& operator<<(::std::ostream& os, const StdDevInputs<T>& dims)
 {
-  return os;
+  return os << "{ " << dims.tolerance << ", " << dims.rows << ", " << dims.cols << ", "
+            << dims.sample << ", " << dims.rowMajor << "}" << std::endl;
 }
 
 template <typename T>
@@ -153,7 +154,9 @@ const std::vector<StdDevInputs<float>> inputsf = {
   {1.f, -1.f, 2.f, 17, 5, false, false, 1234ULL},
   {1.f, -1.f, 2.f, 1, 1, false, true, 1234ULL},
   {1.f, -1.f, 2.f, 7, 23, false, true, 1234ULL},
-  {1.f, -1.f, 2.f, 17, 5, false, true, 1234ULL}};
+  {1.f, -1.f, 2.f, 17, 5, false, true, 1234ULL},
+  {0.00001f, 0.001f, 0.f, 1 << 27, 2, false, true, 1234ULL},
+  {0.00001f, 0.001f, 0.f, 1 << 27, 2, false, false, 1234ULL}};
 
 const std::vector<StdDevInputs<double>> inputsd = {
   {0.1, 1.0, 2.0, 1024, 32, true, false, 1234ULL},
@@ -183,7 +186,9 @@ const std::vector<StdDevInputs<double>> inputsd = {
   {1.0, -1.0, 2.0, 17, 5, false, false, 1234ULL},
   {1.0, -1.0, 2.0, 1, 1, false, true, 1234ULL},
   {1.0, -1.0, 2.0, 7, 23, false, true, 1234ULL},
-  {1.0, -1.0, 2.0, 17, 5, false, true, 1234ULL}};
+  {1.0, -1.0, 2.0, 17, 5, false, true, 1234ULL},
+  {1e-7, 0.001, 0.0, 1 << 27, 2, false, true, 1234ULL},
+  {1e-7, 0.001, 0.0, 1 << 27, 2, false, false, 1234ULL}};
 
 typedef StdDevTest<float> StdDevTestF;
 TEST_P(StdDevTestF, Result)
