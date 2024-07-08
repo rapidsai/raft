@@ -33,6 +33,14 @@
 
 namespace raft::sparse::matrix::detail {
 
+/**
+ * @brief Calculates the BM25 values for a target matrix. Term frequency is calculate using
+ * logrithmically scaled frequency.
+ * @param num_feats: The total number of features in the matrix
+ * @param avg_feat_len: The avg length of all features combined.
+ * @param k_param: K value required by BM25 algorithm.
+ * @param b_param: B value required by BM25 algorithm.
+ */
 struct bm25 {
   bm25(int num_feats, float avg_feat_len, float k_param, float b_param)
   {
@@ -54,6 +62,11 @@ struct bm25 {
   float b;
 };
 
+/**
+ * @brief Calculates the tfidf values for a target matrix. Term frequency is calculate using
+ * logrithmically scaled frequency.
+ * @param total_feats_param: The total number of features in the matrix
+ */
 struct tfidf {
   tfidf(int total_feats_param) { total_feats = total_feats_param; }
 
@@ -82,6 +95,16 @@ struct mapper {
   raft::device_vector_view<const T> map;
 };
 
+/**
+ * @brief Get unique counts
+ * @param handle: raft resource handle
+ * @param sort_vector: Input COO array that contains the keys.
+ * @param secondary_vector: Input with secondary keys of COO, (columns or rows).
+ * @param data: Input COO values array.
+ * @param itr_vals: Input array used to calculate counts.
+ * @param keys_out: Output array with one entry for each key. (same size as counts_out)
+ * @param counts_out: Output array with cumulative sum for each key. (same size as keys_out)
+ */
 template <typename T1, typename T2, typename IdxT>
 void get_uniques_counts(raft::resources& handle,
                         raft::device_vector_view<T1, IdxT> sort_vector,
@@ -89,9 +112,7 @@ void get_uniques_counts(raft::resources& handle,
                         raft::device_vector_view<T2, IdxT> data,
                         raft::device_vector_view<T2, IdxT> itr_vals,
                         raft::device_vector_view<T1, IdxT> keys_out,
-                        raft::device_vector_view<T2, IdxT> counts_out,
-                        int n_rows,
-                        int n_cols)
+                        raft::device_vector_view<T2, IdxT> counts_out)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
@@ -111,6 +132,15 @@ void get_uniques_counts(raft::resources& handle,
                         counts_out.data_handle());
 }
 
+/**
+ * @brief Compute cumulative sum for each unique value in the origin array
+ * @param handle: raft resource handle
+ * @param origin: Input array that has values to use for computation
+ * @param keys: Output array that has keys, should be the size of unique
+ * @param counts: Output array that contains the computed counts
+ * @param results: Output array that broadcasts the counts origin value positions. Same size as
+ * origin array.
+ */
 template <typename T1, typename T2, typename IdxT>
 void create_mapped_vector(raft::resources& handle,
                           const raft::device_vector_view<T1, IdxT> origin,
@@ -137,21 +167,27 @@ void create_mapped_vector(raft::resources& handle,
                    mapper<T2>(raft::make_const_mdspan(origin_map.view())));
 }
 
+/**
+ * @brief Compute row(id) counts
+ * @param handle: raft resource handle
+ * @param rows: Input COO rows array
+ * @param columns: Input COO columns array
+ * @param values: Input COO values array
+ * @param id_counts: Output array that stores counts per row, broadcasted to same shape as rows.
+ * @param n_rows: Number of rows in matrix
+ */
 template <typename T1, typename T2, typename IdxT>
 void get_id_counts(raft::resources& handle,
                    raft::device_vector_view<T1, IdxT> rows,
                    raft::device_vector_view<T1, IdxT> columns,
                    raft::device_vector_view<T2, IdxT> values,
                    raft::device_vector_view<T2, IdxT> id_counts,
-                   T1 n_rows,
-                   T1 n_cols)
+                   T1 n_rows)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto num_rows =
-    raft::sparse::neighbors::get_n_components(rows.data_handle(), rows.size(), stream);
 
-  auto row_keys   = raft::make_device_vector<T1, IdxT>(handle, num_rows);
-  auto row_counts = raft::make_device_vector<T2, IdxT>(handle, num_rows);
+  auto row_keys   = raft::make_device_vector<T1, IdxT>(handle, n_rows);
+  auto row_counts = raft::make_device_vector<T2, IdxT>(handle, n_rows);
   auto row_fill   = raft::make_device_vector<T2, IdxT>(handle, rows.size());
 
   // the amount of columns(features) that each row(id) is found in
@@ -159,64 +195,82 @@ void get_id_counts(raft::resources& handle,
                row_fill.data_handle(),
                row_fill.data_handle() + row_fill.size(),
                1.0f);
-  get_uniques_counts(handle,
-                     rows,
-                     columns,
-                     values,
-                     row_fill.view(),
-                     row_keys.view(),
-                     row_counts.view(),
-                     n_rows,
-                     n_cols);
+  get_uniques_counts(
+    handle, rows, columns, values, row_fill.view(), row_keys.view(), row_counts.view());
 
   create_mapped_vector<T1, T2>(handle, rows, row_keys.view(), row_counts.view(), id_counts);
 }
 
+/**
+ * @brief Gather per feature mean values, returns the cumulative avg feature length.
+ * @param handle: raft resource handle
+ * @param rows: Input COO rows array
+ * @param columns: Input COO columns array
+ * @param values: Input COO values array
+ * @param feat_lengths: Output array that stores mean per feature value
+ * @param n_cols: Number of columns in matrix
+ */
 template <typename T1, typename T2, typename IdxT>
-std::tuple<T1, T1> get_feature_data(raft::resources& handle,
-                                    raft::device_vector_view<T1, IdxT> rows,
-                                    raft::device_vector_view<T1, IdxT> columns,
-                                    raft::device_vector_view<T2, IdxT> values,
-                                    raft::device_vector_view<T2, IdxT> feat_lengths,
-                                    T1 n_rows,
-                                    T1 n_cols)
+int get_feature_data(raft::resources& handle,
+                     raft::device_vector_view<T1, IdxT> rows,
+                     raft::device_vector_view<T1, IdxT> columns,
+                     raft::device_vector_view<T2, IdxT> values,
+                     raft::device_vector_view<T2, IdxT> feat_lengths,
+                     T1 n_cols)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  auto num_cols =
-    raft::sparse::neighbors::get_n_components(columns.data_handle(), columns.size(), stream);
-  auto col_keys   = raft::make_device_vector<T1, IdxT>(handle, num_cols);
-  auto col_counts = raft::make_device_vector<T2, IdxT>(handle, num_cols);
+  auto col_keys   = raft::make_device_vector<T1, IdxT>(handle, n_cols);
+  auto col_counts = raft::make_device_vector<T2, IdxT>(handle, n_cols);
 
-  get_uniques_counts(
-    handle, columns, rows, values, values, col_keys.view(), col_counts.view(), n_rows, n_cols);
+  get_uniques_counts(handle, columns, rows, values, values, col_keys.view(), col_counts.view());
   int total_feature_lengths = thrust::reduce(raft::resource::get_thrust_policy(handle),
                                              col_counts.data_handle(),
                                              col_counts.data_handle() + col_counts.size());
-  float avg_feat_length     = float(total_feature_lengths) / col_keys.size();
+  float avg_feat_length     = float(total_feature_lengths) / n_cols;
 
   create_mapped_vector<T1, T2>(handle, columns, col_keys.view(), col_counts.view(), feat_lengths);
-  return {col_keys.size(), avg_feat_length};
+  return avg_feat_length;
 }
 
+/**
+ * @brief Gather per feature mean values and id counts, returns the cumulative avg feature length.
+ * @param handle: raft resource handle
+ * @param rows: Input COO rows array
+ * @param columns: Input COO columns array
+ * @param values: Input COO values array
+ * @param feat_lengths: Output array that stores mean per feature value
+ * @param id_counts: Output array that stores id(row) counts for nz values
+ * @param n_rows: Number of rows in matrix
+ * @param n_cols: Number of columns in matrix
+ */
 template <typename T1, typename T2, typename IdxT>
-std::tuple<int, int> sparse_search_preprocess(raft::resources& handle,
-                                              raft::device_vector_view<T1, IdxT> rows,
-                                              raft::device_vector_view<T1, IdxT> columns,
-                                              raft::device_vector_view<T2, IdxT> values,
-                                              raft::device_vector_view<T2, IdxT> feat_lengths,
-                                              raft::device_vector_view<T2, IdxT> id_counts,
-                                              T1 n_rows,
-                                              T1 n_cols)
+int sparse_search_preprocess(raft::resources& handle,
+                             raft::device_vector_view<T1, IdxT> rows,
+                             raft::device_vector_view<T1, IdxT> columns,
+                             raft::device_vector_view<T2, IdxT> values,
+                             raft::device_vector_view<T2, IdxT> feat_lengths,
+                             raft::device_vector_view<T2, IdxT> id_counts,
+                             T1 n_rows,
+                             T1 n_cols)
 {
-  auto [n_feature_keys, avg_feature_len] =
-    get_feature_data(handle, rows, columns, values, feat_lengths, n_rows, n_cols);
+  auto avg_feature_len = get_feature_data(handle, rows, columns, values, feat_lengths, n_cols);
 
-  get_id_counts(handle, rows, columns, values, id_counts, n_rows, n_cols);
+  get_id_counts(handle, rows, columns, values, id_counts, n_rows);
 
-  return {n_feature_keys, avg_feature_len};
+  return avg_feature_len;
 }
 
+/**
+ * @brief Use TFIDF algorithm to encode features in COO sparse matrix
+ * @param handle: raft resource handle
+ * @param rows: Input COO rows array
+ * @param columns: Input COO columns array
+ * @param values: Input COO values array
+ * @param values_out: Output COO values array
+ * @param n_rows: Number of rows in matrix
+ * @param n_cols: Number of columns in matrix
+ */
 template <typename T1, typename T2, typename IdxT>
 void base_encode_tfidf(raft::resources& handle,
                        raft::device_vector_view<T1, IdxT> rows,
@@ -226,18 +280,24 @@ void base_encode_tfidf(raft::resources& handle,
                        int n_rows,
                        int n_cols)
 {
-  auto feat_lengths                  = raft::make_device_vector<T2, IdxT>(handle, columns.size());
-  auto id_counts                     = raft::make_device_vector<T2, IdxT>(handle, rows.size());
-  auto [feat_count, avg_feat_length] = sparse_search_preprocess<T1, T2>(
+  auto feat_lengths    = raft::make_device_vector<T2, IdxT>(handle, columns.size());
+  auto id_counts       = raft::make_device_vector<T2, IdxT>(handle, rows.size());
+  auto avg_feat_length = sparse_search_preprocess<T1, T2>(
     handle, rows, columns, values, feat_lengths.view(), id_counts.view(), n_rows, n_cols);
 
   raft::linalg::map(handle,
                     values_out,
-                    tfidf(feat_count),
+                    tfidf(n_cols),
                     raft::make_const_mdspan(values),
                     raft::make_const_mdspan(id_counts.view()));
 }
 
+/**
+ * @brief Use TFIDF algorithm to encode features in COO sparse matrix
+ * @param handle: raft resource handle
+ * @param coo_in: Input COO matrix
+ * @param values_out: Output COO values array
+ */
 template <typename T1, typename T2, typename IdxT>
 void encode_tfidf(raft::resources& handle,
                   raft::device_coo_matrix_view<T2, T1, T1, T1> coo_in,
@@ -259,6 +319,12 @@ void encode_tfidf(raft::resources& handle,
                                   coo_in.structure_view().get_n_cols());
 }
 
+/**
+ * @brief Use TFIDF algorithm to encode features in CSR sparse matrix
+ * @param handle: raft resource handle
+ * @param csr_in: Input CSR matrix
+ * @param values_out: Output values array
+ */
 template <typename T1, typename T2, typename IdxT>
 void encode_tfidf(raft::resources& handle,
                   raft::device_csr_matrix_view<T2, T1, T1, T1> csr_in,
@@ -289,6 +355,18 @@ void encode_tfidf(raft::resources& handle,
                                   csr_in.structure_view().get_n_cols());
 }
 
+/**
+ * @brief Use BM25 algorithm to encode features in COO sparse matrix
+ * @param handle: raft resource handle
+ * @param rows: Input COO rows array
+ * @param columns: Input COO columns array
+ * @param values: Input COO values array
+ * @param values_out: Output COO values array
+ * @param n_rows: Number of rows in matrix
+ * @param n_cols: Number of columns in matrix
+ * @param k_param: K value to use for BM25 algorithm
+ * @param b_param: B value to use for BM25 algorithm
+ */
 template <typename T1, typename T2, typename IdxT>
 void base_encode_bm25(raft::resources& handle,
                       raft::device_vector_view<T1, IdxT> rows,
@@ -303,17 +381,25 @@ void base_encode_bm25(raft::resources& handle,
   auto feat_lengths = raft::make_device_vector<T2, IdxT>(handle, columns.size());
   auto id_counts    = raft::make_device_vector<T2, IdxT>(handle, rows.size());
 
-  auto [feat_count, avg_feat_length] = sparse_search_preprocess<T1, T2>(
+  auto avg_feat_length = sparse_search_preprocess<T1, T2>(
     handle, rows, columns, values, feat_lengths.view(), id_counts.view(), n_rows, n_cols);
 
   raft::linalg::map(handle,
                     values_out,
-                    bm25(feat_count, avg_feat_length, k_param, b_param),
+                    bm25(n_cols, avg_feat_length, k_param, b_param),
                     raft::make_const_mdspan(values),
                     raft::make_const_mdspan(feat_lengths.view()),
                     raft::make_const_mdspan(id_counts.view()));
 }
 
+/**
+ * @brief Use BM25 algorithm to encode features in COO sparse matrix
+ * @param handle: raft resource handle
+ * @param coo_in: Input COO matrix
+ * @param values_out: Output values array
+ * @param k_param: K value to use for BM25 algorithm
+ * @param b_param: B value to use for BM25 algorithm
+ */
 template <typename T1, typename T2, typename IdxT>
 void encode_bm25(raft::resources& handle,
                  raft::device_coo_matrix_view<T2, T1, T1, T1> coo_in,
@@ -337,6 +423,14 @@ void encode_bm25(raft::resources& handle,
                                  coo_in.structure_view().get_n_cols());
 }
 
+/**
+ * @brief Use BM25 algorithm to encode features in CSR sparse matrix
+ * @param handle: raft resource handle
+ * @param csr_in: Input CSR matrix
+ * @param values_out: Output values array
+ * @param k_param: K value to use for BM25 algorithm
+ * @param b_param: B value to use for BM25 algorithm
+ */
 template <typename T1, typename T2, typename IdxT>
 void encode_bm25(raft::resources& handle,
                  raft::device_csr_matrix_view<T2, T1, T1, T1> csr_in,
