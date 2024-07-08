@@ -46,14 +46,7 @@ class SparsePreprocessCSR
  public:
   SparsePreprocessCSR()
     : params(::testing::TestWithParam<SparsePreprocessInputs<Type_f, Index_>>::GetParam()),
-      stream(resource::get_cuda_stream(handle)),
-      n_rows(params.n_rows),
-      n_cols(params.n_cols),
-      rows(params.rows_h.size(), stream),
-      columns(params.columns_h.size(), stream),
-      values(params.values_h.size(), stream),
-      result(params.values_h.size(), stream)
-
+      stream(resource::get_cuda_stream(handle))
   {
   }
 
@@ -197,9 +190,6 @@ class SparsePreprocessCSR
   cudaStream_t stream;
 
   SparsePreprocessInputs<Type_f, Index_> params;
-  int n_rows, n_cols;
-  rmm::device_uvector<Index_> rows, columns;
-  rmm::device_uvector<Type_f> values, result;
 };
 
 using SparsePreprocessTfidfCsr = SparsePreprocessCSR<float, int>;

@@ -18,17 +18,13 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_span.hpp>
 #include <raft/core/host_mdarray.hpp>
-#include <raft/core/math.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/core/sparse_types.hpp>
 #include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/sort.cuh>
 
 #include <thrust/fill.h>
-#include <thrust/functional.h>
 #include <thrust/reduce.h>
 
 namespace raft::sparse::matrix::detail {

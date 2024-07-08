@@ -46,13 +46,7 @@ class SparsePreprocessCoo
  public:
   SparsePreprocessCoo()
     : params(::testing::TestWithParam<SparsePreprocessInputs<Type_f, Index_>>::GetParam()),
-      stream(resource::get_cuda_stream(handle)),
-      n_rows(params.n_rows),
-      n_cols(params.n_cols),
-      rows(params.rows_h.size(), stream),
-      columns(params.columns_h.size(), stream),
-      values(params.values_h.size(), stream),
-      result(params.values_h.size(), stream)
+      stream(resource::get_cuda_stream(handle))
   {
   }
 
@@ -193,9 +187,6 @@ class SparsePreprocessCoo
   cudaStream_t stream;
 
   SparsePreprocessInputs<Type_f, Index_> params;
-  int n_rows, n_cols;
-  rmm::device_uvector<Index_> rows, columns;
-  rmm::device_uvector<Type_f> values, result;
 };
 
 using SparsePreprocessTfidfCoo = SparsePreprocessCoo<float, int>;
@@ -205,11 +196,10 @@ using SparsePreprocessBm25Coo = SparsePreprocessCoo<float, int>;
 TEST_P(SparsePreprocessBm25Coo, Result) { Run(true); }
 
 const std::vector<SparsePreprocessInputs<float, int>> sparse_preprocess_inputs = {
-  {12,                                // n_rows
-   5,                                 // n_cols
-   {0, 3, 4, 5, 6, 7, 8, 9, 10, 11},  // rows
-   {0, 0, 1, 2, 2, 1, 1, 3, 2, 1},
-   // out_dists_tfidf
+  {12,                                                   // n_rows
+   5,                                                    // n_cols
+   {0, 3, 4, 5, 6, 7, 8, 9, 10, 11},                     // rows
+   {0, 0, 1, 2, 2, 1, 1, 3, 2, 1},                       // cols
    {1.0, 2.0, 2.0, 1.0, 1.0, 3.0, 4.0, 2.0, 1.0, 3.0}},  // vals
 };
 
