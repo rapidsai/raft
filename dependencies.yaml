@@ -83,6 +83,7 @@ files:
     extras:
       table: project
     includes:
+      - cuda
       - run_pylibraft
   py_test_pylibraft:
     output: pyproject
@@ -377,6 +378,24 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - nvidia-cublas-cu12
+              - nvidia-curand-cu12
+              - nvidia-cusolver-cu12
+              - nvidia-cusparse-cu12
+          - matrix:
+              cuda: "11.*"
+            packages:
+          - matrix:
+            packages:
+              - nvidia-cublas
+              - nvidia-curand
+              - nvidia-cusolver
+              - nvidia-cusparse
 
   depends_on_cupy:
     common:
