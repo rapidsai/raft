@@ -134,7 +134,7 @@ void get_uniques_counts(raft::resources& handle,
  * @param origin: Input array that has values to use for computation
  * @param keys: Output array that has keys, should be the size of unique
  * @param counts: Output array that contains the computed counts
- * @param results: Output array that broadcasts the counts origin value positions. Same size as
+ * @param results: Output array that scatters the counts to origin value positions. Same size as
  * origin array.
  */
 template <typename T1, typename T2, typename IdxT>
@@ -169,7 +169,7 @@ void create_mapped_vector(raft::resources& handle,
  * @param rows: Input COO rows array
  * @param columns: Input COO columns array
  * @param values: Input COO values array
- * @param id_counts: Output array that stores counts per row, broadcasted to same shape as rows.
+ * @param id_counts: Output array that stores counts per row, scattered to same shape as rows.
  * @param n_rows: Number of rows in matrix
  */
 template <typename T1, typename T2, typename IdxT>
