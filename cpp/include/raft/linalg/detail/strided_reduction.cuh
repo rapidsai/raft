@@ -57,19 +57,30 @@ RAFT_KERNEL stridedSummationKernel(
     }
   }
 
-  // add correction term
-  thread_sum += thread_c;
-
   // Block reduction
   extern __shared__ char tmp[];
   auto* block_sum = (Type*)tmp;
-  if (threadIdx.x < blockDim.x) block_sum[threadIdx.x] = Type(0);
+  auto* block_c   = block_sum + blockDim.x;
+
+  if (threadIdx.y == 0) {
+    block_sum[threadIdx.x] = Type(0);
+    block_c[threadIdx.x]   = Type(0);
+  }
   __syncthreads();
-  raft::myAtomicAdd(block_sum + threadIdx.x, thread_sum);
+  // also compute compensation for block-sum
+  const Type old_sum = atomicAdd(block_sum + threadIdx.x, thread_sum);
+  const Type t       = old_sum + thread_sum;
+  if (abs(old_sum) >= abs(thread_sum)) {
+    thread_c += (old_sum - t) + thread_sum;
+  } else {
+    thread_c += (thread_sum - t) + old_sum;
+  }
+  raft::myAtomicAdd(block_c + threadIdx.x, thread_c);
   __syncthreads();
 
   // Grid reduction
-  if (colStart < D && (threadIdx.y == 0)) raft::myAtomicAdd(out + colStart, block_sum[threadIdx.x]);
+  if (colStart < D && (threadIdx.y == 0))
+    raft::myAtomicAdd(out + colStart, block_sum[threadIdx.x] + block_c[threadIdx.x]);
 }
 
 // Kernel to perform reductions along the strided dimension
@@ -150,7 +161,7 @@ void stridedReduction(OutType* dots,
 
     const dim3 grid(raft::ceildiv(D, (IdxType)ColsPerBlk),
                     raft::min((IdxType)MaxBlocksDimY, raft::ceildiv(N, (IdxType)MinRowsPerBlk)));
-    const size_t shmemSize = sizeof(OutType) * Block.x;
+    const size_t shmemSize = sizeof(OutType) * Block.x * 2;
 
     stridedSummationKernel<InType>
       <<<grid, Block, shmemSize, stream>>>(dots, data, D, N, init, main_op);
