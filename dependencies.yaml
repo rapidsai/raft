@@ -6,7 +6,6 @@ files:
       cuda: ["11.8", "12.2"]
       arch: [x86_64, aarch64]
     includes:
-      - build
       - rapids_build
       - build_pylibraft
       - cuda
@@ -15,9 +14,10 @@ files:
       - depends_on_distributed_ucxx
       - develop
       - checks
-      - build_wheels
       - test_libraft
       - docs
+      - rapids_build_setuptools
+      - rapids_build_skbuild
       - run_raft_dask
       - run_pylibraft
       - test_python_common
@@ -28,13 +28,13 @@ files:
       cuda: ["11.8", "12.0"]
       arch: [x86_64, aarch64]
     includes:
-      - build
       - rapids_build
       - cuda
       - cuda_version
       - develop
       - nn_bench
       - nn_bench_python
+      - rapids_build_skbuild
   test_cpp:
     output: none
     includes:
@@ -67,7 +67,7 @@ files:
     extras:
       table: build-system
     includes:
-      - build
+      - rapids_build_skbuild
   py_rapids_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -100,7 +100,7 @@ files:
     extras:
       table: build-system
     includes:
-      - build
+      - rapids_build_skbuild
   py_rapids_build_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -132,7 +132,7 @@ files:
     extras:
       table: build-system
     includes:
-      - build_wheels
+      - rapids_build_setuptools
   py_run_raft_ann_bench:
     output: pyproject
     pyproject_dir: python/raft-ann-bench
@@ -147,11 +147,11 @@ channels:
   - conda-forge
   - nvidia
 dependencies:
-  build:
+  rapids_build_skbuild:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-build-backend>=0.3.0,<0.4.0.dev0
+          - &rapids_build_backend rapids-build-backend>=0.3.0,<0.4.0.dev0
       - output_types: [conda]
         packages:
           - scikit-build-core>=0.7.0
@@ -162,7 +162,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cmake_ver cmake>=3.26.4
+          - &cmake_ver cmake>=3.26.4,!=3.30.0
           - cython>=3.0.0
           - ninja
       - output_types: [conda]
@@ -170,7 +170,7 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - nccl>=2.9.9
-          - libucxx==0.39.*
+          - libucxx==0.39.*,>=0.0.0a0
     specific:
       - output_types: conda
         matrices:
@@ -404,13 +404,13 @@ dependencies:
           - recommonmark
           - sphinx-copybutton
           - sphinx-markdown-tables
-  build_wheels:
+  rapids_build_setuptools:
     common:
       - output_types: [requirements, pyproject]
         packages:
           - wheel
           - setuptools
-          - rapids-build-backend>=0.3.0,<0.4.0.dev0
+          - *rapids_build_backend
   py_version:
     specific:
       - output_types: conda
