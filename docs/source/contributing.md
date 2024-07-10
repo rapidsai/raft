@@ -88,4 +88,4 @@ others know you are working on it. If you have any questions related to the
 implementation of the issue, ask them in the issue instead of the PR.
 
 ## Attribution
-Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md
+Portions adopted from https://github.com/pytorch/pytorch/blob/main/CONTRIBUTING.md
