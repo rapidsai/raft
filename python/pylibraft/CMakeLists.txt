@@ -53,6 +53,7 @@ if(NOT raft_FOUND)
   set(BUILD_ANN_BENCH OFF)
   set(RAFT_COMPILE_LIBRARY ON)
   set(CUDA_STATIC_RUNTIME ON)
+  set(CUDA_STATIC_MATH_LIBRARIES ON)
 
   add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
 

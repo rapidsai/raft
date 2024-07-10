@@ -35,7 +35,7 @@ namespace raft::neighbors::hnsw {
 
 /**
  * @brief Construct an hnswlib base-layer-only index from a CAGRA index
- * NOTE: 1. This method uses the filesystem to write the CAGRA index in `/tmp/cagra_index.bin`
+ * NOTE: 1. This method uses the filesystem to write the CAGRA index in `/tmp/<random_number>.bin`
  * before reading it as an hnswlib index, then deleting the temporary file.
  *       2. This function is only offered as a compiled symbol in `libraft.so`
  *

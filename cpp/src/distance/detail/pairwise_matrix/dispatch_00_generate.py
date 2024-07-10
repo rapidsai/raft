@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # NOTE: this template is not perfectly formatted. Use pre-commit to get
 # everything in shape again.
 header = """/*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,6 +93,11 @@ op_instances = [
     dict(
         path_prefix="cosine",
         OpT="raft::distance::detail::ops::cosine_distance_op",
+        archs = [60, 80],
+    ),
+    dict(
+        path_prefix="dice",
+        OpT="raft::distance::detail::ops::dice_distance_op",
         archs = [60, 80],
     ),
     dict(

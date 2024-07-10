@@ -98,7 +98,7 @@ DI T blockReduce(T val, char* smem, ReduceLambda reduce_op = raft::add_op{})
   val         = warpReduce(val, reduce_op);
   if (lid == 0) sTemp[wid] = val;
   __syncthreads();
-  val = lid < nWarps ? sTemp[lid] : T(0);
+  val = lid < nWarps ? sTemp[lid] : T();
   return warpReduce(val, reduce_op);
 }
 

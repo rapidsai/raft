@@ -18,12 +18,16 @@
 
 #include "ann_types.hpp"
 
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+
+#include <optional>
 
 namespace raft::neighbors::experimental::nn_descent {
 /**
@@ -51,6 +55,7 @@ struct index_params : ann::index_params {
   size_t intermediate_graph_degree = 128;     // Degree of input graph for pruning.
   size_t max_iterations            = 20;      // Number of nn-descent iterations.
   float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
+  bool return_distances            = false;   // return distances if true
 };
 
 /**
@@ -79,14 +84,20 @@ struct index : ann::index {
    * @param res raft::resources is an object mangaging resources
    * @param n_rows number of rows in knn-graph
    * @param n_cols number of cols in knn-graph
+   * @param return_distances whether to allocate and get distances information
    */
-  index(raft::resources const& res, int64_t n_rows, int64_t n_cols)
+  index(raft::resources const& res, int64_t n_rows, int64_t n_cols, bool return_distances = false)
     : ann::index(),
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
       graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(n_rows, n_cols)},
-      graph_view_{graph_.view()}
+      graph_view_{graph_.view()},
+      return_distances_(return_distances)
   {
+    if (return_distances) {
+      distances_      = raft::make_device_matrix<float, int64_t>(res_, n_rows, n_cols);
+      distances_view_ = distances_.value().view();
+    }
   }
 
   /**
@@ -98,14 +109,23 @@ struct index : ann::index {
    *
    * @param res raft::resources is an object mangaging resources
    * @param graph_view raft::host_matrix_view<IdxT, int64_t, raft::row_major> for storing knn-graph
+   * @param distances_view std::optional<raft::device_matrix_view<T, int64_t, row_major>> for
+   * storing knn-graph distances
+   * @param return_distances whether to allocate and get distances information
    */
   index(raft::resources const& res,
-        raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view)
+        raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view,
+        std::optional<raft::device_matrix_view<float, int64_t, row_major>> distances_view =
+          std::nullopt,
+        bool return_distances = false)
     : ann::index(),
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
       graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(0, 0)},
-      graph_view_{graph_view}
+      distances_{raft::make_device_matrix<float, int64_t>(res_, 0, 0)},
+      graph_view_{graph_view},
+      distances_view_(distances_view),
+      return_distances_(return_distances)
   {
   }
 
@@ -133,6 +153,13 @@ struct index : ann::index {
     return graph_view_;
   }
 
+  /** neighborhood graph distances [size, graph-degree] */
+  [[nodiscard]] inline auto distances() noexcept
+    -> std::optional<device_matrix_view<float, int64_t, row_major>>
+  {
+    return distances_view_;
+  }
+
   // Don't allow copying the index for performance reasons (try avoiding copying data)
   index(const index&)                    = delete;
   index(index&&)                         = default;
@@ -144,8 +171,11 @@ struct index : ann::index {
   raft::resources const& res_;
   raft::distance::DistanceType metric_;
   raft::host_matrix<IdxT, int64_t, row_major> graph_;  // graph to return for non-int IdxT
+  std::optional<raft::device_matrix<float, int64_t, row_major>> distances_;
   raft::host_matrix_view<IdxT, int64_t, row_major>
     graph_view_;  // view of graph for user provided matrix
+  std::optional<raft::device_matrix_view<float, int64_t, row_major>> distances_view_;
+  bool return_distances_;
 };
 
 /** @} */
