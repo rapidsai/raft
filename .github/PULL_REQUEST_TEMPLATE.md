@@ -36,7 +36,7 @@ Here are some guidelines to help the review process go smoothly.
    re-reviewed/it is hard to tell what is new etc!). Further, please do not
    rebase your branch on main/force push/rewrite history, doing any of these
    causes the context of any comments made by reviewers to be lost. If
-   conflicts occur against main they should be resolved by merging main
+   conflicts occur they should be resolved by merging the target branch
    into the branch used for making the pull request.
 
 Many thanks in advance for your cooperation!
