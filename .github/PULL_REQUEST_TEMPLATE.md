@@ -34,7 +34,7 @@ Here are some guidelines to help the review process go smoothly.
    features or make changes out of the scope of those requested by the reviewer
    (doing this just add delays as already reviewed code ends up having to be
    re-reviewed/it is hard to tell what is new etc!). Further, please do not
-   rebase your branch on main/force push/rewrite history, doing any of these
+   rebase your branch/force push/rewrite history, doing any of these
    causes the context of any comments made by reviewers to be lost. If
    conflicts occur they should be resolved by merging the target branch
    into the branch used for making the pull request.
