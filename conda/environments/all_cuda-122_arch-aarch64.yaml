@@ -11,7 +11,7 @@ dependencies:
 - c-compiler
 - clang-tools=16.0.6
 - clang==16.0.6
-- cmake>=3.26.4
+- cmake>=3.26.4,!=3.30.0
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-nvtx-dev
@@ -32,7 +32,7 @@ dependencies:
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libucxx==0.39.*
+- libucxx==0.39.*,>=0.0.0a0
 - nccl>=2.9.9
 - ninja
 - numba>=0.57
