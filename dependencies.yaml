@@ -471,13 +471,13 @@ dependencies:
     common:
       - output_types: [conda, pyproject]
         packages:
-          - dask-cuda==24.8.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.57
           - *numpy
           - rapids-dask-dependency==24.8.*,>=0.0.0a0
       - output_types: conda
         packages:
+          - &dask_cuda_conda dask-cuda==24.8.*,>=0.0.0a0
           - &pylibraft_conda pylibraft==24.8.*,>=0.0.0a0
           - &ucx_py_conda ucx-py==0.39.*,>=0.0.0a0
       - output_types: requirements
@@ -491,13 +491,15 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
+              - &dask_cuda_cu12 dask-cuda-cu12==24.8.*,>=0.0.0a0
               - &pylibraft_cu12 pylibraft-cu12==24.8.*,>=0.0.0a0
               - &ucx_py_cu12 ucx-py-cu12==0.39.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
+              - &dask_cuda_cu11 dask-cuda-cu11==24.8.*,>=0.0.0a0
               - &pylibraft_cu11 pylibraft-cu11==24.8.*,>=0.0.0a0
               - &ucx_py_cu11 ucx-py-cu11==0.39.*,>=0.0.0a0
-          - {matrix: null, packages: [*pylibraft_conda, *ucx_py_conda]}
+          - {matrix: null, packages: [*dask_cuda_conda, *pylibraft_conda, *ucx_py_conda]}
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
