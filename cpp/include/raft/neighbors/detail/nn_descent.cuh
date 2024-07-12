@@ -1231,6 +1231,17 @@ void GNND<Data_t, Index_t, epilogue_op>::local_join(cudaStream_t stream,
     distance_epilogue);
 }
 
+template <typename T>
+RAFT_KERNEL copy_first_k_cols(T* out, T* in, size_t out_k, size_t in_k, size_t nrow)
+{
+  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < nrow) {
+    for (size_t i = 0; i < out_k; i++) {
+      out[row * out_k + i] = in[row * in_k + i];
+    }
+  }
+}
+
 template <typename Data_t, typename Index_t, typename epilogue_op>
 void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
                                                const Index_t nrow,
@@ -1364,14 +1375,32 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   // Reuse graph_.h_dists as the buffer for shrink the lists in graph
   static_assert(sizeof(decltype(*(graph_.h_dists.data_handle()))) >= sizeof(Index_t));
 
+  nvtxRangePushA("copying distances inside build");
   if (return_distances) {
-    for (size_t i = 0; i < (size_t)nrow_; i++) {
-      raft::copy(output_distances + i * build_config_.output_graph_degree,
-                 graph_.h_dists.data_handle() + i * build_config_.node_degree,
-                 build_config_.output_graph_degree,
-                 raft::resource::get_cuda_stream(res));
-    }
+    auto graph_d_dists = raft::make_device_matrix<DistData_t, size_t, raft::row_major>(
+      res, nrow_, build_config_.node_degree);
+    raft::copy(graph_d_dists.data_handle(),
+               graph_.h_dists.data_handle(),
+               nrow_ * build_config_.node_degree,
+               raft::resource::get_cuda_stream(res));
+
+    size_t TPB        = 256;
+    size_t num_blocks = static_cast<size_t>((nrow_ + TPB) / TPB);
+    copy_first_k_cols<DistData_t><<<num_blocks, TPB, 0, raft::resource::get_cuda_stream(res)>>>(
+      output_distances,
+      graph_d_dists.data_handle(),
+      build_config_.output_graph_degree,
+      build_config_.node_degree,
+      nrow_);
+
+    // for (size_t i = 0; i < (size_t)nrow_; i++) {
+    //   raft::copy(output_distances + i * build_config_.output_graph_degree,
+    //              graph_.h_dists.data_handle() + i * build_config_.node_degree,
+    //              build_config_.output_graph_degree,
+    //              raft::resource::get_cuda_stream(res));
+    // }
   }
+  nvtxRangePop();
 
   Index_t* graph_shrink_buffer = (Index_t*)graph_.h_dists.data_handle();
 
