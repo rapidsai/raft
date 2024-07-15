@@ -574,13 +574,8 @@ void coalescedReductionThickDispatcher(OutType* dots,
 {
   // Note: multiple elements per thread to take advantage of the sequential reduction and loop
   // unrolling
-  if (D < IdxType(32768)) {
-    coalescedReductionThick<ReductionThickPolicy<256, 32>, ReductionThinPolicy<32, 128, 1>>(
-      dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
-  } else {
-    coalescedReductionThick<ReductionThickPolicy<256, 64>, ReductionThinPolicy<32, 128, 1>>(
-      dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
-  }
+  coalescedReductionThick<ReductionThickPolicy<256, 64>, ReductionThinPolicy<32, 128, 1>>(
+    dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
 }
 
 // Primitive to perform reductions along the coalesced dimension of the matrix, i.e. reduce along
@@ -605,14 +600,17 @@ void coalescedReduction(OutType* dots,
 {
   /* The primitive selects one of three implementations based on heuristics:
    *  - Thin: very efficient when D is small and/or N is large
+   *    At most one warp is processing each row
    *  - Thick: used when N is very small and D very large
-   *  - Medium: used when N is too small to fill the GPU with the thin kernel
+   *    Multiple blocks (32/64) processing each row
+   *  - Medium: everything in between
+   *    One block is processing each row
    */
   const IdxType numSMs = raft::getMultiProcessorCount();
-  if (D <= IdxType(256) || N >= IdxType(4) * numSMs) {
+  if (D <= IdxType(512) || (N >= IdxType(16) * numSMs && D < IdxType(2048))) {
     coalescedReductionThinDispatcher(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
-  } else if (N < numSMs && D >= IdxType(16384)) {
+  } else if (N < numSMs && D >= IdxType(1 << 17)) {
     coalescedReductionThickDispatcher(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else {
