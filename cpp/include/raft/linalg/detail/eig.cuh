@@ -97,6 +97,8 @@ void eigDC(raft::resources const& handle,
   cudaEvent_t sync_event;
   RAFT_CUDA_TRY(cudaStreamCreate(&stream_new));
   RAFT_CUDA_TRY(cudaEventCreate(&sync_event));
+  RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream));
+  RAFT_CUDA_TRY(cudaStreamWaitEvent(stream_new, sync_event));
 
   cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
