@@ -106,7 +106,7 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 
 Conda environment scripts are provided for installing the necessary dependencies to build both the C++ and Python libraries from source. It is preferred to use `mamba`, as it provides significant speedup over `conda`:
 ```bash
-mamba env create --name rapids_raft -f conda/environments/all_cuda-122_arch-x86_64.yaml
+mamba env create --name rapids_raft -f conda/environments/all_cuda-125_arch-x86_64.yaml
 mamba activate rapids_raft
 ```
 
