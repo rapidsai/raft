@@ -219,7 +219,38 @@ if(BUILD_TESTS)
     NAME
     LINALG_TEST
     PATH
+    linalg/add.cu
+    linalg/axpy.cu
+    linalg/binary_op.cu
+    linalg/cholesky_r1.cu
+    linalg/coalesced_reduction.cu
+    linalg/divide.cu
+    linalg/dot.cu
+    linalg/eig.cu
+    linalg/eig_sel.cu
+    linalg/gemm_layout.cu
+    linalg/gemv.cu
+    linalg/map.cu
+    linalg/map_then_reduce.cu
+    linalg/matrix_vector.cu
+    linalg/matrix_vector_op.cu
+    linalg/mean_squared_error.cu
+    linalg/multiply.cu
     linalg/norm.cu
+    linalg/normalize.cu
+    linalg/power.cu
+    linalg/randomized_svd.cu
+    linalg/reduce.cu
+    linalg/reduce_cols_by_key.cu
+    linalg/reduce_rows_by_key.cu
+    linalg/rsvd.cu
+    linalg/sqrt.cu
+    linalg/strided_reduction.cu
+    linalg/subtract.cu
+    linalg/svd.cu
+    linalg/ternary_op.cu
+    linalg/transpose.cu
+    linalg/unary_op.cu
   )
 
   ConfigureTest(
@@ -278,7 +309,24 @@ if(BUILD_TESTS)
     NAME
     SPARSE_TEST
     PATH
+    sparse/add.cu
+    sparse/convert_coo.cu
+    sparse/convert_csr.cu
+    sparse/csr_row_slice.cu
+    sparse/csr_to_dense.cu
+    sparse/csr_transpose.cu
+    sparse/degree.cu
+    sparse/filter.cu
+    sparse/norm.cu
+    sparse/normalize.cu
+    sparse/reduce.cu
+    sparse/row_op.cu
     sparse/sddmm.cu
+    sparse/select_k_csr.cu
+    sparse/sort.cu
+    sparse/spgemmi.cu
+    sparse/spmm.cu
+    sparse/symmetrize.cu
   )
 
   ConfigureTest(
