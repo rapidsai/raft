@@ -19,11 +19,15 @@
 #include "../nn_descent_types.hpp"
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/mdspan.hpp>
+#include <raft/core/mdspan_types.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/matrix/slice.cuh>
 #include <raft/neighbors/detail/cagra/device_common.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/arch.cuh>  // raft::util::arch::SM_*
@@ -1376,21 +1380,19 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   static_assert(sizeof(decltype(*(graph_.h_dists.data_handle()))) >= sizeof(Index_t));
 
   if (return_distances) {
-    auto graph_d_dists = raft::make_device_matrix<DistData_t, size_t, raft::row_major>(
+    auto graph_d_dists = raft::make_device_matrix<DistData_t, size_t, row_major>(
       res, nrow_, build_config_.node_degree);
     raft::copy(graph_d_dists.data_handle(),
                graph_.h_dists.data_handle(),
                nrow_ * build_config_.node_degree,
                raft::resource::get_cuda_stream(res));
 
-    size_t TPB        = 256;
-    size_t num_blocks = static_cast<size_t>((nrow_ + TPB) / TPB);
-    copy_first_k_cols<DistData_t><<<num_blocks, TPB, 0, raft::resource::get_cuda_stream(res)>>>(
-      output_distances,
-      graph_d_dists.data_handle(),
-      build_config_.output_graph_degree,
-      build_config_.node_degree,
-      nrow_);
+    auto output_dist_view =
+      raft::make_device_matrix_view(output_distances, nrow_, build_config_.output_graph_degree);
+
+    raft::matrix::slice_coordinates coords{0lu, 0lu, nrow_, build_config_.output_graph_degree};
+    raft::matrix::slice<DistData_t, size_t, row_major>(
+      res, raft::make_const_mdspan(graph_d_dists.view()), output_dist_view, coords);
   }
 
   Index_t* graph_shrink_buffer = (Index_t*)graph_.h_dists.data_handle();
