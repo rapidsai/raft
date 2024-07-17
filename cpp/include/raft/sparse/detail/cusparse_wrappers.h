@@ -211,6 +211,27 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                           int64_t rows,
                                           int64_t cols,
                                           int64_t nnz,
+                                          int32_t* csrRowOffsets,
+                                          int32_t* csrColInd,
+                                          half* csrValues)
+{
+  return cusparseCreateCsr(spMatDescr,
+                           rows,
+                           cols,
+                           nnz,
+                           csrRowOffsets,
+                           csrColInd,
+                           csrValues,
+                           CUSPARSE_INDEX_32I,
+                           CUSPARSE_INDEX_32I,
+                           CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_16F);
+}
+template <>
+inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows,
+                                          int64_t cols,
+                                          int64_t nnz,
                                           int64_t* csrRowOffsets,
                                           int64_t* csrColInd,
                                           float* csrValues)
@@ -247,6 +268,27 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                            CUSPARSE_INDEX_64I,
                            CUSPARSE_INDEX_BASE_ZERO,
                            CUDA_R_64F);
+}
+template <>
+inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows,
+                                          int64_t cols,
+                                          int64_t nnz,
+                                          int64_t* csrRowOffsets,
+                                          int64_t* csrColInd,
+                                          half* csrValues)
+{
+  return cusparseCreateCsr(spMatDescr,
+                           rows,
+                           cols,
+                           nnz,
+                           csrRowOffsets,
+                           csrColInd,
+                           csrValues,
+                           CUSPARSE_INDEX_64I,
+                           CUSPARSE_INDEX_64I,
+                           CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_16F);
 }
 /** @} */
 /**
@@ -301,6 +343,16 @@ inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t* dnMatDescr,
                                             cusparseOrder_t order)
 {
   return cusparseCreateDnMat(dnMatDescr, rows, cols, ld, values, CUDA_R_64F, order);
+}
+template <>
+inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t* dnMatDescr,
+                                            int64_t rows,
+                                            int64_t cols,
+                                            int64_t ld,
+                                            half* values,
+                                            cusparseOrder_t order)
+{
+  return cusparseCreateDnMat(dnMatDescr, rows, cols, ld, values, CUDA_R_16F, order);
 }
 /** @} */
 
@@ -630,7 +682,7 @@ inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
                                       const T* beta,
                                       cusparseSpMatDescr_t matC,
                                       cusparseSDDMMAlg_t alg,
-                                      T* externalBuffer,
+                                      void* externalBuffer,
                                       cudaStream_t stream);
 template <>
 inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
@@ -642,7 +694,7 @@ inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
                                       const float* beta,
                                       cusparseSpMatDescr_t matC,
                                       cusparseSDDMMAlg_t alg,
-                                      float* externalBuffer,
+                                      void* externalBuffer,
                                       cudaStream_t stream)
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
@@ -656,7 +708,7 @@ inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
                        matC,
                        CUDA_R_32F,
                        alg,
-                       static_cast<void*>(externalBuffer));
+                       externalBuffer);
 }
 template <>
 inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
@@ -668,7 +720,7 @@ inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
                                       const double* beta,
                                       cusparseSpMatDescr_t matC,
                                       cusparseSDDMMAlg_t alg,
-                                      double* externalBuffer,
+                                      void* externalBuffer,
                                       cudaStream_t stream)
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
@@ -682,7 +734,34 @@ inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
                        matC,
                        CUDA_R_64F,
                        alg,
-                       static_cast<void*>(externalBuffer));
+                       externalBuffer);
+}
+
+template <>
+inline cusparseStatus_t cusparsesddmm(cusparseHandle_t handle,
+                                      cusparseOperation_t opA,
+                                      cusparseOperation_t opB,
+                                      const half* alpha,
+                                      const cusparseDnMatDescr_t matA,
+                                      const cusparseDnMatDescr_t matB,
+                                      const half* beta,
+                                      cusparseSpMatDescr_t matC,
+                                      cusparseSDDMMAlg_t alg,
+                                      void* externalBuffer,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSDDMM(handle,
+                       opA,
+                       opB,
+                       static_cast<void const*>(alpha),
+                       matA,
+                       matB,
+                       static_cast<void const*>(beta),
+                       matC,
+                       CUDA_R_16F,
+                       alg,
+                       externalBuffer);
 }
 
 /** @} */

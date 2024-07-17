@@ -22,7 +22,10 @@
 #include <raft/sparse/linalg/sddmm.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda_fp16.h>
+#include <thrust/device_vector.h>
 #include <thrust/reduce.h>
+#include <thrust/transform.h>
 
 #include <gtest/gtest.h>
 
@@ -32,16 +35,16 @@
 namespace raft {
 namespace sparse {
 
-template <typename ValueType, typename IndexType>
+template <typename ValueType, typename IndexType, typename OutputType = ValueType>
 struct SDDMMInputs {
-  ValueType tolerance;
+  OutputType tolerance;
 
   IndexType m;
   IndexType k;
   IndexType n;
 
-  ValueType alpha;
-  ValueType beta;
+  OutputType alpha;
+  OutputType beta;
 
   bool transpose_a;
   bool transpose_b;
@@ -59,6 +62,10 @@ struct sum_abs_op {
   }
 };
 
+struct float_to_half {
+  __host__ __device__ __half operator()(const float x) const { return __float2half(x); }
+};
+
 template <typename ValueType, typename IndexType>
 ::std::ostream& operator<<(::std::ostream& os, const SDDMMInputs<ValueType, IndexType>& params)
 {
@@ -72,11 +79,12 @@ template <typename ValueType, typename IndexType>
 template <typename ValueType,
           typename IndexType,
           typename LayoutPolicyA = raft::layout_c_contiguous,
-          typename LayoutPolicyB = raft::layout_c_contiguous>
-class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexType>> {
+          typename LayoutPolicyB = raft::layout_c_contiguous,
+          typename OutputType    = ValueType>
+class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexType, OutputType>> {
  public:
   SDDMMTest()
-    : params(::testing::TestWithParam<SDDMMInputs<ValueType, IndexType>>::GetParam()),
+    : params(::testing::TestWithParam<SDDMMInputs<ValueType, IndexType, OutputType>>::GetParam()),
       stream(resource::get_cuda_stream(handle)),
       a_data_d(0, resource::get_cuda_stream(handle)),
       b_data_d(0, resource::get_cuda_stream(handle)),
@@ -90,7 +98,7 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
  protected:
   IndexType create_sparse_matrix(IndexType m,
                                  IndexType n,
-                                 ValueType sparsity,
+                                 OutputType sparsity,
                                  std::vector<bool>& matrix)
   {
     IndexType total_elements = static_cast<IndexType>(m * n);
@@ -119,7 +127,7 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
   void convert_to_csr(std::vector<bool>& matrix,
                       IndexType rows,
                       IndexType cols,
-                      std::vector<ValueType>& values,
+                      std::vector<OutputType>& values,
                       std::vector<IndexType>& indices,
                       std::vector<IndexType>& indptr)
   {
@@ -130,7 +138,7 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
     for (IndexType i = 0; i < rows; ++i) {
       for (IndexType j = 0; j < cols; ++j) {
         if (matrix[i * cols + j]) {
-          values[offset_values]  = static_cast<ValueType>(1.0);
+          values[offset_values]  = static_cast<OutputType>(1.0);
           indices[offset_values] = static_cast<IndexType>(j);
           offset_values++;
         }
@@ -141,7 +149,7 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
 
   void cpu_sddmm(const std::vector<ValueType>& A,
                  const std::vector<ValueType>& B,
-                 std::vector<ValueType>& vals,
+                 std::vector<OutputType>& vals,
                  const std::vector<IndexType>& cols,
                  const std::vector<IndexType>& row_ptrs,
                  bool is_row_major_A,
@@ -158,11 +166,15 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
 
     for (IndexType i = 0; i < params.m; ++i) {
       for (IndexType j = row_ptrs[i]; j < row_ptrs[i + 1]; ++j) {
-        ValueType sum = 0;
+        OutputType sum = 0;
         for (IndexType l = 0; l < params.k; ++l) {
           IndexType a_index = trans_a ? i * params.k + l : l * params.m + i;
           IndexType b_index = trans_b ? l * params.n + cols[j] : cols[j] * params.k + l;
-          sum += A[a_index] * B[b_index];
+          if constexpr ((std::is_same_v<OutputType, float> && std::is_same_v<ValueType, half>)) {
+            sum += __half2float(A[a_index]) * __half2float(B[b_index]);
+          } else {
+            sum += A[a_index] * B[b_index];
+          }
         }
         vals[j] = params.alpha * sum + params.beta * vals[j];
       }
@@ -181,29 +193,53 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
     a_data_d.resize(a_size, stream);
     b_data_d.resize(b_size, stream);
 
-    auto blobs_a_b = raft::make_device_matrix<ValueType, IndexType>(handle, 1, a_size + b_size);
+    auto blobs_a_b = raft::make_device_matrix<OutputType, IndexType>(handle, 1, a_size + b_size);
     auto labels    = raft::make_device_vector<IndexType, IndexType>(handle, 1);
 
-    raft::random::make_blobs<ValueType, IndexType>(blobs_a_b.data_handle(),
-                                                   labels.data_handle(),
-                                                   1,
-                                                   a_size + b_size,
-                                                   1,
-                                                   stream,
-                                                   false,
-                                                   nullptr,
-                                                   nullptr,
-                                                   ValueType(1.0),
-                                                   false,
-                                                   ValueType(-1.0f),
-                                                   ValueType(1.0f),
-                                                   uint64_t(2024));
+    raft::random::make_blobs<OutputType, IndexType>(blobs_a_b.data_handle(),
+                                                    labels.data_handle(),
+                                                    1,
+                                                    a_size + b_size,
+                                                    1,
+                                                    stream,
+                                                    false,
+                                                    nullptr,
+                                                    nullptr,
+                                                    OutputType(1.0),
+                                                    false,
+                                                    OutputType(-1.0f),
+                                                    OutputType(1.0f),
+                                                    uint64_t(2024));
+    if constexpr ((std::is_same_v<OutputType, float> && std::is_same_v<ValueType, half>)) {
+      {
+        thrust::device_ptr<OutputType> d_output_ptr =
+          thrust::device_pointer_cast(blobs_a_b.data_handle());
+        thrust::device_ptr<ValueType> d_value_ptr = thrust::device_pointer_cast(a_data_d.data());
+        thrust::transform(thrust::cuda::par.on(stream),
+                          d_output_ptr,
+                          d_output_ptr + a_size,
+                          d_value_ptr,
+                          float_to_half());
+      }
+      {
+        thrust::device_ptr<OutputType> d_output_ptr =
+          thrust::device_pointer_cast(blobs_a_b.data_handle() + a_size);
+        thrust::device_ptr<ValueType> d_value_ptr = thrust::device_pointer_cast(b_data_d.data());
+        thrust::transform(thrust::cuda::par.on(stream),
+                          d_output_ptr,
+                          d_output_ptr + b_size,
+                          d_value_ptr,
+                          float_to_half());
+      }
+      raft::copy(a_data_h.data(), a_data_d.data(), a_size, stream);
+      raft::copy(b_data_h.data(), b_data_d.data(), b_size, stream);
+    } else {
+      raft::copy(a_data_h.data(), blobs_a_b.data_handle(), a_size, stream);
+      raft::copy(b_data_h.data(), blobs_a_b.data_handle() + a_size, b_size, stream);
 
-    raft::copy(a_data_h.data(), blobs_a_b.data_handle(), a_size, stream);
-    raft::copy(b_data_h.data(), blobs_a_b.data_handle() + a_size, b_size, stream);
-
-    raft::copy(a_data_d.data(), blobs_a_b.data_handle(), a_size, stream);
-    raft::copy(b_data_d.data(), blobs_a_b.data_handle() + a_size, b_size, stream);
+      raft::copy(a_data_d.data(), blobs_a_b.data_handle(), a_size, stream);
+      raft::copy(b_data_d.data(), blobs_a_b.data_handle() + a_size, b_size, stream);
+    }
 
     resource::sync_stream(handle);
 
@@ -213,7 +249,7 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
 
     std::vector<IndexType> c_indptr_h(params.m + 1);
     std::vector<IndexType> c_indices_h(c_true_nnz);
-    std::vector<ValueType> c_data_h(c_true_nnz);
+    std::vector<OutputType> c_data_h(c_true_nnz);
 
     convert_to_csr(c_dense_data_h, params.m, params.n, c_data_h, c_indices_h, c_indptr_h);
 
@@ -258,7 +294,7 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
       params.n,
       static_cast<IndexType>(c_indices_d.size()));
 
-    auto c = raft::make_device_csr_matrix_view<ValueType>(c_data_d.data(), c_structure);
+    auto c = raft::make_device_csr_matrix_view<OutputType>(c_data_d.data(), c_structure);
 
     auto op_a = params.transpose_a ? raft::linalg::Operation::TRANSPOSE
                                    : raft::linalg::Operation::NON_TRANSPOSE;
@@ -271,41 +307,41 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
                                 c,
                                 op_a,
                                 op_b,
-                                raft::make_host_scalar_view<ValueType>(&params.alpha),
-                                raft::make_host_scalar_view<ValueType>(&params.beta));
+                                raft::make_host_scalar_view<OutputType>(&params.alpha),
+                                raft::make_host_scalar_view<OutputType>(&params.beta));
 
     resource::sync_stream(handle);
 
-    ASSERT_TRUE(raft::devArrMatch<ValueType>(c_expected_data_d.data(),
-                                             c.get_elements().data(),
-                                             c_expected_data_d.size(),
-                                             raft::CompareApprox<ValueType>(params.tolerance),
-                                             stream));
+    ASSERT_TRUE(raft::devArrMatch<OutputType>(c_expected_data_d.data(),
+                                              c.get_elements().data(),
+                                              c_expected_data_d.size(),
+                                              raft::CompareApprox<OutputType>(params.tolerance),
+                                              stream));
 
-    thrust::device_ptr<ValueType> expected_data_ptr =
+    thrust::device_ptr<OutputType> expected_data_ptr =
       thrust::device_pointer_cast(c_expected_data_d.data());
-    ValueType sum_abs = thrust::reduce(thrust::cuda::par.on(stream),
-                                       expected_data_ptr,
-                                       expected_data_ptr + c_expected_data_d.size(),
-                                       ValueType(0.0f),
-                                       sum_abs_op<ValueType>());
-    ValueType avg     = sum_abs / (1.0f * c_expected_data_d.size());
+    OutputType sum_abs = thrust::reduce(thrust::cuda::par.on(stream),
+                                        expected_data_ptr,
+                                        expected_data_ptr + c_expected_data_d.size(),
+                                        OutputType(0.0f),
+                                        sum_abs_op<OutputType>());
+    OutputType avg     = sum_abs / (1.0f * c_expected_data_d.size());
 
-    ASSERT_GE(avg, (params.tolerance * static_cast<ValueType>(0.001f)));
+    ASSERT_GE(avg, (params.tolerance * static_cast<OutputType>(0.001f)));
   }
 
   raft::resources handle;
   cudaStream_t stream;
-  SDDMMInputs<ValueType, IndexType> params;
+  SDDMMInputs<ValueType, IndexType, OutputType> params;
 
   rmm::device_uvector<ValueType> a_data_d;
   rmm::device_uvector<ValueType> b_data_d;
 
   rmm::device_uvector<IndexType> c_indptr_d;
   rmm::device_uvector<IndexType> c_indices_d;
-  rmm::device_uvector<ValueType> c_data_d;
+  rmm::device_uvector<OutputType> c_data_d;
 
-  rmm::device_uvector<ValueType> c_expected_data_d;
+  rmm::device_uvector<OutputType> c_expected_data_d;
 };
 
 using SDDMMTestF_Row_Col = SDDMMTest<float, int, raft::row_major, raft::col_major>;
@@ -332,6 +368,18 @@ TEST_P(SDDMMTestD_Row_Row, Result) { Run(); }
 using SDDMMTestD_Col_Col = SDDMMTest<double, int, raft::col_major, raft::col_major>;
 TEST_P(SDDMMTestD_Col_Col, Result) { Run(); }
 
+using SDDMMTestHF_Row_Col = SDDMMTest<half, int, raft::row_major, raft::col_major, float>;
+TEST_P(SDDMMTestHF_Row_Col, Result) { Run(); }
+
+using SDDMMTestHF_Col_Row = SDDMMTest<half, int, raft::col_major, raft::row_major, float>;
+TEST_P(SDDMMTestHF_Col_Row, Result) { Run(); }
+
+using SDDMMTestHF_Row_Row = SDDMMTest<half, int, raft::row_major, raft::row_major, float>;
+TEST_P(SDDMMTestHF_Row_Row, Result) { Run(); }
+
+using SDDMMTestHF_Col_Col = SDDMMTest<half, int, raft::col_major, raft::col_major, float>;
+TEST_P(SDDMMTestHF_Col_Col, Result) { Run(); }
+
 const std::vector<SDDMMInputs<float, int>> sddmm_inputs_f = {
   {0.0001f, 10, 5, 32, 1.0, 0.0, false, false, 0.01, 1234ULL},
   {0.0001f, 1024, 32, 1024, 0.3, 0.0, true, false, 0.1, 1234ULL},
@@ -352,6 +400,16 @@ const std::vector<SDDMMInputs<double, int>> sddmm_inputs_d = {
   {0.0001f, 32, 1024, 1024, 2.0, 0.2, false, true, 0.19, 1234ULL},
   {0.0001f, 1024, 1024, 1024, 0.0, 1.2, true, true, 0.1, 1234ULL}};
 
+const std::vector<SDDMMInputs<half, int, float>> sddmm_inputs_h_f = {
+  {0.0001f, 10, 5, 32, 1.0, 0.0, false, false, 0.01, 1234ULL},
+  {0.0001f, 1024, 32, 1024, 0.3, 0.0, true, false, 0.1, 1234ULL},
+  {0.0003f, 32, 1024, 1024, 1.0, 0.3, false, true, 0.2, 1234ULL},
+  {0.001f, 1024, 1024, 1024, 0.2, 0.2, true, true, 0.19, 1234ULL},
+  {0.0001f, 1024, 1024, 32, 0.1, 0.2, false, false, 0.3, 1234ULL},
+  {0.0001f, 1024, 32, 1024, 1.0, 0.3, true, false, 0.4, 1234ULL},
+  {0.0003f, 32, 1024, 1024, 2.0, 0.2, false, true, 0.19, 1234ULL},
+  {0.001f, 1024, 1024, 1024, 0.0, 1.2, true, true, 0.1, 1234ULL}};
+
 INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Row_Col, ::testing::ValuesIn(sddmm_inputs_f));
 INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Col_Row, ::testing::ValuesIn(sddmm_inputs_f));
 INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestF_Row_Row, ::testing::ValuesIn(sddmm_inputs_f));
@@ -361,6 +419,11 @@ INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Row_Col, ::testing::ValuesIn(sddmm
 INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Col_Row, ::testing::ValuesIn(sddmm_inputs_d));
 INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Row_Row, ::testing::ValuesIn(sddmm_inputs_d));
 INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestD_Col_Col, ::testing::ValuesIn(sddmm_inputs_d));
+
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestHF_Row_Col, ::testing::ValuesIn(sddmm_inputs_h_f));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestHF_Col_Row, ::testing::ValuesIn(sddmm_inputs_h_f));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestHF_Row_Row, ::testing::ValuesIn(sddmm_inputs_h_f));
+INSTANTIATE_TEST_CASE_P(SDDMMTest, SDDMMTestHF_Col_Col, ::testing::ValuesIn(sddmm_inputs_h_f));
 
 }  // namespace sparse
 }  // namespace raft
