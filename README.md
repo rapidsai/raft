@@ -281,16 +281,16 @@ mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-vers
 ```
 
 ```bash
-# for CUDA 12.0
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.0
+# for CUDA 12.5
+mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.5
 ```
 
 Note that the above commands will also install `libraft-headers` and `libraft`.
 
 You can also install the conda packages individually using the `mamba` command above. For example, if you'd like to install RAFT's headers and pre-compiled shared library to use in your project:
 ```bash
-# for CUDA 12.0
-mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
+# for CUDA 12.5
+mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.5
 ```
 
 If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.08/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
