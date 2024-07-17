@@ -1390,7 +1390,8 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
     auto output_dist_view =
       raft::make_device_matrix_view(output_distances, nrow_, build_config_.output_graph_degree);
 
-    raft::matrix::slice_coordinates coords{0lu, 0lu, nrow_, build_config_.output_graph_degree};
+    raft::matrix::slice_coordinates coords{
+      0, 0, static_cast<int>(nrow_), static_cast<int>(build_config_.output_graph_degree)};
     raft::matrix::slice<DistData_t, size_t, row_major>(
       res, raft::make_const_mdspan(graph_d_dists.view()), output_dist_view, coords);
   }
