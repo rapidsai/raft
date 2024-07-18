@@ -18,11 +18,10 @@
 
 #include "../nn_descent_types.hpp"
 
+#include <raft/core/copy.cuh>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
-#include <raft/core/mdspan.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -1370,10 +1369,7 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   if (return_distances) {
     auto graph_d_dists = raft::make_device_matrix<DistData_t, int64_t, raft::row_major>(
       res, nrow_, build_config_.node_degree);
-    raft::copy(graph_d_dists.data_handle(),
-               graph_.h_dists.data_handle(),
-               nrow_ * build_config_.node_degree,
-               raft::resource::get_cuda_stream(res));
+    raft::copy(res, graph_d_dists.view(), graph_.h_dists.view());
 
     auto output_dist_view = raft::make_device_matrix_view<DistData_t, int64_t, raft::row_major>(
       output_distances, nrow_, build_config_.output_graph_degree);
