@@ -72,8 +72,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     cov_act.resize(cols * cols, stream);
 
     normal(handle, r, data.data(), len, params.mean, var);
-    raft::stats::mean(
-      mean_act.data(), data.data(), cols, rows, params.sample, params.rowMajor, stream);
+    raft::stats::mean(mean_act.data(), data.data(), cols, rows, false, params.rowMajor, stream);
     if (params.rowMajor) {
       using layout = raft::row_major;
       cov(handle,
@@ -103,7 +102,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     raft::update_device(data_cm.data(), data_h, 6, stream);
     raft::update_device(cov_cm_ref.data(), cov_cm_ref_h, 4, stream);
 
-    raft::stats::mean(mean_cm.data(), data_cm.data(), 2, 3, true, false, stream);
+    raft::stats::mean(mean_cm.data(), data_cm.data(), 2, 3, false, false, stream);
     cov(handle, cov_cm.data(), data_cm.data(), mean_cm.data(), 2, 3, true, false, true, stream);
   }
 
