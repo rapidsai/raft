@@ -31,6 +31,9 @@ namespace linalg {
 
 /**
  * @brief Compute reduction of the input matrix along the requested dimension
+ *        In case of an add-reduction, a compensated summation will be performed
+ *        in order to reduce numerical error. Note that the compensation will not
+ *        be equivalent to a sequential compensation to preserve parallel efficiency.
  *
  * @tparam InType the data type of the input
  * @tparam OutType the data type of the output (as well as the data type for
