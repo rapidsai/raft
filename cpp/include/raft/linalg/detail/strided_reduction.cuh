@@ -28,9 +28,13 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
-// Kernel to perform reductions along the strided dimension
+// Kernel to perform summation along the strided dimension
 // of the matrix, i.e. reduce along columns for row major or reduce along rows
 // for column major layout
+// A compensated summation will be performed in order to reduce numerical error.
+// Note that the compensation will only be performed 'per-block' for performance
+// reasons and therefore not be equivalent to a sequential compensation.
+
 template <typename Type, typename MainLambda>
 RAFT_KERNEL stridedSummationKernel(
   Type* out, const Type* data, int D, int N, Type init, MainLambda main_op)

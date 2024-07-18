@@ -581,6 +581,9 @@ void coalescedReductionThickDispatcher(OutType* dots,
 // Primitive to perform reductions along the coalesced dimension of the matrix, i.e. reduce along
 // rows for row major or reduce along columns for column major layout. Can do an inplace reduction
 // adding to original values of dots if requested.
+// In case of an add-reduction, a compensated summation will be performed in order to reduce
+// numerical error. Note that the compensation will only be performed 'per-thread' for performance
+// reasons and therefore not be equivalent to a sequential compensation.
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
