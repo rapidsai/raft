@@ -23,7 +23,6 @@
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan.hpp>
-#include <raft/core/mdspan_types.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -49,7 +48,6 @@
 #include <mma.h>
 #include <omp.h>
 
-#include <cstdint>
 #include <limits>
 #include <optional>
 #include <queue>
@@ -1370,21 +1368,21 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   static_assert(sizeof(decltype(*(graph_.h_dists.data_handle()))) >= sizeof(Index_t));
 
   if (return_distances) {
-    auto graph_d_dists = raft::make_device_matrix<DistData_t, int64_t, row_major>(
+    auto graph_d_dists = raft::make_device_matrix<DistData_t, int64_t, raft::row_major>(
       res, nrow_, build_config_.node_degree);
     raft::copy(graph_d_dists.data_handle(),
                graph_.h_dists.data_handle(),
                nrow_ * build_config_.node_degree,
                raft::resource::get_cuda_stream(res));
 
-    auto output_dist_view = raft::make_device_matrix_view<DistData_t, int64_t, row_major>(
+    auto output_dist_view = raft::make_device_matrix_view<DistData_t, int64_t, raft::row_major>(
       output_distances, nrow_, build_config_.output_graph_degree);
 
     raft::matrix::slice_coordinates coords{static_cast<int64_t>(0),
                                            static_cast<int64_t>(0),
                                            static_cast<int64_t>(nrow_),
                                            static_cast<int64_t>(build_config_.output_graph_degree)};
-    raft::matrix::slice<DistData_t, int64_t, row_major>(
+    raft::matrix::slice<DistData_t, int64_t, raft::row_major>(
       res, raft::make_const_mdspan(graph_d_dists.view()), output_dist_view, coords);
   }
 
