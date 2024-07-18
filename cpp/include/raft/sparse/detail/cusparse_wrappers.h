@@ -269,27 +269,6 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                            CUSPARSE_INDEX_BASE_ZERO,
                            CUDA_R_64F);
 }
-template <>
-inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
-                                          int64_t rows,
-                                          int64_t cols,
-                                          int64_t nnz,
-                                          int64_t* csrRowOffsets,
-                                          int64_t* csrColInd,
-                                          half* csrValues)
-{
-  return cusparseCreateCsr(spMatDescr,
-                           rows,
-                           cols,
-                           nnz,
-                           csrRowOffsets,
-                           csrColInd,
-                           csrValues,
-                           CUSPARSE_INDEX_64I,
-                           CUSPARSE_INDEX_64I,
-                           CUSPARSE_INDEX_BASE_ZERO,
-                           CUDA_R_16F);
-}
 /** @} */
 /**
  * @defgroup cusparse CreateDnVec operations
