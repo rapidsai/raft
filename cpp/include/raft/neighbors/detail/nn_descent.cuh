@@ -1236,17 +1236,6 @@ void GNND<Data_t, Index_t, epilogue_op>::local_join(cudaStream_t stream,
     distance_epilogue);
 }
 
-template <typename T>
-RAFT_KERNEL copy_first_k_cols(T* out, T* in, size_t out_k, size_t in_k, size_t nrow)
-{
-  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
-  if (row < nrow) {
-    for (size_t i = 0; i < out_k; i++) {
-      out[row * out_k + i] = in[row * in_k + i];
-    }
-  }
-}
-
 template <typename Data_t, typename Index_t, typename epilogue_op>
 void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
                                                const Index_t nrow,
