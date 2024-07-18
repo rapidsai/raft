@@ -59,7 +59,7 @@ void stddev(Type* std,
     std, data, D, N, Type(0), rowMajor, false, stream, false, [mu] __device__(Type a, IdxType i) {
       return a * a;
     });
-  Type ratio = Type(1) / ((sample && rowMajor) ? Type(N - 1) : Type(N));
+  Type ratio = Type(1) / ((sample) ? Type(N - 1) : Type(N));
   raft::linalg::binaryOp(
     std,
     std,
@@ -103,7 +103,7 @@ void vars(Type* var,
     var, data, D, N, Type(0), rowMajor, false, stream, false, [mu] __device__(Type a, IdxType i) {
       return a * a;
     });
-  Type ratio = Type(1) / ((sample && rowMajor) ? Type(N - 1) : Type(N));
+  Type ratio = Type(1) / ((sample) ? Type(N - 1) : Type(N));
   raft::linalg::binaryOp(
     var,
     var,
