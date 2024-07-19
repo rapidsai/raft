@@ -77,6 +77,29 @@ template <typename ValueType, typename IndexType>
   return os;
 }
 
+void extractVersion(int version, int& major, int& minor, int& patch)
+{
+  major = version / 1000;
+  minor = (version % 1000) / 100;
+  patch = version % 100;
+}
+
+bool isCuSparseVersionGreaterThan_12_0_1()
+{
+  int version;
+  cusparseHandle_t handle;
+  cusparseCreate(&handle);
+  cusparseGetVersion(handle, &version);
+
+  int major = version / 1000;
+  int minor = (version % 1000) / 100;
+  int patch = version % 100;
+
+  cusparseDestroy(handle);
+
+  return (major > 12) || (major == 12 && minor > 0) || (major == 12 && minor == 0 && patch >= 2);
+}
+
 template <typename ValueType,
           typename IndexType,
           typename LayoutPolicyA = raft::layout_c_contiguous,
@@ -277,95 +300,10 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
 
   void SetUp() override
   {
-    check_sparse();
-    make_data();
-  }
-
-  void check_sparse()
-  {
-#define CHECK_CUDA(call)                                                                   \
-  do {                                                                                     \
-    cudaError_t err = call;                                                                \
-    if (err != cudaSuccess) {                                                              \
-      std::cerr << "CUDA error in file '" << __FILE__ << "' in line " << __LINE__ << " : " \
-                << cudaGetErrorString(err) << "." << std::endl;                            \
-      std::exit(EXIT_FAILURE);                                                             \
-    }                                                                                      \
-  } while (0)
-
-#define CHECK_CUSPARSE(call)                                                                 \
-  do {                                                                                       \
-    cusparseStatus_t status = call;                                                          \
-    if (status != CUSPARSE_STATUS_SUCCESS) {                                                 \
-      std::cerr << "CUSPARSE error in file '" << __FILE__ << "' in line " << __LINE__ << "." \
-                << std::endl;                                                                \
-      std::exit(EXIT_FAILURE);                                                               \
-    }                                                                                        \
-  } while (0)
-    cusparseHandle_t handle;
-    CHECK_CUSPARSE(cusparseCreate(&handle));
-
-    cudaStream_t stream;
-    CHECK_CUDA(cudaStreamCreate(&stream));
-
-    float alpha = 1.0f;
-    float beta  = 0.0f;
-
-    cusparseDnMatDescr_t matA, matB;
-    int64_t rowsA = 4, colsA = 4;
-    int64_t rowsB = 4, colsB = 4;
-    int64_t lda = colsA, ldb = colsB;
-    __half A[16] = {0};
-    __half B[16] = {0};
-    CHECK_CUSPARSE(
-      cusparseCreateDnMat(&matA, rowsA, colsA, lda, A, CUDA_R_16F, CUSPARSE_ORDER_ROW));
-    CHECK_CUSPARSE(
-      cusparseCreateDnMat(&matB, rowsB, colsB, ldb, B, CUDA_R_16F, CUSPARSE_ORDER_ROW));
-
-    cusparseSpMatDescr_t matC;
-    int64_t rowsC = 4, colsC = 4;
-    int64_t nnz        = 4;
-    int row_indices[4] = {0};
-    int col_indices[4] = {0};
-    float values[4]    = {0};
-    CHECK_CUSPARSE(cusparseCreateCsr(&matC,
-                                     rowsC,
-                                     colsC,
-                                     nnz,
-                                     row_indices,
-                                     col_indices,
-                                     values,
-                                     CUSPARSE_INDEX_32I,
-                                     CUSPARSE_INDEX_32I,
-                                     CUSPARSE_INDEX_BASE_ZERO,
-                                     CUDA_R_32F));
-
-    cusparseSDDMMAlg_t alg = CUSPARSE_SDDMM_ALG_DEFAULT;
-    size_t bufferSize;
-    CHECK_CUSPARSE(cusparseSetStream(handle, stream));
-    cusparseStatus_t status = cusparseSDDMM_bufferSize(handle,
-                                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       &alpha,
-                                                       matA,
-                                                       matB,
-                                                       &beta,
-                                                       matC,
-                                                       CUDA_R_32F,
-                                                       alg,
-                                                       &bufferSize);
-
-    if (status == CUSPARSE_STATUS_SUCCESS) {
-      std::cout << "Test passed. Buffer size: " << bufferSize << std::endl;
-    } else {
-      std::cerr << "Test failed with status: " << status << std::endl;
+    if (std::is_same_v<OutputType, half> && !isCuSparseVersionGreaterThan_12_0_1()) {
+      GTEST_SKIP() << "Skipping all tests for half-float when cuSparse doesn't support.";
     }
-
-    CHECK_CUSPARSE(cusparseDestroyDnMat(matA));
-    CHECK_CUSPARSE(cusparseDestroyDnMat(matB));
-    CHECK_CUSPARSE(cusparseDestroySpMat(matC));
-    CHECK_CUSPARSE(cusparseDestroy(handle));
-    CHECK_CUDA(cudaStreamDestroy(stream));
+    make_data();
   }
 
   void Run()
