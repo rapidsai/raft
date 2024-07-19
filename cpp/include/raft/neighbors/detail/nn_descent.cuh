@@ -18,7 +18,6 @@
 
 #include "../nn_descent_types.hpp"
 
-#include <raft/core/copy.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
@@ -1369,7 +1368,7 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   static_assert(sizeof(decltype(*(graph_.h_dists.data_handle()))) >= sizeof(Index_t));
 
   if (return_distances) {
-    auto graph_d_dists = raft::make_device_matrix<DistData_t, size_t, raft::row_major>(
+    auto graph_d_dists = raft::make_device_matrix<DistData_t, int64_t, raft::row_major>(
       res, nrow_, build_config_.node_degree);
     raft::copy(graph_d_dists.data_handle(),
                graph_.h_dists.data_handle(),
