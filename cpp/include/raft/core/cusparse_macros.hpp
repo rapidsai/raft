@@ -35,7 +35,7 @@
 // (i.e., before including this header)
 //
 #define CUDA_VER_10_1_UP (CUDART_VERSION >= 10100)
-#define CUDA_VER_12_4_UP (CUDART_VERSION >= 12040)
+#define CUDA_VER_12_4_UP (CUDART_VERSION >= 12400)
 
 namespace raft {
 
