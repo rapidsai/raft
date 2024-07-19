@@ -92,7 +92,7 @@ void transpose_half(
   int grid_y = (n_rows + block_dim_x - 1) / block_dim_x;
 
   float ratio         = static_cast<float>(grid_y) / static_cast<float>(grid_x);
-  int adjusted_grid_y = std::min(grid_y, static_cast<int>(sqrt(num_blocks * ratio)));
+  int adjusted_grid_y = std::max(std::min(grid_y, static_cast<int>(sqrt(num_blocks * ratio))), 1);
   int adjusted_grid_x = std::max(std::min(grid_x, num_blocks / adjusted_grid_y), 1);
 
   dim3 grids(adjusted_grid_x, adjusted_grid_y);
