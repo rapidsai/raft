@@ -17,6 +17,7 @@
 #pragma once
 
 // for cmath:
+#include <raft/core/logger-macros.hpp>
 #define _USE_MATH_DEFINES
 
 #include <raft/core/resource/cublas_handle.hpp>
@@ -753,6 +754,8 @@ int computeSmallestEigenvectors(
   index_type_t maxIter,
   index_type_t restartIter,
   value_type_t tol,
+  int conv_n_iters,
+  float conv_eps,
   bool reorthogonalize,
   index_type_t* effIter,
   index_type_t* totalIter,
@@ -765,6 +768,7 @@ int computeSmallestEigenvectors(
   value_type_t* __restrict__ eigVecs_dev,
   unsigned long long seed)
 {
+  // std::cout << "computeSmallestEigenvectors" << std::endl;
   // Useful constants
   constexpr value_type_t one  = 1;
   constexpr value_type_t zero = 0;
@@ -885,7 +889,14 @@ int computeSmallestEigenvectors(
   // Apply Lanczos method until convergence
   shiftLower = 1;
   shiftUpper = -1;
-  while (*totalIter < maxIter && beta_host[*effIter - 1] > tol * shiftLower) {
+  // float conv_n_iters = 5;
+  // float conv_eps = 0.001;
+  // float prev_conv = 0;
+  // value_type_t prev_conv = 0;
+  int orig_conv_n_iters = conv_n_iters;
+  std::vector<value_type_t> prev_conv(nEigVecs, 0);
+
+  while (*totalIter < maxIter && beta_host[*effIter - 1] > tol * fabs(shiftLower) && conv_n_iters > 0) {
     // Determine number of restart steps
     // Number of steps must be even due to Francis algorithm
     index_type_t iter_new = nEigVecs + 1;
@@ -911,10 +922,38 @@ int computeSmallestEigenvectors(
     if (status) WARNING("error in Lanczos implicit restart");
     *effIter = iter_new;
 
+    // // Solve tridiagonal system
+    // memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
+    // memcpy(work_host + 3 * (*effIter), beta_host, (*effIter - 1) * sizeof(value_type_t));
+    // Lapack<value_type_t>::steqr('I',
+    //                             *effIter,
+    //                             work_host + 2 * (*effIter),
+    //                             work_host + 3 * (*effIter),
+    //                             Z_host,
+    //                             *effIter,
+    //                             work_host);
+
+    // // Obtain desired eigenvalues by applying shift
+    // for (i = 0; i < *effIter; ++i)
+    //   work_host[i + 2 * (*effIter)] -= *shift;
+    // for (i = *effIter; i < nEigVecs; ++i)
+    //   work_host[i + 2 * (*effIter)] = 0;
+
+    // // Copy results to device memory
+    // RAFT_CUDA_TRY(cudaMemcpyAsync(eigVals_dev,
+    //                               work_host + 2 * (*effIter),
+    //                               nEigVecs * sizeof(value_type_t),
+    //                               cudaMemcpyHostToDevice,
+    //                               stream));
+    
+    // print_device_vector("lanczos restart", eigVals_dev, nEigVecs, std::cout);
+    // std::cout << *totalIter << " " << *effIter << " " << iter_new << " " << maxIter_curr << std::endl;
+
     // Check for convergence
     if (beta_host[*effIter - 1] <= tol * fabs(shiftLower)) break;
 
     // Proceed with Lanczos method
+    // raft::copy(&prev_conv, &(eigVals_dev[nEigVecs - 1]), 1, stream);
 
     status = performLanczosIteration<index_type_t, value_type_t>(handle,
                                                                  A,
@@ -929,12 +968,57 @@ int computeSmallestEigenvectors(
                                                                  work_dev);
     if (status) WARNING("error in Lanczos iteration");
     *totalIter += *effIter - iter_new;
+
+    // Solve tridiagonal system
+    memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
+    memcpy(work_host + 3 * (*effIter), beta_host, (*effIter - 1) * sizeof(value_type_t));
+    Lapack<value_type_t>::steqr('I',
+                                *effIter,
+                                work_host + 2 * (*effIter),
+                                work_host + 3 * (*effIter),
+                                Z_host,
+                                *effIter,
+                                work_host);
+
+    // Obtain desired eigenvalues by applying shift
+    for (i = 0; i < *effIter; ++i)
+      work_host[i + 2 * (*effIter)] -= *shift;
+    for (i = *effIter; i < nEigVecs; ++i)
+      work_host[i + 2 * (*effIter)] = 0;
+
+    // Copy results to device memory
+    RAFT_CUDA_TRY(cudaMemcpyAsync(eigVals_dev,
+                                  work_host + 2 * (*effIter),
+                                  nEigVecs * sizeof(value_type_t),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
+
+    print_device_vector("lanczos iteration", eigVals_dev, nEigVecs, std::cout);
+    std::cout << *totalIter << " " << *effIter << " " << iter_new << " " << maxIter_curr << " "<< (beta_host[*effIter - 1] > tol * fabs(shiftLower)) << std::endl;
+
+    // value_type_t curr_conv;
+    std::vector<value_type_t> curr_conv(nEigVecs, 0);
+    raft::copy(curr_conv.data(), eigVecs_dev, nEigVecs, stream);
+
+    for (int i = 0; i < nEigVecs; i++) {
+      if (fabs(curr_conv[i] - prev_conv[i]) > conv_eps) {
+        conv_n_iters = orig_conv_n_iters;
+        raft::copy(prev_conv.data(), eigVals_dev, nEigVecs, stream);
+        break;
+      }
+      if (i == nEigVecs - 1) {
+        conv_n_iters -= 1;
+      }
+    }
   }
 
   // Warning if Lanczos has failed to converge
-  if (beta_host[*effIter - 1] > tol * fabs(shiftLower)) {
-    WARNING("implicitly restarted Lanczos failed to converge");
-  }
+  // if (beta_host[*effIter - 1] > tol * fabs(shiftLower)) {
+  //   std::cout << beta_host[*effIter - 1] << " failed to converge" << std::endl;
+  //   WARNING("implicitly restarted Lanczos failed to converge");
+  // } else {
+  //   std::cout << beta_host[*effIter - 1] << " good" << std::endl;
+  // }
 
   // Solve tridiagonal system
   memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
@@ -997,6 +1081,8 @@ int computeSmallestEigenvectors(
   index_type_t maxIter,
   index_type_t restartIter,
   value_type_t tol,
+  int conv_n_iters,
+  float conv_eps,
   bool reorthogonalize,
   index_type_t& iter,
   value_type_t* __restrict__ eigVals_dev,
@@ -1032,6 +1118,8 @@ int computeSmallestEigenvectors(
                                            maxIter,
                                            restartIter,
                                            tol,
+                                           conv_n_iters,
+                                           conv_eps,
                                            reorthogonalize,
                                            &effIter,
                                            &iter,

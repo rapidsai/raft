@@ -62,7 +62,9 @@ TEST(Raft, EigenSolvers)
   std::uint64_t seed{100110021003};
 
   eigen_solver_config_t<index_type, value_type> cfg{
-    neigvs, maxiter, restart_iter, tol, reorthog, seed};
+    neigvs, maxiter, restart_iter, tol};
+  cfg.reorthogonalize = reorthog;
+  cfg.seed = seed;
 
   lanczos_solver_t<index_type, value_type> eig_solver{cfg};
 

@@ -102,6 +102,16 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   // Compute smallest eigenvalues and eigenvectors
   std::get<0>(stats) = eigen_solver.solve_smallest_eigenvectors(handle, L, eigVals, eigVecs);
 
+  std::ofstream out_file("output1.txt"); // Open a file for writing
+  
+  // Check if the file is open
+  if (!out_file.is_open()) {
+    std::cerr << "Failed to open output file!" << std::endl;
+  }
+
+  print_device_vector("eigenvals", eigVals, nEigVecs, out_file);
+  print_device_vector("eigenvecs", eigVecs, n * nEigVecs, out_file);
+
   // Whiten eigenvector matrix
   transform_eigen_matrix(handle, n, nEigVecs, eigVecs);
 

@@ -106,7 +106,21 @@ void fit_embedding(raft::resources const& handle,
                             eigVals.data(),
                             eigVecs.data());
 
+  std::cout << "out len " << n  << " " << n_components << std::endl;
+
   raft::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
+
+
+  std::ofstream out_file("output.txt"); // Open a file for writing
+  
+  // Check if the file is open
+  if (!out_file.is_open()) {
+    std::cerr << "Failed to open output file!" << std::endl;
+  }
+
+  print_device_vector("eigenvals", eigVals.data(), n_components + 1, out_file);
+  print_device_vector("eigenvecs", eigVecs.data(), n * (n_components + 1), out_file);
+  print_device_vector("out", out, n * n_components, out_file);
 
   RAFT_CUDA_TRY(cudaGetLastError());
 }
