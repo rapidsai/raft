@@ -152,7 +152,7 @@ void eigDC(raft::resources const& handle,
          "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
 
-#if CUDART_VERSION <= 12041
+#if CUDART_VERSION <= 12040
   // Synchronize the created stream with the original stream before return
   RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream_new));
   RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_event));
