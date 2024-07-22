@@ -95,7 +95,7 @@ void eigDC(raft::resources const& handle,
   return;
 #endif
 
-#if CUDART_VERSION <= 12041
+#if CUDART_VERSION <= 12040
   // Use a new stream instead of `cudaStreamPerThread` to avoid cusolver bug # 4580093.
   rmm::cuda_stream stream_new_wrapper;
   cudaStream_t stream_new = stream_new_wrapper.value();
