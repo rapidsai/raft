@@ -77,13 +77,6 @@ template <typename ValueType, typename IndexType>
   return os;
 }
 
-void extractVersion(int version, int& major, int& minor, int& patch)
-{
-  major = version / 1000;
-  minor = (version % 1000) / 100;
-  patch = version % 100;
-}
-
 bool isCuSparseVersionGreaterThan_12_0_1()
 {
   int version;
@@ -300,8 +293,8 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
 
   void SetUp() override
   {
-    if (std::is_same_v<OutputType, half> && !isCuSparseVersionGreaterThan_12_0_1()) {
-      GTEST_SKIP() << "Skipping all tests for half-float when cuSparse doesn't support.";
+    if (std::is_same_v<ValueType, half> && !isCuSparseVersionGreaterThan_12_0_1()) {
+      GTEST_SKIP() << "Skipping all tests for half-float as cuSparse doesn't support it.";
     }
     make_data();
   }
