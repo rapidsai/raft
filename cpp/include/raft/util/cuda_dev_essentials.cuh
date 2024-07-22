@@ -117,18 +117,28 @@ HDI void swapVals(T& a, T& b)
 }
 
 /**
- * @brief Convert half to float is needed
+ * @brief Convert to float
  * @tparam T the datatype of the value
  * @param a need to convert
  */
 template <typename T>
-HDI auto half2float(T& a)
+HDI float to_float(T v);
+
+template <>
+HDI float to_float(float v)
 {
-  if constexpr (std::is_same_v<typename std::remove_const<T>::type, half>) {
-    return __half2float(a);
-  } else {
-    return a;
-  }
+  return v;
+}
+template <>
+HDI float to_float(half v)
+{
+  return __half2float(v);
+}
+
+template <>
+HDI float to_float(double v)
+{
+  return static_cast<float>(v);
 }
 
 }  // namespace raft
