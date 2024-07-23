@@ -61,7 +61,7 @@ namespace detail {
 inline const char* cusparse_error_to_string(cusparseStatus_t err)
 {
 #if defined(CUDART_VERSION) && CUDART_VERSION >= 10010
-  return cusparseGetErrorString(err)
+  return cusparseGetErrorString(err);
 #else   // CUDART_VERSION
   switch (err) {
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
