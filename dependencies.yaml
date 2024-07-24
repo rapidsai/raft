@@ -209,7 +209,7 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - &rmm_conda rmm==24.8.*,>=0.0.0a0
+          - &rmm_unsuffixed rmm==24.8.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -238,21 +238,11 @@ dependencies:
             packages:
               - &rmm_cu12 rmm-cu12==24.8.*,>=0.0.0a0
           - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "false"
-            packages:
-              - *rmm_conda
-          - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
               - &rmm_cu11 rmm-cu11==24.8.*,>=0.0.0a0
-          - matrix:
-              cuda: "11.*"
-              cuda_suffixed: "false"
-            packages:
-              - *rmm_conda
-          - {matrix: null, packages: [*rmm_conda] }
+          - {matrix: null, packages: [*rmm_unsuffixed] }
   checks:
     common:
       - output_types: [conda, requirements]
@@ -274,7 +264,7 @@ dependencies:
           - h5py>=3.8.0
           - benchmark>=1.8.2
           - openblas
-          - *rmm_conda
+          - *rmm_unsuffixed
   nn_bench_python:
     common:
       - output_types: [conda]
@@ -455,7 +445,7 @@ dependencies:
           - &numpy numpy>=1.23,<2.0a0
       - output_types: [conda]
         packages:
-          - *rmm_conda
+          - *rmm_unsuffixed
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -484,7 +474,7 @@ dependencies:
           - matrix: {cuda: "11.*"}
             packages:
               - *rmm_cu11
-          - {matrix: null, packages: [*rmm_conda]}
+          - {matrix: null, packages: [*rmm_unsuffixed]}
   run_raft_dask:
     common:
       - output_types: [conda, pyproject]
@@ -496,8 +486,8 @@ dependencies:
           - rapids-dask-dependency==24.8.*,>=0.0.0a0
       - output_types: conda
         packages:
-          - &pylibraft_conda pylibraft==24.8.*,>=0.0.0a0
-          - &ucx_py_conda ucx-py==0.39.*,>=0.0.0a0
+          - &pylibraft_unsuffixed pylibraft==24.8.*,>=0.0.0a0
+          - &ucx_py_unsuffixed ucx-py==0.39.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -514,24 +504,12 @@ dependencies:
               - &pylibraft_cu12 pylibraft-cu12==24.8.*,>=0.0.0a0
               - &ucx_py_cu12 ucx-py-cu12==0.39.*,>=0.0.0a0
           - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "false"
-            packages:
-              - *pylibraft_conda
-              - *ucx_py_conda
-          - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
               - &pylibraft_cu11 pylibraft-cu11==24.8.*,>=0.0.0a0
               - &ucx_py_cu11 ucx-py-cu11==0.39.*,>=0.0.0a0
-          - matrix:
-              cuda: "11.*"
-              cuda_suffixed: "false"
-            packages:
-              - *pylibraft_conda
-              - *ucx_py_conda
-          - {matrix: null, packages: [*pylibraft_conda, *ucx_py_conda]}
+          - {matrix: null, packages: [*pylibraft_unsuffixed, *ucx_py_unsuffixed]}
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -550,7 +528,7 @@ dependencies:
         packages:
           # UCXX is not currently a hard-dependency thus only installed during tests,
           # this will change in the future.
-          - &distributed_ucxx_conda distributed-ucxx==0.39.*,>=0.0.0a0
+          - &distributed_ucxx_unsuffixed distributed-ucxx==0.39.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -565,26 +543,16 @@ dependencies:
             packages:
               - distributed-ucxx-cu12==0.39.*,>=0.0.0a0
           - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "false"
-            packages:
-              - *distributed_ucxx_conda
-          - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
               - distributed-ucxx-cu11==0.39.*,>=0.0.0a0
-          - matrix:
-              cuda: "11.*"
-              cuda_suffixed: "false"
-            packages:
-              - *distributed_ucxx_conda
-          - {matrix: null, packages: [*distributed_ucxx_conda]}
+          - {matrix: null, packages: [*distributed_ucxx_unsuffixed]}
   depends_on_ucx_build:
     common:
       - output_types: conda
         packages:
-          - &ucx_conda_build ucx==1.15.0
+          - ucx==1.15.0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -599,28 +567,18 @@ dependencies:
             packages:
               - libucx-cu12==1.15.0
           - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "false"
-            packages:
-              - &libucx_build libucx==1.15.0
-          - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
               - libucx-cu11==1.15.0
-          - matrix:
-              cuda: "11.*"
-              cuda_suffixed: "false"
-            packages:
-              - *libucx_build
           - matrix: null
             packages:
-              - *libucx_build
+              - libucx==1.15.0
   depends_on_ucx_run:
     common:
       - output_types: conda
         packages:
-          - &ucx_conda_run ucx>=1.15.0
+          - ucx>=1.15.0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -635,20 +593,10 @@ dependencies:
             packages:
               - libucx-cu12>=1.15.0
           - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "false"
-            packages:
-              - &libucx_run libucx>=1.15.0
-          - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
               - libucx-cu11>=1.15.0
-          - matrix:
-              cuda: "11.*"
-              cuda_suffixed: "false"
-            packages:
-              - *libucx_run
           - matrix: null
             packages:
-              - *libucx_run
+              - libucx>=1.15.0
