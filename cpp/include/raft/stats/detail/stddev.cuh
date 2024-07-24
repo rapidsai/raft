@@ -59,16 +59,18 @@ void stddev(Type* std,
     std, data, D, N, Type(0), rowMajor, false, stream, false, [mu] __device__(Type a, IdxType i) {
       return a * a;
     });
-  Type ratio = Type(1) / ((sample) ? Type(N - 1) : Type(N));
-  raft::linalg::binaryOp(
-    std,
-    std,
-    mu,
-    D,
-    raft::compose_op(raft::sqrt_op(),
-                     raft::abs_op(),
-                     [ratio] __device__(Type a, Type b) { return a * ratio - b * b; }),
-    stream);
+  Type ratio      = Type(1) / ((sample) ? Type(N - 1) : Type(N));
+  Type ratio_mean = sample ? ratio * Type(N) : Type(1);
+  raft::linalg::binaryOp(std,
+                         std,
+                         mu,
+                         D,
+                         raft::compose_op(raft::sqrt_op(),
+                                          raft::abs_op(),
+                                          [ratio, ratio_mean] __device__(Type a, Type b) {
+                                            return a * ratio - b * b * ratio_mean;
+                                          }),
+                         stream);
 }
 
 /**
@@ -103,15 +105,17 @@ void vars(Type* var,
     var, data, D, N, Type(0), rowMajor, false, stream, false, [mu] __device__(Type a, IdxType i) {
       return a * a;
     });
-  Type ratio = Type(1) / ((sample) ? Type(N - 1) : Type(N));
-  raft::linalg::binaryOp(
-    var,
-    var,
-    mu,
-    D,
-    raft::compose_op(raft::abs_op(),
-                     [ratio] __device__(Type a, Type b) { return a * ratio - b * b; }),
-    stream);
+  Type ratio      = Type(1) / ((sample) ? Type(N - 1) : Type(N));
+  Type ratio_mean = sample ? ratio * Type(N) : Type(1);
+  raft::linalg::binaryOp(var,
+                         var,
+                         mu,
+                         D,
+                         raft::compose_op(raft::abs_op(),
+                                          [ratio, ratio_mean] __device__(Type a, Type b) {
+                                            return a * ratio - b * b * ratio_mean;
+                                          }),
+                         stream);
 }
 
 }  // namespace detail
