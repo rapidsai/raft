@@ -31,6 +31,9 @@ namespace linalg {
 
 /**
  * @brief Compute reduction of the input matrix along the requested dimension
+ *        In case of an add-reduction, a compensated summation will be performed
+ *        in order to reduce numerical error. Note that the compensation will not
+ *        be equivalent to a sequential compensation to preserve parallel efficiency.
  *
  * @tparam InType the data type of the input
  * @tparam OutType the data type of the output (as well as the data type for
@@ -92,7 +95,9 @@ void reduce(OutType* dots,
  *        is either row-major or column-major, while allowing the choose the
  *        dimension for reduction. Depending upon the dimension chosen for
  *        reduction, the memory accesses may be coalesced or strided.
- *
+ *        In case of an add-reduction, a compensated summation will be performed
+ *        in order to reduce numerical error. Note that the compensation will not
+ *        be equivalent to a sequential compensation to preserve parallel efficiency.
  * @tparam InElementType the input data-type of underlying raft::matrix_view
  * @tparam LayoutPolicy The layout of Input/Output (row or col major)
  * @tparam OutElementType the output data-type of underlying raft::matrix_view and reduction

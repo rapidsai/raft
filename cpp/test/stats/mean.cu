@@ -35,12 +35,14 @@ struct MeanInputs {
   int rows, cols;
   bool sample, rowMajor;
   unsigned long long int seed;
+  T stddev = (T)1.0;
 };
 
 template <typename T>
 ::std::ostream& operator<<(::std::ostream& os, const MeanInputs<T>& dims)
 {
-  return os;
+  return os << "{ " << dims.tolerance << ", " << dims.rows << ", " << dims.cols << ", "
+            << dims.sample << ", " << dims.rowMajor << ", " << dims.stddev << "}" << std::endl;
 }
 
 template <typename T>
@@ -61,7 +63,7 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
   {
     raft::random::RngState r(params.seed);
     int len = rows * cols;
-    normal(handle, r, data.data(), len, params.mean, (T)1.0);
+    normal(handle, r, data.data(), len, params.mean, params.stddev);
     meanSGtest(data.data(), stream);
   }
 
@@ -96,38 +98,72 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
 // measured mean (of a normal distribution) will fall outside of an epsilon of
 // 0.15 only 4/10000 times. (epsilon of 0.1 will fail 30/100 times)
 const std::vector<MeanInputs<float>> inputsf = {
-  {0.15f, 1.f, 1024, 32, true, false, 1234ULL},    {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 128, true, false, 1234ULL},   {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
-  {0.15f, -1.f, 1024, 32, false, false, 1234ULL},  {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 128, false, false, 1234ULL}, {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
-  {0.15f, 1.f, 1024, 32, true, true, 1234ULL},     {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 128, true, true, 1234ULL},    {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
-  {0.15f, -1.f, 1024, 32, false, true, 1234ULL},   {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 128, false, true, 1234ULL},  {0.15f, -1.f, 1024, 256, false, true, 1234ULL},
-  {0.15f, -1.f, 1030, 1, false, false, 1234ULL},   {0.15f, -1.f, 1030, 60, true, false, 1234ULL},
-  {2.0f, -1.f, 31, 120, false, false, 1234ULL},    {2.0f, -1.f, 1, 130, true, false, 1234ULL},
-  {0.15f, -1.f, 1030, 1, false, true, 1234ULL},    {0.15f, -1.f, 1030, 60, true, true, 1234ULL},
-  {2.0f, -1.f, 31, 120, false, true, 1234ULL},     {2.0f, -1.f, 1, 130, false, true, 1234ULL},
-  {2.0f, -1.f, 1, 1, false, false, 1234ULL},       {2.0f, -1.f, 1, 1, false, true, 1234ULL},
-  {2.0f, -1.f, 7, 23, false, false, 1234ULL},      {2.0f, -1.f, 7, 23, false, true, 1234ULL},
-  {2.0f, -1.f, 17, 5, false, false, 1234ULL},      {2.0f, -1.f, 17, 5, false, true, 1234ULL}};
+  {0.15f, 1.f, 1024, 32, true, false, 1234ULL},
+  {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
+  {0.15f, 1.f, 1024, 128, true, false, 1234ULL},
+  {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
+  {0.15f, -1.f, 1024, 32, false, false, 1234ULL},
+  {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
+  {0.15f, -1.f, 1024, 128, false, false, 1234ULL},
+  {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
+  {0.15f, 1.f, 1024, 32, true, true, 1234ULL},
+  {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
+  {0.15f, 1.f, 1024, 128, true, true, 1234ULL},
+  {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
+  {0.15f, -1.f, 1024, 32, false, true, 1234ULL},
+  {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
+  {0.15f, -1.f, 1024, 128, false, true, 1234ULL},
+  {0.15f, -1.f, 1024, 256, false, true, 1234ULL},
+  {0.15f, -1.f, 1030, 1, false, false, 1234ULL},
+  {0.15f, -1.f, 1030, 60, true, false, 1234ULL},
+  {2.0f, -1.f, 31, 120, false, false, 1234ULL},
+  {2.0f, -1.f, 1, 130, false, false, 1234ULL},
+  {0.15f, -1.f, 1030, 1, false, true, 1234ULL},
+  {0.15f, -1.f, 1030, 60, true, true, 1234ULL},
+  {2.0f, -1.f, 31, 120, false, true, 1234ULL},
+  {2.0f, -1.f, 1, 130, false, true, 1234ULL},
+  {2.0f, -1.f, 1, 1, false, false, 1234ULL},
+  {2.0f, -1.f, 1, 1, false, true, 1234ULL},
+  {2.0f, -1.f, 7, 23, false, false, 1234ULL},
+  {2.0f, -1.f, 7, 23, false, true, 1234ULL},
+  {2.0f, -1.f, 17, 5, false, false, 1234ULL},
+  {2.0f, -1.f, 17, 5, false, true, 1234ULL},
+  {0.0001f, 0.1f, 1 << 27, 2, false, false, 1234ULL, 0.0001f},
+  {0.0001f, 0.1f, 1 << 27, 2, false, true, 1234ULL, 0.0001f}};
 
 const std::vector<MeanInputs<double>> inputsd = {
-  {0.15, 1.0, 1024, 32, true, false, 1234ULL},    {0.15, 1.0, 1024, 64, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 128, true, false, 1234ULL},   {0.15, 1.0, 1024, 256, true, false, 1234ULL},
-  {0.15, -1.0, 1024, 32, false, false, 1234ULL},  {0.15, -1.0, 1024, 64, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 128, false, false, 1234ULL}, {0.15, -1.0, 1024, 256, false, false, 1234ULL},
-  {0.15, 1.0, 1024, 32, true, true, 1234ULL},     {0.15, 1.0, 1024, 64, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 128, true, true, 1234ULL},    {0.15, 1.0, 1024, 256, true, true, 1234ULL},
-  {0.15, -1.0, 1024, 32, false, true, 1234ULL},   {0.15, -1.0, 1024, 64, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 128, false, true, 1234ULL},  {0.15, -1.0, 1024, 256, false, true, 1234ULL},
-  {0.15, -1.0, 1030, 1, false, false, 1234ULL},   {0.15, -1.0, 1030, 60, true, false, 1234ULL},
-  {2.0, -1.0, 31, 120, false, false, 1234ULL},    {2.0, -1.0, 1, 130, true, false, 1234ULL},
-  {0.15, -1.0, 1030, 1, false, true, 1234ULL},    {0.15, -1.0, 1030, 60, true, true, 1234ULL},
-  {2.0, -1.0, 31, 120, false, true, 1234ULL},     {2.0, -1.0, 1, 130, false, true, 1234ULL},
-  {2.0, -1.0, 1, 1, false, false, 1234ULL},       {2.0, -1.0, 1, 1, false, true, 1234ULL},
-  {2.0, -1.0, 7, 23, false, false, 1234ULL},      {2.0, -1.0, 7, 23, false, true, 1234ULL},
-  {2.0, -1.0, 17, 5, false, false, 1234ULL},      {2.0, -1.0, 17, 5, false, true, 1234ULL}};
+  {0.15, 1.0, 1024, 32, true, false, 1234ULL},
+  {0.15, 1.0, 1024, 64, true, false, 1234ULL},
+  {0.15, 1.0, 1024, 128, true, false, 1234ULL},
+  {0.15, 1.0, 1024, 256, true, false, 1234ULL},
+  {0.15, -1.0, 1024, 32, false, false, 1234ULL},
+  {0.15, -1.0, 1024, 64, false, false, 1234ULL},
+  {0.15, -1.0, 1024, 128, false, false, 1234ULL},
+  {0.15, -1.0, 1024, 256, false, false, 1234ULL},
+  {0.15, 1.0, 1024, 32, true, true, 1234ULL},
+  {0.15, 1.0, 1024, 64, true, true, 1234ULL},
+  {0.15, 1.0, 1024, 128, true, true, 1234ULL},
+  {0.15, 1.0, 1024, 256, true, true, 1234ULL},
+  {0.15, -1.0, 1024, 32, false, true, 1234ULL},
+  {0.15, -1.0, 1024, 64, false, true, 1234ULL},
+  {0.15, -1.0, 1024, 128, false, true, 1234ULL},
+  {0.15, -1.0, 1024, 256, false, true, 1234ULL},
+  {0.15, -1.0, 1030, 1, false, false, 1234ULL},
+  {0.15, -1.0, 1030, 60, true, false, 1234ULL},
+  {2.0, -1.0, 31, 120, false, false, 1234ULL},
+  {2.0, -1.0, 1, 130, false, false, 1234ULL},
+  {0.15, -1.0, 1030, 1, false, true, 1234ULL},
+  {0.15, -1.0, 1030, 60, true, true, 1234ULL},
+  {2.0, -1.0, 31, 120, false, true, 1234ULL},
+  {2.0, -1.0, 1, 130, false, true, 1234ULL},
+  {2.0, -1.0, 1, 1, false, false, 1234ULL},
+  {2.0, -1.0, 1, 1, false, true, 1234ULL},
+  {2.0, -1.0, 7, 23, false, false, 1234ULL},
+  {2.0, -1.0, 7, 23, false, true, 1234ULL},
+  {2.0, -1.0, 17, 5, false, false, 1234ULL},
+  {2.0, -1.0, 17, 5, false, true, 1234ULL},
+  {1e-8, 1e-1, 1 << 27, 2, false, false, 1234ULL, 0.0001},
+  {1e-8, 1e-1, 1 << 27, 2, false, true, 1234ULL, 0.0001}};
 
 typedef MeanTest<float> MeanTestF;
 TEST_P(MeanTestF, Result)
