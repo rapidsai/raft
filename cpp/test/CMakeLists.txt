@@ -318,6 +318,7 @@ if(BUILD_TESTS)
     sparse/csr_transpose.cu
     sparse/degree.cu
     sparse/filter.cu
+    sparse/masked_matmul.cu
     sparse/norm.cu
     sparse/normalize.cu
     sparse/reduce.cu
