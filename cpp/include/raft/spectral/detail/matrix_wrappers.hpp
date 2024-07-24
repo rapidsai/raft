@@ -247,6 +247,10 @@ struct sparse_matrix_t {
     //
     vector_t<value_type> external_buffer(handle_, bufferSize);
 
+
+    // print_device_vector("x", x, size_x, std::cout);
+    // print_device_vector("y", y, size_y, std::cout);
+
     // finally perform SpMV:
     //
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmv(

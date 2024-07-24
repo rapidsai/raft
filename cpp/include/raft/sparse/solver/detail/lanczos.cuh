@@ -16,8 +16,11 @@
 
 #pragma once
 
+#include <raft/random/rng.cuh>
+
 // for cmath:
 #include <raft/core/logger-macros.hpp>
+#include <type_traits>
 #define _USE_MATH_DEFINES
 
 #include <raft/core/resource/cublas_handle.hpp>
@@ -94,7 +97,14 @@ int performLanczosIteration(raft::resources const& handle,
                             value_type_t* __restrict__ alpha_host,
                             value_type_t* __restrict__ beta_host,
                             value_type_t* __restrict__ lanczosVecs_dev,
-                            value_type_t* __restrict__ work_dev)
+                            value_type_t* __restrict__ work_dev,
+                            value_type_t* __restrict__ work_host,
+                            value_type_t* __restrict__ Z_host,
+                            value_type_t* __restrict__ eigVals_dev,
+                            index_type_t nEigVecs,
+                            index_type_t* totalIter,
+                            int conv_n_iters,
+                            float conv_eps)
 {
   // -------------------------------------------------------
   // Variable declaration
@@ -150,8 +160,12 @@ int performLanczosIteration(raft::resources const& handle,
   // -------------------------------------------------------
   // Compute remaining Lanczos vectors
   // -------------------------------------------------------
+  int orig_conv_n_iters = conv_n_iters;
+  std::vector<value_type_t> prev_conv(nEigVecs, 0);
+  int status = 0;
 
-  while (*iter < maxIter) {
+
+  while (*iter < maxIter && conv_n_iters > 0) {
     ++(*iter);
 
     // Apply matrix
@@ -165,7 +179,7 @@ int performLanczosIteration(raft::resources const& handle,
 
     // Full reorthogonalization
     //   "Twice is enough" algorithm per Kahan and Parlett
-    if (reorthogonalize) {
+    if (!reorthogonalize) {
       RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(cublas_h,
                                                        CUBLAS_OP_T,
                                                        n,
@@ -240,7 +254,11 @@ int performLanczosIteration(raft::resources const& handle,
                                                       alpha_host + (*iter - 1),
                                                       stream));
 
+      // print_host_vector("cublasdot alpha_host", alpha_host, 306, std::cout);
+
       auto alpha = -alpha_host[*iter - 1];
+      // print_device_vector("lanczosVecs_dev", lanczosVecs_dev, 5, std::cout);
+      // std::cout << "alpha " << alpha << std::endl;
       RAFT_CUBLAS_TRY(raft::linalg::detail::cublasaxpy(cublas_h,
                                                        n,
                                                        &alpha,
@@ -272,11 +290,56 @@ int performLanczosIteration(raft::resources const& handle,
     alpha = 1 / beta_host[*iter - 1];
     RAFT_CUBLAS_TRY(raft::linalg::detail::cublasscal(
       cublas_h, n, &alpha, lanczosVecs_dev + IDX(0, *iter, n), 1, stream));
+
+    index_type_t* effIter = iter;
+    // Solve tridiagonal system
+    memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
+    memcpy(work_host + 3 * (*effIter), beta_host, (*effIter - 1) * sizeof(value_type_t));
+    Lapack<value_type_t>::steqr('I',
+                                *effIter,
+                                work_host + 2 * (*effIter),
+                                work_host + 3 * (*effIter),
+                                Z_host,
+                                *effIter,
+                                work_host);
+
+    // Obtain desired eigenvalues by applying shift
+    for (int i = 0; i < *effIter; ++i)
+      work_host[i + 2 * (*effIter)] -= shift;
+    for (int i = *effIter; i < nEigVecs; ++i)
+      work_host[i + 2 * (*effIter)] = 0;
+
+    // Copy results to device memory
+    RAFT_CUDA_TRY(cudaMemcpyAsync(eigVals_dev,
+                                  work_host + 2 * (*effIter),
+                                  nEigVecs * sizeof(value_type_t),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
+
+    print_device_vector("lanczos iteration", eigVals_dev, nEigVecs, std::cout);
+    std::cout << *totalIter << " " << *effIter << std::endl;
+    // std::cout << *totalIter << " " << *effIter << " " << iter_new << " " << maxIter_curr << " "<< (beta_host[*effIter - 1] > tol * fabs(shiftLower)) << std::endl;
+
+    // value_type_t curr_conv;
+    std::vector<value_type_t> curr_conv(nEigVecs, 0);
+    raft::copy(curr_conv.data(), eigVals_dev, nEigVecs, stream);
+
+    for (int i = 0; i < nEigVecs; i++) {
+      if (fabs(curr_conv[i] - prev_conv[i]) > conv_eps) {
+        conv_n_iters = orig_conv_n_iters;
+        raft::copy(prev_conv.data(), eigVals_dev, nEigVecs, stream);
+        break;
+      }
+      if (i == nEigVecs - 1) {
+        conv_n_iters -= 1;
+        if (conv_n_iters == 0) status = 1;
+      }
+    }
   }
 
   resource::sync_stream(handle, stream);
 
-  return 0;
+  return status;
 }
 
 /**
@@ -834,12 +897,33 @@ int computeSmallestEigenvectors(
 
   curandSetPseudoRandomGeneratorSeed(randGen, seed);
 
+  std::cout << "seed " << seed << std::endl;
+  raft::random::RngState rng(seed);
+  if constexpr (std::is_same_v<value_type_t, float>) {
+    raft::random::normal(handle, rng, lanczosVecs_dev, n + n % 2, zero, one);
+  } else {
+    spectral::matrix::vector_t<float> lanczosVecs_dev_float(handle, n * (restartIter + 1));
+    raft::random::normal(handle, rng, lanczosVecs_dev_float.raw(), n + n % 2, 0.0F, 1.0F);
+    std::vector<float> lanczosVecs_host_float(n * (restartIter + 1), 0);
+    std::vector<double> lanczosVecs_host_double(n * (restartIter + 1), 0);
+    raft::copy(lanczosVecs_host_float.data(), lanczosVecs_dev_float.raw(), n * (restartIter + 1), stream);
+    for (uint64_t i = 0; i < lanczosVecs_host_float.size(); i++) {
+      lanczosVecs_host_double[i] = static_cast<double>(lanczosVecs_host_float[i]);
+    }
+    raft::copy(lanczosVecs_dev, lanczosVecs_host_double.data(), n * (restartIter + 1), stream);
+  }
+  
+
+
   // Initialize initial Lanczos vector
-  curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one);
+  // curandGenerateNormalX(randGen, lanczosVecs_dev, n + n % 2, zero, one);
+  // print_device_vector("lanczosVecs_dev", lanczosVecs_dev, n * (restartIter + 1), std::cout);
   value_type_t normQ1;
   RAFT_CUBLAS_TRY(
     raft::linalg::detail::cublasnrm2(cublas_h, n, lanczosVecs_dev, 1, &normQ1, stream));
 
+  // print_device_vector("lanczosVecs_dev", lanczosVecs_dev, n * (restartIter + 1), std::cout);
+  
   auto h_val = 1 / normQ1;
   RAFT_CUBLAS_TRY(
     raft::linalg::detail::cublasscal(cublas_h, n, &h_val, lanczosVecs_dev, 1, stream));
@@ -847,6 +931,8 @@ int computeSmallestEigenvectors(
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
   *shift   = 0;
+  // print_device_vector("lanczosVecs_dev", lanczosVecs_dev, n * (restartIter + 1), std::cout);
+  // print_device_vector("alpha_host", lanczosVecs_dev, n * (restartIter + 1), std::cout);
   status   = performLanczosIteration<index_type_t, value_type_t>(handle,
                                                                A,
                                                                effIter,
@@ -857,7 +943,14 @@ int computeSmallestEigenvectors(
                                                                alpha_host,
                                                                beta_host,
                                                                lanczosVecs_dev,
-                                                               work_dev);
+                                                               work_dev,
+                                                               work_host,
+                                                               Z_host,
+                                                               eigVals_dev,
+                                                               nEigVecs,
+                                                               totalIter,
+                                                               conv_n_iters,
+                                                               conv_eps);
   if (status) WARNING("error in Lanczos iteration");
 
   // Determine largest eigenvalue
@@ -882,7 +975,14 @@ int computeSmallestEigenvectors(
                                                                alpha_host,
                                                                beta_host,
                                                                lanczosVecs_dev,
-                                                               work_dev);
+                                                               work_dev,
+                                                               work_host,
+                                                               Z_host,
+                                                               eigVals_dev,
+                                                               nEigVecs,
+                                                               totalIter,
+                                                               conv_n_iters,
+                                                               conv_eps);
   if (status) WARNING("error in Lanczos iteration");
   *totalIter += *effIter;
 
@@ -893,8 +993,8 @@ int computeSmallestEigenvectors(
   // float conv_eps = 0.001;
   // float prev_conv = 0;
   // value_type_t prev_conv = 0;
-  int orig_conv_n_iters = conv_n_iters;
-  std::vector<value_type_t> prev_conv(nEigVecs, 0);
+  // int orig_conv_n_iters = conv_n_iters;
+  // std::vector<value_type_t> prev_conv(nEigVecs, 0);
 
   while (*totalIter < maxIter && beta_host[*effIter - 1] > tol * fabs(shiftLower) && conv_n_iters > 0) {
     // Determine number of restart steps
@@ -965,51 +1065,59 @@ int computeSmallestEigenvectors(
                                                                  alpha_host,
                                                                  beta_host,
                                                                  lanczosVecs_dev,
-                                                                 work_dev);
+                                                                 work_dev,
+                                                                 work_host,
+                                                                 Z_host,
+                                                                 eigVals_dev,
+                                                                 nEigVecs,
+                                                                 totalIter,
+                                                                 conv_n_iters,
+                                                                 conv_eps);
     if (status) WARNING("error in Lanczos iteration");
     *totalIter += *effIter - iter_new;
+    if (status == 1) break;
 
     // Solve tridiagonal system
-    memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
-    memcpy(work_host + 3 * (*effIter), beta_host, (*effIter - 1) * sizeof(value_type_t));
-    Lapack<value_type_t>::steqr('I',
-                                *effIter,
-                                work_host + 2 * (*effIter),
-                                work_host + 3 * (*effIter),
-                                Z_host,
-                                *effIter,
-                                work_host);
+    // memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
+    // memcpy(work_host + 3 * (*effIter), beta_host, (*effIter - 1) * sizeof(value_type_t));
+    // Lapack<value_type_t>::steqr('I',
+    //                             *effIter,
+    //                             work_host + 2 * (*effIter),
+    //                             work_host + 3 * (*effIter),
+    //                             Z_host,
+    //                             *effIter,
+    //                             work_host);
 
-    // Obtain desired eigenvalues by applying shift
-    for (i = 0; i < *effIter; ++i)
-      work_host[i + 2 * (*effIter)] -= *shift;
-    for (i = *effIter; i < nEigVecs; ++i)
-      work_host[i + 2 * (*effIter)] = 0;
+    // // Obtain desired eigenvalues by applying shift
+    // for (i = 0; i < *effIter; ++i)
+    //   work_host[i + 2 * (*effIter)] -= *shift;
+    // for (i = *effIter; i < nEigVecs; ++i)
+    //   work_host[i + 2 * (*effIter)] = 0;
 
-    // Copy results to device memory
-    RAFT_CUDA_TRY(cudaMemcpyAsync(eigVals_dev,
-                                  work_host + 2 * (*effIter),
-                                  nEigVecs * sizeof(value_type_t),
-                                  cudaMemcpyHostToDevice,
-                                  stream));
+    // // Copy results to device memory
+    // RAFT_CUDA_TRY(cudaMemcpyAsync(eigVals_dev,
+    //                               work_host + 2 * (*effIter),
+    //                               nEigVecs * sizeof(value_type_t),
+    //                               cudaMemcpyHostToDevice,
+    //                               stream));
 
-    print_device_vector("lanczos iteration", eigVals_dev, nEigVecs, std::cout);
-    std::cout << *totalIter << " " << *effIter << " " << iter_new << " " << maxIter_curr << " "<< (beta_host[*effIter - 1] > tol * fabs(shiftLower)) << std::endl;
+    // print_device_vector("lanczos iteration", eigVals_dev, nEigVecs, std::cout);
+    // std::cout << *totalIter << " " << *effIter << " " << iter_new << " " << maxIter_curr << " "<< (beta_host[*effIter - 1] > tol * fabs(shiftLower)) << std::endl;
 
-    // value_type_t curr_conv;
-    std::vector<value_type_t> curr_conv(nEigVecs, 0);
-    raft::copy(curr_conv.data(), eigVecs_dev, nEigVecs, stream);
+    // // value_type_t curr_conv;
+    // std::vector<value_type_t> curr_conv(nEigVecs, 0);
+    // raft::copy(curr_conv.data(), eigVals_dev, nEigVecs, stream);
 
-    for (int i = 0; i < nEigVecs; i++) {
-      if (fabs(curr_conv[i] - prev_conv[i]) > conv_eps) {
-        conv_n_iters = orig_conv_n_iters;
-        raft::copy(prev_conv.data(), eigVals_dev, nEigVecs, stream);
-        break;
-      }
-      if (i == nEigVecs - 1) {
-        conv_n_iters -= 1;
-      }
-    }
+    // for (i = 0; i < nEigVecs; i++) {
+    //   if (fabs(curr_conv[i] - prev_conv[i]) > conv_eps) {
+    //     conv_n_iters = orig_conv_n_iters;
+    //     raft::copy(prev_conv.data(), eigVals_dev, nEigVecs, stream);
+    //     break;
+    //   }
+    //   if (i == nEigVecs - 1) {
+    //     conv_n_iters -= 1;
+    //   }
+    // }
   }
 
   // Warning if Lanczos has failed to converge
@@ -1288,7 +1396,14 @@ int computeLargestEigenvectors(
                                                                alpha_host,
                                                                beta_host,
                                                                lanczosVecs_dev,
-                                                               work_dev);
+                                                               work_dev,
+                                                               work_host,
+                                                               Z_host,
+                                                               eigVals_dev,
+                                                               nEigVecs,
+                                                               totalIter,
+                                                               1,
+                                                               1);
   if (status) WARNING("error in Lanczos iteration");
   *totalIter += *effIter;
 
@@ -1336,7 +1451,14 @@ int computeLargestEigenvectors(
                                                                  alpha_host,
                                                                  beta_host,
                                                                  lanczosVecs_dev,
-                                                                 work_dev);
+                                                                 work_dev,
+                                                                 work_host,
+                                                                 Z_host,
+                                                                 eigVals_dev,
+                                                                 nEigVecs,
+                                                                 totalIter,
+                                                                 1,
+                                                                 1);
     if (status) WARNING("error in Lanczos iteration");
     *totalIter += *effIter - iter_new;
   }
