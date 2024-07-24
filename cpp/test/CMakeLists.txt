@@ -122,6 +122,7 @@ if(BUILD_TESTS)
     core/math_host.cpp
     core/operators_device.cu
     core/operators_host.cpp
+    core/popc.cu
     core/handle.cpp
     core/interruptible.cu
     core/nvtx.cpp
@@ -317,6 +318,7 @@ if(BUILD_TESTS)
     sparse/csr_transpose.cu
     sparse/degree.cu
     sparse/filter.cu
+    sparse/masked_matmul.cu
     sparse/norm.cu
     sparse/normalize.cu
     sparse/reduce.cu
