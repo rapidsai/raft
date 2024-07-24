@@ -75,7 +75,13 @@ endfunction()
 
 if(BUILD_PRIMS_BENCH)
   ConfigureBench(
-    NAME CORE_BENCH PATH core/bitset.cu core/copy.cu main.cpp
+    NAME
+    CORE_BENCH
+    PATH
+    core/bitset.cu
+    core/copy.cu
+    core/popc.cu
+    main.cpp
   )
 
   ConfigureBench(
@@ -111,6 +117,7 @@ if(BUILD_PRIMS_BENCH)
     PATH
     linalg/add.cu
     linalg/map_then_reduce.cu
+    linalg/masked_matmul.cu
     linalg/matrix_vector_op.cu
     linalg/norm.cu
     linalg/normalize.cu
