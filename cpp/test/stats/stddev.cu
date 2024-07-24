@@ -39,7 +39,8 @@ struct StdDevInputs {
 template <typename T>
 ::std::ostream& operator<<(::std::ostream& os, const StdDevInputs<T>& dims)
 {
-  return os;
+  return os << "{ " << dims.tolerance << ", " << dims.rows << ", " << dims.cols << ", "
+            << dims.sample << ", " << dims.rowMajor << "}" << std::endl;
 }
 
 template <typename T>
@@ -81,7 +82,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
       mean(handle,
            raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
            raft::make_device_vector_view<T, int>(mean_act.data(), cols),
-           params.sample);
+           false);
 
       stddev(handle,
              raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
@@ -99,7 +100,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
       mean(handle,
            raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
            raft::make_device_vector_view<T>(mean_act.data(), cols),
-           params.sample);
+           false);
 
       stddev(handle,
              raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
@@ -147,13 +148,15 @@ const std::vector<StdDevInputs<float>> inputsf = {
   {0.5f, -1.f, 2.f, 31, 1, true, true, 1234ULL},
   {1.f, -1.f, 2.f, 1, 257, false, true, 1234ULL},
   {0.5f, -1.f, 2.f, 31, 1, false, false, 1234ULL},
-  {1.f, -1.f, 2.f, 1, 257, true, false, 1234ULL},
+  {1.f, -1.f, 2.f, 1, 257, false, false, 1234ULL},
   {1.f, -1.f, 2.f, 1, 1, false, false, 1234ULL},
   {1.f, -1.f, 2.f, 7, 23, false, false, 1234ULL},
   {1.f, -1.f, 2.f, 17, 5, false, false, 1234ULL},
   {1.f, -1.f, 2.f, 1, 1, false, true, 1234ULL},
   {1.f, -1.f, 2.f, 7, 23, false, true, 1234ULL},
-  {1.f, -1.f, 2.f, 17, 5, false, true, 1234ULL}};
+  {1.f, -1.f, 2.f, 17, 5, false, true, 1234ULL},
+  {0.00001f, 0.001f, 0.f, 1 << 27, 2, false, true, 1234ULL},
+  {0.00001f, 0.001f, 0.f, 1 << 27, 2, false, false, 1234ULL}};
 
 const std::vector<StdDevInputs<double>> inputsd = {
   {0.1, 1.0, 2.0, 1024, 32, true, false, 1234ULL},
@@ -177,13 +180,15 @@ const std::vector<StdDevInputs<double>> inputsd = {
   {0.5, -1.0, 2.0, 31, 1, true, true, 1234ULL},
   {1.0, -1.0, 2.0, 1, 257, false, true, 1234ULL},
   {0.5, -1.0, 2.0, 31, 1, false, false, 1234ULL},
-  {1.0, -1.0, 2.0, 1, 257, true, false, 1234ULL},
+  {1.0, -1.0, 2.0, 1, 257, false, false, 1234ULL},
   {1.0, -1.0, 2.0, 1, 1, false, false, 1234ULL},
   {1.0, -1.0, 2.0, 7, 23, false, false, 1234ULL},
   {1.0, -1.0, 2.0, 17, 5, false, false, 1234ULL},
   {1.0, -1.0, 2.0, 1, 1, false, true, 1234ULL},
   {1.0, -1.0, 2.0, 7, 23, false, true, 1234ULL},
-  {1.0, -1.0, 2.0, 17, 5, false, true, 1234ULL}};
+  {1.0, -1.0, 2.0, 17, 5, false, true, 1234ULL},
+  {1e-7, 0.001, 0.0, 1 << 27, 2, false, true, 1234ULL},
+  {1e-7, 0.001, 0.0, 1 << 27, 2, false, false, 1234ULL}};
 
 typedef StdDevTest<float> StdDevTestF;
 TEST_P(StdDevTestF, Result)
