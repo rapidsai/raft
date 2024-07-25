@@ -80,7 +80,14 @@ if(BUILD_PRIMS_BENCH)
     PATH
     core/bitset.cu
     core/copy.cu
-    core/popc.cu
+    main.cpp
+  )
+
+  ConfigureBench(
+    NAME
+    UTIL_BENCH
+    PATH
+    util/popc.cu
     main.cpp
   )
 
