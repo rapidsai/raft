@@ -16,7 +16,7 @@
 
 #include <common/benchmark.hpp>
 
-#include <raft/core/popc.hpp>
+#include <raft/util/popc.cuh>
 
 namespace raft::bench::core {
 

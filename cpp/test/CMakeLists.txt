@@ -122,7 +122,6 @@ if(BUILD_TESTS)
     core/math_host.cpp
     core/operators_device.cu
     core/operators_host.cpp
-    core/popc.cu
     core/handle.cpp
     core/interruptible.cu
     core/nvtx.cpp
@@ -509,6 +508,7 @@ if(BUILD_TESTS)
     util/integer_utils.cpp
     util/integer_utils.cu
     util/memory_type_dispatcher.cu
+    util/popc.cu
     util/pow2_utils.cu
     util/reduction.cu
   )

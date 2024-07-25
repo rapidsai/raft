@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <raft/core/detail/popc.cuh>
+#include <raft/util/detail/popc.cuh>
 namespace raft {
 
 /**
