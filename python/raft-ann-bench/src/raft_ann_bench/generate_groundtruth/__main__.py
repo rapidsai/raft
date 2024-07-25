@@ -47,7 +47,7 @@ def choose_random_queries(dataset, n_queries):
     return dataset[query_idx, :]
 
 
-def calc_truth(dataset, queries, k, metric="euclidean"):
+def calc_truth(dataset, queries, k, metric="sqeuclidean"):
     handle = DeviceResources()
     n_samples = dataset.shape[0]
     n = 500000  # batch size for processing neighbors
@@ -168,11 +168,10 @@ def main():
     parser.add_argument(
         "--metric",
         type=str,
-        default="euclidean",
+        default="sqeuclidean",
         help="Metric to use while calculating distances. Valid metrics are "
         "those that are accepted by pylibraft.neighbors.brute_force.knn. Most"
-        " commonly used with RAFT ANN are 'euclidean' and 'inner_product'"
-        " (squeuclidea is currently not supported by RAFT ANN Benchmark).",
+        " commonly used with RAFT ANN are 'sqeuclidean' and 'inner_product'",
     )
 
     if len(sys.argv) == 1:
