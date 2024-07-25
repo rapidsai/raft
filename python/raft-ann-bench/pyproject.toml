@@ -68,3 +68,4 @@ build-backend = "setuptools.build_meta"
 requires = []
 dependencies-file = "../../dependencies.yaml"
 commit-files = ["src/raft_ann_bench/GIT_COMMIT"]
+matrix-entry = "cuda_suffixed=true"
