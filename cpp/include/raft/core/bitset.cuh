@@ -19,12 +19,12 @@
 #include <raft/core/bitset.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/popc.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/device_atomics.cuh>
+#include <raft/util/popc.cuh>
 
 #include <thrust/for_each.h>
 
