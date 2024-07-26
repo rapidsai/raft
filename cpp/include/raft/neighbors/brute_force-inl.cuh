@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ inline void knn_merge_parts(
   RAFT_EXPECTS(in_keys.extent(1) == in_values.extent(1) && in_keys.extent(0) == in_values.extent(0),
                "in_keys and in_values must have the same shape.");
   RAFT_EXPECTS(
-    out_keys.extent(0) == out_values.extent(0) && out_keys.extent(0) == n_samples,
+    out_keys.extent(0) == out_values.extent(0) && out_keys.extent(0) == idx_t(n_samples),
     "Number of rows in output keys and val matrices must equal number of rows in search matrix.");
   RAFT_EXPECTS(
     out_keys.extent(1) == out_values.extent(1) && out_keys.extent(1) == in_keys.extent(1),

@@ -31,6 +31,9 @@ option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchm
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE "Include raft's brute force knn in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB "Include raft's CAGRA in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_FLAT "Include raft's MG ANN IVF-FLAT in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ "Include raft's MG ANN IVF-PQ in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA "Include raft's MG ANN CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_SINGLE_EXE
@@ -57,6 +60,9 @@ if(BUILD_CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_FLAT OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA OFF)
   set(RAFT_ANN_BENCH_USE_GGNN OFF)
 endif()
 
@@ -66,6 +72,9 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
    OR RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
    OR RAFT_ANN_BENCH_USE_RAFT_CAGRA
    OR RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB
+   OR RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_FLAT
+   OR RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ
+   OR RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA
 )
   set(RAFT_ANN_BENCH_USE_RAFT ON)
 endif()
@@ -250,6 +259,50 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
     NAME RAFT_CAGRA_HNSWLIB PATH src/raft/raft_cagra_hnswlib.cu LINKS raft::compiled
     hnswlib::hnswlib
   )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_FLAT)
+  ConfigureAnnBench(
+    NAME
+    RAFT_ANN_MG_IVF_FLAT
+    PATH
+    src/raft/raft_benchmark.cu
+    src/raft/raft_ann_mg_ivf_flat.cu
+    LINKS
+    raft::compiled
+    ucp ucs ucxx nccl
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_IVF_PQ)
+  ConfigureAnnBench(
+    NAME
+    RAFT_ANN_MG_IVF_PQ
+    PATH
+    src/raft/raft_benchmark.cu
+    src/raft/raft_ann_mg_ivf_pq.cu
+    LINKS
+    raft::compiled
+    ucp ucs ucxx nccl
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_ANN_MG_CAGRA)
+  ConfigureAnnBench(
+    NAME
+    RAFT_ANN_MG_CAGRA
+    PATH
+    src/raft/raft_benchmark.cu
+    src/raft/raft_ann_mg_cagra.cu
+    LINKS
+    raft::compiled
+    ucp ucs ucxx nccl
+  )
+endif()
+
+set(RAFT_FAISS_TARGETS faiss::faiss)
+if(TARGET faiss::faiss_avx2)
+  set(RAFT_FAISS_TARGETS faiss::faiss_avx2)
 endif()
 
 message("RAFT_FAISS_TARGETS: ${RAFT_FAISS_TARGETS}")
