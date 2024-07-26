@@ -56,7 +56,11 @@ constexpr RAFT_INLINE_FUNCTION auto abs(T x)
                         !std::is_same_v<long long int, T>,
                       T>
 {
-  return x < T{0} ? -x : x;
+  if constexpr (std::is_unsigned_v<T>) {
+    return x;
+  } else {
+    return x < T{0} ? -x : x;
+  }
 }
 #if defined(_RAFT_HAS_CUDA)
 template <typename T>

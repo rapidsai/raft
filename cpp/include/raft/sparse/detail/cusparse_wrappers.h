@@ -424,6 +424,34 @@ inline cusparseStatus_t cusparsespmv(cusparseHandle_t handle,
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseSpMV(handle, opA, alpha, matA, vecX, beta, vecY, CUDA_R_64F, alg, externalBuffer);
 }
+// cusparseSpMV_preprocess is only available starting CUDA 12.4
+#if CUDA_VER_12_4_UP
+template <
+  typename T,
+  typename std::enable_if_t<std::is_same_v<T, float> || std::is_same_v<T, double>>* = nullptr>
+cusparseStatus_t cusparsespmv_preprocess(cusparseHandle_t handle,
+                                         cusparseOperation_t opA,
+                                         const T* alpha,
+                                         const cusparseSpMatDescr_t matA,
+                                         const cusparseDnVecDescr_t vecX,
+                                         const T* beta,
+                                         const cusparseDnVecDescr_t vecY,
+                                         cusparseSpMVAlg_t alg,
+                                         T* externalBuffer,
+                                         cudaStream_t stream)
+{
+  auto constexpr float_type = []() constexpr {
+    if constexpr (std::is_same_v<T, float>) {
+      return CUDA_R_32F;
+    } else if constexpr (std::is_same_v<T, double>) {
+      return CUDA_R_64F;
+    }
+  }();
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  return cusparseSpMV_preprocess(
+    handle, opA, alpha, matA, vecX, beta, vecY, float_type, alg, externalBuffer);
+}
+#endif
 /** @} */
 #else
 /**
