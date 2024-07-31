@@ -308,6 +308,7 @@ if(BUILD_TESTS)
     sparse/csr_transpose.cu
     sparse/degree.cu
     sparse/filter.cu
+    sparse/masked_matmul.cu
     sparse/norm.cu
     sparse/normalize.cu
     sparse/reduce.cu
@@ -494,6 +495,7 @@ if(BUILD_TESTS)
     util/integer_utils.cpp
     util/integer_utils.cu
     util/memory_type_dispatcher.cu
+    util/popc.cu
     util/pow2_utils.cu
     util/reduction.cu
   )

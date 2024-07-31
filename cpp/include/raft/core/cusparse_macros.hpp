@@ -34,7 +34,8 @@
 //
 // (i.e., before including this header)
 //
-#define CUDA_VER_10_1_UP (CUDART_VERSION >= 10100)
+#define CUDA_VER_10_1_UP (CUDART_VERSION >= 10010)
+#define CUDA_VER_12_4_UP (CUDART_VERSION >= 12040)
 
 namespace raft {
 
@@ -59,7 +60,7 @@ namespace detail {
 
 inline const char* cusparse_error_to_string(cusparseStatus_t err)
 {
-#if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
+#if defined(CUDART_VERSION) && CUDART_VERSION >= 10010
   return cusparseGetErrorString(err);
 #else   // CUDART_VERSION
   switch (err) {
