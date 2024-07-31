@@ -443,7 +443,7 @@ void cluster_nnd(raft::resources const& res,
 
   for (size_t cluster_id = 0; cluster_id < params.n_clusters; cluster_id++) {
     RAFT_LOG_DEBUG(
-      "# Data on host. Running clusters: %lu / %lu", it + 1, build_config_.max_iterations);
+      "# Data on host. Running clusters: %lu / %lu", cluster_id + 1, params.n_clusters);
     size_t num_data_in_cluster = cluster_size[cluster_id];
     auto offset                = offsets[cluster_id];
 
@@ -510,7 +510,7 @@ void cluster_nnd(raft::resources const& res,
 
   for (size_t cluster_id = 0; cluster_id < params.n_clusters; cluster_id++) {
     RAFT_LOG_DEBUG(
-      "# Data on device. Running clusters: %lu / %lu", it + 1, build_config_.max_iterations);
+      "# Data on device. Running clusters: %lu / %lu", cluster_id + 1, params.n_clusters);
     size_t num_data_in_cluster = cluster_size[cluster_id];
     auto offset                = offsets[cluster_id];
 
