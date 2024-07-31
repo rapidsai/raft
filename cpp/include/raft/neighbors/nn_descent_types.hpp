@@ -56,6 +56,8 @@ struct index_params : ann::index_params {
   size_t max_iterations            = 20;      // Number of nn-descent iterations.
   float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
   bool return_distances            = false;   // return distances if true
+  size_t n_clusters                = 2;       // number of clusters if using batching
+  bool do_batch                    = false;
 };
 
 /**
