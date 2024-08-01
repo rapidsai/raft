@@ -325,6 +325,6 @@ const std::vector<AnnNNDescentBatchInputs> inputsBatch =
     {32, 64},      // graph_degree
     {raft::distance::DistanceType::L2Expanded},
     {false, true},
-    {std::make_pair(0.9, 2lu), std::make_pair(0.85, 5lu)});  // min_recall, n_clusters
+    {std::make_pair(0.9, 2lu), std::make_pair(0.75, 5lu)});  // min_recall, n_clusters
 
 }  // namespace raft::neighbors::experimental::nn_descent
