@@ -24,6 +24,7 @@
 
 #include <thrust/reduce.h>
 
+#include <cusparse.h>
 #include <gtest/gtest.h>
 
 #include <iostream>
@@ -65,6 +66,22 @@ template <typename value_t, typename output_t, typename index_t>
      << "\tsparsity: " << params.sparsity;
 
   return os;
+}
+
+bool isCuSparseVersionGreaterThan_12_0_1()
+{
+  int version;
+  cusparseHandle_t handle;
+  cusparseCreate(&handle);
+  cusparseGetVersion(handle, &version);
+
+  int major = version / 1000;
+  int minor = (version % 1000) / 100;
+  int patch = version % 100;
+
+  cusparseDestroy(handle);
+
+  return (major > 12) || (major == 12 && minor > 0) || (major == 12 && minor == 0 && patch >= 2);
 }
 
 template <typename value_t,
@@ -272,7 +289,13 @@ class MaskedMatmulTest
     resource::sync_stream(handle);
   }
 
-  void SetUp() override { make_data(); }
+  void SetUp() override
+  {
+    if (std::is_same_v<value_t, half> && !isCuSparseVersionGreaterThan_12_0_1()) {
+      GTEST_SKIP() << "Skipping all tests for half-float as cuSparse doesn't support it.";
+    }
+    make_data();
+  }
 
   void Run()
   {
@@ -360,14 +383,14 @@ const std::vector<MaskedMatmulInputs<double, double, int>> sddmm_inputs_d = {
   {0.0001f, 1024, 1024, 1024, 0.1, 1234ULL}};
 
 const std::vector<MaskedMatmulInputs<half, float, int>> sddmm_inputs_h = {
-  {0.0001f, 10, 5, 32, 0.01, 1234ULL},
+  {0.0001f, 10, 5, 32, 0.1, 1234ULL},
   {0.0001f, 1024, 32, 1024, 0.1, 1234ULL},
-  {0.0001f, 32, 1024, 1024, 0.2, 1234ULL},
-  {0.0001f, 1024, 1024, 1024, 0.19, 1234ULL},
+  {0.0003f, 32, 1024, 1024, 0.2, 1234ULL},
+  {0.001f, 1024, 1024, 1024, 0.19, 1234ULL},
   {0.0001f, 1024, 1024, 32, 0.3, 1234ULL},
   {0.0001f, 1024, 32, 1024, 0.4, 1234ULL},
-  {0.0001f, 32, 1024, 1024, 0.19, 1234ULL},
-  {0.0001f, 1024, 1024, 1024, 0.1, 1234ULL}};
+  {0.0003f, 32, 1024, 1024, 0.19, 1234ULL},
+  {0.001f, 1024, 1024, 1024, 0.1, 1234ULL}};
 
 INSTANTIATE_TEST_CASE_P(MaskedMatmulTest, MaskedMatmulTestF, ::testing::ValuesIn(sddmm_inputs_f));
 

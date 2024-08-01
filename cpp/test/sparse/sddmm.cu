@@ -77,22 +77,6 @@ template <typename ValueType, typename IndexType>
   return os;
 }
 
-bool isCuSparseVersionGreaterThan_12_0_1()
-{
-  int version;
-  cusparseHandle_t handle;
-  cusparseCreate(&handle);
-  cusparseGetVersion(handle, &version);
-
-  int major = version / 1000;
-  int minor = (version % 1000) / 100;
-  int patch = version % 100;
-
-  cusparseDestroy(handle);
-
-  return (major > 12) || (major == 12 && minor > 0) || (major == 12 && minor == 0 && patch >= 2);
-}
-
 template <typename ValueType,
           typename IndexType,
           typename LayoutPolicyA = raft::layout_c_contiguous,
@@ -113,6 +97,22 @@ class SDDMMTest : public ::testing::TestWithParam<SDDMMInputs<ValueType, IndexTy
   }
 
  protected:
+  bool isCuSparseVersionGreaterThan_12_0_1()
+  {
+    int version;
+    cusparseHandle_t handle;
+    cusparseCreate(&handle);
+    cusparseGetVersion(handle, &version);
+
+    int major = version / 1000;
+    int minor = (version % 1000) / 100;
+    int patch = version % 100;
+
+    cusparseDestroy(handle);
+
+    return (major > 12) || (major == 12 && minor > 0) || (major == 12 && minor == 0 && patch >= 2);
+  }
+
   IndexType create_sparse_matrix(IndexType m,
                                  IndexType n,
                                  OutputType sparsity,
