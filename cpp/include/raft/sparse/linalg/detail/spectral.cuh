@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#include "raft/core/device_mdarray.hpp"
+#include "raft/linalg/unary_op.cuh"
+#include "thrust/device_ptr.h"
+#include "thrust/device_vector.h"
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
@@ -24,6 +29,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
+#include <rmm/device_vector.hpp>
 
 namespace raft {
 namespace sparse {
@@ -42,6 +48,62 @@ void fit_embedding(raft::resources const& handle,
                    unsigned long long seed = 1234567)
 {
   auto stream = resource::get_cuda_stream(handle);
+
+  std::vector<int> hrows(nnz);
+  std::vector<int> hcols(nnz);
+  std::vector<T> hvals(nnz);
+  raft::copy(hrows.data(), rows, nnz, stream);
+  raft::copy(hcols.data(), cols, nnz, stream);
+  raft::copy(hvals.data(), vals, nnz, stream);
+
+  // Get D
+  std::vector<T> diagonal(n);
+  for (int i = 0; i < nnz; i++) {
+    int row_index = hrows[i];
+    diagonal[row_index] += hvals[i];
+    hvals[i] = -hvals[i];
+  }
+  // print_host_vector("", diagonal.data(), n, std::cout);
+  // N^2: L = D - A
+  for (int i = 0; i < n; i++) {
+    bool found = false;
+    for (int j = 0; j < nnz; j++) {
+      if (hrows[j] == hcols[j] && hcols[j] == i) {
+        hvals[j] += diagonal[i];
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      hrows.push_back(i);
+      hcols.push_back(i);
+      hvals.push_back(diagonal[i]);
+    }
+  }
+
+  rmm::device_uvector<int> drows(hrows.size(), stream);
+  rmm::device_uvector<int> dcols(hcols.size(), stream);
+  rmm::device_uvector<T> dvals(hvals.size(), stream);
+  
+  raft::copy(drows.data(), hrows.data(), hrows.size(), stream);
+  raft::copy(dcols.data(), hcols.data(), hcols.size(), stream);
+  raft::copy(dvals.data(), hvals.data(), hvals.size(), stream);
+
+  rmm::device_uvector<int> drows_csr(n + 1, stream);
+  rmm::device_uvector<int> dcols_csr(hcols.size(), stream);
+  rmm::device_uvector<T> dvals_csr(hvals.size(), stream);
+  convert::coo_to_csr(handle, drows.data(), dcols.data(), dvals.data(), hvals.size(), n, drows_csr.data(), dcols_csr.data(), dvals_csr.data());
+
+  // std::cout << "hi" << std::endl;
+  // print_device_vector("", drows.data(), hrows.size(), std::cout);
+  // print_device_vector("", dcols.data(), hcols.size(), std::cout);
+  // print_device_vector("", dvals.data(), hvals.size(), std::cout);
+
+  // print_device_vector("", drows_csr.data(), 3+1, std::cout);
+  // print_device_vector("", dcols_csr.data(), hcols.size(), std::cout);
+  // print_device_vector("", dvals_csr.data(), hvals.size(), std::cout);
+
+  
   rmm::device_uvector<int> src_offsets(n + 1, stream);
   rmm::device_uvector<int> dst_cols(nnz, stream);
   rmm::device_uvector<T> dst_vals(nnz, stream);
@@ -60,22 +122,28 @@ void fit_embedding(raft::resources const& handle,
   using index_type = int;
   using value_type = T;
 
-  index_type* ro = src_offsets.data();
-  index_type* ci = dst_cols.data();
-  value_type* vs = dst_vals.data();
+  index_type* ro = drows_csr.data();
+  index_type* ci = dcols_csr.data();
+  value_type* vs = dvals_csr.data();
+
+  // index_type* ro = src_offsets.data();
+  // index_type* ci = dst_cols.data();
+  // value_type* vs = dst_vals.data();
 
   raft::spectral::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{
-    handle, ro, ci, vs, n, nnz};
+    handle, ro, ci, vs, n, hvals.size()};
 
   index_type neigvs       = n_components + 1;
-  index_type maxiter      = 4000;  // default reset value (when set to 0);
-  value_type tol          = 0.01;
-  index_type restart_iter = 15 + neigvs;  // what cugraph is using
+  index_type maxiter      = 10000;  // default reset value (when set to 0);
+  value_type tol          = 1e-9;
+  index_type restart_iter = 400 + neigvs;  // what cugraph is using
 
   raft::spectral::eigen_solver_config_t<index_type, value_type> cfg{
     neigvs, maxiter, restart_iter, tol};
 
   cfg.seed = seed;
+  cfg.conv_eps = 0.001;
+  cfg.conv_n_iters = 4;
 
   raft::spectral::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
 
@@ -118,9 +186,9 @@ void fit_embedding(raft::resources const& handle,
     std::cerr << "Failed to open output file!" << std::endl;
   }
 
-  print_device_vector("eigenvals", eigVals.data(), n_components + 1, out_file);
-  print_device_vector("eigenvecs", eigVecs.data(), n * (n_components + 1), out_file);
-  print_device_vector("out", out, n * n_components, out_file);
+  print_device_vector("eigenvals", eigVals.data(), n_components + 1, std::cout);
+  // print_device_vector("eigenvecs", eigVecs.data(), n * (n_components + 1), out_file);
+  // print_device_vector("out", out, n * n_components, out_file);
 
   RAFT_CUDA_TRY(cudaGetLastError());
 }

@@ -64,7 +64,11 @@ void coo_to_csr(raft::resources const& handle,
     cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz, cudaMemcpyDeviceToDevice, stream));
   auto buffSize = raft::sparse::detail::cusparsecoosort_bufferSizeExt(
     cusparseHandle, m, m, nnz, srcRows, srcCols, stream);
+  std::cout << buffSize << std::endl;
+  std::this_thread::sleep_for(std::chrono::seconds(10));
+
   rmm::device_uvector<char> pBuffer(buffSize, stream);
+  std::cout << "pbuf done" << std::endl;
   rmm::device_uvector<int> P(nnz, stream);
   RAFT_CUSPARSE_TRY(cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
   raft::sparse::detail::cusparsecoosortByRow(

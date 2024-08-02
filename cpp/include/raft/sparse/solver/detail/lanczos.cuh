@@ -16,11 +16,26 @@
 
 #pragma once
 
+#include "raft/core/device_mdspan.hpp"
+#include "raft/core/host_mdspan.hpp"
+#include "raft/core/mdspan_types.hpp"
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/mdspan.hpp>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/normalize.cuh>
+#include <raft/linalg/norm_types.hpp>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/init.cuh>
+#include <raft/matrix/gather.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
 
 // for cmath:
 #include <raft/core/logger-macros.hpp>
+#include <algorithm>
+#include <cstdint>
 #include <type_traits>
+#include <utility>
 #define _USE_MATH_DEFINES
 
 #include <raft/core/resource/cublas_handle.hpp>
@@ -160,8 +175,8 @@ int performLanczosIteration(raft::resources const& handle,
   // -------------------------------------------------------
   // Compute remaining Lanczos vectors
   // -------------------------------------------------------
-  int orig_conv_n_iters = conv_n_iters;
-  std::vector<value_type_t> prev_conv(nEigVecs, 0);
+  // int orig_conv_n_iters = conv_n_iters;
+  // std::vector<value_type_t> prev_conv(nEigVecs, 0);
   int status = 0;
 
 
@@ -285,56 +300,95 @@ int performLanczosIteration(raft::resources const& handle,
 
     // Check if Lanczos has converged
     if (beta_host[*iter - 1] <= tol) break;
+    // std::cout << (*iter - 1) << " " << beta_host[*iter - 1] << " " << tol << " " << std::endl;
 
     // Normalize Lanczos vector
     alpha = 1 / beta_host[*iter - 1];
     RAFT_CUBLAS_TRY(raft::linalg::detail::cublasscal(
       cublas_h, n, &alpha, lanczosVecs_dev + IDX(0, *iter, n), 1, stream));
 
-    index_type_t* effIter = iter;
-    // Solve tridiagonal system
-    memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
-    memcpy(work_host + 3 * (*effIter), beta_host, (*effIter - 1) * sizeof(value_type_t));
-    Lapack<value_type_t>::steqr('I',
-                                *effIter,
-                                work_host + 2 * (*effIter),
-                                work_host + 3 * (*effIter),
-                                Z_host,
-                                *effIter,
-                                work_host);
+    // index_type_t* effIter = iter;
+    // // Solve tridiagonal system
+    // memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
+    // memcpy(work_host + 3 * (*effIter), beta_host, (*effIter - 1) * sizeof(value_type_t));
+    // Lapack<value_type_t>::steqr('I',
+    //                             *effIter,
+    //                             work_host + 2 * (*effIter),
+    //                             work_host + 3 * (*effIter),
+    //                             Z_host,
+    //                             *effIter,
+    //                             work_host);
 
-    // Obtain desired eigenvalues by applying shift
-    for (int i = 0; i < *effIter; ++i)
-      work_host[i + 2 * (*effIter)] -= shift;
-    for (int i = *effIter; i < nEigVecs; ++i)
-      work_host[i + 2 * (*effIter)] = 0;
+    // // Obtain desired eigenvalues by applying shift
+    // for (int i = 0; i < *effIter; ++i)
+    //   work_host[i + 2 * (*effIter)] -= shift;
+    // for (int i = *effIter; i < nEigVecs; ++i)
+    //   work_host[i + 2 * (*effIter)] = 0;
 
-    // Copy results to device memory
-    RAFT_CUDA_TRY(cudaMemcpyAsync(eigVals_dev,
-                                  work_host + 2 * (*effIter),
-                                  nEigVecs * sizeof(value_type_t),
-                                  cudaMemcpyHostToDevice,
-                                  stream));
+    // // Copy results to device memory
+    // RAFT_CUDA_TRY(cudaMemcpyAsync(eigVals_dev,
+    //                               work_host + 2 * (*effIter),
+    //                               nEigVecs * sizeof(value_type_t),
+    //                               cudaMemcpyHostToDevice,
+    //                               stream));
 
-    print_device_vector("lanczos iteration", eigVals_dev, nEigVecs, std::cout);
-    std::cout << *totalIter << " " << *effIter << std::endl;
+    // RAFT_CUDA_TRY(cudaMemcpyAsync(work_dev,
+    //                             Z_host,
+    //                             (*effIter) * nEigVecs * sizeof(value_type_t),
+    //                             cudaMemcpyHostToDevice,
+    //                             stream));
+
+    // std::ofstream out_file("output2.txt"); // Open a file for writing
+  
+    // // Check if the file is open
+    // if (!out_file.is_open()) {
+    //   std::cerr << "Failed to open output file!" << std::endl;
+    // }
+
+    // // std::cout << ((*effIter) * (nEigVecs - 1)) << std::endl;
+
+
+    // // print_device_vector("work_dev", work_dev, (*effIter) * nEigVecs, out_file);
+    // // raft::device_vector_view<value_type_t, int, raft::col_major> work_dev_view = raft::make_device_vector_view(work_dev, (*effIter) * nEigVecs);
+    // raft::host_matrix_view<value_type_t, uint32_t, raft::col_major> Z_host_view = raft::make_host_matrix_view<value_type_t, uint32_t, raft::col_major>(Z_host, (*effIter), nEigVecs);
+    // std::vector<value_type_t> Z_host_last_row(nEigVecs);
+    // for (int i = 0; i < nEigVecs; i++) {
+    //   Z_host_last_row[i] = beta_host[*iter - 1] * Z_host_view((*effIter) - 1, i);
+    // }
+    // float Znorm = 0;
+    // for (int i = 0; i < nEigVecs; i++) {
+    //   Znorm += Z_host_last_row[i] * Z_host_last_row[i];
+    // }
+    // std::sqrt(Znorm);
+    // std::cout << (*totalIter + (*iter - 1)) << " " << Znorm << " " << tol << " " << beta_host[*iter - 1] << " " << std::endl;
+    // print_host_vector("Z_host_last_row", Z_host_last_row.data(), nEigVecs, out_file);
+    // print_host_vector("work_dev", Z_host, (*effIter) * nEigVecs, out_file);
+
+    // if (Znorm <= tol) {
+    //   status = 1;
+    //   break;
+    // }
+    // print_device_vector("work_dev", work_dev + ((*effIter - 1) * (nEigVecs)), nEigVecs, out_file);
+
+    // print_device_vector("lanczos iteration", eigVals_dev, nEigVecs, out_file);
+    // std::cout << *totalIter << " " << *effIter << std::endl;
     // std::cout << *totalIter << " " << *effIter << " " << iter_new << " " << maxIter_curr << " "<< (beta_host[*effIter - 1] > tol * fabs(shiftLower)) << std::endl;
 
     // value_type_t curr_conv;
-    std::vector<value_type_t> curr_conv(nEigVecs, 0);
-    raft::copy(curr_conv.data(), eigVals_dev, nEigVecs, stream);
+    // std::vector<value_type_t> curr_conv(nEigVecs, 0);
+    // raft::copy(curr_conv.data(), eigVals_dev, nEigVecs, stream);
 
-    for (int i = 0; i < nEigVecs; i++) {
-      if (fabs(curr_conv[i] - prev_conv[i]) > conv_eps) {
-        conv_n_iters = orig_conv_n_iters;
-        raft::copy(prev_conv.data(), eigVals_dev, nEigVecs, stream);
-        break;
-      }
-      if (i == nEigVecs - 1) {
-        conv_n_iters -= 1;
-        if (conv_n_iters == 0) status = 1;
-      }
-    }
+    // for (int i = 0; i < nEigVecs; i++) {
+    //   if (fabs(curr_conv[i] - prev_conv[i]) > conv_eps) {
+    //     conv_n_iters = orig_conv_n_iters;
+    //     raft::copy(prev_conv.data(), eigVals_dev, nEigVecs, stream);
+    //     break;
+    //   }
+    //   if (i == nEigVecs - 1) {
+    //     conv_n_iters -= 1;
+    //     if (conv_n_iters == 0) status = 1;
+    //   }
+    // }
   }
 
   resource::sync_stream(handle, stream);
@@ -952,39 +1006,40 @@ int computeSmallestEigenvectors(
                                                                conv_n_iters,
                                                                conv_eps);
   if (status) WARNING("error in Lanczos iteration");
-
-  // Determine largest eigenvalue
-
-  Lapack<value_type_t>::sterf(*effIter, alpha_host, beta_host);
-  *shift = -alpha_host[*effIter - 1];
-
-  // -------------------------------------------------------
-  // Compute eigenvectors of shifted matrix
-  // -------------------------------------------------------
-
-  // Obtain tridiagonal matrix with Lanczos
-  *effIter = 0;
-
-  status = performLanczosIteration<index_type_t, value_type_t>(handle,
-                                                               A,
-                                                               effIter,
-                                                               maxIter_curr,
-                                                               *shift,
-                                                               0,
-                                                               reorthogonalize,
-                                                               alpha_host,
-                                                               beta_host,
-                                                               lanczosVecs_dev,
-                                                               work_dev,
-                                                               work_host,
-                                                               Z_host,
-                                                               eigVals_dev,
-                                                               nEigVecs,
-                                                               totalIter,
-                                                               conv_n_iters,
-                                                               conv_eps);
-  if (status) WARNING("error in Lanczos iteration");
   *totalIter += *effIter;
+
+  // // Determine largest eigenvalue
+
+  // Lapack<value_type_t>::sterf(*effIter, alpha_host, beta_host);
+  // *shift = -alpha_host[*effIter - 1];
+
+  // // -------------------------------------------------------
+  // // Compute eigenvectors of shifted matrix
+  // // -------------------------------------------------------
+
+  // // Obtain tridiagonal matrix with Lanczos
+  // *effIter = 0;
+
+  // status = performLanczosIteration<index_type_t, value_type_t>(handle,
+  //                                                              A,
+  //                                                              effIter,
+  //                                                              maxIter_curr,
+  //                                                              *shift,
+  //                                                              0,
+  //                                                              reorthogonalize,
+  //                                                              alpha_host,
+  //                                                              beta_host,
+  //                                                              lanczosVecs_dev,
+  //                                                              work_dev,
+  //                                                              work_host,
+  //                                                              Z_host,
+  //                                                              eigVals_dev,
+  //                                                              nEigVecs,
+  //                                                              totalIter,
+  //                                                              conv_n_iters,
+  //                                                              conv_eps);
+  // if (status) WARNING("error in Lanczos iteration");
+  // *totalIter += *effIter;
 
   // Apply Lanczos method until convergence
   shiftLower = 1;
@@ -996,7 +1051,7 @@ int computeSmallestEigenvectors(
   // int orig_conv_n_iters = conv_n_iters;
   // std::vector<value_type_t> prev_conv(nEigVecs, 0);
 
-  while (*totalIter < maxIter && beta_host[*effIter - 1] > tol * fabs(shiftLower) && conv_n_iters > 0) {
+  while (*totalIter < maxIter && beta_host[*effIter - 1] > tol * fabs(shiftLower) && conv_n_iters > 0 && status == 0) {
     // Determine number of restart steps
     // Number of steps must be even due to Francis algorithm
     index_type_t iter_new = nEigVecs + 1;
@@ -1076,6 +1131,67 @@ int computeSmallestEigenvectors(
     if (status) WARNING("error in Lanczos iteration");
     *totalIter += *effIter - iter_new;
     if (status == 1) break;
+
+    // Solve tridiagonal system
+    memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
+    memcpy(work_host + 3 * (*effIter), beta_host, (*effIter - 1) * sizeof(value_type_t));
+    Lapack<value_type_t>::steqr('I',
+                                *effIter,
+                                work_host + 2 * (*effIter),
+                                work_host + 3 * (*effIter),
+                                Z_host,
+                                *effIter,
+                                work_host);
+
+    // Obtain desired eigenvalues by applying shift
+    for (i = 0; i < *effIter; ++i)
+      work_host[i + 2 * (*effIter)] -= *shift;
+    for (i = *effIter; i < nEigVecs; ++i)
+      work_host[i + 2 * (*effIter)] = 0;
+
+    // Copy results to device memory
+    RAFT_CUDA_TRY(cudaMemcpyAsync(eigVals_dev,
+                                  work_host + 2 * (*effIter),
+                                  nEigVecs * sizeof(value_type_t),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
+
+    RAFT_CUDA_TRY(cudaMemcpyAsync(work_dev,
+                                  Z_host,
+                                  (*effIter) * nEigVecs * sizeof(value_type_t),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
+
+    std::ofstream out_file("output2.txt"); // Open a file for writing
+  
+    // Check if the file is open
+    if (!out_file.is_open()) {
+      std::cerr << "Failed to open output file!" << std::endl;
+    }
+
+    // std::cout << ((*effIter) * (nEigVecs - 1)) << std::endl;
+
+
+    // print_device_vector("work_dev", work_dev, (*effIter) * nEigVecs, out_file);
+    // raft::device_vector_view<value_type_t, int, raft::col_major> work_dev_view = raft::make_device_vector_view(work_dev, (*effIter) * nEigVecs);
+    raft::host_matrix_view<value_type_t, uint32_t, raft::col_major> Z_host_view = raft::make_host_matrix_view<value_type_t, uint32_t, raft::col_major>(Z_host, (*effIter), nEigVecs);
+    std::vector<value_type_t> Z_host_last_row(nEigVecs);
+    for (int i = 0; i < nEigVecs; i++) {
+      Z_host_last_row[i] = beta_host[*effIter - 1] * Z_host_view((*effIter) - 1, i);
+    }
+    float Znorm = 0;
+    for (int i = 0; i < nEigVecs; i++) {
+      Znorm += Z_host_last_row[i] * Z_host_last_row[i];
+    }
+    std::sqrt(Znorm);
+    std::cout << (*totalIter + (*effIter - 1)) << " " << Znorm << " " << tol << " " << beta_host[*effIter - 1] << " " << std::endl;
+    print_host_vector("Z_host_last_row", Z_host_last_row.data(), nEigVecs, out_file);
+    print_host_vector("work_dev", Z_host, (*effIter) * nEigVecs, out_file);
+
+    if (Znorm <= tol) {
+      status = 1;
+      break;
+    }
 
     // Solve tridiagonal system
     // memcpy(work_host + 2 * (*effIter), alpha_host, (*effIter) * sizeof(value_type_t));
@@ -1182,6 +1298,140 @@ int computeSmallestEigenvectors(
 }
 
 template <typename index_type_t, typename value_type_t>
+void cupy_lanczos_fast(
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
+  int ncv
+)
+{
+  // int n = A->nrows_;
+
+  
+}
+
+template <typename index_type_t, typename value_type_t>
+void cupy_aux(
+  raft::resources const& handle,
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
+  raft::device_matrix_view<value_type_t, uint32_t, raft::row_major> V,
+  raft::device_matrix_view<value_type_t> u,
+  raft::device_matrix_view<value_type_t> alpha,
+  raft::device_matrix_view<value_type_t> beta,
+  int start_idx,
+  int end_idx,
+  int ncv,
+  raft::device_matrix_view<value_type_t> v,
+  raft::device_matrix_view<value_type_t> uu,
+  raft::device_matrix_view<value_type_t> vv
+)
+{
+  auto stream   = resource::get_cuda_stream(handle);
+
+  int n = A->nrows_;
+
+  // int b = 0;
+  // int one = 1;
+  // int zero = 0;
+  // int mone = -1;
+
+  // auto V_const = raft::make_device_matrix_view<const value_type_t, uint32_t, raft::row_major>(V.data_handle(), ncv, n);
+
+
+  // v[...] = V[i_start]
+  raft::copy(v.data_handle(), &(V(start_idx, 0)), n, stream);
+  // auto mp = raft::make_device_vector<int, uint32_t>(handle, 1);
+  // raft::matrix::fill(handle, mp.view(), start_idx);
+  // auto mp_const = raft::make_device_vector_view<const int, uint32_t>(mp.data_handle(), 1);
+  // auto v_view = raft::make_device_matrix_view<value_type_t, uint32_t, raft::row_major>(v.data_handle(), 1, n);
+
+  // raft::matrix::gather<value_type_t, int, uint32_t>(handle, V_const, mp_const, v_view);
+
+
+  print_device_vector("v[...]", v.data_handle(), n, std::cout);
+}
+
+
+
+template <typename index_type_t, typename value_type_t>
+int cupy_smallest(
+  raft::resources const& handle,
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
+  index_type_t nEigVecs,
+  index_type_t maxIter,
+  index_type_t restartIter,
+  value_type_t tol,
+  int conv_n_iters,
+  float conv_eps,
+  bool reorthogonalize,
+  index_type_t* effIter,
+  index_type_t* totalIter,
+  value_type_t* shift,
+  value_type_t* __restrict__ alpha_host,
+  value_type_t* __restrict__ beta_host,
+  value_type_t* __restrict__ lanczosVecs_dev,
+  value_type_t* __restrict__ work_dev,
+  value_type_t* __restrict__ eigVals_dev,
+  value_type_t* __restrict__ eigVecs_dev,
+  value_type_t* __restrict__ v0,
+  unsigned long long seed)
+{
+  std::cout << "hello cupy smallest " << A->nrows_ << " " << A->ncols_ << " " << A->nnz_ << std::endl;
+
+  int n = A->nrows_;
+  int ncv = restartIter;
+  raft::print_device_vector("hello cupy v0 init", v0, n, std::cout);
+
+
+  raft::device_matrix<value_type_t, uint32_t, raft::row_major> V = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, ncv, n);
+  raft::device_matrix_view<value_type_t> u_view = raft::make_device_matrix_view<value_type_t>(V.data_handle(), 1, n); // First Row V[0]
+  raft::device_matrix_view<const value_type_t> v0_view = raft::make_device_matrix_view<const value_type_t>(v0, 1, n);
+  raft::linalg::row_normalize(handle, v0_view, u_view, raft::linalg::L2Norm);
+
+  print_device_vector("V[0]", V.data_handle(), n, std::cout);
+
+  raft::device_matrix<value_type_t, uint32_t, raft::row_major> alpha = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, ncv);
+  raft::device_matrix<value_type_t, uint32_t, raft::row_major> beta = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, ncv);
+  value_type_t zero = 0;
+  raft::matrix::fill(handle, alpha.view(), zero);
+  raft::matrix::fill(handle, beta.view(), zero);
+
+  // start allocating for cupy_lanczos_fast()
+
+  // cusparse_handle = None
+  // if _csr.isspmatrix_csr(A) and cusparse.check_availability('spmv'):
+  //     cusparse_handle = device.get_cusparse_handle()
+  //     spmv_op_a = _cusparse.CUSPARSE_OPERATION_NON_TRANSPOSE
+  //     spmv_alpha = numpy.array(1.0, A.dtype)
+  //     spmv_beta = numpy.array(0.0, A.dtype)
+  //     spmv_cuda_dtype = _dtype.to_cuda_dtype(A.dtype)
+  //     spmv_alg = _cusparse.CUSPARSE_MV_ALG_DEFAULT
+
+  // v = cupy.empty((n,), dtype=A.dtype)
+  // uu = cupy.empty((ncv,), dtype=A.dtype)
+  // vv = cupy.empty((n,), dtype=A.dtype)
+  // b = cupy.empty((), dtype=A.dtype)
+  // one = numpy.array(1.0, dtype=A.dtype)
+  // zero = numpy.array(0.0, dtype=A.dtype)
+  // mone = numpy.array(-1.0, dtype=A.dtype)
+
+  raft::device_matrix<value_type_t, uint32_t, raft::row_major> v = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, n);
+  raft::device_matrix<value_type_t, uint32_t, raft::row_major> uu = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, ncv);
+  raft::device_matrix<value_type_t, uint32_t, raft::row_major> vv = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, n);
+
+  // cupy_aux(A, V.view(), u_view, alpha.view(), beta.view());
+  cupy_aux(handle, A, V.view(), u_view, alpha.view(), beta.view(), 0, ncv, ncv, v.view(), uu.view(), vv.view());
+
+  return 0;
+}
+
+
+
+
+
+
+
+
+
+template <typename index_type_t, typename value_type_t>
 int computeSmallestEigenvectors(
   raft::resources const& handle,
   spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
@@ -1195,6 +1445,7 @@ int computeSmallestEigenvectors(
   index_type_t& iter,
   value_type_t* __restrict__ eigVals_dev,
   value_type_t* __restrict__ eigVecs_dev,
+  value_type_t* __restrict__ v0,
   unsigned long long seed = 1234567)
 {
   // Matrix dimension
@@ -1220,25 +1471,26 @@ int computeSmallestEigenvectors(
   // Perform Lanczos method
   index_type_t effIter;
   value_type_t shift;
-  int status = computeSmallestEigenvectors(handle,
-                                           &A,
-                                           nEigVecs,
-                                           maxIter,
-                                           restartIter,
-                                           tol,
-                                           conv_n_iters,
-                                           conv_eps,
-                                           reorthogonalize,
-                                           &effIter,
-                                           &iter,
-                                           &shift,
-                                           alpha_host,
-                                           beta_host,
-                                           lanczosVecs_dev.raw(),
-                                           work_dev.raw(),
-                                           eigVals_dev,
-                                           eigVecs_dev,
-                                           seed);
+  int status = cupy_smallest(handle,
+                            &A,
+                            nEigVecs,
+                            maxIter,
+                            restartIter,
+                            tol,
+                            conv_n_iters,
+                            conv_eps,
+                            reorthogonalize,
+                            &effIter,
+                            &iter,
+                            &shift,
+                            alpha_host,
+                            beta_host,
+                            lanczosVecs_dev.raw(),
+                            work_dev.raw(),
+                            eigVals_dev,
+                            eigVecs_dev,
+                            v0,
+                            seed);
 
   // Clean up and return
   return status;

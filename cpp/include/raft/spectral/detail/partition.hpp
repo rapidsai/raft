@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include "raft/util/cudart_utils.hpp"
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
@@ -32,6 +34,7 @@
 #include <stdio.h>
 
 #include <tuple>
+#include <vector>
 
 namespace raft {
 namespace spectral {
@@ -96,11 +99,37 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
   spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
 
+  // print_device_vector("laplacian dd", L.diagonal_.raw(), L.nrows_, std::cout);
+  // print_device_vector("laplacian rows", L.row_offsets_, L.nnz_, std::cout);
+
+  
+  auto Svals = raft::make_device_vector<weight_t>(handle, 4);
+  auto Scols = raft::make_device_vector<vertex_t>(handle, 4);
+  auto Srows = raft::make_device_vector<vertex_t>(handle, 4);
+  std::vector<weight_t> Svalsvec = {3, 4, 5, 6};
+  std::vector<vertex_t> Scolsvec = {2, 0, 2, 1};
+  std::vector<vertex_t> Srowsvec = {0, 1, 3, 4};
+  raft::copy(Svals.data_handle(), Svalsvec.data(), 4, stream);
+  raft::copy(Scols.data_handle(), Scolsvec.data(), 4, stream);
+  raft::copy(Srows.data_handle(), Srowsvec.data(), 4, stream);
+  spectral::matrix::sparse_matrix_t<vertex_t, weight_t> S(handle, Srows.data_handle(), Scols.data_handle(), Svals.data_handle(), 3, 3, 4);
+  print_device_vector("", S.values_, 4, std::cout);
+  print_device_vector("", S.col_indices_, 4, std::cout);
+  print_device_vector("", S.row_offsets_, 4, std::cout);
+  spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> laplacian(handle, S);
+  print_device_vector("", laplacian.values_, 4, std::cout);
+  print_device_vector("", laplacian.col_indices_, 4, std::cout);
+  print_device_vector("", laplacian.row_offsets_, 4, std::cout);
+  print_device_vector("", laplacian.diagonal_.raw(), 3, std::cout);
+
+
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs     = eigen_config.n_eigVecs;
 
   // Compute smallest eigenvalues and eigenvectors
-  std::get<0>(stats) = eigen_solver.solve_smallest_eigenvectors(handle, L, eigVals, eigVecs);
+  std::get<0>(stats) = eigen_solver.solve_smallest_eigenvectors(handle, csr_m, eigVals, eigVecs);
+
+  std::cout << "iters " << std::get<0>(stats) << std::endl;
 
   std::ofstream out_file("output1.txt"); // Open a file for writing
   
@@ -113,7 +142,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   print_device_vector("eigenvecs", eigVecs, n * nEigVecs, out_file);
 
   // Whiten eigenvector matrix
-  transform_eigen_matrix(handle, n, nEigVecs, eigVecs);
+  // transform_eigen_matrix(handle, n, nEigVecs, eigVecs);
 
   // Find partition clustering
   auto pair_cluster = cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);

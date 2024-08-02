@@ -78,6 +78,7 @@ int computeSmallestEigenvectors(
   index_type_t& iter,
   value_type_t* __restrict__ eigVals_dev,
   value_type_t* __restrict__ eigVecs_dev,
+  value_type_t* __restrict__ v0,
   unsigned long long seed = 1234567)
 {
   return detail::computeSmallestEigenvectors(handle,
@@ -92,6 +93,7 @@ int computeSmallestEigenvectors(
                                              iter,
                                              eigVals_dev,
                                              eigVecs_dev,
+                                             v0,
                                              seed);
 }
 

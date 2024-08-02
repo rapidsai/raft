@@ -55,7 +55,8 @@ struct lanczos_solver_t {
     raft::resources const& handle,
     matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
-    value_type_t* __restrict__ eigVecs) const
+    value_type_t* __restrict__ eigVecs,
+    value_type_t* __restrict__ v0 = nullptr) const
   {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
@@ -72,6 +73,7 @@ struct lanczos_solver_t {
                                                 iters,
                                                 eigVals,
                                                 eigVecs,
+                                                v0,
                                                 config_.seed);
     return iters;
   }
