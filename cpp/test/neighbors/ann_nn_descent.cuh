@@ -320,11 +320,11 @@ const std::vector<AnnNNDescentInputs> inputs = raft::util::itertools::product<An
 
 const std::vector<AnnNNDescentBatchInputs> inputsBatch =
   raft::util::itertools::product<AnnNNDescentBatchInputs>(
-    {3000, 5000},  // n_rows
+    {3000, 7000},  // n_rows
     {137, 512},    // dim
     {32, 64},      // graph_degree
     {raft::distance::DistanceType::L2Expanded},
     {false, true},
-    {std::make_pair(0.9, 2lu), std::make_pair(0.75, 5lu)});  // min_recall, n_clusters
+    {std::make_pair(0.87, 2lu), std::make_pair(0.75, 5lu)});  // min_recall, n_clusters
 
 }  // namespace raft::neighbors::experimental::nn_descent
