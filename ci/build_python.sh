@@ -22,12 +22,6 @@ git_commit=$(git rev-parse HEAD)
 export RAPIDS_PACKAGE_VERSION=${version}
 echo "${version}" > VERSION
 
-package_dir="python"
-for package_name in pylibraft raft-dask; do
-  underscore_package_name=$(echo "${package_name}" | tr "-" "_")
-  sed -i "/^__git_commit__/ s/= .*/= \"${git_commit}\"/g" "${package_dir}/${package_name}/${underscore_package_name}/_version.py"
-done
-
 # TODO: Remove `--no-test` flags once importing on a CPU
 # node works correctly
 rapids-conda-retry mambabuild \

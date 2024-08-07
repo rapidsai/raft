@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include <raft/distance/detail/distance_ops/canberra.cuh>
 #include <raft/distance/detail/distance_ops/correlation.cuh>
 #include <raft/distance/detail/distance_ops/cosine.cuh>
+#include <raft/distance/detail/distance_ops/dice.cuh>
 #include <raft/distance/detail/distance_ops/hamming.cuh>
 #include <raft/distance/detail/distance_ops/hellinger.cuh>
 #include <raft/distance/detail/distance_ops/jensen_shannon.cuh>

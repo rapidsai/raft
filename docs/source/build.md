@@ -56,7 +56,7 @@ You can also install the conda packages individually using the `mamba` command a
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
 ```
 
-If installing the C++ APIs Please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.06/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
+If installing the C++ APIs Please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.08/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
 
 ## Installing Python through Pip
 
@@ -106,7 +106,7 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 
 Conda environment scripts are provided for installing the necessary dependencies to build both the C++ and Python libraries from source. It is preferred to use `mamba`, as it provides significant speedup over `conda`:
 ```bash
-mamba env create --name rapids_raft -f conda/environments/all_cuda-122_arch-x86_64.yaml
+mamba env create --name rapids_raft -f conda/environments/all_cuda-125_arch-x86_64.yaml
 mamba activate rapids_raft
 ```
 
@@ -257,19 +257,20 @@ RAFT's CMake has the following configurable flags available:
 
 | Flag                            | Possible Values      | Default Value | Behavior                                                                     |
 |---------------------------------|----------------------| --- |------------------------------------------------------------------------------|
-| BUILD_TESTS                     | ON, OFF              | ON | Compile Googletests                                                          |
+| BUILD_TESTS                     | ON, OFF              | ON  | Compile Googletests                                                          |
 | BUILD_PRIMS_BENCH               | ON, OFF              | OFF | Compile benchmarks                                                           |
-| BUILD_ANN_BENCH                 | ON, OFF              | OFF | Compile end-to-end ANN benchmarks |
+| BUILD_ANN_BENCH                 | ON, OFF              | OFF | Compile end-to-end ANN benchmarks                                            |
 | CUDA_ENABLE_KERNELINFO          | ON, OFF              | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer`         |
 | CUDA_ENABLE_LINEINFO            | ON, OFF              | OFF | Enable the -lineinfo option for nvcc                                         |
 | CUDA_STATIC_RUNTIME             | ON, OFF              | OFF | Statically link the CUDA runtime                                             |
-| DETECT_CONDA_ENV                | ON, OFF              | ON | Enable detection of conda environment for dependencies                       |
-| raft_FIND_COMPONENTS            | compiled distributed | | Configures the optional components as a space-separated list                 |
+| CUDA_STATIC_MATH_LIBRARIES      | ON, OFF              | OFF | Statically link the CUDA math libraries                                      |
+| DETECT_CONDA_ENV                | ON, OFF              | ON  | Enable detection of conda environment for dependencies                       |
+| raft_FIND_COMPONENTS            | compiled distributed |     | Configures the optional components as a space-separated list                 |
 | RAFT_COMPILE_LIBRARY            | ON, OFF              | ON if either BUILD_TESTS or BUILD_PRIMS_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
-| RAFT_ENABLE_CUBLAS_DEPENDENCY   | ON, OFF | ON | Link against cublas library in `raft::raft`                                  | 
-| RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF | ON | Link against cusolver library in `raft::raft`                                | 
-| RAFT_ENABLE_CUSPARSE_DEPENDENCY | ON, OFF | ON | Link against cusparse library in `raft::raft`                                | 
-| RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF | ON | Link against curand library in `raft::raft`                                  | 
+| RAFT_ENABLE_CUBLAS_DEPENDENCY   | ON, OFF              | ON  | Link against cublas library in `raft::raft`                                  | 
+| RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF              | ON  | Link against cusolver library in `raft::raft`                                | 
+| RAFT_ENABLE_CUSPARSE_DEPENDENCY | ON, OFF              | ON  | Link against cusparse library in `raft::raft`                                | 
+| RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF              | ON  | Link against curand library in `raft::raft`                                  | 
 | RAFT_NVTX                       | ON, OFF              | OFF | Enable NVTX Markers                                                          |
 
 ### Build documentation

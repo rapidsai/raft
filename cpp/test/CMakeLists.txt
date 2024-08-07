@@ -113,6 +113,7 @@ if(BUILD_TESTS)
     NAME
     CORE_TEST
     PATH
+    core/bitmap.cu
     core/bitset.cu
     core/device_resources_manager.cpp
     core/device_setter.cpp
@@ -156,6 +157,7 @@ if(BUILD_TESTS)
     distance/dist_canberra.cu
     distance/dist_correlation.cu
     distance/dist_cos.cu
+    distance/dist_dice.cu
     distance/dist_hamming.cu
     distance/dist_hellinger.cu
     distance/dist_inner_product.cu
@@ -315,6 +317,7 @@ if(BUILD_TESTS)
     sparse/csr_transpose.cu
     sparse/degree.cu
     sparse/filter.cu
+    sparse/masked_matmul.cu
     sparse/norm.cu
     sparse/normalize.cu
     sparse/reduce.cu
@@ -505,6 +508,7 @@ if(BUILD_TESTS)
     util/integer_utils.cpp
     util/integer_utils.cu
     util/memory_type_dispatcher.cu
+    util/popc.cu
     util/pow2_utils.cu
     util/reduction.cu
   )
