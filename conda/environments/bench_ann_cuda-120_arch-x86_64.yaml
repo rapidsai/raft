@@ -27,7 +27,7 @@ dependencies:
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libucxx==0.39.*
+- libucxx==0.39.*,>=0.0.0a0
 - matplotlib
 - nccl>=2.9.9
 - ninja
@@ -36,7 +36,7 @@ dependencies:
 - pandas
 - pyyaml
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
-- rmm==24.8.*
+- rmm==24.8.*,>=0.0.0a0
 - scikit-build-core>=0.7.0
 - sysroot_linux-64==2.17
 name: bench_ann_cuda-120_arch-x86_64
