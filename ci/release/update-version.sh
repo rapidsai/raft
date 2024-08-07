@@ -22,12 +22,11 @@ CURRENT_SHORT_TAG=${CURRENT_MAJOR}.${CURRENT_MINOR}
 NEXT_MAJOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[1]}')
 NEXT_MINOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[2]}')
 NEXT_SHORT_TAG=${NEXT_MAJOR}.${NEXT_MINOR}
-NEXT_UCX_PY_SHORT_TAG="$(curl -sL https://version.gpuci.io/rapids/${NEXT_SHORT_TAG})"
-NEXT_UCX_PY_VERSION="${NEXT_UCX_PY_SHORT_TAG}.*"
+NEXT_UCXX_SHORT_TAG="$(curl -sL https://version.gpuci.io/rapids/${NEXT_SHORT_TAG})"
 
 # Need to distutils-normalize the original version
 NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
-NEXT_UCX_PY_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_UCX_PY_SHORT_TAG}'))")
+NEXT_UCXX_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_UCXX_SHORT_TAG}'))")
 
 echo "Preparing release $CURRENT_TAG => $NEXT_FULL_TAG"
 
@@ -37,8 +36,8 @@ function sed_runner() {
 }
 
 sed_runner "s/set(RAPIDS_VERSION .*)/set(RAPIDS_VERSION \"${NEXT_SHORT_TAG}\")/g" cpp/template/cmake/thirdparty/fetch_rapids.cmake
-sed_runner 's/'"find_and_configure_ucxx(VERSION .*"'/'"find_and_configure_ucxx(VERSION  ${NEXT_UCX_PY_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
-sed_runner 's/'"branch-.*"'/'"branch-${NEXT_UCX_PY_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
+sed_runner 's/'"find_and_configure_ucxx(VERSION .*"'/'"find_and_configure_ucxx(VERSION  ${NEXT_UCXX_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
+sed_runner 's/'"branch-.*"'/'"branch-${NEXT_UCXX_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
 
 # Centralized version file update
 echo "${NEXT_FULL_TAG}" > VERSION
@@ -46,35 +45,33 @@ echo "${NEXT_FULL_TAG}" > VERSION
 DEPENDENCIES=(
   dask-cuda
   pylibraft
-  pylibraft-cu11
-  pylibraft-cu12
   rmm
-  rmm-cu11
-  rmm-cu12
   rapids-dask-dependency
-  # ucx-py and ucxx are handled separately below
+)
+UCXX_DEPENDENCIES=(
+  ucx-py
+  libucxx
+  distributed-ucxx
 )
 for FILE in dependencies.yaml conda/environments/*.yaml; do
   for DEP in "${DEPENDENCIES[@]}"; do
-    sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
+    sed_runner "/-.* ${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0/g" "${FILE}"
   done
-  sed_runner "/-.* ucx-py==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
-  sed_runner "/-.* ucx-py-cu11==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
-  sed_runner "/-.* ucx-py-cu12==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
-  sed_runner "/-.* libucxx==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
-  sed_runner "/-.* distributed-ucxx==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
-  sed_runner "/-.* distributed-ucxx-cu11==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
-  sed_runner "/-.* distributed-ucxx-cu12==/ s/==.*/==${NEXT_UCX_PY_SHORT_TAG_PEP440}\.*,>=0.0.0a0/g" ${FILE};
+  for DEP in "${UCXX_DEPENDENCIES[@]}"; do
+    sed_runner "/-.* ${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*/==${NEXT_UCXX_SHORT_TAG_PEP440}.*/,>=0.0.0a0/g" "${FILE}"
+  done
 done
 for FILE in python/*/pyproject.toml; do
   for DEP in "${DEPENDENCIES[@]}"; do
-    sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\"/g" ${FILE}
+    sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\"/g" "${FILE}"
   done
-  sed_runner "/\"ucx-py==/ s/==.*\"/==${NEXT_UCX_PY_SHORT_TAG_PEP440}.*,>=0.0.0a0\"/g" ${FILE}
+  for DEP in "${UCXX_DEPENDENCIES[@]}"; do
+    sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_UCXX_SHORT_TAG_PEP440}.*,>=0.0.0a0\"/g" "${FILE}"
+  done
 done
 
-sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCX_PY_VERSION}\"/}" conda/recipes/raft-dask/conda_build_config.yaml
-sed_runner "/^ucxx_version:$/ {n;s/.*/  - \"${NEXT_UCX_PY_VERSION}\"/}" conda/recipes/raft-dask/conda_build_config.yaml
+sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCXX_SHORT_TAG_PEP440}.*\"/}" conda/recipes/raft-dask/conda_build_config.yaml
+sed_runner "/^ucxx_version:$/ {n;s/.*/  - \"${NEXT_UCXX_SHORT_TAG_PEP440}.*\"/}" conda/recipes/raft-dask/conda_build_config.yaml
 
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
