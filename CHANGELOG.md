@@ -1,3 +1,53 @@
+# raft 24.08.00 (7 Aug 2024)
+
+## 🚨 Breaking Changes
+
+- [Refactor] move `popc` to under util ([#2394](https://github.com/rapidsai/raft/pull/2394)) [@rhdong](https://github.com/rhdong)
+- [Opt] Expose the `detail::popc` as public API ([#2346](https://github.com/rapidsai/raft/pull/2346)) [@rhdong](https://github.com/rhdong)
+
+## 🐛 Bug Fixes
+
+- Add timeout to UCXX generic operations ([#2398](https://github.com/rapidsai/raft/pull/2398)) [@pentschev](https://github.com/pentschev)
+- [Fix] bitmap set/test issue ([#2371](https://github.com/rapidsai/raft/pull/2371)) [@rhdong](https://github.com/rhdong)
+- Fix 0 recall issue in `raft_cagra_hnswlib` ANN benchmark ([#2369](https://github.com/rapidsai/raft/pull/2369)) [@divyegala](https://github.com/divyegala)
+- Fix `ef` setting in HNSW wrapper ([#2367](https://github.com/rapidsai/raft/pull/2367)) [@divyegala](https://github.com/divyegala)
+- Fix cagra graph opt bug ([#2365](https://github.com/rapidsai/raft/pull/2365)) [@enp1s0](https://github.com/enp1s0)
+- Fix a bug where the wrong API is used to free the memory ([#2361](https://github.com/rapidsai/raft/pull/2361)) [@PointKernel](https://github.com/PointKernel)
+- Allow anonymous user in devcontainer name ([#2355](https://github.com/rapidsai/raft/pull/2355)) [@bdice](https://github.com/bdice)
+- Fix compilation error when _CLK_BREAKDOWN is defined in cagra. ([#2350](https://github.com/rapidsai/raft/pull/2350)) [@jiangyinzuo](https://github.com/jiangyinzuo)
+- ensure raft-dask wheel tests install pylibraft wheel from the same CI run, fix wheel dependencies ([#2349](https://github.com/rapidsai/raft/pull/2349)) [@jameslamb](https://github.com/jameslamb)
+- Change --config-setting to --config-settings ([#2342](https://github.com/rapidsai/raft/pull/2342)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Add workaround for syevd in CUDA 12.0 ([#2332](https://github.com/rapidsai/raft/pull/2332)) [@lowener](https://github.com/lowener)
+
+## 🚀 New Features
+
+- [FEA] add the support of `masked_matmul` ([#2362](https://github.com/rapidsai/raft/pull/2362)) [@rhdong](https://github.com/rhdong)
+- [FEA] Dice Distance for Dense Inputs ([#2359](https://github.com/rapidsai/raft/pull/2359)) [@aamijar](https://github.com/aamijar)
+- [Opt] Expose the `detail::popc` as public API ([#2346](https://github.com/rapidsai/raft/pull/2346)) [@rhdong](https://github.com/rhdong)
+- Enable distance return for NN Descent ([#2345](https://github.com/rapidsai/raft/pull/2345)) [@jinsolp](https://github.com/jinsolp)
+
+## 🛠️ Improvements
+
+- [Refactor] move `popc` to under util ([#2394](https://github.com/rapidsai/raft/pull/2394)) [@rhdong](https://github.com/rhdong)
+- split up CUDA-suffixed dependencies in dependencies.yaml ([#2388](https://github.com/rapidsai/raft/pull/2388)) [@jameslamb](https://github.com/jameslamb)
+- Use workflow branch 24.08 again ([#2385](https://github.com/rapidsai/raft/pull/2385)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Add cusparseSpMV_preprocess to cusparse wrapper ([#2384](https://github.com/rapidsai/raft/pull/2384)) [@Kh4ster](https://github.com/Kh4ster)
+- Consolidate SUM reductions ([#2381](https://github.com/rapidsai/raft/pull/2381)) [@mfoerste4](https://github.com/mfoerste4)
+- Use slicing kernel to copy distances inside NN Descent ([#2380](https://github.com/rapidsai/raft/pull/2380)) [@jinsolp](https://github.com/jinsolp)
+- Build and test with CUDA 12.5.1 ([#2378](https://github.com/rapidsai/raft/pull/2378)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Add CUDA_STATIC_MATH_LIBRARIES ([#2376](https://github.com/rapidsai/raft/pull/2376)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- skip CMake 3.30.0 ([#2375](https://github.com/rapidsai/raft/pull/2375)) [@jameslamb](https://github.com/jameslamb)
+- Use verify-alpha-spec hook ([#2373](https://github.com/rapidsai/raft/pull/2373)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Binarize Dice Distance for Dense Inputs ([#2370](https://github.com/rapidsai/raft/pull/2370)) [@aamijar](https://github.com/aamijar)
+- [FEA] Add distance epilogue for NN Descent ([#2364](https://github.com/rapidsai/raft/pull/2364)) [@jinsolp](https://github.com/jinsolp)
+- resolve dependency-file-generator warning, other rapids-build-backend followup ([#2360](https://github.com/rapidsai/raft/pull/2360)) [@jameslamb](https://github.com/jameslamb)
+- Remove text builds of documentation ([#2354](https://github.com/rapidsai/raft/pull/2354)) [@vyasr](https://github.com/vyasr)
+- Use default init in reduction ([#2351](https://github.com/rapidsai/raft/pull/2351)) [@akifcorduk](https://github.com/akifcorduk)
+- ensure update-version.sh preserves alpha spec, add tests on version constants ([#2344](https://github.com/rapidsai/raft/pull/2344)) [@jameslamb](https://github.com/jameslamb)
+- remove unnecessary &#39;setuptools&#39; dependencies ([#2343](https://github.com/rapidsai/raft/pull/2343)) [@jameslamb](https://github.com/jameslamb)
+- Use rapids-build-backend ([#2331](https://github.com/rapidsai/raft/pull/2331)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Add FAISS with RAFT enabled Benchmarking to raft-ann-bench ([#2026](https://github.com/rapidsai/raft/pull/2026)) [@tarang-jain](https://github.com/tarang-jain)
+
 # raft 24.06.00 (5 Jun 2024)
 
 ## 🚨 Breaking Changes
