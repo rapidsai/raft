@@ -41,6 +41,6 @@ dependencies:
 - pyyaml
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
 - rmm==24.8.*,>=0.0.0a0
-- scikit-build-core>=0.7.0
+- scikit-build-core>=0.10.0
 - sysroot_linux-aarch64==2.17
 name: bench_ann_cuda-118_arch-aarch64
