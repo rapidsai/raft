@@ -81,8 +81,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
       using layout_t = raft::row_major;
       mean(handle,
            raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
-           raft::make_device_vector_view<T, int>(mean_act.data(), cols),
-           false);
+           raft::make_device_vector_view<T, int>(mean_act.data(), cols));
 
       stddev(handle,
              raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
@@ -99,8 +98,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
       using layout_t = raft::col_major;
       mean(handle,
            raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
-           raft::make_device_vector_view<T>(mean_act.data(), cols),
-           false);
+           raft::make_device_vector_view<T>(mean_act.data(), cols));
 
       stddev(handle,
              raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),

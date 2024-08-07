@@ -288,7 +288,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                                                     (IdxT)ps.dim,
                                                                     stream_);
             raft::stats::mean<float, uint32_t>(
-              centroid.data(), cluster_data.data(), ps.dim, list_sizes[l], false, true, stream_);
+              centroid.data(), cluster_data.data(), ps.dim, list_sizes[l], true, stream_);
             ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle() + ps.dim * l,
                                           centroid.data(),
                                           ps.dim,

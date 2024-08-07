@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,17 +38,13 @@ namespace stats {
  * @param data: the input matrix
  * @param D: number of columns of data
  * @param N: number of rows of data
- * @param sample: whether to evaluate sample mean or not. In other words,
- * whether
- *  to normalize the output using N-1 or N, for true or false, respectively
  * @param rowMajor: whether the input data is row or col major
  * @param stream: cuda stream
  */
 template <typename Type, typename IdxType = int>
-void mean(
-  Type* mu, const Type* data, IdxType D, IdxType N, bool sample, bool rowMajor, cudaStream_t stream)
+void mean(Type* mu, const Type* data, IdxType D, IdxType N, bool rowMajor, cudaStream_t stream)
 {
-  detail::mean(mu, data, D, N, sample, rowMajor, stream);
+  detail::mean(mu, data, D, N, rowMajor, stream);
 }
 
 /**
@@ -67,14 +63,11 @@ void mean(
  * @param[in]  handle the raft handle
  * @param[in]  data: the input matrix
  * @param[out] mu: the output mean vector
- * @param[in]  sample: whether to evaluate sample mean or not. In other words, whether
- *   to normalize the output using N-1 or N, for true or false, respectively
  */
 template <typename value_t, typename idx_t, typename layout_t>
 void mean(raft::resources const& handle,
           raft::device_matrix_view<const value_t, idx_t, layout_t> data,
-          raft::device_vector_view<value_t, idx_t> mu,
-          bool sample)
+          raft::device_vector_view<value_t, idx_t> mu)
 {
   static_assert(
     std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
@@ -86,7 +79,6 @@ void mean(raft::resources const& handle,
                data.data_handle(),
                data.extent(1),
                data.extent(0),
-               sample,
                std::is_same_v<layout_t, raft::row_major>,
                resource::get_cuda_stream(handle));
 }
