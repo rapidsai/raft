@@ -43,12 +43,12 @@ struct AnnNNDescentInputs {
 };
 
 struct AnnNNDescentBatchInputs {
+  std::pair<double, size_t> recall_cluster;
   int n_rows;
   int dim;
   int graph_degree;
   raft::distance::DistanceType metric;
   bool host_dataset;
-  std::pair<double, size_t> recall_cluster;
 };
 
 inline ::std::ostream& operator<<(::std::ostream& os, const AnnNNDescentInputs& p)
@@ -123,7 +123,7 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
             auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
               (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
             auto index = nn_descent::build<DataT, IdxT>(
-              handle_, index_params, database_host_view, raft::identity_op(), false);
+              handle_, index_params, database_host_view, DistEpilogue<IdxT, DataT>(), false);
             raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
             if (index.distances().has_value()) {
@@ -135,7 +135,7 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
 
           } else {
             auto index = nn_descent::build<DataT, IdxT>(
-              handle_, index_params, database_view, raft::identity_op(), false);
+              handle_, index_params, database_view, DistEpilogue<IdxT, DataT>(), false);
             raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
             if (index.distances().has_value()) {
@@ -229,7 +229,7 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
         index_params.metric                    = ps.metric;
         index_params.graph_degree              = ps.graph_degree;
         index_params.intermediate_graph_degree = 2 * ps.graph_degree;
-        index_params.max_iterations            = 5;
+        index_params.max_iterations            = 10;
         index_params.return_distances          = true;
         index_params.do_batch                  = true;
         index_params.n_clusters                = ps.recall_cluster.second;
@@ -244,7 +244,7 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
             auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
               (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
             auto index = nn_descent::build<DataT, IdxT>(
-              handle_, index_params, database_host_view, raft::identity_op());
+              handle_, index_params, database_host_view, DistEpilogue<IdxT, DataT>());
             raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
             if (index.distances().has_value()) {
@@ -256,7 +256,7 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
 
           } else {
             auto index = nn_descent::build<DataT, IdxT>(
-              handle_, index_params, database_view, raft::identity_op());
+              handle_, index_params, database_view, DistEpilogue<IdxT, DataT>());
             raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
             if (index.distances().has_value()) {
@@ -320,11 +320,11 @@ const std::vector<AnnNNDescentInputs> inputs = raft::util::itertools::product<An
 
 const std::vector<AnnNNDescentBatchInputs> inputsBatch =
   raft::util::itertools::product<AnnNNDescentBatchInputs>(
-    {3000, 7000},  // n_rows
-    {137, 512},    // dim
-    {32, 64},      // graph_degree
+    {std::make_pair(0.9, 3lu), std::make_pair(0.9, 2lu)},  // min_recall, n_clusters
+    {4000},                                                // n_rows
+    {137, 512},                                            // dim
+    {32, 64},                                              // graph_degree
     {raft::distance::DistanceType::L2Expanded},
-    {false, true},
-    {std::make_pair(0.87, 2lu), std::make_pair(0.75, 5lu)});  // min_recall, n_clusters
+    {false, true});
 
 }  // namespace raft::neighbors::experimental::nn_descent

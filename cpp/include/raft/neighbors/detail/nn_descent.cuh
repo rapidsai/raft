@@ -344,7 +344,9 @@ struct GnndGraph {
   ~GnndGraph();
 };
 
-template <typename Data_t = float, typename Index_t = int, typename epilogue_op = raft::identity_op>
+template <typename Data_t      = float,
+          typename Index_t     = int,
+          typename epilogue_op = DistEpilogue<Index_t, Data_t>>
 class GNND {
  public:
   GNND(raft::resources const& res, const BuildConfig& build_config);
@@ -356,7 +358,7 @@ class GNND {
              Index_t* output_graph,
              bool return_distances,
              DistData_t* output_distances,
-             epilogue_op distance_epilogue = raft::identity_op());
+             epilogue_op distance_epilogue = DistEpilogue<Index_t, Data_t>());
   ~GNND()    = default;
   using ID_t = InternalID_t<Index_t>;
 
@@ -366,7 +368,8 @@ class GNND {
                          Index_t* d_rev_graph_ptr,
                          int2* list_sizes,
                          cudaStream_t stream = 0);
-  void local_join(cudaStream_t stream = 0, epilogue_op distance_epilogue = raft::identity_op());
+  void local_join(cudaStream_t stream           = 0,
+                  epilogue_op distance_epilogue = DistEpilogue<Index_t, Data_t>());
 
   raft::resources const& res;
 
@@ -701,7 +704,7 @@ __device__ __forceinline__ void remove_duplicates(
 // is 1024 and 1536 respectively, which means the bounds don't work anymore
 template <typename Index_t,
           typename ID_t        = InternalID_t<Index_t>,
-          typename epilogue_op = raft::identity_op>
+          typename epilogue_op = DistEpilogue<Index_t, DistData_t>>
 RAFT_KERNEL
 #ifdef __CUDA_ARCH__
 #if (__CUDA_ARCH__) == 750 || ((__CUDA_ARCH__) >= 860 && (__CUDA_ARCH__) <= 890)
@@ -1414,14 +1417,14 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
 
 template <typename T,
           typename IdxT        = uint32_t,
-          typename epilogue_op = raft::identity_op,
+          typename epilogue_op = DistEpilogue<IdxT, T>,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
 void build(raft::resources const& res,
            const index_params& params,
            mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
            index<IdxT>& idx,
-           epilogue_op distance_epilogue = raft::identity_op())
+           epilogue_op distance_epilogue = DistEpilogue<IdxT, T>())
 {
   RAFT_EXPECTS(dataset.extent(0) < std::numeric_limits<int>::max() - 1,
                "The dataset size for GNND should be less than %d",
@@ -1491,13 +1494,13 @@ void build(raft::resources const& res,
 
 template <typename T,
           typename IdxT        = uint32_t,
-          typename epilogue_op = raft::identity_op,
+          typename epilogue_op = DistEpilogue<IdxT, T>,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
 index<IdxT> build(raft::resources const& res,
                   const index_params& params,
                   mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
-                  epilogue_op distance_epilogue = raft::identity_op())
+                  epilogue_op distance_epilogue = DistEpilogue<IdxT, T>())
 {
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;

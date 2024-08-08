@@ -180,6 +180,14 @@ struct index : ann::index {
   bool return_distances_;
 };
 
+template <typename value_idx, typename value_t = float>
+struct DistEpilogue : raft::identity_op {
+  __host__ void preprocess_for_batch(value_idx* cluster_indices, size_t num_data_in_cluster)
+  {
+    return;
+  }
+};
+
 /** @} */
 
 }  // namespace raft::neighbors::experimental::nn_descent

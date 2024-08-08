@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/util/cudart_utils.hpp>
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #include "../nn_descent_types.hpp"
@@ -225,6 +226,22 @@ void get_inverted_indices(raft::resources const& res,
   }
 }
 
+template <typename KeyType, typename ValueType>
+struct KeyValuePair {
+  KeyType key;
+  ValueType value;
+};
+
+template <typename KeyType, typename ValueType>
+struct CustomKeyComparator {
+  __device__ bool operator()(const KeyValuePair<KeyType, ValueType>& a,
+                             const KeyValuePair<KeyType, ValueType>& b) const
+  {
+    if (a.key == b.key) { return a.value < b.value; }
+    return a.key < b.key;
+  }
+};
+
 template <typename IdxT, int BLOCK_SIZE, int ITEMS_PER_THREAD>
 RAFT_KERNEL merge_subgraphs(IdxT* cluster_data_indices,
                             size_t graph_degree,
@@ -235,9 +252,10 @@ RAFT_KERNEL merge_subgraphs(IdxT* cluster_data_indices,
                             IdxT* batch_indices)
 {
   auto batch_row = blockIdx.x;
-  typedef cub::BlockRadixSort<float, BLOCK_SIZE, ITEMS_PER_THREAD, IdxT> BlockRadixSortType;
-  __shared__
-    typename cub::BlockRadixSort<float, BLOCK_SIZE, ITEMS_PER_THREAD, IdxT>::TempStorage tmpSmem;
+  typedef cub::BlockMergeSort<KeyValuePair<float, IdxT>, BLOCK_SIZE, ITEMS_PER_THREAD>
+    BlockMergeSortType;
+  __shared__ typename cub::BlockMergeSort<KeyValuePair<float, IdxT>, BLOCK_SIZE, ITEMS_PER_THREAD>::
+    TempStorage tmpSmem;
 
   extern __shared__ float sharedMem[];
   float* blockKeys    = (float*)sharedMem;
@@ -248,8 +266,7 @@ RAFT_KERNEL merge_subgraphs(IdxT* cluster_data_indices,
     // load batch or global depending on threadIdx
     auto global_row = batch_row;
 
-    float threadKeys[ITEMS_PER_THREAD];
-    IdxT threadValues[ITEMS_PER_THREAD];
+    KeyValuePair<float, IdxT> threadKeyValuePair[ITEMS_PER_THREAD];
 
     int halfway   = BLOCK_SIZE / 2;
     int do_global = threadIdx.x < halfway;
@@ -271,44 +288,36 @@ RAFT_KERNEL merge_subgraphs(IdxT* cluster_data_indices,
     for (int i = 0; i < ITEMS_PER_THREAD; i++) {
       int colId = idxBase + i;
       if (colId < graph_degree) {
-        threadKeys[i]   = distances[arrIdxBase + colId];
-        threadValues[i] = indices[arrIdxBase + colId];
+        threadKeyValuePair[i].key   = distances[arrIdxBase + colId];
+        threadKeyValuePair[i].value = indices[arrIdxBase + colId];
       } else {
-        threadKeys[i]   = std::numeric_limits<float>::max();
-        threadValues[i] = std::numeric_limits<IdxT>::max();
+        threadKeyValuePair[i].key   = std::numeric_limits<float>::max();
+        threadKeyValuePair[i].value = std::numeric_limits<IdxT>::max();
       }
     }
 
     __syncthreads();
 
-    BlockRadixSortType(tmpSmem).Sort(threadKeys, threadValues);
+    BlockMergeSortType(tmpSmem).Sort(threadKeyValuePair, CustomKeyComparator<float, IdxT>{});
 
     // load sorted result into shared memory to get unique values
     idxBase = threadIdx.x * ITEMS_PER_THREAD;
     for (int i = 0; i < ITEMS_PER_THREAD; i++) {
       int colId = idxBase + i;
       if (colId < 2 * graph_degree) {
-        blockKeys[colId]   = threadKeys[i];
-        blockValues[colId] = threadValues[i];
+        blockKeys[colId]   = threadKeyValuePair[i].key;
+        blockValues[colId] = threadKeyValuePair[i].value;
       }
     }
 
     __syncthreads();
 
     // get unique mask
-    if (threadIdx.x == 0) {
-      uniqueMask[0] = 1;
-      uniqueMask[1] = static_cast<int16_t>(blockValues[1] != blockValues[0]);
-    }
+    if (threadIdx.x == 0) { uniqueMask[0] = 1; }
     for (int i = 0; i < ITEMS_PER_THREAD; i++) {
       int colId = idxBase + i;
-      if (colId > 1 && colId < 2 * graph_degree) {
-        if (blockKeys[colId] != blockKeys[colId - 1]) {
-          uniqueMask[colId] = static_cast<int16_t>(1);
-        } else {  // distances are same
-          uniqueMask[colId] = static_cast<int16_t>(blockValues[colId] != blockValues[colId - 1] &&
-                                                   blockValues[colId] != blockValues[colId - 2]);
-        }
+      if (colId > 0 && colId < 2 * graph_degree) {
+        uniqueMask[colId] = static_cast<int16_t>(blockValues[colId] != blockValues[colId - 1]);
       }
     }
 
@@ -347,7 +356,7 @@ RAFT_KERNEL merge_subgraphs(IdxT* cluster_data_indices,
 //
 template <typename T,
           typename IdxT        = uint32_t,
-          typename epilogue_op = raft::identity_op,
+          typename epilogue_op = DistEpilogue<IdxT, T>,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
 void build_and_merge(raft::resources const& res,
@@ -379,9 +388,6 @@ void build_and_merge(raft::resources const& res,
     }
   }
 
-  // auto batch_indices_d =
-  //   raft::make_device_matrix<IdxT, IdxT>(res, num_data_in_cluster, graph_degree);
-
   raft::copy(batch_indices_d,
              batch_indices_h,
              num_data_in_cluster * graph_degree,
@@ -398,10 +404,9 @@ void build_and_merge(raft::resources const& res,
     INST_MERGE_SUBGRAPH(128, 8);
   else if (num_elems <= 2048)
     INST_MERGE_SUBGRAPH(256, 8);
-  else if (num_elems <= 4096) {
-    INST_MERGE_SUBGRAPH(512, 8);
-  } else {
-    RAFT_FAIL("The degree of knn is too large (%lu). It must be smaller than 2048", graph_degree);
+  else {
+    // this is as far as we can get due to the shared mem usage of cub::BlockMergeSort
+    RAFT_FAIL("The degree of knn is too large (%lu). It must be smaller than 1024", graph_degree);
   }
 }
 
@@ -428,7 +433,7 @@ RAFT_KERNEL scatter_dev_to_host(float* dist_out,
 // For each cluster, gather the data samples that belong to that cluster, and
 // call build_and_merge
 //
-template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = DistEpilogue<IdxT, T>>
 void cluster_nnd(raft::resources const& res,
                  const index_params& params,
                  size_t graph_degree,
@@ -459,6 +464,7 @@ void cluster_nnd(raft::resources const& res,
   for (size_t cluster_id = 0; cluster_id < params.n_clusters; cluster_id++) {
     RAFT_LOG_DEBUG(
       "# Data on host. Running clusters: %lu / %lu", cluster_id + 1, params.n_clusters);
+    printf("# Data on host. Running clusters: %lu / %lu\n", cluster_id + 1, params.n_clusters);
     size_t num_data_in_cluster = cluster_size[cluster_id];
     size_t offset              = offsets[cluster_id];
 
@@ -473,6 +479,8 @@ void cluster_nnd(raft::resources const& res,
 
     auto cluster_data_indices_view = raft::make_device_vector_view<const IdxT, IdxT>(
       cluster_data_indices + offset, num_data_in_cluster);
+
+    distance_epilogue.preprocess_for_batch(cluster_data_indices + offset, num_data_in_cluster);
 
     // gather global indices / distances from host to cluster size batch
     auto global_indices_matrix_view = raft::make_device_matrix_view<IdxT, IdxT>(
@@ -531,7 +539,7 @@ void cluster_nnd(raft::resources const& res,
   }
 }
 
-template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = DistEpilogue<IdxT, T>>
 void cluster_nnd(raft::resources const& res,
                  const index_params& params,
                  size_t graph_degree,
@@ -562,6 +570,7 @@ void cluster_nnd(raft::resources const& res,
   for (size_t cluster_id = 0; cluster_id < params.n_clusters; cluster_id++) {
     RAFT_LOG_DEBUG(
       "# Data on device. Running clusters: %lu / %lu", cluster_id + 1, params.n_clusters);
+    printf("# Data on device. Running clusters: %lu / %lu\n", cluster_id + 1, params.n_clusters);
     size_t num_data_in_cluster = cluster_size[cluster_id];
     size_t offset              = offsets[cluster_id];
 
@@ -569,6 +578,8 @@ void cluster_nnd(raft::resources const& res,
       cluster_data_matrix.data_handle(), num_data_in_cluster, num_cols);
     auto cluster_data_indices_view = raft::make_device_vector_view<const IdxT, IdxT>(
       cluster_data_indices + offset, num_data_in_cluster);
+
+    distance_epilogue.preprocess_for_batch(cluster_data_indices + offset, num_data_in_cluster);
 
     auto dataset_IdxT =
       raft::make_device_matrix_view<const T, IdxT>(dataset.data_handle(), num_rows, num_cols);
@@ -633,13 +644,13 @@ void cluster_nnd(raft::resources const& res,
 
 template <typename T,
           typename IdxT        = uint32_t,
-          typename epilogue_op = raft::identity_op,
+          typename epilogue_op = DistEpilogue<IdxT, T>,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<float>, memory_type::host>>
 index<IdxT> batch_build(raft::resources const& res,
                         const index_params& params,
                         mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
-                        epilogue_op distance_epilogue = raft::identity_op())
+                        epilogue_op distance_epilogue = DistEpilogue<IdxT, T>())
 {
   size_t graph_degree        = params.graph_degree;
   size_t intermediate_degree = params.intermediate_graph_degree;
