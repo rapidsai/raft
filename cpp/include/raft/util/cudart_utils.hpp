@@ -189,7 +189,11 @@ void print_host_vector(const char* variable_name,
   out << variable_name << "=[";
   for (size_t i = 0; i < componentsCount; ++i) {
     if (i != 0) out << ",";
-    out << host_mem[i];
+    if constexpr (std::is_same_v<T, half>) {
+      out << __half2float(host_mem[i]);
+    } else {
+      out << host_mem[i];
+    }
   }
   out << "];" << std::endl;
 }

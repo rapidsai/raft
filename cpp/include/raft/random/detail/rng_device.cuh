@@ -22,6 +22,8 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda_fp16.h>
+
 #include <curand_kernel.h>
 
 #include <random>
@@ -504,6 +506,12 @@ struct PhiloxGenerator {
     return ret;
   }
 
+  DI half next_half()
+  {
+    float ret = next_float();
+    return __float2half(ret);
+  }
+
   DI void next(float& ret)
   {
     // ret = curand_uniform(&(this->philox_state));
@@ -514,6 +522,12 @@ struct PhiloxGenerator {
   {
     // ret = curand_uniform_double(&(this->philox_state));
     ret = next_double();
+  }
+
+  DI void next(half& ret)
+  {
+    // ret = curand_uniform_double(&(this->philox_state));
+    ret = next_half();
   }
 
   DI void next(uint32_t& ret) { ret = next_u32(); }
@@ -636,6 +650,12 @@ struct PCGenerator {
     return ret;
   }
 
+  HDI half next_half()
+  {
+    float ret = next_float();
+    return __float2half(ret);
+  }
+
   HDI void next(uint32_t& ret) { ret = next_u32(); }
   HDI void next(uint64_t& ret) { ret = next_u64(); }
   HDI void next(int32_t& ret) { ret = next_i32(); }
@@ -643,6 +663,7 @@ struct PCGenerator {
 
   HDI void next(float& ret) { ret = next_float(); }
   HDI void next(double& ret) { ret = next_double(); }
+  HDI void next(half& ret) { ret = next_half(); }
 
   /** @} */
 

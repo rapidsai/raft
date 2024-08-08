@@ -29,11 +29,12 @@ namespace linalg {
  * followed by an element-wise multiplication with the sparsity pattern of C.
  * It computes the following equation: C = alpha · (opA(A) * opB(B) ∘ spy(C)) + beta · C
  * where A,B are device matrix views and C is a CSR device matrix view
- * @tparam ValueType Data type of input/output matrices (float/double)
+ * @tparam ValueType Data type of input/output matrices (float/double/half)
  * @tparam IndexType Type of C
  * @tparam NZType Type of C
  * @tparam LayoutPolicyA layout of A
  * @tparam LayoutPolicyB layout of B
+ * @tparam OutputType output type, equal to ValueType by default
  * @param[in] handle raft handle
  * @param[in] A input raft::device_matrix_view
  * @param[in] B input raft::device_matrix_view
@@ -47,21 +48,23 @@ template <typename ValueType,
           typename IndexType,
           typename NZType,
           typename LayoutPolicyA,
-          typename LayoutPolicyB>
+          typename LayoutPolicyB,
+          typename OutputType>
 void sddmm(raft::resources const& handle,
            raft::device_matrix_view<const ValueType, IndexType, LayoutPolicyA> A,
            raft::device_matrix_view<const ValueType, IndexType, LayoutPolicyB> B,
-           raft::device_csr_matrix_view<ValueType, IndexType, IndexType, NZType> C,
+           raft::device_csr_matrix_view<OutputType, IndexType, IndexType, NZType> C,
            const raft::linalg::Operation opA,
            const raft::linalg::Operation opB,
-           raft::host_scalar_view<ValueType> alpha,
-           raft::host_scalar_view<ValueType> beta)
+           raft::host_scalar_view<OutputType> alpha,
+           raft::host_scalar_view<OutputType> beta)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(A), "A is not contiguous");
   RAFT_EXPECTS(raft::is_row_or_column_major(B), "B is not contiguous");
 
-  static_assert(std::is_same_v<ValueType, float> || std::is_same_v<ValueType, double>,
-                "The `ValueType` of sddmm only supports float/double.");
+  static_assert(std::is_same_v<ValueType, half> || std::is_same_v<ValueType, float> ||
+                  std::is_same_v<ValueType, double>,
+                "The `ValueType` of sddmm only supports float/double/half.");
 
   auto descrA = detail::create_descriptor(A);
   auto descrB = detail::create_descriptor(B);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <cuda_fp16.h>
 
 // This file provides a few essential functions for use in __device__ code. The
 // scope is necessarily limited to ensure that compilation times are minimized.
@@ -112,6 +114,21 @@ HDI void swapVals(T& a, T& b)
   T tmp = a;
   a     = b;
   b     = tmp;
+}
+
+/**
+ * @brief Convert half to float
+ * @tparam T the datatype of the value
+ * @param a need to convert
+ */
+template <typename T>
+HDI auto to_float(T& a)
+{
+  if constexpr (std::is_same_v<typename std::remove_const<T>::type, half>) {
+    return __half2float(a);
+  } else {
+    return a;
+  }
 }
 
 }  // namespace raft

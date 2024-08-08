@@ -41,7 +41,10 @@ namespace raft::linalg {
  * @brief the wrapper of cublas gemm function
  *  It computes the following equation: C = alpha .* opA(A) * opB(B) + beta .* C
  *
- * @tparam math_t the element type
+ * @tparam A_t the element type of A
+ * @tparam B_t the element type of B
+ * @tparam C_t the element type of C
+ * @tparam S_t the element type of alpha and beta
  * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
  * @param [in] handle raft handle
  * @param [in] trans_a cublas transpose op for A
@@ -59,20 +62,20 @@ namespace raft::linalg {
  * @param [in] ldc leading dimension of C
  * @param [in] stream
  */
-template <typename math_t, bool DevicePointerMode = false>
+template <typename A_t, typename B_t, typename C_t, typename S_t, bool DevicePointerMode = false>
 void gemm(raft::resources const& handle,
           const bool trans_a,
           const bool trans_b,
           const int m,
           const int n,
           const int k,
-          const math_t* alpha,
-          const math_t* A,
+          const S_t* alpha,
+          const A_t* A,
           const int lda,
-          const math_t* B,
+          const B_t* B,
           const int ldb,
-          const math_t* beta,
-          math_t* C,
+          const S_t* beta,
+          C_t* C,
           const int ldc,
           cudaStream_t stream)
 {
@@ -83,7 +86,10 @@ void gemm(raft::resources const& handle,
 /**
  * @brief the wrapper of cublas gemm function
  *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
- * @tparam math_t the type of input/output matrices
+ * @tparam A_t the element type of A
+ * @tparam B_t the element type of B
+ * @tparam C_t the element type of C
+ * @tparam S_t the element type of alpha and beta
  * @param handle raft handle
  * @param a input matrix
  * @param n_rows_a number of rows of A
@@ -98,19 +104,19 @@ void gemm(raft::resources const& handle,
  * @param beta scalar
  * @param stream cuda stream
  */
-template <typename math_t>
+template <typename A_t, typename B_t, typename C_t, typename S_t>
 void gemm(raft::resources const& handle,
-          const math_t* a,
+          const A_t* a,
           int n_rows_a,
           int n_cols_a,
-          const math_t* b,
-          math_t* c,
+          const B_t* b,
+          C_t* c,
           int n_rows_c,
           int n_cols_c,
           cublasOperation_t trans_a,
           cublasOperation_t trans_b,
-          math_t alpha,
-          math_t beta,
+          S_t alpha,
+          S_t beta,
           cudaStream_t stream)
 {
   detail::legacy_gemm(
@@ -120,7 +126,9 @@ void gemm(raft::resources const& handle,
 /**
  * @brief the wrapper of cublas gemm function
  *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
- * @tparam math_t the type of input/output matrices
+ * @tparam A_t the element type of A
+ * @tparam B_t the element type of B
+ * @tparam C_t the element type of C
  * @param handle raft handle
  * @param a input matrix
  * @param n_rows_a number of rows of A
@@ -133,13 +141,13 @@ void gemm(raft::resources const& handle,
  * @param trans_b cublas transpose op for B
  * @param stream cuda stream
  */
-template <typename math_t>
+template <typename A_t, typename B_t, typename C_t>
 void gemm(raft::resources const& handle,
-          const math_t* a,
+          const A_t* a,
           int n_rows_a,
           int n_cols_a,
-          const math_t* b,
-          math_t* c,
+          const B_t* b,
+          C_t* c,
           int n_rows_c,
           int n_cols_c,
           cublasOperation_t trans_a,
@@ -154,7 +162,10 @@ void gemm(raft::resources const& handle,
  * @brief A wrapper for CUBLS GEMM function designed for handling all possible
  * combinations of operand layouts.
  * It computes the following equation: Z = alpha . X * Y + beta . Z
- * @tparam T Data type of input/output matrices (float/double)
+ * @tparam z_T the element type of z
+ * @tparam x_T the element type of x
+ * @tparam y_T the element type of y
+ * @tparam s_T the element type of alpha and beta, equal to z_T by default
  * @param handle raft handle
  * @param z output matrix of size M rows x N columns
  * @param x input matrix of size M rows x K columns
@@ -169,11 +180,11 @@ void gemm(raft::resources const& handle,
  * @param alpha scalar
  * @param beta scalar
  */
-template <typename T>
+template <typename z_T, typename x_T, typename y_T, typename s_T = z_T>
 void gemm(raft::resources const& handle,
-          T* z,
-          T* x,
-          T* y,
+          z_T* z,
+          x_T* x,
+          y_T* y,
           int _M,
           int _N,
           int _K,
@@ -181,10 +192,10 @@ void gemm(raft::resources const& handle,
           bool isXColMajor,
           bool isYColMajor,
           cudaStream_t stream,
-          T alpha = T(1.0),
-          T beta  = T(0.0))
+          s_T alpha = s_T(1.0),
+          s_T beta  = s_T(0.0))
 {
-  return detail::legacy_gemm<T, false>(
+  return detail::legacy_gemm<x_T, y_T, z_T, s_T, false>(
     handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor, isYColMajor, stream, &alpha, &beta);
 }
 

@@ -32,6 +32,7 @@
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #ifdef __CUDACC__
+#include <raft/linalg/transpose.cuh>
 #include <raft/util/cuda_dev_essentials.cuh>
 #endif
 #endif
@@ -449,38 +450,51 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
 #endif
   } else if constexpr (config::can_use_cublas) {
 #ifndef RAFT_DISABLE_CUDA
-    auto constexpr const alpha = typename std::remove_reference_t<DstType>::value_type{1};
-    auto constexpr const beta  = typename std::remove_reference_t<DstType>::value_type{0};
-    if constexpr (std::is_same_v<typename config::dst_layout_type, layout_c_contiguous>) {
-      CUBLAS_TRY(linalg::detail::cublasgeam(resource::get_cublas_handle(res),
-                                            CUBLAS_OP_T,
-                                            CUBLAS_OP_N,
-                                            dst.extent(1),
-                                            dst.extent(0),
-                                            &alpha,
-                                            src.data_handle(),
-                                            src.extent(0),
-                                            &beta,
-                                            dst.data_handle(),
-                                            dst.extent(1),
-                                            dst.data_handle(),
-                                            dst.extent(1),
-                                            resource::get_cuda_stream(res)));
+    if constexpr (!((std::is_same_v<typename std::remove_reference_t<DstType>::value_type, half>)&&(
+                    std::is_same_v<typename std::remove_reference_t<SrcType>::value_type, half>))) {
+      auto constexpr const alpha = typename std::remove_reference_t<DstType>::value_type{1};
+      auto constexpr const beta  = typename std::remove_reference_t<DstType>::value_type{0};
+      if constexpr (std::is_same_v<typename config::dst_layout_type, layout_c_contiguous>) {
+        CUBLAS_TRY(linalg::detail::cublasgeam(resource::get_cublas_handle(res),
+                                              CUBLAS_OP_T,
+                                              CUBLAS_OP_N,
+                                              dst.extent(1),
+                                              dst.extent(0),
+                                              &alpha,
+                                              src.data_handle(),
+                                              src.extent(0),
+                                              &beta,
+                                              dst.data_handle(),
+                                              dst.extent(1),
+                                              dst.data_handle(),
+                                              dst.extent(1),
+                                              resource::get_cuda_stream(res)));
+      } else {
+        CUBLAS_TRY(linalg::detail::cublasgeam(resource::get_cublas_handle(res),
+                                              CUBLAS_OP_T,
+                                              CUBLAS_OP_N,
+                                              dst.extent(0),
+                                              dst.extent(1),
+                                              &alpha,
+                                              src.data_handle(),
+                                              src.extent(1),
+                                              &beta,
+                                              dst.data_handle(),
+                                              dst.extent(0),
+                                              dst.data_handle(),
+                                              dst.extent(0),
+                                              resource::get_cuda_stream(res)));
+      }
     } else {
-      CUBLAS_TRY(linalg::detail::cublasgeam(resource::get_cublas_handle(res),
-                                            CUBLAS_OP_T,
-                                            CUBLAS_OP_N,
-                                            dst.extent(0),
-                                            dst.extent(1),
-                                            &alpha,
-                                            src.data_handle(),
-                                            src.extent(1),
-                                            &beta,
-                                            dst.data_handle(),
-                                            dst.extent(0),
-                                            dst.data_handle(),
-                                            dst.extent(0),
-                                            resource::get_cuda_stream(res)));
+#ifdef __CUDACC__
+      raft::linalg::transpose(res, dst, src);
+#else
+      // Should never actually reach this because of enable_ifs. Included for
+      // safety.
+      RAFT_FAIL(
+        "raft::copy called in a way that requires custom kernel. Please use "
+        "raft/core/copy.cuh and include the header in a .cu file");
+#endif
     }
 #else
     // Not possible to reach this due to enable_ifs. Included for safety.

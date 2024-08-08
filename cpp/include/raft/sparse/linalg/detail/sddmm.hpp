@@ -35,11 +35,7 @@ namespace detail {
  * It computes the following equation: C = alpha · (op_a(A) * op_b(B) ∘ spy(C)) + beta · C
  * where A,B are device matrix views and C is a CSR device matrix view
  *
- * @tparam ValueType Data type of input/output matrices (float/double)
- * @tparam IndexType Type of C
- * @tparam LayoutPolicyA layout of A
- * @tparam LayoutPolicyB layout of B
- * @tparam NZType Type of C
+ * @tparam OutputType Data type of input/output matrices (float/double)
  *
  * @param[in] handle raft resource handle
  * @param[in] descr_a input dense descriptor
@@ -50,15 +46,15 @@ namespace detail {
  * @param[in] alpha scalar pointer
  * @param[in] beta scalar pointer
  */
-template <typename ValueType>
+template <typename OutputType>
 void sddmm(raft::resources const& handle,
            cusparseDnMatDescr_t& descr_a,
            cusparseDnMatDescr_t& descr_b,
            cusparseSpMatDescr_t& descr_c,
            cusparseOperation_t op_a,
            cusparseOperation_t op_b,
-           const ValueType* alpha,
-           const ValueType* beta)
+           const OutputType* alpha,
+           const OutputType* beta)
 {
   auto alg = CUSPARSE_SDDMM_ALG_DEFAULT;
   size_t bufferSize;
@@ -78,7 +74,7 @@ void sddmm(raft::resources const& handle,
 
   resource::sync_stream(handle);
 
-  rmm::device_uvector<ValueType> tmp(bufferSize, resource::get_cuda_stream(handle));
+  rmm::device_uvector<uint8_t> tmp(bufferSize, resource::get_cuda_stream(handle));
 
   RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsesddmm(resource::get_cusparse_handle(handle),
                                                         op_a,
@@ -89,7 +85,7 @@ void sddmm(raft::resources const& handle,
                                                         beta,
                                                         descr_c,
                                                         alg,
-                                                        tmp.data(),
+                                                        reinterpret_cast<void*>(tmp.data()),
                                                         resource::get_cuda_stream(handle)));
 }
 

@@ -25,6 +25,8 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda_fp16.h>
+
 #include <gtest/gtest.h>
 
 namespace raft {
@@ -84,6 +86,8 @@ const std::vector<TranposeInputs<float>> inputsf2 = {{0.1f, 3 * 3, 3, 3, 1234ULL
 
 const std::vector<TranposeInputs<double>> inputsd2 = {{0.1, 3 * 3, 3, 3, 1234ULL}};
 
+const std::vector<TranposeInputs<half>> inputsh2 = {{0.1, 3 * 3, 3, 3, 1234ULL}};
+
 typedef TransposeTest<float> TransposeTestValF;
 TEST_P(TransposeTestValF, Result)
 {
@@ -112,9 +116,48 @@ TEST_P(TransposeTestValD, Result)
                                 raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
+bool validate_half(const half* h_ref, const half* h_result, half tolerance, int len)
+{
+  bool success = true;
+  for (int i = 0; i < len; ++i) {
+    if (raft::abs(__half2float(h_result[i]) - __half2float(h_ref[i])) >= __half2float(tolerance)) {
+      success = false;
+      break;
+    }
+    if (!success) break;
+  }
+  return success;
+}
+
+typedef TransposeTest<half> TransposeTestValH;
+TEST_P(TransposeTestValH, Result)
+{
+  half data_trans_ref_h[params.len];
+  half data_trans_h[params.len];
+  half data_h[params.len];
+
+  RAFT_CUDA_TRY(cudaMemcpyAsync(data_trans_ref_h,
+                                data_trans_ref.data(),
+                                params.len * sizeof(half),
+                                cudaMemcpyDeviceToHost,
+                                stream));
+
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    data_trans_h, data_trans.data(), params.len * sizeof(half), cudaMemcpyDeviceToHost, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    data_h, data.data(), params.len * sizeof(half), cudaMemcpyDeviceToHost, stream));
+
+  resource::sync_stream(handle, stream);
+
+  ASSERT_TRUE(validate_half(data_trans_ref_h, data_trans_h, params.tolerance, params.len));
+  ASSERT_TRUE(validate_half(data_trans_ref_h, data_h, params.tolerance, params.len));
+}
+
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF, ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValD, ::testing::ValuesIn(inputsd2));
+
+INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValH, ::testing::ValuesIn(inputsh2));
 
 namespace {
 /**

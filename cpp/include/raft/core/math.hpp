@@ -106,7 +106,13 @@ template <typename T>
 RAFT_INLINE_FUNCTION auto asin(T x)
 {
 #ifdef __CUDA_ARCH__
-  return ::asin(x);
+  if constexpr (std::is_same<T, __half>::value) {
+    float x_float      = __half2float(x);
+    float result_float = ::asin(x_float);
+    return __float2half(result_float);
+  } else {
+    return ::asin(x);
+  }
 #else
   return std::asin(x);
 #endif
@@ -337,6 +343,12 @@ RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y)
                 ((std::is_same_v<T1, float> || std::is_same_v<T1, double>)&&(
                   std::is_same_v<T2, float> || std::is_same_v<T2, double>))) {
     return ::max(x, y);
+  } else if constexpr (std::is_same_v<T1, float> && std::is_same_v<T2, __half>) {
+    const float f_y = __half2float(y);
+    return (x < f_y) ? f_y : x;
+  } else if constexpr (std::is_same_v<T1, __half> && std::is_same_v<T2, float>) {
+    const float f_x = __half2float(x);
+    return (f_x < y) ? y : f_x;
   }
   // Else, check that the types are the same and provide a generic implementation
   else {
