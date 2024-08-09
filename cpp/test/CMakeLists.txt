@@ -96,17 +96,8 @@ endfunction()
 
 if(BUILD_TESTS)
   ConfigureTest(
-    NAME
-    CLUSTER_TEST
-    PATH
-    cluster/kmeans.cu
-    cluster/kmeans_balanced.cu
-    cluster/kmeans_find_k.cu
-    cluster/cluster_solvers.cu
-    cluster/linkage.cu
-    cluster/spectral.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
+    NAME CLUSTER_TEST PATH cluster/kmeans.cu cluster/kmeans_balanced.cu cluster/kmeans_find_k.cu
+    cluster/cluster_solvers.cu cluster/linkage.cu cluster/spectral.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -144,8 +135,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME CORE_TEST PATH core/stream_view.cpp core/mdspan_copy.cpp LIB
-    EXPLICIT_INSTANTIATE_ONLY NOCUDA
+    NAME CORE_TEST PATH core/stream_view.cpp core/mdspan_copy.cpp LIB EXPLICIT_INSTANTIATE_ONLY
+    NOCUDA
   )
 
   ConfigureTest(
@@ -301,8 +292,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SOLVERS_TEST PATH cluster/cluster_solvers_deprecated.cu linalg/eigen_solvers.cu
-    lap/lap.cu sparse/mst.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME SOLVERS_TEST PATH cluster/cluster_solvers_deprecated.cu linalg/eigen_solvers.cu lap/lap.cu
+    sparse/mst.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -331,19 +322,13 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SPARSE_DIST_TEST PATH sparse/dist_coo_spmv.cu sparse/distance.cu
-    sparse/gram.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME SPARSE_DIST_TEST PATH sparse/dist_coo_spmv.cu sparse/distance.cu sparse/gram.cu LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
-    NAME
-    SPARSE_NEIGHBORS_TEST
-    PATH
-    sparse/neighbors/cross_component_nn.cu
-    sparse/neighbors/brute_force.cu
-    sparse/neighbors/knn_graph.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
+    NAME SPARSE_NEIGHBORS_TEST PATH sparse/neighbors/cross_component_nn.cu
+    sparse/neighbors/brute_force.cu sparse/neighbors/knn_graph.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -455,6 +440,7 @@ if(BUILD_TESTS)
     neighbors/ann_nn_descent/test_float_uint32_t.cu
     neighbors/ann_nn_descent/test_int8_t_uint32_t.cu
     neighbors/ann_nn_descent/test_uint8_t_uint32_t.cu
+    neighbors/ann_nn_descent/test_batch_float_uint32_t.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
     GPUS

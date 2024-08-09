@@ -56,6 +56,8 @@ struct index_params : ann::index_params {
   size_t max_iterations            = 20;      // Number of nn-descent iterations.
   float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
   bool return_distances            = false;   // return distances if true
+  size_t n_clusters                = 2;       // number of clusters if using batching
+  bool do_batch                    = false;
 };
 
 /**
@@ -176,6 +178,14 @@ struct index : ann::index {
     graph_view_;  // view of graph for user provided matrix
   std::optional<raft::device_matrix_view<float, int64_t, row_major>> distances_view_;
   bool return_distances_;
+};
+
+template <typename value_idx, typename value_t = float>
+struct DistEpilogue : raft::identity_op {
+  __host__ void preprocess_for_batch(value_idx* cluster_indices, size_t num_data_in_cluster)
+  {
+    return;
+  }
 };
 
 /** @} */
