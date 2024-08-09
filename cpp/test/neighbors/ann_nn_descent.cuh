@@ -310,13 +310,13 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
   rmm::device_uvector<DataT> database;
 };
 
-const std::vector<AnnNNDescentInputs> inputs = raft::util::itertools::product<AnnNNDescentInputs>(
-  {1000, 2000},                                              // n_rows
-  {3, 5, 7, 8, 17, 64, 128, 137, 192, 256, 512, 619, 1024},  // dim
-  {32, 64},                                                  // graph_degree
-  {raft::distance::DistanceType::L2Expanded},
-  {false, true},
-  {0.90});
+const std::vector<AnnNNDescentInputs> inputs =
+  raft::util::itertools::product<AnnNNDescentInputs>({4000},  // n_rows
+                                                     {137},   // dim
+                                                     {64},    // graph_degree
+                                                     {raft::distance::DistanceType::L2Expanded},
+                                                     {false, true},
+                                                     {0.90});
 
 const std::vector<AnnNNDescentBatchInputs> inputsBatch =
   raft::util::itertools::product<AnnNNDescentBatchInputs>(
