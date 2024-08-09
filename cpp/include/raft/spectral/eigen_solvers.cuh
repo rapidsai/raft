@@ -39,6 +39,8 @@ struct eigen_solver_config_t {
     1234567};  // CAVEAT: this default value is now common to all instances of using seed in
                // Lanczos; was not the case before: there were places where a default seed = 123456
                // was used; this may trigger slightly different # solver iterations
+  int conv_n_iters = 5;
+  float conv_eps = 0.001;
 };
 
 template <typename index_type_t, typename value_type_t, typename size_type_t = index_type_t>
@@ -53,7 +55,8 @@ struct lanczos_solver_t {
     raft::resources const& handle,
     matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
     value_type_t* __restrict__ eigVals,
-    value_type_t* __restrict__ eigVecs) const
+    value_type_t* __restrict__ eigVecs,
+    value_type_t* __restrict__ v0 = nullptr) const
   {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
@@ -64,10 +67,13 @@ struct lanczos_solver_t {
                                                 config_.maxIter,
                                                 config_.restartIter,
                                                 config_.tol,
+                                                config_.conv_n_iters,
+                                                config_.conv_eps,
                                                 config_.reorthogonalize,
                                                 iters,
                                                 eigVals,
                                                 eigVecs,
+                                                v0,
                                                 config_.seed);
     return iters;
   }

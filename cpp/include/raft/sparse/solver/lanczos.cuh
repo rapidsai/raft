@@ -72,10 +72,13 @@ int computeSmallestEigenvectors(
   index_type_t maxIter,
   index_type_t restartIter,
   value_type_t tol,
+  int conv_n_iters,
+  float conv_eps,
   bool reorthogonalize,
   index_type_t& iter,
   value_type_t* __restrict__ eigVals_dev,
   value_type_t* __restrict__ eigVecs_dev,
+  value_type_t* __restrict__ v0,
   unsigned long long seed = 1234567)
 {
   return detail::computeSmallestEigenvectors(handle,
@@ -84,10 +87,13 @@ int computeSmallestEigenvectors(
                                              maxIter,
                                              restartIter,
                                              tol,
+                                             conv_n_iters,
+                                             conv_eps,
                                              reorthogonalize,
                                              iter,
                                              eigVals_dev,
                                              eigVecs_dev,
+                                             v0,
                                              seed);
 }
 
