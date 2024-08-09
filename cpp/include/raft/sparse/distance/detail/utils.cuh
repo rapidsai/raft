@@ -84,6 +84,7 @@ RAFT_KERNEL faster_dot_on_csr_kernel(dot_t* __restrict__ dot,
           l_dot_ += s_A[k] * __ldcg(B_col + k);
         }
       }
+      __syncthreads();
       l_dot_ += __shfl_down_sync(0xffffffff, l_dot_, 16);
       l_dot_ += __shfl_down_sync(0xffff, l_dot_, 8);
       l_dot_ += __shfl_down_sync(0xff, l_dot_, 4);
