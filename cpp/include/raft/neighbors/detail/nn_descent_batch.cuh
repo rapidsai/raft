@@ -1,5 +1,3 @@
-
-
 /*
  * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
@@ -25,6 +23,7 @@
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/managed_mdarray.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -640,13 +639,17 @@ index<IdxT> batch_build(raft::resources const& res,
 
   GNND<const T, int, epilogue_op> nnd(res, build_config);
 
-  thrust::host_vector<IdxT, pinned_memory_allocator<IdxT>> global_indices_h(num_rows *
-                                                                            graph_degree);
-  thrust::fill(global_indices_h.begin(), global_indices_h.end(), std::numeric_limits<IdxT>::max());
-  thrust::host_vector<float, pinned_memory_allocator<float>> global_distances_h(num_rows *
-                                                                                graph_degree);
-  thrust::fill(
-    global_distances_h.begin(), global_distances_h.end(), std::numeric_limits<float>::max());
+  auto global_indices_h   = raft::make_managed_matrix<IdxT, int64_t>(res, num_rows, graph_degree);
+  auto global_distances_h = raft::make_managed_matrix<float, int64_t>(res, num_rows, graph_degree);
+
+  thrust::fill(thrust::host,
+               global_indices_h.data_handle(),
+               global_indices_h.data_handle() + num_rows * graph_degree,
+               std::numeric_limits<IdxT>::max());
+  thrust::fill(thrust::host,
+               global_distances_h.data_handle(),
+               global_distances_h.data_handle() + num_rows * graph_degree,
+               std::numeric_limits<float>::max());
 
   auto batch_indices_h =
     raft::make_host_matrix<IdxT, int64_t, row_major>(max_cluster_size, graph_degree);
@@ -672,8 +675,8 @@ index<IdxT> batch_build(raft::resources const& res,
                        cluster_data_indices.data_handle(),
                        int_graph.data_handle(),
                        inverted_indices.data_handle(),
-                       thrust::raw_pointer_cast(global_indices_h.data()),
-                       thrust::raw_pointer_cast(global_distances_h.data()),
+                       global_indices_h.data_handle(),
+                       global_distances_h.data_handle(),
                        batch_indices_h.data_handle(),
                        batch_indices_d.data_handle(),
                        batch_distances_d.data_handle(),
@@ -684,12 +687,12 @@ index<IdxT> batch_build(raft::resources const& res,
     res, dataset.extent(0), static_cast<int64_t>(graph_degree), params.return_distances};
 
   raft::copy(global_idx.graph().data_handle(),
-             thrust::raw_pointer_cast(global_indices_h.data()),
+             global_indices_h.data_handle(),
              num_rows * graph_degree,
              raft::resource::get_cuda_stream(res));
   if (params.return_distances && global_idx.distances().has_value()) {
     raft::copy(global_idx.distances().value().data_handle(),
-               thrust::raw_pointer_cast(global_distances_h.data()),
+               global_distances_h.data_handle(),
                num_rows * graph_degree,
                raft::resource::get_cuda_stream(res));
   }
