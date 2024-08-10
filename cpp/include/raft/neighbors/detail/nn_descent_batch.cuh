@@ -412,25 +412,6 @@ void build_and_merge(raft::resources const& res,
   raft::resource::sync_stream(res);
 }
 
-template <typename IdxT>
-RAFT_KERNEL scatter_dev_to_host(float* dist_out,
-                                float* dist_in,
-                                IdxT* idx_out,
-                                IdxT* idx_in,
-                                size_t in_rows,
-                                IdxT* cluster_indices,
-                                size_t graph_degree)
-{
-  IdxT batch_row = blockIdx.x * blockDim.x + threadIdx.x;
-  if (batch_row < in_rows) {
-    IdxT global_row = cluster_indices[batch_row];
-    for (size_t i = 0; i < graph_degree; i++) {
-      dist_out[global_row * graph_degree + i] = dist_in[batch_row * graph_degree + i];
-      idx_out[global_row * graph_degree + i]  = idx_in[batch_row * graph_degree + i];
-    }
-  }
-}
-
 //
 // For each cluster, gather the data samples that belong to that cluster, and
 // call build_and_merge
