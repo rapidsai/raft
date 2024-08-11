@@ -613,6 +613,10 @@ index<IdxT> batch_build(raft::resources const& res,
       intermediate_degree);
     graph_degree = intermediate_degree;
   }
+  raft::print_host_vector(
+    "cluster sizes", cluster_size.data_handle(), params.n_clusters, std::cout);
+  raft::print_host_vector("offsets", offset.data_handle(), params.n_clusters, std::cout);
+  printf("max cluster size: %lu, min cluster size: %lu\n", max_cluster_size, min_cluster_size);
 
   size_t extended_graph_degree =
     align32::roundUp(static_cast<size_t>(graph_degree * (graph_degree <= 32 ? 1.0 : 1.3)));
