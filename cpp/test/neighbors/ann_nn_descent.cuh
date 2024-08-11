@@ -269,7 +269,19 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
         }
         resource::sync_stream(handle_);
       }
-
+      printf("graph degree %d, dim %d, n clusters %lu, host data %d\n",
+             ps.graph_degree,
+             ps.dim,
+             ps.recall_cluster.second,
+             static_cast<int>((ps.host_dataset)));
+      raft::print_host_vector(
+        "indices nnd", indices_NNDescent.data(), 2 * ps.graph_degree, std::cout);
+      raft::print_host_vector(
+        "indices naive", indices_naive.data(), 2 * ps.graph_degree, std::cout);
+      raft::print_host_vector(
+        "distacnes nnd", distances_NNDescent.data(), 2 * ps.graph_degree, std::cout);
+      raft::print_host_vector(
+        "distacnes naive", distances_naive.data(), 2 * ps.graph_degree, std::cout);
       double min_recall = ps.recall_cluster.first;
       EXPECT_TRUE(eval_neighbours(indices_naive,
                                   indices_NNDescent,
