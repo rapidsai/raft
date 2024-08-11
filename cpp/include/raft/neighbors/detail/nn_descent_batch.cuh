@@ -397,6 +397,13 @@ void build_and_merge(raft::resources const& res,
   size_t num_elems     = graph_degree * 2;
   size_t sharedMemSize = num_elems * (sizeof(float) + sizeof(IdxT) + sizeof(int16_t));
 
+  raft::print_device_vector("batch indices before", batch_indices_d, 2 * graph_degree, std::cout);
+  raft::print_device_vector(
+    "batch distances before", batch_distances_d, 2 * graph_degree, std::cout);
+  raft::print_device_vector("global indices before", global_indices_d, 2 * graph_degree, std::cout);
+  raft::print_device_vector(
+    "global distances before", global_distances_d, 2 * graph_degree, std::cout);
+
   if (num_elems <= 128)
     INST_MERGE_SUBGRAPH(32, 4);
   else if (num_elems <= 512)
@@ -410,6 +417,10 @@ void build_and_merge(raft::resources const& res,
     RAFT_FAIL("The degree of knn is too large (%lu). It must be smaller than 1024", graph_degree);
   }
   raft::resource::sync_stream(res);
+
+  raft::print_device_vector("global indices after", global_indices_d, 2 * graph_degree, std::cout);
+  raft::print_device_vector(
+    "global distances after", global_distances_d, 2 * graph_degree, std::cout);
 }
 
 //
@@ -516,7 +527,8 @@ void cluster_nnd(raft::resources const& res,
       cluster_data_matrix.data_handle(), num_data_in_cluster, num_cols);
     auto cluster_data_indices_view = raft::make_device_vector_view<const IdxT, IdxT>(
       cluster_data_indices + offset, num_data_in_cluster);
-
+    raft::print_device_vector(
+      "cluster data indices", cluster_data_indices_view.data_handle(), 10, std::cout);
     distance_epilogue.preprocess_for_batch(cluster_data_indices + offset, num_data_in_cluster);
 
     auto dataset_IdxT =
