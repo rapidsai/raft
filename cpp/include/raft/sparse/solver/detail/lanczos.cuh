@@ -2122,8 +2122,25 @@ int cupy_smallest(
                                     stream);
     
     
+    //  V[k] = u / cublas.nrm2(u)
     raft::device_matrix_view<value_type_t> V_0_view = raft::make_device_matrix_view<value_type_t>(&((V.view())(nEigVecs, 0)), 1, n); // Row V[k]
-    raft::linalg::row_normalize(handle, raft::make_const_mdspan(u.view()), V_0_view, raft::linalg::L2Norm);
+    // auto cublas_h = resource::get_cublas_handle(handle);
+    value_type_t unrm = 0;
+    raft::linalg::detail::cublasnrm2(cublas_h, n, u.data_handle(), 1, &unrm, stream);
+    // std::cout << "v0nrm " << v0nrm << std::endl;
+
+    raft::device_scalar<value_type_t> unrm_scalar = raft::make_device_scalar(handle, unrm);
+
+    raft::device_vector_view<const value_type_t> u_vector_const = raft::make_device_vector_view<const value_type_t>(u.data_handle(), n);
+    // raft::device_vector_view<value_type_t> u_vector = raft::make_device_vector_view<value_type_t>(u.data_handle(), n);
+
+    raft::linalg::unary_op(handle, u_vector_const, V_0_view, [device_scalar = unrm_scalar.data_handle()] __device__(auto y) {
+                              return y / *device_scalar;
+                            });
+
+    
+    // raft::device_matrix_view<value_type_t> V_0_view = raft::make_device_matrix_view<value_type_t>(&((V.view())(nEigVecs, 0)), 1, n); // Row V[k]
+    // raft::linalg::row_normalize(handle, raft::make_const_mdspan(u.view()), V_0_view, raft::linalg::L2Norm);
     // print_device_vector("V[k]", V_0_view.data_handle(), n, std::cout);
 
     // u[...] = a @ V[k]
