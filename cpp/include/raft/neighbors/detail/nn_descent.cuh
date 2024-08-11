@@ -1387,6 +1387,11 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
                                            static_cast<int64_t>(build_config_.output_graph_degree)};
     raft::matrix::slice<DistData_t, int64_t, raft::row_major>(
       res, raft::make_const_mdspan(graph_d_dists.view()), output_dist_view, coords);
+    raft::resource::sync_stream(res);
+    raft::print_device_vector("output dist view in return distances",
+                              output_distances,
+                              2 * build_config_.output_graph_degree,
+                              std::cout);
   }
 
   Index_t* graph_shrink_buffer = (Index_t*)graph_.h_dists.data_handle();

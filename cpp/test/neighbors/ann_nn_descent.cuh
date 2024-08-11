@@ -236,6 +236,8 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
+        raft::print_device_vector(
+          "database in test", database_view.data_handle(), 2 * ps.dim, std::cout);
 
         {
           if (ps.host_dataset) {
