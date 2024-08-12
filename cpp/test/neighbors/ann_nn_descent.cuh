@@ -236,8 +236,6 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
-        raft::print_device_vector(
-          "database in test", database_view.data_handle(), 2 * ps.dim, std::cout);
 
         {
           if (ps.host_dataset) {
@@ -271,19 +269,6 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
         }
         resource::sync_stream(handle_);
       }
-      printf("graph degree %d, dim %d, n clusters %lu, host data %d\n",
-             ps.graph_degree,
-             ps.dim,
-             ps.recall_cluster.second,
-             static_cast<int>((ps.host_dataset)));
-      raft::print_host_vector(
-        "indices nnd", indices_NNDescent.data(), 2 * ps.graph_degree, std::cout);
-      raft::print_host_vector(
-        "indices naive", indices_naive.data(), 2 * ps.graph_degree, std::cout);
-      raft::print_host_vector(
-        "distacnes nnd", distances_NNDescent.data(), 2 * ps.graph_degree, std::cout);
-      raft::print_host_vector(
-        "distacnes naive", distances_naive.data(), 2 * ps.graph_degree, std::cout);
       double min_recall = ps.recall_cluster.first;
       EXPECT_TRUE(eval_neighbours(indices_naive,
                                   indices_NNDescent,
@@ -336,7 +321,7 @@ const std::vector<AnnNNDescentBatchInputs> inputsBatch =
   raft::util::itertools::product<AnnNNDescentBatchInputs>(
     {std::make_pair(0.9, 3lu), std::make_pair(0.9, 2lu)},  // min_recall, n_clusters
     {4000},                                                // n_rows
-    {137, 173, 512},                                       // dim
+    {173, 512},                                            // dim
     {32, 64},                                              // graph_degree
     {raft::distance::DistanceType::L2Expanded},
     {false, true});

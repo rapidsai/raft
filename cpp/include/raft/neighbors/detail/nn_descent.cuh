@@ -1295,7 +1295,6 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   };
 
   for (size_t it = 0; it < build_config_.max_iterations; it++) {
-    printf("# GNND iteraton: %lu / %lu\n", it, build_config_.max_iterations);
     raft::copy(d_list_sizes_new_.data_handle(),
                thrust::raw_pointer_cast(graph_.h_list_sizes_new.data()),
                nrow_,
@@ -1347,10 +1346,7 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
 
     update_and_sample_thread.join();
 
-    if (update_counter_ == -1) {
-      printf("update counter is -1, breaking out\n");
-      break;
-    }
+    if (update_counter_ == -1) { break; }
     raft::copy(thrust::raw_pointer_cast(graph_host_buffer_.data()),
                graph_buffer_.data_handle(),
                nrow_ * DEGREE_ON_DEVICE,
@@ -1375,10 +1371,6 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   static_assert(sizeof(decltype(*(graph_.h_dists.data_handle()))) >= sizeof(Index_t));
 
   if (return_distances) {
-    raft::print_host_vector("output dist view in return distances",
-                            graph_.h_dists.data_handle(),
-                            2 * build_config_.node_degree,
-                            std::cout);
     auto graph_d_dists = raft::make_device_matrix<DistData_t, int64_t, raft::row_major>(
       res, nrow_, build_config_.node_degree);
     raft::copy(graph_d_dists.data_handle(),
@@ -1396,10 +1388,6 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
     raft::matrix::slice<DistData_t, int64_t, raft::row_major>(
       res, raft::make_const_mdspan(graph_d_dists.view()), output_dist_view, coords);
     raft::resource::sync_stream(res);
-    raft::print_device_vector("output dist view in return distances",
-                              output_distances,
-                              2 * build_config_.output_graph_degree,
-                              std::cout);
   }
 
   Index_t* graph_shrink_buffer = (Index_t*)graph_.h_dists.data_handle();
