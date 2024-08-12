@@ -327,6 +327,7 @@ if(BUILD_TESTS)
     sparse/spgemmi.cu
     sparse/spmm.cu
     sparse/symmetrize.cu
+    sparse/lanczos.cu
   )
 
   ConfigureTest(
