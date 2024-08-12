@@ -2341,11 +2341,11 @@ int cupy_smallest(
 
     // ncv*n x ncv*nEigVecs
 
-    auto ritz_eigenvectors = raft::make_device_matrix_view<value_type_t>(eigVecs_dev, n, nEigVecs);
+    auto ritz_eigenvectors = raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(eigVecs_dev, n, nEigVecs);
 
 
     auto V_T = raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(V.data_handle(), n, ncv);
-    raft::linalg::gemm<value_type_t, uint32_t, raft::col_major, raft::col_major, raft::row_major>(handle, V_T, eigenvectors_k, ritz_eigenvectors);
+    raft::linalg::gemm<value_type_t, uint32_t, raft::col_major, raft::col_major, raft::col_major>(handle, V_T, eigenvectors_k, ritz_eigenvectors);
 
     // print_device_vector("ritz_eigenvectors", ritz_eigenvectors.data_handle(), n*nEigVecs, std::cout);
 
@@ -2393,6 +2393,7 @@ int cupy_smallest(
 
   // print_device_vector("eigenvalues", eigenvalues_k.data_handle(), nEigVecs, std::cout);  
   raft::copy(eigVals_dev, eigenvalues_k.data_handle(), nEigVecs, stream);
+  raft::copy(eigVecs_dev, ritz_eigenvectors.data_handle(), n*nEigVecs, stream);
 
   return 0;
 }
