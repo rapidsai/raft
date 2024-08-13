@@ -361,6 +361,7 @@ class GNND {
              epilogue_op distance_epilogue = DistEpilogue<Index_t, Data_t>());
   ~GNND()    = default;
   using ID_t = InternalID_t<Index_t>;
+  void reset();
 
  private:
   void add_reverse_edges(Index_t* graph_ptr,
@@ -1199,6 +1200,20 @@ GNND<Data_t, Index_t, epilogue_op>::GNND(raft::resources const& res,
 };
 
 template <typename Data_t, typename Index_t, typename epilogue_op>
+void GNND<Data_t, Index_t, epilogue_op>::reset()
+{
+  thrust::fill(thrust::device,
+               dists_buffer_.data_handle(),
+               dists_buffer_.data_handle() + dists_buffer_.size(),
+               std::numeric_limits<float>::max());
+  thrust::fill(thrust::device,
+               reinterpret_cast<Index_t*>(graph_buffer_.data_handle()),
+               reinterpret_cast<Index_t*>(graph_buffer_.data_handle()) + graph_buffer_.size(),
+               std::numeric_limits<Index_t>::max());
+  thrust::fill(thrust::device, d_locks_.data_handle(), d_locks_.data_handle() + d_locks_.size(), 0);
+}
+
+template <typename Data_t, typename Index_t, typename epilogue_op>
 void GNND<Data_t, Index_t, epilogue_op>::add_reverse_edges(Index_t* graph_ptr,
                                                            Index_t* h_rev_graph_ptr,
                                                            Index_t* d_rev_graph_ptr,
@@ -1249,6 +1264,7 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(res);
   nrow_               = nrow;
+  graph_.nrow         = nrow;
   graph_.h_graph      = (InternalID_t<Index_t>*)output_graph;
 
   cudaPointerAttributes data_ptr_attr;

@@ -475,6 +475,7 @@ void cluster_nnd(raft::resources const& res,
                              batch_distances_d,
                              nnd,
                              distance_epilogue);
+    nnd.reset();
   }
 }
 
@@ -536,6 +537,7 @@ void cluster_nnd(raft::resources const& res,
                              batch_distances_d,
                              nnd,
                              distance_epilogue);
+    nnd.reset();
   }
 }
 
