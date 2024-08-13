@@ -84,14 +84,12 @@ RAFT_KERNEL faster_dot_on_csr_kernel(dot_t* __restrict__ dot,
           l_dot_ += s_A[k] * __ldcg(B_col + k);
         }
       }
-      __syncthreads();
-      l_dot_ += __shfl_down_sync(0xffffffff, l_dot_, 16);
-      l_dot_ += __shfl_down_sync(0xffff, l_dot_, 8);
-      l_dot_ += __shfl_down_sync(0xff, l_dot_, 4);
-      l_dot_ += __shfl_down_sync(0xf, l_dot_, 2);
-      l_dot_ += __shfl_down_sync(0x3, l_dot_, 1);
 
-      if (lane_id == 0) { atomicAdd_block(dot + dot_id, l_dot_); }
+      typedef cub::WarpReduce<dot_t> WarpReduce;
+      __shared__ typename WarpReduce::TempStorage temp_storage;
+      dot_t warp_sum = WarpReduce(temp_storage).Sum(l_dot_);
+
+      if (lane_id == 0) { atomicAdd_block(dot + dot_id, warp_sum); }
     }
   }
 }
