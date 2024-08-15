@@ -20,8 +20,14 @@
 #include "raft/core/mdspan.hpp"
 #include "raft/core/mdspan_types.hpp"
 #include "raft/core/resources.hpp"
+#include "raft/matrix/init.cuh"
 #include "raft/random/rmat_rectangular_generator.cuh"
 #include "raft/random/rng.cuh"
+#include "raft/sparse/convert/csr.cuh"
+#include "raft/sparse/coo.hpp"
+#include "raft/sparse/linalg/symmetrize.cuh"
+#include "raft/sparse/op/reduce.cuh"
+#include "raft/sparse/op/sort.cuh"
 #include "raft/spectral/matrix_wrappers.hpp"
 #include "test_utils.h"
 
@@ -166,6 +172,28 @@ TEST_P(LanczosTestD, Result)
 }
 
 
+template <typename index_type, typename value_type>
+void save_vectors(const std::string& filename, const std::vector<index_type>& rows, const std::vector<index_type>& cols, const std::vector<value_type>& vals) {
+    std::ofstream out(filename, std::ios::binary);
+
+    // Save the size of each vector
+    size_t size_rows = rows.size();
+    size_t size_cols = cols.size();
+    size_t size_vals = vals.size();
+
+    out.write(reinterpret_cast<const char*>(&size_rows), sizeof(size_rows));
+    out.write(reinterpret_cast<const char*>(&size_cols), sizeof(size_cols));
+    out.write(reinterpret_cast<const char*>(&size_vals), sizeof(size_vals));
+
+    // Save the vectors
+    out.write(reinterpret_cast<const char*>(rows.data()), size_rows * sizeof(index_type));
+    out.write(reinterpret_cast<const char*>(cols.data()), size_cols * sizeof(index_type));
+    out.write(reinterpret_cast<const char*>(vals.data()), size_vals * sizeof(value_type));
+
+    out.close();
+}
+
+
 using DummyLanczosTest = dummy_lanczos_tests<int, float>;
 TEST_P(DummyLanczosTest, Result)
 {
@@ -175,15 +203,16 @@ TEST_P(DummyLanczosTest, Result)
 
   using index_type = int;
   using value_type = float;
-  int n_edges = 100;
-  int r_scale = 5;
-  int c_scale = 5;
+  int r_scale = 12;
+  int c_scale = 12;
+  float sparsity = 0.4;
+  int n_edges = sparsity * ((1<<r_scale) * (1<<c_scale));
   int n_nodes = 1 << std::max(r_scale, c_scale);
   int theta_len = std::max(r_scale, c_scale) * 4;
 
   raft::device_vector<value_type, uint32_t, raft::row_major> theta = raft::make_device_vector<value_type, uint32_t, raft::row_major>(handle, theta_len);
   raft::random::uniform<value_type>(handle, rng, theta.view(), 0, 1);
-  print_device_vector("theta", theta.data_handle(), theta_len, std::cout);
+  // print_device_vector("theta", theta.data_handle(), theta_len, std::cout);
   
   raft::device_matrix<index_type, uint32_t, raft::row_major> out = raft::make_device_matrix<index_type, uint32_t, raft::row_major>(handle, n_edges*2, 2);
 
@@ -192,10 +221,42 @@ TEST_P(DummyLanczosTest, Result)
 
   raft::random::rmat_rectangular_gen<index_type, value_type>(handle, rng, make_const_mdspan(theta.view()), out.view(), out_src.view(), out_dst.view(), r_scale, c_scale);
 
-  print_device_vector("out", out.data_handle(), n_edges*2, std::cout);
-  print_device_vector("out_src", out_src.data_handle(), n_edges, std::cout);
-  print_device_vector("out_dst", out_dst.data_handle(), n_edges, std::cout);
+  // print_device_vector("out", out.data_handle(), n_edges*2, std::cout);
+  // print_device_vector("out_src", out_src.data_handle(), n_edges, std::cout);
+  // print_device_vector("out_dst", out_dst.data_handle(), n_edges, std::cout);
+
+  raft::device_vector<value_type, uint32_t, raft::row_major> out_data = raft::make_device_vector<value_type, uint32_t, raft::row_major>(handle, n_edges);
+  raft::matrix::fill(handle, out_data.view(), 1.0F);
+  raft::sparse::COO<value_type, index_type> coo(stream);
+
+  raft::sparse::op::coo_sort(n_nodes, n_nodes, n_edges, out_src.data_handle(), out_dst.data_handle(), out_data.data_handle(), stream);
+  raft::sparse::op::max_duplicates<index_type, value_type>(handle, coo, out_src.data_handle(), out_dst.data_handle(), out_data.data_handle(), n_edges, n_nodes, n_nodes);
+
+  // print_device_vector("coo_rows", coo.rows(), coo.nnz, std::cout);
+  // print_device_vector("coo_cols", coo.cols(), coo.nnz, std::cout);
+  // print_device_vector("coo_vals", coo.vals(), coo.nnz, std::cout);
+
+  raft::device_vector<index_type, uint32_t, raft::row_major> row_indices = raft::make_device_vector<index_type, uint32_t, raft::row_major>(handle, coo.n_rows + 1);
+  raft::sparse::convert::sorted_coo_to_csr(coo.rows(), coo.nnz, row_indices.data_handle(), coo.n_rows + 1, stream);
+
+  // print_device_vector("csr_row_indices", row_indices.data_handle(), coo.n_rows + 1, std::cout);
+
   
+  raft::sparse::COO<value_type, index_type> symmetric_coo(stream);
+  raft::sparse::linalg::symmetrize(handle, coo.rows(), coo.cols(), coo.vals(), coo.n_rows, coo.n_cols, coo.nnz, symmetric_coo);
+
+  // print_device_vector("sym_coo_rows", symmetric_coo.rows(), symmetric_coo.nnz, std::cout);
+  // print_device_vector("sym_coo_cols", symmetric_coo.cols(), symmetric_coo.nnz, std::cout);
+  // print_device_vector("sym_coo_vals", symmetric_coo.vals(), symmetric_coo.nnz, std::cout);
+
+  std::vector<index_type> rowsH(symmetric_coo.nnz);
+  std::vector<index_type> colsH(symmetric_coo.nnz);
+  std::vector<value_type> valsH(symmetric_coo.nnz);
+  raft::copy(rowsH.data(), symmetric_coo.rows(), symmetric_coo.nnz, stream);
+  raft::copy(colsH.data(), symmetric_coo.cols(), symmetric_coo.nnz, stream);
+  raft::copy(valsH.data(), symmetric_coo.vals(), symmetric_coo.nnz, stream);
+
+  save_vectors("sparse.bin", rowsH, colsH, valsH);
 }
 
 
