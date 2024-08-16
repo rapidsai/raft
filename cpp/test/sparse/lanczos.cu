@@ -64,8 +64,103 @@ struct lanczos_inputs {
 };
 
 template <typename index_type, typename value_type>
+struct rmat_lanczos_inputs {
+  int n_components;
+  int restartiter;
+  int maxiter;
+  int conv_n_iters;
+  float conv_eps;
+  float tol;
+  uint64_t seed;
+  int r_scale;
+  int c_scale;
+  float sparsity;
+  std::vector<value_type> expected_eigenvalues;
+};
+
+
+template <typename index_type, typename value_type>
 class dummy_lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<index_type, value_type>> {
-  
+
+};
+
+template <typename index_type, typename value_type>
+class rmat_lanczos_tests : public ::testing::TestWithParam<rmat_lanczos_inputs<index_type, value_type>> {
+ public:
+  rmat_lanczos_tests():
+    params(::testing::TestWithParam<rmat_lanczos_inputs<index_type, value_type>>::GetParam()), 
+    stream(resource::get_cuda_stream(handle)),
+    rng(params.seed),
+    expected_eigenvalues(raft::make_device_vector<value_type, uint32_t, raft::col_major>(handle, params.n_components)),
+    r_scale(params.r_scale),
+    c_scale(params.c_scale),
+    sparsity(params.sparsity)
+    {
+
+    }
+ protected:
+  void SetUp() override {
+    raft::copy(expected_eigenvalues.data_handle(), params.expected_eigenvalues.data(), params.n_components, stream);
+  }
+
+  void TearDown() override {}
+
+  void Run() {
+    uint64_t n_edges = sparsity * ((long long)(1<<r_scale) * (long long)(1<<c_scale));
+    uint64_t n_nodes = 1 << std::max(r_scale, c_scale);
+    uint64_t theta_len = std::max(r_scale, c_scale) * 4;
+
+    raft::device_vector<value_type, uint32_t, raft::row_major> theta = raft::make_device_vector<value_type, uint32_t, raft::row_major>(handle, theta_len);
+    raft::random::uniform<value_type>(handle, rng, theta.view(), 0, 1);
+    
+    raft::device_matrix<index_type, uint32_t, raft::row_major> out = raft::make_device_matrix<index_type, uint32_t, raft::row_major>(handle, n_edges*2, 2);
+    raft::device_vector<index_type, uint32_t, raft::row_major> out_src = raft::make_device_vector<index_type, uint32_t, raft::row_major>(handle, n_edges);
+    raft::device_vector<index_type, uint32_t, raft::row_major> out_dst = raft::make_device_vector<index_type, uint32_t, raft::row_major>(handle, n_edges);
+
+    raft::random::rmat_rectangular_gen<index_type, value_type>(handle, rng, make_const_mdspan(theta.view()), out.view(), out_src.view(), out_dst.view(), r_scale, c_scale);
+
+    raft::device_vector<value_type, uint32_t, raft::row_major> out_data = raft::make_device_vector<value_type, uint32_t, raft::row_major>(handle, n_edges);
+    raft::matrix::fill<value_type>(handle, out_data.view(), 1.0);
+    raft::sparse::COO<value_type, index_type> coo(stream);
+
+    raft::sparse::op::coo_sort(n_nodes, n_nodes, n_edges, out_src.data_handle(), out_dst.data_handle(), out_data.data_handle(), stream);
+    raft::sparse::op::max_duplicates<index_type, value_type>(handle, coo, out_src.data_handle(), out_dst.data_handle(), out_data.data_handle(), n_edges, n_nodes, n_nodes);
+
+
+    raft::sparse::COO<value_type, index_type> symmetric_coo(stream);
+    raft::sparse::linalg::symmetrize(handle, coo.rows(), coo.cols(), coo.vals(), coo.n_rows, coo.n_cols, coo.nnz, symmetric_coo);
+
+    raft::device_vector<index_type, uint32_t, raft::row_major> row_indices = raft::make_device_vector<index_type, uint32_t, raft::row_major>(handle, symmetric_coo.n_rows + 1);
+    raft::sparse::convert::sorted_coo_to_csr(symmetric_coo.rows(), symmetric_coo.nnz, row_indices.data_handle(), symmetric_coo.n_rows + 1, stream);
+
+    int n_components = params.n_components;
+
+    raft::device_vector<value_type, uint32_t, raft::row_major> v0 = raft::make_device_vector<value_type, uint32_t, raft::row_major>(handle, symmetric_coo.n_rows);
+
+    raft::random::uniform<value_type>(handle, rng, v0.view(), 0, 1);
+    raft::spectral::matrix::sparse_matrix_t<index_type, value_type> const csr_m{handle, row_indices.data_handle(), symmetric_coo.cols(), symmetric_coo.vals(), symmetric_coo.n_rows, symmetric_coo.nnz};
+    raft::spectral::eigen_solver_config_t<index_type, value_type> cfg{n_components, params.maxiter, params.restartiter, params.tol, false, rng.seed};
+    std::tuple<index_type, value_type, index_type> stats;
+    raft::spectral::lanczos_solver_t<index_type, value_type> eigen_solver{cfg};
+
+    raft::device_vector<value_type, uint32_t, raft::col_major> eigenvalues = raft::make_device_vector<value_type, uint32_t, raft::col_major>(handle, n_components);
+    raft::device_matrix<value_type, uint32_t, raft::col_major> eigenvectors = raft::make_device_matrix<value_type, uint32_t, raft::col_major>(handle, symmetric_coo.n_rows, n_components);
+
+    std::get<0>(stats) = eigen_solver.solve_smallest_eigenvectors(handle, csr_m, eigenvalues.data_handle(), eigenvectors.data_handle(), v0.data_handle());
+    
+    ASSERT_TRUE(raft::devArrMatch<value_type>(
+      eigenvalues.data_handle(), expected_eigenvalues.data_handle(), n_components, raft::CompareApprox<value_type>(1e-5), stream));
+  }
+
+ protected:
+  rmat_lanczos_inputs<index_type, value_type> params;
+  raft::resources handle;
+  cudaStream_t stream;
+  raft::random::RngState rng;
+  int r_scale;
+  int c_scale;
+  float sparsity;
+  raft::device_vector<value_type, uint32_t, raft::col_major> expected_eigenvalues;
 };
 
 template <typename index_type, typename value_type>
@@ -159,6 +254,57 @@ const std::vector<lanczos_inputs<int, double>> inputsd = {
 };
 
 
+const std::vector<rmat_lanczos_inputs<int, float>> rmat_inputsf = {
+    {
+        50,
+        100,
+        10000,
+        0,
+        0,
+        1e-9,
+        42,
+        12,
+        12,
+        1,
+        {-122.53275 ,  -74.009415,  -59.70774 ,  -54.678654,  -49.700565,
+  -34.015884,  -32.097626,  -31.29491 ,  -30.33276 ,  -22.899527,
+  -20.49083 ,  -20.243006,  -19.26677 ,  -18.43743 ,  -17.671614,
+  -17.00962 ,  -16.72859 ,  -15.812017,  -15.744598,  -15.438096,
+  -15.030397,  -14.721282,  -14.146572,  -13.959946,  -13.640783,
+  -13.475106,  -13.200468,  -12.769644,  -12.630838,  -12.570684,
+  -12.290903,  -12.042329,  -11.678847,  -11.563247,  -11.185609,
+  -10.919437,  -10.785621,  -10.566719,  -10.202344,  -10.014745,
+   -9.602258,   -9.511378,   -9.268343,   -8.876679,   -8.805339,
+   -8.670585,   -8.471375,   -8.391085,   -8.197367,   -8.014922}
+    }
+};
+
+const std::vector<rmat_lanczos_inputs<int, double>> rmat_inputsd = {
+    {
+        50,
+        100,
+        10000,
+        0,
+        0,
+        1e-9,
+        42,
+        12,
+        12,
+        1,
+        {-122.53275 ,  -74.009415,  -59.70774 ,  -54.678654,  -49.700565,
+  -34.015884,  -32.097626,  -31.29491 ,  -30.33276 ,  -22.899527,
+  -20.49083 ,  -20.243006,  -19.26677 ,  -18.43743 ,  -17.671614,
+  -17.00962 ,  -16.72859 ,  -15.812017,  -15.744598,  -15.438096,
+  -15.030397,  -14.721282,  -14.146572,  -13.959946,  -13.640783,
+  -13.475106,  -13.200468,  -12.769644,  -12.630838,  -12.570684,
+  -12.290903,  -12.042329,  -11.678847,  -11.563247,  -11.185609,
+  -10.919437,  -10.785621,  -10.566719,  -10.202344,  -10.014745,
+   -9.602258,   -9.511378,   -9.268343,   -8.876679,   -8.805339,
+   -8.670585,   -8.471375,   -8.391085,   -8.197367,   -8.014922}
+    }
+};
+
+
 using LanczosTestF = lanczos_tests<int, float>;
 TEST_P(LanczosTestF, Result)
 {
@@ -170,6 +316,18 @@ TEST_P(LanczosTestD, Result)
 {
   Run();
 }
+
+using RmatLanczosTestF = rmat_lanczos_tests<int, float>;
+TEST_P(RmatLanczosTestF, Result)
+{
+  Run();
+}
+
+// using RmatLanczosTestD = rmat_lanczos_tests<int, double>;
+// TEST_P(RmatLanczosTestD, Result)
+// {
+//   Run();
+// }
 
 
 template <typename index_type, typename value_type>
@@ -205,10 +363,13 @@ TEST_P(DummyLanczosTest, Result)
   using value_type = float;
   int r_scale = 12;
   int c_scale = 12;
-  float sparsity = 0.4;
-  int n_edges = sparsity * ((1<<r_scale) * (1<<c_scale));
-  int n_nodes = 1 << std::max(r_scale, c_scale);
-  int theta_len = std::max(r_scale, c_scale) * 4;
+  float sparsity = 1;
+  uint64_t n_edges = sparsity * ((long long)(1<<r_scale) * (long long)(1<<c_scale));
+  uint64_t n_nodes = 1 << std::max(r_scale, c_scale);
+  uint64_t theta_len = std::max(r_scale, c_scale) * 4;
+
+  std::cout << "n_edges" << n_edges << std::endl;
+  std::cout << "n_nodes" << n_nodes << std::endl;
 
   raft::device_vector<value_type, uint32_t, raft::row_major> theta = raft::make_device_vector<value_type, uint32_t, raft::row_major>(handle, theta_len);
   raft::random::uniform<value_type>(handle, rng, theta.view(), 0, 1);
@@ -236,23 +397,24 @@ TEST_P(DummyLanczosTest, Result)
   // print_device_vector("coo_cols", coo.cols(), coo.nnz, std::cout);
   // print_device_vector("coo_vals", coo.vals(), coo.nnz, std::cout);
 
-  raft::device_vector<index_type, uint32_t, raft::row_major> row_indices = raft::make_device_vector<index_type, uint32_t, raft::row_major>(handle, coo.n_rows + 1);
-  raft::sparse::convert::sorted_coo_to_csr(coo.rows(), coo.nnz, row_indices.data_handle(), coo.n_rows + 1, stream);
-
+  
   // print_device_vector("csr_row_indices", row_indices.data_handle(), coo.n_rows + 1, std::cout);
 
   
   raft::sparse::COO<value_type, index_type> symmetric_coo(stream);
   raft::sparse::linalg::symmetrize(handle, coo.rows(), coo.cols(), coo.vals(), coo.n_rows, coo.n_cols, coo.nnz, symmetric_coo);
 
+  raft::device_vector<index_type, uint32_t, raft::row_major> row_indices = raft::make_device_vector<index_type, uint32_t, raft::row_major>(handle, symmetric_coo.n_rows + 1);
+  raft::sparse::convert::sorted_coo_to_csr(symmetric_coo.rows(), symmetric_coo.nnz, row_indices.data_handle(), symmetric_coo.n_rows + 1, stream);
+
   // print_device_vector("sym_coo_rows", symmetric_coo.rows(), symmetric_coo.nnz, std::cout);
   // print_device_vector("sym_coo_cols", symmetric_coo.cols(), symmetric_coo.nnz, std::cout);
   // print_device_vector("sym_coo_vals", symmetric_coo.vals(), symmetric_coo.nnz, std::cout);
 
-  std::vector<index_type> rowsH(symmetric_coo.nnz);
+  std::vector<index_type> rowsH(symmetric_coo.n_rows + 1);
   std::vector<index_type> colsH(symmetric_coo.nnz);
   std::vector<value_type> valsH(symmetric_coo.nnz);
-  raft::copy(rowsH.data(), symmetric_coo.rows(), symmetric_coo.nnz, stream);
+  raft::copy(rowsH.data(), row_indices.data_handle(), symmetric_coo.n_rows + 1, stream);
   raft::copy(colsH.data(), symmetric_coo.cols(), symmetric_coo.nnz, stream);
   raft::copy(valsH.data(), symmetric_coo.vals(), symmetric_coo.nnz, stream);
 
@@ -263,6 +425,9 @@ TEST_P(DummyLanczosTest, Result)
 
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF, ::testing::ValuesIn(inputsf));
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(LanczosTests, RmatLanczosTestF, ::testing::ValuesIn(rmat_inputsf));
+// INSTANTIATE_TEST_CASE_P(LanczosTests, RmatLanczosTestD, ::testing::ValuesIn(rmat_inputsd));
+
 INSTANTIATE_TEST_CASE_P(LanczosTests, DummyLanczosTest, ::testing::ValuesIn(inputsf));
 
 
