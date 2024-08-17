@@ -24,6 +24,7 @@
 #include "raft/linalg/detail/add.cuh"
 #include "raft/linalg/detail/gemv.hpp"
 #include "raft/linalg/gemv.cuh"
+#include "raft/linalg/init.cuh"
 #include "raft/linalg/map.cuh"
 #include "raft/linalg/multiply.cuh"
 #include "raft/linalg/transpose.cuh"
@@ -52,6 +53,7 @@
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <cublasLt.h>
 #include <cusparse.h>
+#include <sys/types.h>
 #include <algorithm>
 #include <cstdint>
 #include <optional>
@@ -1543,8 +1545,35 @@ RAFT_KERNEL kernel_normalize(
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   
   if (i < size) {
-    v[i] = u[i] / beta[j];
+    if (beta[j] == 0) {
+      v[i] = u[i] / 1;
+    } else {
+      v[i] = u[i] / beta[j];
+    }
     V[i+ (j+1) * n] = v[i];
+  }
+}
+
+
+template<typename T>
+RAFT_KERNEL kernel_clamp_down(
+  T* value,
+  T threshold
+)
+{
+  *value = (fabs(*value) < threshold) ? 0 : *value;
+}
+
+template<typename T>
+RAFT_KERNEL kernel_clamp_down_vector(
+  T* vec,
+  T threshold,
+  int size
+)
+{
+  int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (idx < size) {
+    vec[idx] = (fabs(vec[idx]) < threshold) ? 0 : vec[idx];
   }
 }
 
@@ -1774,6 +1803,10 @@ void cupy_aux(
 
     auto uu_i = raft::make_device_scalar_view(&uu(0, i));
     raft::linalg::add(handle, make_const_mdspan(alpha_i), make_const_mdspan(uu_i), alpha_i);
+
+
+    // flush alpha
+    kernel_clamp_down<<<1, 1>>>(alpha_i.data_handle(), static_cast<value_type_t>(1e-9));
     
     // print_device_vector("gemv uu[i]", &uu(0, i), 1, std::cout);
     // print_device_vector("gemv alpha[i]", &alpha(0, i), 1, std::cout);
@@ -1795,6 +1828,14 @@ void cupy_aux(
     // print_device_vector("nrm2 beta[i]", &beta(0, i), 1, std::cout);
     raft::linalg::detail::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream);
 
+
+    int blockSize = 256;
+    int numBlocks = (n + blockSize - 1) / blockSize;
+
+    kernel_clamp_down_vector<<<numBlocks, blockSize>>>(u.data_handle(), static_cast<value_type_t>(1e-7), n);
+
+
+    kernel_clamp_down<<<1, 1>>>(&beta(0, i), static_cast<value_type_t>(1e-6));
 
     // FIXME:
     // # Break here as the normalization below touches V[i+1]
@@ -1888,7 +1929,7 @@ int cupy_smallest(
   raft::device_scalar<value_type_t> v0nrm_scalar = raft::make_device_scalar(handle, v0nrm);
   
   raft::device_vector_view<const value_type_t> v0_vector_const = raft::make_device_vector_view<const value_type_t>(v0, n);
-  raft::device_vector_view<value_type_t> v0_vector = raft::make_device_vector_view<value_type_t>(v0, n);
+  // raft::device_vector_view<value_type_t> v0_vector = raft::make_device_vector_view<value_type_t>(v0, n);
 
   raft::linalg::unary_op(handle, v0_vector_const, V_0_view, [device_scalar = v0nrm_scalar.data_handle()] __device__(auto y) {
                              return y / *device_scalar;
@@ -1965,11 +2006,11 @@ int cupy_smallest(
 
   // ncv*n x ncv*nEigVecs
 
-  auto ritz_eigenvectors = raft::make_device_matrix_view<value_type_t>(eigVecs_dev, n, nEigVecs);
+  auto ritz_eigenvectors = raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(eigVecs_dev, n, nEigVecs);
 
 
   auto V_T = raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(V.data_handle(), n, ncv);
-  raft::linalg::gemm<value_type_t, uint32_t, raft::col_major, raft::col_major, raft::row_major>(handle, V_T, eigenvectors_k, ritz_eigenvectors);
+  raft::linalg::gemm<value_type_t, uint32_t, raft::col_major, raft::col_major, raft::col_major>(handle, V_T, eigenvectors_k, ritz_eigenvectors);
 
   // print_device_vector("ritz_eigenvectors", ritz_eigenvectors.data_handle(), n*nEigVecs, std::cout);
 
@@ -2060,10 +2101,10 @@ int cupy_smallest(
     // auto V_k_view = raft::make_device_matrix_view<value_type_t>(V.data_handle(), nEigVecs, n);
 
     
-    auto x_T = raft::make_device_matrix<value_type_t>(handle, nEigVecs, n);
-    
+    // auto x_T = raft::make_device_matrix<value_type_t>(handle, nEigVecs, n);
+    auto x_T = raft::make_device_matrix_view<value_type_t>(ritz_eigenvectors.data_handle(), nEigVecs, n);
 
-    raft::linalg::transpose(handle, ritz_eigenvectors, x_T.view());
+    // raft::linalg::transpose(handle, ritz_eigenvectors, x_T.view());
     raft::copy(V.data_handle(), x_T.data_handle(), nEigVecs * n, stream);
     
     // print_device_vector("V[:k]", V.data_handle(), nEigVecs * n, std::cout);
@@ -2218,7 +2259,7 @@ int cupy_smallest(
     
     // (n, nEigVecs) x (nEigVecs)
     
-    auto beta_k_vector = raft::make_device_vector_view<const value_type_t, uint32_t, raft::row_major>(beta_k.data_handle(), nEigVecs);
+    // auto beta_k_vector = raft::make_device_vector_view<const value_type_t, uint32_t, raft::row_major>(beta_k.data_handle(), nEigVecs);
 
     // raft::linalg::gemv<value_type_t, uint32_t, raft::row_major>(handle, make_const_mdspan(V_k_T.view()), beta_k_vector, temp.view());
 
@@ -2331,7 +2372,7 @@ int cupy_smallest(
     iter += ncv - nEigVecs;
     cupy_solve_ritz<index_type_t, value_type_t>(handle, alpha.view(), beta.view(), beta_k.view(), nEigVecs, 0, ncv, eigenvectors.view(), eigenvalues.view());
     auto eigenvectors_k = raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(eigenvectors.data_handle(), ncv, nEigVecs);
-    raft::device_vector_view<value_type_t, uint32_t, raft::col_major> eigenvalues_k = raft::make_device_vector_view<value_type_t, uint32_t, raft::col_major>(eigenvalues.data_handle(), nEigVecs);
+    // raft::device_vector_view<value_type_t, uint32_t, raft::col_major> eigenvalues_k = raft::make_device_vector_view<value_type_t, uint32_t, raft::col_major>(eigenvalues.data_handle(), nEigVecs);
   
     // print_device_vector("eigenvectors", eigenvectors_k.data_handle(), nEigVecs*ncv, std::cout);
     // print_device_vector("eigenvalues", eigenvalues_k.data_handle(), nEigVecs, std::cout);
