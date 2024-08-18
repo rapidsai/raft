@@ -384,7 +384,7 @@ void build_and_merge(raft::resources const& res,
 #pragma omp parallel for
   for (size_t i = 0; i < num_data_in_cluster; i++) {
     for (size_t j = 0; j < graph_degree; j++) {
-      IdxT local_idx                        = int_graph[i * int_graph_node_degree + j];
+      size_t local_idx                      = int_graph[i * int_graph_node_degree + j];
       batch_indices_h[i * graph_degree + j] = inverted_indices[local_idx];
     }
   }
@@ -433,11 +433,13 @@ void cluster_nnd(raft::resources const& res,
                  IdxT* batch_indices_h,
                  IdxT* batch_indices_d,
                  float* batch_distances_d,
-                 GNND<const T, int, epilogue_op>& nnd,
+                 const BuildConfig& build_config,
                  epilogue_op distance_epilogue)
 {
   size_t num_rows = dataset.extent(0);
   size_t num_cols = dataset.extent(1);
+
+  GNND<const T, int, epilogue_op> nnd(res, build_config);
 
   auto cluster_data_matrix =
     raft::make_host_matrix<T, int64_t, row_major>(max_cluster_size, num_cols);
@@ -451,7 +453,7 @@ void cluster_nnd(raft::resources const& res,
 #pragma omp parallel for
     for (size_t i = 0; i < num_data_in_cluster; i++) {
       for (size_t j = 0; j < num_cols; j++) {
-        auto global_row = (inverted_indices + offset)[i];
+        size_t global_row = (inverted_indices + offset)[i];
         cluster_data_matrix.data_handle()[i * num_cols + j] =
           dataset.data_handle()[global_row * num_cols + j];
       }
@@ -496,11 +498,13 @@ void cluster_nnd(raft::resources const& res,
                  IdxT* batch_indices_h,
                  IdxT* batch_indices_d,
                  float* batch_distances_d,
-                 GNND<const T, int, epilogue_op>& nnd,
+                 const BuildConfig& build_config,
                  epilogue_op distance_epilogue)
 {
   size_t num_rows = dataset.extent(0);
   size_t num_cols = dataset.extent(1);
+
+  GNND<const T, int, epilogue_op> nnd(res, build_config);
 
   auto cluster_data_matrix =
     raft::make_device_matrix<T, int64_t, row_major>(res, max_cluster_size, num_cols);
@@ -617,8 +621,6 @@ index<IdxT> batch_build(raft::resources const& res,
                            .termination_threshold = params.termination_threshold,
                            .output_graph_degree   = graph_degree};
 
-  GNND<const T, int, epilogue_op> nnd(res, build_config);
-
   auto global_indices_h   = raft::make_managed_matrix<IdxT, int64_t>(res, num_rows, graph_degree);
   auto global_distances_h = raft::make_managed_matrix<float, int64_t>(res, num_rows, graph_degree);
 
@@ -660,7 +662,7 @@ index<IdxT> batch_build(raft::resources const& res,
                        batch_indices_h.data_handle(),
                        batch_indices_d.data_handle(),
                        batch_distances_d.data_handle(),
-                       nnd,
+                       build_config,
                        distance_epilogue);
 
   index<IdxT> global_idx{
