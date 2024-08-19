@@ -191,39 +191,35 @@ void get_inverted_indices(raft::resources const& res,
   max_cluster_size = 0;
   min_cluster_size = std::numeric_limits<size_t>::max();
 
-  for (size_t i = 0; i < n_clusters; i++) {
-    cluster_size.data_handle()[i] = 0;
-    local_offset.data_handle()[i] = 0;
-  }
+  thrust::fill(
+    thrust::host, cluster_size.data_handle(), cluster_size.data_handle() + n_clusters, 0);
+  thrust::fill(
+    thrust::host, local_offset.data_handle(), local_offset.data_handle() + n_clusters, 0);
 
+  // TODO: this part isn't really a bottleneck but maybe worth trying omp parallel
+  // for with atomic add
   for (size_t i = 0; i < num_rows; i++) {
     for (size_t j = 0; j < k; j++) {
-      IdxT cluster_id = global_nearest_cluster.data_handle()[i * k + j];
-      cluster_size.data_handle()[cluster_id]++;
+      IdxT cluster_id = global_nearest_cluster(i, j);
+      cluster_size(cluster_id) += 1;
     }
   }
 
-  offset.data_handle()[0] = 0;
+  offset(0) = 0;
   for (size_t i = 1; i < n_clusters; i++) {
-    offset.data_handle()[i] = offset.data_handle()[i - 1] + cluster_size.data_handle()[i - 1];
+    offset(i) = offset(i - 1) + cluster_size(i - 1);
   }
   for (size_t i = 0; i < num_rows; i++) {
     for (size_t j = 0; j < k; j++) {
-      IdxT cluster_id = global_nearest_cluster.data_handle()[i * k + j];
-      inverted_indices
-        .data_handle()[offset.data_handle()[cluster_id] + local_offset.data_handle()[cluster_id]] =
-        i;
-      local_offset.data_handle()[cluster_id]++;
+      IdxT cluster_id = global_nearest_cluster(i, j);
+      inverted_indices(offset(cluster_id) + local_offset(cluster_id)) = i;
+      local_offset(cluster_id) += 1;
     }
   }
 
   for (size_t i = 0; i < n_clusters; i++) {
-    if (max_cluster_size < cluster_size.data_handle()[i]) {
-      max_cluster_size = cluster_size.data_handle()[i];
-    }
-    if (min_cluster_size > cluster_size.data_handle()[i]) {
-      min_cluster_size = cluster_size.data_handle()[i];
-    }
+    if (max_cluster_size < cluster_size(i)) { max_cluster_size = cluster_size(i); }
+    if (min_cluster_size > cluster_size(i)) { min_cluster_size = cluster_size(i); }
   }
 }
 
@@ -258,10 +254,11 @@ RAFT_KERNEL merge_subgraphs(IdxT* cluster_data_indices,
   __shared__ typename cub::BlockMergeSort<KeyValuePair<float, IdxT>, BLOCK_SIZE, ITEMS_PER_THREAD>::
     TempStorage tmpSmem;
 
-  extern __shared__ float sharedMem[];
-  float* blockKeys    = (float*)sharedMem;
-  IdxT* blockValues   = (IdxT*)&sharedMem[graph_degree * 2];
-  int16_t* uniqueMask = (int16_t*)&sharedMem[graph_degree * 4];
+  extern __shared__ char sharedMem[];
+  float* blockKeys  = reinterpret_cast<float*>(sharedMem);
+  IdxT* blockValues = reinterpret_cast<IdxT*>(&sharedMem[graph_degree * 2 * sizeof(float)]);
+  int16_t* uniqueMask =
+    reinterpret_cast<int16_t*>(&sharedMem[graph_degree * 2 * (sizeof(float) + sizeof(IdxT))]);
 
   if (batch_row < num_cluster_in_batch) {
     // load batch or global depending on threadIdx
@@ -453,9 +450,8 @@ void cluster_nnd(raft::resources const& res,
 #pragma omp parallel for
     for (size_t i = 0; i < num_data_in_cluster; i++) {
       for (size_t j = 0; j < num_cols; j++) {
-        size_t global_row = (inverted_indices + offset)[i];
-        cluster_data_matrix.data_handle()[i * num_cols + j] =
-          dataset.data_handle()[global_row * num_cols + j];
+        size_t global_row         = (inverted_indices + offset)[i];
+        cluster_data_matrix(i, j) = dataset(global_row, j);
       }
     }
 
@@ -477,7 +473,7 @@ void cluster_nnd(raft::resources const& res,
                              batch_distances_d,
                              nnd,
                              distance_epilogue);
-    nnd.reset();
+    nnd.reset(res);
   }
 }
 
@@ -541,7 +537,7 @@ void cluster_nnd(raft::resources const& res,
                              batch_distances_d,
                              nnd,
                              distance_epilogue);
-    nnd.reset();
+    nnd.reset(res);
   }
 }
 

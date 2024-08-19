@@ -361,7 +361,7 @@ class GNND {
              epilogue_op distance_epilogue = DistEpilogue<Index_t, Data_t>());
   ~GNND()    = default;
   using ID_t = InternalID_t<Index_t>;
-  void reset();
+  void reset(raft::resources const& res);
 
  private:
   void add_reverse_edges(Index_t* graph_ptr,
@@ -1200,17 +1200,19 @@ GNND<Data_t, Index_t, epilogue_op>::GNND(raft::resources const& res,
 };
 
 template <typename Data_t, typename Index_t, typename epilogue_op>
-void GNND<Data_t, Index_t, epilogue_op>::reset()
+void GNND<Data_t, Index_t, epilogue_op>::reset(raft::resources const& res)
 {
-  thrust::fill(thrust::device,
+  auto stream = raft::resource::get_cuda_stream(res);
+  thrust::fill(rmm::exec_policy(stream),
                dists_buffer_.data_handle(),
                dists_buffer_.data_handle() + dists_buffer_.size(),
                std::numeric_limits<float>::max());
-  thrust::fill(thrust::device,
+  thrust::fill(rmm::exec_policy(stream),
                reinterpret_cast<Index_t*>(graph_buffer_.data_handle()),
                reinterpret_cast<Index_t*>(graph_buffer_.data_handle()) + graph_buffer_.size(),
                std::numeric_limits<Index_t>::max());
-  thrust::fill(thrust::device, d_locks_.data_handle(), d_locks_.data_handle() + d_locks_.size(), 0);
+  thrust::fill(
+    rmm::exec_policy(stream), d_locks_.data_handle(), d_locks_.data_handle() + d_locks_.size(), 0);
 }
 
 template <typename Data_t, typename Index_t, typename epilogue_op>
