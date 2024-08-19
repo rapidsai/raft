@@ -6,6 +6,7 @@ set -euo pipefail
 case "${RAPIDS_CUDA_VERSION}" in
   12.*)
     EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=ON"
+  ;;
   11.*)
     EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=OFF"
   ;;
