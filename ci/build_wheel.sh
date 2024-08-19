@@ -31,19 +31,16 @@ case "${RAPIDS_CUDA_VERSION}" in
       --exclude "libnvJitLink.so.12"
       --exclude "libucp.so.0"
     )
-    EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=ON"
   ;;
   11.*)
     EXCLUDE_ARGS=(
       --exclude "libucp.so.0"
     )
-    EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=OFF"
   ;;
 esac
 
 # Hardcode the output dir
-SKBUILD_CMAKE_ARGS="${EXTRA_CMAKE_ARGS}" \
-    python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
+python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
