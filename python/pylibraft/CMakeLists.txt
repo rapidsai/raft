@@ -66,7 +66,7 @@ if(NOT raft_FOUND)
   add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
 
   if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
-    set_property(TARGET raft PROPERTY INSTALL_RPATH
+    set_property(TARGET raft_lib PROPERTY INSTALL_RPATH
       "$ORIGIN/../nvidia/cublas/lib"
       "$ORIGIN/../nvidia/cufft/lib"
       "$ORIGIN/../nvidia/curand/lib"
