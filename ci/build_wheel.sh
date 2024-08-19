@@ -34,7 +34,9 @@ case "${RAPIDS_CUDA_VERSION}" in
     EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=ON"
   ;;
   11.*)
-    EXCLUDE_ARGS=()
+    EXCLUDE_ARGS=(
+      --exclude "libucp.so.0"
+    )
     EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=OFF"
   ;;
 esac
