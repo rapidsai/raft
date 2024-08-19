@@ -60,7 +60,7 @@ if(NOT raft_FOUND)
   if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
     set(CUDA_STATIC_MATH_LIBRARIES OFF)
   elseif(USE_CUDA_MATH_WHEELS)
-    message(FATAL_ERROR "CAnnot use CUDA math wheels with CUDA < 12.0")
+    message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
   endif()
 
   add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
