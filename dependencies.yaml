@@ -442,7 +442,7 @@ dependencies:
     common:
       - output_types: [conda, pyproject]
         packages:
-          - &numpy numpy>=1.23,<3
+          - &numpy numpy>=1.23,<3.0a0
       - output_types: [conda]
         packages:
           - *rmm_unsuffixed
