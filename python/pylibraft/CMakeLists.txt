@@ -68,7 +68,6 @@ if(NOT raft_FOUND)
   if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
     set_property(TARGET raft_lib PROPERTY INSTALL_RPATH
       "$ORIGIN/../nvidia/cublas/lib"
-      "$ORIGIN/../nvidia/cufft/lib"
       "$ORIGIN/../nvidia/curand/lib"
       "$ORIGIN/../nvidia/cusolver/lib"
       "$ORIGIN/../nvidia/cusparse/lib"
