@@ -43,17 +43,6 @@
 #include <random>
 #include <type_traits>
 
-#define INST_MERGE_SUBGRAPH(blockSize, elemPT)                                                 \
-  merge_subgraphs<IdxT, blockSize, elemPT>                                                     \
-    <<<num_data_in_cluster, blockSize, sharedMemSize, raft::resource::get_cuda_stream(res)>>>( \
-      cluster_data_indices,                                                                    \
-      graph_degree,                                                                            \
-      num_data_in_cluster,                                                                     \
-      global_distances_d,                                                                      \
-      batch_distances_d,                                                                       \
-      global_indices_d,                                                                        \
-      batch_indices_d)
-
 namespace raft::neighbors::experimental::nn_descent::detail {
 
 //
@@ -394,15 +383,47 @@ void build_and_merge(raft::resources const& res,
   size_t num_elems     = graph_degree * 2;
   size_t sharedMemSize = num_elems * (sizeof(float) + sizeof(IdxT) + sizeof(int16_t));
 
-  if (num_elems <= 128)
-    INST_MERGE_SUBGRAPH(32, 4);
-  else if (num_elems <= 512)
-    INST_MERGE_SUBGRAPH(128, 4);
-  else if (num_elems <= 1024)
-    INST_MERGE_SUBGRAPH(128, 8);
-  else if (num_elems <= 2048)
-    INST_MERGE_SUBGRAPH(256, 8);
-  else {
+  if (num_elems <= 128) {
+    merge_subgraphs<IdxT, 32, 4>
+      <<<num_data_in_cluster, 32, sharedMemSize, raft::resource::get_cuda_stream(res)>>>(
+        cluster_data_indices,
+        graph_degree,
+        num_data_in_cluster,
+        global_distances_d,
+        batch_distances_d,
+        global_indices_d,
+        batch_indices_d);
+  } else if (num_elems <= 512) {
+    merge_subgraphs<IdxT, 128, 4>
+      <<<num_data_in_cluster, 128, sharedMemSize, raft::resource::get_cuda_stream(res)>>>(
+        cluster_data_indices,
+        graph_degree,
+        num_data_in_cluster,
+        global_distances_d,
+        batch_distances_d,
+        global_indices_d,
+        batch_indices_d);
+  } else if (num_elems <= 1024) {
+    merge_subgraphs<IdxT, 128, 8>
+      <<<num_data_in_cluster, 128, sharedMemSize, raft::resource::get_cuda_stream(res)>>>(
+        cluster_data_indices,
+        graph_degree,
+        num_data_in_cluster,
+        global_distances_d,
+        batch_distances_d,
+        global_indices_d,
+        batch_indices_d);
+  } else if (num_elems <= 2048) {
+    merge_subgraphs<IdxT, 256, 8>
+      <<<num_data_in_cluster, 256, sharedMemSize, raft::resource::get_cuda_stream(res)>>>(
+        cluster_data_indices,
+        graph_degree,
+        num_data_in_cluster,
+        global_distances_d,
+        batch_distances_d,
+        global_indices_d,
+        batch_indices_d);
+  } else {
     // this is as far as we can get due to the shared mem usage of cub::BlockMergeSort
     RAFT_FAIL("The degree of knn is too large (%lu). It must be smaller than 1024", graph_degree);
   }
