@@ -28,6 +28,24 @@ namespace raft::sparse::solver {
 // Eigensolver
 // =========================================================
 
+using detail::lanczos_solver_config;
+
+
+template<typename IndexTypeT, typename ValueTypeT>
+auto lanczos_compute_smallest_eigenvectors(
+  raft::resources const& handle,
+  raft::spectral::matrix::sparse_matrix_t<IndexTypeT, ValueTypeT> const& A,
+  lanczos_solver_config<IndexTypeT, ValueTypeT> const& config,
+  raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major> v0,
+  raft::device_vector_view<ValueTypeT, uint32_t, raft::col_major> eigenvalues,
+  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors
+) -> int
+{
+  return detail::lanczos_compute_smallest_eigenvectors<IndexTypeT, ValueTypeT>(handle, A, config, v0, eigenvalues, eigenvectors);
+}
+
+
+
 /**
  *  @brief  Compute smallest eigenvectors of symmetric matrix
  *    Computes eigenvalues and eigenvectors that are least
