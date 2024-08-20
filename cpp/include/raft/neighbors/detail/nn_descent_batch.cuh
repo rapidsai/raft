@@ -217,10 +217,10 @@ void get_inverted_indices(raft::resources const& res,
     }
   }
 
-  for (size_t i = 0; i < n_clusters; i++) {
-    if (max_cluster_size < cluster_size(i)) { max_cluster_size = cluster_size(i); }
-    if (min_cluster_size > cluster_size(i)) { min_cluster_size = cluster_size(i); }
-  }
+  max_cluster_size = static_cast<size_t>(
+    *std::max_element(cluster_size.data_handle(), cluster_size.data_handle() + n_clusters));
+  min_cluster_size = static_cast<size_t>(
+    *std::min_element(cluster_size.data_handle(), cluster_size.data_handle() + n_clusters));
 }
 
 template <typename KeyType, typename ValueType>

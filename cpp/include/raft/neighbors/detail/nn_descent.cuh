@@ -1203,16 +1203,18 @@ template <typename Data_t, typename Index_t, typename epilogue_op>
 void GNND<Data_t, Index_t, epilogue_op>::reset(raft::resources const& res)
 {
   auto stream = raft::resource::get_cuda_stream(res);
-  thrust::fill(rmm::exec_policy(stream),
+  thrust::fill(rmm::exec_policy_nosync(stream),
                dists_buffer_.data_handle(),
                dists_buffer_.data_handle() + dists_buffer_.size(),
                std::numeric_limits<float>::max());
-  thrust::fill(rmm::exec_policy(stream),
+  thrust::fill(rmm::exec_policy_nosync(stream),
                reinterpret_cast<Index_t*>(graph_buffer_.data_handle()),
                reinterpret_cast<Index_t*>(graph_buffer_.data_handle()) + graph_buffer_.size(),
                std::numeric_limits<Index_t>::max());
-  thrust::fill(
-    rmm::exec_policy(stream), d_locks_.data_handle(), d_locks_.data_handle() + d_locks_.size(), 0);
+  thrust::fill(rmm::exec_policy_nosync(stream),
+               d_locks_.data_handle(),
+               d_locks_.data_handle() + d_locks_.size(),
+               0);
 }
 
 template <typename Data_t, typename Index_t, typename epilogue_op>
