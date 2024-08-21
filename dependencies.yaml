@@ -395,14 +395,14 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
           - matrix:
-              use_cuda_wheels: "true"
+              use_cuda_wheels: "false"
+            packages:
+          - matrix:
             packages:
               - nvidia-cublas
               - nvidia-curand
               - nvidia-cusolver
               - nvidia-cusparse
-          - matrix:
-            packages:
 
   depends_on_cupy:
     common:
