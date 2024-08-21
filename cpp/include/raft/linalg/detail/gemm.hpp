@@ -97,7 +97,7 @@ void legacy_gemm(raft::resources const& res,
     stream);
 }
 
-template <typename A_T, typename B_T, typename C_T, typename S_T>
+template <typename A_T, typename B_T, typename C_T>
 void legacy_gemm(raft::resources const& res,
                  const A_T* a,
                  int n_rows_a,
@@ -111,7 +111,7 @@ void legacy_gemm(raft::resources const& res,
                  cudaStream_t stream)
 {
   return legacy_gemm(
-    res, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, S_T{1}, S_T{0}, stream);
+    res, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, C_T{1}, C_T{0}, stream);
 }
 
 template <typename x_T, typename y_T, typename z_T, typename s_T, bool DevicePointerMode = false>

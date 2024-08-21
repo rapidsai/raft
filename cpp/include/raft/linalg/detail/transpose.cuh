@@ -28,6 +28,8 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <cmath>
+
 namespace raft {
 namespace linalg {
 namespace detail {
@@ -91,8 +93,9 @@ void transpose_half(
   int grid_x = (n_cols + block_dim_x - 1) / block_dim_x;
   int grid_y = (n_rows + block_dim_x - 1) / block_dim_x;
 
-  float ratio         = static_cast<float>(grid_y) / static_cast<float>(grid_x);
-  int adjusted_grid_y = std::max(std::min(grid_y, static_cast<int>(sqrt(num_blocks * ratio))), 1);
+  float ratio = static_cast<float>(grid_y) / static_cast<float>(grid_x);
+  int adjusted_grid_y =
+    std::max(std::min(grid_y, static_cast<int>(std::sqrt(num_blocks * ratio))), 1);
   int adjusted_grid_x = std::max(std::min(grid_x, num_blocks / adjusted_grid_y), 1);
 
   dim3 grids(adjusted_grid_x, adjusted_grid_y);
