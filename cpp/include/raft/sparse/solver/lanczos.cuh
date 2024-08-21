@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@
 #include <raft/sparse/solver/detail/lanczos.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 
-
 namespace raft::sparse::solver {
 
 // =========================================================
@@ -30,21 +29,18 @@ namespace raft::sparse::solver {
 
 using detail::lanczos_solver_config;
 
-
-template<typename IndexTypeT, typename ValueTypeT>
+template <typename IndexTypeT, typename ValueTypeT>
 auto lanczos_compute_smallest_eigenvectors(
   raft::resources const& handle,
   raft::spectral::matrix::sparse_matrix_t<IndexTypeT, ValueTypeT> const& A,
   lanczos_solver_config<IndexTypeT, ValueTypeT> const& config,
   raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major> v0,
   raft::device_vector_view<ValueTypeT, uint32_t, raft::col_major> eigenvalues,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors
-) -> int
+  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors) -> int
 {
-  return detail::lanczos_compute_smallest_eigenvectors<IndexTypeT, ValueTypeT>(handle, A, config, v0, eigenvalues, eigenvectors);
+  return detail::lanczos_compute_smallest_eigenvectors<IndexTypeT, ValueTypeT>(
+    handle, A, config, v0, eigenvalues, eigenvectors);
 }
-
-
 
 /**
  *  @brief  Compute smallest eigenvectors of symmetric matrix
