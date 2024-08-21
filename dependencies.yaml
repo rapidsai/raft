@@ -394,9 +394,13 @@ dependencies:
               cuda: "11.*"
               use_cuda_wheels: "true"
             packages:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
           - matrix:
               use_cuda_wheels: "false"
             packages:
+          # if no matching matrix selectors passed, list the unsuffixed packages
+          # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
             packages:
               - nvidia-cublas
