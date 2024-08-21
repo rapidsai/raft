@@ -83,7 +83,7 @@ files:
     extras:
       table: project
     includes:
-      - cuda
+      - cuda_wheels
       - run_pylibraft
   py_test_pylibraft:
     output: pyproject
@@ -378,6 +378,8 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
+  cuda_wheels:
+    specific:
       - output_types: pyproject
         matrices:
           - matrix:
