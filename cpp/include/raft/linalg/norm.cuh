@@ -41,6 +41,7 @@ namespace linalg {
  * @tparam Type the data type
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
+ * @tparam OutType output type, equal to Type by default
  * @param dots the output vector of row-wise dot products
  * @param data the input matrix
  * @param D number of columns of data
@@ -50,8 +51,11 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
-void rowNorm(Type* dots,
+template <typename Type,
+          typename IdxType = int,
+          typename Lambda  = raft::identity_op,
+          typename OutType = Type>
+void rowNorm(OutType* dots,
              const Type* data,
              IdxType D,
              IdxType N,
@@ -68,6 +72,7 @@ void rowNorm(Type* dots,
  * @tparam Type the data type
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
+ * @tparam OutType output type, equal to Type by default
  * @param dots the output vector of column-wise dot products
  * @param data the input matrix
  * @param D number of columns of data
@@ -77,8 +82,11 @@ void rowNorm(Type* dots,
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
-void colNorm(Type* dots,
+template <typename Type,
+          typename IdxType = int,
+          typename Lambda  = raft::identity_op,
+          typename OutType = Type>
+void colNorm(OutType* dots,
              const Type* data,
              IdxType D,
              IdxType N,
@@ -97,7 +105,8 @@ void colNorm(Type* dots,
 
 /**
  * @brief Compute norm of the input matrix and perform fin_op
- * @tparam ElementType Input/Output data type
+ * @tparam ElementType Input data type
+ * @tparam OutType output data type
  * @tparam LayoutPolicy the layout of input (raft::row_major or raft::col_major)
  * @tparam IdxType Integer type used to for addressing
  * @tparam Lambda device final lambda
@@ -110,12 +119,13 @@ void colNorm(Type* dots,
  * @param[in] fin_op the final lambda op
  */
 template <typename ElementType,
+          typename OutputType,
           typename LayoutPolicy,
           typename IndexType,
           typename Lambda = raft::identity_op>
 void norm(raft::resources const& handle,
           raft::device_matrix_view<const ElementType, IndexType, LayoutPolicy> in,
-          raft::device_vector_view<ElementType, IndexType> out,
+          raft::device_vector_view<OutputType, IndexType> out,
           NormType type,
           Apply apply,
           Lambda fin_op = raft::identity_op())

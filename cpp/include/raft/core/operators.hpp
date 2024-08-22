@@ -19,6 +19,8 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/math.hpp>
 
+#include <cuda_fp16.h>
+
 #include <algorithm>
 #include <cmath>
 #include <tuple>
@@ -104,13 +106,27 @@ struct sq_op {
   {
     return in * in;
   }
+
+  template <typename... UnusedArgs>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const half& in, UnusedArgs...) const
+  {
+    return __half2float(in) * __half2float(in);
+  }
 };
 
 struct add_op {
   template <typename T1, typename T2>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
   {
-    return a + b;
+    if constexpr (std::is_same_v<T1, half> && std::is_same_v<T2, half>) {
+      return __half2float(a) + __half2float(b);
+    } else if constexpr (std::is_same_v<T1, half>) {
+      return __half2float(a) + b;
+    } else if constexpr (std::is_same_v<T2, half>) {
+      return a + __half2float(b);
+    } else {
+      return a + b;
+    }
   }
 };
 
