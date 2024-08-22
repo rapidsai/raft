@@ -66,24 +66,30 @@ RAFT_KERNEL __launch_bounds__(calc_nnz_by_rows_tpb) calc_nnz_by_rows_kernel(cons
     index_t e_bit  = s_bit + num_cols;
     index_t l_sum  = 0;
 
+    int s_gap = 0;
+    int e_gap = 0;
+
     while (offset < num_cols) {
       index_t bitmap_idx                     = lane_id + (s_bit + offset) / BITS_PER_BITMAP;
       std::remove_const_t<bitmap_t> l_bitmap = 0;
 
       if (bitmap_idx * BITS_PER_BITMAP < e_bit) { l_bitmap = bitmap[bitmap_idx]; }
 
-      if (s_bit > bitmap_idx * BITS_PER_BITMAP) {
-        l_bitmap >>= (s_bit - bitmap_idx * BITS_PER_BITMAP);
-        l_bitmap <<= (s_bit - bitmap_idx * BITS_PER_BITMAP);
-      }
-
-      if ((bitmap_idx + 1) * BITS_PER_BITMAP > e_bit) {
-        l_bitmap <<= ((bitmap_idx + 1) * BITS_PER_BITMAP - e_bit);
-        l_bitmap >>= ((bitmap_idx + 1) * BITS_PER_BITMAP - e_bit);
-      }
-
-      l_sum += static_cast<index_t>(raft::detail::popc(l_bitmap));
       offset += BITS_PER_BITMAP * warpSize;
+
+      s_gap = s_bit - bitmap_idx * BITS_PER_BITMAP;
+      if (s_gap > 0) {
+        l_bitmap >>= s_gap;
+        l_bitmap <<= s_gap;
+        offset -= s_gap;
+      }
+
+      e_gap = (bitmap_idx + 1) * BITS_PER_BITMAP - e_bit;
+      if (e_gap > 0) {
+        l_bitmap <<= e_gap;
+        l_bitmap >>= e_gap;
+      }
+      l_sum += static_cast<index_t>(raft::detail::popc(l_bitmap));
     }
 
     l_sum = cg::reduce(tile, l_sum, cg::plus<index_t>());

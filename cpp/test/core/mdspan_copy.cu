@@ -161,6 +161,59 @@ TEST(MDSpanCopy, Mdspan2DDeviceDeviceCuda)
     }
   }
 }
+
+TEST(MDSpanCopy, Mdspan2DDeviceDeviceCudaHalfWithTranspose)
+{
+  auto res            = device_resources{};
+  auto constexpr rows = std::uint32_t{30};
+  auto constexpr cols = std::uint32_t{20};
+  auto in_left        = make_device_mdarray<half, std::uint32_t, layout_c_contiguous, rows, cols>(
+    res, extents<std::uint32_t, rows, cols>{});
+  auto in_right = make_device_mdarray<half, std::uint32_t, layout_f_contiguous, rows, cols>(
+    res, extents<std::uint32_t, rows, cols>{});
+  auto gen_unique_entry = [](auto&& x, auto&& y) { return x * 7 + y * 11; };
+
+  for (auto i = std::uint32_t{}; i < rows; ++i) {
+    for (auto j = std::uint32_t{}; j < cols; ++j) {
+      in_left(i, j)  = gen_unique_entry(i, j);
+      in_right(i, j) = gen_unique_entry(i, j);
+    }
+  }
+
+  auto out_left = make_device_mdarray<half, std::uint32_t, layout_c_contiguous, rows, cols>(
+    res, extents<std::uint32_t, rows, cols>{});
+  auto out_right = make_device_mdarray<half, std::uint32_t, layout_f_contiguous, rows, cols>(
+    res, extents<std::uint32_t, rows, cols>{});
+
+  res.sync_stream();
+
+  // Test dtype conversion with transpose
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
+  copy(res, out_right.view(), in_left.view());
+  res.sync_stream();
+  for (auto i = std::uint32_t{}; i < rows; ++i) {
+    for (auto j = std::uint32_t{}; j < cols; ++j) {
+      ASSERT_TRUE(match(__half2float(out_right(i, j)),
+                        __half2float(gen_unique_entry(i, j)),
+                        CompareApprox<float>{0.0001}));
+    }
+  }
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_left.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
+  copy(res, out_left.view(), in_right.view());
+  res.sync_stream();
+  for (auto i = std::uint32_t{}; i < rows; ++i) {
+    for (auto j = std::uint32_t{}; j < cols; ++j) {
+      ASSERT_TRUE(match(__half2float(out_left(i, j)),
+                        __half2float(gen_unique_entry(i, j)),
+                        CompareApprox<float>{0.0001}));
+    }
+  }
+}
+
 TEST(MDSpanCopy, Mdspan3DDeviceHostCuda)
 {
   auto res                   = device_resources{};
