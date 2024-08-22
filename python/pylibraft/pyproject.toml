@@ -29,7 +29,7 @@ authors = [
     { name = "NVIDIA Corporation" },
 ]
 license = { text = "Apache 2.0" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "cuda-python",
     "numpy>=1.23,<2.0a0",
@@ -38,7 +38,6 @@ dependencies = [
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
 ]
