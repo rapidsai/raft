@@ -473,7 +473,7 @@ dependencies:
     common:
       - output_types: [conda, pyproject]
         packages:
-          - &numpy numpy>=1.23,<3.0a0
+          - numpy>=1.23,<3.0a0
       - output_types: [conda]
         packages:
           - *rmm_unsuffixed
@@ -513,7 +513,6 @@ dependencies:
           - dask-cuda==24.10.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.57
-          - *numpy
           - rapids-dask-dependency==24.10.*,>=0.0.0a0
       - output_types: conda
         packages:
