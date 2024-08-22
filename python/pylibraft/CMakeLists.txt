@@ -30,6 +30,7 @@ project(
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
        ON
 )
+option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
@@ -48,14 +49,31 @@ endif()
 include(rapids-cython-core)
 
 if(NOT raft_FOUND)
+  find_package(CUDAToolkit REQUIRED)
+
   set(BUILD_TESTS OFF)
   set(BUILD_PRIMS_BENCH OFF)
   set(BUILD_ANN_BENCH OFF)
   set(RAFT_COMPILE_LIBRARY ON)
   set(CUDA_STATIC_RUNTIME ON)
   set(CUDA_STATIC_MATH_LIBRARIES ON)
+  if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
+    set(CUDA_STATIC_MATH_LIBRARIES OFF)
+  elseif(USE_CUDA_MATH_WHEELS)
+    message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
+  endif()
 
   add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
+
+  if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
+    set_property(TARGET raft_lib PROPERTY INSTALL_RPATH
+      "$ORIGIN/../nvidia/cublas/lib"
+      "$ORIGIN/../nvidia/curand/lib"
+      "$ORIGIN/../nvidia/cusolver/lib"
+      "$ORIGIN/../nvidia/cusparse/lib"
+      "$ORIGIN/../nvidia/nvjitlink/lib"
+    )
+  endif()
 
   # When building the C++ libraries from source we must copy libraft.so alongside the
   # pairwise_distance and random Cython libraries TODO: when we have a single 'compiled' raft
