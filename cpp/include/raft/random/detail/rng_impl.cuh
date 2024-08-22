@@ -30,6 +30,7 @@
 #include <rmm/device_scalar.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda_fp16.h>
 
 namespace raft {
 namespace random {
@@ -85,7 +86,7 @@ template <typename OutType, typename LenType = int>
 void uniform(
   RngState& rng_state, OutType* ptr, LenType len, OutType start, OutType end, cudaStream_t stream)
 {
-  static_assert(std::is_floating_point<OutType>::value,
+  static_assert(std::is_floating_point<OutType>::value || std::is_same_v<OutType, half>,
                 "Type for 'uniform' can only be floating point!");
   UniformDistParams<OutType> params;
   params.start = start;

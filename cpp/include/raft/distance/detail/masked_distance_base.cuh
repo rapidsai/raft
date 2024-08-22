@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -266,7 +266,7 @@ struct MaskedDistances : public BaseClass {
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        acc[i][j] = BaseClass::Zero;
+        acc[i][j] = BaseClass::Zero();
       }
     }
   }
