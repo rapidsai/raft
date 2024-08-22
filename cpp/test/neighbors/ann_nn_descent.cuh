@@ -231,7 +231,6 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
         index_params.intermediate_graph_degree = 2 * ps.graph_degree;
         index_params.max_iterations            = 10;
         index_params.return_distances          = true;
-        index_params.do_batch                  = true;
         index_params.n_clusters                = ps.recall_cluster.second;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(

@@ -65,7 +65,7 @@ index<IdxT> build(raft::resources const& res,
                   raft::device_matrix_view<const T, int64_t, row_major> dataset,
                   epilogue_op distance_epilogue = DistEpilogue<IdxT, T>())
 {
-  if (params.do_batch && params.n_clusters > 1) {
+  if (params.n_clusters > 1) {
     return detail::batch_build<T, IdxT>(res, params, dataset, distance_epilogue);
   } else {
     return detail::build<T, IdxT>(res, params, dataset, distance_epilogue);
@@ -149,7 +149,7 @@ index<IdxT> build(raft::resources const& res,
                   raft::host_matrix_view<const T, int64_t, row_major> dataset,
                   epilogue_op distance_epilogue = DistEpilogue<IdxT, T>())
 {
-  if (params.do_batch && params.n_clusters > 1) {
+  if (params.n_clusters > 1) {
     return detail::batch_build<T, IdxT>(res, params, dataset, distance_epilogue);
   } else {
     return detail::build<T, IdxT>(res, params, dataset, distance_epilogue);
