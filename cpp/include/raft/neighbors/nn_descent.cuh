@@ -198,22 +198,6 @@ void build(raft::resources const& res,
   detail::build<T, IdxT>(res, params, dataset, idx, distance_epilogue);
 }
 
-template <typename T,
-          typename IdxT        = uint32_t,
-          typename epilogue_op = DistEpilogue<IdxT, T>,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
-index<IdxT> build(raft::resources const& res,
-                  const index_params& params,
-                  mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
-                  epilogue_op distance_epilogue = DistEpilogue<IdxT, T>(),
-                  bool do_batch                 = false)
-{
-  // separate function signature just for the tests because kmeans_balanced::fit inside batch build
-  // doesn't compile with current nnd tests that have uint8 and int8 data types
-  return detail::build<T, IdxT>(res, params, dataset, distance_epilogue);
-}
-
 /** @} */  // end group nn-descent
 
 }  // namespace raft::neighbors::experimental::nn_descent

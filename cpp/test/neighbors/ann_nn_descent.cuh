@@ -122,8 +122,9 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
             raft::copy(database_host.data_handle(), database.data(), database.size(), stream_);
             auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
               (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
-            auto index = nn_descent::build<DataT, IdxT>(
-              handle_, index_params, database_host_view, DistEpilogue<IdxT, DataT>(), false);
+            index<IdxT> index{handle_, ps.n_rows, static_cast<int64_t>(ps.graph_degree), true};
+            nn_descent::build<DataT, IdxT>(
+              handle_, index_params, database_host_view, index, DistEpilogue<IdxT, DataT>());
             raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
             if (index.distances().has_value()) {
@@ -134,8 +135,9 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
             }
 
           } else {
-            auto index = nn_descent::build<DataT, IdxT>(
-              handle_, index_params, database_view, DistEpilogue<IdxT, DataT>(), false);
+            index<IdxT> index{handle_, ps.n_rows, static_cast<int64_t>(ps.graph_degree), true};
+            nn_descent::build<DataT, IdxT>(
+              handle_, index_params, database_view, index, DistEpilogue<IdxT, DataT>());
             raft::copy(
               indices_NNDescent.data(), index.graph().data_handle(), queries_size, stream_);
             if (index.distances().has_value()) {
