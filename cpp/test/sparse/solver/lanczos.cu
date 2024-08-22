@@ -420,20 +420,37 @@ const std::vector<rmat_lanczos_inputs<int, float>> rmat_inputsf = {
                                                -8.765364,   -8.688508,  -8.458255,   -8.385196,
                                                -8.217982,   -8.0442095}}};
 
-const std::vector<rmat_lanczos_inputs<int, double>> rmat_inputsd = {
-  {50, 100, 10000, 0, 0, 1e-9, 42, 12, 12, 1, {-122.526794, -74.00686,  -59.698284,  -54.68617,
-                                               -49.686813,  -34.02644,  -32.130703,  -31.26906,
-                                               -30.32097,   -22.946098, -20.497862,  -20.23817,
-                                               -19.269697,  -18.42496,  -17.675667,  -17.013401,
-                                               -16.734581,  -15.820215, -15.73925,   -15.448187,
-                                               -15.044634,  -14.692028, -14.127425,  -13.967386,
-                                               -13.6237755, -13.469393, -13.181225,  -12.777589,
-                                               -12.623185,  -12.55508,  -12.2874565, -12.053391,
-                                               -11.677346,  -11.558279, -11.163732,  -10.922034,
-                                               -10.7936945, -10.558049, -10.205776,  -10.005316,
-                                               -9.559181,   -9.491834,  -9.242631,   -8.883637,
-                                               -8.765364,   -8.688508,  -8.458255,   -8.385196,
-                                               -8.217982,   -8.0442095}}};
+const std::vector<rmat_lanczos_inputs<int, float>> rmat_inputs_edge_case = {
+  {100,
+   300,
+   10000,
+   0,
+   0,
+   1e-9,
+   42,
+   12,
+   12,
+   1,
+   {-1.22526756e+02, -7.40069504e+01, -5.96983109e+01, -5.46862068e+01, -4.96868439e+01,
+    -3.40264435e+01, -3.21306839e+01, -3.12690392e+01, -3.03210258e+01, -2.29461250e+01,
+    -2.04978676e+01, -2.02381744e+01, -1.92697086e+01, -1.84249725e+01, -1.76756725e+01,
+    -1.70134144e+01, -1.67345791e+01, -1.58202209e+01, -1.57392349e+01, -1.54481869e+01,
+    -1.50446243e+01, -1.46920280e+01, -1.41274376e+01, -1.39673843e+01, -1.36237764e+01,
+    -1.34693928e+01, -1.31812143e+01, -1.27775812e+01, -1.26231880e+01, -1.25550766e+01,
+    -1.22874584e+01, -1.20533924e+01, -1.16773510e+01, -1.15582829e+01, -1.11637363e+01,
+    -1.09220333e+01, -1.07936945e+01, -1.05580463e+01, -1.02057772e+01, -1.00053129e+01,
+    -9.55917740e+00, -9.49183655e+00, -9.24262238e+00, -8.88363647e+00, -8.76536846e+00,
+    -8.68850899e+00, -8.45825481e+00, -8.38520622e+00, -8.21798038e+00, -8.04420948e+00,
+    -7.90373087e+00, -7.83332729e+00, -7.54670286e+00, -7.50262451e+00, -7.36070538e+00,
+    -7.06634855e+00, -6.89205170e+00, -6.64973640e+00, -6.46234751e+00, -5.98167992e+00,
+    -5.67716694e+00, -5.48805237e+00, -5.00374651e+00, -4.64848948e+00, -6.70900226e-06,
+    -5.04503123e-06, -1.94547101e-06, -5.66026663e-13, -5.23560958e-13, -4.79860509e-13,
+    -4.48999019e-13, -4.35402040e-13, -4.26073429e-13, -4.10326368e-13, -4.09151066e-13,
+    -3.81928457e-13, -3.71661062e-13, -3.63793847e-13, -3.51424022e-13, -3.45496228e-13,
+    -3.36190629e-13, -3.27994251e-13, -3.12900720e-13, -3.00004786e-13, -2.84064601e-13,
+    -2.75522199e-13, -2.58613199e-13, -2.47531948e-13, -2.35822267e-13, -2.04967106e-13,
+    -1.92008627e-13, -1.72746230e-13, -1.51118782e-13, -1.39004232e-13, -1.23819764e-13,
+    -1.02513457e-13, -8.25850415e-14, -6.00154488e-14, -4.85406359e-14, -3.43267861e-14}}};
 
 using LanczosTestF = lanczos_tests<int, float>;
 TEST_P(LanczosTestF, Result) { Run(); }
@@ -444,11 +461,8 @@ TEST_P(LanczosTestD, Result) { Run(); }
 using RmatLanczosTestF = rmat_lanczos_tests<int, float>;
 TEST_P(RmatLanczosTestF, Result) { Run(); }
 
-// using RmatLanczosTestD = rmat_lanczos_tests<int, double>;
-// TEST_P(RmatLanczosTestD, Result)
-// {
-//   Run();
-// }
+using RmatLanczosTestEdgeCase = rmat_lanczos_tests<int, float>;
+TEST_P(RmatLanczosTestEdgeCase, Result) { Run(); }
 
 template <typename index_type, typename value_type>
 void save_vectors(const std::string& filename,
@@ -572,15 +586,18 @@ TEST_P(DummyLanczosTest, Result)
   raft::copy(colsH.data(), symmetric_coo.cols(), symmetric_coo.nnz, stream);
   raft::copy(valsH.data(), symmetric_coo.vals(), symmetric_coo.nnz, stream);
 
-  save_vectors("sparse.bin", rowsH, colsH, valsH);
+  // This is to inspect the RMAT values and save them to a file
+  // save_vectors("sparse.bin", rowsH, colsH, valsH);
 }
 
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF, ::testing::ValuesIn(inputsf));
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestD, ::testing::ValuesIn(inputsd));
 INSTANTIATE_TEST_CASE_P(LanczosTests, RmatLanczosTestF, ::testing::ValuesIn(rmat_inputsf));
-// INSTANTIATE_TEST_CASE_P(LanczosTests, RmatLanczosTestD, ::testing::ValuesIn(rmat_inputsd));
+INSTANTIATE_TEST_CASE_P(LanczosTests,
+                        RmatLanczosTestEdgeCase,
+                        ::testing::ValuesIn(rmat_inputs_edge_case));
 
-// INSTANTIATE_TEST_CASE_P(LanczosTests, DummyLanczosTest, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(LanczosTests, DummyLanczosTest, ::testing::ValuesIn(inputsf));
 
 }  // namespace sparse
 }  // namespace raft
