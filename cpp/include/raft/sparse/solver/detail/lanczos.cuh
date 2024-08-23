@@ -46,6 +46,7 @@
 #include <raft/linalg/svd.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/matrix/slice.cuh>
 #include <raft/matrix/triangular.cuh>
@@ -1528,18 +1529,22 @@ void lanczos_solve_ritz(
     raft::make_device_matrix<value_type_t, uint32_t, raft::col_major>(handle, ncv, ncv);
   raft::matrix::fill(handle, triangular_matrix.view(), zero);
 
-  raft::matrix::initializeDiagonalMatrix(
-    alpha.data_handle(), triangular_matrix.data_handle(), ncv, ncv, stream);
+  raft::device_vector_view<const value_type_t, uint32_t> alphaVec =
+    raft::make_device_vector_view<const value_type_t, uint32_t>(alpha.data_handle(), ncv);
+  raft::matrix::set_diagonal(handle, alphaVec, triangular_matrix.view());
+
+  // raft::matrix::initializeDiagonalMatrix(
+  //   alpha.data_handle(), triangular_matrix.data_handle(), ncv, ncv, stream);
 
   int blockSize = 256;
   int numBlocks = (ncv + blockSize - 1) / blockSize;
   kernel_triangular_populate<value_type_t>
-    <<<blockSize, numBlocks>>>(triangular_matrix.data_handle(), beta.data_handle(), ncv);
+    <<<blockSize, numBlocks, 0, stream>>>(triangular_matrix.data_handle(), beta.data_handle(), ncv);
 
   if (beta_k) {
     int threadsPerBlock = 256;
     int blocksPerGrid   = (k + threadsPerBlock - 1) / threadsPerBlock;
-    kernel_triangular_beta_k<value_type_t><<<blocksPerGrid, threadsPerBlock>>>(
+    kernel_triangular_beta_k<value_type_t><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
       triangular_matrix.data_handle(), beta_k.value().data_handle(), (int)k, ncv);
   }
 
@@ -1566,7 +1571,7 @@ void lanczos_aux(raft::resources const& handle,
 {
   auto stream = resource::get_cuda_stream(handle);
 
-  int n = A->nrows_;
+  index_type_t n = A->nrows_;
 
   raft::copy(v.data_handle(), &(V(start_idx, 0)), n, stream);
 
@@ -1665,24 +1670,24 @@ void lanczos_aux(raft::resources const& handle,
     auto uu_i = raft::make_device_scalar_view(&uu(0, i));
     raft::linalg::add(handle, make_const_mdspan(alpha_i), make_const_mdspan(uu_i), alpha_i);
 
-    kernel_clamp_down<<<1, 1>>>(alpha_i.data_handle(), static_cast<value_type_t>(1e-9));
+    kernel_clamp_down<<<1, 1, 0, stream>>>(alpha_i.data_handle(), static_cast<value_type_t>(1e-9));
 
     raft::linalg::nrm2<value_type_t, true>(handle, n, u.data_handle(), 1, &beta(0, i), stream);
 
     int blockSize = 256;
     int numBlocks = (n + blockSize - 1) / blockSize;
 
-    kernel_clamp_down_vector<<<numBlocks, blockSize>>>(
+    kernel_clamp_down_vector<<<numBlocks, blockSize, 0, stream>>>(
       u.data_handle(), static_cast<value_type_t>(1e-7), n);
 
-    kernel_clamp_down<<<1, 1>>>(&beta(0, i), static_cast<value_type_t>(1e-6));
+    kernel_clamp_down<<<1, 1, 0, stream>>>(&beta(0, i), static_cast<value_type_t>(1e-6));
 
     if (i >= end_idx - 1) { break; }
 
     int threadsPerBlock = 256;
     int blocksPerGrid   = (n + threadsPerBlock - 1) / threadsPerBlock;
 
-    kernel_normalize<value_type_t><<<blocksPerGrid, threadsPerBlock>>>(
+    kernel_normalize<value_type_t><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
       u.data_handle(), beta.data_handle(), i, n, v.data_handle(), V.data_handle(), n);
   }
 }
@@ -1799,7 +1804,7 @@ int lanczos_smallest(raft::resources const& handle,
 
   // raft::matrix::slice(handle, make_const_mdspan(eigenvectors_k), s, coords);
 
-  kernel_get_last_row<<<numBlocks, blockSize>>>(
+  kernel_get_last_row<<<numBlocks, blockSize, 0, stream>>>(
     eigenvectors_k.data_handle(), s.data_handle(), ncv, nEigVecs);
 
   auto beta_k = raft::make_device_vector<value_type_t>(handle, nEigVecs);
@@ -1924,7 +1929,7 @@ int lanczos_smallest(raft::resources const& handle,
 
     int threadsPerBlock = 256;
     int blocksPerGrid   = (n + threadsPerBlock - 1) / threadsPerBlock;
-    kernel_subtract_and_scale<<<blocksPerGrid, threadsPerBlock>>>(
+    kernel_subtract_and_scale<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
       u.data_handle(), V_0_view.data_handle(), alpha_k.data_handle(), n);
 
     auto temp = raft::make_device_vector<value_type_t>(handle, n);
@@ -1977,7 +1982,7 @@ int lanczos_smallest(raft::resources const& handle,
                        stream);
 
     auto one_scalar = raft::make_device_scalar<value_type_t>(handle, 1);
-    kernel_subtract_and_scale<value_type_t><<<blocksPerGrid, threadsPerBlock>>>(
+    kernel_subtract_and_scale<value_type_t><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
       u.data_handle(), temp.data_handle(), one_scalar.data_handle(), n);
 
     raft::linalg::nrm2<value_type_t, true>(
@@ -2030,7 +2035,7 @@ int lanczos_smallest(raft::resources const& handle,
     int numBlocks = (nEigVecs + blockSize - 1) / blockSize;
 
     auto s = raft::make_device_vector<value_type_t>(handle, nEigVecs);
-    kernel_get_last_row<<<numBlocks, blockSize>>>(
+    kernel_get_last_row<<<numBlocks, blockSize, 0, stream>>>(
       eigenvectors_k.data_handle(), s.data_handle(), ncv, nEigVecs);
 
     raft::matrix::fill(handle, beta_k.view(), zero);
