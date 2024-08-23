@@ -1736,20 +1736,15 @@ int lanczos_smallest(raft::resources const& handle,
     V_0_view,
     [device_scalar = v0nrm_scalar.data_handle()] __device__(auto y) { return y / *device_scalar; });
 
-  raft::device_matrix<value_type_t, uint32_t, raft::row_major> alpha =
-    raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, ncv);
-  raft::device_matrix<value_type_t, uint32_t, raft::row_major> beta =
-    raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, ncv);
+  auto alpha = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, ncv);
+  auto beta  = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, ncv);
   value_type_t zero = 0;
   raft::matrix::fill(handle, alpha.view(), zero);
   raft::matrix::fill(handle, beta.view(), zero);
 
-  raft::device_matrix<value_type_t, uint32_t, raft::row_major> v =
-    raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, n);
-  raft::device_matrix<value_type_t, uint32_t, raft::row_major> aux_uu =
-    raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, ncv);
-  raft::device_matrix<value_type_t, uint32_t, raft::row_major> vv =
-    raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, n);
+  auto v      = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, n);
+  auto aux_uu = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, ncv);
+  auto vv     = raft::make_device_matrix<value_type_t, uint32_t, raft::row_major>(handle, 1, n);
 
   lanczos_aux(handle,
               A,
