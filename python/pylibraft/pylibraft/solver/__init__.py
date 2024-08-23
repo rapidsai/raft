@@ -15,4 +15,4 @@
 
 from .lanczos import eigsh
 
-__all__ = ["rmat"]
+__all__ = ["eigsh"]

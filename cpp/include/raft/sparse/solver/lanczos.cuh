@@ -19,6 +19,7 @@
 #pragma once
 
 #include <raft/sparse/solver/detail/lanczos.cuh>
+#include <raft/sparse/solver/lanczos_types.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft::sparse::solver {
@@ -26,8 +27,6 @@ namespace raft::sparse::solver {
 // =========================================================
 // Eigensolver
 // =========================================================
-
-using detail::lanczos_solver_config;
 
 template <typename IndexTypeT, typename ValueTypeT>
 auto lanczos_compute_smallest_eigenvectors(

@@ -15,6 +15,7 @@
  */
 
 #include <raft/sparse/solver/lanczos.cuh>
+#include <raft/sparse/solver/lanczos_types.hpp>
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>

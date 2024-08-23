@@ -104,6 +104,43 @@ cdef extern from "raft_runtime/solver/lanczos.hpp" \
 @auto_sync_handle
 def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
           tol=0, seed=None, handle=None):
+    """
+    Find ``k`` eigenvalues and eigenvectors of the real symmetric square
+    matrix or complex Hermitian matrix ``A``.
+
+    Solves ``Ax = wx``, the standard eigenvalue problem for ``w`` eigenvalues
+    with corresponding eigenvectors ``x``.
+
+    Args:
+        a (ndarray, spmatrix or LinearOperator): A symmetric square matrix with
+            dimension ``(n, n)``. ``a`` must :class:`cupy.ndarray`,
+            :class:`cupyx.scipy.sparse.spmatrix` or
+            :class:`cupyx.scipy.sparse.linalg.LinearOperator`.
+        k (int): The number of eigenvalues and eigenvectors to compute. Must be
+            ``1 <= k < n``.
+        v0 (ndarray): Starting vector for iteration. If ``None``, a random
+            unit vector is used.
+        ncv (int): The number of Lanczos vectors generated. Must be
+            ``k + 1 < ncv < n``. If ``None``, default value is used.
+        maxiter (int): Maximum number of Lanczos update iterations.
+            If ``None``, default value is used.
+        tol (float): Tolerance for residuals ``||Ax - wx||``. If ``0``, machine
+            precision is used.
+
+    Returns:
+        tuple:
+            It returns ``w`` and ``x``
+            where ``w`` is eigenvalues and ``x`` is eigenvectors.
+
+    .. seealso::
+        :func:`scipy.sparse.linalg.eigsh`
+        :func:`cupyx.scipy.sparse.linalg.eigsh`
+
+    .. note::
+        This function uses the thick-restart Lanczos methods
+        (https://sdm.lbl.gov/~kewu/ps/trlan.html).
+
+    """
 
     if A is None:
         raise Exception("'A' cannot be None!")
@@ -127,7 +164,6 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
     vals_ptr = <uintptr_t>vals.data
 
     if ncv is None:
-        # ncv = min(max(2 * k, k + 32), n - 1)
         ncv = min(n, max(2*k + 1, 20))
     else:
         ncv = min(max(ncv, k + 2), n - 1)
@@ -156,8 +192,6 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
 
     handle = handle if handle is not None else Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
-
-    print(IndexType, ValueType)
 
     if IndexType == np.int32 and ValueType == np.float32:
         lanczos_solver(

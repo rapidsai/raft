@@ -31,6 +31,7 @@
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/op/reduce.cuh>
 #include <raft/sparse/op/sort.cuh>
+#include <raft/sparse/solver/lanczos_types.hpp>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>

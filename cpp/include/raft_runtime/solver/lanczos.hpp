@@ -22,7 +22,7 @@
 namespace raft::runtime::solver {
 
 /**
- * @defgroup rmat_runtime RMAT Runtime API
+ * @defgroup rmat_runtime lanczos Runtime API
  * @{
  */
 
