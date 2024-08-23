@@ -32,7 +32,7 @@ license = { text = "Apache 2.0" }
 requires-python = ">=3.9"
 dependencies = [
     "cuda-python",
-    "numpy>=1.23,<2.0a0",
+    "numpy>=1.23,<3.0a0",
     "nvidia-cublas",
     "nvidia-curand",
     "nvidia-cusolver",
