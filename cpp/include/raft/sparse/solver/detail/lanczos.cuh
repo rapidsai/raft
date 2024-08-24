@@ -17,6 +17,7 @@
 #pragma once
 
 // for cmath:
+#include "raft/core/device_csr_matrix.hpp"
 #define _USE_MATH_DEFINES
 
 #include <raft/core/detail/macros.hpp>
@@ -1544,7 +1545,8 @@ void lanczos_solve_ritz(
 
 template <typename index_type_t, typename value_type_t>
 void lanczos_aux(raft::resources const& handle,
-                 spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
+                //  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
+                 raft::device_csr_matrix_view<value_type_t, index_type_t, index_type_t, value_type_t> A,
                  raft::device_matrix_view<value_type_t, uint32_t, raft::row_major> V,
                  raft::device_matrix_view<value_type_t> u,
                  raft::device_matrix_view<value_type_t> alpha,
@@ -1558,7 +1560,8 @@ void lanczos_aux(raft::resources const& handle,
 {
   auto stream = resource::get_cuda_stream(handle);
 
-  index_type_t n = A->nrows_;
+  auto A_structure = A.get_structure_view();
+  index_type_t n = A_structure.get_n_rows();
 
   raft::copy(v.data_handle(), &(V(start_idx, 0)), n, stream);
 
@@ -1567,12 +1570,12 @@ void lanczos_aux(raft::resources const& handle,
   auto cusparse_h = resource::get_cusparse_handle(handle);
   cusparseSpMatDescr_t cusparse_A;
   raft::sparse::detail::cusparsecreatecsr(&cusparse_A,
-                                          A->nrows_,
-                                          A->ncols_,
-                                          A->nnz_,
-                                          const_cast<index_type_t*>(A->row_offsets_),
-                                          const_cast<index_type_t*>(A->col_indices_),
-                                          const_cast<value_type_t*>(A->values_));
+                                            A_structure.get_n_rows(),
+                                            A_structure.get_n_cols(),
+                                            A_structure.get_nnz(),
+                                            const_cast<index_type_t*>(A_structure.get_indptr().data()),
+                                            const_cast<index_type_t*>(A_structure.get_indices().data()),
+                                            const_cast<value_type_t*>(A_structure.get_elements().data()));
 
   cusparseDnVecDescr_t cusparse_v;
   cusparseDnVecDescr_t cusparse_u;
@@ -1681,7 +1684,7 @@ void lanczos_aux(raft::resources const& handle,
 
 template <typename index_type_t, typename value_type_t>
 int lanczos_smallest(raft::resources const& handle,
-                     spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
+                     raft::device_csr_matrix_view<value_type_t, index_type_t, index_type_t, value_type_t> A,
                      int nEigVecs,
                      int maxIter,
                      int restartIter,
@@ -1691,7 +1694,8 @@ int lanczos_smallest(raft::resources const& handle,
                      value_type_t* v0,
                      uint64_t seed)
 {
-  int n       = A->nrows_;
+  auto A_structure = A.structure_view();
+  int n       = A_structure.get_n_rows();
   int ncv     = restartIter;
   auto stream = resource::get_cuda_stream(handle);
 
@@ -1860,13 +1864,16 @@ int lanczos_smallest(raft::resources const& handle,
 
     auto cusparse_h = resource::get_cusparse_handle(handle);
     cusparseSpMatDescr_t cusparse_A;
+  //   input_config.a_indptr  = const_cast<IndexType*>(x_structure.get_indptr().data());
+  // input_config.a_indices = const_cast<IndexType*>(x_structure.get_indices().data());
+  // input_config.a_data    = const_cast<ElementType*>(x.get_elements().data());
     raft::sparse::detail::cusparsecreatecsr(&cusparse_A,
-                                            A->nrows_,
-                                            A->ncols_,
-                                            A->nnz_,
-                                            const_cast<index_type_t*>(A->row_offsets_),
-                                            const_cast<index_type_t*>(A->col_indices_),
-                                            const_cast<value_type_t*>(A->values_));
+                                            A_structure.get_n_rows(),
+                                            A_structure.get_n_cols(),
+                                            A_structure.get_nnz(),
+                                            const_cast<index_type_t*>(A_structure.get_indptr().data()),
+                                            const_cast<index_type_t*>(A_structure.get_indices().data()),
+                                            const_cast<value_type_t*>(A_structure.get_elements().data()));
 
     cusparseDnVecDescr_t cusparse_v;
     cusparseDnVecDescr_t cusparse_u;
@@ -2051,7 +2058,7 @@ int lanczos_smallest(raft::resources const& handle,
 template <typename IndexTypeT, typename ValueTypeT>
 auto lanczos_compute_smallest_eigenvectors(
   raft::resources const& handle,
-  raft::spectral::matrix::sparse_matrix_t<IndexTypeT, ValueTypeT> const& A,
+  raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, ValueTypeT> A,
   lanczos_solver_config<IndexTypeT, ValueTypeT> const& config,
   raft::device_vector_view<ValueTypeT, uint32_t> v0,
   raft::device_vector_view<ValueTypeT, uint32_t> eigenvalues,
