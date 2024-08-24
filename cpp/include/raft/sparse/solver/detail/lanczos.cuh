@@ -1860,7 +1860,8 @@ int lanczos_smallest(raft::resources const& handle,
                                      1,
                                      stream);
 
-    auto V_0_view = raft::make_device_matrix_view<value_type_t>(&((V.view())(nEigVecs, 0)), 1, n);
+    auto V_0_view =
+      raft::make_device_matrix_view<value_type_t>(V.data_handle() + (nEigVecs * n), 1, n);
     value_type_t unrm = 0;
     raft::linalg::nrm2(handle, n, u.data_handle(), 1, &unrm, stream);
 
@@ -1915,7 +1916,7 @@ int lanczos_smallest(raft::resources const& handle,
                                        cusparse_spmv_buffer.data_handle(),
                                        stream);
 
-    auto alpha_k = raft::make_device_scalar_view<value_type_t>(&((alpha.view())(0, nEigVecs)));
+    auto alpha_k = raft::make_device_scalar_view<value_type_t>(alpha.data_handle() + nEigVecs);
     auto V_0_view_vector =
       raft::make_device_vector_view<const value_type_t>(V_0_view.data_handle(), n);
     auto u_view_vector = raft::make_device_vector_view<const value_type_t>(u.data_handle(), n);
