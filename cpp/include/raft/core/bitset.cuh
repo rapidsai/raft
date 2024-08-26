@@ -46,7 +46,7 @@ _RAFT_HOST_DEVICE bool bitset_view<bitset_t, index_t>::operator[](const index_t 
 }
 
 template <typename bitset_t, typename index_t>
-_RAFT_HOST_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index,
+_RAFT_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index,
                                                            bool set_value) const
 {
   const index_t bit_element = sample_index / bitset_element_size;
