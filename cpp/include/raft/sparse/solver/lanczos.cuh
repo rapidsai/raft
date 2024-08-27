@@ -48,16 +48,23 @@ auto lanczos_compute_smallest_eigenvectors(
   //     raft::core::bitmap_view<const bitmap_t, index_t>(bitmap_d.data(), params.m, params.n);
 
   //   auto c = raft::make_device_csr_matrix_view<value_t>(c_data_d.data(), c_structure);
-  
-  // FIXME: move out of function
-  auto csr_structure = raft::make_device_compressed_structure_view<IndexTypeT, IndexTypeT, IndexTypeT>(
-      A.row_offsets_,
-      A.col_indices_,
-      A.ncols_,
-      A.nrows_,
-      static_cast<IndexTypeT>(A.nnz_));
 
-  auto csr_matrix = raft::make_device_matrix_view<ValueTypeT>(A.values_, csr_structure);
+  // FIXME: move out of function
+  IndexTypeT ncols = A.ncols_;
+  IndexTypeT nrows = A.nrows_;
+  IndexTypeT nnz   = A.nnz_;
+
+  auto csr_structure =
+    raft::make_device_compressed_structure_view<IndexTypeT, IndexTypeT, IndexTypeT>(
+      const_cast<IndexTypeT*>(A.row_offsets_),
+      const_cast<IndexTypeT*>(A.col_indices_),
+      ncols,
+      nrows,
+      nnz);
+
+  auto csr_matrix =
+    raft::make_device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT>(
+      const_cast<ValueTypeT*>(A.values_), csr_structure);
 
   return detail::lanczos_compute_smallest_eigenvectors<IndexTypeT, ValueTypeT>(
     handle, csr_matrix, config, v0, eigenvalues, eigenvectors);
