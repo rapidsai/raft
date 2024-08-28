@@ -365,7 +365,7 @@ auto process_and_fill_codes(const raft::resources& res,
                                                         dim,
                                                         max_batch_size,
                                                         stream,
-                                                        rmm::mr::get_current_device_resource())) {
+                                                        resource::get_current_device_resource())) {
     auto batch_view = raft::make_device_matrix_view(batch.data(), ix_t(batch.size()), dim);
     auto labels     = predict_vq<label_t>(res, batch_view, vq_centers);
     dim3 blocks(div_rounding_up_safe<ix_t>(n_rows, kBlockSize / threads_per_vec), 1, 1);

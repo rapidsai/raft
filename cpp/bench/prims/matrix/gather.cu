@@ -46,8 +46,8 @@ template <typename T, typename MapT, typename IdxT, bool Conditional = false>
 struct Gather : public fixture {
   Gather(const GatherParams<IdxT>& p)
     : params(p),
-      old_mr(rmm::mr::get_current_device_resource()),
-      pool_mr(rmm::mr::get_current_device_resource(), 2 * (1ULL << 30)),
+      old_mr(raft::resource::get_current_device_resource_ref()),
+      pool_mr(raft::resource::get_current_device_resource_ref(), 2 * (1ULL << 30)),
       matrix(this->handle),
       map(this->handle),
       out(this->handle),

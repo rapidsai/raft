@@ -20,6 +20,7 @@
 
 #include <raft/core/bitset.cuh>
 #include <raft/core/resource/device_id.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/sample_filter.cuh>
@@ -29,13 +30,12 @@
 
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/host/new_delete_resource.hpp>
 #include <rmm/mr/host/pinned_memory_resource.hpp>
-#include <rmm/resource_ref.hpp>
 
 #include <thrust/sequence.h>
 
+#include <memory>
 #include <optional>
 
 namespace raft::bench::spatial {
@@ -89,25 +89,23 @@ inline auto operator<<(std::ostream& os, const Scope& s) -> std::ostream&
 
 struct device_resource {
  public:
-  explicit device_resource(bool managed) : managed_(managed)
+  explicit device_resource(bool managed)
+    : managed_(managed ? std::make_shared<rmm::mr::managed_memory_resource>() : nullptr)
   {
-    if (managed_) {
-      res_ = new rmm::mr::managed_memory_resource();
+    if (managed) {
+      res_ = managed.get();
     } else {
-      res_ = rmm::mr::get_current_device_resource();
+      res_ = raft::resource::get_current_device_resource_ref();
     }
   }
 
-  ~device_resource()
-  {
-    if (managed_) { delete res_; }
-  }
+  ~device_resource() {}
 
   [[nodiscard]] auto get() const -> rmm::device_async_resource_ref { return res_; }
 
  private:
-  const bool managed_;
-  rmm::mr::device_memory_resource* res_;
+  std::shared_ptr<rmm::mr::device_memory_resource> managed_;
+  raft::device_async_resource_ref res_;
 };
 
 template <typename T>

@@ -289,7 +289,7 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     raft::device_matrix_view<T, int, raft::col_major> X_view(X_d.data(), dim, nPoints);
 
     raft::random::multi_variable_gaussian(
-      handle, rmm::mr::get_current_device_resource(), x_view, P_view, X_view, method);
+      handle, raft::resource::get_current_device_resource_ref(), x_view, P_view, X_view, method);
 
     // saving the mean of the randoms in Rand_mean
     //@todo can be swapped with a API that calculates mean

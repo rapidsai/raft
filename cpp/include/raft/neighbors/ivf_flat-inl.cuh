@@ -416,7 +416,7 @@ void extend(raft::resources const& handle,
  *   ...
  *   // Create a pooling memory resource with a pre-defined initial size.
  *   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr(
- *     rmm::mr::get_current_device_resource(), 1024 * 1024);
+ *     raft::resource::get_current_device_resource(), 1024 * 1024);
  *   // use default search parameters
  *   ivf_flat::search_params search_params;
  *   filtering::none_ivf_sample_filter filter;
@@ -482,7 +482,7 @@ void search_with_filtering(raft::resources const& handle,
  *   ...
  *   // Create a pooling memory resource with a pre-defined initial size.
  *   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr(
- *     rmm::mr::get_current_device_resource(), 1024 * 1024);
+ *     raft::resource::get_current_device_resource(), 1024 * 1024);
  *   // use default search parameters
  *   ivf_flat::search_params search_params;
  *   // Use the same allocator across multiple searches to reduce the number of

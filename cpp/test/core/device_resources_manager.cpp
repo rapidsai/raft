@@ -114,7 +114,7 @@ TEST(DeviceResourcesManager, ObeysSetters)
     EXPECT_EQ(streams_per_pool, pool.get_pool_size());
 
     auto* mr = dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(
-      rmm::mr::get_current_device_resource());
+      resource::get_current_device_resource());
 
     if (upstream_mrs[i % devices.size()] != nullptr) {
       // Expect that the current memory resource is a pool memory resource as requested

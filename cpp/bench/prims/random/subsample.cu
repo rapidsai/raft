@@ -64,8 +64,8 @@ template <typename T>
 struct sample : public fixture {
   sample(const sample_inputs& p)
     : params(p),
-      old_mr(rmm::mr::get_current_device_resource()),
-      pool_mr(rmm::mr::get_current_device_resource(), 2 * GiB),
+      old_mr(raft::resource::get_current_device_resource()),
+      pool_mr(raft::resource::get_current_device_resource(), 2 * GiB),
       in(make_device_vector<T, int64_t>(res, p.n_samples)),
       out(make_device_vector<T, int64_t>(res, p.n_train))
   {
@@ -73,7 +73,7 @@ struct sample : public fixture {
     raft::random::RngState r(123456ULL);
   }
 
-  ~sample() { rmm::mr::set_current_device_resource(old_mr); }
+  ~sample() { raft::set_current_device_resource(old_mr); }
   void run_benchmark(::benchmark::State& state) override
   {
     std::ostringstream label_stream;

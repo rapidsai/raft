@@ -498,12 +498,13 @@ struct batch_load_iterator {
    * @param stream the ordering for the host->device copies, if applicable.
    * @param mr a custom memory resource for the intermediate buffer, if applicable.
    */
-  batch_load_iterator(const T* source,
-                      size_type n_rows,
-                      size_type row_width,
-                      size_type batch_size,
-                      rmm::cuda_stream_view stream,
-                      rmm::device_async_resource_ref mr = rmm::mr::get_current_device_resource())
+  batch_load_iterator(
+    const T* source,
+    size_type n_rows,
+    size_type row_width,
+    size_type batch_size,
+    rmm::cuda_stream_view stream,
+    rmm::device_async_resource_ref mr = raft::resource::get_current_device_resource_ref())
     : cur_batch_(new batch(source, n_rows, row_width, batch_size, stream, mr)), cur_pos_(0)
   {
   }

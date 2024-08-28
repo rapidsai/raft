@@ -287,7 +287,7 @@ TEST(Raft, WorkspaceResource)
 
   // Let's create a pooled resource
   auto pool_mr = std::shared_ptr<rmm::mr::device_memory_resource>{new rmm::mr::pool_memory_resource(
-    rmm::mr::get_current_device_resource(), rmm::percent_of_free_device_memory(50))};
+    raft::resource::get_current_device_resource(), rmm::percent_of_free_device_memory(50))};
 
   // A tiny workspace of 1MB
   size_t max_size = 1024 * 1024;
@@ -326,7 +326,7 @@ TEST(Raft, WorkspaceResourceCopy)
     resource::set_workspace_resource(
       tmp_res,
       std::shared_ptr<rmm::mr::device_memory_resource>{new rmm::mr::pool_memory_resource(
-        rmm::mr::get_current_device_resource(), rmm::percent_of_free_device_memory(50))},
+        raft::resource::get_current_device_resource(), rmm::percent_of_free_device_memory(50))},
       orig_size * 2);
 
     ASSERT_EQ(orig_mr, resource::get_workspace_resource(res));

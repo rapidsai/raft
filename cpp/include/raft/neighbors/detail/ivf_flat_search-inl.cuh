@@ -268,16 +268,17 @@ void search_impl(raft::resources const& handle,
 template <typename T,
           typename IdxT,
           typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
-inline void search(raft::resources const& handle,
-                   const search_params& params,
-                   const index<T, IdxT>& index,
-                   const T* queries,
-                   uint32_t n_queries,
-                   uint32_t k,
-                   IdxT* neighbors,
-                   float* distances,
-                   rmm::device_async_resource_ref mr = rmm::mr::get_current_device_resource(),
-                   IvfSampleFilterT sample_filter    = IvfSampleFilterT())
+inline void search(
+  raft::resources const& handle,
+  const search_params& params,
+  const index<T, IdxT>& index,
+  const T* queries,
+  uint32_t n_queries,
+  uint32_t k,
+  IdxT* neighbors,
+  float* distances,
+  rmm::device_async_resource_ref mr = raft::resource::get_current_device_resource_ref(),
+  IvfSampleFilterT sample_filter    = IvfSampleFilterT())
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());

@@ -17,12 +17,12 @@
 #pragma once
 #include <raft/core/device_resources.hpp>
 #include <raft/core/device_setter.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 
 #include <rmm/cuda_device.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <algorithm>
 #include <memory>
@@ -169,7 +169,7 @@ struct device_resources_manager {
           // resource
           if (params.max_mem_pool_size.value_or(1) != 0) {
             auto* upstream =
-              dynamic_cast<rmm::mr::cuda_memory_resource*>(rmm::mr::get_current_device_resource());
+              dynamic_cast<rmm::mr::cuda_memory_resource*>(resource::get_current_device_resource());
             if (upstream != nullptr) {
               result =
                 std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>(

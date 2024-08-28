@@ -258,10 +258,11 @@ class host_matrix_view_from_device {
 
 // Copy matrix src to dst. pad rows with 0 if necessary to make them 16 byte aligned.
 template <typename T, typename data_accessor>
-void copy_with_padding(raft::resources const& res,
-                       raft::device_matrix<T, int64_t, row_major>& dst,
-                       mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> src,
-                       rmm::device_async_resource_ref mr = rmm::mr::get_current_device_resource())
+void copy_with_padding(
+  raft::resources const& res,
+  raft::device_matrix<T, int64_t, row_major>& dst,
+  mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> src,
+  rmm::device_async_resource_ref mr = raft::resource::get_current_device_resource_ref())
 {
   size_t padded_dim = round_up_safe<size_t>(src.extent(1) * sizeof(T), 16) / sizeof(T);
 

@@ -50,14 +50,14 @@ struct using_pool_memory_res {
 
  public:
   using_pool_memory_res(size_t initial_size, size_t max_size)
-    : orig_res_(rmm::mr::get_current_device_resource()),
+    : orig_res_(raft::resource::get_current_device_resource_ref()),
       pool_res_(&cuda_res_, initial_size, max_size)
   {
     rmm::mr::set_current_device_resource(&pool_res_);
   }
 
   using_pool_memory_res()
-    : orig_res_(rmm::mr::get_current_device_resource()),
+    : orig_res_(raft::resource::get_current_device_resource_ref()),
       pool_res_(&cuda_res_, rmm::percent_of_free_device_memory(50))
   {
     rmm::mr::set_current_device_resource(&pool_res_);

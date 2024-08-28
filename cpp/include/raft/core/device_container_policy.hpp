@@ -31,8 +31,6 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/resource_ref.hpp>
 
 #include <thrust/device_ptr.h>
 
@@ -185,7 +183,7 @@ class device_uvector_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 
  private:
-  rmm::device_async_resource_ref mr_{rmm::mr::get_current_device_resource()};
+  rmm::device_async_resource_ref mr_{raft::resource::get_current_device_resource_ref()};
 };
 
 }  // namespace raft

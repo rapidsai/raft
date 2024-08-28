@@ -58,7 +58,7 @@ class RefineAnn : public fixture {
     label_stream << data.p;
     state.SetLabel(label_stream.str());
 
-    auto old_mr = rmm::mr::get_current_device_resource();
+    auto old_mr = raft::resource::get_current_device_resource_ref();
     rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr(
       old_mr, rmm::percent_of_free_device_memory(50));
     rmm::mr::set_current_device_resource(&pool_mr);
@@ -84,7 +84,7 @@ class RefineAnn : public fixture {
                                                               data.p.metric);
       });
     }
-    rmm::mr::set_current_device_resource(old_mr);
+    raft::set_current_device_resource(old_mr);
   }
 
  private:

@@ -153,7 +153,7 @@ class RaftCagra : public ANN<T>, public AnnGPU {
     switch (mem_type) {
       case (AllocatorType::HostPinned): return &mr_pinned_;
       case (AllocatorType::HostHugePage): return &mr_huge_page_;
-      default: return rmm::mr::get_current_device_resource();
+      default: return raft::resource::get_current_device_resource_ref();
     }
   }
 };
