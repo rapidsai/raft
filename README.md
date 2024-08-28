@@ -5,7 +5,7 @@
 
 ![RAFT tech stack](img/raft-tech-stack-vss.png)
 
-
+ 
 
 ## Contents
 <hr>
