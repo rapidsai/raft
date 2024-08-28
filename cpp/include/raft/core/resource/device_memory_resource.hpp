@@ -24,6 +24,7 @@
 #include <rmm/mr/device/limiting_resource_adaptor.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cstddef>
 #include <optional>
@@ -34,6 +35,96 @@ namespace raft::resource {
  * \defgroup device_memory_resource Device memory resources
  * @{
  */
+
+/**
+ * @brief Alias for a `cuda::mr::resource_ref` with the property
+ * `cuda::mr::device_accessible`.
+ */
+using device_resource_ref = rmm::device_resource_ref;
+
+/**
+ * @brief Alias for a `cuda::mr::async_resource_ref` with the property
+ * `cuda::mr::device_accessible`.
+ */
+using device_async_resource_ref = rmm::device_async_resource_ref;
+
+/**
+ * @brief Alias for a `cuda::mr::resource_ref` with the property
+ * `cuda::mr::host_accessible`.
+ */
+using host_resource_ref = rmm::host_resource_ref;
+
+/**
+ * @brief Alias for a `cuda::mr::async_resource_ref` with the property
+ * `cuda::mr::host_accessible`.
+ */
+using host_async_resource_ref = rmm::host_async_resource_ref;
+
+/**
+ * @brief Alias for a `cuda::mr::resource_ref` with the properties
+ * `cuda::mr::host_accessible` and `cuda::mr::device_accessible`.
+ */
+using host_device_resource_ref = rmm::host_device_resource_ref;
+
+/**
+ * @brief Alias for a `cuda::mr::async_resource_ref` with the properties
+ * `cuda::mr::host_accessible` and `cuda::mr::device_accessible`.
+ */
+using host_device_async_resource_ref = rmm::host_device_async_resource_ref;
+
+/**
+ * @brief Get the current device memory resource.
+ *
+ * @return The current device memory resource.
+ */
+inline rmm::mr::device_memory_resource* get_current_device_resource()
+{
+  return rmm::mr::get_current_device_resource();
+}
+
+/**
+ * @brief Get the current device memory resource reference.
+ *
+ * @return The current device memory resource reference.
+ */
+inline device_async_resource_ref get_current_device_resource_ref()
+{
+  // For now, match current behavior which is to return current resource pointer
+  return rmm::mr::get_current_device_resource();
+}
+
+/**
+ * @brief Set the current device memory resource.
+ *
+ * @param mr The new device memory resource.
+ * @return The previous device memory resource.
+ */
+inline rmm::mr::device_memory_resource* set_current_device_resource(
+  rmm::mr::device_memory_resource* mr)
+{
+  return rmm::mr::set_current_device_resource(mr);
+}
+
+/**
+ * @brief Set the current device memory resource reference.
+ *
+ * @param mr The new device memory resource reference.
+ * @return The previous device memory resource reference.
+ */
+inline device_async_resource_ref set_current_device_resource_ref(device_async_resource_ref mr)
+{
+  return rmm::mr::set_current_device_resource_ref(mr);
+}
+
+/**
+ * @brief Reset the current device memory resource reference to the initial resource.
+ *
+ * @return The previous device memory resource reference.
+ */
+inline device_async_resource_ref reset_current_device_resource_ref()
+{
+  return rmm::mr::reset_current_device_resource_ref();
+}
 
 class device_memory_resource : public resource {
  public:
@@ -85,8 +176,8 @@ class large_workspace_resource_factory : public resource_factory {
   explicit large_workspace_resource_factory(
     std::shared_ptr<rmm::mr::device_memory_resource> mr = {nullptr})
     : mr_{mr ? mr
-             : std::shared_ptr<rmm::mr::device_memory_resource>{
-                 rmm::mr::get_current_device_resource(), void_op{}}}
+             : std::shared_ptr<rmm::mr::device_memory_resource>{get_current_device_resource(),
+                                                                void_op{}}}
   {
   }
   auto get_resource_type() -> resource_type override
@@ -140,7 +231,7 @@ class workspace_resource_factory : public resource_factory {
     //      resource adaptor bad_alloc error than into the pool bad_alloc error.
     //   2) The pool doesn't grab too much memory on top of the 'limit'.
     auto max_size = std::min<std::size_t>(limit + kOneGb / 2lu, limit * 3lu / 2lu);
-    auto upstream = rmm::mr::get_current_device_resource();
+    auto upstream = get_current_device_resource();
     RAFT_LOG_DEBUG(
       "Setting the workspace pool resource; memory limit = %zu, initial pool size = %zu, max pool "
       "size = %zu.",
@@ -154,13 +245,13 @@ class workspace_resource_factory : public resource_factory {
   /**
    * Get the global memory resource wrapped into an unmanaged shared_ptr (with no deleter).
    *
-   * Note: the lifetime of the underlying `rmm::mr::get_current_device_resource()` is managed
+   * Note: the lifetime of the underlying `get_current_device_resource()` is managed
    * somewhere else, since it's passed by a raw pointer. Hence, this shared_ptr wrapper is not
    * allowed to delete the pointer on destruction.
    */
   static inline auto default_plain_resource() -> std::shared_ptr<rmm::mr::device_memory_resource>
   {
-    return std::shared_ptr<rmm::mr::device_memory_resource>{rmm::mr::get_current_device_resource(),
+    return std::shared_ptr<rmm::mr::device_memory_resource>{get_current_device_resource(),
                                                             void_op{}};
   }
 
@@ -238,7 +329,7 @@ inline void set_workspace_resource(resources const& res,
 
 /**
  * Set the temporary workspace resource to a pool on top of the global memory resource
- * (`rmm::mr::get_current_device_resource()`.
+ * (`raft::resource::get_current_device_resource()`.
  *
  * @param res raft resources object for managing resources
  * @param allocation_limit
@@ -258,7 +349,7 @@ inline void set_workspace_to_pool_resource(
 
 /**
  * Set the temporary workspace resource the same as the global memory resource
- * (`rmm::mr::get_current_device_resource()`.
+ * (`raft::resource::get_current_device_resource()`.
  *
  * Note, the workspace resource is always limited; the limit here defines how much of the global
  * memory resource can be consumed by the workspace allocations.
