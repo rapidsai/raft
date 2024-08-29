@@ -69,7 +69,7 @@ struct sample : public fixture {
       in(make_device_vector<T, int64_t>(res, p.n_samples)),
       out(make_device_vector<T, int64_t>(res, p.n_train))
   {
-    rmm::mr::set_current_device_resource(&pool_mr);
+    raft::resource::set_current_device_resource(&pool_mr);
     raft::random::RngState r(123456ULL);
   }
 

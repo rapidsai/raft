@@ -176,7 +176,7 @@ struct device_resources_manager {
                   upstream,
                   params.init_mem_pool_size.value_or(rmm::percent_of_free_device_memory(50)),
                   params.max_mem_pool_size);
-              rmm::mr::set_current_device_resource(result.get());
+              raft::resource::set_current_device_resource(result.get());
             } else {
               RAFT_LOG_WARN(
                 "Pool allocation requested, but other memory resource has already been set and "

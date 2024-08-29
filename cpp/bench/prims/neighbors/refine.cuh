@@ -61,7 +61,7 @@ class RefineAnn : public fixture {
     auto old_mr = raft::resource::get_current_device_resource_ref();
     rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr(
       old_mr, rmm::percent_of_free_device_memory(50));
-    rmm::mr::set_current_device_resource(&pool_mr);
+    raft::resource::set_current_device_resource(&pool_mr);
 
     if (data.p.host_data) {
       loop_on_state(state, [this]() {

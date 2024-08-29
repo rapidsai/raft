@@ -54,10 +54,10 @@ struct Gather : public fixture {
       stencil(this->handle),
       matrix_h(this->handle)
   {
-    rmm::mr::set_current_device_resource(&pool_mr);
+    raft::resource::set_current_device_resource(&pool_mr);
   }
 
-  ~Gather() { rmm::mr::set_current_device_resource(old_mr); }
+  ~Gather() { raft::resource::set_current_device_resource(old_mr); }
 
   void allocate_data(const ::benchmark::State& state) override
   {

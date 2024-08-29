@@ -21,6 +21,7 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -53,17 +54,17 @@ struct using_pool_memory_res {
     : orig_res_(raft::resource::get_current_device_resource_ref()),
       pool_res_(&cuda_res_, initial_size, max_size)
   {
-    rmm::mr::set_current_device_resource(&pool_res_);
+    raft::resource::set_current_device_resource(&pool_res_);
   }
 
   using_pool_memory_res()
     : orig_res_(raft::resource::get_current_device_resource_ref()),
       pool_res_(&cuda_res_, rmm::percent_of_free_device_memory(50))
   {
-    rmm::mr::set_current_device_resource(&pool_res_);
+    raft::resource::set_current_device_resource(&pool_res_);
   }
 
-  ~using_pool_memory_res() { rmm::mr::set_current_device_resource(orig_res_); }
+  ~using_pool_memory_res() { raft::resource::set_current_device_resource(orig_res_); }
 };
 
 /**
