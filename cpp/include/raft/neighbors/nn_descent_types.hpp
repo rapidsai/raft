@@ -48,6 +48,20 @@ namespace raft::neighbors::experimental::nn_descent {
  * `max_iterations`: The number of iterations that nn-descent will refine
  * the graph for. More iterations produce a better quality graph at cost of performance
  * `termination_threshold`: The delta at which nn-descent will terminate its iterations
+ * `return_distances`: boolean whether to return distances
+ * `n_clusters`: NN Descent offers batching a dataset to save GPU memory usage.
+ * Increase `n_clusters` to save GPU memory and run NN Descent with large datasets.
+ * Most effective when data is put on CPU memory.
+ * Setting this number too big may results in too much overhead of doing multiple
+ * iterations of graph building. Recommend starting at 4 and continue to increase
+ * depending on desired GPU memory usages.
+ * (Specifically, with n_clusters > 1, the NN Descent build algorithm will first
+ * find n_clusters number of cluster centroids of the dataset, then consider data
+ * points that belong to each cluster as a batch.
+ * Then we build knn subgraphs on each batch of the entire data. This is especially
+ * useful when the dataset is put on host, since only a subset of the data will
+ * be on GPU at once, enabling running NN Descent with large datasets that do not
+ * fit on the GPU as a whole.)
  *
  */
 struct index_params : ann::index_params {
@@ -56,6 +70,7 @@ struct index_params : ann::index_params {
   size_t max_iterations            = 20;      // Number of nn-descent iterations.
   float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
   bool return_distances            = false;   // return distances if true
+  size_t n_clusters                = 1;       // defaults to not using any batching
 };
 
 /**
@@ -176,6 +191,14 @@ struct index : ann::index {
     graph_view_;  // view of graph for user provided matrix
   std::optional<raft::device_matrix_view<float, int64_t, row_major>> distances_view_;
   bool return_distances_;
+};
+
+template <typename value_idx, typename value_t = float>
+struct DistEpilogue : raft::identity_op {
+  __host__ void preprocess_for_batch(value_idx* cluster_indices, size_t num_data_in_cluster)
+  {
+    return;
+  }
 };
 
 /** @} */
