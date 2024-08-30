@@ -17,9 +17,11 @@
 #pragma once
 
 #include "detail/nn_descent.cuh"
+#include "detail/nn_descent_batch.cuh"
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/neighbors/nn_descent.cuh>
 
 namespace raft::neighbors::experimental::nn_descent {
 
@@ -57,13 +59,17 @@ namespace raft::neighbors::experimental::nn_descent {
  * @param[in] distance_epilogue epilogue operation for distances
  * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
-template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = DistEpilogue<IdxT, T>>
 index<IdxT> build(raft::resources const& res,
                   index_params const& params,
                   raft::device_matrix_view<const T, int64_t, row_major> dataset,
-                  epilogue_op distance_epilogue = raft::identity_op())
+                  epilogue_op distance_epilogue = DistEpilogue<IdxT, T>())
 {
-  return detail::build<T, IdxT>(res, params, dataset, distance_epilogue);
+  if (params.n_clusters > 1) {
+    return detail::batch_build<T, IdxT>(res, params, dataset, distance_epilogue);
+  } else {
+    return detail::build<T, IdxT>(res, params, dataset, distance_epilogue);
+  }
 }
 
 /**
@@ -98,12 +104,12 @@ index<IdxT> build(raft::resources const& res,
  * in host memory
  * @param[in] distance_epilogue epilogue operation for distances
  */
-template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = DistEpilogue<IdxT, T>>
 void build(raft::resources const& res,
            index_params const& params,
            raft::device_matrix_view<const T, int64_t, row_major> dataset,
            index<IdxT>& idx,
-           epilogue_op distance_epilogue = raft::identity_op())
+           epilogue_op distance_epilogue = DistEpilogue<IdxT, T>())
 {
   detail::build<T, IdxT>(res, params, dataset, idx, distance_epilogue);
 }
@@ -137,13 +143,17 @@ void build(raft::resources const& res,
  * @param[in] distance_epilogue epilogue operation for distances
  * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
-template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = DistEpilogue<IdxT, T>>
 index<IdxT> build(raft::resources const& res,
                   index_params const& params,
                   raft::host_matrix_view<const T, int64_t, row_major> dataset,
-                  epilogue_op distance_epilogue = raft::identity_op())
+                  epilogue_op distance_epilogue = DistEpilogue<IdxT, T>())
 {
-  return detail::build<T, IdxT>(res, params, dataset, distance_epilogue);
+  if (params.n_clusters > 1) {
+    return detail::batch_build<T, IdxT>(res, params, dataset, distance_epilogue);
+  } else {
+    return detail::build<T, IdxT>(res, params, dataset, distance_epilogue);
+  }
 }
 
 /**
@@ -178,12 +188,12 @@ index<IdxT> build(raft::resources const& res,
  * in host memory
  * @param[in] distance_epilogue epilogue operation for distances
  */
-template <typename T, typename IdxT = uint32_t, typename epilogue_op = raft::identity_op>
+template <typename T, typename IdxT = uint32_t, typename epilogue_op = DistEpilogue<IdxT, T>>
 void build(raft::resources const& res,
            index_params const& params,
            raft::host_matrix_view<const T, int64_t, row_major> dataset,
            index<IdxT>& idx,
-           epilogue_op distance_epilogue = raft::identity_op())
+           epilogue_op distance_epilogue = DistEpilogue<IdxT, T>())
 {
   detail::build<T, IdxT>(res, params, dataset, idx, distance_epilogue);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -164,6 +164,12 @@ struct Policy4x4<double, _veclen> {
   typedef KernelPolicy<double, _veclen, 16, 4, 4, 16, 16> Policy;
   typedef ColKernelPolicy<double, _veclen, 16, 4, 4, 16, 16> ColPolicy;
 };
+
+template <int _veclen>
+struct Policy4x4<half, _veclen> {
+  typedef KernelPolicy<half, _veclen, 64, 4, 4, 16, 16> Policy;
+  typedef ColKernelPolicy<half, _veclen, 64, 4, 4, 16, 16> ColPolicy;
+};
 /** @} */
 
 /**
@@ -204,6 +210,12 @@ struct Policy2x8<double, _veclen> {
   // this is not used just for keeping compiler happy.
   typedef KernelPolicy<double, _veclen, 32, 1, 2, 8, 32> Policy;
 };
+
+template <int _veclen>
+struct Policy2x8<half, _veclen> {
+  typedef KernelPolicy<half, _veclen, 16, 2, 8, 8, 32> Policy;
+};
+
 /** @} */
 
 /**
