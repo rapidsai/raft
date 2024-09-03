@@ -58,7 +58,8 @@ TEST(Raft, DeviceBufferAlloc)
 TEST(Raft, DeviceBufferZeroResize)
 {
   // Create a limiting_resource_adaptor to track allocations
-  auto curr_mr = dynamic_cast<rmm::mr::cuda_memory_resource*>(raft::resource::get_current_device_resource());
+  auto curr_mr =
+    dynamic_cast<rmm::mr::cuda_memory_resource*>(raft::resource::get_current_device_resource());
   auto limit_mr =
     std::make_shared<rmm::mr::limiting_resource_adaptor<rmm::mr::cuda_memory_resource>>(curr_mr,
                                                                                         1000);
