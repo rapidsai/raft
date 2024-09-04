@@ -20,6 +20,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/refine.cuh>
@@ -84,7 +85,7 @@ class RefineAnn : public fixture {
                                                               data.p.metric);
       });
     }
-    raft::set_current_device_resource(old_mr);
+    raft::resource::set_current_device_resource(old_mr);
   }
 
  private:

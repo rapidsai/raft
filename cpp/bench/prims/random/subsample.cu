@@ -20,6 +20,7 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/random/sample_without_replacement.cuh>
@@ -73,7 +74,7 @@ struct sample : public fixture {
     raft::random::RngState r(123456ULL);
   }
 
-  ~sample() { raft::set_current_device_resource(old_mr); }
+  ~sample() { raft::resource::set_current_device_resource(old_mr); }
   void run_benchmark(::benchmark::State& state) override
   {
     std::ostringstream label_stream;
