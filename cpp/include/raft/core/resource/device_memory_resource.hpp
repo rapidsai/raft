@@ -37,42 +37,6 @@ namespace raft::resource {
  */
 
 /**
- * @brief Alias for a `cuda::mr::resource_ref` with the property
- * `cuda::mr::device_accessible`.
- */
-using device_resource_ref = rmm::device_resource_ref;
-
-/**
- * @brief Alias for a `cuda::mr::async_resource_ref` with the property
- * `cuda::mr::device_accessible`.
- */
-using device_async_resource_ref = rmm::device_async_resource_ref;
-
-/**
- * @brief Alias for a `cuda::mr::resource_ref` with the property
- * `cuda::mr::host_accessible`.
- */
-using host_resource_ref = rmm::host_resource_ref;
-
-/**
- * @brief Alias for a `cuda::mr::async_resource_ref` with the property
- * `cuda::mr::host_accessible`.
- */
-using host_async_resource_ref = rmm::host_async_resource_ref;
-
-/**
- * @brief Alias for a `cuda::mr::resource_ref` with the properties
- * `cuda::mr::host_accessible` and `cuda::mr::device_accessible`.
- */
-using host_device_resource_ref = rmm::host_device_resource_ref;
-
-/**
- * @brief Alias for a `cuda::mr::async_resource_ref` with the properties
- * `cuda::mr::host_accessible` and `cuda::mr::device_accessible`.
- */
-using host_device_async_resource_ref = rmm::host_device_async_resource_ref;
-
-/**
  * @brief Get the current device memory resource.
  *
  * @return The current device memory resource.
@@ -87,7 +51,7 @@ inline rmm::mr::device_memory_resource* get_current_device_resource()
  *
  * @return The current device memory resource reference.
  */
-inline device_async_resource_ref get_current_device_resource_ref()
+inline rmm::device_async_resource_ref get_current_device_resource_ref()
 {
   // For now, match current behavior which is to return current resource pointer
   return rmm::mr::get_current_device_resource();
@@ -111,7 +75,8 @@ inline rmm::mr::device_memory_resource* set_current_device_resource(
  * @param mr The new device memory resource reference.
  * @return The previous device memory resource reference.
  */
-inline device_async_resource_ref set_current_device_resource_ref(device_async_resource_ref mr)
+inline rmm::device_async_resource_ref set_current_device_resource_ref(
+  rmm::device_async_resource_ref mr)
 {
   return rmm::mr::set_current_device_resource_ref(mr);
 }
@@ -121,7 +86,7 @@ inline device_async_resource_ref set_current_device_resource_ref(device_async_re
  *
  * @return The previous device memory resource reference.
  */
-inline device_async_resource_ref reset_current_device_resource_ref()
+inline rmm::device_async_resource_ref reset_current_device_resource_ref()
 {
   return rmm::mr::reset_current_device_resource_ref();
 }
