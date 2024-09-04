@@ -375,7 +375,7 @@ rmm::mr::cuda_memory_resource cuda_mr;
 // set the initial size to half of the free device memory
 auto init_size = rmm::percent_of_free_device_memory(50);
 rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr, init_size};
-rmm::mr::set_current_device_resource(&pool_mr); // Updates the current device resource pointer to `pool_mr`
+raft::resource::set_current_device_resource(&pool_mr); // Updates the current device resource pointer to `pool_mr`
 ```
 
 The `raft::device_resources` object will now also use the `rmm::current_device_resource`.  This isn't limited to C++, however. Often a user will be interacting with PyTorch, RAPIDS, or Tensorflow through Python and so they can set and use RMM's `current_device_resource` [right in Python](https://github.com/rapidsai/rmm#using-rmm-in-python-code).
