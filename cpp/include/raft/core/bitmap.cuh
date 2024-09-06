@@ -36,8 +36,8 @@ _RAFT_HOST_DEVICE inline bool bitmap_view<bitmap_t, index_t>::test(const index_t
 
 template <typename bitmap_t, typename index_t>
 _RAFT_DEVICE void bitmap_view<bitmap_t, index_t>::set(const index_t row,
-                                                           const index_t col,
-                                                           bool new_value) const
+                                                      const index_t col,
+                                                      bool new_value) const
 {
   set(row * cols_ + col, new_value);
 }
