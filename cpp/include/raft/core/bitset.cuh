@@ -47,7 +47,7 @@ _RAFT_HOST_DEVICE bool bitset_view<bitset_t, index_t>::operator[](const index_t 
 
 template <typename bitset_t, typename index_t>
 _RAFT_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index,
-                                                           bool set_value) const
+                                                      bool set_value) const
 {
   const index_t bit_element = sample_index / bitset_element_size;
   const index_t bit_index   = sample_index % bitset_element_size;
@@ -61,17 +61,11 @@ _RAFT_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index
 }
 
 template <typename bitset_t, typename index_t>
-_RAFT_HOST_DEVICE inline index_t bitset_view<bitset_t, index_t>::n_elements() const
-{
-  return raft::ceildiv(bitset_len_, bitset_element_size);
-}
-
-template <typename bitset_t, typename index_t>
 bitset<bitset_t, index_t>::bitset(const raft::resources& res,
                                   raft::device_vector_view<const index_t, index_t> mask_index,
                                   index_t bitset_len,
                                   bool default_value)
-  : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
+  : bitset_{std::size_t(raft::div_rounding_up_safe(bitset_len, bitset_element_size)),
             raft::resource::get_cuda_stream(res)},
     bitset_len_{bitset_len}
 {
@@ -83,7 +77,7 @@ template <typename bitset_t, typename index_t>
 bitset<bitset_t, index_t>::bitset(const raft::resources& res,
                                   index_t bitset_len,
                                   bool default_value)
-  : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
+  : bitset_{std::size_t(raft::div_rounding_up_safe(bitset_len, bitset_element_size)),
             raft::resource::get_cuda_stream(res)},
     bitset_len_{bitset_len}
 {
@@ -91,18 +85,12 @@ bitset<bitset_t, index_t>::bitset(const raft::resources& res,
 }
 
 template <typename bitset_t, typename index_t>
-index_t bitset<bitset_t, index_t>::n_elements() const
-{
-  return raft::ceildiv(bitset_len_, bitset_element_size);
-}
-
-template <typename bitset_t, typename index_t>
 void bitset<bitset_t, index_t>::resize(const raft::resources& res,
                                        index_t new_bitset_len,
                                        bool default_value)
 {
-  auto old_size = raft::ceildiv(bitset_len_, bitset_element_size);
-  auto new_size = raft::ceildiv(new_bitset_len, bitset_element_size);
+  auto old_size = raft::div_rounding_up_safe(bitset_len_, bitset_element_size);
+  auto new_size = raft::div_rounding_up_safe(new_bitset_len, bitset_element_size);
   bitset_.resize(new_size);
   bitset_len_ = new_bitset_len;
   if (old_size < new_size) {
