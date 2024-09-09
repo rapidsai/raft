@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/random/rng_state.hpp>
 #include <raft/sparse/solver/lanczos_types.hpp>
 
 #include <cstdint>
@@ -37,22 +38,6 @@ namespace raft::runtime::solver {
                       raft::device_vector_view<ValueType, uint32_t, raft::row_major> v0,          \
                       raft::device_vector_view<ValueType, uint32_t, raft::col_major> eigenvalues, \
                       raft::device_matrix_view<ValueType, uint32_t, raft::col_major> eigenvectors)
-
-// #define FUNC_DECL(IndexType, ValueType)              \
-//   void lanczos_solver(const raft::resources& handle, \
-//                       IndexType* rows,               \
-//                       IndexType* cols,               \
-//                       ValueType* vals,               \
-//                       int nnz,                       \
-//                       int n,                         \
-//                       int n_components,              \
-//                       int max_iterations,            \
-//                       int ncv,                       \
-//                       ValueType tolerance,           \
-//                       uint64_t seed,                 \
-//                       ValueType* v0,                 \
-//                       ValueType* eigenvalues,        \
-//                       ValueType* eigenvectors)
 
 FUNC_DECL(int, float);
 FUNC_DECL(int64_t, float);
