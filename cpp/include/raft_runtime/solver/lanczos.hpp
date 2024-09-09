@@ -14,33 +14,45 @@
  * limitations under the License.
  */
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/rng_state.hpp>
+#include <raft/sparse/solver/lanczos_types.hpp>
 
 #include <cstdint>
 
 namespace raft::runtime::solver {
 
 /**
- * @defgroup rmat_runtime lanczos Runtime API
+ * @defgroup lanczos_runtime lanczos Runtime API
  * @{
  */
 
-#define FUNC_DECL(IndexType, ValueType)              \
-  void lanczos_solver(const raft::resources& handle, \
-                      IndexType* rows,               \
-                      IndexType* cols,               \
-                      ValueType* vals,               \
-                      int nnz,                       \
-                      int n,                         \
-                      int n_components,              \
-                      int max_iterations,            \
-                      int ncv,                       \
-                      ValueType tolerance,           \
-                      uint64_t seed,                 \
-                      ValueType* v0,                 \
-                      ValueType* eigenvalues,        \
-                      ValueType* eigenvectors)
+#define FUNC_DECL(IndexType, ValueType)                                                           \
+  void lanczos_solver(const raft::resources& handle,                                              \
+                      raft::device_vector_view<IndexType, uint32_t, raft::row_major> rows,        \
+                      raft::device_vector_view<IndexType, uint32_t, raft::row_major> cols,        \
+                      raft::device_vector_view<ValueType, uint32_t, raft::row_major> vals,        \
+                      raft::sparse::solver::lanczos_solver_config<IndexType, ValueType> config,   \
+                      raft::device_vector_view<ValueType, uint32_t, raft::row_major> v0,          \
+                      raft::device_vector_view<ValueType, uint32_t, raft::col_major> eigenvalues, \
+                      raft::device_matrix_view<ValueType, uint32_t, raft::col_major> eigenvectors)
+
+// #define FUNC_DECL(IndexType, ValueType)              \
+//   void lanczos_solver(const raft::resources& handle, \
+//                       IndexType* rows,               \
+//                       IndexType* cols,               \
+//                       ValueType* vals,               \
+//                       int nnz,                       \
+//                       int n,                         \
+//                       int n_components,              \
+//                       int max_iterations,            \
+//                       int ncv,                       \
+//                       ValueType tolerance,           \
+//                       uint64_t seed,                 \
+//                       ValueType* v0,                 \
+//                       ValueType* eigenvalues,        \
+//                       ValueType* eigenvectors)
 
 FUNC_DECL(int, float);
 FUNC_DECL(int64_t, float);
@@ -49,6 +61,6 @@ FUNC_DECL(int64_t, double);
 
 #undef FUNC_DECL
 
-/** @} */  // end group rmat_runtime
+/** @} */  // end group lanczos_runtime
 
 }  // namespace raft::runtime::solver
