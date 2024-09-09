@@ -160,13 +160,6 @@ void norm(raft::resources const& handle,
   }
 }
 
-template <typename T, bool DevicePointerMode = false>
-void nrm2(
-  raft::resources const& handle, int n, const T* x, int incx, T* result, cudaStream_t stream)
-{
-  detail::nrm2<T, DevicePointerMode>(handle, n, x, incx, result, stream);
-}
-
 /** @} */
 
 };  // end namespace linalg

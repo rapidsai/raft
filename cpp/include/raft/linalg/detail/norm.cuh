@@ -17,8 +17,6 @@
 #pragma once
 
 #include <raft/core/operators.hpp>
-#include <raft/core/resource/cublas_handle.hpp>
-#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/norm_types.hpp>
 #include <raft/linalg/reduce.cuh>
 
@@ -138,15 +136,6 @@ void colNormCaller(OutType* dots,
       break;
     default: THROW("Unsupported norm type: %d", type);
   };
-}
-
-template <typename T, bool DevicePointerMode = false>
-void nrm2(
-  raft::resources const& handle, int n, const T* x, int incx, T* result, cudaStream_t stream)
-{
-  cublasHandle_t cublas_h = resource::get_cublas_handle(handle);
-  detail::cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
-  detail::cublasnrm2(cublas_h, n, x, incx, result, stream);
 }
 
 };  // end namespace detail
