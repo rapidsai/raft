@@ -99,70 +99,6 @@ cdef extern from "raft_runtime/solver/lanczos.hpp" \
         device_vector_view[float, uint32_t] eigenvalues,
         device_matrix_view[float, uint32_t, col_major] eigenvectors) except +
 
-    cdef void lanczos_solver(
-        const device_resources &handle,
-        int64_t* rows,
-        int64_t* cols,
-        double* vals,
-        int nnz,
-        int n,
-        int n_components,
-        int max_iterations,
-        int ncv,
-        double tolerance,
-        uint64_t seed,
-        double* v0,
-        double* eigenvalues,
-        double* eigenvectors) except +
-
-    cdef void lanczos_solver(
-        const device_resources &handle,
-        int64_t* rows,
-        int64_t* cols,
-        float* vals,
-        int nnz,
-        int n,
-        int n_components,
-        int max_iterations,
-        int ncv,
-        float tolerance,
-        uint64_t seed,
-        float* v0,
-        float* eigenvalues,
-        float* eigenvectors) except +
-
-    cdef void lanczos_solver(
-        const device_resources &handle,
-        int* rows,
-        int* cols,
-        double* vals,
-        int nnz,
-        int n,
-        int n_components,
-        int max_iterations,
-        int ncv,
-        double tolerance,
-        uint64_t seed,
-        double* v0,
-        double* eigenvalues,
-        double* eigenvectors) except +
-
-    cdef void lanczos_solver(
-        const device_resources &handle,
-        int* rows,
-        int* cols,
-        float* vals,
-        int nnz,
-        int n,
-        int n_components,
-        int max_iterations,
-        int ncv,
-        float tolerance,
-        uint64_t seed,
-        float* v0,
-        float* eigenvalues,
-        float* eigenvectors) except +
-
 
 @auto_sync_handle
 def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
@@ -263,26 +199,6 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_int_float.ncv = ncv
         config_int_float.tolerance = tol
         config_int_float.seed = seed
-    elif IndexType == np.int64 and ValueType == np.float32:
-        config_int64_float.n_components = k
-        config_int64_float.max_iterations = maxiter
-        config_int64_float.ncv = ncv
-        config_int64_float.tolerance = tol
-        config_int64_float.seed = seed
-    elif IndexType == np.int32 and ValueType == np.float64:
-        config_int_double.n_components = k
-        config_int_double.max_iterations = maxiter
-        config_int_double.ncv = ncv
-        config_int_double.tolerance = tol
-        config_int_double.seed = seed
-    elif IndexType == np.int64 and ValueType == np.float64:
-        config_int64_double.n_components = k
-        config_int64_double.max_iterations = maxiter
-        config_int64_double.ncv = ncv
-        config_int64_double.tolerance = tol
-        config_int64_double.seed = seed
-
-    if IndexType == np.int32 and ValueType == np.float32:
         lanczos_solver(
             deref(h),
             make_device_vector_view(<int *>rows_ptr, <uint32_t> (N + 1)),
@@ -295,6 +211,11 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
                 <float *>eigenvectors_ptr, <uint32_t> N, <uint32_t> k),
         )
     elif IndexType == np.int64 and ValueType == np.float32:
+        config_int64_float.n_components = k
+        config_int64_float.max_iterations = maxiter
+        config_int64_float.ncv = ncv
+        config_int64_float.tolerance = tol
+        config_int64_float.seed = seed
         lanczos_solver(
             deref(h),
             make_device_vector_view(<int64_t *>rows_ptr, <uint32_t> (N + 1)),
@@ -307,6 +228,11 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
                 <float *>eigenvectors_ptr, <uint32_t> N, <uint32_t> k),
         )
     elif IndexType == np.int32 and ValueType == np.float64:
+        config_int_double.n_components = k
+        config_int_double.max_iterations = maxiter
+        config_int_double.ncv = ncv
+        config_int_double.tolerance = tol
+        config_int_double.seed = seed
         lanczos_solver(
             deref(h),
             make_device_vector_view(<int *>rows_ptr, <uint32_t> (N + 1)),
@@ -319,6 +245,11 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
                 <double *>eigenvectors_ptr, <uint32_t> N, <uint32_t> k),
         )
     elif IndexType == np.int64 and ValueType == np.float64:
+        config_int64_double.n_components = k
+        config_int64_double.max_iterations = maxiter
+        config_int64_double.ncv = ncv
+        config_int64_double.tolerance = tol
+        config_int64_double.seed = seed
         lanczos_solver(
             deref(h),
             make_device_vector_view(<int64_t *>rows_ptr, <uint32_t> (N + 1)),
