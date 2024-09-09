@@ -1564,8 +1564,6 @@ void lanczos_aux(raft::resources const& handle,
 
   raft::copy(v.data_handle(), &(V(start_idx, 0)), n, stream);
 
-  std::cout << start_idx << " " << end_idx << std::endl;
-
   auto cusparse_h = resource::get_cusparse_handle(handle);
   cusparseSpMatDescr_t cusparse_A;
   raft::sparse::detail::cusparsecreatecsr(&cusparse_A,
@@ -1708,8 +1706,6 @@ auto lanczos_smallest(
   int ncv          = restartIter;
   auto stream      = resource::get_cuda_stream(handle);
 
-  std::cout << std::fixed << std::setprecision(7);  // Set precision to 10 decimal places
-
   raft::device_matrix<ValueTypeT, uint32_t, raft::row_major> V =
     raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, ncv, n);
   raft::device_matrix_view<ValueTypeT> V_0_view =
@@ -1827,8 +1823,6 @@ auto lanczos_smallest(
                      raft::linalg::Apply::ALONG_ROWS,
                      raft::sqrt_op());
   raft::copy(&res, output.data_handle(), 1, stream);
-
-  std::cout << "res " << res << std::endl;
 
   auto uu  = raft::make_device_matrix<ValueTypeT>(handle, 0, nEigVecs);
   int iter = ncv;
@@ -2094,7 +2088,7 @@ auto lanczos_smallest(
                        raft::sqrt_op());
     raft::copy(&res, output2.data_handle(), 1, stream);
 
-    std::cout << "res " << res << " " << iter << std::endl;
+    RAFT_LOG_TRACE("Iteration %f: residual (tolerance) %d", iter, res);
   }
 
   raft::copy(eigVals_dev, eigenvalues_k.data_handle(), nEigVecs, stream);
