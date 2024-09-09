@@ -32,6 +32,7 @@
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/host/new_delete_resource.hpp>
 #include <rmm/mr/host/pinned_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <thrust/sequence.h>
 
@@ -105,7 +106,7 @@ struct device_resource {
 
  private:
   std::shared_ptr<rmm::mr::device_memory_resource> managed_;
-  raft::device_async_resource_ref res_;
+  rmm::device_async_resource_ref res_;
 };
 
 template <typename T>
