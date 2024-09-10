@@ -20,6 +20,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/util/integer_utils.hpp>
 
 namespace raft::core {
 /**
@@ -89,7 +90,10 @@ struct bitset_view {
   /**
    * @brief Get the number of elements used by the bitset representation.
    */
-  inline _RAFT_HOST_DEVICE auto n_elements() const -> index_t;
+  inline _RAFT_HOST_DEVICE auto n_elements() const -> index_t
+  {
+    return raft::div_rounding_up_safe(bitset_len_, bitset_element_size);
+  }
 
   inline auto to_mdspan() -> raft::device_vector_view<bitset_t, index_t>
   {
@@ -173,7 +177,10 @@ struct bitset {
   /**
    * @brief Get the number of elements used by the bitset representation.
    */
-  inline auto n_elements() const -> index_t;
+  inline auto n_elements() const -> index_t
+  {
+    return raft::div_rounding_up_safe(bitset_len_, bitset_element_size);
+  }
 
   /** @brief Get an mdspan view of the current bitset */
   inline auto to_mdspan() -> raft::device_vector_view<bitset_t, index_t>
