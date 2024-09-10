@@ -96,7 +96,7 @@ struct device_resource {
   {
   }
 
-  ~device_resource() {}
+  ~device_resource() = default;
 
   [[nodiscard]] auto get() const -> rmm::device_async_resource_ref { return res_; }
 
