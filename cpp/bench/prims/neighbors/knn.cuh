@@ -92,7 +92,7 @@ struct device_resource {
  public:
   explicit device_resource(bool managed)
     : managed_(managed ? std::make_shared<rmm::mr::managed_memory_resource>() : nullptr),
-      res_(managed ? managed.get() : raft::resource::get_current_device_resource_ref())
+      res_(managed ? managed_.get() : raft::resource::get_current_device_resource_ref())
   {
   }
 
