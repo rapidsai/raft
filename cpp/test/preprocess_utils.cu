@@ -252,10 +252,10 @@ void create_dataset(raft::resources& handle,
                     raft::device_vector_view<T2, int64_t> values,
                     int max_term_occurence_doc = 5,
                     int num_rows_unique        = 7,
-                    int num_cols_unique        = 7)
+                    int num_cols_unique        = 7,
+                    int seed                   = 12345)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  int seed            = 12345;
   raft::random::RngState rng(seed);
 
   auto d_out = raft::make_device_vector<T1, int64_t>(handle, rows.size() * 2);
