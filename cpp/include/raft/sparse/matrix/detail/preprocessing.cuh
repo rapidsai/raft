@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include <raft/core/comms.hpp>
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_span.hpp>
@@ -21,11 +21,18 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/linalg/map_reduce.cuh>
+#include <raft/matrix/init.cuh>
 #include <raft/sparse/convert/coo.cuh>
+#include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/sort.cuh>
+#include <raft/util/scatter.cuh>
 
-#include <thrust/fill.h>
+#include <thrust/extrema.h>
 #include <thrust/reduce.h>
+
+#include <iomanip>
+#include <iostream>
 
 namespace raft::sparse::matrix::detail {
 
@@ -37,8 +44,9 @@ namespace raft::sparse::matrix::detail {
  * @param k_param: K value required by BM25 algorithm.
  * @param b_param: B value required by BM25 algorithm.
  */
+template <typename T1, typename T2>
 struct bm25 {
-  bm25(int num_feats, float avg_feat_len, float k_param, float b_param)
+  bm25(T1 num_feats, T2 avg_feat_len, T2 k_param, T2 b_param)
   {
     total_feats     = num_feats;
     avg_feat_length = avg_feat_len;
@@ -46,11 +54,13 @@ struct bm25 {
     b               = b_param;
   }
 
-  template <typename T1>
-  float __device__ operator()(const T1& values, const T1& feat_lengths, const T1& num_feats_id_occ)
+  float __device__ operator()(const T2& value, const T2& num_feats_id_occ, const T2& feat_length)
   {
-    return raft::log<float>(total_feats / (1 + num_feats_id_occ)) *
-           ((values * (k + 1)) / (values + k * (1 - b + b * (feat_lengths / avg_feat_length))));
+    float tf  = raft::log<float>(1 + (value / feat_length));
+    float idf = raft::log<float>(total_feats / num_feats_id_occ);
+    float bm  = ((k + 1) * tf) / (k * ((1.0f - b) + b * (feat_length / avg_feat_length)) + tf);
+
+    return idf * bm;
   }
   float avg_feat_length;
   int total_feats;
@@ -63,28 +73,30 @@ struct bm25 {
  * logrithmically scaled frequency.
  * @param total_feats_param: The total number of features in the matrix
  */
+template <typename T1, typename T2>
 struct tfidf {
-  tfidf(int total_feats_param) { total_feats = total_feats_param; }
+  tfidf(T1 total_feats_param) { total_feats = total_feats_param; }
 
-  template <typename T1, typename T2>
-  float __device__ operator()(const T1& values, const T2& num_feats_id_occ)
+  float __device__ operator()(const T1& value, const T2& num_feats_id_occ, const T2& feat_length)
   {
-    return raft::log<float>(1 + values) * raft::log<float>(total_feats / (1 + num_feats_id_occ));
+    float tf  = raft::log<float>(1 + (value / feat_length));
+    float idf = raft::log<float>(total_feats / num_feats_id_occ);
+    return tf * idf;
   }
   int total_feats;
 };
 
 template <typename T>
 struct mapper {
-  mapper(raft::device_vector_view<const T> map) : map(map) {}
+  mapper(raft::device_vector_view<T> map) : map(map) {}
 
-  __host__ __device__ void operator()(T& value) const
+  float __device__ operator()(const T& value)
   {
-    const T& new_value = map[value];
+    T new_value = map[value];
     if (new_value) {
-      value = new_value;
+      return new_value;
     } else {
-      value = 0;
+      return 0.0;
     }
   }
 
@@ -111,7 +123,6 @@ void get_uniques_counts(raft::resources& handle,
                         raft::device_vector_view<T2, IdxT> counts_out)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-
   raft::sparse::op::coo_sort(sort_vector.size(),
                              secondary_vector.size(),
                              data.size(),
@@ -145,22 +156,25 @@ void create_mapped_vector(raft::resources& handle,
                           raft::device_vector_view<T2, IdxT> result)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto host_keys      = raft::make_host_vector<T1, IdxT>(handle, keys.size());
+  thrust::host_vector<T1> host_keys(keys.size());
+  raft::copy(host_keys.data(), keys.data_handle(), keys.size(), stream);
+  int key_size = *thrust::max_element(host_keys.begin(), host_keys.end());
 
-  raft::copy(host_keys.data_handle(), keys.data_handle(), keys.size(), stream);
   raft::linalg::map(handle, result, raft::cast_op<T2>{}, raft::make_const_mdspan(origin));
-  int new_key_size = host_keys(host_keys.size() - 1) + 1;
-  auto origin_map  = raft::make_device_vector<T2, IdxT>(handle, new_key_size);
-
+  // index into the last element and then add 1 to it.
+  auto origin_map = raft::make_device_vector<T2, IdxT>(handle, key_size + 1);
   thrust::scatter(raft::resource::get_thrust_policy(handle),
                   counts.data_handle(),
                   counts.data_handle() + counts.size(),
                   keys.data_handle(),
                   origin_map.data_handle());
-  thrust::for_each(raft::resource::get_thrust_policy(handle),
-                   result.data_handle(),
-                   result.data_handle() + result.size(),
-                   mapper<T2>(raft::make_const_mdspan(origin_map.view())));
+
+  // const T2* const_counts = counts.data_handle();
+  // const T1* const_keys = keys.data_handle();
+
+  // raft::scatter<T2, T1>(origin_map.data_handle(), const_counts, const_keys, counts.size(),
+  // stream, op=raft::key_op());
+  raft::linalg::map(handle, result, mapper<T2>(origin_map.view()), raft::make_const_mdspan(result));
 }
 
 /**
@@ -181,19 +195,19 @@ void get_id_counts(raft::resources& handle,
                    T1 n_rows)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+  // auto preserved_rows = raft::make_device_vector<T1, IdxT>(handle, rows.size());
+  // raft::copy(preserved_rows.data_handle(), rows.data_handle(), rows.size(), stream);
+  int uniq_rows =
+    raft::sparse::neighbors::get_n_components(rows.data_handle(), rows.size(), stream);
 
-  auto row_keys   = raft::make_device_vector<T1, IdxT>(handle, n_rows);
-  auto row_counts = raft::make_device_vector<T2, IdxT>(handle, n_rows);
-  auto row_fill   = raft::make_device_vector<T2, IdxT>(handle, rows.size());
+  auto row_keys   = raft::make_device_vector<T1, IdxT>(handle, uniq_rows);
+  auto row_counts = raft::make_device_vector<T2, IdxT>(handle, uniq_rows);
+  auto row_fill   = raft::make_device_vector<T2, IdxT>(handle, n_rows);
 
   // the amount of columns(features) that each row(id) is found in
-  thrust::fill(raft::resource::get_thrust_policy(handle),
-               row_fill.data_handle(),
-               row_fill.data_handle() + row_fill.size(),
-               1.0f);
+  raft::matrix::fill(handle, row_fill.view(), 1.0f);
   get_uniques_counts(
     handle, rows, columns, values, row_fill.view(), row_keys.view(), row_counts.view());
-
   create_mapped_vector<T1, T2>(handle, rows, row_keys.view(), row_counts.view(), id_counts);
 }
 
@@ -207,25 +221,40 @@ void get_id_counts(raft::resources& handle,
  * @param n_cols: Number of columns in matrix
  */
 template <typename T1, typename T2, typename IdxT>
-int get_feature_data(raft::resources& handle,
-                     raft::device_vector_view<T1, IdxT> rows,
-                     raft::device_vector_view<T1, IdxT> columns,
-                     raft::device_vector_view<T2, IdxT> values,
-                     raft::device_vector_view<T2, IdxT> feat_lengths,
-                     T1 n_cols)
+float get_feature_data(raft::resources& handle,
+                       raft::device_vector_view<T1, IdxT> rows,
+                       raft::device_vector_view<T1, IdxT> columns,
+                       raft::device_vector_view<T2, IdxT> values,
+                       raft::device_vector_view<T2, IdxT> feat_lengths,
+                       T1 n_cols)
 {
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-
-  auto col_keys   = raft::make_device_vector<T1, IdxT>(handle, n_cols);
+  cudaStream_t stream    = raft::resource::get_cuda_stream(handle);
+  auto preserved_columns = raft::make_device_vector<T1, IdxT>(handle, columns.size());
+  raft::copy(preserved_columns.data_handle(), columns.data_handle(), columns.size(), stream);
+  int uniq_cols =
+    raft::sparse::neighbors::get_n_components(columns.data_handle(), columns.size(), stream);
+  auto col_keys   = raft::make_device_vector<T1, IdxT>(handle, uniq_cols);
   auto col_counts = raft::make_device_vector<T2, IdxT>(handle, n_cols);
 
   get_uniques_counts(handle, columns, rows, values, values, col_keys.view(), col_counts.view());
-  int total_feature_lengths = thrust::reduce(raft::resource::get_thrust_policy(handle),
-                                             col_counts.data_handle(),
-                                             col_counts.data_handle() + col_counts.size());
-  float avg_feat_length     = float(total_feature_lengths) / n_cols;
 
-  create_mapped_vector<T1, T2>(handle, columns, col_keys.view(), col_counts.view(), feat_lengths);
+  auto total_feature_lengths = raft::make_device_scalar<int>(handle, 0);
+
+  raft::linalg::mapReduce(total_feature_lengths.data_handle(),
+                          col_counts.size(),
+                          0,
+                          raft::identity_op(),
+                          raft::add_op(),
+                          stream,
+                          col_counts.data_handle());
+  auto total_feature_lengths_host = raft::make_host_scalar<int>(handle, 0);
+  raft::copy(total_feature_lengths_host.data_handle(),
+             total_feature_lengths.data_handle(),
+             total_feature_lengths.size(),
+             stream);
+  float avg_feat_length = float(total_feature_lengths_host(0)) / n_cols;
+  create_mapped_vector<T1, T2>(
+    handle, preserved_columns.view(), col_keys.view(), col_counts.view(), feat_lengths);
   return avg_feat_length;
 }
 
@@ -241,14 +270,14 @@ int get_feature_data(raft::resources& handle,
  * @param n_cols: Number of columns in matrix
  */
 template <typename T1, typename T2, typename IdxT>
-int sparse_search_preprocess(raft::resources& handle,
-                             raft::device_vector_view<T1, IdxT> rows,
-                             raft::device_vector_view<T1, IdxT> columns,
-                             raft::device_vector_view<T2, IdxT> values,
-                             raft::device_vector_view<T2, IdxT> feat_lengths,
-                             raft::device_vector_view<T2, IdxT> id_counts,
-                             T1 n_rows,
-                             T1 n_cols)
+float sparse_search_preprocess(raft::resources& handle,
+                               raft::device_vector_view<T1, IdxT> rows,
+                               raft::device_vector_view<T1, IdxT> columns,
+                               raft::device_vector_view<T2, IdxT> values,
+                               raft::device_vector_view<T2, IdxT> feat_lengths,
+                               raft::device_vector_view<T2, IdxT> id_counts,
+                               T1 n_rows,
+                               T1 n_cols)
 {
   auto avg_feature_len = get_feature_data(handle, rows, columns, values, feat_lengths, n_cols);
 
@@ -278,14 +307,16 @@ void base_encode_tfidf(raft::resources& handle,
 {
   auto feat_lengths    = raft::make_device_vector<T2, IdxT>(handle, columns.size());
   auto id_counts       = raft::make_device_vector<T2, IdxT>(handle, rows.size());
+  auto col_counts      = raft::make_device_vector<T2, IdxT>(handle, n_cols);
   auto avg_feat_length = sparse_search_preprocess<T1, T2>(
     handle, rows, columns, values, feat_lengths.view(), id_counts.view(), n_rows, n_cols);
 
   raft::linalg::map(handle,
                     values_out,
-                    tfidf(n_cols),
+                    tfidf<T1, T2>(n_cols),
                     raft::make_const_mdspan(values),
-                    raft::make_const_mdspan(id_counts.view()));
+                    raft::make_const_mdspan(id_counts.view()),
+                    raft::make_const_mdspan(feat_lengths.view()));
 }
 
 /**
@@ -376,16 +407,17 @@ void base_encode_bm25(raft::resources& handle,
 {
   auto feat_lengths = raft::make_device_vector<T2, IdxT>(handle, columns.size());
   auto id_counts    = raft::make_device_vector<T2, IdxT>(handle, rows.size());
+  auto col_counts   = raft::make_device_vector<T2, IdxT>(handle, n_cols);
 
   auto avg_feat_length = sparse_search_preprocess<T1, T2>(
     handle, rows, columns, values, feat_lengths.view(), id_counts.view(), n_rows, n_cols);
 
   raft::linalg::map(handle,
                     values_out,
-                    bm25(n_cols, avg_feat_length, k_param, b_param),
+                    bm25<T1, T2>(n_cols, avg_feat_length, k_param, b_param),
                     raft::make_const_mdspan(values),
-                    raft::make_const_mdspan(feat_lengths.view()),
-                    raft::make_const_mdspan(id_counts.view()));
+                    raft::make_const_mdspan(id_counts.view()),
+                    raft::make_const_mdspan(feat_lengths.view()));
 }
 
 /**
