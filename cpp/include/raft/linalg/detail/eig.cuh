@@ -98,12 +98,11 @@ void eigDC(raft::resources const& handle,
   int cudart_version = 0;
   RAFT_CUDA_TRY(cudaRuntimeGetVersion(&cudart_version));
   cudaStream_t stream_new;
-  cudaEvent_t sync_event;
+  cudaEvent_t sync_event = resource::detail::get_cuda_stream_sync_event(handle);
   rmm::cuda_stream stream_new_wrapper;
   if (cudart_version < 12050) {
     // Use a new stream instead of `cudaStreamPerThread` to avoid cusolver bug # 4580093.
     stream_new = stream_new_wrapper.value();
-    sync_event = resource::detail::get_cuda_stream_sync_event(handle);
     RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream));
     RAFT_CUDA_TRY(cudaStreamWaitEvent(stream_new, sync_event));
   } else {
