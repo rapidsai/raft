@@ -46,6 +46,7 @@ enum resource_type {
   CUBLASLT_HANDLE,           // cublasLt handle
   CUSTOM,                    // runtime-shared default-constructible resource
   LARGE_WORKSPACE_RESOURCE,  // rmm device memory resource for somewhat large temporary allocations
+  NCCL_CLIQUE,               // nccl clique
 
   LAST_KEY  // reserved for the last key
 };
