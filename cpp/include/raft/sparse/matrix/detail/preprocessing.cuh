@@ -13,20 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <raft/core/comms.hpp>
 #include <raft/core/device_coo_matrix.hpp>
-#include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_span.hpp>
-#include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
-#include <raft/core/resources.hpp>
 #include <raft/linalg/map_reduce.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/sort.cuh>
-#include <raft/util/scatter.cuh>
 
 #include <thrust/extrema.h>
 #include <thrust/reduce.h>
@@ -169,11 +163,6 @@ void create_mapped_vector(raft::resources& handle,
                   keys.data_handle(),
                   origin_map.data_handle());
 
-  // const T2* const_counts = counts.data_handle();
-  // const T1* const_keys = keys.data_handle();
-
-  // raft::scatter<T2, T1>(origin_map.data_handle(), const_counts, const_keys, counts.size(),
-  // stream, op=raft::key_op());
   raft::linalg::map(handle, result, mapper<T2>(origin_map.view()), raft::make_const_mdspan(result));
 }
 

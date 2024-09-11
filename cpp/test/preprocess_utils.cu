@@ -13,16 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <raft/core/comms.hpp>
 #include <raft/core/device_coo_matrix.hpp>
-#include <raft/core/device_mdarray.hpp>
-#include <raft/core/host_mdarray.hpp>
-#include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
-#include <raft/core/resources.hpp>
 #include <raft/linalg/map_reduce.cuh>
-#include <raft/matrix/init.cuh>
 #include <raft/random/rmat_rectangular_generator.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/convert/coo.cuh>
@@ -30,7 +24,6 @@
 #include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/sparse/op/sort.cuh>
-#include <raft/util/cudart_utils.hpp>
 
 namespace raft::util {
 
