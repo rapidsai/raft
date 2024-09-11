@@ -368,6 +368,7 @@ The RAPIDS software ecosystem makes heavy use of the [RAPIDS Memory Manager](htt
 
 As an example, the following code snippet creates a `pool_memory_resource` and sets it as the default memory resource, which means all other libraries that use RMM will now allocate their device memory from this same pool:
 ```c++
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 rmm::mr::cuda_memory_resource cuda_mr;
