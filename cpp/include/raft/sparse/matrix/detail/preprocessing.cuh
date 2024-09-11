@@ -50,7 +50,7 @@ struct bm25 {
 
   float __device__ operator()(const T2& value, const T2& num_feats_id_occ, const T2& feat_length)
   {
-    float tf  = raft::log<float>(1 + (value / feat_length));
+    float tf  = float(value / feat_length);
     float idf = raft::log<float>(total_feats / num_feats_id_occ);
     float bm  = ((k + 1) * tf) / (k * ((1.0f - b) + b * (feat_length / avg_feat_length)) + tf);
 
@@ -73,7 +73,7 @@ struct tfidf {
 
   float __device__ operator()(const T1& value, const T2& num_feats_id_occ, const T2& feat_length)
   {
-    float tf  = raft::log<float>(1 + (value / feat_length));
+    float tf  = float(value / feat_length);
     float idf = raft::log<float>(total_feats / num_feats_id_occ);
     return tf * idf;
   }

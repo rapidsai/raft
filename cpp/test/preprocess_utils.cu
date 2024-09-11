@@ -136,7 +136,7 @@ void preproc_kernel(raft::resources& handle,
       if (val == 0) {
         out_host_matrix(row, col) = 0.0f;
       } else {
-        float tf  = raft::log<float>(1 + (val / h_output_cols_lengths(0, col)));
+        float tf  = float(val / h_output_cols_lengths(0, col));
         float idf = raft::log<float>(num_cols / h_output_rows_cnt(0, row));
         if (tf_idf) {
           result = tf * idf;
