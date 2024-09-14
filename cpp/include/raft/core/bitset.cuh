@@ -26,6 +26,8 @@
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/popc.cuh>
 
+#include <rmm/device_scalar.hpp>
+
 #include <thrust/for_each.h>
 
 namespace raft::core {
@@ -58,6 +60,102 @@ _RAFT_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index
     const bitset_t bitmask2 = ~bitmask;
     atomicAnd(bitset_ptr_ + bit_element, bitmask2);
   }
+}
+
+template <typename bitset_t, typename index_t>
+struct bitset_copy_functor {
+  const bitset_t* bitset_ptr;
+  bitset_t* output_device_ptr;
+  index_t valid_bits;
+  index_t bits_per_element;
+  index_t total_bits;
+
+  bitset_copy_functor(const bitset_t* _bitset_ptr,
+                      bitset_t* _output_device_ptr,
+                      index_t _valid_bits,
+                      index_t _bits_per_element,
+                      index_t _total_bits)
+    : bitset_ptr(_bitset_ptr),
+      output_device_ptr(_output_device_ptr),
+      valid_bits(_valid_bits),
+      bits_per_element(_bits_per_element),
+      total_bits(_total_bits)
+  {
+  }
+
+  __device__ void operator()(index_t i)
+  {
+    if (i < total_bits) {
+      index_t src_bit_index = i % valid_bits;
+      index_t dst_bit_index = i;
+
+      index_t src_element_index = src_bit_index / bits_per_element;
+      index_t src_bit_offset    = src_bit_index % bits_per_element;
+
+      index_t dst_element_index = dst_bit_index / bits_per_element;
+      index_t dst_bit_offset    = dst_bit_index % bits_per_element;
+
+      bitset_t src_element = bitset_ptr[src_element_index];
+      bitset_t src_bit     = (src_element >> src_bit_offset) & 1;
+
+      if (src_bit) {
+        atomicOr(output_device_ptr + dst_element_index, bitset_t(1) << dst_bit_offset);
+      } else {
+        atomicAnd(output_device_ptr + dst_element_index, ~(bitset_t(1) << dst_bit_offset));
+      }
+    }
+  }
+};
+
+template <typename bitset_t, typename index_t>
+void bitset_view<bitset_t, index_t>::repeat(const raft::resources& res,
+                                            index_t times,
+                                            bitset_t* output_device_ptr) const
+{
+  auto thrust_policy                 = raft::resource::get_thrust_policy(res);
+  constexpr index_t bits_per_element = sizeof(bitset_t) * 8;
+
+  if (bitset_len_ % bits_per_element == 0) {
+    index_t num_elements_to_copy = bitset_len_ / bits_per_element;
+
+    for (index_t i = 0; i < times; ++i) {
+      raft::copy(output_device_ptr + i * num_elements_to_copy,
+                 bitset_ptr_,
+                 num_elements_to_copy,
+                 raft::resource::get_cuda_stream(res));
+    }
+  } else {
+    index_t valid_bits          = bitset_len_;
+    index_t total_bits          = valid_bits * times;
+    index_t output_row_elements = (total_bits + bits_per_element - 1) / bits_per_element;
+    thrust::for_each_n(thrust_policy,
+                       thrust::counting_iterator<index_t>(0),
+                       total_bits,
+                       bitset_copy_functor<bitset_t, index_t>(
+                         bitset_ptr_, output_device_ptr, valid_bits, bits_per_element, total_bits));
+  }
+}
+
+template <typename bitset_t, typename index_t>
+double bitset_view<bitset_t, index_t>::sparsity(const raft::resources& res) const
+{
+  index_t nnz_h  = 0;
+  index_t size_h = this->size();
+  auto stream    = raft::resource::get_cuda_stream(res);
+
+  if (0 == size_h) { return static_cast<double>(1.0); }
+
+  rmm::device_scalar<index_t> nnz(0, stream);
+
+  auto vector_view = raft::make_device_vector_view<const bitset_t, index_t>(data(), n_elements());
+  auto nnz_view    = raft::make_device_scalar_view<index_t>(nnz.data());
+  auto size_view   = raft::make_host_scalar_view<index_t>(&size_h);
+
+  raft::popc(res, vector_view, size_view, nnz_view);
+  raft::copy(&nnz_h, nnz.data(), 1, stream);
+
+  raft::resource::sync_stream(res, stream);
+  return static_cast<double>((1.0 * (size_h - nnz_h)) / (1.0 * size_h));
 }
 
 template <typename bitset_t, typename index_t>
