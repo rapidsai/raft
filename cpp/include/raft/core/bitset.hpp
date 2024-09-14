@@ -22,6 +22,8 @@
 #include <raft/core/resources.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <cmath>
+
 namespace raft::core {
 /**
  * @defgroup bitset Bitset
@@ -102,6 +104,57 @@ struct bitset_view {
   inline auto to_mdspan() const -> raft::device_vector_view<const bitset_t, index_t>
   {
     return raft::make_device_vector_view<const bitset_t, index_t>(bitset_ptr_, n_elements());
+  }
+
+  /**
+   * @brief Repeats the bitset data and copies it to the output device pointer.
+   *
+   * This function takes the original bitset data stored in the device memory
+   * and repeats it a specified number of times into a new location in the device memory.
+   * The bits are copied bit-by-bit to ensure that even if the number of bits (bitset_len_)
+   * is not a multiple of the bitset element size (e.g., 32 for uint32_t), the bits are
+   * tightly packed without any gaps between rows.
+   *
+   * @param res RAFT resources for managing CUDA streams and execution policies.
+   * @param times Number of times the bitset data should be repeated in the output.
+   * @param output_device_ptr Device pointer where the repeated bitset data will be stored.
+   *
+   * The caller must ensure that the output device pointer has enough memory allocated
+   * to hold `times * bitset_len` bits, where `bitset_len` is the number of bits in the original
+   * bitset. This function uses Thrust parallel algorithms to efficiently perform the operation on
+   * the GPU.
+   */
+  void repeat(const raft::resources& res, index_t times, bitset_t* output_device_ptr) const;
+
+  /**
+   * @brief Calculate the sparsity (fraction of 0s) of the bitset.
+   *
+   * This function computes the sparsity of the bitset, defined as the ratio of unset bits (0s)
+   * to the total number of bits in the set. If the total number of bits is zero, the function
+   * returns 1.0, indicating the set is fully sparse.
+   *
+   * @param res RAFT resources for managing CUDA streams and execution policies.
+   * @return double The sparsity of the bitset, i.e., the fraction of unset bits.
+   *
+   * This API will synchronize on the stream of `res`.
+   */
+  double sparsity(const raft::resources& res) const;
+
+  /**
+   * @brief Calculates the number of `bitset_t` elements required to store a bitset.
+   *
+   * This function computes the number of `bitset_t` elements needed to store a bitset, ensuring
+   * that all bits are accounted for. If the bitset length is not a multiple of the `bitset_t` size
+   * (in bits), the calculation rounds up to include the remaining bits in an additional `bitset_t`
+   * element.
+   *
+   * @param bitset_len The total length of the bitset in bits.
+   * @return size_t The number of `bitset_t` elements required to store the bitset.
+   */
+  static inline size_t eval_n_elements(size_t bitset_len)
+  {
+    const size_t bits_per_element = sizeof(bitset_t) * 8;
+    return (bitset_len + bits_per_element - 1) / bits_per_element;
   }
 
  private:
