@@ -15,6 +15,14 @@ rapids-print-env
 
 rapids-logger "Begin cpp build"
 
-RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libraft
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 cpp)
+RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 python)
+UCXX_CHANNEL=$(rapids-get-pr-conda-artifact ucxx 278 cpp)
+
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild \
+    --channel "${LIBRMM_CHANNEL}" \
+    --channel "${RMM_CHANNEL}" \
+    --channel "${UCXX_CHANNEL}" \
+    conda/recipes/libraft
 
 rapids-upload-conda-to-s3 cpp

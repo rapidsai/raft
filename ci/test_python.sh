@@ -8,10 +8,17 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 . /opt/conda/etc/profile.d/conda.sh
 
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 cpp)
+RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 python)
+UCXX_CHANNEL=$(rapids-get-pr-conda-artifact ucxx 278 cpp)
+
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
   --file-key test_python \
+  --prepend-channel "${LIBRMM_CHANNEL}" \
+  --prepend-channel "${RMM_CHANNEL}" \
+  --prepend-channel "${UCXX_CHANNEL}" \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
@@ -34,6 +41,9 @@ rapids-print-env
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
+  --channel "${LIBRMM_CHANNEL}" \
+  --channel "${RMM_CHANNEL}" \
+  --channel "${UCXX_CHANNEL}" \
   libraft libraft-headers pylibraft raft-dask
 
 rapids-logger "Check GPU usage"
