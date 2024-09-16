@@ -39,8 +39,16 @@ case "${RAPIDS_CUDA_VERSION}" in
   ;;
 esac
 
+LIBRMM_CHANNEL=$(rapids-get-pr-wheel-artifact rmm 1678 cpp)
+RMM_CHANNEL=$(rapids-get-pr-wheel-artifact rmm 1678 python)
+
+echo "rmm-${RAPIDS_PY_CUDA_SUFFIX} @ $(echo ${RMM_CHANNEL}/rmm*.whl)" > /tmp/constraints.txt
+echo "librmm-${RAPIDS_PY_CUDA_SUFFIX} @ $(echo ${LIBRMM_CHANNEL}/librmm*.whl)" >> /tmp/constraints.txt
+echo "" >> /tmp/constraints.txt
+export PIP_CONSTRAINT=/tmp/constraints.txt
+
 # Hardcode the output dir
-python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
+python -m pip wheel . -w dist -v --no-deps --disable-pip-version-check
 
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
