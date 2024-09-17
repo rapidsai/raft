@@ -38,8 +38,10 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#pragma nv_diag_suppress 128
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#pragma nv_diag_default 128
 
 #include <cuda.h>
 #include <thrust/fill.h>

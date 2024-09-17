@@ -22,7 +22,9 @@
 #include <raft/distance/distance_types.hpp>             // raft::distance::DistanceType
 #include <raft/util/raft_explicit.hpp>                  // RAFT_EXPLICIT
 
+#pragma nv_diag_suppress 128
 #include <rmm/device_uvector.hpp>  // rmm::device_uvector
+#pragma nv_diag_default 128
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

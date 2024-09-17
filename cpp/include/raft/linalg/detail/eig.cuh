@@ -24,9 +24,11 @@
 #include <raft/matrix/copy.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#pragma nv_diag_suppress 128
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#pragma nv_diag_default 128
 
 #include <cuda_runtime_api.h>
 

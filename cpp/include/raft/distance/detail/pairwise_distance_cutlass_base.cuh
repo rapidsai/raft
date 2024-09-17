@@ -32,7 +32,9 @@
 #include <raft/distance/detail/distance_ops/cutlass.cuh>
 #include <raft/util/cutlass_utils.cuh>
 
+#pragma nv_diag_suppress 128
 #include <rmm/device_uvector.hpp>
+#pragma nv_diag_default 128
 
 #include <cutlass/cutlass.h>
 #include <cutlass/gemm/device/gemm.h>

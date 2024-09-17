@@ -23,8 +23,10 @@
 #include <raft/core/resources.hpp>
 #include <raft/matrix/triangular.cuh>
 
+#pragma nv_diag_suppress 128
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#pragma nv_diag_default 128
 
 #include <algorithm>
 

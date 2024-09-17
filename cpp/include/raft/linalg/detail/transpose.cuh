@@ -23,7 +23,9 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
+#pragma nv_diag_suppress 128
 #include <rmm/exec_policy.hpp>
+#pragma nv_diag_default 128
 
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>

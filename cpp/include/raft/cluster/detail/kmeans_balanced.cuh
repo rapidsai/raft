@@ -41,10 +41,12 @@
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/integer_utils.hpp>
 
+#pragma nv_diag_suppress 128
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/resource_ref.hpp>
+#pragma nv_diag_default 128
 
 #include <thrust/gather.h>
 #include <thrust/transform.h>

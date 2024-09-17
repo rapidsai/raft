@@ -21,7 +21,9 @@
 #include <raft/core/mdarray.hpp>
 #include <raft/core/resources.hpp>
 
+#pragma nv_diag_suppress 128
 #include <rmm/resource_ref.hpp>
+#pragma nv_diag_default 128
 
 #include <cstdint>
 

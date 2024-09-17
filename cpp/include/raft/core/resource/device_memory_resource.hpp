@@ -20,10 +20,12 @@
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#pragma nv_diag_suppress 128
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/limiting_resource_adaptor.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+#pragma nv_diag_default 128
 
 #include <cstddef>
 #include <optional>

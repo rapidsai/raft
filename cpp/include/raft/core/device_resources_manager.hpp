@@ -18,11 +18,13 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/device_setter.hpp>
 
+#pragma nv_diag_suppress 128
 #include <rmm/cuda_device.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+#pragma nv_diag_default 128
 
 #include <algorithm>
 #include <memory>

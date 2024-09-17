@@ -18,10 +18,12 @@
 #include <iostream>
 #include <mutex>
 
+#pragma nv_diag_suppress 128
 #define SPDLOG_HEADER_ONLY
 #include <spdlog/common.h>
 #include <spdlog/details/log_msg.h>
 #include <spdlog/sinks/base_sink.h>
+#pragma nv_diag_default 128
 
 namespace spdlog::sinks {
 
