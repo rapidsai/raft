@@ -23,9 +23,7 @@
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#pragma nv_diag_suppress 128
 #include <rmm/mr/device/managed_memory_resource.hpp>
-#pragma nv_diag_default 128
 
 namespace raft {
 /**

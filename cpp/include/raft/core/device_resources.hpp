@@ -35,11 +35,9 @@
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 
-#pragma nv_diag_suppress 128
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
-#pragma nv_diag_default 128
 
 #include <cuda_runtime.h>
 

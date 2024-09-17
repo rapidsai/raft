@@ -29,12 +29,10 @@
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#pragma nv_diag_suppress 128
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
-#pragma nv_diag_default 128
 
 #include <thrust/device_ptr.h>
 

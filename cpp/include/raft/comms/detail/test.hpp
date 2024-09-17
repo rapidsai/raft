@@ -21,10 +21,8 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
-#pragma nv_diag_suppress 128
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#pragma nv_diag_default 128
 
 #include <iostream>
 #include <numeric>

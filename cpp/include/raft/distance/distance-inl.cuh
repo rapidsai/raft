@@ -21,9 +21,7 @@
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 
-#pragma nv_diag_suppress 128
 #include <rmm/device_uvector.hpp>
-#pragma nv_diag_default 128
 
 #include <type_traits>
 

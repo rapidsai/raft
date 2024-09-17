@@ -16,9 +16,7 @@
 
 #pragma once
 
-#pragma nv_diag_suppress 128
 #include <rmm/cuda_stream_view.hpp>
-#pragma nv_diag_default 128
 
 #ifdef NVTX_ENABLED
 

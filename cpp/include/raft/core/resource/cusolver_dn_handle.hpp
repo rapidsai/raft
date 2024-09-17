@@ -21,9 +21,7 @@
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
-#pragma nv_diag_suppress 128
 #include <rmm/cuda_stream_view.hpp>
-#pragma nv_diag_default 128
 
 #include <cusolverDn.h>
 

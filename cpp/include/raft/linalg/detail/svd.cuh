@@ -34,10 +34,8 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#pragma nv_diag_suppress 128
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#pragma nv_diag_default 128
 
 namespace raft {
 namespace linalg {

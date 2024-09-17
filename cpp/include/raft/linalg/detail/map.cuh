@@ -25,9 +25,7 @@
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
-#pragma nv_diag_suppress 128
 #include <rmm/cuda_stream_view.hpp>
-#pragma nv_diag_default 128
 
 #include <thrust/tuple.h>
 

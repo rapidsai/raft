@@ -31,9 +31,7 @@
 #include <raft/util/cudart_utils.hpp>   // getMultiProcessorCount
 #include <raft/util/cutlass_utils.cuh>  // RAFT_CUTLASS_TRY
 
-#pragma nv_diag_suppress 128
 #include <rmm/device_uvector.hpp>
-#pragma nv_diag_default 128
 
 #include <cuda/semaphore>
 
