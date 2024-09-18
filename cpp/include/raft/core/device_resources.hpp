@@ -124,7 +124,7 @@ class device_resources : public resources {
 
   rmm::exec_policy_nosync& get_thrust_policy() const { return resource::get_thrust_policy(*this); }
 
-  raft::comms::nccl_clique get_nccl_clique_handle() const
+  const raft::comms::nccl_clique& get_nccl_clique_handle() const
   {
     return resource::get_nccl_clique_handle(*this);
   }

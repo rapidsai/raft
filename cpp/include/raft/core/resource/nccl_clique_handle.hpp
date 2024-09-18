@@ -25,12 +25,12 @@ namespace raft::resource {
 
 class nccl_clique_resource : public resource {
  public:
-  nccl_clique_resource() : clique_() {}
-  ~nccl_clique_resource() noexcept override {}
-  void* get_resource() override { return &clique_; }
+  nccl_clique_resource() : clique_(std::make_unique<raft::comms::nccl_clique>()) {}
+  ~nccl_clique_resource() override {}
+  void* get_resource() override { return clique_.get(); }
 
  private:
-  raft::comms::nccl_clique clique_;
+  std::unique_ptr<raft::comms::nccl_clique> clique_;
 };
 
 /** Factory that knows how to construct a specific raft::resource to populate the res_t. */
@@ -51,13 +51,12 @@ class nccl_clique_resource_factory : public resource_factory {
  * @param[in] res the raft resources object
  * @return NCCL clique
  */
-inline raft::comms::nccl_clique get_nccl_clique_handle(resources const& res)
+inline const raft::comms::nccl_clique& get_nccl_clique_handle(resources const& res)
 {
   if (!res.has_resource_factory(resource_type::NCCL_CLIQUE)) {
     res.add_resource_factory(std::make_shared<nccl_clique_resource_factory>());
   }
-  auto ret = *res.get_resource<raft::comms::nccl_clique>(resource_type::NCCL_CLIQUE);
-  return ret;
+  return *res.get_resource<raft::comms::nccl_clique>(resource_type::NCCL_CLIQUE);
 };
 
 /**
