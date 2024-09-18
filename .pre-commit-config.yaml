@@ -18,7 +18,7 @@ repos:
                 # Explicitly specify the pyproject.toml at the repo root, not per-project.
                 args: ["--config", "pyproject.toml"]
       - repo: https://github.com/PyCQA/flake8
-        rev: 5.0.4
+        rev: 7.1.1
         hooks:
               - id: flake8
                 args: ["--config=.flake8"]

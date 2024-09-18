@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,8 @@ namespace op {
  * @param vals vals array from coo matrix
  * @param stream: cuda stream to use
  */
-template <typename T>
-void coo_sort(int m, int n, int nnz, int* rows, int* cols, T* vals, cudaStream_t stream)
+template <typename T, typename IdxT = int>
+void coo_sort(IdxT m, IdxT n, IdxT nnz, IdxT* rows, IdxT* cols, T* vals, cudaStream_t stream)
 {
   detail::coo_sort(m, n, nnz, rows, cols, vals, stream);
 }
@@ -49,10 +49,10 @@ void coo_sort(int m, int n, int nnz, int* rows, int* cols, T* vals, cudaStream_t
  * @param in: COO to sort by row
  * @param stream: the cuda stream to use
  */
-template <typename T>
-void coo_sort(COO<T>* const in, cudaStream_t stream)
+template <typename T, typename IdxT = int>
+void coo_sort(COO<T, IdxT>* const in, cudaStream_t stream)
 {
-  coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), stream);
+  coo_sort<T, IdxT>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), stream);
 }
 
 /**
