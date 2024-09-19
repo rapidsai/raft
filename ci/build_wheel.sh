@@ -18,6 +18,8 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
 rapids-generate-version > VERSION
 
+source ./ci/use_wheels_from_prs.sh
+
 cd "${package_dir}"
 
 case "${RAPIDS_CUDA_VERSION}" in
@@ -38,18 +40,6 @@ case "${RAPIDS_CUDA_VERSION}" in
     )
   ;;
 esac
-
-LIBRMM_CHANNEL=$(
-  RAPIDS_PY_WHEEL_NAME=rmm_${RAPIDS_PY_CUDA_SUFFIX} rapids-get-pr-wheel-artifact rmm 1678 cpp
-)
-RMM_CHANNEL=$(
-  RAPIDS_PY_WHEEL_NAME=rmm_${RAPIDS_PY_CUDA_SUFFIX} rapids-get-pr-wheel-artifact rmm 1678 python
-)
-
-echo "rmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${RMM_CHANNEL}/rmm*.whl)" > /tmp/constraints.txt
-echo "librmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBRMM_CHANNEL}/librmm*.whl)" >> /tmp/constraints.txt
-echo "" >> /tmp/constraints.txt
-export PIP_CONSTRAINT=/tmp/constraints.txt
 
 # Hardcode the output dir
 python -m pip wheel . -w dist -v --no-deps --disable-pip-version-check
