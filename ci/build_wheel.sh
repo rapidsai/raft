@@ -42,7 +42,7 @@ case "${RAPIDS_CUDA_VERSION}" in
 esac
 
 # Hardcode the output dir
-python -m pip wheel . -w dist -v --no-deps --disable-pip-version-check
+python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
