@@ -96,18 +96,18 @@ def main():
         "The input and output files are in big-ann-benchmark's binary format.",
         epilog="""Example usage
     # With existing query file
-    python -m raft_ann_bench.generate_groundtruth --dataset /dataset/base.\
-fbin --output=groundtruth_dir --queries=/dataset/query.public.10K.fbin
+    python -m raft_ann_bench.generate_groundtruth --output=groundtruth_dir \
+--queries=/dataset/query.public.10K.fbin /dataset/base.fbin
 
     # With randomly generated queries
-    python -m raft_ann_bench.generate_groundtruth --dataset /dataset/base.\
-fbin --output=groundtruth_dir --queries=random --n_queries=10000
+    python -m raft_ann_bench.generate_groundtruth --output=groundtruth_dir \
+--queries=random --n_queries=10000 /dataset/base.fbin
 
     # Using only a subset of the dataset. Define queries by randomly
     # selecting vectors from the (subset of the) dataset.
-    python -m raft_ann_bench.generate_groundtruth --dataset /dataset/base.\
-fbin --nrows=2000000 --cols=128 --output=groundtruth_dir \
---queries=random-choice --n_queries=10000
+    python -m raft_ann_bench.generate_groundtruth --nrows=2000000 \
+--cols=128 --output=groundtruth_dir --queries=random-choice \
+--n_queries=10000 /dataset/base.fbin
     """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
