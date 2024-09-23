@@ -18,8 +18,6 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
 rapids-generate-version > VERSION
 
-source ./ci/use_wheels_from_prs.sh
-
 cd "${package_dir}"
 
 case "${RAPIDS_CUDA_VERSION}" in

@@ -5,7 +5,6 @@ set -euo pipefail
 
 # Support invoking test_python.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
-source ./ci/use_conda_packages_from_prs.sh
 
 . /opt/conda/etc/profile.d/conda.sh
 
