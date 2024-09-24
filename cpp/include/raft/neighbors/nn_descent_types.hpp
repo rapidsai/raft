@@ -86,7 +86,7 @@ struct index_params : ann::index_params {
  *
  * @tparam IdxT dtype to be used for constructing knn-graph
  */
-[[deprecated("Use cuVS instead")]] template <typename IdxT>
+template <typename IdxT>
 struct index : ann::index {
  public:
   /**
@@ -101,7 +101,10 @@ struct index : ann::index {
    * @param n_cols number of cols in knn-graph
    * @param return_distances whether to allocate and get distances information
    */
-  index(raft::resources const& res, int64_t n_rows, int64_t n_cols, bool return_distances = false)
+  [[deprecated("Use cuVS instead")]] index(raft::resources const& res,
+                                           int64_t n_rows,
+                                           int64_t n_cols,
+                                           bool return_distances = false)
     : ann::index(),
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
@@ -128,11 +131,12 @@ struct index : ann::index {
    * storing knn-graph distances
    * @param return_distances whether to allocate and get distances information
    */
-  index(raft::resources const& res,
-        raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view,
-        std::optional<raft::device_matrix_view<float, int64_t, row_major>> distances_view =
-          std::nullopt,
-        bool return_distances = false)
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view,
+    std::optional<raft::device_matrix_view<float, int64_t, row_major>> distances_view =
+      std::nullopt,
+    bool return_distances = false)
     : ann::index(),
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},

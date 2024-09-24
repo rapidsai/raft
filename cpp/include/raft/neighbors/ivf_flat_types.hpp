@@ -125,7 +125,7 @@ using list_data = ivf::list<list_spec, SizeT, ValueT, IdxT>;
  * @tparam IdxT type of the indices in the source dataset
  *
  */
-[[deprecated("Use cuVS instead")]] template <typename T, typename IdxT>
+template <typename T, typename IdxT>
 struct index : ann::index {
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");
@@ -261,12 +261,12 @@ struct index : ann::index {
   ~index()                               = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::resources const& res,
-        raft::distance::DistanceType metric,
-        uint32_t n_lists,
-        bool adaptive_centers,
-        bool conservative_memory_allocation,
-        uint32_t dim)
+  [[deprecated("Use cuVS instead")]] index(raft::resources const& res,
+                                           raft::distance::DistanceType metric,
+                                           uint32_t n_lists,
+                                           bool adaptive_centers,
+                                           bool conservative_memory_allocation,
+                                           uint32_t dim)
     : ann::index(),
       veclen_(calculate_veclen(dim)),
       metric_(metric),
@@ -285,7 +285,9 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::resources const& res, const index_params& params, uint32_t dim)
+  [[deprecated("Use cuVS instead")]] index(raft::resources const& res,
+                                           const index_params& params,
+                                           uint32_t dim)
     : index(res,
             params.metric,
             params.n_lists,

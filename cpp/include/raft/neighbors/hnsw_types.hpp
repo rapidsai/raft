@@ -38,7 +38,7 @@ struct search_params : ann::search_params {
   int num_threads = 0;  // number of host threads to use for concurrent searches. Value of 0
                         // automatically maximizes parallelism
 };
-[[deprecated("Use cuVS instead")]] template <typename T>
+template <typename T>
 struct index : ann::index {
  public:
   /**
@@ -50,7 +50,10 @@ struct index : ann::index {
    * @param[in] dim dimensions of the training dataset
    * @param[in] metric distance metric to search. Supported metrics ("L2Expanded", "InnerProduct")
    */
-  index(int dim, raft::distance::DistanceType metric) : dim_{dim}, metric_{metric} {}
+  [[deprecated("Use cuVS instead")]] index(int dim, raft::distance::DistanceType metric)
+    : dim_{dim}, metric_{metric}
+  {
+  }
 
   /**
   @brief Get underlying index
