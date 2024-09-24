@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,9 +47,9 @@ namespace raft::cluster {
  *            of k. The algorithm will set `k = log(n) + c`
  * @param[in] n_clusters number of clusters to assign data samples
  */
-template <typename value_idx,
-          typename value_t,
-          LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
+[[deprecated("Use cuVS instead")]] template <typename value_idx,
+                                             typename value_t,
+                                             LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
 void single_linkage(raft::resources const& handle,
                     const value_t* X,
                     size_t m,
@@ -86,7 +86,9 @@ constexpr int DEFAULT_CONST_C = 15;
  * @param[in] c a constant used when constructing connectivities from knn graph. Allows the indirect
  control of k. The algorithm will set `k = log(n) + c`
  */
-template <typename value_t, typename idx_t, LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
+[[deprecated("Use cuVS instead")]] template <typename value_t,
+                                             typename idx_t,
+                                             LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
 void single_linkage(raft::resources const& handle,
                     raft::device_matrix_view<const value_t, idx_t, row_major> X,
                     raft::device_matrix_view<idx_t, idx_t, row_major> dendrogram,

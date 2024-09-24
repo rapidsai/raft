@@ -85,7 +85,7 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  *                              closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void fit(raft::resources const& handle,
          const KMeansParams& params,
          raft::device_matrix_view<const DataT, IndexT> X,
@@ -149,7 +149,7 @@ void fit(raft::resources const& handle,
  * @param[out]    inertia          Sum of squared distances of samples to
  *                                 their closest cluster center.
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void predict(raft::resources const& handle,
              const KMeansParams& params,
              raft::device_matrix_view<const DataT, IndexT> X,
@@ -212,7 +212,7 @@ void predict(raft::resources const& handle,
  *                              closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void fit_predict(raft::resources const& handle,
                  const KMeansParams& params,
                  raft::device_matrix_view<const DataT, IndexT> X,
@@ -241,7 +241,7 @@ void fit_predict(raft::resources const& handle,
  * @param[out]    X_new         X transformed in the new space.
  *                              [dim = n_samples x n_features]
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void transform(raft::resources const& handle,
                const KMeansParams& params,
                raft::device_matrix_view<const DataT, IndexT> X,
@@ -251,7 +251,7 @@ void transform(raft::resources const& handle,
   detail::kmeans_transform<DataT, IndexT>(handle, params, X, centroids, X_new);
 }
 
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void transform(raft::resources const& handle,
                const KMeansParams& params,
                const DataT* X,
@@ -304,7 +304,7 @@ void transform(raft::resources const& handle,
  * @param maxiter maximum number of iterations to run
  * @param tol tolerance for early stopping convergence
  */
-template <typename idx_t, typename value_t>
+[[deprecated("Use cuVS instead")]] template <typename idx_t, typename value_t>
 void find_k(raft::resources const& handle,
             raft::device_matrix_view<const value_t, idx_t> X,
             raft::host_scalar_view<idx_t> best_k,
@@ -337,7 +337,7 @@ void find_k(raft::resources const& handle,
  * @param[in]  workspace          Temporary workspace buffer which can get resized
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void sample_centroids(raft::resources const& handle,
                       raft::device_matrix_view<const DataT, IndexT> X,
                       raft::device_vector_view<DataT, IndexT> minClusterDistance,
@@ -364,7 +364,7 @@ void sample_centroids(raft::resources const& handle,
  * @param[in]  reduction_op       The reduction operation used for the cost
  *
  */
-template <typename DataT, typename IndexT, typename ReductionOpT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT, typename ReductionOpT>
 void cluster_cost(raft::resources const& handle,
                   raft::device_vector_view<DataT, IndexT> minClusterDistance,
                   rmm::device_uvector<char>& workspace,
@@ -390,7 +390,8 @@ void cluster_cost(raft::resources const& handle,
  * @param[out] weight_per_cluster: sum of sample weights per cluster (size n_clusters)
  * @param[out] new_centroids: output matrix of updated centroids (size n_clusters, n_features)
  */
-template <typename DataT, typename IndexT, typename LabelsIterator>
+[[deprecated(
+  "Use cuVS instead")]] template <typename DataT, typename IndexT, typename LabelsIterator>
 void update_centroids(raft::resources const& handle,
                       raft::device_matrix_view<const DataT, IndexT, row_major> X,
                       raft::device_vector_view<const DataT, IndexT> sample_weights,
@@ -431,7 +432,7 @@ void update_centroids(raft::resources const& handle,
  * @param[in]  workspace            Temporary workspace buffer which can get resized
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void min_cluster_distance(raft::resources const& handle,
                           raft::device_matrix_view<const DataT, IndexT> X,
                           raft::device_matrix_view<DataT, IndexT> centroids,
@@ -481,7 +482,7 @@ void min_cluster_distance(raft::resources const& handle,
  * @param[in] workspace              Temporary workspace buffer which can get resized
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void min_cluster_and_distance(
   raft::resources const& handle,
   raft::device_matrix_view<const DataT, IndexT> X,
@@ -522,7 +523,7 @@ void min_cluster_and_distance(
  * @param[in]  seed                Seed for the shuffle
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void shuffle_and_gather(raft::resources const& handle,
                         raft::device_matrix_view<const DataT, IndexT> in,
                         raft::device_matrix_view<DataT, IndexT> out,
@@ -551,7 +552,7 @@ void shuffle_and_gather(raft::resources const& handle,
  *                                  [dim = n_cluster]
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void count_samples_in_cluster(raft::resources const& handle,
                               const KMeansParams& params,
                               raft::device_matrix_view<const DataT, IndexT> X,
@@ -581,7 +582,7 @@ void count_samples_in_cluster(raft::resources const& handle,
  *                                   [dim = n_cluster x n_features]
  * @param[in]  workspace             Temporary workspace buffer which can get resized
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void init_plus_plus(raft::resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
@@ -614,7 +615,7 @@ void init_plus_plus(raft::resources const& handle,
  * @param[out]    n_iter        Number of iterations run.
  * @param[in]     workspace     Temporary workspace buffer which can get resized
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void fit_main(raft::resources const& handle,
               const KMeansParams& params,
               raft::device_matrix_view<const DataT, IndexT> X,
@@ -661,7 +662,7 @@ namespace raft::cluster {
  *                              closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-template <typename DataT, typename IndexT = int>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT = int>
 void kmeans_fit(raft::resources const& handle,
                 const KMeansParams& params,
                 raft::device_matrix_view<const DataT, IndexT> X,
@@ -673,7 +674,7 @@ void kmeans_fit(raft::resources const& handle,
   kmeans::fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
 }
 
-template <typename DataT, typename IndexT = int>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT = int>
 void kmeans_fit(raft::resources const& handle,
                 const KMeansParams& params,
                 const DataT* X,
@@ -708,7 +709,7 @@ void kmeans_fit(raft::resources const& handle,
  * @param[out]    inertia          Sum of squared distances of samples to
  *                                 their closest cluster center.
  */
-template <typename DataT, typename IndexT = int>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT = int>
 void kmeans_predict(raft::resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
@@ -722,7 +723,7 @@ void kmeans_predict(raft::resources const& handle,
     handle, params, X, sample_weight, centroids, labels, normalize_weight, inertia);
 }
 
-template <typename DataT, typename IndexT = int>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT = int>
 void kmeans_predict(raft::resources const& handle,
                     const KMeansParams& params,
                     const DataT* X,
@@ -773,7 +774,7 @@ void kmeans_predict(raft::resources const& handle,
  *                              closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-template <typename DataT, typename IndexT = int>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT = int>
 void kmeans_fit_predict(raft::resources const& handle,
                         const KMeansParams& params,
                         raft::device_matrix_view<const DataT, IndexT> X,
@@ -787,7 +788,7 @@ void kmeans_fit_predict(raft::resources const& handle,
     handle, params, X, sample_weight, centroids, labels, inertia, n_iter);
 }
 
-template <typename DataT, typename IndexT = int>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT = int>
 void kmeans_fit_predict(raft::resources const& handle,
                         const KMeansParams& params,
                         const DataT* X,
@@ -818,7 +819,7 @@ void kmeans_fit_predict(raft::resources const& handle,
  * @param[out]    X_new         X transformed in the new space.
  *                              [dim = n_samples x n_features]
  */
-template <typename DataT, typename IndexT = int>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT = int>
 void kmeans_transform(raft::resources const& handle,
                       const KMeansParams& params,
                       raft::device_matrix_view<const DataT, IndexT> X,
@@ -828,7 +829,7 @@ void kmeans_transform(raft::resources const& handle,
   kmeans::transform<DataT, IndexT>(handle, params, X, centroids, X_new);
 }
 
-template <typename DataT, typename IndexT = int>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT = int>
 void kmeans_transform(raft::resources const& handle,
                       const KMeansParams& params,
                       const DataT* X,
@@ -865,7 +866,7 @@ using KeyValueIndexOp = kmeans::KeyValueIndexOp<IndexT, DataT>;
  * @param[in]  workspace          Temporary workspace buffer which can get resized
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void sampleCentroids(raft::resources const& handle,
                      raft::device_matrix_view<const DataT, IndexT> X,
                      raft::device_vector_view<DataT, IndexT> minClusterDistance,
@@ -892,7 +893,7 @@ void sampleCentroids(raft::resources const& handle,
  * @param[in]  reduction_op       The reduction operation used for the cost
  *
  */
-template <typename DataT, typename IndexT, typename ReductionOpT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT, typename ReductionOpT>
 void computeClusterCost(raft::resources const& handle,
                         raft::device_vector_view<DataT, IndexT> minClusterDistance,
                         rmm::device_uvector<char>& workspace,
@@ -923,7 +924,7 @@ void computeClusterCost(raft::resources const& handle,
  * @param[in]  workspace            Temporary workspace buffer which can get resized
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void minClusterDistanceCompute(raft::resources const& handle,
                                const KMeansParams& params,
                                raft::device_matrix_view<const DataT, IndexT> X,
@@ -969,7 +970,7 @@ void minClusterDistanceCompute(raft::resources const& handle,
  * @param[in]  workspace             Temporary workspace buffer which can get resized
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void minClusterAndDistanceCompute(
   raft::resources const& handle,
   const KMeansParams& params,
@@ -1008,7 +1009,7 @@ void minClusterAndDistanceCompute(
  * @param[in]  seed                Seed for the shuffle
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void shuffleAndGather(raft::resources const& handle,
                       raft::device_matrix_view<const DataT, IndexT> in,
                       raft::device_matrix_view<DataT, IndexT> out,
@@ -1037,7 +1038,7 @@ void shuffleAndGather(raft::resources const& handle,
  *                                  [dim = n_cluster]
  *
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void countSamplesInCluster(raft::resources const& handle,
                            const KMeansParams& params,
                            raft::device_matrix_view<const DataT, IndexT> X,
@@ -1068,7 +1069,7 @@ void countSamplesInCluster(raft::resources const& handle,
  *                                   [dim = n_cluster x n_features]
  * @param[in]  workspace             Temporary workspace buffer which can get resized
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void kmeansPlusPlus(raft::resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
@@ -1101,7 +1102,7 @@ void kmeansPlusPlus(raft::resources const& handle,
  * @param[out]    n_iter        Number of iterations run.
  * @param[in]     workspace     Temporary workspace buffer which can get resized
  */
-template <typename DataT, typename IndexT>
+[[deprecated("Use cuVS instead")]] template <typename DataT, typename IndexT>
 void kmeans_fit_main(raft::resources const& handle,
                      const KMeansParams& params,
                      raft::device_matrix_view<const DataT, IndexT> X,

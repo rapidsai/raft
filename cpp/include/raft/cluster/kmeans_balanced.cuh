@@ -72,7 +72,10 @@ namespace raft::cluster::kmeans_balanced {
  * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
  *                        datatype. If DataT == MathT, this must be the identity.
  */
-template <typename DataT, typename MathT, typename IndexT, typename MappingOpT = raft::identity_op>
+[[deprecated("Use cuVS instead")]] template <typename DataT,
+                                             typename MathT,
+                                             typename IndexT,
+                                             typename MappingOpT = raft::identity_op>
 void fit(const raft::resources& handle,
          kmeans_balanced_params const& params,
          raft::device_matrix_view<const DataT, IndexT> X,
@@ -126,11 +129,11 @@ void fit(const raft::resources& handle,
  * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
  *                        datatype. If DataT == MathT, this must be the identity.
  */
-template <typename DataT,
-          typename MathT,
-          typename IndexT,
-          typename LabelT,
-          typename MappingOpT = raft::identity_op>
+[[deprecated("Use cuVS instead")]] template <typename DataT,
+                                             typename MathT,
+                                             typename IndexT,
+                                             typename LabelT,
+                                             typename MappingOpT = raft::identity_op>
 void predict(const raft::resources& handle,
              kmeans_balanced_params const& params,
              raft::device_matrix_view<const DataT, IndexT> X,
@@ -191,11 +194,11 @@ void predict(const raft::resources& handle,
  * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
  *                        datatype. If DataT and MathT are the same, this must be the identity.
  */
-template <typename DataT,
-          typename MathT,
-          typename IndexT,
-          typename LabelT,
-          typename MappingOpT = raft::identity_op>
+[[deprecated("Use cuVS instead")]] template <typename DataT,
+                                             typename MathT,
+                                             typename IndexT,
+                                             typename LabelT,
+                                             typename MappingOpT = raft::identity_op>
 void fit_predict(const raft::resources& handle,
                  kmeans_balanced_params const& params,
                  raft::device_matrix_view<const DataT, IndexT> X,
@@ -249,12 +252,12 @@ namespace helpers {
  *                           arithmetic datatype. If DataT == MathT, this must be the identity.
  * @param[in]  X_norm        (optional) Dataset's row norms [dim = n_samples]
  */
-template <typename DataT,
-          typename MathT,
-          typename IndexT,
-          typename LabelT,
-          typename CounterT,
-          typename MappingOpT>
+[[deprecated("Use cuVS instead")]] template <typename DataT,
+                                             typename MathT,
+                                             typename IndexT,
+                                             typename LabelT,
+                                             typename CounterT,
+                                             typename MappingOpT>
 void build_clusters(const raft::resources& handle,
                     const kmeans_balanced_params& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
@@ -328,12 +331,12 @@ void build_clusters(const raft::resources& handle,
  * @param[in]  mapping_op     (optional) Functor to convert from the input datatype to the
  *                            arithmetic datatype. If DataT == MathT, this must be the identity.
  */
-template <typename DataT,
-          typename MathT,
-          typename IndexT,
-          typename LabelT,
-          typename CounterT,
-          typename MappingOpT = raft::identity_op>
+[[deprecated("Use cuVS instead")]] template <typename DataT,
+                                             typename MathT,
+                                             typename IndexT,
+                                             typename LabelT,
+                                             typename CounterT,
+                                             typename MappingOpT = raft::identity_op>
 void calc_centers_and_sizes(const raft::resources& handle,
                             raft::device_matrix_view<const DataT, IndexT> X,
                             raft::device_vector_view<const LabelT, IndexT> labels,
