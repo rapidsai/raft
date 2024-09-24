@@ -164,9 +164,9 @@ TEST_P(SparsePreprocessBm25Coo, Result) { Run(true); }
 
 const std::vector<SparsePreprocessInputs<float, int>> sparse_preprocess_inputs = {
   {
-    7,   // n_rows
-    5,   // n_cols
-    100  // nnz_edges
+    10,   // n_rows
+    10,   // n_cols
+    1000  // nnz_edges
   },
 };
 

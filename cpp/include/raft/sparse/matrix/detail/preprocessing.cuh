@@ -22,11 +22,7 @@
 #include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/sort.cuh>
 
-#include <thrust/extrema.h>
 #include <thrust/reduce.h>
-
-#include <iomanip>
-#include <iostream>
 
 namespace raft::sparse::matrix::detail {
 
@@ -96,6 +92,19 @@ struct mapper {
   raft::device_vector_view<const T> map;
 };
 
+template <typename T1, typename T2>
+struct map_to {
+  map_to(raft::device_vector_view<T2> map) : map(map) {}
+
+  float __device__ operator()(const T1& key, const T2& count)
+  {
+    map[key] = count;
+    return 0.0f;
+  }
+
+  raft::device_vector_view<T2> map;
+};
+
 /**
  * @brief Get unique counts
  * @param handle: raft resource handle
@@ -146,22 +155,21 @@ void create_mapped_vector(raft::resources& handle,
                           const raft::device_vector_view<T1, IdxT> origin,
                           const raft::device_vector_view<T1, IdxT> keys,
                           const raft::device_vector_view<T2, IdxT> counts,
-                          raft::device_vector_view<T2, IdxT> result)
+                          raft::device_vector_view<T2, IdxT> result,
+                          T1 key_size)
 {
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  thrust::host_vector<T1> host_keys(keys.size());
-  raft::copy(host_keys.data(), keys.data_handle(), keys.size(), stream);
-  int key_size = *thrust::max_element(host_keys.begin(), host_keys.end());
-
-  raft::linalg::map(handle, result, raft::cast_op<T2>{}, raft::make_const_mdspan(origin));
   // index into the last element and then add 1 to it.
   auto origin_map = raft::make_device_vector<T2, IdxT>(handle, key_size + 1);
-  thrust::scatter(raft::resource::get_thrust_policy(handle),
-                  counts.data_handle(),
-                  counts.data_handle() + counts.size(),
-                  keys.data_handle(),
-                  origin_map.data_handle());
+  raft::matrix::fill(handle, origin_map.view(), 0.0f);
 
+  auto dummy_vec = raft::make_device_vector<T2, IdxT>(handle, keys.size());
+  raft::linalg::map(handle,
+                    dummy_vec.view(),
+                    map_to<T1, T2>(origin_map.view()),
+                    raft::make_const_mdspan(keys),
+                    raft::make_const_mdspan(counts));
+
+  raft::linalg::map(handle, result, raft::cast_op<T2>{}, raft::make_const_mdspan(origin));
   raft::linalg::map(handle, result, mapper<T2>(origin_map.view()), raft::make_const_mdspan(result));
 }
 
@@ -183,8 +191,6 @@ void get_id_counts(raft::resources& handle,
                    T1 n_rows)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  // auto preserved_rows = raft::make_device_vector<T1, IdxT>(handle, rows.size());
-  // raft::copy(preserved_rows.data_handle(), rows.data_handle(), rows.size(), stream);
   int uniq_rows =
     raft::sparse::neighbors::get_n_components(rows.data_handle(), rows.size(), stream);
 
@@ -194,9 +200,11 @@ void get_id_counts(raft::resources& handle,
 
   // the amount of columns(features) that each row(id) is found in
   raft::matrix::fill(handle, row_fill.view(), 1.0f);
+
   get_uniques_counts(
     handle, rows, columns, values, row_fill.view(), row_keys.view(), row_counts.view());
-  create_mapped_vector<T1, T2>(handle, rows, row_keys.view(), row_counts.view(), id_counts);
+
+  create_mapped_vector<T1, T2>(handle, rows, row_keys.view(), row_counts.view(), id_counts, n_rows);
 }
 
 /**
@@ -222,7 +230,7 @@ float get_feature_data(raft::resources& handle,
   int uniq_cols =
     raft::sparse::neighbors::get_n_components(columns.data_handle(), columns.size(), stream);
   auto col_keys   = raft::make_device_vector<T1, IdxT>(handle, uniq_cols);
-  auto col_counts = raft::make_device_vector<T2, IdxT>(handle, n_cols);
+  auto col_counts = raft::make_device_vector<T2, IdxT>(handle, uniq_cols);
 
   get_uniques_counts(handle, columns, rows, values, values, col_keys.view(), col_counts.view());
 
@@ -242,7 +250,7 @@ float get_feature_data(raft::resources& handle,
              stream);
   T2 avg_feat_length = T2(total_feature_lengths_host(0)) / n_cols;
   create_mapped_vector<T1, T2>(
-    handle, preserved_columns.view(), col_keys.view(), col_counts.view(), feat_lengths);
+    handle, preserved_columns.view(), col_keys.view(), col_counts.view(), feat_lengths, n_cols);
   return avg_feat_length;
 }
 
