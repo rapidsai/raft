@@ -76,7 +76,7 @@ class PopcTest : public ::testing::TestWithParam<PopcInputs<index_t>> {
       index_t bit_position = index % (8 * sizeof(bits_t));
 
       if (((element >> bit_position) & 1) == 0) {
-        element |= (static_cast<index_t>(1) << bit_position);
+        element |= (static_cast<bits_t>(1) << bit_position);
         num_ones--;
       }
     }
@@ -101,7 +101,7 @@ class PopcTest : public ::testing::TestWithParam<PopcInputs<index_t>> {
       raft::make_device_vector_view<const bits_t, index_t>(bits_d.data(), bits_d.size());
 
     index_t max_len   = params.n_rows * params.n_cols;
-    auto max_len_view = raft::make_host_scalar_view<index_t>(&max_len);
+    auto max_len_view = raft::make_host_scalar_view<const index_t, index_t>(&max_len);
 
     index_t nnz_actual_h = 0;
     rmm::device_scalar<index_t> nnz_actual_d(0, stream);
@@ -123,8 +123,17 @@ class PopcTest : public ::testing::TestWithParam<PopcInputs<index_t>> {
   index_t nnz_expected;
 };
 
-using PopcTestI32 = PopcTest<int32_t>;
-TEST_P(PopcTestI32, Result) { Run(); }
+using PopcTestI32_U32 = PopcTest<int32_t, uint32_t>;
+TEST_P(PopcTestI32_U32, Result) { Run(); }
+
+using PopcTestI32_U64 = PopcTest<int32_t, uint64_t>;
+TEST_P(PopcTestI32_U64, Result) { Run(); }
+
+using PopcTestI32_U16 = PopcTest<int32_t, uint16_t>;
+TEST_P(PopcTestI32_U16, Result) { Run(); }
+
+using PopcTestI32_U8 = PopcTest<int32_t, uint8_t>;
+TEST_P(PopcTestI32_U8, Result) { Run(); }
 
 template <typename index_t>
 const std::vector<PopcInputs<index_t>> popc_inputs = {
@@ -154,6 +163,9 @@ const std::vector<PopcInputs<index_t>> popc_inputs = {
   {2, 33, 0.2},
 };
 
-INSTANTIATE_TEST_CASE_P(PopcTest, PopcTestI32, ::testing::ValuesIn(popc_inputs<int32_t>));
+INSTANTIATE_TEST_CASE_P(PopcTest, PopcTestI32_U32, ::testing::ValuesIn(popc_inputs<int32_t>));
+INSTANTIATE_TEST_CASE_P(PopcTest, PopcTestI32_U64, ::testing::ValuesIn(popc_inputs<int32_t>));
+INSTANTIATE_TEST_CASE_P(PopcTest, PopcTestI32_U16, ::testing::ValuesIn(popc_inputs<int32_t>));
+INSTANTIATE_TEST_CASE_P(PopcTest, PopcTestI32_U8, ::testing::ValuesIn(popc_inputs<int32_t>));
 
 }  // namespace raft

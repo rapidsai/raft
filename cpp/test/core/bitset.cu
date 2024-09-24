@@ -195,7 +195,7 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
 
     // test sparsity, repeat and eval_n_elements
-    if constexpr (std::is_same_v<bitset_t, uint32_t> || std::is_same_v<bitset_t, uint64_t>) {
+    {
       auto my_bitset_view  = my_bitset.view();
       auto sparsity_result = my_bitset_view.sparsity(res);
       auto sparsity_ref    = sparsity_cpu_bitset(bitset_ref, size_t(spec.bitset_len));
@@ -217,7 +217,20 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
       update_host(
         bitset_repeat_result.data(), repeat_device.data_handle(), repeat_device.size(), stream);
       ASSERT_EQ(bitset_repeat_ref.size(), bitset_repeat_result.size());
-      ASSERT_TRUE(hostVecMatch(bitset_repeat_ref, bitset_repeat_result, raft::Compare<bitset_t>()));
+
+      index_t errors                        = 0;
+      static constexpr index_t len_per_item = sizeof(bitset_t) * 8;
+      bitset_t tail_len = (index_t(spec.bitset_len * spec.repeat_times) % len_per_item);
+      bitset_t tail_mask =
+        tail_len ? (bitset_t)((bitset_t{1} << tail_len) - bitset_t{1}) : ~bitset_t{0};
+      for (index_t i = 0; i < bitset_repeat_ref.size(); i++) {
+        if (i == bitset_repeat_ref.size() - 1) {
+          errors += (bitset_repeat_ref[i] & tail_mask) != (bitset_repeat_result[i] & tail_mask);
+        } else {
+          errors += (bitset_repeat_ref[i] != bitset_repeat_result[i]);
+        }
+      }
+      ASSERT_EQ(errors, 0);
 
       // recheck the sparsity after repeat
       sparsity_result =
@@ -246,6 +259,7 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     ASSERT_EQ(my_bitset.none(res), false);
   }
 };
+// auto inputs_bitset = ::testing::Values(test_spec_bitset{32, 5, 10, 2});
 
 auto inputs_bitset = ::testing::Values(test_spec_bitset{32, 5, 10, 101},
                                        test_spec_bitset{100, 30, 10, 13},

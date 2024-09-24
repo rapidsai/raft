@@ -63,49 +63,75 @@ _RAFT_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index
 }
 
 template <typename bitset_t, typename index_t>
-struct bitset_copy_functor {
-  const bitset_t* bitset_ptr;
-  bitset_t* output_device_ptr;
-  index_t valid_bits;
-  index_t bits_per_element;
-  index_t total_bits;
+void bitset_view<bitset_t, index_t>::count(const raft::resources& res,
+                                           raft::device_scalar_view<index_t> count_gpu_scalar) const
+{
+  auto max_len = raft::make_host_scalar_view<const index_t, index_t>(&bitset_len_);
+  auto values  = raft::make_device_vector_view<const bitset_t, index_t>(bitset_ptr_, n_elements());
+  raft::popc(res, values, max_len, count_gpu_scalar);
+}
 
-  bitset_copy_functor(const bitset_t* _bitset_ptr,
-                      bitset_t* _output_device_ptr,
-                      index_t _valid_bits,
-                      index_t _bits_per_element,
-                      index_t _total_bits)
-    : bitset_ptr(_bitset_ptr),
-      output_device_ptr(_output_device_ptr),
-      valid_bits(_valid_bits),
-      bits_per_element(_bits_per_element),
-      total_bits(_total_bits)
-  {
-  }
+template <typename bitset_t, typename index_t>
+RAFT_KERNEL bitset_repeat_kernel(const bitset_t* src,
+                                 bitset_t* output,
+                                 index_t src_bit_len,
+                                 index_t repeat_times)
+{
+  constexpr index_t bits_per_element = sizeof(bitset_t) * 8;
+  int output_idx                     = blockIdx.x * blockDim.x + threadIdx.x;
 
-  __device__ void operator()(index_t i)
-  {
-    if (i < total_bits) {
-      index_t src_bit_index = i % valid_bits;
-      index_t dst_bit_index = i;
+  index_t total_bits  = src_bit_len * repeat_times;
+  index_t output_size = (total_bits + bits_per_element - 1) / bits_per_element;
+  index_t src_size    = (src_bit_len + bits_per_element - 1) / bits_per_element;
 
-      index_t src_element_index = src_bit_index / bits_per_element;
-      index_t src_bit_offset    = src_bit_index % bits_per_element;
+  if (output_idx < output_size) {
+    bitset_t result     = 0;
+    index_t bit_written = 0;
 
-      index_t dst_element_index = dst_bit_index / bits_per_element;
-      index_t dst_bit_offset    = dst_bit_index % bits_per_element;
+    index_t start_bit = output_idx * bits_per_element;
 
-      bitset_t src_element = bitset_ptr[src_element_index];
-      bitset_t src_bit     = (src_element >> src_bit_offset) & 1;
+    while (bit_written < bits_per_element && start_bit + bit_written < total_bits) {
+      index_t bit_idx      = (start_bit + bit_written) % src_bit_len;
+      index_t src_word_idx = bit_idx / bits_per_element;
+      index_t src_offset   = bit_idx % bits_per_element;
 
-      if (src_bit) {
-        atomicOr(output_device_ptr + dst_element_index, bitset_t(1) << dst_bit_offset);
-      } else {
-        atomicAnd(output_device_ptr + dst_element_index, ~(bitset_t(1) << dst_bit_offset));
+      index_t remaining_bits = min(bits_per_element - bit_written, src_bit_len - bit_idx);
+
+      bitset_t src_value = (src[src_word_idx] >> src_offset);
+
+      if (src_offset + remaining_bits > bits_per_element) {
+        bitset_t next_value = src[(src_word_idx + 1) % src_size];
+        src_value |= (next_value << (bits_per_element - src_offset));
       }
+      src_value &= ((bitset_t{1} << remaining_bits) - 1);
+      result |= (src_value << bit_written);
+      bit_written += remaining_bits;
     }
+    output[output_idx] = result;
   }
-};
+}
+
+template <typename bitset_t, typename index_t>
+void bitset_repeat(raft::resources const& handle,
+                   const bitset_t* d_src,
+                   bitset_t* d_output,
+                   index_t src_bit_len,
+                   index_t repeat_times)
+{
+  if (src_bit_len == 0 || repeat_times == 0) return;
+  auto stream = resource::get_cuda_stream(handle);
+
+  constexpr index_t bits_per_element = sizeof(bitset_t) * 8;
+  const index_t total_bits           = src_bit_len * repeat_times;
+  const index_t output_size          = (total_bits + bits_per_element - 1) / bits_per_element;
+
+  int threadsPerBlock = 128;
+  int blocksPerGrid   = (output_size + threadsPerBlock - 1) / threadsPerBlock;
+  bitset_repeat_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
+    d_src, d_output, src_bit_len, repeat_times);
+
+  return;
+}
 
 template <typename bitset_t, typename index_t>
 void bitset_view<bitset_t, index_t>::repeat(const raft::resources& res,
@@ -125,37 +151,18 @@ void bitset_view<bitset_t, index_t>::repeat(const raft::resources& res,
                  raft::resource::get_cuda_stream(res));
     }
   } else {
-    index_t valid_bits          = bitset_len_;
-    index_t total_bits          = valid_bits * times;
-    index_t output_row_elements = (total_bits + bits_per_element - 1) / bits_per_element;
-    thrust::for_each_n(thrust_policy,
-                       thrust::counting_iterator<index_t>(0),
-                       total_bits,
-                       bitset_copy_functor<bitset_t, index_t>(
-                         bitset_ptr_, output_device_ptr, valid_bits, bits_per_element, total_bits));
+    bitset_repeat(res, bitset_ptr_, output_device_ptr, bitset_len_, times);
   }
 }
 
 template <typename bitset_t, typename index_t>
 double bitset_view<bitset_t, index_t>::sparsity(const raft::resources& res) const
 {
-  index_t nnz_h  = 0;
   index_t size_h = this->size();
-  auto stream    = raft::resource::get_cuda_stream(res);
-
   if (0 == size_h) { return static_cast<double>(1.0); }
+  index_t count_h = this->count(res);
 
-  rmm::device_scalar<index_t> nnz(0, stream);
-
-  auto vector_view = raft::make_device_vector_view<const bitset_t, index_t>(data(), n_elements());
-  auto nnz_view    = raft::make_device_scalar_view<index_t>(nnz.data());
-  auto size_view   = raft::make_host_scalar_view<index_t>(&size_h);
-
-  raft::popc(res, vector_view, size_view, nnz_view);
-  raft::copy(&nnz_h, nnz.data(), 1, stream);
-
-  raft::resource::sync_stream(res, stream);
-  return static_cast<double>((1.0 * (size_h - nnz_h)) / (1.0 * size_h));
+  return static_cast<double>((1.0 * (size_h - count_h)) / (1.0 * size_h));
 }
 
 template <typename bitset_t, typename index_t>
@@ -253,7 +260,7 @@ template <typename bitset_t, typename index_t>
 void bitset<bitset_t, index_t>::count(const raft::resources& res,
                                       raft::device_scalar_view<index_t> count_gpu_scalar)
 {
-  auto max_len = raft::make_host_scalar_view<index_t>(&bitset_len_);
+  auto max_len = raft::make_host_scalar_view<const index_t, index_t>(&bitset_len_);
   auto values =
     raft::make_device_vector_view<const bitset_t, index_t>(bitset_.data(), n_elements());
   raft::popc(res, values, max_len, count_gpu_scalar);

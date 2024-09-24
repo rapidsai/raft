@@ -105,6 +105,29 @@ struct bitset_view {
   {
     return raft::make_device_vector_view<const bitset_t, index_t>(bitset_ptr_, n_elements());
   }
+  /**
+   * @brief Returns the number of bits set to true in count_gpu_scalar.
+   *
+   * @param[in] res RAFT resources
+   * @param[out] count_gpu_scalar Device scalar to store the count
+   */
+  void count(const raft::resources& res, raft::device_scalar_view<index_t> count_gpu_scalar) const;
+  /**
+   * @brief Returns the number of bits set to true.
+   *
+   * @param res RAFT resources
+   * @return index_t Number of bits set to true
+   */
+  auto count(const raft::resources& res) const -> index_t
+  {
+    auto count_gpu_scalar = raft::make_device_scalar<index_t>(res, 0.0);
+    count(res, count_gpu_scalar.view());
+    index_t count_cpu = 0;
+    raft::update_host(
+      &count_cpu, count_gpu_scalar.data_handle(), 1, resource::get_cuda_stream(res));
+    resource::sync_stream(res);
+    return count_cpu;
+  }
 
   /**
    * @brief Repeats the bitset data and copies it to the output device pointer.
