@@ -45,7 +45,7 @@ using ann::search_params;
  *
  * @tparam T data element type
  */
-template <typename T>
+[[deprecated("Use cuVS instead")]] template <typename T>
 struct index : ann::index {
  public:
   /** Distance metric used for retrieval */

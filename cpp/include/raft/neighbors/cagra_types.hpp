@@ -138,7 +138,7 @@ static_assert(std::is_aggregate_v<search_params>);
  * @tparam IdxT type of the vector indices (represent dataset.extent(0))
  *
  */
-template <typename T, typename IdxT>
+[[deprecated("Use cuVS instead")]] template <typename T, typename IdxT>
 struct index : ann::index {
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");

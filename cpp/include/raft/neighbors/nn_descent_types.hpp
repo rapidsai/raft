@@ -86,7 +86,7 @@ struct index_params : ann::index_params {
  *
  * @tparam IdxT dtype to be used for constructing knn-graph
  */
-template <typename IdxT>
+[[deprecated("Use cuVS instead")]] template <typename IdxT>
 struct index : ann::index {
  public:
   /**

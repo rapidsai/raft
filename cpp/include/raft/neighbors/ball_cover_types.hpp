@@ -42,10 +42,10 @@ namespace raft::neighbors::ball_cover {
  * @tparam value_t
  * @tparam value_int
  */
-template <typename value_idx,
-          typename value_t,
-          typename value_int  = std::int64_t,
-          typename matrix_idx = std::int64_t>
+[[deprecated("Use cuVS instead")]] template <typename value_idx,
+                                             typename value_t,
+                                             typename value_int  = std::int64_t,
+                                             typename matrix_idx = std::int64_t>
 class BallCoverIndex {
  public:
   explicit BallCoverIndex(raft::resources const& handle_,

@@ -28,7 +28,10 @@
 
 namespace raft::neighbors {
 
-template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
+[[deprecated("Use cuVS instead")]] template <typename idx_t,
+                                             typename data_t,
+                                             typename distance_t,
+                                             typename matrix_idx>
 void refine(raft::resources const& handle,
             raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
             raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
@@ -38,7 +41,10 @@ void refine(raft::resources const& handle,
             raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
   RAFT_EXPLICIT;
 
-template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
+[[deprecated("Use cuVS instead")]] template <typename idx_t,
+                                             typename data_t,
+                                             typename distance_t,
+                                             typename matrix_idx>
 void refine(raft::resources const& handle,
             raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,
             raft::host_matrix_view<const data_t, matrix_idx, row_major> queries,

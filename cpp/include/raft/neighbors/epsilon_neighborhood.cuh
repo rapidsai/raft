@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ namespace raft::neighbors::epsilon_neighborhood {
  *                    squared as we compute L2-squared distance in this method)
  * @param[in]  stream cuda stream
  */
-template <typename value_t, typename idx_t>
+[[deprecated("Use cuVS instead")]] template <typename value_t, typename idx_t>
 void epsUnexpL2SqNeighborhood(bool* adj,
                               idx_t* vd,
                               const value_t* x,
@@ -97,7 +97,8 @@ void epsUnexpL2SqNeighborhood(bool* adj,
  * @param[in]  eps    defines epsilon neighborhood radius (should be passed as
  *                    squared as we compute L2-squared distance in this method)
  */
-template <typename value_t, typename idx_t, typename matrix_idx_t>
+[[deprecated(
+  "Use cuVS instead")]] template <typename value_t, typename idx_t, typename matrix_idx_t>
 void eps_neighbors_l2sq(raft::resources const& handle,
                         raft::device_matrix_view<const value_t, matrix_idx_t, row_major> x,
                         raft::device_matrix_view<const value_t, matrix_idx_t, row_major> y,

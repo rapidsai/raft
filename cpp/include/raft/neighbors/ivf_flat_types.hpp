@@ -125,7 +125,7 @@ using list_data = ivf::list<list_spec, SizeT, ValueT, IdxT>;
  * @tparam IdxT type of the indices in the source dataset
  *
  */
-template <typename T, typename IdxT>
+[[deprecated("Use cuVS instead")]] template <typename T, typename IdxT>
 struct index : ann::index {
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");

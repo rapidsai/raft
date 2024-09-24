@@ -38,8 +38,7 @@ struct search_params : ann::search_params {
   int num_threads = 0;  // number of host threads to use for concurrent searches. Value of 0
                         // automatically maximizes parallelism
 };
-
-template <typename T>
+[[deprecated("Use cuVS instead")]] template <typename T>
 struct index : ann::index {
  public:
   /**
