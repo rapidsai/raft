@@ -291,7 +291,7 @@ Configuration files already exist for the following list of the million-scale da
 | `glove-100-angular` | 1.1M | 100 | 10K | Angular |
 | `mnist-784-euclidean` | 60K | 784 | 10K | Euclidean |
 | `nytimes-256-angular` | 290K | 256 | 10K | Angular |
-| `sift-128-euclidean` | 1M | 128 | 10K | Euclidean|**
+| `sift-128-euclidean` | 1M | 128 | 10K | Euclidean|
 
 All of the datasets above contain ground test datasets with 100 neighbors. Thus `k` for these datasets must be  less than or equal to 100.
 
