@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,15 +46,15 @@ namespace raft::neighbors::epsilon_neighborhood {
  * @param[in]  stream cuda stream
  */
 template <typename value_t, typename idx_t>
-[[deprecated("Use cuVS instead")]] void epsUnexpL2SqNeighborhood(bool* adj,
-                                                                 idx_t* vd,
-                                                                 const value_t* x,
-                                                                 const value_t* y,
-                                                                 idx_t m,
-                                                                 idx_t n,
-                                                                 idx_t k,
-                                                                 value_t eps,
-                                                                 cudaStream_t stream)
+void epsUnexpL2SqNeighborhood(bool* adj,
+                              idx_t* vd,
+                              const value_t* x,
+                              const value_t* y,
+                              idx_t m,
+                              idx_t n,
+                              idx_t k,
+                              value_t eps,
+                              cudaStream_t stream)
 {
   spatial::knn::detail::epsUnexpL2SqNeighborhood<value_t, idx_t>(
     adj, vd, x, y, m, n, k, eps, stream);
@@ -98,13 +98,12 @@ template <typename value_t, typename idx_t>
  *                    squared as we compute L2-squared distance in this method)
  */
 template <typename value_t, typename idx_t, typename matrix_idx_t>
-[[deprecated("Use cuVS instead")]] void eps_neighbors_l2sq(
-  raft::resources const& handle,
-  raft::device_matrix_view<const value_t, matrix_idx_t, row_major> x,
-  raft::device_matrix_view<const value_t, matrix_idx_t, row_major> y,
-  raft::device_matrix_view<bool, matrix_idx_t, row_major> adj,
-  raft::device_vector_view<idx_t, matrix_idx_t> vd,
-  value_t eps)
+void eps_neighbors_l2sq(raft::resources const& handle,
+                        raft::device_matrix_view<const value_t, matrix_idx_t, row_major> x,
+                        raft::device_matrix_view<const value_t, matrix_idx_t, row_major> y,
+                        raft::device_matrix_view<bool, matrix_idx_t, row_major> adj,
+                        raft::device_vector_view<idx_t, matrix_idx_t> vd,
+                        value_t eps)
 {
   epsUnexpL2SqNeighborhood<value_t, idx_t>(adj.data_handle(),
                                            vd.data_handle(),
