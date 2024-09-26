@@ -48,11 +48,11 @@ template <typename value_idx,
           typename matrix_idx = std::int64_t>
 class BallCoverIndex {
  public:
-  [[deprecated("Use cuVS instead")]] explicit BallCoverIndex(raft::resources const& handle_,
-                                                             const value_t* X_,
-                                                             value_int m_,
-                                                             value_int n_,
-                                                             raft::distance::DistanceType metric_)
+  explicit BallCoverIndex(raft::resources const& handle_,
+                          const value_t* X_,
+                          value_int m_,
+                          value_int n_,
+                          raft::distance::DistanceType metric_)
     : handle(handle_),
       X(raft::make_device_matrix_view<const value_t, matrix_idx>(X_, m_, n_)),
       m(m_),
@@ -75,10 +75,9 @@ class BallCoverIndex {
   {
   }
 
-  [[deprecated("Use cuVS instead")]] explicit BallCoverIndex(
-    raft::resources const& handle_,
-    raft::device_matrix_view<const value_t, matrix_idx, row_major> X_,
-    raft::distance::DistanceType metric_)
+  explicit BallCoverIndex(raft::resources const& handle_,
+                          raft::device_matrix_view<const value_t, matrix_idx, row_major> X_,
+                          raft::distance::DistanceType metric_)
     : handle(handle_),
       X(X_),
       m(X_.extent(0)),
