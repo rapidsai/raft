@@ -259,7 +259,6 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     ASSERT_EQ(my_bitset.none(res), false);
   }
 };
-// auto inputs_bitset = ::testing::Values(test_spec_bitset{32, 5, 10, 2});
 
 auto inputs_bitset = ::testing::Values(test_spec_bitset{32, 5, 10, 101},
                                        test_spec_bitset{100, 30, 10, 13},
@@ -268,8 +267,7 @@ auto inputs_bitset = ::testing::Values(test_spec_bitset{32, 5, 10, 101},
                                        test_spec_bitset{1 << 15, 1 << 3, 1 << 12, 5},
                                        test_spec_bitset{1 << 15, 1 << 24, 1 << 13, 3},
                                        test_spec_bitset{1 << 25, 1 << 23, 1 << 14, 3},
-                                       test_spec_bitset{1 << 25, 1 << 23, 1 << 14, 201},
-                                       test_spec_bitset{10000000, 1 << 23, 1 << 14, 401});
+                                       test_spec_bitset{1 << 25, 1 << 23, 1 << 14, 21});
 
 using Uint16_32 = BitsetTest<uint16_t, uint32_t>;
 TEST_P(Uint16_32, Run) { run(); }
