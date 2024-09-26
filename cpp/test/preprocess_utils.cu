@@ -163,9 +163,9 @@ int get_dupe_mask_count(raft::resources& handle,
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  raft::sparse::op::coo_sort(rows.size(),
-                             columns.size(),
-                             values.size(),
+  raft::sparse::op::coo_sort(int(rows.size()),
+                             int(columns.size()),
+                             int(values.size()),
                              rows.data_handle(),
                              columns.data_handle(),
                              values.data_handle(),
