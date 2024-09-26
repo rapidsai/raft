@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ namespace raft::cluster::hierarchy {
 /**
  * Determines the method for computing the minimum spanning tree (MST)
  */
-[[deprecated("Use cuVS instead")]] enum LinkageDistance {
+enum LinkageDistance {
 
   /**
    * Use a pairwise distance matrix as input to the mst. This
