@@ -170,7 +170,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - nccl>=2.18.1.1
+          - nccl>=2.19
           - libucxx==0.40.*,>=0.0.0a0
     specific:
       - output_types: conda

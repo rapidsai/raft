@@ -32,7 +32,7 @@ dependencies:
 - libcusparse=11.7.5.86
 - libucxx==0.40.*,>=0.0.0a0
 - matplotlib
-- nccl>=2.18.1.1
+- nccl>=2.19
 - ninja
 - nlohmann_json>=3.11.2
 - nvcc_linux-64=11.8
