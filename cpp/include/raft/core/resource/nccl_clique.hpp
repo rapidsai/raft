@@ -51,7 +51,7 @@ class nccl_clique_resource_factory : public resource_factory {
  * @param[in] res the raft resources object
  * @return NCCL clique
  */
-inline const raft::comms::nccl_clique& get_nccl_clique_handle(resources const& res)
+inline const raft::comms::nccl_clique& get_nccl_clique(resources const& res)
 {
   if (!res.has_resource_factory(resource_type::NCCL_CLIQUE)) {
     res.add_resource_factory(std::make_shared<nccl_clique_resource_factory>());

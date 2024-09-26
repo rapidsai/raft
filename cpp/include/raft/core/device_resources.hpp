@@ -31,7 +31,6 @@
 #include <raft/core/resource/device_id.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/device_properties.hpp>
-#include <raft/core/resource/nccl_clique_handle.hpp>
 #include <raft/core/resource/sub_comms.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
@@ -123,11 +122,6 @@ class device_resources : public resources {
   cusparseHandle_t get_cusparse_handle() const { return resource::get_cusparse_handle(*this); }
 
   rmm::exec_policy_nosync& get_thrust_policy() const { return resource::get_thrust_policy(*this); }
-
-  const raft::comms::nccl_clique& get_nccl_clique_handle() const
-  {
-    return resource::get_nccl_clique_handle(*this);
-  }
 
   /**
    * @brief synchronize a stream on the current container
