@@ -20,7 +20,7 @@ cmake_version:
   - ">=3.26.4,!=3.30.0"
 
 nccl_version:
-  - ">=2.9.9"
+  - ">=2.18.1.1"
 
 glog_version:
   - ">=0.6.0"
@@ -73,7 +73,7 @@ cuda11_cuda_profiler_api_run_version:
   - ">=11.4.240,<12"
 
 spdlog_version:
-  - ">=1.12.0,<1.13"
+  - ">=1.14.1,<1.15"
 
 fmt_version:
-  - ">=10.1.1,<11"
+  - ">=11.0.2,<12"
