@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,12 +32,13 @@ struct test_spec_bitset {
   uint64_t bitset_len;
   uint64_t mask_len;
   uint64_t query_len;
+  uint64_t repeat_times;
 };
 
 auto operator<<(std::ostream& os, const test_spec_bitset& ss) -> std::ostream&
 {
   os << "bitset{bitset_len: " << ss.bitset_len << ", mask_len: " << ss.mask_len
-     << ", query_len: " << ss.query_len << "}";
+     << ", query_len: " << ss.query_len << ", repeat_times: " << ss.repeat_times << "}";
   return os;
 }
 
@@ -80,6 +81,48 @@ void flip_cpu_bitset(std::vector<bitset_t>& bitset)
   }
 }
 
+template <typename bitset_t>
+void repeat_cpu_bitset(std::vector<bitset_t>& input,
+                       size_t input_bits,
+                       size_t repeat,
+                       std::vector<bitset_t>& output)
+{
+  const size_t output_bits  = input_bits * repeat;
+  const size_t output_units = (output_bits + sizeof(bitset_t) * 8 - 1) / (sizeof(bitset_t) * 8);
+
+  std::memset(output.data(), 0, output_units * sizeof(bitset_t));
+
+  size_t output_bit_index = 0;
+
+  for (size_t r = 0; r < repeat; ++r) {
+    for (size_t i = 0; i < input_bits; ++i) {
+      size_t input_unit_index = i / (sizeof(bitset_t) * 8);
+      size_t input_bit_offset = i % (sizeof(bitset_t) * 8);
+      bool bit                = (input[input_unit_index] >> input_bit_offset) & 1;
+
+      size_t output_unit_index = output_bit_index / (sizeof(bitset_t) * 8);
+      size_t output_bit_offset = output_bit_index % (sizeof(bitset_t) * 8);
+
+      output[output_unit_index] |= (static_cast<bitset_t>(bit) << output_bit_offset);
+
+      ++output_bit_index;
+    }
+  }
+}
+
+template <typename bitset_t>
+double sparsity_cpu_bitset(std::vector<bitset_t>& data, size_t total_bits)
+{
+  size_t one_count = 0;
+  for (size_t i = 0; i < total_bits; ++i) {
+    size_t unit_index = i / (sizeof(bitset_t) * 8);
+    size_t bit_offset = i % (sizeof(bitset_t) * 8);
+    bool bit          = (data[unit_index] >> bit_offset) & 1;
+    if (bit == 1) { ++one_count; }
+  }
+  return static_cast<double>((total_bits - one_count) / (1.0 * total_bits));
+}
+
 template <typename bitset_t, typename index_t>
 class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
  protected:
@@ -87,13 +130,19 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
   const test_spec_bitset spec;
   std::vector<bitset_t> bitset_result;
   std::vector<bitset_t> bitset_ref;
+  std::vector<bitset_t> bitset_repeat_ref;
+  std::vector<bitset_t> bitset_repeat_result;
   raft::resources res;
 
  public:
   explicit BitsetTest()
     : spec(testing::TestWithParam<test_spec_bitset>::GetParam()),
       bitset_result(raft::ceildiv(spec.bitset_len, uint64_t(bitset_element_size))),
-      bitset_ref(raft::ceildiv(spec.bitset_len, uint64_t(bitset_element_size)))
+      bitset_ref(raft::ceildiv(spec.bitset_len, uint64_t(bitset_element_size))),
+      bitset_repeat_ref(
+        raft::ceildiv(spec.bitset_len * spec.repeat_times, uint64_t(bitset_element_size))),
+      bitset_repeat_result(
+        raft::ceildiv(spec.bitset_len * spec.repeat_times, uint64_t(bitset_element_size)))
   {
   }
 
@@ -145,6 +194,50 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     resource::sync_stream(res, stream);
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
 
+    // test sparsity, repeat and eval_n_elements
+    {
+      auto my_bitset_view  = my_bitset.view();
+      auto sparsity_result = my_bitset_view.sparsity(res);
+      auto sparsity_ref    = sparsity_cpu_bitset(bitset_ref, size_t(spec.bitset_len));
+      ASSERT_EQ(sparsity_result, sparsity_ref);
+
+      auto eval_n_elements =
+        bitset_view<bitset_t, index_t>::eval_n_elements(spec.bitset_len * spec.repeat_times);
+      ASSERT_EQ(bitset_repeat_ref.size(), eval_n_elements);
+
+      auto repeat_device = raft::make_device_vector<bitset_t, index_t>(res, eval_n_elements);
+      RAFT_CUDA_TRY(cudaMemsetAsync(
+        repeat_device.data_handle(), 0, eval_n_elements * sizeof(bitset_t), stream));
+      repeat_cpu_bitset(
+        bitset_ref, size_t(spec.bitset_len), size_t(spec.repeat_times), bitset_repeat_ref);
+
+      my_bitset_view.repeat(res, index_t(spec.repeat_times), repeat_device.data_handle());
+
+      ASSERT_EQ(bitset_repeat_ref.size(), repeat_device.size());
+      update_host(
+        bitset_repeat_result.data(), repeat_device.data_handle(), repeat_device.size(), stream);
+      ASSERT_EQ(bitset_repeat_ref.size(), bitset_repeat_result.size());
+
+      index_t errors                        = 0;
+      static constexpr index_t len_per_item = sizeof(bitset_t) * 8;
+      bitset_t tail_len = (index_t(spec.bitset_len * spec.repeat_times) % len_per_item);
+      bitset_t tail_mask =
+        tail_len ? (bitset_t)((bitset_t{1} << tail_len) - bitset_t{1}) : ~bitset_t{0};
+      for (index_t i = 0; i < bitset_repeat_ref.size(); i++) {
+        if (i == bitset_repeat_ref.size() - 1) {
+          errors += (bitset_repeat_ref[i] & tail_mask) != (bitset_repeat_result[i] & tail_mask);
+        } else {
+          errors += (bitset_repeat_ref[i] != bitset_repeat_result[i]);
+        }
+      }
+      ASSERT_EQ(errors, 0);
+
+      // recheck the sparsity after repeat
+      sparsity_result =
+        sparsity_cpu_bitset(bitset_repeat_result, size_t(spec.bitset_len * spec.repeat_times));
+      ASSERT_EQ(sparsity_result, sparsity_ref);
+    }
+
     // Flip the bitset and re-test
     auto bitset_count = my_bitset.count(res);
     my_bitset.flip(res);
@@ -167,13 +260,14 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
   }
 };
 
-auto inputs_bitset = ::testing::Values(test_spec_bitset{32, 5, 10},
-                                       test_spec_bitset{100, 30, 10},
-                                       test_spec_bitset{1024, 55, 100},
-                                       test_spec_bitset{10000, 1000, 1000},
-                                       test_spec_bitset{1 << 15, 1 << 3, 1 << 12},
-                                       test_spec_bitset{1 << 15, 1 << 24, 1 << 13},
-                                       test_spec_bitset{1 << 25, 1 << 23, 1 << 14});
+auto inputs_bitset = ::testing::Values(test_spec_bitset{32, 5, 10, 101},
+                                       test_spec_bitset{100, 30, 10, 13},
+                                       test_spec_bitset{1024, 55, 100, 1},
+                                       test_spec_bitset{10000, 1000, 1000, 100},
+                                       test_spec_bitset{1 << 15, 1 << 3, 1 << 12, 5},
+                                       test_spec_bitset{1 << 15, 1 << 24, 1 << 13, 3},
+                                       test_spec_bitset{1 << 25, 1 << 23, 1 << 14, 3},
+                                       test_spec_bitset{1 << 25, 1 << 23, 1 << 14, 21});
 
 using Uint16_32 = BitsetTest<uint16_t, uint32_t>;
 TEST_P(Uint16_32, Run) { run(); }

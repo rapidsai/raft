@@ -36,7 +36,7 @@ dependencies:
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
 - libucxx==0.40.*,>=0.0.0a0
-- nccl>=2.9.9
+- nccl>=2.18.1.1
 - ninja
 - numba>=0.57
 - numpy>=1.23,<3.0a0
