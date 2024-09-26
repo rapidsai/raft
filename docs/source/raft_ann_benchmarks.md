@@ -283,7 +283,7 @@ python -m raft_ann_bench.plot --dataset deep-image-96-inner
 
 Configuration files already exist for the following list of the million-scale datasets. Please refer to [ann-benchmarks datasets](https://github.com/erikbern/ann-benchmarks/#data-sets) for more information, including actual train and sizes. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `$CONDA_PREFIX/lib/python3.xx/site-packages/raft_ann_bench/run/conf`, or you can specify the `--configuration` option to use a specific file.
 
-**| Dataset Name | Train Rows | Columns | Test Rows      | Distance   | 
+| Dataset Name | Train Rows | Columns | Test Rows      | Distance   | 
 |-----|------------|----|----------------|------------|
 | `deep-image-96-angular` | 10M        | 96 | 10K            | Angular    |
 | `fashion-mnist-784-euclidean` | 60K        | 784 | 10K |  Euclidean |
