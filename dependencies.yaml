@@ -499,10 +499,14 @@ dependencies:
               - *cuda_python
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - *rmm_cu12
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - *rmm_cu11
           - {matrix: null, packages: [*rmm_unsuffixed]}
