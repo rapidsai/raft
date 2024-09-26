@@ -31,8 +31,8 @@ namespace raft {
  */
 template <typename value_t, typename index_t>
 void popc(const raft::resources& res,
-          device_vector_view<value_t, index_t> values,
-          raft::host_scalar_view<index_t> max_len,
+          device_vector_view<const value_t, index_t> values,
+          raft::host_scalar_view<const index_t, index_t> max_len,
           raft::device_scalar_view<index_t> counter)
 {
   detail::popc(res, values, max_len, counter);

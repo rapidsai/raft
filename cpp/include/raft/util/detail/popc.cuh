@@ -36,12 +36,12 @@ namespace raft::detail {
  */
 template <typename value_t, typename index_t>
 void popc(const raft::resources& res,
-          device_vector_view<value_t, index_t> values,
-          raft::host_scalar_view<index_t> max_len,
+          device_vector_view<const value_t, index_t> values,
+          raft::host_scalar_view<const index_t, index_t> max_len,
           raft::device_scalar_view<index_t> counter)
 {
   auto values_size   = values.size();
-  auto values_matrix = raft::make_device_matrix_view<value_t, index_t, col_major>(
+  auto values_matrix = raft::make_device_matrix_view<const value_t, index_t, col_major>(
     values.data_handle(), values_size, 1);
   auto counter_vector = raft::make_device_vector_view<index_t, index_t>(counter.data_handle(), 1);
 
