@@ -38,7 +38,9 @@ template <typename IndexType, int TILE_DIM, int BLOCK_ROWS>
 RAFT_KERNEL transpose_half_kernel(IndexType n_rows,
                                   IndexType n_cols,
                                   const half* __restrict__ in,
-                                  half* __restrict__ out)
+                                  half* __restrict__ out,
+                                  const IndexType stride_in,
+                                  const IndexType stride_out)
 {
   __shared__ half tile[TILE_DIM][TILE_DIM + 1];
 
@@ -49,7 +51,7 @@ RAFT_KERNEL transpose_half_kernel(IndexType n_rows,
 
       for (int j = 0; j < TILE_DIM; j += BLOCK_ROWS) {
         if (x < n_cols && (y + j) < n_rows) {
-          tile[threadIdx.y + j][threadIdx.x] = __ldg(&in[(y + j) * n_cols + x]);
+          tile[threadIdx.y + j][threadIdx.x] = __ldg(&in[(y + j) * stride_in + x]);
         }
       }
       __syncthreads();
@@ -59,7 +61,7 @@ RAFT_KERNEL transpose_half_kernel(IndexType n_rows,
 
       for (int j = 0; j < TILE_DIM; j += BLOCK_ROWS) {
         if (x < n_rows && (y + j) < n_cols) {
-          out[(y + j) * n_rows + x] = tile[threadIdx.x][threadIdx.y + j];
+          out[(y + j) * stride_out + x] = tile[threadIdx.x][threadIdx.y + j];
         }
       }
       __syncthreads();
@@ -67,9 +69,33 @@ RAFT_KERNEL transpose_half_kernel(IndexType n_rows,
   }
 }
 
+/**
+ * @brief Transposes a matrix stored in row-major order.
+ *
+ * This function transposes a matrix of half-precision floating-point numbers (`half`).
+ * Both the input (`in`) and output (`out`) matrices are assumed to be stored in row-major order.
+ *
+ * @tparam IndexType The type used for indexing the matrix dimensions (e.g., int).
+ * @param handle The RAFT resource handle which contains resources.
+ * @param n_rows The number of rows in the input matrix.
+ * @param n_cols The number of columns in the input matrix.
+ * @param in Pointer to the input matrix in row-major order.
+ * @param out Pointer to the output matrix in row-major order, where the transposed matrix will be
+ * stored.
+ * @param stride_in The stride (number of elements between consecutive rows) for the input matrix.
+ *                  Default is 1, which means the input matrix is contiguous in memory.
+ * @param stride_out The stride (number of elements between consecutive rows) for the output matrix.
+ *                   Default is 1, which means the output matrix is contiguous in memory.
+ */
+
 template <typename IndexType>
-void transpose_half(
-  raft::resources const& handle, IndexType n_rows, IndexType n_cols, const half* in, half* out)
+void transpose_half(raft::resources const& handle,
+                    IndexType n_rows,
+                    IndexType n_cols,
+                    const half* in,
+                    half* out,
+                    const IndexType stride_in  = 1,
+                    const IndexType stride_out = 1)
 {
   if (n_cols == 0 || n_rows == 0) return;
   auto stream = resource::get_cuda_stream(handle);
@@ -100,8 +126,13 @@ void transpose_half(
 
   dim3 grids(adjusted_grid_x, adjusted_grid_y);
 
-  transpose_half_kernel<IndexType, block_dim_x, block_dim_y>
-    <<<grids, blocks, 0, stream>>>(n_rows, n_cols, in, out);
+  if (stride_in > 1 || stride_out > 1) {
+    transpose_half_kernel<IndexType, block_dim_x, block_dim_y>
+      <<<grids, blocks, 0, stream>>>(n_rows, n_cols, in, out, stride_in, stride_out);
+  } else {
+    transpose_half_kernel<IndexType, block_dim_x, block_dim_y>
+      <<<grids, blocks, 0, stream>>>(n_rows, n_cols, in, out, n_cols, n_rows);
+  }
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
@@ -118,7 +149,7 @@ void transpose(raft::resources const& handle,
   int out_n_cols = n_rows;
 
   if constexpr (std::is_same_v<math_t, half>) {
-    transpose_half(handle, out_n_rows, out_n_cols, in, out);
+    transpose_half(handle, n_cols, n_rows, in, out);
   } else {
     cublasHandle_t cublas_h = resource::get_cublas_handle(handle);
     RAFT_CUBLAS_TRY(cublasSetStream(cublas_h, stream));
@@ -195,9 +226,13 @@ void transpose_row_major_impl(
   raft::mdspan<half, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
   raft::mdspan<half, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
 {
-  auto out_n_rows = in.extent(1);
-  auto out_n_cols = in.extent(0);
-  transpose_half<IndexType>(handle, out_n_cols, out_n_rows, in.data_handle(), out.data_handle());
+  transpose_half<IndexType>(handle,
+                            in.extent(0),
+                            in.extent(1),
+                            in.data_handle(),
+                            out.data_handle(),
+                            in.stride(0),
+                            out.stride(0));
 }
 
 template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
@@ -233,9 +268,13 @@ void transpose_col_major_impl(
   raft::mdspan<half, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
   raft::mdspan<half, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
 {
-  auto out_n_rows = in.extent(1);
-  auto out_n_cols = in.extent(0);
-  transpose_half<IndexType>(handle, out_n_rows, out_n_cols, in.data_handle(), out.data_handle());
+  transpose_half<IndexType>(handle,
+                            in.extent(1),
+                            in.extent(0),
+                            in.data_handle(),
+                            out.data_handle(),
+                            in.stride(1),
+                            out.stride(1));
 }
 
 };  // end namespace detail
