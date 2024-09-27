@@ -361,14 +361,14 @@ struct index : ann::index {
   ~index()                               = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::resources const& handle,
-        raft::distance::DistanceType metric,
-        codebook_gen codebook_kind,
-        uint32_t n_lists,
-        uint32_t dim,
-        uint32_t pq_bits                    = 8,
-        uint32_t pq_dim                     = 0,
-        bool conservative_memory_allocation = false)
+  [[deprecated("Use cuVS instead")]] index(raft::resources const& handle,
+                                           raft::distance::DistanceType metric,
+                                           codebook_gen codebook_kind,
+                                           uint32_t n_lists,
+                                           uint32_t dim,
+                                           uint32_t pq_bits                    = 8,
+                                           uint32_t pq_dim                     = 0,
+                                           bool conservative_memory_allocation = false)
     : ann::index(),
       metric_(metric),
       codebook_kind_(codebook_kind),
@@ -391,7 +391,9 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::resources const& handle, const index_params& params, uint32_t dim)
+  [[deprecated("Use cuVS instead")]] index(raft::resources const& handle,
+                                           const index_params& params,
+                                           uint32_t dim)
     : index(handle,
             params.metric,
             params.codebook_kind,
