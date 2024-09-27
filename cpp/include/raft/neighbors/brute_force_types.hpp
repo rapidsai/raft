@@ -94,12 +94,14 @@ struct index : ann::index {
    * the dataset. If the dataset is in host memory, it will be copied to the device and the
    * index will own the device memory.
    */
+
   template <typename data_accessor>
-  index(raft::resources const& res,
-        mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
-        std::optional<raft::device_vector<T, int64_t>>&& norms,
-        raft::distance::DistanceType metric,
-        T metric_arg = 0.0)
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+    std::optional<raft::device_vector<T, int64_t>>&& norms,
+    raft::distance::DistanceType metric,
+    T metric_arg = 0.0)
     : ann::index(),
       metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
@@ -116,11 +118,12 @@ struct index : ann::index {
    * This class stores a non-owning reference to the dataset and norms here.
    * Having precomputed norms gives us a performance advantage at query time.
    */
-  index(raft::resources const& res,
-        raft::device_matrix_view<const T, int64_t, row_major> dataset_view,
-        std::optional<raft::device_vector_view<const T, int64_t>> norms_view,
-        raft::distance::DistanceType metric,
-        T metric_arg = 0.0)
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    raft::device_matrix_view<const T, int64_t, row_major> dataset_view,
+    std::optional<raft::device_vector_view<const T, int64_t>> norms_view,
+    raft::distance::DistanceType metric,
+    T metric_arg = 0.0)
     : ann::index(),
       metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
@@ -131,10 +134,11 @@ struct index : ann::index {
   }
 
   template <typename data_accessor>
-  index(raft::resources const& res,
-        index_params const& params,
-        mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
-        std::optional<raft::device_vector<T, int64_t>>&& norms = std::nullopt)
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    index_params const& params,
+    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+    std::optional<raft::device_vector<T, int64_t>>&& norms = std::nullopt)
     : ann::index(),
       metric_(params.metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
