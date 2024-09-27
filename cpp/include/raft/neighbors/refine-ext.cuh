@@ -29,24 +29,24 @@
 namespace raft::neighbors {
 
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-void refine(raft::resources const& handle,
-            raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
-            raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
-            raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
-            raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
-            raft::device_matrix_view<distance_t, matrix_idx, row_major> distances,
-            raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
-  RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] void refine(
+  raft::resources const& handle,
+  raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
+  raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
+  raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
+  raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
+  raft::device_matrix_view<distance_t, matrix_idx, row_major> distances,
+  raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded) RAFT_EXPLICIT;
 
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-void refine(raft::resources const& handle,
-            raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,
-            raft::host_matrix_view<const data_t, matrix_idx, row_major> queries,
-            raft::host_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
-            raft::host_matrix_view<idx_t, matrix_idx, row_major> indices,
-            raft::host_matrix_view<distance_t, matrix_idx, row_major> distances,
-            raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
-  RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] void refine(
+  raft::resources const& handle,
+  raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,
+  raft::host_matrix_view<const data_t, matrix_idx, row_major> queries,
+  raft::host_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
+  raft::host_matrix_view<idx_t, matrix_idx, row_major> indices,
+  raft::host_matrix_view<distance_t, matrix_idx, row_major> distances,
+  raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded) RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors
 

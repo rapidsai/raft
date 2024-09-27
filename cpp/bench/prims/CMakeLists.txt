@@ -132,6 +132,7 @@ if(BUILD_PRIMS_BENCH)
     linalg/reduce_rows_by_key.cu
     linalg/reduce.cu
     linalg/sddmm.cu
+    linalg/transpose.cu
     main.cpp
   )
 

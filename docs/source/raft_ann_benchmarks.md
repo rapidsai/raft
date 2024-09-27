@@ -2,6 +2,10 @@
 
 This project provides a benchmark program for various ANN search implementations. It's especially suitable for comparing GPU implementations as well as comparing GPU against CPU.
 
+> [!IMPORTANT]
+> The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). As a result, `raft-ann-bench` is being migrated to `cuvs-bench` and will be removed from RAFT altogether in the 24.12 (December) release.
+
+
 ## Table of Contents
 
 - [Installing the benchmarks](#installing-the-benchmarks)
@@ -62,7 +66,7 @@ Nightly images are located in [dockerhub](https://hub.docker.com/r/rapidsai/raft
 - The following command pulls the nightly container for python version 10, cuda version 12, and RAFT version 23.10:
 
 ```bash
-docker pull rapidsai/raft-ann-bench:24.10a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
+docker pull rapidsai/raft-ann-bench:24.12a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
 ```
 
 The CUDA and python versions can be changed for the supported values:
@@ -83,7 +87,7 @@ You can see the exact versions as well in the dockerhub site:
 [//]: # ()
 [//]: # (```bash)
 
-[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:24.10-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.)
+[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:24.12-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.)
 
 [//]: # (```)
 
@@ -344,7 +348,7 @@ For GPU-enabled systems, the `DATA_FOLDER` variable should be a local folder whe
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run --gpus all --rm -it -u $(id -u)                      \
     -v $DATA_FOLDER:/data/benchmarks                            \
-    rapidsai/raft-ann-bench:24.10a-cuda11.8-py3.10              \
+    rapidsai/raft-ann-bench:24.12a-cuda11.8-py3.10              \
     "--dataset deep-image-96-angular"                           \
     "--normalize"                                               \
     "--algorithms raft_cagra,raft_ivf_pq --batch-size 10 -k 10" \
@@ -355,7 +359,7 @@ Usage of the above command is as follows:
 
 | Argument                                                  | Description                                                                                        |
 |-----------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| `rapidsai/raft-ann-bench:24.10a-cuda11.8-py3.10`          | Image to use. Can be either `raft-ann-bench` or `raft-ann-bench-datasets`                          |
+| `rapidsai/raft-ann-bench:24.12a-cuda11.8-py3.10`          | Image to use. Can be either `raft-ann-bench` or `raft-ann-bench-datasets`                          |
 | `"--dataset deep-image-96-angular"`                       | Dataset name                                                                                       |
 | `"--normalize"`                                           | Whether to normalize the dataset                                                                   |
 | `"--algorithms raft_cagra,hnswlib --batch-size 10 -k 10"` | Arguments passed to the `run` script, such as the algorithms to benchmark, the batch size, and `k` |
@@ -372,7 +376,7 @@ The container arguments in the above section also be used for the CPU-only conta
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run  --rm -it -u $(id -u)                  \
     -v $DATA_FOLDER:/data/benchmarks              \
-    rapidsai/raft-ann-bench-cpu:24.10a-py3.10     \
+    rapidsai/raft-ann-bench-cpu:24.12a-py3.10     \
      "--dataset deep-image-96-angular"            \
      "--normalize"                                \
      "--algorithms hnswlib --batch-size 10 -k 10" \
@@ -389,7 +393,7 @@ docker run --gpus all --rm -it -u $(id -u)          \
     --entrypoint /bin/bash                          \
     --workdir /data/benchmarks                      \
     -v $DATA_FOLDER:/data/benchmarks                \
-    rapidsai/raft-ann-bench:24.10a-cuda11.8-py3.10 
+    rapidsai/raft-ann-bench:24.12a-cuda11.8-py3.10 
 ```
 
 This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) section above:
