@@ -133,8 +133,8 @@ void brute_force_knn(raft::device_csr_matrix<value_t,
                                              value_idx,
                                              raft::device_uvector_policy,
                                              raft::PRESERVING> csr_query,
-                     value_idx* output_indices,
-                     value_t* output_dists,
+                     device_vector_view<value_idx> output_indices,
+                     device_vector_view<value_t> output_dists,
                      int k,
                      raft::resources const& handle,
                      size_t batch_size_index             = 2 << 14,  // approx 1M
@@ -149,20 +149,21 @@ void brute_force_knn(raft::device_csr_matrix<value_t,
   auto queryIndptr  = csr_query.structure_view().get_indptr();
   auto queryIndices = csr_query.structure_view().get_indices();
   auto queryData    = csr_query.view().get_elements();
+
   brute_force::knn<value_idx, value_t>(idxIndptr.data(),
                                        idxIndices.data(),
                                        idxData.data(),
-                                       idxData.size(),
-                                       csr_idx.structure_view().get_n_rows() - 1,
+                                       idxIndices.size(),
+                                       idxIndptr.size() - 1,
                                        csr_idx.structure_view().get_n_cols(),
                                        queryIndptr.data(),
                                        queryIndices.data(),
                                        queryData.data(),
-                                       queryData.size(),
-                                       csr_query.structure_view().get_n_rows() - 1,
+                                       queryIndices.size(),
+                                       queryIndptr.size() - 1,
                                        csr_query.structure_view().get_n_cols(),
-                                       output_indices,
-                                       output_dists,
+                                       output_indices.data_handle(),
+                                       output_dists.data_handle(),
                                        k,
                                        handle,
                                        batch_size_index,
@@ -198,8 +199,8 @@ void brute_force_knn(raft::device_coo_matrix<value_t,
                                              value_idx,
                                              raft::device_uvector_policy,
                                              raft::PRESERVING> coo_query,
-                     value_idx* output_indices,
-                     value_t* output_dists,
+                     device_vector_view<value_idx> output_indices,
+                     device_vector_view<value_t> output_dists,
                      int k,
                      raft::resources const& handle,
                      size_t batch_size_index             = 2 << 14,  // approx 1M
@@ -217,57 +218,57 @@ void brute_force_knn(raft::device_coo_matrix<value_t,
   auto queryCols = coo_query.structure_view().get_cols();
   auto queryData = coo_query.view().get_elements();
 
-  raft::sparse::op::coo_sort(idxRows.size(),
-                             idxCols.size(),
-                             idxData.size(),
+  raft::sparse::op::coo_sort(int(idxRows.size()),
+                             int(idxCols.size()),
+                             int(idxData.size()),
                              idxRows.data(),
                              idxCols.data(),
                              idxRows.data(),
                              stream);
 
-  raft::sparse::op::coo_sort(queryRows.size(),
-                             queryCols.size(),
-                             queryData.size(),
+  raft::sparse::op::coo_sort(int(queryRows.size()),
+                             int(queryCols.size()),
+                             int(queryData.size()),
                              queryRows.data(),
                              queryCols.data(),
                              queryData.data(),
                              stream);
-
-  auto idxRowsCsr =
-    raft::make_device_vector<value_idx, int64_t>(handle, coo_query.structure_view().get_n_rows());
-  auto queryRowsCsr =
-    raft::make_device_vector<value_idx, int64_t>(handle, coo_query.structure_view().get_n_rows());
+  // + 1 is to account for the 0 at the beginning of the csr representation
+  auto idxRowsCsr = raft::make_device_vector<value_idx, int64_t>(
+    handle, coo_query.structure_view().get_n_rows() + 1);
+  auto queryRowsCsr = raft::make_device_vector<value_idx, int64_t>(
+    handle, coo_query.structure_view().get_n_rows() + 1);
 
   raft::sparse::convert::sorted_coo_to_csr(idxRows.data(),
                                            int(idxRows.size()),
                                            idxRowsCsr.data_handle(),
-                                           coo_idx.structure_view().get_n_rows(),
+                                           coo_idx.structure_view().get_n_rows() + 1,
                                            stream);
 
   raft::sparse::convert::sorted_coo_to_csr(queryRows.data(),
                                            int(queryRows.size()),
                                            queryRowsCsr.data_handle(),
-                                           coo_query.structure_view().get_n_rows(),
+                                           coo_query.structure_view().get_n_rows() + 1,
                                            stream);
 
   brute_force::knn<value_idx, value_t>(idxRowsCsr.data_handle(),
                                        idxCols.data(),
                                        idxData.data(),
-                                       idxData.size(),
-                                       coo_idx.structure_view().get_n_rows() - 1,
+                                       idxCols.size(),
+                                       idxRowsCsr.size() - 1,
                                        coo_idx.structure_view().get_n_cols(),
                                        queryRowsCsr.data_handle(),
                                        queryCols.data(),
                                        queryData.data(),
-                                       queryData.size(),
-                                       coo_query.structure_view().get_n_rows() - 1,
+                                       queryCols.size(),
+                                       queryRowsCsr.size() - 1,
                                        coo_query.structure_view().get_n_cols(),
-                                       output_indices,
-                                       output_dists,
+                                       output_indices.data_handle(),
+                                       output_dists.data_handle(),
                                        k,
                                        handle,
-                                       coo_idx.structure_view().get_n_rows(),
-                                       coo_query.structure_view().get_n_rows(),
+                                       batch_size_index,
+                                       batch_size_query,
                                        metric,
                                        metricArg);
 }
