@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 #ifndef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include "ball_cover-inl.cuh"

@@ -73,11 +73,11 @@ namespace raft::cluster::kmeans_balanced {
  *                        datatype. If DataT == MathT, this must be the identity.
  */
 template <typename DataT, typename MathT, typename IndexT, typename MappingOpT = raft::identity_op>
-void fit(const raft::resources& handle,
-         kmeans_balanced_params const& params,
-         raft::device_matrix_view<const DataT, IndexT> X,
-         raft::device_matrix_view<MathT, IndexT> centroids,
-         MappingOpT mapping_op = raft::identity_op())
+[[deprecated("Use cuVS instead")]] void fit(const raft::resources& handle,
+                                            kmeans_balanced_params const& params,
+                                            raft::device_matrix_view<const DataT, IndexT> X,
+                                            raft::device_matrix_view<MathT, IndexT> centroids,
+                                            MappingOpT mapping_op = raft::identity_op())
 {
   RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
                "Number of features in dataset and centroids are different");
@@ -131,12 +131,13 @@ template <typename DataT,
           typename IndexT,
           typename LabelT,
           typename MappingOpT = raft::identity_op>
-void predict(const raft::resources& handle,
-             kmeans_balanced_params const& params,
-             raft::device_matrix_view<const DataT, IndexT> X,
-             raft::device_matrix_view<const MathT, IndexT> centroids,
-             raft::device_vector_view<LabelT, IndexT> labels,
-             MappingOpT mapping_op = raft::identity_op())
+[[deprecated("Use cuVS instead")]] void predict(
+  const raft::resources& handle,
+  kmeans_balanced_params const& params,
+  raft::device_matrix_view<const DataT, IndexT> X,
+  raft::device_matrix_view<const MathT, IndexT> centroids,
+  raft::device_vector_view<LabelT, IndexT> labels,
+  MappingOpT mapping_op = raft::identity_op())
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
@@ -196,12 +197,13 @@ template <typename DataT,
           typename IndexT,
           typename LabelT,
           typename MappingOpT = raft::identity_op>
-void fit_predict(const raft::resources& handle,
-                 kmeans_balanced_params const& params,
-                 raft::device_matrix_view<const DataT, IndexT> X,
-                 raft::device_matrix_view<MathT, IndexT> centroids,
-                 raft::device_vector_view<LabelT, IndexT> labels,
-                 MappingOpT mapping_op = raft::identity_op())
+[[deprecated("Use cuVS instead")]] void fit_predict(
+  const raft::resources& handle,
+  kmeans_balanced_params const& params,
+  raft::device_matrix_view<const DataT, IndexT> X,
+  raft::device_matrix_view<MathT, IndexT> centroids,
+  raft::device_vector_view<LabelT, IndexT> labels,
+  MappingOpT mapping_op = raft::identity_op())
 {
   auto centroids_const = raft::make_device_matrix_view<const MathT, IndexT>(
     centroids.data_handle(), centroids.extent(0), centroids.extent(1));
@@ -255,14 +257,15 @@ template <typename DataT,
           typename LabelT,
           typename CounterT,
           typename MappingOpT>
-void build_clusters(const raft::resources& handle,
-                    const kmeans_balanced_params& params,
-                    raft::device_matrix_view<const DataT, IndexT> X,
-                    raft::device_matrix_view<MathT, IndexT> centroids,
-                    raft::device_vector_view<LabelT, IndexT> labels,
-                    raft::device_vector_view<CounterT, IndexT> cluster_sizes,
-                    MappingOpT mapping_op = raft::identity_op(),
-                    std::optional<raft::device_vector_view<const MathT>> X_norm = std::nullopt)
+[[deprecated("Use cuVS instead")]] void build_clusters(
+  const raft::resources& handle,
+  const kmeans_balanced_params& params,
+  raft::device_matrix_view<const DataT, IndexT> X,
+  raft::device_matrix_view<MathT, IndexT> centroids,
+  raft::device_vector_view<LabelT, IndexT> labels,
+  raft::device_vector_view<CounterT, IndexT> cluster_sizes,
+  MappingOpT mapping_op                                       = raft::identity_op(),
+  std::optional<raft::device_vector_view<const MathT>> X_norm = std::nullopt)
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
@@ -334,13 +337,14 @@ template <typename DataT,
           typename LabelT,
           typename CounterT,
           typename MappingOpT = raft::identity_op>
-void calc_centers_and_sizes(const raft::resources& handle,
-                            raft::device_matrix_view<const DataT, IndexT> X,
-                            raft::device_vector_view<const LabelT, IndexT> labels,
-                            raft::device_matrix_view<MathT, IndexT> centroids,
-                            raft::device_vector_view<CounterT, IndexT> cluster_sizes,
-                            bool reset_counters   = true,
-                            MappingOpT mapping_op = raft::identity_op())
+[[deprecated("Use cuVS instead")]] void calc_centers_and_sizes(
+  const raft::resources& handle,
+  raft::device_matrix_view<const DataT, IndexT> X,
+  raft::device_vector_view<const LabelT, IndexT> labels,
+  raft::device_matrix_view<MathT, IndexT> centroids,
+  raft::device_vector_view<CounterT, IndexT> cluster_sizes,
+  bool reset_counters   = true,
+  MappingOpT mapping_op = raft::identity_op())
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
