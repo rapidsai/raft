@@ -38,6 +38,7 @@ jobs:
         test_cpp:
           - '**'
           - '!.devcontainer/**'
+          - '!.pre-commit-config.yaml'
           - '!CONTRIBUTING.md'
           - '!README.md'
           - '!docs/**'
@@ -50,6 +51,7 @@ jobs:
         test_notebooks:
           - '**'
           - '!.devcontainer/**'
+          - '!.pre-commit-config.yaml'
           - '!CONTRIBUTING.md'
           - '!README.md'
           - '!thirdparty/LICENSES/**'
@@ -58,6 +60,7 @@ jobs:
         test_python:
           - '**'
           - '!.devcontainer/**'
+          - '!.pre-commit-config.yaml'
           - '!CONTRIBUTING.md'
           - '!README.md'
           - '!docs/**'
