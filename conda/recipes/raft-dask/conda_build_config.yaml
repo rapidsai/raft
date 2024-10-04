@@ -24,3 +24,6 @@ ucxx_version:
 
 cmake_version:
   - ">=3.26.4,!=3.30.0"
+
+nccl_version:
+  - ">=2.19"

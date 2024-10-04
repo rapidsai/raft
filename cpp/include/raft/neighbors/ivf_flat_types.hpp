@@ -261,12 +261,12 @@ struct index : ann::index {
   ~index()                               = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::resources const& res,
-        raft::distance::DistanceType metric,
-        uint32_t n_lists,
-        bool adaptive_centers,
-        bool conservative_memory_allocation,
-        uint32_t dim)
+  [[deprecated("Use cuVS instead")]] index(raft::resources const& res,
+                                           raft::distance::DistanceType metric,
+                                           uint32_t n_lists,
+                                           bool adaptive_centers,
+                                           bool conservative_memory_allocation,
+                                           uint32_t dim)
     : ann::index(),
       veclen_(calculate_veclen(dim)),
       metric_(metric),
@@ -285,7 +285,9 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::resources const& res, const index_params& params, uint32_t dim)
+  [[deprecated("Use cuVS instead")]] index(raft::resources const& res,
+                                           const index_params& params,
+                                           uint32_t dim)
     : index(res,
             params.metric,
             params.n_lists,

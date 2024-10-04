@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,14 +50,14 @@ namespace raft::cluster {
 template <typename value_idx,
           typename value_t,
           LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
-void single_linkage(raft::resources const& handle,
-                    const value_t* X,
-                    size_t m,
-                    size_t n,
-                    raft::distance::DistanceType metric,
-                    linkage_output<value_idx>* out,
-                    int c,
-                    size_t n_clusters)
+[[deprecated("Use cuVS instead")]] void single_linkage(raft::resources const& handle,
+                                                       const value_t* X,
+                                                       size_t m,
+                                                       size_t n,
+                                                       raft::distance::DistanceType metric,
+                                                       linkage_output<value_idx>* out,
+                                                       int c,
+                                                       size_t n_clusters)
 {
   detail::single_linkage<value_idx, value_t, dist_type>(
     handle, X, m, n, metric, out, c, n_clusters);
@@ -87,13 +87,14 @@ constexpr int DEFAULT_CONST_C = 15;
  control of k. The algorithm will set `k = log(n) + c`
  */
 template <typename value_t, typename idx_t, LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
-void single_linkage(raft::resources const& handle,
-                    raft::device_matrix_view<const value_t, idx_t, row_major> X,
-                    raft::device_matrix_view<idx_t, idx_t, row_major> dendrogram,
-                    raft::device_vector_view<idx_t, idx_t> labels,
-                    raft::distance::DistanceType metric,
-                    size_t n_clusters,
-                    std::optional<int> c = std::make_optional<int>(DEFAULT_CONST_C))
+[[deprecated("Use cuVS instead")]] void single_linkage(
+  raft::resources const& handle,
+  raft::device_matrix_view<const value_t, idx_t, row_major> X,
+  raft::device_matrix_view<idx_t, idx_t, row_major> dendrogram,
+  raft::device_vector_view<idx_t, idx_t> labels,
+  raft::distance::DistanceType metric,
+  size_t n_clusters,
+  std::optional<int> c = std::make_optional<int>(DEFAULT_CONST_C))
 {
   linkage_output<idx_t> out_arrs;
   out_arrs.children = dendrogram.data_handle();

@@ -2,6 +2,10 @@
 
 This project provides a benchmark program for various ANN search implementations. It's especially suitable for comparing GPU implementations as well as comparing GPU against CPU.
 
+> [!IMPORTANT]
+> The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). As a result, `raft-ann-bench` is being migrated to `cuvs-bench` and will be removed from RAFT altogether in the 24.12 (December) release.
+
+
 ## Table of Contents
 
 - [Installing the benchmarks](#installing-the-benchmarks)

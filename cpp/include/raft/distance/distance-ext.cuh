@@ -35,42 +35,43 @@ template <raft::distance::DistanceType DistT,
           typename OutT,
           typename FinalLambda,
           typename IdxT = int>
-void distance(raft::resources const& handle,
-              const DataT* x,
-              const DataT* y,
-              OutT* dist,
-              IdxT m,
-              IdxT n,
-              IdxT k,
-              void* workspace,
-              size_t worksize,
-              FinalLambda fin_op,
-              bool isRowMajor  = true,
-              DataT metric_arg = 2.0f) RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] void distance(raft::resources const& handle,
+                                                 const DataT* x,
+                                                 const DataT* y,
+                                                 OutT* dist,
+                                                 IdxT m,
+                                                 IdxT n,
+                                                 IdxT k,
+                                                 void* workspace,
+                                                 size_t worksize,
+                                                 FinalLambda fin_op,
+                                                 bool isRowMajor  = true,
+                                                 DataT metric_arg = 2.0f) RAFT_EXPLICIT;
 
 template <raft::distance::DistanceType DistT,
           typename DataT,
           typename AccT,
           typename OutT,
           typename IdxT = int>
-void distance(raft::resources const& handle,
-              const DataT* x,
-              const DataT* y,
-              OutT* dist,
-              IdxT m,
-              IdxT n,
-              IdxT k,
-              void* workspace,
-              size_t worksize,
-              bool isRowMajor  = true,
-              DataT metric_arg = 2.0f) RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] void distance(raft::resources const& handle,
+                                                 const DataT* x,
+                                                 const DataT* y,
+                                                 OutT* dist,
+                                                 IdxT m,
+                                                 IdxT n,
+                                                 IdxT k,
+                                                 void* workspace,
+                                                 size_t worksize,
+                                                 bool isRowMajor  = true,
+                                                 DataT metric_arg = 2.0f) RAFT_EXPLICIT;
 
 template <raft::distance::DistanceType DistT,
           typename DataT,
           typename AccT,
           typename OutT,
           typename IdxT = int>
-size_t getWorkspaceSize(const DataT* x, const DataT* y, IdxT m, IdxT n, IdxT k) RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] size_t getWorkspaceSize(
+  const DataT* x, const DataT* y, IdxT m, IdxT n, IdxT k) RAFT_EXPLICIT;
 
 template <raft::distance::DistanceType DistT,
           typename DataT,
@@ -86,40 +87,40 @@ template <raft::distance::DistanceType DistT,
           typename AccT,
           typename OutT,
           typename IdxT = int>
-void distance(raft::resources const& handle,
-              const DataT* x,
-              const DataT* y,
-              OutT* dist,
-              IdxT m,
-              IdxT n,
-              IdxT k,
-              bool isRowMajor  = true,
-              DataT metric_arg = 2.0f) RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] void distance(raft::resources const& handle,
+                                                 const DataT* x,
+                                                 const DataT* y,
+                                                 OutT* dist,
+                                                 IdxT m,
+                                                 IdxT n,
+                                                 IdxT k,
+                                                 bool isRowMajor  = true,
+                                                 DataT metric_arg = 2.0f) RAFT_EXPLICIT;
 
 template <typename Type, typename IdxT = int>
-void pairwise_distance(raft::resources const& handle,
-                       const Type* x,
-                       const Type* y,
-                       Type* dist,
-                       IdxT m,
-                       IdxT n,
-                       IdxT k,
-                       rmm::device_uvector<char>& workspace,
-                       raft::distance::DistanceType metric,
-                       bool isRowMajor = true,
-                       Type metric_arg = 2.0f) RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] void pairwise_distance(raft::resources const& handle,
+                                                          const Type* x,
+                                                          const Type* y,
+                                                          Type* dist,
+                                                          IdxT m,
+                                                          IdxT n,
+                                                          IdxT k,
+                                                          rmm::device_uvector<char>& workspace,
+                                                          raft::distance::DistanceType metric,
+                                                          bool isRowMajor = true,
+                                                          Type metric_arg = 2.0f) RAFT_EXPLICIT;
 
 template <typename Type, typename IdxT = int>
-void pairwise_distance(raft::resources const& handle,
-                       const Type* x,
-                       const Type* y,
-                       Type* dist,
-                       IdxT m,
-                       IdxT n,
-                       IdxT k,
-                       raft::distance::DistanceType metric,
-                       bool isRowMajor = true,
-                       Type metric_arg = 2.0f) RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] void pairwise_distance(raft::resources const& handle,
+                                                          const Type* x,
+                                                          const Type* y,
+                                                          Type* dist,
+                                                          IdxT m,
+                                                          IdxT n,
+                                                          IdxT k,
+                                                          raft::distance::DistanceType metric,
+                                                          bool isRowMajor = true,
+                                                          Type metric_arg = 2.0f) RAFT_EXPLICIT;
 
 template <raft::distance::DistanceType DistT,
           typename DataT,
@@ -127,19 +128,21 @@ template <raft::distance::DistanceType DistT,
           typename OutT,
           typename layout = raft::layout_c_contiguous,
           typename IdxT   = int>
-void distance(raft::resources const& handle,
-              raft::device_matrix_view<DataT, IdxT, layout> const x,
-              raft::device_matrix_view<DataT, IdxT, layout> const y,
-              raft::device_matrix_view<OutT, IdxT, layout> dist,
-              DataT metric_arg = 2.0f) RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] void distance(
+  raft::resources const& handle,
+  raft::device_matrix_view<DataT, IdxT, layout> const x,
+  raft::device_matrix_view<DataT, IdxT, layout> const y,
+  raft::device_matrix_view<OutT, IdxT, layout> dist,
+  DataT metric_arg = 2.0f) RAFT_EXPLICIT;
 
 template <typename Type, typename layout = layout_c_contiguous, typename IdxT = int>
-void pairwise_distance(raft::resources const& handle,
-                       device_matrix_view<Type, IdxT, layout> const x,
-                       device_matrix_view<Type, IdxT, layout> const y,
-                       device_matrix_view<Type, IdxT, layout> dist,
-                       raft::distance::DistanceType metric,
-                       Type metric_arg = 2.0f) RAFT_EXPLICIT;
+[[deprecated("Use cuVS instead")]] void pairwise_distance(
+  raft::resources const& handle,
+  device_matrix_view<Type, IdxT, layout> const x,
+  device_matrix_view<Type, IdxT, layout> const y,
+  device_matrix_view<Type, IdxT, layout> dist,
+  raft::distance::DistanceType metric,
+  Type metric_arg = 2.0f) RAFT_EXPLICIT;
 
 };  // namespace distance
 };  // namespace raft
