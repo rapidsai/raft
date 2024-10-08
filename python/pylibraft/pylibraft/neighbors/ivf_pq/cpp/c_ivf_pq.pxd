@@ -27,7 +27,7 @@ from libc.stdint cimport int8_t, int64_t, uint8_t, uint32_t, uintptr_t
 from libcpp cimport bool, nullptr
 from libcpp.string cimport string
 
-from rmm._lib.memory_resource cimport device_memory_resource
+from rmm.librmm.memory_resource cimport device_memory_resource
 
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,

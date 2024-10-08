@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,10 +51,8 @@ from pylibraft.common.handle cimport device_resources
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
 
-from rmm._lib.memory_resource cimport (
-    DeviceMemoryResource,
-    device_memory_resource,
-)
+from rmm.librmm.memory_resource cimport device_memory_resource
+from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
 
 cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
 from pylibraft.common.cpp.optional cimport optional
