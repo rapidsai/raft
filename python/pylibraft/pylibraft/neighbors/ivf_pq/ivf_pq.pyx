@@ -44,10 +44,8 @@ from pylibraft.common.handle cimport device_resources
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
 
-from rmm._lib.memory_resource cimport (
-    DeviceMemoryResource,
-    device_memory_resource,
-)
+from rmm.librmm.memory_resource cimport device_memory_resource
+from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
 
 cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
