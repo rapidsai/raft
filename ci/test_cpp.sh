@@ -8,7 +8,7 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 . /opt/conda/etc/profile.d/conda.sh
 
-RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
+RAPIDS_VERSION="$(rapids-version)"
 
 rapids-logger "Generate C++ testing dependencies"
 rapids-dependency-file-generator \
@@ -31,9 +31,9 @@ rapids-print-env
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  "libraft-headers=${RAPIDS_VERSION_MAJOR_MINOR}" \
-  "libraft=${RAPIDS_VERSION_MAJOR_MINOR}" \
-  "libraft-tests=${RAPIDS_VERSION_MAJOR_MINOR}"
+  "libraft-headers=${RAPIDS_VERSION}" \
+  "libraft=${RAPIDS_VERSION}" \
+  "libraft-tests=${RAPIDS_VERSION}"
 
 rapids-logger "Check GPU usage"
 nvidia-smi
