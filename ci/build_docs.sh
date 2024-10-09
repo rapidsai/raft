@@ -6,7 +6,7 @@ set -euo pipefail
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
-RAPIDS_VERSION="$(rapids-generate-version)"
+RAPIDS_VERSION="$(rapids-version)"
 
 rapids-dependency-file-generator \
   --output conda \

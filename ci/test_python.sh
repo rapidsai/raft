@@ -8,7 +8,7 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 . /opt/conda/etc/profile.d/conda.sh
 
-RAPIDS_VERSION="$(rapids-generate-version)"
+RAPIDS_VERSION="$(rapids-version)"
 
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
