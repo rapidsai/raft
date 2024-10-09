@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,17 @@
  * limitations under the License.
  */
 
-#pragma once
-#ifndef RAFT_EXPLICIT_INSTANTIATE_ONLY
-#include "ball_cover-inl.cuh"
-#endif
+#include "../ann_nn_descent.cuh"
 
-#ifdef RAFT_COMPILED
-#include "ball_cover-ext.cuh"
-#endif
+#include <gtest/gtest.h>
+
+namespace raft::neighbors::experimental::nn_descent {
+
+typedef AnnNNDescentBatchTest<float, float, std::uint32_t> AnnNNDescentBatchTestF_U32;
+TEST_P(AnnNNDescentBatchTestF_U32, AnnNNDescentBatch) { this->testNNDescentBatch(); }
+
+INSTANTIATE_TEST_CASE_P(AnnNNDescentBatchTest,
+                        AnnNNDescentBatchTestF_U32,
+                        ::testing::ValuesIn(inputsBatch));
+
+}  // namespace raft::neighbors::experimental::nn_descent

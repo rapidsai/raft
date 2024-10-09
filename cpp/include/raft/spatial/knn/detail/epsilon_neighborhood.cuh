@@ -69,7 +69,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        acc[i][j] = BaseClass::Zero;
+        acc[i][j] = BaseClass::Zero();
       }
     }
     this->stsXY();

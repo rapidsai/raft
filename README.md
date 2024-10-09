@@ -1,7 +1,7 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
 
 > [!IMPORTANT]
-> The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). We will continue to support the vector search algorithms in RAFT during this move, but will no longer update them after the RAPIDS 24.06 (June) release. We plan to complete the migration by RAPIDS 24.08 (August) release.
+> The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). We will continue to support the vector search algorithms in RAFT during this move, but will no longer update them after the RAPIDS 24.06 (June) release. We plan to complete the migration by RAPIDS 24.10 (October) release and will be removing them altogether in the 24.12 (December) release.
 
 ![RAFT tech stack](img/raft-tech-stack-vss.png)
 
@@ -36,7 +36,7 @@
 
 ## What is RAFT?
 
-RAFT contains fundamental widely-used algorithms and primitives for machine learning and information retrieval. The algorithms are CUDA-accelerated and form building blocks for more easily writing high performance applications.
+RAFT contains fundamental widely-used algorithms and primitives for machine learning and data mining. The algorithms are CUDA-accelerated and form building blocks for more easily writing high performance applications.
 
 By taking a primitives-based approach to algorithm development, RAFT
 - accelerates algorithm construction time
@@ -47,12 +47,10 @@ While not exhaustive, the following general categories help summarize the accele
 #####
 | Category              | Accelerated Functions in RAFT                                                                                                     |
 |-----------------------|-----------------------------------------------------------------------------------------------------------------------------------|
-| **Nearest Neighbors** | vector search, neighborhood graph construction, epsilon neighborhoods, pairwise distances                                         |
-| **Basic Clustering**  | spectral clustering, hierarchical clustering, k-means                                                                             |
-| **Solvers**           | combinatorial optimization, iterative solvers                                                                                     |
 | **Data Formats**      | sparse & dense, conversions, data generation                                                                                      |
 | **Dense Operations**  | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
 | **Sparse Operations** | linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling             |
+| **Solvers**           | combinatorial optimization, iterative solvers                                                                                     |
 | **Statistics**        | sampling, moments and summary statistics, metrics, model evaluation                                                               |
 | **Tools & Utilities** | common tools and utilities for developing CUDA applications, multi-node multi-gpu infrastructure                                  |
 
@@ -67,42 +65,6 @@ In addition being a C++ library, RAFT also provides 2 Python libraries:
 
 ![RAFT is a C++ header-only template library with optional shared library and lightweight Python wrappers](img/arch.png)
 
-## Use cases
-
-### Vector Similarity Search
-
-RAFT contains state-of-the-art implementations of approximate nearest neighbors search (ANNS) algorithms on the GPU, such as:
-
-* [Brute force](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#brute-force). Performs a brute force nearest neighbors search without an index.
-* [IVF-Flat](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-flat) and [IVF-PQ](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-pq). Use an inverted file index structure to map contents to their locations. IVF-PQ additionally uses product quantization to reduce the memory usage of vectors. These methods were originally popularized by the [FAISS](https://github.com/facebookresearch/faiss) library.
-* [CAGRA](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#cagra) (Cuda Anns GRAph-based). Uses a fast ANNS graph construction and search implementation optimized for the GPU. CAGRA outperforms state-of-the art CPU methods (i.e. HNSW) for large batch queries, single queries, and graph construction time. 
-
-Projects that use the RAFT ANNS algorithms for accelerating vector search include: [Milvus](https://milvus.io/), [Redis](https://redis.io/), and [Faiss](https://github.com/facebookresearch/faiss). 
-
-Please see the example [Jupyter notebook](https://github.com/rapidsai/raft/blob/HEAD/notebooks/VectorSearch_QuestionRetrieval.ipynb) to get started RAFT for vector search in Python.
-
-
-
-### Information Retrieval
-
-RAFT contains a catalog of reusable primitives for composing algorithms that require fast neighborhood computations, such as
-
-1. Computing distances between vectors and computing kernel gramm matrices
-2. Performing ball radius queries for constructing epsilon neighborhoods
-3. Clustering points to partition a space for smaller and faster searches
-4. Constructing neighborhood "connectivities" graphs from dense vectors
-
-### Machine Learning
-
-RAFT's primitives are used in several RAPIDS libraries, including [cuML](https://github.com/rapidsai/cuml), [cuGraph](https://github.com/rapidsai/cugraph), and [cuOpt](https://github.com/rapidsai/cuopt) to build many end-to-end machine learning algorithms that span a large spectrum of different applications, including 
-- data generation 
-- model evaluation
-- classification and regression
-- clustering
-- manifold learning
-- dimensionality reduction.
-
-RAFT is also used by the popular collaborative filtering library [implicit](https://github.com/benfred/implicit) for recommender systems.
 
 ## Is RAFT right for me?
 
@@ -293,7 +255,7 @@ You can also install the conda packages individually using the `mamba` command a
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.5
 ```
 
-If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.08/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
+If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.10/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
 
 ### Installing Python through Pip
 
@@ -325,72 +287,5 @@ When citing RAFT generally, please consider referencing this Github project.
   publisher={Nvidia RAPIDS},
   author={Rapidsai},
   year={2022}
-}
-```
-If citing the sparse pairwise distances API, please consider using the following bibtex:
-```bibtex
-@article{nolet2021semiring,
-  title={Semiring primitives for sparse neighborhood methods on the gpu},
-  author={Nolet, Corey J and Gala, Divye and Raff, Edward and Eaton, Joe and Rees, Brad and Zedlewski, John and Oates, Tim},
-  journal={arXiv preprint arXiv:2104.06357},
-  year={2021}
-}
-```
-
-If citing the single-linkage agglomerative clustering APIs, please consider the following bibtex:
-```bibtex
-@misc{nolet2023cuslink,
-      title={cuSLINK: Single-linkage Agglomerative Clustering on the GPU},
-      author={Corey J. Nolet and Divye Gala and Alex Fender and Mahesh Doijade and Joe Eaton and Edward Raff and John Zedlewski and Brad Rees and Tim Oates},
-      year={2023},
-      eprint={2306.16354},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
-}
-```
-
-If citing CAGRA, please consider the following bibtex:
-```bibtex
-@misc{ootomo2023cagra,
-      title={CAGRA: Highly Parallel Graph Construction and Approximate Nearest Neighbor Search for GPUs},
-      author={Hiroyuki Ootomo and Akira Naruse and Corey Nolet and Ray Wang and Tamas Feher and Yong Wang},
-      year={2024},
-      series = {ICDE '24}
-}
-```
-
-If citing the k-selection routines, please consider the following bibtex:
-
-```bibtex
-@proceedings{10.1145/3581784,
-    title = {Parallel Top-K Algorithms on GPU: A Comprehensive Study and New Methods},
-    author={Jingrong Zhang, Akira Naruse, Xipeng Li, and Yong Wang},
-    year = {2023},
-    isbn = {9798400701092},
-    publisher = {Association for Computing Machinery},
-    address = {New York, NY, USA},
-    location = {Denver, CO, USA},
-    series = {SC '23}
-}
-```
-
-If citing the nearest neighbors descent API, please consider the following bibtex:
-```bibtex
-@inproceedings{10.1145/3459637.3482344,
-    author = {Wang, Hui and Zhao, Wan-Lei and Zeng, Xiangxiang and Yang, Jianye},
-    title = {Fast K-NN Graph Construction by GPU Based NN-Descent},
-    year = {2021},
-    isbn = {9781450384469},
-    publisher = {Association for Computing Machinery},
-    address = {New York, NY, USA},
-    url = {https://doi.org/10.1145/3459637.3482344},
-    doi = {10.1145/3459637.3482344},
-    abstract = {NN-Descent is a classic k-NN graph construction approach. It is still widely employed in machine learning, computer vision, and information retrieval tasks due to its efficiency and genericness. However, the current design only works well on CPU. In this paper, NN-Descent has been redesigned to adapt to the GPU architecture. A new graph update strategy called selective update is proposed. It reduces the data exchange between GPU cores and GPU global memory significantly, which is the processing bottleneck under GPU computation architecture. This redesign leads to full exploitation of the parallelism of the GPU hardware. In the meantime, the genericness, as well as the simplicity of NN-Descent, are well-preserved. Moreover, a procedure that allows to k-NN graph to be merged efficiently on GPU is proposed. It makes the construction of high-quality k-NN graphs for out-of-GPU-memory datasets tractable. Our approach is 100-250\texttimes{} faster than the single-thread NN-Descent and is 2.5-5\texttimes{} faster than the existing GPU-based approaches as we tested on million as well as billion scale datasets.},
-    booktitle = {Proceedings of the 30th ACM International Conference on Information \& Knowledge Management},
-    pages = {1929–1938},
-    numpages = {10},
-    keywords = {high-dimensional, nn-descent, gpu, k-nearest neighbor graph},
-    location = {Virtual Event, Queensland, Australia},
-    series = {CIKM '21}
 }
 ```

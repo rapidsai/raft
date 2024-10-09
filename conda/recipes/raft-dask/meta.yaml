@@ -50,11 +50,11 @@ requirements:
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - cython >=3.0.0
-    - nccl >=2.9.9
+    - nccl {{ nccl_version }}
     - pylibraft {{ version }}
     - python x.x
     - rmm ={{ minor_version }}
-    - scikit-build-core >=0.7.0
+    - scikit-build-core >=0.10.0
     - ucx-py {{ ucx_py_version }}
     - ucxx {{ ucxx_version }}
     - rapids-build-backend>=0.3.0,<0.4.0.dev0
@@ -68,7 +68,7 @@ requirements:
     - dask-cuda ={{ minor_version }}
     - rapids-dask-dependency ={{ minor_version }}
     - joblib >=0.11
-    - nccl >=2.9.9
+    - nccl {{ nccl_version }}
     - pylibraft {{ version }}
     - python x.x
     - rmm ={{ minor_version }}

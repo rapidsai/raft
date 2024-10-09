@@ -35,7 +35,8 @@ namespace linalg {
  * multiplication using the sparsity pattern provided by the mask. The result is scaled by alpha
  * and added to beta times the original matrix C.
  *
- * @tparam value_t Data type of elements in the input/output matrices (e.g., float, double)
+ * @tparam value_t Data type of elements in the input matrices (e.g., half, float, double)
+ * @tparam output_t Data type of elements in the output matrices (e.g., float, double)
  * @tparam index_t Type used for matrix indices
  * @tparam nnz_t Type used for the number of non-zero entries in CSR format
  * @tparam bitmap_t Type of the bitmap used for the mask
@@ -52,14 +53,14 @@ namespace linalg {
  * std::nullopt)
  * @param[in] beta Optional scalar multiplier for the original matrix C (default: 0 if std::nullopt)
  */
-template <typename value_t, typename index_t, typename nnz_t, typename bitmap_t>
+template <typename value_t, typename output_t, typename index_t, typename nnz_t, typename bitmap_t>
 void masked_matmul(raft::resources const& handle,
                    raft::device_matrix_view<const value_t, index_t, raft::row_major> A,
                    raft::device_matrix_view<const value_t, index_t, raft::row_major> B,
                    raft::core::bitmap_view<const bitmap_t, index_t> mask,
-                   raft::device_csr_matrix_view<value_t, index_t, index_t, nnz_t> C,
-                   std::optional<raft::host_scalar_view<value_t>> alpha = std::nullopt,
-                   std::optional<raft::host_scalar_view<value_t>> beta  = std::nullopt)
+                   raft::device_csr_matrix_view<output_t, index_t, index_t, nnz_t> C,
+                   std::optional<raft::host_scalar_view<output_t>> alpha = std::nullopt,
+                   std::optional<raft::host_scalar_view<output_t>> beta  = std::nullopt)
 {
   detail::masked_matmul(handle, A, B, mask, C, alpha, beta);
 }
