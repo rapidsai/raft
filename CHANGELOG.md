@@ -1,3 +1,48 @@
+# raft 24.10.00 (9 Oct 2024)
+
+## 🚨 Breaking Changes
+
+- [Feat] add `repeat`, `sparsity`,  `eval_n_elements` APIs to `bitset` ([#2439](https://github.com/rapidsai/raft/pull/2439)) [@rhdong](https://github.com/rhdong)
+
+## 🐛 Bug Fixes
+
+- Disable NN Descent Batch tests temporarily ([#2453](https://github.com/rapidsai/raft/pull/2453)) [@divyegala](https://github.com/divyegala)
+- Fix sed syntax in `update-version.sh` ([#2441](https://github.com/rapidsai/raft/pull/2441)) [@raydouglass](https://github.com/raydouglass)
+- Use runtime check of cudart version for eig ([#2430](https://github.com/rapidsai/raft/pull/2430)) [@lowener](https://github.com/lowener)
+- [BUG] Fix bitset function visibility ([#2429](https://github.com/rapidsai/raft/pull/2429)) [@lowener](https://github.com/lowener)
+- Exclude any kernel symbol that uses cutlass ([#2425](https://github.com/rapidsai/raft/pull/2425)) [@robertmaynard](https://github.com/robertmaynard)
+
+## 🚀 New Features
+
+- [Feat] add `repeat`, `sparsity`,  `eval_n_elements` APIs to `bitset` ([#2439](https://github.com/rapidsai/raft/pull/2439)) [@rhdong](https://github.com/rhdong)
+- [Opt] Enforce the UT Coverity and add benchmark for `transpose` ([#2438](https://github.com/rapidsai/raft/pull/2438)) [@rhdong](https://github.com/rhdong)
+- [FEA] Support for half-float mixed precise in brute-force ([#2382](https://github.com/rapidsai/raft/pull/2382)) [@rhdong](https://github.com/rhdong)
+
+## 🛠️ Improvements
+
+- bump NCCL floor to 2.19 ([#2458](https://github.com/rapidsai/raft/pull/2458)) [@jameslamb](https://github.com/jameslamb)
+- Deprecating vector search APIs and updating README accordingly ([#2448](https://github.com/rapidsai/raft/pull/2448)) [@cjnolet](https://github.com/cjnolet)
+- Update update-version.sh to use packaging lib ([#2447](https://github.com/rapidsai/raft/pull/2447)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Switch traceback to `native` ([#2446](https://github.com/rapidsai/raft/pull/2446)) [@galipremsagar](https://github.com/galipremsagar)
+- bump NCCL floor to 2.18.1.1 ([#2443](https://github.com/rapidsai/raft/pull/2443)) [@jameslamb](https://github.com/jameslamb)
+- Add missing `cuda_suffixed: true` ([#2440](https://github.com/rapidsai/raft/pull/2440)) [@trxcllnt](https://github.com/trxcllnt)
+- Use CI workflow branch &#39;branch-24.10&#39; again ([#2437](https://github.com/rapidsai/raft/pull/2437)) [@jameslamb](https://github.com/jameslamb)
+- Update to flake8 7.1.1. ([#2435](https://github.com/rapidsai/raft/pull/2435)) [@bdice](https://github.com/bdice)
+- Update fmt (to 11.0.2) and spdlog (to 1.14.1). ([#2433](https://github.com/rapidsai/raft/pull/2433)) [@jameslamb](https://github.com/jameslamb)
+- Allow coo_sort to work on int64_t indices ([#2432](https://github.com/rapidsai/raft/pull/2432)) [@benfred](https://github.com/benfred)
+- Adding NCCL clique to the RAFT handle ([#2431](https://github.com/rapidsai/raft/pull/2431)) [@viclafargue](https://github.com/viclafargue)
+- Add support for Python 3.12 ([#2428](https://github.com/rapidsai/raft/pull/2428)) [@jameslamb](https://github.com/jameslamb)
+- Update rapidsai/pre-commit-hooks ([#2420](https://github.com/rapidsai/raft/pull/2420)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Drop Python 3.9 support ([#2417](https://github.com/rapidsai/raft/pull/2417)) [@jameslamb](https://github.com/jameslamb)
+- Use CUDA math wheels ([#2415](https://github.com/rapidsai/raft/pull/2415)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Remove NumPy &lt;2 pin ([#2414](https://github.com/rapidsai/raft/pull/2414)) [@seberg](https://github.com/seberg)
+- Update pre-commit hooks ([#2409](https://github.com/rapidsai/raft/pull/2409)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Improve update-version.sh ([#2408](https://github.com/rapidsai/raft/pull/2408)) [@bdice](https://github.com/bdice)
+- Use tool.scikit-build.cmake.version, set scikit-build-core minimum-version ([#2406](https://github.com/rapidsai/raft/pull/2406)) [@jameslamb](https://github.com/jameslamb)
+- [FEA] Batching NN Descent ([#2403](https://github.com/rapidsai/raft/pull/2403)) [@jinsolp](https://github.com/jinsolp)
+- Update pip devcontainers to UCX v1.17.0 ([#2401](https://github.com/rapidsai/raft/pull/2401)) [@jameslamb](https://github.com/jameslamb)
+- Merge branch-24.08 into branch-24.10 ([#2397](https://github.com/rapidsai/raft/pull/2397)) [@jameslamb](https://github.com/jameslamb)
+
 # raft 24.08.00 (7 Aug 2024)
 
 ## 🚨 Breaking Changes
