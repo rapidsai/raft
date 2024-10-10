@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #pragma once
 
 #include <raft/sparse/solver/detail/lanczos.cuh>
+#include <raft/sparse/solver/lanczos_types.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft::sparse::solver {
@@ -26,6 +27,66 @@ namespace raft::sparse::solver {
 // =========================================================
 // Eigensolver
 // =========================================================
+
+template <typename IndexTypeT, typename ValueTypeT>
+auto lanczos_compute_smallest_eigenvectors(
+  raft::resources const& handle,
+  raft::device_vector_view<IndexTypeT, uint32_t, raft::row_major> rows,
+  raft::device_vector_view<IndexTypeT, uint32_t, raft::row_major> cols,
+  raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major> vals,
+  lanczos_solver_config<IndexTypeT, ValueTypeT> const& config,
+  raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major> v0,
+  raft::device_vector_view<ValueTypeT, uint32_t, raft::col_major> eigenvalues,
+  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors) -> int
+{
+  IndexTypeT ncols = rows.extent(0) - 1;
+  IndexTypeT nrows = rows.extent(0) - 1;
+  IndexTypeT nnz   = cols.extent(0);
+
+  auto csr_structure =
+    raft::make_device_compressed_structure_view<IndexTypeT, IndexTypeT, IndexTypeT>(
+      const_cast<IndexTypeT*>(rows.data_handle()),
+      const_cast<IndexTypeT*>(cols.data_handle()),
+      ncols,
+      nrows,
+      nnz);
+
+  auto csr_matrix =
+    raft::make_device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT>(
+      const_cast<ValueTypeT*>(vals.data_handle()), csr_structure);
+
+  return detail::lanczos_compute_smallest_eigenvectors<IndexTypeT, ValueTypeT>(
+    handle, csr_matrix, config, v0, eigenvalues, eigenvectors);
+}
+
+template <typename IndexTypeT, typename ValueTypeT>
+auto lanczos_compute_smallest_eigenvectors(
+  raft::resources const& handle,
+  raft::spectral::matrix::sparse_matrix_t<IndexTypeT, ValueTypeT> const& A,
+  lanczos_solver_config<IndexTypeT, ValueTypeT> const& config,
+  raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major> v0,
+  raft::device_vector_view<ValueTypeT, uint32_t, raft::col_major> eigenvalues,
+  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors) -> int
+{
+  IndexTypeT ncols = A.ncols_;
+  IndexTypeT nrows = A.nrows_;
+  IndexTypeT nnz   = A.nnz_;
+
+  auto csr_structure =
+    raft::make_device_compressed_structure_view<IndexTypeT, IndexTypeT, IndexTypeT>(
+      const_cast<IndexTypeT*>(A.row_offsets_),
+      const_cast<IndexTypeT*>(A.col_indices_),
+      ncols,
+      nrows,
+      nnz);
+
+  auto csr_matrix =
+    raft::make_device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT>(
+      const_cast<ValueTypeT*>(A.values_), csr_structure);
+
+  return detail::lanczos_compute_smallest_eigenvectors<IndexTypeT, ValueTypeT>(
+    handle, csr_matrix, config, v0, eigenvalues, eigenvectors);
+}
 
 /**
  *  @brief  Compute smallest eigenvectors of symmetric matrix

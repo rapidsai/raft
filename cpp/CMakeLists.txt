@@ -555,6 +555,10 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
+    src/raft_runtime/solver/lanczos_solver_int64_double.cu
+    src/raft_runtime/solver/lanczos_solver_int64_float.cu
+    src/raft_runtime/solver/lanczos_solver_int_double.cu
+    src/raft_runtime/solver/lanczos_solver_int_float.cu
     src/spatial/knn/detail/ball_cover/registers_eps_pass_euclidean.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_2d_dist.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_2d_euclidean.cu
