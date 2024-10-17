@@ -461,6 +461,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
       # get some sccache/ccache stats after the compile
       if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" ]]; then
           if [[ ${CACHE_TOOL} == "sccache" && -x "$(command -v sccache)" ]]; then
+              sccache -s
               COMPILE_REQUESTS=$(sccache -s | grep "Compile requests \+ [0-9]\+$" | awk '{ print $NF }')
               CACHE_HITS=$(sccache -s | grep "Cache hits \+ [0-9]\+$" | awk '{ print $NF }')
               HIT_RATE=$(echo - | awk "{ if ($COMPILE_REQUESTS > 0) { printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100 } else { print \"N/A\" } }")
