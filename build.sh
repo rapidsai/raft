@@ -461,17 +461,16 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
       # get some sccache/ccache stats after the compile
       if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" ]]; then
           if [[ ${CACHE_TOOL} == "sccache" && -x "$(command -v sccache)" ]]; then
-              sccache -s
               COMPILE_REQUESTS=$(sccache -s | grep "Compile requests \+ [0-9]\+$" | awk '{ print $NF }')
               CACHE_HITS=$(sccache -s | grep "Cache hits \+ [0-9]\+$" | awk '{ print $NF }')
-              HIT_RATE=$(echo - | awk "{ if ($COMPILE_REQUESTS > 0) { printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100 } else { print \"N/A\" } }")
+              HIT_RATE=$(echo - | awk "{printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100}")
               MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
           elif [[ ${CACHE_TOOL} == "ccache" && -x "$(command -v ccache)" ]]; then
               CACHE_STATS_LINE=$(ccache -s | grep "Hits: \+ [0-9]\+ / [0-9]\+" | tail -n1)
               if [[ ! -z "$CACHE_STATS_LINE" ]]; then
                   CACHE_HITS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $2 }')
                   COMPILE_REQUESTS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $4 }')
-                  HIT_RATE=$(echo - | awk "{ if ($COMPILE_REQUESTS > 0) { printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100 } else { print \"N/A\" } }")
+                  HIT_RATE=$(echo - | awk "{printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100}")
                   MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
               fi
           fi
