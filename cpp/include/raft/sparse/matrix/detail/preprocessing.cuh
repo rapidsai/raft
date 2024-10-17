@@ -105,33 +105,6 @@ struct map_to {
   raft::device_vector_view<T2> map;
 };
 
-template <typename T1, typename T2>
-struct map_add {
-  map_add(raft::device_vector_view<T2> map) : map(map) {}
-
-  float __device__ operator()(const T1& key, const T2& count)
-  {
-    map[key] = map[key] + count;
-    return 0.0f;
-  }
-
-  raft::device_vector_view<T2> map;
-};
-
-template <typename T1>
-struct map_inc {
-  map_inc(raft::device_vector_view<T1> map) : map(map) {}
-
-  float __device__ operator()(const T1& key)
-  {
-    T1 value = map[key];
-    map[key] = value + 1;
-    return 0.0f;
-  }
-
-  raft::device_vector_view<T1> map;
-};
-
 /**
  * @brief Get unique counts
  * @param handle: raft resource handle
@@ -169,7 +142,7 @@ void get_uniques_counts(raft::resources& handle,
 }
 
 /**
- * @brief Compute cumulative sum for each unique value in the origin array
+ * @brief Broadcasts values to target indices of vector based on key/value look up
  * @param handle: raft resource handle
  * @param origin: Input array that has values to use for computation
  * @param keys: Output array that has keys, should be the size of unique
@@ -227,7 +200,6 @@ void get_id_counts(raft::resources& handle,
                              values.data_handle(),
                              stream);
 
-  // auto row_keys   = raft::make_device_vector<T1, IdxT>(handle, uniq_rows);
   auto rows_counts = raft::make_device_vector<T1, IdxT>(handle, n_rows);
   raft::matrix::fill(handle, rows_counts.view(), 0);
 
