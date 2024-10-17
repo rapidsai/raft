@@ -201,8 +201,9 @@ struct index : ann::index {
   ~index()                               = default;
 
   /** Construct an empty index. */
-  index(raft::resources const& res,
-        raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
     : ann::index(),
       metric_(metric),
       graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
@@ -265,10 +266,11 @@ struct index : ann::index {
    *
    */
   template <typename data_accessor, typename graph_accessor>
-  index(raft::resources const& res,
-        raft::distance::DistanceType metric,
-        mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
-        mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph)
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    raft::distance::DistanceType metric,
+    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+    mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph)
     : ann::index(),
       metric_(metric),
       graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),

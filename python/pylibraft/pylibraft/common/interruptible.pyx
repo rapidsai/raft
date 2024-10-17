@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import signal
 from cuda.ccudart cimport cudaStream_t
 from cython.operator cimport dereference
 
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
 from .cuda cimport Stream
 

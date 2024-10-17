@@ -9,10 +9,11 @@ RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels
 
 # Download the pylibraft built in the previous step
 RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-pylibraft-dep
-python -m pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl
 
 # echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install -v "$(echo ./dist/raft_dask_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
+python -m pip install -v \
+    ./local-pylibraft-dep/pylibraft*.whl \
+    "$(echo ./dist/raft_dask_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
 test_dir="python/raft-dask/raft_dask/test"
 
