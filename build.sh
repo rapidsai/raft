@@ -463,14 +463,14 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           if [[ ${CACHE_TOOL} == "sccache" && -x "$(command -v sccache)" ]]; then
               COMPILE_REQUESTS=$(sccache -s | grep "Compile requests \+ [0-9]\+$" | awk '{ print $NF }')
               CACHE_HITS=$(sccache -s | grep "Cache hits \+ [0-9]\+$" | awk '{ print $NF }')
-              HIT_RATE=$(python3 -c "print(f'{${CACHE_HITS} / ${COMPILE_REQUESTS}:.2f}' if ${COMPILE_REQUESTS} else 'nan')")
+              HIT_RATE=$(COMPILE_REQUESTS="${COMPILE_REQUESTS}" CACHE_HITS="${CACHE_HITS}" python3 -c "import os; print(f'{int(os.getenv(\"CACHE_HITS\")) / int(os.getenv(\"COMPILE_REQUESTS\")):.2f}' if int(os.getenv(\"COMPILE_REQUESTS\")) else 'nan')")
               MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
           elif [[ ${CACHE_TOOL} == "ccache" && -x "$(command -v ccache)" ]]; then
               CACHE_STATS_LINE=$(ccache -s | grep "Hits: \+ [0-9]\+ / [0-9]\+" | tail -n1)
               if [[ ! -z "$CACHE_STATS_LINE" ]]; then
                   CACHE_HITS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $2 }')
                   COMPILE_REQUESTS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $4 }')
-                  HIT_RATE=$(python3 -c "print(f'{${CACHE_HITS} / ${COMPILE_REQUESTS}:.2f}' if ${COMPILE_REQUESTS} else 'nan')")
+                  HIT_RATE=$(COMPILE_REQUESTS="${COMPILE_REQUESTS}" CACHE_HITS="${CACHE_HITS}" python3 -c "import os; print(f'{int(os.getenv(\"CACHE_HITS\")) / int(os.getenv(\"COMPILE_REQUESTS\")):.2f}' if int(os.getenv(\"COMPILE_REQUESTS\")) else 'nan')")
                   MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
               fi
           fi
