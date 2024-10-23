@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-package_name="cuvs"
+package_name="pylibraft"
 
 rapids-logger "Generating build requirements"
 
