@@ -34,7 +34,6 @@ jobs:
     with:
       build_type: pull-request
   wheel-build-pylibraft:
-    needs: checks
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.12
     with:
