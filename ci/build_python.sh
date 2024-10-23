@@ -40,6 +40,9 @@ rapids-conda-retry mambabuild \
   --channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
   conda/recipes/raft-dask
 
+sccache --show-adv-stats
+sccache --zero-stats
+
 # Build ann-bench for each cuda and python version
 rapids-conda-retry mambabuild \
   --no-test \
