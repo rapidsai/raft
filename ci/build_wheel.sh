@@ -16,27 +16,6 @@ source rapids-date-string
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-rapids-logger "Generating build requirements"
-matrix_selectors="cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION};cuda_suffixed=true"
-
-rapids-dependency-file-generator \
-  --output requirements \
-  --file-key "py_build_${underscore_package_name}" \
-  --matrix "${matrix_selectors}" \
-| tee /tmp/requirements-build.txt
-
-rapids-dependency-file-generator \
-  --output requirements \
-  --file-key "py_rapids_build_${underscore_package_name}" \
-  --matrix "${matrix_selectors}" \
-| tee -a /tmp/requirements-build.txt
-
-rapids-logger "Installing build requirements"
-python -m pip install \
-    -v \
-    --prefer-binary \
-    -r /tmp/requirements-build.txt
-
 rapids-generate-version > ./VERSION
 
 cd "${package_dir}"
@@ -60,11 +39,13 @@ case "${RAPIDS_CUDA_VERSION}" in
   ;;
 esac
 
+sccache --zero-stats
+
 rapids-logger "Building '${package_name}' wheel"
+
 python -m pip wheel \
     -w dist \
     -v \
-    --no-build-isolation \
     --no-deps \
     --disable-pip-version-check \
     .
