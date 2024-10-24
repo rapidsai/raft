@@ -72,12 +72,11 @@ RAFT_KERNEL devOffsetKernel(T* in, T value, int n_times)
 }
 
 // block level radix sort - can only sort as much data we can fit within shared memory
-template <
-  typename InType,
-  typename OutType,
-  int BLOCK_SIZE,
-  int ITEMS_PER_THREAD,
-  typename std::enable_if<TemplateChecker<InType, BLOCK_SIZE>::IsValid, InType>::type* = nullptr>
+template <typename InType,
+          typename OutType,
+          int BLOCK_SIZE,
+          int ITEMS_PER_THREAD,
+          typename std::enable_if_t<TemplateChecker<InType, BLOCK_SIZE>::IsValid, bool> = true>
 RAFT_KERNEL __launch_bounds__(1024, 1) devKeyValSortColumnPerRow(const InType* inputKeys,
                                                                  InType* outputKeys,
                                                                  OutType* inputVals,
@@ -120,12 +119,11 @@ RAFT_KERNEL __launch_bounds__(1024, 1) devKeyValSortColumnPerRow(const InType* i
   }
 }
 
-template <
-  typename InType,
-  typename OutType,
-  int BLOCK_SIZE,
-  int ITEMS_PER_THREAD,
-  typename std::enable_if<!(TemplateChecker<InType, BLOCK_SIZE>::IsValid), InType>::type* = nullptr>
+template <typename InType,
+          typename OutType,
+          int BLOCK_SIZE,
+          int ITEMS_PER_THREAD,
+          typename std::enable_if_t<!TemplateChecker<InType, BLOCK_SIZE>::IsValid, bool> = true>
 RAFT_KERNEL devKeyValSortColumnPerRow(const InType* inputKeys,
                                       InType* outputKeys,
                                       OutType* inputVals,
