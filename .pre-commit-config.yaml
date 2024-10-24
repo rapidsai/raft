@@ -117,7 +117,7 @@ repos:
                   cpp/cmake/modules/FindAVX[.]cmake
           - id: verify-alpha-spec
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.13.11
+        rev: v1.16.0
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
