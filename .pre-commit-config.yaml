@@ -116,7 +116,6 @@ repos:
                   docs/source/sphinxext/github_link[.]py|
                   cpp/cmake/modules/FindAVX[.]cmake
           - id: verify-alpha-spec
-            args: ["--fix", "--mode=release"]
       - repo: https://github.com/rapidsai/dependency-file-generator
         rev: v1.13.11
         hooks:
