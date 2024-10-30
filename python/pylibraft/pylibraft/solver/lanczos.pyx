@@ -111,10 +111,9 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
     with corresponding eigenvectors ``x``.
 
     Args:
-        a (ndarray, spmatrix or LinearOperator): A symmetric square matrix with
-            dimension ``(n, n)``. ``a`` must :class:`cupy.ndarray`,
-            :class:`cupyx.scipy.sparse.spmatrix` or
-            :class:`cupyx.scipy.sparse.linalg.LinearOperator`.
+        a (spmatrix): A symmetric square sparse CSR matrix with
+            dimension ``(n, n)``. ``a`` must be of type
+            :class:`cupyx.scipy.sparse._csr.csr_matrix`
         k (int): The number of eigenvalues and eigenvectors to compute. Must be
             ``1 <= k < n``.
         v0 (ndarray): Starting vector for iteration. If ``None``, a random
@@ -175,7 +174,7 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         tol = np.finfo(ValueType).eps
 
     if v0 is None:
-        rng = np.random.default_rng(seed)
+        rng = cp.random.default_rng(seed)
         v0 = rng.random((N,)).astype(vals.dtype)
 
     v0 = cai_wrapper(v0)
