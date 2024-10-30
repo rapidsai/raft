@@ -132,7 +132,8 @@ void get_uniques_counts(raft::resources& handle,
                              secondary_vector.data_handle(),
                              data.data_handle(),
                              stream);
-
+  // replace this call with raft version when available
+  // (https://github.com/rapidsai/raft/issues/2477)
   thrust::reduce_by_key(raft::resource::get_thrust_policy(handle),
                         sort_vector.data_handle(),
                         sort_vector.data_handle() + sort_vector.size(),
