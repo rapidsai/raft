@@ -329,8 +329,16 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SPARSE_NEIGHBORS_TEST PATH sparse/neighbors/cross_component_nn.cu
-    sparse/neighbors/brute_force.cu sparse/neighbors/knn_graph.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME
+    SPARSE_NEIGHBORS_TEST
+    PATH
+    sparse/neighbors/cross_component_nn.cu
+    sparse/neighbors/brute_force.cu
+    sparse/neighbors/brute_force_coo.cu
+    sparse/neighbors/brute_force_csr.cu
+    sparse/neighbors/knn_graph.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(

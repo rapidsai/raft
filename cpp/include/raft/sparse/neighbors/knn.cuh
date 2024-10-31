@@ -62,7 +62,7 @@ namespace raft::sparse::neighbors {
  * @param[in] metric distance metric/measure to use
  * @param[in] metricArg potential argument for metric (currently unused)
  */
-template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
+template <typename value_idx = int, typename value_t = float>
 void brute_force_knn(const value_idx* idxIndptr,
                      const value_idx* idxIndices,
                      const value_t* idxData,
@@ -120,7 +120,7 @@ void brute_force_knn(const value_idx* idxIndptr,
  * @param[in] metric distance metric/measure to use
  * @param[in] metricArg potential argument for metric (currently unused)
  */
-template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
+template <typename value_idx = int, typename value_t = float>
 void brute_force_knn(raft::device_csr_matrix<value_t,
                                              value_idx,
                                              value_idx,
@@ -186,7 +186,7 @@ void brute_force_knn(raft::device_csr_matrix<value_t,
  * @param[in] metric distance metric/measure to use
  * @param[in] metricArg potential argument for metric (currently unused)
  */
-template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
+template <typename value_idx = int, typename value_t = float>
 void brute_force_knn(raft::device_coo_matrix<value_t,
                                              value_idx,
                                              value_idx,

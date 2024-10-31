@@ -40,23 +40,25 @@ struct check_zeroes {
 };
 
 template <typename T1, typename T2>
-void preproc_kernel(raft::resources& handle,
-                    raft::host_vector_view<T1> h_rows,
-                    raft::host_vector_view<T1> h_cols,
-                    raft::host_vector_view<T2> h_elems,
-                    raft::device_vector_view<T2> results,
-                    int num_rows,
-                    int num_cols,
-                    bool tf_idf)
+void preproc_coo(raft::resources& handle,
+                 raft::host_vector_view<T1> h_rows,
+                 raft::host_vector_view<T1> h_cols,
+                 raft::host_vector_view<T2> h_elems,
+                 raft::device_vector_view<T2> results,
+                 int num_rows,
+                 int num_cols,
+                 bool tf_idf)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
   int rows_size       = h_rows.size();
   int cols_size       = h_cols.size();
   int elements_size   = h_elems.size();
   auto device_matrix  = raft::make_device_matrix<T2, int64_t>(handle, num_rows, num_cols);
-  raft::matrix::fill<float>(handle, device_matrix.view(), 0.0f);
+  raft::matrix::fill<T2>(handle, device_matrix.view(), 0.0f);
   auto host_matrix = raft::make_host_matrix<T2, int64_t>(handle, num_rows, num_cols);
   raft::copy(host_matrix.data_handle(), device_matrix.data_handle(), device_matrix.size(), stream);
+
+  raft::resource::sync_stream(handle, stream);
 
   for (int i = 0; i < elements_size; i++) {
     int row               = h_rows(i);
@@ -81,7 +83,7 @@ void preproc_kernel(raft::resources& handle,
              output_cols_lengths.size(),
              stream);
 
-  auto output_cols_length_sum = raft::make_device_scalar<int>(handle, 0);
+  auto output_cols_length_sum = raft::make_device_scalar<T1>(handle, 0);
   raft::linalg::mapReduce(output_cols_length_sum.data_handle(),
                           num_cols,
                           0,
@@ -89,12 +91,12 @@ void preproc_kernel(raft::resources& handle,
                           raft::add_op(),
                           stream,
                           output_cols_lengths.data_handle());
-  auto h_output_cols_length_sum = raft::make_host_scalar<int>(handle, 0);
+  auto h_output_cols_length_sum = raft::make_host_scalar<T1>(handle, 0);
   raft::copy(h_output_cols_length_sum.data_handle(),
              output_cols_length_sum.data_handle(),
              output_cols_length_sum.size(),
              stream);
-  float avg_col_length = float(h_output_cols_length_sum(0)) / num_cols;
+  T2 avg_col_length = T2(h_output_cols_length_sum(0)) / num_cols;
 
   auto output_rows_freq = raft::make_device_matrix<T2, int64_t>(handle, 1, num_rows);
   raft::linalg::reduce(output_rows_freq.data_handle(),
@@ -116,13 +118,13 @@ void preproc_kernel(raft::resources& handle,
                        false,
                        stream,
                        false,
-                       check_zeroes<float, float>());
+                       check_zeroes<T2, T2>());
   auto h_output_rows_cnt = raft::make_host_matrix<T2, int64_t>(handle, 1, num_rows);
   raft::copy(
     h_output_rows_cnt.data_handle(), output_rows_cnt.data_handle(), output_rows_cnt.size(), stream);
 
   auto out_device_matrix = raft::make_device_matrix<T2, int64_t>(handle, num_rows, num_cols);
-  raft::matrix::fill<float>(handle, out_device_matrix.view(), 0.0f);
+  raft::matrix::fill<T2>(handle, out_device_matrix.view(), 0.0f);
   auto out_host_matrix = raft::make_host_matrix<T2, int64_t>(handle, num_rows, num_cols);
   auto out_host_vector = raft::make_host_vector<T2, int64_t>(handle, results.size());
 
@@ -137,7 +139,7 @@ void preproc_kernel(raft::resources& handle,
         out_host_matrix(row, col) = 0.0f;
       } else {
         float tf  = float(val / h_output_cols_lengths(0, col));
-        float idf = raft::log<float>(num_cols / h_output_rows_cnt(0, row));
+        float idf = raft::log<T2>(num_cols / h_output_rows_cnt(0, row));
         if (tf_idf) {
           result = tf * idf;
         } else {
@@ -171,7 +173,7 @@ int get_dupe_mask_count(raft::resources& handle,
                              values.data_handle(),
                              stream);
 
-  raft::sparse::op::compute_duplicates_mask<int>(
+  raft::sparse::op::compute_duplicates_mask<T1>(
     mask.data_handle(), rows.data_handle(), columns.data_handle(), rows.size(), stream);
 
   int col_nnz_count = thrust::reduce(raft::resource::get_thrust_policy(handle),
@@ -193,15 +195,15 @@ void remove_dupes(raft::resources& handle,
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  auto col_counts = raft::make_device_vector<int, int64_t>(handle, columns.size());
+  auto col_counts = raft::make_device_vector<T1, int64_t>(handle, columns.size());
 
   thrust::fill(raft::resource::get_thrust_policy(handle),
                col_counts.data_handle(),
                col_counts.data_handle() + col_counts.size(),
                1.0f);
 
-  auto keys_out   = raft::make_device_vector<int, int64_t>(handle, num_rows);
-  auto counts_out = raft::make_device_vector<int, int64_t>(handle, num_rows);
+  auto keys_out   = raft::make_device_vector<T1, int64_t>(handle, num_rows);
+  auto counts_out = raft::make_device_vector<T1, int64_t>(handle, num_rows);
 
   thrust::reduce_by_key(raft::resource::get_thrust_policy(handle),
                         rows.data_handle(),
@@ -210,19 +212,19 @@ void remove_dupes(raft::resources& handle,
                         keys_out.data_handle(),
                         counts_out.data_handle());
 
-  auto mask_out = raft::make_device_vector<float, int64_t>(handle, rows.size());
+  auto mask_out = raft::make_device_vector<T2, int64_t>(handle, rows.size());
 
-  raft::linalg::map(handle, mask_out.view(), raft::cast_op<float>{}, raft::make_const_mdspan(mask));
+  raft::linalg::map(handle, mask_out.view(), raft::cast_op<T2>{}, raft::make_const_mdspan(mask));
 
-  auto values_c = raft::make_device_vector<float, int64_t>(handle, values.size());
+  auto values_c = raft::make_device_vector<T2, int64_t>(handle, values.size());
   raft::linalg::map(handle,
                     values_c.view(),
                     raft::mul_op{},
                     raft::make_const_mdspan(values),
                     raft::make_const_mdspan(mask_out.view()));
 
-  auto keys_nnz_out   = raft::make_device_vector<int, int64_t>(handle, num_rows);
-  auto counts_nnz_out = raft::make_device_vector<int, int64_t>(handle, num_rows);
+  auto keys_nnz_out   = raft::make_device_vector<T1, int64_t>(handle, num_rows);
+  auto counts_nnz_out = raft::make_device_vector<T1, int64_t>(handle, num_rows);
 
   thrust::reduce_by_key(raft::resource::get_thrust_policy(handle),
                         rows.data_handle(),
@@ -231,18 +233,18 @@ void remove_dupes(raft::resources& handle,
                         keys_nnz_out.data_handle(),
                         counts_nnz_out.data_handle());
 
-  raft::sparse::op::coo_remove_scalar<float>(rows.data_handle(),
-                                             columns.data_handle(),
-                                             values_c.data_handle(),
-                                             values_c.size(),
-                                             out_rows.data_handle(),
-                                             out_cols.data_handle(),
-                                             out_vals.data_handle(),
-                                             counts_nnz_out.data_handle(),
-                                             counts_out.data_handle(),
-                                             0,
-                                             num_rows,
-                                             stream);
+  raft::sparse::op::coo_remove_scalar<T2>(rows.data_handle(),
+                                          columns.data_handle(),
+                                          values_c.data_handle(),
+                                          values_c.size(),
+                                          out_rows.data_handle(),
+                                          out_cols.data_handle(),
+                                          out_vals.data_handle(),
+                                          counts_nnz_out.data_handle(),
+                                          counts_out.data_handle(),
+                                          0,
+                                          num_rows,
+                                          stream);
 }
 
 template <typename T1, typename T2>
@@ -261,7 +263,7 @@ void create_dataset(raft::resources& handle,
   auto d_out = raft::make_device_vector<T1, int64_t>(handle, rows.size() * 2);
 
   int theta_guide = max(num_rows_unique, num_cols_unique);
-  auto theta      = raft::make_device_vector<float, int64_t>(handle, theta_guide * 4);
+  auto theta      = raft::make_device_vector<T2, int64_t>(handle, theta_guide * 4);
 
   raft::random::uniform(handle, rng, theta.view(), 0.0f, 1.0f);
 
@@ -275,9 +277,9 @@ void create_dataset(raft::resources& handle,
                                      stream,
                                      rng);
 
-  auto vals = raft::make_device_vector<int, int64_t>(handle, rows.size());
+  auto vals = raft::make_device_vector<T1, int64_t>(handle, rows.size());
   raft::random::uniformInt(handle, rng, vals.view(), 1, max_term_occurence_doc);
-  raft::linalg::map(handle, values, raft::cast_op<float>{}, raft::make_const_mdspan(vals.view()));
+  raft::linalg::map(handle, values, raft::cast_op<T2>{}, raft::make_const_mdspan(vals.view()));
 }
 
 };  // namespace raft::util

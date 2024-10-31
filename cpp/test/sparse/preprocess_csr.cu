@@ -63,7 +63,7 @@ void calc_tfidf_bm25(raft::resources& handle,
   raft::copy(h_rows.data_handle(), rows.data_handle(), rows.size(), stream);
   raft::copy(h_cols.data_handle(), indices.data_handle(), cols_size, stream);
   raft::copy(h_elems.data_handle(), values.data_handle(), values.size(), stream);
-  raft::util::preproc_kernel<T1, T2>(
+  raft::util::preproc_coo<T1, T2>(
     handle, h_rows.view(), h_cols.view(), h_elems.view(), results, num_rows, num_cols, tf_idf);
 }
 
