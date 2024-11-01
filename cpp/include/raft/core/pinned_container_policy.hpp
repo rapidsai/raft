@@ -63,7 +63,11 @@ struct pinned_container {
   }
 
   pinned_container(pinned_container&& other) { std::swap(this->data_, other.data_); }
-  pinned_container& operator=(pinned_container&& other) { std::swap(this->data_, other.data_); }
+  pinned_container& operator=(pinned_container&& other)
+  {
+    std::swap(this->data_, other.data_);
+    return *this;
+  }
   pinned_container(pinned_container const&) = delete;  // Copying disallowed: one array one owner
   pinned_container& operator=(pinned_container const&) = delete;
 
