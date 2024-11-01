@@ -62,8 +62,8 @@ struct pinned_container {
     if (data_ != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFreeHost(data_)); }
   }
 
-  pinned_container(pinned_container&&)            = default;
-  pinned_container& operator=(pinned_container&&) = default;
+  pinned_container(pinned_container&& other) { std::swap(this->data_, other.data_); }
+  pinned_container& operator=(pinned_container&& other) { std::swap(this->data_, other.data_); }
   pinned_container(pinned_container const&) = delete;  // Copying disallowed: one array one owner
   pinned_container& operator=(pinned_container const&) = delete;
 
