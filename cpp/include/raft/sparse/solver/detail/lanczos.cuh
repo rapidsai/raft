@@ -31,6 +31,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/axpy.cuh>
+#include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/detail/add.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/gemv.hpp>
@@ -1436,13 +1437,6 @@ int computeLargestEigenvectors(
 }
 
 template <typename T>
-RAFT_KERNEL kernel_subtract_and_scale(T* u, T* vec, T* scalar, int n)
-{
-  int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < n) { u[idx] -= (*scalar) * vec[idx]; }
-}
-
-template <typename T>
 RAFT_KERNEL kernel_triangular_populate(T* M, const T* beta, int n)
 {
   int row = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1547,22 +1541,23 @@ template <typename IndexTypeT, typename ValueTypeT>
 void lanczos_aux(raft::resources const& handle,
                  raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
                  raft::device_matrix_view<ValueTypeT, uint32_t, raft::row_major> V,
-                 raft::device_matrix_view<ValueTypeT> u,
-                 raft::device_matrix_view<ValueTypeT> alpha,
-                 raft::device_matrix_view<ValueTypeT> beta,
+                 raft::device_matrix_view<ValueTypeT, uint32_t> u,
+                 raft::device_matrix_view<ValueTypeT, uint32_t> alpha,
+                 raft::device_matrix_view<ValueTypeT, uint32_t> beta,
                  int start_idx,
                  int end_idx,
                  int ncv,
-                 raft::device_matrix_view<ValueTypeT> v,
-                 raft::device_matrix_view<ValueTypeT> uu,
-                 raft::device_matrix_view<ValueTypeT> vv)
+                 raft::device_matrix_view<ValueTypeT, uint32_t> v,
+                 raft::device_matrix_view<ValueTypeT, uint32_t> uu,
+                 raft::device_matrix_view<ValueTypeT, uint32_t> vv)
 {
   auto stream = resource::get_cuda_stream(handle);
 
   auto A_structure = A.structure_view();
   IndexTypeT n     = A_structure.get_n_rows();
 
-  raft::copy(v.data_handle(), &(V(start_idx, 0)), n, stream);
+  raft::copy(
+    v.data_handle(), V.data_handle() + start_idx * V.stride(0), n, stream);  // V(start_idx, 0)
 
   auto cusparse_h = resource::get_cusparse_handle(handle);
   cusparseSpMatDescr_t cusparse_A;
@@ -1606,7 +1601,8 @@ void lanczos_aux(raft::resources const& handle,
                                        cusparse_spmv_buffer.data_handle(),
                                        stream);
 
-    auto alpha_i  = raft::make_device_scalar_view(&alpha(0, i));
+    auto alpha_i =
+      raft::make_device_scalar_view(alpha.data_handle() + i * alpha.stride(1));  // alpha(0, i)
     auto v_vector = raft::make_device_vector_view<const ValueTypeT>(v.data_handle(), n);
     auto u_vector = raft::make_device_vector_view<const ValueTypeT>(u.data_handle(), n);
     raft::linalg::dot(handle, v_vector, u_vector, alpha_i);
@@ -1619,11 +1615,20 @@ void lanczos_aux(raft::resources const& handle,
     ValueTypeT b            = 0;
     ValueTypeT mone         = -1;
 
-    raft::copy<ValueTypeT>(&b, &beta(0, (i - 1 + ncv) % ncv), 1, stream);
-    raft::copy<ValueTypeT>(&alpha_i_host, &(alpha(0, i)), 1, stream);
+    raft::copy<ValueTypeT>(
+      &b, beta.data_handle() + ((i - 1 + ncv) % ncv) * beta.stride(1), 1, stream);
+    raft::copy<ValueTypeT>(
+      &alpha_i_host, alpha.data_handle() + i * alpha.stride(1), 1, stream);  // alpha(0, i)
 
     raft::linalg::axpy(handle, n, &alpha_i_host, v.data_handle(), 1, vv.data_handle(), 1, stream);
-    raft::linalg::axpy(handle, n, &b, &V((i - 1 + ncv) % ncv, 0), 1, vv.data_handle(), 1, stream);
+    raft::linalg::axpy(handle,
+                       n,
+                       &b,
+                       V.data_handle() + (((i - 1 + ncv) % ncv) * V.stride(0)),
+                       1,
+                       vv.data_handle(),
+                       1,
+                       stream);
     raft::linalg::axpy(handle, n, &mone, vv.data_handle(), 1, u.data_handle(), 1, stream);
 
     raft::linalg::gemv(handle,
@@ -1654,15 +1659,14 @@ void lanczos_aux(raft::resources const& handle,
                        1,
                        stream);
 
-    auto uu_i = raft::make_device_scalar_view(&uu(0, i));
+    auto uu_i = raft::make_device_scalar_view(uu.data_handle() + uu.stride(1) * i);  // uu(0, i)
     raft::linalg::add(handle, make_const_mdspan(alpha_i), make_const_mdspan(uu_i), alpha_i);
 
     kernel_clamp_down<<<1, 1, 0, stream>>>(alpha_i.data_handle(), static_cast<ValueTypeT>(1e-9));
 
-    raft::device_vector_view<ValueTypeT, uint32_t> output =
-      raft::make_device_vector_view<ValueTypeT, uint32_t>(&beta(0, i), 1);
-    raft::device_matrix_view<const ValueTypeT, uint32_t> input =
-      raft::make_device_matrix_view<const ValueTypeT, uint32_t>(u.data_handle(), 1, n);
+    auto output = raft::make_device_vector_view<ValueTypeT, uint32_t>(
+      beta.data_handle() + beta.stride(1) * i, 1);
+    auto input = raft::make_device_matrix_view<const ValueTypeT, uint32_t>(u.data_handle(), 1, n);
     raft::linalg::norm(handle,
                        input,
                        output,
@@ -1676,7 +1680,8 @@ void lanczos_aux(raft::resources const& handle,
     kernel_clamp_down_vector<<<numBlocks, blockSize, 0, stream>>>(
       u.data_handle(), static_cast<ValueTypeT>(1e-7), n);
 
-    kernel_clamp_down<<<1, 1, 0, stream>>>(&beta(0, i), static_cast<ValueTypeT>(1e-6));
+    kernel_clamp_down<<<1, 1, 0, stream>>>(beta.data_handle() + beta.stride(1) * i,
+                                           static_cast<ValueTypeT>(1e-6));
 
     if (i >= end_idx - 1) { break; }
 
@@ -1706,42 +1711,29 @@ auto lanczos_smallest(
   int ncv          = restartIter;
   auto stream      = resource::get_cuda_stream(handle);
 
-  raft::device_matrix<ValueTypeT, uint32_t, raft::row_major> V =
-    raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, ncv, n);
-  raft::device_matrix_view<ValueTypeT> V_0_view =
-    raft::make_device_matrix_view<ValueTypeT>(V.data_handle(), 1, n);  // First Row V[0]
-  raft::device_matrix_view<const ValueTypeT> v0_view =
-    raft::make_device_matrix_view<const ValueTypeT>(v0, 1, n);
+  auto V = raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, ncv, n);
+  auto V_0_view =
+    raft::make_device_matrix_view<ValueTypeT, uint32_t>(V.data_handle(), 1, n);  // First Row V[0]
+  auto v0_view = raft::make_device_matrix_view<const ValueTypeT, uint32_t>(v0, 1, n);
 
-  raft::device_matrix<ValueTypeT, uint32_t, raft::row_major> u =
-    raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, 1, n);
+  auto u = raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, 1, n);
   raft::copy(u.data_handle(), v0, n, stream);
 
-  auto cublas_h    = resource::get_cublas_handle(handle);
-  ValueTypeT v0nrm = 0;
-
-  raft::device_vector<ValueTypeT, uint32_t> output1 =
-    raft::make_device_vector<ValueTypeT, uint32_t>(handle, 1);
-  raft::device_matrix_view<const ValueTypeT> input1 =
-    raft::make_device_matrix_view<const ValueTypeT>(v0_view.data_handle(), 1, n);
+  auto cublas_h = resource::get_cublas_handle(handle);
+  auto v0nrm    = raft::make_device_vector<ValueTypeT, uint32_t>(handle, 1);
   raft::linalg::norm(handle,
-                     input1,
-                     output1.view(),
+                     v0_view,
+                     v0nrm.view(),
                      raft::linalg::L2Norm,
                      raft::linalg::Apply::ALONG_ROWS,
                      raft::sqrt_op());
-  raft::copy(&v0nrm, output1.data_handle(), 1, stream);
 
-  raft::device_scalar<ValueTypeT> v0nrm_scalar = raft::make_device_scalar(handle, v0nrm);
-
-  raft::device_vector_view<const ValueTypeT> v0_vector_const =
-    raft::make_device_vector_view<const ValueTypeT>(v0, n);
+  auto v0_vector_const = raft::make_device_vector_view<const ValueTypeT, uint32_t>(v0, n);
 
   raft::linalg::unary_op(
-    handle,
-    v0_vector_const,
-    V_0_view,
-    [device_scalar = v0nrm_scalar.data_handle()] __device__(auto y) { return y / *device_scalar; });
+    handle, v0_vector_const, V_0_view, [device_scalar = v0nrm.data_handle()] __device__(auto y) {
+      return y / *device_scalar;
+    });
 
   auto alpha      = raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, 1, ncv);
   auto beta       = raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, 1, ncv);
@@ -1768,7 +1760,7 @@ auto lanczos_smallest(
 
   auto eigenvectors =
     raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(handle, ncv, ncv);
-  auto eigenvalues = raft::make_device_vector<ValueTypeT>(handle, ncv);
+  auto eigenvalues = raft::make_device_vector<ValueTypeT, uint32_t>(handle, ncv);
 
   lanczos_solve_ritz<IndexTypeT, ValueTypeT>(handle,
                                              alpha.view(),
@@ -1782,7 +1774,7 @@ auto lanczos_smallest(
 
   auto eigenvectors_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
     eigenvectors.data_handle(), ncv, nEigVecs);
-  raft::device_vector_view<ValueTypeT, uint32_t> eigenvalues_k =
+  auto eigenvalues_k =
     raft::make_device_vector_view<ValueTypeT, uint32_t>(eigenvalues.data_handle(), nEigVecs);
 
   auto ritz_eigenvectors =
@@ -1806,7 +1798,8 @@ auto lanczos_smallest(
 
   auto beta_k = raft::make_device_vector<ValueTypeT>(handle, nEigVecs);
   raft::matrix::fill(handle, beta_k.view(), zero);
-  auto beta_scalar = raft::make_device_scalar_view<const ValueTypeT>(&((beta.view())(0, ncv - 1)));
+  auto beta_scalar = raft::make_device_scalar_view<const ValueTypeT>(beta.data_handle() +
+                                                                     (ncv - 1) * beta.stride(1));
 
   raft::linalg::axpy(handle, beta_scalar, raft::make_const_mdspan(s.view()), beta_k.view());
 
@@ -1823,6 +1816,7 @@ auto lanczos_smallest(
                      raft::linalg::Apply::ALONG_ROWS,
                      raft::sqrt_op());
   raft::copy(&res, output.data_handle(), 1, stream);
+  resource::sync_stream(handle, stream);
 
   auto uu  = raft::make_device_matrix<ValueTypeT>(handle, 0, nEigVecs);
   int iter = ncv;
@@ -1872,30 +1866,22 @@ auto lanczos_smallest(
 
     auto V_0_view =
       raft::make_device_matrix_view<ValueTypeT>(V.data_handle() + (nEigVecs * n), 1, n);
-    ValueTypeT unrm = 0;
 
-    raft::device_vector<ValueTypeT, uint32_t> output =
-      raft::make_device_vector<ValueTypeT, uint32_t>(handle, 1);
-    raft::device_matrix_view<const ValueTypeT> input =
-      raft::make_device_matrix_view<const ValueTypeT>(u.data_handle(), 1, n);
+    auto unrm  = raft::make_device_vector<ValueTypeT, uint32_t>(handle, 1);
+    auto input = raft::make_device_matrix_view<const ValueTypeT, uint32_t>(u.data_handle(), 1, n);
     raft::linalg::norm(handle,
                        input,
-                       output.view(),
+                       unrm.view(),
                        raft::linalg::L2Norm,
                        raft::linalg::Apply::ALONG_ROWS,
                        raft::sqrt_op());
-    raft::copy(&unrm, output.data_handle(), 1, stream);
-
-    raft::device_scalar<ValueTypeT> unrm_scalar = raft::make_device_scalar(handle, unrm);
 
     auto u_vector_const = raft::make_device_vector_view<const ValueTypeT>(u.data_handle(), n);
 
-    raft::linalg::unary_op(handle,
-                           u_vector_const,
-                           V_0_view,
-                           [device_scalar = unrm_scalar.data_handle()] __device__(auto y) {
-                             return y / *device_scalar;
-                           });
+    raft::linalg::unary_op(
+      handle, u_vector_const, V_0_view, [device_scalar = unrm.data_handle()] __device__(auto y) {
+        return y / *device_scalar;
+      });
 
     auto cusparse_h = resource::get_cusparse_handle(handle);
     cusparseSpMatDescr_t cusparse_A;
@@ -1942,16 +1928,20 @@ auto lanczos_smallest(
                                        stream);
 
     auto alpha_k = raft::make_device_scalar_view<ValueTypeT>(alpha.data_handle() + nEigVecs);
-    auto V_0_view_vector =
-      raft::make_device_vector_view<const ValueTypeT>(V_0_view.data_handle(), n);
-    auto u_view_vector = raft::make_device_vector_view<const ValueTypeT>(u.data_handle(), n);
+    auto V_0_view_vector = raft::make_device_vector_view<ValueTypeT>(V_0_view.data_handle(), n);
+    auto u_view_vector   = raft::make_device_vector_view<ValueTypeT>(u.data_handle(), n);
 
-    raft::linalg::dot(handle, V_0_view_vector, u_view_vector, alpha_k);
+    raft::linalg::dot(
+      handle, make_const_mdspan(V_0_view_vector), make_const_mdspan(u_view_vector), alpha_k);
 
-    int threadsPerBlock = 256;
-    int blocksPerGrid   = (n + threadsPerBlock - 1) / threadsPerBlock;
-    kernel_subtract_and_scale<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
-      u.data_handle(), V_0_view.data_handle(), alpha_k.data_handle(), n);
+    raft::linalg::binary_op(handle,
+                            make_const_mdspan(u_view_vector),
+                            make_const_mdspan(V_0_view_vector),
+                            u_view_vector,
+                            [device_scalar_ptr = alpha_k.data_handle()] __device__(
+                              ValueTypeT u_element, ValueTypeT V_0_element) {
+                              return u_element - (*device_scalar_ptr) * V_0_element;
+                            });
 
     auto temp = raft::make_device_vector<ValueTypeT>(handle, n);
 
@@ -2003,29 +1993,35 @@ auto lanczos_smallest(
                        stream);
 
     auto one_scalar = raft::make_device_scalar<ValueTypeT>(handle, 1);
-    kernel_subtract_and_scale<ValueTypeT><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
-      u.data_handle(), temp.data_handle(), one_scalar.data_handle(), n);
+    raft::linalg::binary_op(handle,
+                            make_const_mdspan(u_view_vector),
+                            make_const_mdspan(temp.view()),
+                            u_view_vector,
+                            [device_scalar_ptr = one_scalar.data_handle()] __device__(
+                              ValueTypeT u_element, ValueTypeT temp_element) {
+                              return u_element - (*device_scalar_ptr) * temp_element;
+                            });
 
-    raft::device_vector_view<ValueTypeT, uint32_t> output1 =
-      raft::make_device_vector_view<ValueTypeT, uint32_t>(&((beta.view())(0, nEigVecs)), 1);
-    raft::device_matrix_view<const ValueTypeT> input1 =
-      raft::make_device_matrix_view<const ValueTypeT>(u.data_handle(), 1, n);
+    auto output1 = raft::make_device_vector_view<ValueTypeT, uint32_t>(
+      beta.data_handle() + beta.stride(1) * nEigVecs, 1);
     raft::linalg::norm(handle,
-                       input1,
+                       raft::make_const_mdspan(u.view()),
                        output1,
                        raft::linalg::L2Norm,
                        raft::linalg::Apply::ALONG_ROWS,
                        raft::sqrt_op());
 
-    auto V_kplus1 = raft::make_device_vector_view<ValueTypeT>(&(V.view()(nEigVecs + 1, 0)), n);
+    auto V_kplus1 =
+      raft::make_device_vector_view<ValueTypeT>(V.data_handle() + V.stride(0) * (nEigVecs + 1), n);
     auto u_vector = raft::make_device_vector_view<const ValueTypeT>(u.data_handle(), n);
 
-    raft::linalg::unary_op(handle,
-                           u_vector,
-                           V_kplus1,
-                           [device_scalar = &((beta.view())(0, nEigVecs))] __device__(auto y) {
-                             return y / *device_scalar;
-                           });
+    raft::linalg::unary_op(
+      handle,
+      u_vector,
+      V_kplus1,
+      [device_scalar = (beta.data_handle() + beta.stride(1) * nEigVecs)] __device__(auto y) {
+        return y / *device_scalar;
+      });
 
     lanczos_aux(handle,
                 A,
@@ -2071,8 +2067,8 @@ auto lanczos_smallest(
 
     raft::matrix::fill(handle, beta_k.view(), zero);
 
-    auto beta_scalar =
-      raft::make_device_scalar_view<const ValueTypeT>(&((beta.view())(0, ncv - 1)));
+    auto beta_scalar = raft::make_device_scalar_view<const ValueTypeT>(
+      beta.data_handle() + beta.stride(1) * (ncv - 1));  // &((beta.view())(0, ncv - 1))
 
     raft::linalg::axpy(handle, beta_scalar, raft::make_const_mdspan(s.view()), beta_k.view());
 
@@ -2087,7 +2083,7 @@ auto lanczos_smallest(
                        raft::linalg::Apply::ALONG_ROWS,
                        raft::sqrt_op());
     raft::copy(&res, output2.data_handle(), 1, stream);
-
+    resource::sync_stream(handle, stream);
     RAFT_LOG_TRACE("Iteration %f: residual (tolerance) %d", iter, res);
   }
 
@@ -2097,23 +2093,11 @@ auto lanczos_smallest(
   return 0;
 }
 
-/**
- *  @brief Find the smallest eigenpairs using lanczos solver
- *  @tparam index_type_t the type of data used for indexing.
- *  @tparam value_type_t the type of data used for weights, distances.
- *  @param handle the raft handle.
- *  @param A Matrix.
- *  @param config lanczos config used to set hyperparameters
- *  @param v0 Initial lanczos vector
- *  @param eigenvalues output eigenvalues
- *  @param eigenvectors output eigenvectors
- *  @return Zero if successful. Otherwise non-zero.
- */
 template <typename IndexTypeT, typename ValueTypeT>
 auto lanczos_compute_smallest_eigenvectors(
   raft::resources const& handle,
   raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
-  lanczos_solver_config<IndexTypeT, ValueTypeT> const& config,
+  lanczos_solver_config<ValueTypeT> const& config,
   raft::device_vector_view<ValueTypeT, uint32_t> v0,
   raft::device_vector_view<ValueTypeT, uint32_t> eigenvalues,
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors) -> int

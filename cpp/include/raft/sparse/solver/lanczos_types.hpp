@@ -20,7 +20,7 @@
 
 namespace raft::sparse::solver {
 
-template <typename IndexTypeT, typename ValueTypeT>
+template <typename ValueTypeT>
 struct lanczos_solver_config {
   int n_components;
   int max_iterations;

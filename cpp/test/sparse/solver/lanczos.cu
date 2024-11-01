@@ -186,11 +186,23 @@ class rmat_lanczos_tests
       symmetric_coo.vals(),
       symmetric_coo.n_rows,
       symmetric_coo.nnz};
-    raft::sparse::solver::lanczos_solver_config<IndexType, ValueType> config{
+    raft::sparse::solver::lanczos_solver_config<ValueType> config{
       n_components, params.maxiter, params.restartiter, params.tol, rng.seed};
+
+    auto csr_structure =
+      raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
+        const_cast<IndexType*>(row_indices.data_handle()),
+        const_cast<IndexType*>(symmetric_coo.cols()),
+        symmetric_coo.n_rows,
+        symmetric_coo.n_rows,
+        symmetric_coo.nnz);
+
+    auto csr_matrix = raft::make_device_csr_matrix_view<ValueType, IndexType, IndexType, IndexType>(
+      const_cast<ValueType*>(symmetric_coo.vals()), csr_structure);
+
     std::get<0>(stats) =
       raft::sparse::solver::lanczos_compute_smallest_eigenvectors<IndexType, ValueType>(
-        handle, csr_m, config, v0.view(), eigenvalues.view(), eigenvectors.view());
+        handle, csr_matrix, config, v0.view(), eigenvalues.view(), eigenvectors.view());
 
     ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues.data_handle(),
                                              expected_eigenvalues.data_handle(),
@@ -251,13 +263,22 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
     raft::random::uniform<ValueType>(handle, rng, v0.view(), 0, 1);
     std::tuple<IndexType, ValueType, IndexType> stats;
 
-    raft::spectral::matrix::sparse_matrix_t<IndexType, ValueType> const csr_m{
-      handle, rows.data_handle(), cols.data_handle(), vals.data_handle(), n, nnz};
-    raft::sparse::solver::lanczos_solver_config<IndexType, ValueType> config{
+    raft::sparse::solver::lanczos_solver_config<ValueType> config{
       params.n_components, params.maxiter, params.restartiter, params.tol, rng.seed};
+    auto csr_structure =
+      raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
+        const_cast<IndexType*>(rows.data_handle()),
+        const_cast<IndexType*>(cols.data_handle()),
+        n,
+        n,
+        nnz);
+
+    auto csr_matrix = raft::make_device_csr_matrix_view<ValueType, IndexType, IndexType, IndexType>(
+      const_cast<ValueType*>(vals.data_handle()), csr_structure);
+
     std::get<0>(stats) =
       raft::sparse::solver::lanczos_compute_smallest_eigenvectors<IndexType, ValueType>(
-        handle, csr_m, config, v0.view(), eigenvalues.view(), eigenvectors.view());
+        handle, csr_matrix, config, v0.view(), eigenvalues.view(), eigenvectors.view());
 
     ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues.data_handle(),
                                              expected_eigenvalues.data_handle(),
