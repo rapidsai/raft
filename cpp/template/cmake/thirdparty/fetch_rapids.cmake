@@ -12,6 +12,10 @@
 # the License.
 
 # Use this variable to update RAPIDS and RAFT versions
+
+set(rapids-cmake-repo bdice/rapids-cmake)
+set(rapids-cmake-branch cccl-2.7.0-rc2)
+
 set(RAPIDS_VERSION "24.12")
 
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake)
