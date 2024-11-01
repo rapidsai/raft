@@ -28,7 +28,7 @@ from libcpp cimport bool, nullptr
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 
-from rmm._lib.memory_resource cimport device_memory_resource
+from rmm.librmm.memory_resource cimport device_memory_resource
 
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,

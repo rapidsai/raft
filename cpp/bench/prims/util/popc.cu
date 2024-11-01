@@ -89,10 +89,9 @@ struct popc_bench : public fixture {
       auto bits_view =
         raft::make_device_vector_view<const bits_t, index_t>(bits_d.data_handle(), bits_d.size());
 
-      index_t max_len   = params.n_rows * params.n_cols;
-      auto max_len_view = raft::make_host_scalar_view<index_t>(&max_len);
-      auto nnz_actual_view =
-        nnz_actual_d.view();  // raft::make_device_scalar_view<index_t>(nnz_actual_d.data_handle());
+      index_t max_len      = params.n_rows * params.n_cols;
+      auto max_len_view    = raft::make_host_scalar_view<const index_t, index_t>(&max_len);
+      auto nnz_actual_view = nnz_actual_d.view();
       raft::popc(this->handle, bits_view, max_len_view, nnz_actual_view);
     });
   }

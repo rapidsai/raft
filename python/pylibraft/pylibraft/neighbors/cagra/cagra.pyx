@@ -52,10 +52,8 @@ from pylibraft.common.handle cimport device_resources
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
 
-from rmm._lib.memory_resource cimport (
-    DeviceMemoryResource,
-    device_memory_resource,
-)
+from rmm.librmm.memory_resource cimport device_memory_resource
+from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
 
 cimport pylibraft.neighbors.cagra.cpp.c_cagra as c_cagra
 from pylibraft.common.optional cimport make_optional, optional

@@ -20,6 +20,9 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/util/integer_utils.hpp>
+
+#include <cmath>
 
 namespace raft::core {
 /**
@@ -89,7 +92,10 @@ struct bitset_view {
   /**
    * @brief Get the number of elements used by the bitset representation.
    */
-  inline _RAFT_HOST_DEVICE auto n_elements() const -> index_t;
+  inline _RAFT_HOST_DEVICE auto n_elements() const -> index_t
+  {
+    return raft::div_rounding_up_safe(bitset_len_, bitset_element_size);
+  }
 
   inline auto to_mdspan() -> raft::device_vector_view<bitset_t, index_t>
   {
@@ -98,6 +104,80 @@ struct bitset_view {
   inline auto to_mdspan() const -> raft::device_vector_view<const bitset_t, index_t>
   {
     return raft::make_device_vector_view<const bitset_t, index_t>(bitset_ptr_, n_elements());
+  }
+  /**
+   * @brief Returns the number of bits set to true in count_gpu_scalar.
+   *
+   * @param[in] res RAFT resources
+   * @param[out] count_gpu_scalar Device scalar to store the count
+   */
+  void count(const raft::resources& res, raft::device_scalar_view<index_t> count_gpu_scalar) const;
+  /**
+   * @brief Returns the number of bits set to true.
+   *
+   * @param res RAFT resources
+   * @return index_t Number of bits set to true
+   */
+  auto count(const raft::resources& res) const -> index_t
+  {
+    auto count_gpu_scalar = raft::make_device_scalar<index_t>(res, 0.0);
+    count(res, count_gpu_scalar.view());
+    index_t count_cpu = 0;
+    raft::update_host(
+      &count_cpu, count_gpu_scalar.data_handle(), 1, resource::get_cuda_stream(res));
+    resource::sync_stream(res);
+    return count_cpu;
+  }
+
+  /**
+   * @brief Repeats the bitset data and copies it to the output device pointer.
+   *
+   * This function takes the original bitset data stored in the device memory
+   * and repeats it a specified number of times into a new location in the device memory.
+   * The bits are copied bit-by-bit to ensure that even if the number of bits (bitset_len_)
+   * is not a multiple of the bitset element size (e.g., 32 for uint32_t), the bits are
+   * tightly packed without any gaps between rows.
+   *
+   * @param res RAFT resources for managing CUDA streams and execution policies.
+   * @param times Number of times the bitset data should be repeated in the output.
+   * @param output_device_ptr Device pointer where the repeated bitset data will be stored.
+   *
+   * The caller must ensure that the output device pointer has enough memory allocated
+   * to hold `times * bitset_len` bits, where `bitset_len` is the number of bits in the original
+   * bitset. This function uses Thrust parallel algorithms to efficiently perform the operation on
+   * the GPU.
+   */
+  void repeat(const raft::resources& res, index_t times, bitset_t* output_device_ptr) const;
+
+  /**
+   * @brief Calculate the sparsity (fraction of 0s) of the bitset.
+   *
+   * This function computes the sparsity of the bitset, defined as the ratio of unset bits (0s)
+   * to the total number of bits in the set. If the total number of bits is zero, the function
+   * returns 1.0, indicating the set is fully sparse.
+   *
+   * @param res RAFT resources for managing CUDA streams and execution policies.
+   * @return double The sparsity of the bitset, i.e., the fraction of unset bits.
+   *
+   * This API will synchronize on the stream of `res`.
+   */
+  double sparsity(const raft::resources& res) const;
+
+  /**
+   * @brief Calculates the number of `bitset_t` elements required to store a bitset.
+   *
+   * This function computes the number of `bitset_t` elements needed to store a bitset, ensuring
+   * that all bits are accounted for. If the bitset length is not a multiple of the `bitset_t` size
+   * (in bits), the calculation rounds up to include the remaining bits in an additional `bitset_t`
+   * element.
+   *
+   * @param bitset_len The total length of the bitset in bits.
+   * @return size_t The number of `bitset_t` elements required to store the bitset.
+   */
+  static inline size_t eval_n_elements(size_t bitset_len)
+  {
+    const size_t bits_per_element = sizeof(bitset_t) * 8;
+    return (bitset_len + bits_per_element - 1) / bits_per_element;
   }
 
  private:
@@ -173,7 +253,10 @@ struct bitset {
   /**
    * @brief Get the number of elements used by the bitset representation.
    */
-  inline auto n_elements() const -> index_t;
+  inline auto n_elements() const -> index_t
+  {
+    return raft::div_rounding_up_safe(bitset_len_, bitset_element_size);
+  }
 
   /** @brief Get an mdspan view of the current bitset */
   inline auto to_mdspan() -> raft::device_vector_view<bitset_t, index_t>

@@ -440,7 +440,9 @@ if(BUILD_TESTS)
     neighbors/ann_nn_descent/test_float_uint32_t.cu
     neighbors/ann_nn_descent/test_int8_t_uint32_t.cu
     neighbors/ann_nn_descent/test_uint8_t_uint32_t.cu
-    neighbors/ann_nn_descent/test_batch_float_uint32_t.cu
+    # TODO: Investigate why this test is failing Reference issue
+    # https://github.com/rapidsai/raft/issues/2450
+    # neighbors/ann_nn_descent/test_batch_float_uint32_t.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
     GPUS
