@@ -13,15 +13,18 @@
 # limitations under the License.
 #
 
+import cupy
+import cupyx.scipy.sparse.linalg  # NOQA
 import numpy
 import pytest
-from pylibraft.solver import eigsh
-import cupy
 from cupyx.scipy import sparse
-import cupyx.scipy.sparse.linalg  # NOQA
+
+from pylibraft.solver import eigsh
+
 
 def shaped_random(
-        shape, xp=cupy, dtype=numpy.float32, scale=10, seed=0, order='C'):
+    shape, xp=cupy, dtype=numpy.float32, scale=10, seed=0, order="C"
+):
     """Returns an array filled with random values.
 
     Args:
@@ -45,9 +48,9 @@ def shaped_random(
     """
     numpy.random.seed(seed)
     dtype = numpy.dtype(dtype)
-    if dtype == '?':
+    if dtype == "?":
         a = numpy.random.randint(2, size=shape)
-    elif dtype.kind == 'c':
+    elif dtype.kind == "c":
         a = numpy.random.rand(*shape) + 1j * numpy.random.rand(*shape)
         a *= scale
     else:
@@ -58,20 +61,22 @@ def shaped_random(
 class TestEigsh:
     n = 30
     density = 0.33
-    tol = {numpy.float32: 1e-5, numpy.complex64: 1e-5, 'default': 1e-12}
-    res_tol = {'f': 1e-5, 'd': 1e-12}
+    tol = {numpy.float32: 1e-5, numpy.complex64: 1e-5, "default": 1e-12}
+    res_tol = {"f": 1e-5, "d": 1e-12}
     return_eigenvectors = True
 
     def _make_matrix(self, dtype, xp):
         shape = (self.n, self.n)
         a = shaped_random(shape, xp, dtype=dtype)
-        mask = shaped_random(shape, xp, dtype='f', scale=1)
+        mask = shaped_random(shape, xp, dtype="f", scale=1)
         a[mask > self.density] = 0
         a = a * a.conj().T
         return a
 
     def _test_eigsh(self, a, k, xp, sp):
-        expected_ret = sp.linalg.eigsh(a, k=k, return_eigenvectors=self.return_eigenvectors)
+        expected_ret = sp.linalg.eigsh(
+            a, k=k, return_eigenvectors=self.return_eigenvectors
+        )
         actual_ret = eigsh(a, k=k)
         if self.return_eigenvectors:
             w, x = actual_ret
@@ -80,19 +85,19 @@ class TestEigsh:
             ax_xw = a @ x - xp.multiply(x, w.reshape(1, k))
             res = xp.linalg.norm(ax_xw) / xp.linalg.norm(w)
             tol = self.res_tol[numpy.dtype(a.dtype).char.lower()]
-            assert (res < tol)
+            assert res < tol
         else:
             w = actual_ret
             exp_w = expected_ret
         w = xp.sort(w)
         cupy.allclose(w, exp_w, rtol=tol, atol=tol)
 
-    @pytest.mark.parametrize('format', ['csr']) # , 'csc', 'coo'])
-    @pytest.mark.parametrize('k', [3, 6, 12])
-    @pytest.mark.parametrize('dtype', ['f', 'd'])
+    @pytest.mark.parametrize("format", ["csr"])  # , 'csc', 'coo'])
+    @pytest.mark.parametrize("k", [3, 6, 12])
+    @pytest.mark.parametrize("dtype", ["f", "d"])
     def test_sparse(self, format, k, dtype, xp=cupy, sp=sparse):
-        if format == 'csc':
-            pytest.xfail('may be buggy')  # trans=True
+        if format == "csc":
+            pytest.xfail("may be buggy")  # trans=True
 
         a = self._make_matrix(dtype, xp)
         a = sp.coo_matrix(a).asformat(format)
@@ -100,25 +105,23 @@ class TestEigsh:
 
     def test_invalid(self):
         xp, sp = cupy, sparse
-        a = xp.diag(xp.ones((self.n, ), dtype='f'))
+        a = xp.diag(xp.ones((self.n,), dtype="f"))
         with pytest.raises(ValueError):
-            sp.linalg.eigsh(xp.ones((2, 1), dtype='f'))
+            sp.linalg.eigsh(xp.ones((2, 1), dtype="f"))
         with pytest.raises(ValueError):
             sp.linalg.eigsh(a, k=0)
-        a = xp.diag(xp.ones((self.n, ), dtype='f'))
+        a = xp.diag(xp.ones((self.n,), dtype="f"))
         with pytest.raises(ValueError):
-            sp.linalg.eigsh(xp.ones((1,), dtype='f'))
+            sp.linalg.eigsh(xp.ones((1,), dtype="f"))
         with pytest.raises(TypeError):
-            sp.linalg.eigsh(xp.ones((2, 2), dtype='i'))
+            sp.linalg.eigsh(xp.ones((2, 2), dtype="i"))
         with pytest.raises(ValueError):
             sp.linalg.eigsh(a, k=self.n)
 
     def test_starting_vector(self):
-        n = 100
-
         # Make symmetric matrix
-        aux = self._make_matrix('f', cupy)
-        aux = sparse.coo_matrix(aux).asformat('csr')
+        aux = self._make_matrix("f", cupy)
+        aux = sparse.coo_matrix(aux).asformat("csr")
         matrix = (aux + aux.T) / 2.0
 
         # Find reference eigenvector
