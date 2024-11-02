@@ -25,18 +25,21 @@ from pylibraft.solver import eigsh
 def shaped_random(
     shape, xp=cupy, dtype=numpy.float32, scale=10, seed=0, order="C"
 ):
-    """Returns an array filled with random values.
+    """
+    Returns an array filled with random values.
 
-    Args:
-         shape(tuple): Shape of returned ndarray.
-         xp(numpy or cupy): Array module to use.
-         dtype(dtype): Dtype of returned ndarray.
-         scale(float): Scaling factor of elements.
-         seed(int): Random seed.
+    Args
+    ----
+        shape(tuple): Shape of returned ndarray.
+        xp(numpy or cupy): Array module to use.
+        dtype(dtype): Dtype of returned ndarray.
+        scale(float): Scaling factor of elements.
+        seed(int): Random seed.
 
-    Returns:
-         numpy.ndarray or cupy.ndarray: The array with
-         given shape, array module,
+    Returns
+    -------
+        numpy.ndarray or cupy.ndarray: The array with
+        given shape, array module,
 
     If ``dtype`` is ``numpy.bool_``, the elements are
     independently drawn from ``True`` and ``False``
