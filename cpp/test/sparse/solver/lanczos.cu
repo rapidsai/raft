@@ -136,13 +136,13 @@ class rmat_lanczos_tests
     raft::matrix::fill<ValueType>(handle, out_data.view(), 1.0);
     raft::sparse::COO<ValueType, IndexType> coo(stream);
 
-    raft::sparse::op::coo_sort(n_nodes,
-                               n_nodes,
-                               n_edges,
-                               out_src.data_handle(),
-                               out_dst.data_handle(),
-                               out_data.data_handle(),
-                               stream);
+    raft::sparse::op::coo_sort<ValueType, int>(n_nodes,
+                                               n_nodes,
+                                               n_edges,
+                                               out_src.data_handle(),
+                                               out_dst.data_handle(),
+                                               out_data.data_handle(),
+                                               stream);
     raft::sparse::op::max_duplicates<IndexType, ValueType>(handle,
                                                            coo,
                                                            out_src.data_handle(),
