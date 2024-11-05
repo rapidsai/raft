@@ -19,7 +19,7 @@ import numpy
 import pytest
 from cupyx.scipy import sparse
 
-from pylibraft.solver import eigsh
+from pylibraft.sparse.linalg import eigsh
 
 
 def shaped_random(

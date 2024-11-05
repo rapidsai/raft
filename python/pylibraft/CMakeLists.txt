@@ -89,7 +89,7 @@ add_subdirectory(pylibraft/distance)
 add_subdirectory(pylibraft/matrix)
 add_subdirectory(pylibraft/neighbors)
 add_subdirectory(pylibraft/random)
-add_subdirectory(pylibraft/solver)
+add_subdirectory(pylibraft/sparse)
 add_subdirectory(pylibraft/cluster)
 
 if(DEFINED cython_lib_dir)

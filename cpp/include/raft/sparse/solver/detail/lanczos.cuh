@@ -54,6 +54,7 @@
 #include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/sparse/linalg/detail/cusparse_utils.hpp>
 #include <raft/sparse/solver/lanczos_types.hpp>
 #include <raft/spectral/detail/lapack.hpp>
 #include <raft/spectral/detail/warn_dbg.hpp>
@@ -1553,26 +1554,18 @@ void lanczos_aux(raft::resources const& handle,
 {
   auto stream = resource::get_cuda_stream(handle);
 
-  auto A_structure = A.structure_view();
-  IndexTypeT n     = A_structure.get_n_rows();
+  IndexTypeT n  = A.structure_view().get_n_rows();
+  auto v_vector = raft::make_device_vector_view<const ValueTypeT>(v.data_handle(), n);
+  auto u_vector = raft::make_device_vector_view<const ValueTypeT>(u.data_handle(), n);
 
   raft::copy(
     v.data_handle(), V.data_handle() + start_idx * V.stride(0), n, stream);  // V(start_idx, 0)
 
-  auto cusparse_h = resource::get_cusparse_handle(handle);
-  cusparseSpMatDescr_t cusparse_A;
-  raft::sparse::detail::cusparsecreatecsr(&cusparse_A,
-                                          A_structure.get_n_rows(),
-                                          A_structure.get_n_cols(),
-                                          A_structure.get_nnz(),
-                                          const_cast<IndexTypeT*>(A_structure.get_indptr().data()),
-                                          const_cast<IndexTypeT*>(A_structure.get_indices().data()),
-                                          const_cast<ValueTypeT*>(A.get_elements().data()));
+  auto cusparse_h                 = resource::get_cusparse_handle(handle);
+  cusparseSpMatDescr_t cusparse_A = raft::sparse::linalg::detail::create_descriptor(A);
 
-  cusparseDnVecDescr_t cusparse_v;
-  cusparseDnVecDescr_t cusparse_u;
-  raft::sparse::detail::cusparsecreatednvec(&cusparse_v, n, v.data_handle());
-  raft::sparse::detail::cusparsecreatednvec(&cusparse_u, n, u.data_handle());
+  cusparseDnVecDescr_t cusparse_v = raft::sparse::linalg::detail::create_descriptor(v_vector);
+  cusparseDnVecDescr_t cusparse_u = raft::sparse::linalg::detail::create_descriptor(u_vector);
 
   ValueTypeT one  = 1;
   ValueTypeT zero = 0;
@@ -1603,8 +1596,6 @@ void lanczos_aux(raft::resources const& handle,
 
     auto alpha_i =
       raft::make_device_scalar_view(alpha.data_handle() + i * alpha.stride(1));  // alpha(0, i)
-    auto v_vector = raft::make_device_vector_view<const ValueTypeT>(v.data_handle(), n);
-    auto u_vector = raft::make_device_vector_view<const ValueTypeT>(u.data_handle(), n);
     raft::linalg::dot(handle, v_vector, u_vector, alpha_i);
 
     raft::matrix::fill(handle, vv, zero);
@@ -1706,17 +1697,17 @@ auto lanczos_smallest(
   ValueTypeT* v0,
   uint64_t seed) -> int
 {
-  auto A_structure = A.structure_view();
-  int n            = A_structure.get_n_rows();
-  int ncv          = restartIter;
-  auto stream      = resource::get_cuda_stream(handle);
+  int n       = A.structure_view().get_n_rows();
+  int ncv     = restartIter;
+  auto stream = resource::get_cuda_stream(handle);
 
   auto V = raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, ncv, n);
   auto V_0_view =
     raft::make_device_matrix_view<ValueTypeT, uint32_t>(V.data_handle(), 1, n);  // First Row V[0]
   auto v0_view = raft::make_device_matrix_view<const ValueTypeT, uint32_t>(v0, 1, n);
 
-  auto u = raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, 1, n);
+  auto u        = raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, 1, n);
+  auto u_vector = raft::make_device_vector_view<ValueTypeT, uint32_t>(u.data_handle(), n);
   raft::copy(u.data_handle(), v0, n, stream);
 
   auto cublas_h = resource::get_cublas_handle(handle);
@@ -1835,7 +1826,7 @@ auto lanczos_smallest(
     ValueTypeT one  = 1;
     ValueTypeT mone = -1;
 
-    // Using raft::linalg::gemv leads to Reason=7:CUBLAS_STATUS_INVALID_VALUE
+    // Using raft::linalg::gemv leads to Reason=7:CUBLAS_STATUS_INVALID_VALUE (issue raft#2484)
     raft::linalg::detail::cublasgemv(cublas_h,
                                      CUBLAS_OP_T,
                                      nEigVecs,
@@ -1866,41 +1857,28 @@ auto lanczos_smallest(
 
     auto V_0_view =
       raft::make_device_matrix_view<ValueTypeT>(V.data_handle() + (nEigVecs * n), 1, n);
-
-    auto unrm  = raft::make_device_vector<ValueTypeT, uint32_t>(handle, 1);
-    auto input = raft::make_device_matrix_view<const ValueTypeT, uint32_t>(u.data_handle(), 1, n);
+    auto V_0_view_vector =
+      raft::make_device_vector_view<ValueTypeT, uint32_t>(V_0_view.data_handle(), n);
+    auto unrm = raft::make_device_vector<ValueTypeT, uint32_t>(handle, 1);
     raft::linalg::norm(handle,
-                       input,
+                       raft::make_const_mdspan(u.view()),
                        unrm.view(),
                        raft::linalg::L2Norm,
                        raft::linalg::Apply::ALONG_ROWS,
                        raft::sqrt_op());
 
-    auto u_vector_const = raft::make_device_vector_view<const ValueTypeT>(u.data_handle(), n);
-
     raft::linalg::unary_op(
-      handle, u_vector_const, V_0_view, [device_scalar = unrm.data_handle()] __device__(auto y) {
-        return y / *device_scalar;
-      });
+      handle,
+      raft::make_const_mdspan(u_vector),
+      V_0_view,
+      [device_scalar = unrm.data_handle()] __device__(auto y) { return y / *device_scalar; });
 
-    auto cusparse_h = resource::get_cusparse_handle(handle);
-    cusparseSpMatDescr_t cusparse_A;
-    //   input_config.a_indptr  = const_cast<IndexType*>(x_structure.get_indptr().data());
-    // input_config.a_indices = const_cast<IndexType*>(x_structure.get_indices().data());
-    // input_config.a_data    = const_cast<ElementType*>(x.get_elements().data());
-    raft::sparse::detail::cusparsecreatecsr(
-      &cusparse_A,
-      A_structure.get_n_rows(),
-      A_structure.get_n_cols(),
-      A_structure.get_nnz(),
-      const_cast<IndexTypeT*>(A_structure.get_indptr().data()),
-      const_cast<IndexTypeT*>(A_structure.get_indices().data()),
-      const_cast<ValueTypeT*>(A.get_elements().data()));
+    auto cusparse_h                 = resource::get_cusparse_handle(handle);
+    cusparseSpMatDescr_t cusparse_A = raft::sparse::linalg::detail::create_descriptor(A);
 
-    cusparseDnVecDescr_t cusparse_v;
-    cusparseDnVecDescr_t cusparse_u;
-    raft::sparse::detail::cusparsecreatednvec(&cusparse_v, n, V_0_view.data_handle());
-    raft::sparse::detail::cusparsecreatednvec(&cusparse_u, n, u.data_handle());
+    cusparseDnVecDescr_t cusparse_v =
+      raft::sparse::linalg::detail::create_descriptor(V_0_view_vector);
+    cusparseDnVecDescr_t cusparse_u = raft::sparse::linalg::detail::create_descriptor(u_vector);
 
     ValueTypeT zero = 0;
     size_t bufferSize;
@@ -1928,22 +1906,20 @@ auto lanczos_smallest(
                                        stream);
 
     auto alpha_k = raft::make_device_scalar_view<ValueTypeT>(alpha.data_handle() + nEigVecs);
-    auto V_0_view_vector = raft::make_device_vector_view<ValueTypeT>(V_0_view.data_handle(), n);
-    auto u_view_vector   = raft::make_device_vector_view<ValueTypeT>(u.data_handle(), n);
 
     raft::linalg::dot(
-      handle, make_const_mdspan(V_0_view_vector), make_const_mdspan(u_view_vector), alpha_k);
+      handle, make_const_mdspan(V_0_view_vector), make_const_mdspan(u_vector), alpha_k);
 
     raft::linalg::binary_op(handle,
-                            make_const_mdspan(u_view_vector),
+                            make_const_mdspan(u_vector),
                             make_const_mdspan(V_0_view_vector),
-                            u_view_vector,
+                            u_vector,
                             [device_scalar_ptr = alpha_k.data_handle()] __device__(
                               ValueTypeT u_element, ValueTypeT V_0_element) {
                               return u_element - (*device_scalar_ptr) * V_0_element;
                             });
 
-    auto temp = raft::make_device_vector<ValueTypeT>(handle, n);
+    auto temp = raft::make_device_vector<ValueTypeT, uint32_t>(handle, n);
 
     auto V_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
       V.data_handle(), nEigVecs, n);
@@ -1994,9 +1970,9 @@ auto lanczos_smallest(
 
     auto one_scalar = raft::make_device_scalar<ValueTypeT>(handle, 1);
     raft::linalg::binary_op(handle,
-                            make_const_mdspan(u_view_vector),
+                            make_const_mdspan(u_vector),
                             make_const_mdspan(temp.view()),
-                            u_view_vector,
+                            u_vector,
                             [device_scalar_ptr = one_scalar.data_handle()] __device__(
                               ValueTypeT u_element, ValueTypeT temp_element) {
                               return u_element - (*device_scalar_ptr) * temp_element;
@@ -2013,11 +1989,10 @@ auto lanczos_smallest(
 
     auto V_kplus1 =
       raft::make_device_vector_view<ValueTypeT>(V.data_handle() + V.stride(0) * (nEigVecs + 1), n);
-    auto u_vector = raft::make_device_vector_view<const ValueTypeT>(u.data_handle(), n);
 
     raft::linalg::unary_op(
       handle,
-      u_vector,
+      make_const_mdspan(u_vector),
       V_kplus1,
       [device_scalar = (beta.data_handle() + beta.stride(1) * nEigVecs)] __device__(auto y) {
         return y / *device_scalar;
