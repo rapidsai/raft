@@ -26,6 +26,7 @@ build:
     - {{ compiler('cuda') }}
     - cuda-cudart-dev
     {% endif %}
+    - cuda-python
 
 requirements:
   build:
@@ -42,10 +43,10 @@ requirements:
     - {{ stdlib("c") }}
   host:
     {% if cuda_major == "11" %}
-    - cuda-python >=11.7.1,<12.0a0
+    - cuda-python >=11.7.1,<12.0a0,<=11.8.3
     - cudatoolkit
     {% else %}
-    - cuda-python >=12.0,<13.0a0
+    - cuda-python >=12.0,<13.0a0,<=12.6.0
     - cuda-cudart-dev
     {% endif %}
     - cuda-version ={{ cuda_version }}
@@ -60,8 +61,10 @@ requirements:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
     - cudatoolkit
+    - cuda-python >=11.7.1,<12.0a0,<=11.8.3
     {% else %}
     - cuda-cudart
+    - cuda-python >=12.0,<13.0a0,<=12.6.0
     {% endif %}
     - libraft {{ version }}
     - libraft-headers {{ version }}

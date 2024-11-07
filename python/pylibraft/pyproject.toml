@@ -133,4 +133,5 @@ matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 [tool.pytest.ini_options]
 filterwarnings = [
     "error",
+    "ignore:.*cuda..* module is deprecated.*:DeprecationWarning",
 ]
