@@ -88,7 +88,6 @@ rapids_cython_init()
 add_subdirectory(pylibraft/common)
 add_subdirectory(pylibraft/matrix)
 add_subdirectory(pylibraft/random)
-add_subdirectory(pylibraft/cluster)
 
 if(DEFINED cython_lib_dir)
   rapids_cython_add_rpath_entries(TARGET raft PATHS "${cython_lib_dir}")
