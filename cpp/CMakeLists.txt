@@ -54,7 +54,6 @@ option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
 option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
-option(BUILD_CAGRA_HNSWLIB "Build CAGRA+hnswlib interface" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -105,12 +104,8 @@ message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${RAFT_NVTX}")
-message(VERBOSE
-        "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}"
-)
-message(VERBOSE
-        "RAFT: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}"
-)
+message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "RAFT: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL
@@ -198,10 +193,6 @@ if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
   rapids_cpm_gbench(BUILD_STATIC)
 endif()
 
-if(BUILD_CAGRA_HNSWLIB)
-  include(cmake/thirdparty/get_hnswlib.cmake)
-endif()
-
 # ##################################################################################################
 # * raft ---------------------------------------------------------------------
 add_library(raft INTERFACE)
@@ -210,9 +201,6 @@ add_library(raft::raft ALIAS raft)
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
-if(BUILD_CAGRA_HNSWLIB)
-  target_link_libraries(raft INTERFACE hnswlib::hnswlib)
-endif()
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
@@ -300,38 +288,6 @@ if(RAFT_COMPILE_LIBRARY)
   add_library(
     raft_objs OBJECT
     src/core/logger.cpp
-    src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_correlation_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_correlation_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_cosine_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_cosine_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_dice_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_dice_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_hellinger_expanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_hellinger_expanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_jensen_shannon_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_jensen_shannon_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_kl_divergence_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_kl_divergence_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l1_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l1_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l2_expanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l2_expanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l_inf_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l_inf_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_rbf.cu
-    src/distance/detail/pairwise_matrix/dispatch_russel_rao_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_russel_rao_float_float_float_int.cu
-    src/distance/distance.cu
-    src/distance/fused_l2_nn.cu
-    src/distance/fused_distance_nn.cu
     src/linalg/detail/coalesced_reduction.cu
     src/matrix/detail/select_k_double_int64_t.cu
     src/matrix/detail/select_k_double_uint32_t.cu
@@ -341,181 +297,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/matrix/detail/select_k_half_int64_t.cu
     src/matrix/detail/select_k_half_uint32_t.cu
     src/neighbors/ball_cover.cu
-    src/neighbors/brute_force_fused_l2_knn_float_int64_t.cu
-    src/neighbors/brute_force_knn_int64_t_float_int64_t.cu
-    src/neighbors/brute_force_knn_int64_t_float_uint32_t.cu
-    src/neighbors/brute_force_knn_int_float_int.cu
-    src/neighbors/brute_force_knn_uint32_t_float_uint32_t.cu
-    src/neighbors/brute_force_knn_index_float.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
-    src/neighbors/detail/ivf_flat_interleaved_scan_half_half_int64_t.cu
-    src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
-    src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
-    src/neighbors/detail/ivf_flat_search.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_float.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_half.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
-    src/neighbors/detail/refine_host_float_float.cpp
-    src/neighbors/detail/refine_host_half_float.cpp
-    src/neighbors/detail/refine_host_int8_t_float.cpp
-    src/neighbors/detail/refine_host_uint8_t_float.cpp
-    src/neighbors/ivf_flat_build_float_int64_t.cu
-    src/neighbors/ivf_flat_build_int8_t_int64_t.cu
-    src/neighbors/ivf_flat_build_uint8_t_int64_t.cu
-    src/neighbors/ivf_flat_extend_float_int64_t.cu
-    src/neighbors/ivf_flat_extend_int8_t_int64_t.cu
-    src/neighbors/ivf_flat_extend_uint8_t_int64_t.cu
-    src/neighbors/ivf_flat_search_float_int64_t.cu
-    src/neighbors/ivf_flat_search_int8_t_int64_t.cu
-    src/neighbors/ivf_flat_search_uint8_t_int64_t.cu
-    src/neighbors/ivfpq_build_float_int64_t.cu
-    src/neighbors/ivfpq_build_half_int64_t.cu
-    src/neighbors/ivfpq_build_int8_t_int64_t.cu
-    src/neighbors/ivfpq_build_uint8_t_int64_t.cu
-    src/neighbors/ivfpq_extend_float_int64_t.cu
-    src/neighbors/ivfpq_extend_half_int64_t.cu
-    src/neighbors/ivfpq_extend_int8_t_int64_t.cu
-    src/neighbors/ivfpq_extend_uint8_t_int64_t.cu
-    src/neighbors/ivfpq_search_float_int64_t.cu
-    src/neighbors/ivfpq_search_half_int64_t.cu
-    src/neighbors/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/ivfpq_search_uint8_t_int64_t.cu
-    src/neighbors/refine_float_float.cu
-    src/neighbors/refine_half_float.cu
-    src/neighbors/refine_int8_t_float.cu
-    src/neighbors/refine_uint8_t_float.cu
     src/raft_runtime/cluster/cluster_cost.cuh
     src/raft_runtime/cluster/cluster_cost_double.cu
     src/raft_runtime/cluster/cluster_cost_float.cu
@@ -526,51 +307,12 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/cluster/update_centroids.cuh
     src/raft_runtime/cluster/update_centroids_double.cu
     src/raft_runtime/cluster/update_centroids_float.cu
-    src/raft_runtime/distance/fused_distance_min_arg.cu
-    src/raft_runtime/distance/fused_l2_min_arg.cu
-    src/raft_runtime/distance/pairwise_distance.cu
     src/raft_runtime/matrix/select_k_float_int64_t.cu
-    src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
-    src/raft_runtime/neighbors/cagra_build.cu
-    src/raft_runtime/neighbors/cagra_search.cu
-    src/raft_runtime/neighbors/cagra_serialize.cu
     src/raft_runtime/neighbors/eps_neighborhood.cu
-    $<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:src/raft_runtime/neighbors/hnsw.cpp>
-    src/raft_runtime/neighbors/ivf_flat_build.cu
-    src/raft_runtime/neighbors/ivf_flat_search.cu
-    src/raft_runtime/neighbors/ivf_flat_serialize.cu
-    src/raft_runtime/neighbors/ivfpq_build.cu
-    src/raft_runtime/neighbors/ivfpq_deserialize.cu
-    src/raft_runtime/neighbors/ivfpq_search_float_int64_t.cu
-    src/raft_runtime/neighbors/ivfpq_search_int8_t_int64_t.cu
-    src/raft_runtime/neighbors/ivfpq_search_uint8_t_int64_t.cu
-    src/raft_runtime/neighbors/ivfpq_serialize.cu
-    src/raft_runtime/neighbors/refine_d_int64_t_float.cu
-    src/raft_runtime/neighbors/refine_d_int64_t_int8_t.cu
-    src/raft_runtime/neighbors/refine_d_int64_t_uint8_t.cu
-    src/raft_runtime/neighbors/refine_h_int64_t_float.cu
-    src/raft_runtime/neighbors/refine_h_int64_t_int8_t.cu
-    src/raft_runtime/neighbors/refine_h_int64_t_uint8_t.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
-    src/spatial/knn/detail/ball_cover/registers_eps_pass_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_dist.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_dist.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_dist.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_dist.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_haversine.cu
-    src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
-    src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
-    src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
   )
   set_target_properties(
     raft_objs
