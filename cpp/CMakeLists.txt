@@ -589,10 +589,3 @@ endif()
 if(BUILD_PRIMS_BENCH)
   add_subdirectory(bench/prims/)
 endif()
-
-# ##################################################################################################
-# * build ann benchmark executable -----------------------------------------------
-
-if(BUILD_ANN_BENCH)
-  add_subdirectory(bench/ann/)
-endif()
