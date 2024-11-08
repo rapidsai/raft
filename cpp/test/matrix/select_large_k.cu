@@ -24,11 +24,11 @@ auto inputs_random_largek = testing::Values(select::params{100, 100000, 1000, tr
                                             select::params{100, 100000, 2048, false},
                                             select::params{100, 100000, 1237, true});
 
-using ReferencedRandomFloatSizeT =
+using ReferencedRandomFloatLargeSizeT =
   SelectK<float, int64_t, with_ref<SelectAlgo::kRadix8bits>::params_random>;
-TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }  // NOLINT
-INSTANTIATE_TEST_CASE_P(SelectK,                       // NOLINT
-                        ReferencedRandomFloatSizeT,
+TEST_P(ReferencedRandomFloatLargeSizeT, LargeK) { run(); }  // NOLINT
+INSTANTIATE_TEST_CASE_P(SelectK,                            // NOLINT
+                        ReferencedRandomFloatLargeSizeT,
                         testing::Combine(inputs_random_largek,
                                          testing::Values(SelectAlgo::kRadix11bits,
                                                          SelectAlgo::kRadix11bitsExtraPass)));
