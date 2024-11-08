@@ -194,11 +194,15 @@ if(BUILD_TESTS)
     matrix/sample_rows.cu
     matrix/slice.cu
     matrix/triangular.cu
-    matrix/select_k.cu
-    matrix/select_large_k.cu
     sparse/spectral_matrix.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
+  )
+
+  ConfigureTest(NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY)
+
+  ConfigureTest(
+    NAME MATRIX_SELECT_LARGE_TEST PATH matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
