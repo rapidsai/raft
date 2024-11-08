@@ -97,8 +97,8 @@ if(BUILD_PRIMS_BENCH)
   )
 
   ConfigureBench(
-    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu main.cpp OPTIONAL LIB
-    EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/select_k.cu matrix/gather.cu main.cpp OPTIONAL
+    LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(

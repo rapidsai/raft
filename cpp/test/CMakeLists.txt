@@ -194,6 +194,8 @@ if(BUILD_TESTS)
     matrix/sample_rows.cu
     matrix/slice.cu
     matrix/triangular.cu
+    matrix/select_k.cu
+    matrix/select_large_k.cu
     sparse/spectral_matrix.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
