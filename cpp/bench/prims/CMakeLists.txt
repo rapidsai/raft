@@ -97,8 +97,8 @@ if(BUILD_PRIMS_BENCH)
   )
 
   ConfigureBench(
-    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu matrix/select_k.cu main.cpp OPTIONAL
-    LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu main.cpp OPTIONAL LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
@@ -106,9 +106,6 @@ if(BUILD_PRIMS_BENCH)
     main.cpp
   )
 
-  ConfigureBench(
-    NAME SPARSE_BENCH PATH sparse/bitmap_to_csr.cu sparse/convert_csr.cu sparse/select_k_csr.cu
-    main.cpp
-  )
+  ConfigureBench(NAME SPARSE_BENCH PATH sparse/bitmap_to_csr.cu sparse/convert_csr.cu main.cpp)
 
 endif()

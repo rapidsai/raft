@@ -289,13 +289,6 @@ if(RAFT_COMPILE_LIBRARY)
     raft_objs OBJECT
     src/core/logger.cpp
     src/linalg/detail/coalesced_reduction.cu
-    src/matrix/detail/select_k_double_int64_t.cu
-    src/matrix/detail/select_k_double_uint32_t.cu
-    src/matrix/detail/select_k_float_int64_t.cu
-    src/matrix/detail/select_k_float_uint32_t.cu
-    src/matrix/detail/select_k_float_int32.cu
-    src/matrix/detail/select_k_half_int64_t.cu
-    src/matrix/detail/select_k_half_uint32_t.cu
     src/neighbors/ball_cover.cu
     src/raft_runtime/cluster/cluster_cost.cuh
     src/raft_runtime/cluster/cluster_cost_double.cu
@@ -307,7 +300,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/cluster/update_centroids.cuh
     src/raft_runtime/cluster/update_centroids_double.cu
     src/raft_runtime/cluster/update_centroids_float.cu
-    src/raft_runtime/matrix/select_k_float_int64_t.cu
     src/raft_runtime/neighbors/eps_neighborhood.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu

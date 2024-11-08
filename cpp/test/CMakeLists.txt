@@ -199,12 +199,6 @@ if(BUILD_TESTS)
     EXPLICIT_INSTANTIATE_ONLY
   )
 
-  ConfigureTest(NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY)
-
-  ConfigureTest(
-    NAME MATRIX_SELECT_LARGE_TEST PATH matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY
-  )
-
   ConfigureTest(
     NAME
     RANDOM_TEST
@@ -245,7 +239,6 @@ if(BUILD_TESTS)
     sparse/reduce.cu
     sparse/row_op.cu
     sparse/sddmm.cu
-    sparse/select_k_csr.cu
     sparse/sort.cu
     sparse/spgemmi.cu
     sparse/spmm.cu
