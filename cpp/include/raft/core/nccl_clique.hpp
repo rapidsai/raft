@@ -42,11 +42,7 @@
     }                                              \
   } while (0);
 
-namespace raft::comms {
-void build_comms_nccl_only(raft::resources* handle, ncclComm_t nccl_comm, int num_ranks, int rank);
-}
-
-namespace raft::comms {
+namespace raft::core {
 
 struct nccl_clique {
   using pool_mr = rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>;
@@ -114,10 +110,6 @@ struct nccl_clique {
 
       // create a device resource handle for each device
       device_resources_.emplace_back();
-
-      // add NCCL communications to the device resource handle
-      raft::comms::build_comms_nccl_only(
-        &device_resources_[rank], nccl_comms_[rank], num_ranks_, rank);
     }
 
     for (int rank = 0; rank < num_ranks_; rank++) {
@@ -153,4 +145,4 @@ struct nccl_clique {
   std::vector<raft::device_resources> device_resources_;
 };
 
-}  // namespace raft::comms
+}  // namespace raft::core
