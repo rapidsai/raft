@@ -22,10 +22,15 @@ namespace raft::sparse::solver {
 
 template <typename ValueTypeT>
 struct lanczos_solver_config {
+  /** The number of eigenvalues and eigenvectors to compute. Must be 1 <= k < n.*/
   int n_components;
+  /** Maximum number of iteration. */
   int max_iterations;
+  /** The number of Lanczos vectors generated. Must be k + 1 < ncv < n. */
   int ncv;
+  /** Tolerance for residuals ``||Ax - wx||`` */
   ValueTypeT tolerance;
+  /** random seed */
   uint64_t seed;
 };
 

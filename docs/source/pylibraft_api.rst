@@ -13,3 +13,4 @@ Python API
    pylibraft_api/matrix.rst
    pylibraft_api/neighbors.rst
    pylibraft_api/random.rst
+   pylibraft_api/sparse.rst
