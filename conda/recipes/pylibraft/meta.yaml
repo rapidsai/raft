@@ -50,7 +50,7 @@ requirements:
     - cuda-cudart-dev
     {% endif %}
     - cuda-version ={{ cuda_version }}
-    - cython >=3.0.0
+    - cython >=3.0.0,<=3.1.0a0
     - libraft {{ version }}
     - libraft-headers {{ version }}
     - python x.x

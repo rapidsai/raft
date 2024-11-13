@@ -17,7 +17,7 @@ dependencies:
 - cuda-version=11.8
 - cudatoolkit
 - cxx-compiler
-- cython>=3.0.0
+- cython>=3.0.0,<=3.1.0a0
 - gcc_linux-aarch64=11.*
 - glog>=0.6.0
 - h5py>=3.8.0
