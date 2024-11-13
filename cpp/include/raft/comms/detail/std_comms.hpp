@@ -140,55 +140,11 @@ class std_comms : public comms_iface {
 
   std::unique_ptr<comms_iface> comm_split(int color, int key) const
   {
-    rmm::device_uvector<int> d_colors(get_size(), stream_);
-    rmm::device_uvector<int> d_keys(get_size(), stream_);
-
-    update_device(d_colors.data() + get_rank(), &color, 1, stream_);
-    update_device(d_keys.data() + get_rank(), &key, 1, stream_);
-
-    allgather(d_colors.data() + get_rank(), d_colors.data(), 1, datatype_t::INT32, stream_);
-    allgather(d_keys.data() + get_rank(), d_keys.data(), 1, datatype_t::INT32, stream_);
-    this->sync_stream(stream_);
-
-    std::vector<int> h_colors(get_size());
-    std::vector<int> h_keys(get_size());
-
-    update_host(h_colors.data(), d_colors.data(), get_size(), stream_);
-    update_host(h_keys.data(), d_keys.data(), get_size(), stream_);
-
-    this->sync_stream(stream_);
-
-    ncclComm_t nccl_comm;
-
-    // Create a structure to allgather...
-    ncclUniqueId id{};
-    rmm::device_uvector<ncclUniqueId> d_nccl_ids(get_size(), stream_);
-
-    if (key == 0) { RAFT_NCCL_TRY(ncclGetUniqueId(&id)); }
-
-    update_device(d_nccl_ids.data() + get_rank(), &id, 1, stream_);
-
-    allgather(d_nccl_ids.data() + get_rank(),
-              d_nccl_ids.data(),
-              sizeof(ncclUniqueId),
-              datatype_t::UINT8,
-              stream_);
-
-    auto offset =
-      std::distance(thrust::make_zip_iterator(h_colors.begin(), h_keys.begin()),
-                    std::find_if(thrust::make_zip_iterator(h_colors.begin(), h_keys.begin()),
-                                 thrust::make_zip_iterator(h_colors.end(), h_keys.end()),
-                                 [color](auto tuple) { return thrust::get<0>(tuple) == color; }));
-
-    auto subcomm_size = std::count(h_colors.begin(), h_colors.end(), color);
-
-    update_host(&id, d_nccl_ids.data() + offset, 1, stream_);
-
-    this->sync_stream(stream_);
-
-    RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm, subcomm_size, id, key));
-
-    return std::unique_ptr<comms_iface>(new std_comms(nccl_comm, subcomm_size, key, stream_, true));
+    ncclComm_t new_nccl_comm{};
+    RAFT_NCCL_TRY(ncclCommSplit(nccl_comm_, color, key, &new_nccl_comm, nullptr));
+    int new_nccl_comm_size{};
+    RAFT_NCCL_TRY(ncclCommCount(new_nccl_comm, &new_nccl_comm_size));
+    return std::unique_ptr<comms_iface>(new std_comms(new_nccl_comm, new_nccl_comm_size, key, stream_, true));
   }
 
   void barrier() const
