@@ -130,6 +130,14 @@ requires = [
 dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 
+[tool.pydistcheck]
+select = [
+    "distro-too-large-compressed",
+]
+
+# detect when package size grows significantly
+max_allowed_size_compressed = '550M'
+
 [tool.pytest.ini_options]
 filterwarnings = [
     "error",
