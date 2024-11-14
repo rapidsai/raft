@@ -48,8 +48,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_ucxx(VERSION  0.41
-        FORK             rapidsai
-        PINNED_TAG       branch-0.41
+        FORK             bdice
+        PINNED_TAG       cccl-2.7.0-rc2
         EXCLUDE_FROM_ALL YES
         UCXX_STATIC      ${RAFT_DASK_UCXX_STATIC}
     )
