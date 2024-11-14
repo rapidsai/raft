@@ -602,6 +602,7 @@ if(RAFT_COMPILE_LIBRARY)
              ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
                                            # will just be cublas
              $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+             $<TARGET_NAME_IF_EXISTS:hnswlib::hnswlib>
     )
 
     # So consumers know when using libraft.so/libraft.a
@@ -616,9 +617,6 @@ if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
 endif()
 
 target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib>)
-if(BUILD_CAGRA_HNSWLIB)
-  target_link_libraries(raft_compiled PUBLIC hnswlib::hnswlib)
-endif()
 
 # ##################################################################################################
 # * raft_compiled_static----------------------------------------------------------------------------
