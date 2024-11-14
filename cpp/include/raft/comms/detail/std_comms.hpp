@@ -144,7 +144,8 @@ class std_comms : public comms_iface {
     RAFT_NCCL_TRY(ncclCommSplit(nccl_comm_, color, key, &new_nccl_comm, nullptr));
     int new_nccl_comm_size{};
     RAFT_NCCL_TRY(ncclCommCount(new_nccl_comm, &new_nccl_comm_size));
-    return std::unique_ptr<comms_iface>(new std_comms(new_nccl_comm, new_nccl_comm_size, key, stream_, true));
+    return std::unique_ptr<comms_iface>(
+      new std_comms(new_nccl_comm, new_nccl_comm_size, key, stream_, true));
   }
 
   void barrier() const

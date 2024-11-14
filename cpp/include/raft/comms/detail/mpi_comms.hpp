@@ -127,13 +127,16 @@ class mpi_comms : public comms_iface {
 
     // initializing NCCL
     ncclConfig_t nccl_config = NCCL_CONFIG_INITIALIZER;
-    nccl_config.splitShare = 1;
+    nccl_config.splitShare   = 1;
     RAFT_NCCL_TRY(ncclCommInitRankConfig(&nccl_comm_, size_, id, rank_, &nccl_config));
 
     initialize();
   }
 
-  mpi_comms(MPI_Comm mpi_comm, bool owns_mpi_comm, ncclComm_t nccl_comm, rmm::cuda_stream_view stream)
+  mpi_comms(MPI_Comm mpi_comm,
+            bool owns_mpi_comm,
+            ncclComm_t nccl_comm,
+            rmm::cuda_stream_view stream)
     : owns_mpi_comm_(owns_mpi_comm),
       mpi_comm_(mpi_comm),
       nccl_comm_(nccl_comm),
