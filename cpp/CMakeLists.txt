@@ -85,6 +85,10 @@ if(BUILD_CPU_ONLY)
   set(BUILD_TESTS OFF)
 endif()
 
+if(NOT RAFT_COMPILE_LIBRARY)
+  set(BUILD_CAGRA_HNSWLIB OFF)
+endif()
+
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
 # `Threads::Threads` is the same value across all builds so that cache hits occur
@@ -105,12 +109,8 @@ message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${RAFT_NVTX}")
-message(VERBOSE
-        "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}"
-)
-message(VERBOSE
-        "RAFT: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}"
-)
+message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "RAFT: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL
