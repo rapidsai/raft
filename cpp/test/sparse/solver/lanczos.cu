@@ -202,7 +202,12 @@ class rmat_lanczos_tests
 
     std::get<0>(stats) =
       raft::sparse::solver::lanczos_compute_smallest_eigenvectors<IndexType, ValueType>(
-        handle, csr_matrix, config, v0.view(), eigenvalues.view(), eigenvectors.view());
+        handle,
+        config,
+        csr_matrix,
+        std::make_optional(v0.view()),
+        eigenvalues.view(),
+        eigenvectors.view());
 
     ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues.data_handle(),
                                              expected_eigenvalues.data_handle(),
@@ -278,7 +283,12 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
 
     std::get<0>(stats) =
       raft::sparse::solver::lanczos_compute_smallest_eigenvectors<IndexType, ValueType>(
-        handle, csr_matrix, config, v0.view(), eigenvalues.view(), eigenvectors.view());
+        handle,
+        config,
+        csr_matrix,
+        std::make_optional(v0.view()),
+        eigenvalues.view(),
+        eigenvectors.view());
 
     ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues.data_handle(),
                                              expected_eigenvalues.data_handle(),

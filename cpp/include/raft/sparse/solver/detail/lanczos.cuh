@@ -2071,22 +2071,40 @@ auto lanczos_smallest(
 template <typename IndexTypeT, typename ValueTypeT>
 auto lanczos_compute_smallest_eigenvectors(
   raft::resources const& handle,
-  raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
   lanczos_solver_config<ValueTypeT> const& config,
-  raft::device_vector_view<ValueTypeT, uint32_t> v0,
+  raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
+  std::optional<raft::device_vector_view<ValueTypeT, uint32_t>> v0,
   raft::device_vector_view<ValueTypeT, uint32_t> eigenvalues,
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors) -> int
 {
-  return lanczos_smallest(handle,
-                          A,
-                          config.n_components,
-                          config.max_iterations,
-                          config.ncv,
-                          config.tolerance,
-                          eigenvalues.data_handle(),
-                          eigenvectors.data_handle(),
-                          v0.data_handle(),
-                          config.seed);
+  if (v0.has_value()) {
+    return lanczos_smallest(handle,
+                            A,
+                            config.n_components,
+                            config.max_iterations,
+                            config.ncv,
+                            config.tolerance,
+                            eigenvalues.data_handle(),
+                            eigenvectors.data_handle(),
+                            v0->data_handle(),
+                            config.seed);
+  } else {
+    // Handle the optional v0 initial Lanczos vector if nullopt is used
+    auto n       = A.structure_view().get_n_rows();
+    auto temp_v0 = raft::make_device_vector<ValueTypeT, uint32_t>(handle, n);
+    raft::random::RngState rng_state(config.seed);
+    raft::random::uniform(handle, rng_state, temp_v0.view(), ValueTypeT{0.0}, ValueTypeT{1.0});
+    return lanczos_smallest(handle,
+                            A,
+                            config.n_components,
+                            config.max_iterations,
+                            config.ncv,
+                            config.tolerance,
+                            eigenvalues.data_handle(),
+                            eigenvectors.data_handle(),
+                            temp_v0.data_handle(),
+                            config.seed);
+  }
 }
 
 }  // namespace raft::sparse::solver::detail

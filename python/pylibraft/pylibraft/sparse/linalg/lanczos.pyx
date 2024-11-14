@@ -37,6 +37,7 @@ from pylibraft.common.cpp.mdspan cimport (
     make_device_vector_view,
     row_major,
 )
+from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport device_resources
 from pylibraft.random.cpp.rng_state cimport RngState
 
@@ -59,41 +60,41 @@ cdef extern from "raft_runtime/solver/lanczos.hpp" \
 
     cdef void lanczos_solver(
         const device_resources &handle,
+        lanczos_solver_config[double] config,
         device_vector_view[int64_t, uint32_t] rows,
         device_vector_view[int64_t, uint32_t] cols,
         device_vector_view[double, uint32_t] vals,
-        lanczos_solver_config[double] config,
-        device_vector_view[double, uint32_t] v0,
+        optional[device_vector_view[double, uint32_t]] v0,
         device_vector_view[double, uint32_t] eigenvalues,
         device_matrix_view[double, uint32_t, col_major] eigenvectors) except +
 
     cdef void lanczos_solver(
         const device_resources &handle,
+        lanczos_solver_config[float] config,
         device_vector_view[int64_t, uint32_t] rows,
         device_vector_view[int64_t, uint32_t] cols,
         device_vector_view[float, uint32_t] vals,
-        lanczos_solver_config[float] config,
-        device_vector_view[float, uint32_t] v0,
+        optional[device_vector_view[float, uint32_t]] v0,
         device_vector_view[float, uint32_t] eigenvalues,
         device_matrix_view[float, uint32_t, col_major] eigenvectors) except +
 
     cdef void lanczos_solver(
         const device_resources &handle,
+        lanczos_solver_config[double] config,
         device_vector_view[int, uint32_t] rows,
         device_vector_view[int, uint32_t] cols,
         device_vector_view[double, uint32_t] vals,
-        lanczos_solver_config[double] config,
-        device_vector_view[double, uint32_t] v0,
+        optional[device_vector_view[double, uint32_t]] v0,
         device_vector_view[double, uint32_t] eigenvalues,
         device_matrix_view[double, uint32_t, col_major] eigenvectors) except +
 
     cdef void lanczos_solver(
         const device_resources &handle,
+        lanczos_solver_config[float] config,
         device_vector_view[int, uint32_t] rows,
         device_vector_view[int, uint32_t] cols,
         device_vector_view[float, uint32_t] vals,
-        lanczos_solver_config[float] config,
-        device_vector_view[float, uint32_t] v0,
+        optional[device_vector_view[float, uint32_t]] v0,
         device_vector_view[float, uint32_t] eigenvalues,
         device_matrix_view[float, uint32_t, col_major] eigenvectors) except +
 
@@ -159,6 +160,8 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
     rows_ptr = <uintptr_t>rows.data
     cols_ptr = <uintptr_t>cols.data
     vals_ptr = <uintptr_t>vals.data
+    cdef optional[device_vector_view[double, uint32_t]] d_v0
+    cdef optional[device_vector_view[float, uint32_t]] f_v0
 
     if ncv is None:
         ncv = min(n, max(2*k + 1, 20))
@@ -170,13 +173,6 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         maxiter = 10 * n
     if tol == 0:
         tol = np.finfo(ValueType).eps
-
-    if v0 is None:
-        rng = cp.random.default_rng(seed)
-        v0 = rng.random((N,)).astype(vals.dtype)
-
-    v0 = cai_wrapper(v0)
-    v0_ptr = <uintptr_t>v0.data
 
     eigenvectors = device_ndarray.empty((N, k), dtype=ValueType, order='F')
     eigenvalues = device_ndarray.empty((k), dtype=ValueType, order='F')
@@ -196,13 +192,17 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_float.ncv = ncv
         config_float.tolerance = tol
         config_float.seed = seed
+        if v0 is not None:
+            v0 = cai_wrapper(v0)
+            v0_ptr = <uintptr_t>v0.data
+            f_v0 = make_device_vector_view(<float *>v0_ptr, <uint32_t> N)
         lanczos_solver(
             deref(h),
+            <lanczos_solver_config[float]> config_float,
             make_device_vector_view(<int *>rows_ptr, <uint32_t> (N + 1)),
             make_device_vector_view(<int *>cols_ptr, <uint32_t> nnz),
             make_device_vector_view(<float *>vals_ptr, <uint32_t> nnz),
-            <lanczos_solver_config[float]> config_float,
-            make_device_vector_view(<float *>v0_ptr, <uint32_t> N),
+            f_v0,
             make_device_vector_view(<float *>eigenvalues_ptr, <uint32_t> k),
             make_device_matrix_view[float, uint32_t, col_major](
                 <float *>eigenvectors_ptr, <uint32_t> N, <uint32_t> k),
@@ -213,13 +213,17 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_float.ncv = ncv
         config_float.tolerance = tol
         config_float.seed = seed
+        if v0 is not None:
+            v0 = cai_wrapper(v0)
+            v0_ptr = <uintptr_t>v0.data
+            f_v0 = make_device_vector_view(<float *>v0_ptr, <uint32_t> N)
         lanczos_solver(
             deref(h),
+            <lanczos_solver_config[float]> config_float,
             make_device_vector_view(<int64_t *>rows_ptr, <uint32_t> (N + 1)),
             make_device_vector_view(<int64_t *>cols_ptr, <uint32_t> nnz),
             make_device_vector_view(<float *>vals_ptr, <uint32_t> nnz),
-            <lanczos_solver_config[float]> config_float,
-            make_device_vector_view(<float *>v0_ptr, <uint32_t> N),
+            f_v0,
             make_device_vector_view(<float *>eigenvalues_ptr, <uint32_t> k),
             make_device_matrix_view[float, uint32_t, col_major](
                 <float *>eigenvectors_ptr, <uint32_t> N, <uint32_t> k),
@@ -230,13 +234,17 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_double.ncv = ncv
         config_double.tolerance = tol
         config_double.seed = seed
+        if v0 is not None:
+            v0 = cai_wrapper(v0)
+            v0_ptr = <uintptr_t>v0.data
+            d_v0 = make_device_vector_view(<double *>v0_ptr, <uint32_t> N)
         lanczos_solver(
             deref(h),
+            <lanczos_solver_config[double]> config_double,
             make_device_vector_view(<int *>rows_ptr, <uint32_t> (N + 1)),
             make_device_vector_view(<int *>cols_ptr, <uint32_t> nnz),
             make_device_vector_view(<double *>vals_ptr, <uint32_t> nnz),
-            <lanczos_solver_config[double]> config_double,
-            make_device_vector_view(<double *>v0_ptr, <uint32_t> N),
+            d_v0,
             make_device_vector_view(<double *>eigenvalues_ptr, <uint32_t> k),
             make_device_matrix_view[double, uint32_t, col_major](
                 <double *>eigenvectors_ptr, <uint32_t> N, <uint32_t> k),
@@ -247,13 +255,17 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_double.ncv = ncv
         config_double.tolerance = tol
         config_double.seed = seed
+        if v0 is not None:
+            v0 = cai_wrapper(v0)
+            v0_ptr = <uintptr_t>v0.data
+            d_v0 = make_device_vector_view(<double *>v0_ptr, <uint32_t> N)
         lanczos_solver(
             deref(h),
+            <lanczos_solver_config[double]> config_double,
             make_device_vector_view(<int64_t *>rows_ptr, <uint32_t> (N + 1)),
             make_device_vector_view(<int64_t *>cols_ptr, <uint32_t> nnz),
             make_device_vector_view(<double *>vals_ptr, <uint32_t> nnz),
-            <lanczos_solver_config[double]> config_double,
-            make_device_vector_view(<double *>v0_ptr, <uint32_t> N),
+            d_v0,
             make_device_vector_view(<double *>eigenvalues_ptr, <uint32_t> k),
             make_device_matrix_view[double, uint32_t, col_major](
                 <double *>eigenvectors_ptr, <uint32_t> N, <uint32_t> k),

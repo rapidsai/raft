@@ -33,9 +33,9 @@ namespace raft::sparse::solver {
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @param handle the raft handle.
- *  @param A Sparse matrix in CSR format.
  *  @param config lanczos config used to set hyperparameters
- *  @param v0 Initial lanczos vector
+ *  @param A Sparse matrix in CSR format.
+ *  @param v0 Optional Initial lanczos vector
  *  @param eigenvalues output eigenvalues
  *  @param eigenvectors output eigenvectors
  *  @return Zero if successful. Otherwise non-zero.
@@ -43,14 +43,14 @@ namespace raft::sparse::solver {
 template <typename IndexTypeT, typename ValueTypeT>
 auto lanczos_compute_smallest_eigenvectors(
   raft::resources const& handle,
-  raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
   lanczos_solver_config<ValueTypeT> const& config,
-  raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major> v0,
+  raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
+  std::optional<raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major>> v0,
   raft::device_vector_view<ValueTypeT, uint32_t, raft::col_major> eigenvalues,
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors) -> int
 {
   return detail::lanczos_compute_smallest_eigenvectors<IndexTypeT, ValueTypeT>(
-    handle, A, config, v0, eigenvalues, eigenvectors);
+    handle, config, A, v0, eigenvalues, eigenvectors);
 }
 
 /**
@@ -58,11 +58,11 @@ auto lanczos_compute_smallest_eigenvectors(
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @param handle the raft handle.
+ *  @param config lanczos config used to set hyperparameters
  *  @param rows Vector view of the rows of the sparse matrix.
  *  @param cols Vector view of the cols of the sparse matrix.
  *  @param vals Vector view of the vals of the sparse matrix.
- *  @param config lanczos config used to set hyperparameters
- *  @param v0 Initial lanczos vector
+ *  @param v0 Optional Initial lanczos vector
  *  @param eigenvalues output eigenvalues
  *  @param eigenvectors output eigenvectors
  *  @return Zero if successful. Otherwise non-zero.
@@ -70,11 +70,11 @@ auto lanczos_compute_smallest_eigenvectors(
 template <typename IndexTypeT, typename ValueTypeT>
 auto lanczos_compute_smallest_eigenvectors(
   raft::resources const& handle,
+  lanczos_solver_config<ValueTypeT> const& config,
   raft::device_vector_view<IndexTypeT, uint32_t, raft::row_major> rows,
   raft::device_vector_view<IndexTypeT, uint32_t, raft::row_major> cols,
   raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major> vals,
-  lanczos_solver_config<ValueTypeT> const& config,
-  raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major> v0,
+  std::optional<raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major>> v0,
   raft::device_vector_view<ValueTypeT, uint32_t, raft::col_major> eigenvalues,
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors) -> int
 {
@@ -95,7 +95,7 @@ auto lanczos_compute_smallest_eigenvectors(
       const_cast<ValueTypeT*>(vals.data_handle()), csr_structure);
 
   return lanczos_compute_smallest_eigenvectors<IndexTypeT, ValueTypeT>(
-    handle, csr_matrix, config, v0, eigenvalues, eigenvectors);
+    handle, config, csr_matrix, v0, eigenvalues, eigenvectors);
 }
 
 /**
