@@ -210,9 +210,6 @@ add_library(raft::raft ALIAS raft)
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
-if(BUILD_CAGRA_HNSWLIB)
-  target_link_libraries(raft INTERFACE hnswlib::hnswlib)
-endif()
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
@@ -619,6 +616,9 @@ if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
 endif()
 
 target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib>)
+if(BUILD_CAGRA_HNSWLIB)
+  target_link_libraries(raft_compiled PUBLIC hnswlib::hnswlib)
+endif()
 
 # ##################################################################################################
 # * raft_compiled_static----------------------------------------------------------------------------
