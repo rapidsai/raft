@@ -120,13 +120,13 @@ auto metric = raft::distance::DistanceType::L2SqrtExpanded;
 raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
-It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information:
+It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information. Take this example from the [Nvidia cuVS](https://github.com/rapidsai/cuvs) library:
 
 ```c++
 #include <raft/core/device_resources.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/random/make_blobs.cuh>
-#include <raft/distance/distance.cuh>
+#include <cuvs/distance/distance.hpp>
 
 raft::device_resources handle;
 
@@ -147,8 +147,8 @@ auto output_view = raft::make_device_matrix_view(output, n_samples, n_samples);
 
 raft::random::make_blobs(handle, input_view, labels_view);
 
-auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-raft::distance::pairwise_distance(handle, input_view, input_view, output_view, metric);
+auto metric = cuvs::distance::DistanceType::L2SqrtExpanded;
+cuvs::distance::pairwise_distance(handle, input_view, input_view, output_view, metric);
 ```
 
 
@@ -156,12 +156,12 @@ raft::distance::pairwise_distance(handle, input_view, input_view, output_view, m
 
 The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
 
-The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. Note that CuPy is not a required dependency for `pylibraft`.
+The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays using the [Nvidia cuVS](https://github.com/rapidsai/cuvs) library. Note that CuPy is not a required dependency for `pylibraft`.
 
 ```python
 import cupy as cp
 
-from pylibraft.distance import pairwise_distance
+from cuvs.distance import pairwise_distance
 
 n_samples = 5000
 n_features = 50
@@ -208,7 +208,7 @@ pylibraft.config.set_output_as(lambda device_ndarray: return device_ndarray.copy
 ```python
 import cupy as cp
 
-from pylibraft.distance import pairwise_distance
+from cuvs.distance import pairwise_distance
 
 n_samples = 5000
 n_features = 50
@@ -233,8 +233,6 @@ The easiest way to install RAFT is through conda and several packages are provid
 - `libraft` (optional) C++ shared library containing pre-compiled template instantiations and runtime API.
 - `pylibraft` (optional) Python library
 - `raft-dask` (optional) Python library for deployment of multi-node multi-GPU algorithms that use the RAFT `raft::comms` abstraction layer in Dask clusters.
-- `raft-ann-bench` (optional) Benchmarking tool for easily producing benchmarks that compare RAFT's vector search algorithms against other state-of-the-art implementations.
-- `raft-ann-bench-cpu` (optional) Reproducible benchmarking tool similar to above, but doesn't require CUDA to be installed on the machine. Can be used to test in environments with competitive CPUs.
 
 Use the following command, depending on your CUDA version, to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
