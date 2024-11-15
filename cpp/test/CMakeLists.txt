@@ -289,10 +289,8 @@ if(BUILD_TESTS)
     stats/r2_score.cu
     stats/rand_index.cu
     stats/regression_metrics.cu
-    stats/silhouette_score.cu
     stats/stddev.cu
     stats/sum.cu
-    stats/trustworthiness.cu
     stats/weighted_mean.cu
     stats/v_measure.cu
     LIB
