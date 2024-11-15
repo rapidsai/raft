@@ -223,7 +223,7 @@ pairwise_distance(in1, in2, out=output, metric="euclidean")
 
 ## Installing
 
-RAFT's C++ and Python libraries can both be installed through Conda and the Python libraries through Pip. 
+RAFT's C++ and Python libraries can both be installed through Conda and the Python libraries through Pip.
 
 
 ### Installing C++ and Python through Conda

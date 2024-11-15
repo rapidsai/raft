@@ -63,7 +63,6 @@ While not exhaustive, the following general categories help summarize the accele
    pylibraft_api.rst
    using_libraft.md
    vector_search_tutorial.md
-   raft_ann_benchmarks.md
    raft_dask_api.rst
    using_raft_comms.rst
    developer_guide.md

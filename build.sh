@@ -67,8 +67,6 @@ BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_PRIMS_BENCH=OFF
-BUILD_ANN_BENCH=OFF
-BUILD_CPU_ONLY=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
@@ -200,7 +198,6 @@ if (( ${NUMARGS} != 0 )); then
     cacheTool
     limitTests
     limitBench
-    limitAnnBench
     buildMetrics
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
@@ -401,8 +398,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
-          -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
-          -DBUILD_CPU_ONLY=${BUILD_CPU_ONLY} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
