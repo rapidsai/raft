@@ -11,7 +11,6 @@ Useful Resources
 
 .. _raft_reference: https://docs.rapids.ai/api/raft/stable/
 
-- `Example Notebooks <https://github.com/rapidsai/raft/tree/HEAD/notebooks>`_: Example Jupyter notebooks
 - `RAPIDS Community <https://rapids.ai/community.html>`_: Get help, contribute, and collaborate.
 - `GitHub repository <https://github.com/rapidsai/raft>`_: Download the RAFT source code.
 - `Issue tracker <https://github.com/rapidsai/raft/issues>`_: Report issues or request features.
