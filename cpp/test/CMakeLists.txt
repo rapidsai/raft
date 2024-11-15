@@ -262,11 +262,6 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SPARSE_DIST_TEST PATH sparse/dist_coo_spmv.cu sparse/distance.cu sparse/gram.cu LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureTest(
     NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
     neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
