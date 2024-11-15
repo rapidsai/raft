@@ -79,11 +79,6 @@ if(BUILD_PRIMS_BENCH)
   ConfigureBench(NAME UTIL_BENCH PATH util/popc.cu main.cpp)
 
   ConfigureBench(
-    NAME TUNE_DISTANCE PATH distance/tune_pairwise/kernel.cu distance/tune_pairwise/bench.cu
-    main.cpp
-  )
-
-  ConfigureBench(
     NAME
     LINALG_BENCH
     PATH
