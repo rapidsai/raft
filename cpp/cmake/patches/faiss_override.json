@@ -1,9 +1,9 @@
 {
   "packages" : {
     "faiss" : {
-      "version": "1.7.4",
+      "version": "1.9.0",
       "git_url": "https://github.com/facebookresearch/faiss.git",
-      "git_tag": "main"
+      "git_tag": "v1.9.0"
     }
   }
 }
