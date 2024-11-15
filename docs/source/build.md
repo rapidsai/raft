@@ -255,7 +255,6 @@ RAFT's CMake has the following configurable flags available:
 |---------------------------------|----------------------| --- |------------------------------------------------------------------------------|
 | BUILD_TESTS                     | ON, OFF              | ON  | Compile Googletests                                                          |
 | BUILD_PRIMS_BENCH               | ON, OFF              | OFF | Compile benchmarks                                                           |
-| BUILD_ANN_BENCH                 | ON, OFF              | OFF | Compile end-to-end ANN benchmarks                                            |
 | CUDA_ENABLE_KERNELINFO          | ON, OFF              | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer`         |
 | CUDA_ENABLE_LINEINFO            | ON, OFF              | OFF | Enable the -lineinfo option for nvcc                                         |
 | CUDA_STATIC_RUNTIME             | ON, OFF              | OFF | Statically link the CUDA runtime                                             |

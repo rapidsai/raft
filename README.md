@@ -223,7 +223,7 @@ pairwise_distance(in1, in2, out=output, metric="euclidean")
 
 ## Installing
 
-RAFT's C++ and Python libraries can both be installed through Conda and the Python libraries through Pip. 
+RAFT's C++ and Python libraries can both be installed through Conda and the Python libraries through Pip.
 
 
 ### Installing C++ and Python through Conda
@@ -233,8 +233,6 @@ The easiest way to install RAFT is through conda and several packages are provid
 - `libraft` (optional) C++ shared library containing pre-compiled template instantiations and runtime API.
 - `pylibraft` (optional) Python library
 - `raft-dask` (optional) Python library for deployment of multi-node multi-GPU algorithms that use the RAFT `raft::comms` abstraction layer in Dask clusters.
-- `raft-ann-bench` (optional) Benchmarking tool for easily producing benchmarks that compare RAFT's vector search algorithms against other state-of-the-art implementations.
-- `raft-ann-bench-cpu` (optional) Reproducible benchmarking tool similar to above, but doesn't require CUDA to be installed on the machine. Can be used to test in environments with competitive CPUs.
 
 Use the following command, depending on your CUDA version, to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
