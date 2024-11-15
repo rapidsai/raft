@@ -20,10 +20,6 @@ import io
 
 import pytest
 
-import pylibraft.cluster
-import pylibraft.distance
-import pylibraft.matrix
-import pylibraft.neighbors
 import pylibraft.random
 
 # Code adapted from https://github.com/rapidsai/cudf/blob/branch-23.02/python/cudf/cudf/tests/test_doctests.py  # noqa
