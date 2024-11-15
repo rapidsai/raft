@@ -31,7 +31,6 @@ Both the C++ and Python APIs require CMake to build from source.
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` C++ headers
-- `libraft` (optional) C++ shared library containing pre-compiled template instantiations and runtime API.
 - `pylibraft` (optional) Python library
 - `raft-dask` (optional) Python library for deployment of multi-node multi-GPU algorithms that use the RAFT `raft::comms` abstraction layer in Dask clusters.
 
@@ -48,13 +47,11 @@ mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-vers
 
 Note that the above commands will also install `libraft-headers` and `libraft`.
 
-You can also install the conda packages individually using the `mamba` command above. For example, if you'd like to install RAFT's headers and pre-compiled shared library to use in your project:
+You can also install the conda packages individually using the `mamba` command above. For example, if you'd like to install RAFT's headers to use in your project:
 ```bash
 # for CUDA 12.0
-mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
+mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=12.0
 ```
-
-If installing the C++ APIs Please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.12/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
 
 ## Installing Python through Pip
 
@@ -72,20 +69,18 @@ pip install pylibraft-cu12 --extra-index-url=https://pypi.nvidia.com
 pip install raft-dask-cu12 --extra-index-url=https://pypi.nvidia.com
 ```
 
-These packages statically build RAFT's pre-compiled instantiations, so the C++ headers and pre-compiled shared library won't be readily available to use in your code.
-
 ## Building C++ and Python from source
 
 ### CUDA/GPU Requirements
 - cmake 3.26.4+
 - GCC 9.3+ (9.5.0+ recommended)
-- CUDA Toolkit 11.2+
+- CUDA Toolkit 11.8+
 - NVIDIA driver 450.80.02+
-- Pascal architecture or better (compute capability >= 6.0)
+- Volta architecture or better (compute capability >= 7.0)
 
 ### Build Dependencies
 
-In addition to the libraries included with cudatoolkit 11.0+, there are some other dependencies below for building RAFT from source. Many of the dependencies are optional and depend only on the primitives being used. All of these can be installed with cmake or [rapids-cpm](https://github.com/rapidsai/rapids-cmake#cpm) and many of them can be installed with [conda](https://anaconda.org).
+In addition to the libraries included with cudatoolkit 11.8+, there are some other dependencies below for building RAFT from source. Many of the dependencies are optional and depend only on the primitives being used. All of these can be installed with cmake or [rapids-cpm](https://github.com/rapidsai/rapids-cmake#cpm) and many of them can be installed with [conda](https://anaconda.org).
 
 #### Required
 - [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
@@ -108,7 +103,7 @@ mamba env create --name rapids_raft -f conda/environments/all_cuda-125_arch-x86_
 mamba activate rapids_raft
 ```
 
-All of RAFT's C++ APIs can be used header-only and optional pre-compiled shared libraries provide some host-accessible runtime APIs and template instantiations to accelerate compile times.
+All of RAFT's C++ APIs can be used header-only
 
 The process for building from source with CUDA 11 differs slightly in that your host system will also need to have CUDA toolkit installed which is greater than, or equal to, the version you install into you conda environment. Installing CUDA toolkit into your host system is necessary because `nvcc` is not provided with Conda's cudatoolkit dependencies for CUDA 11. The following example will install create and install dependencies for a CUDA 11.8 conda environment
 ```bash
@@ -138,7 +133,7 @@ Once installed, `libraft` headers (and dependencies which were downloaded and in
 
 ### C++ Shared Library (optional)
 
-A shared library can be built for speeding up compile times. The shared library also contains a runtime API that allows you to invoke RAFT APIs directly from C++ source files (without `nvcc`). The shared library can also significantly improve re-compile times both while developing RAFT and using its APIs to develop applications. Pass the `--compile-lib` flag to `build.sh` to build the library:
+A shared library must be built in order to build `pylibraft`. The shared library also contains a runtime API that allows Pass the `--compile-lib` flag to `build.sh` to build the library:
 ```bash
 ./build.sh libraft --compile-lib
 ```
@@ -167,23 +162,17 @@ Compile the tests using the `tests` target in `build.sh`.
 ./build.sh libraft tests
 ```
 
-Test compile times can be improved significantly by using the optional shared libraries. If installed, they will be used automatically when building the tests but `--compile-libs` can be used to add additional compilation units and compile them with the tests.
-
-```bash
-./build.sh libraft tests --compile-lib
-```
-
 The tests are broken apart by algorithm category, so you will find several binaries in `cpp/build/` named `*_TEST`.
 
 For example, to run the distance tests:
 ```bash
-./cpp/build/DISTANCE_TEST
+./cpp/build/MATRIX_TEST
 ```
 
 It can take sometime to compile all of the tests. You can build individual tests by providing a semicolon-separated list to the `--limit-tests` option in `build.sh`:
 
 ```bash
-./build.sh libraft tests -n --limit-tests=NEIGHBORS_TEST;DISTANCE_TEST;MATRIX_TEST
+./build.sh libraft tests -n --limit-tests=CORE_TEST;MATRIX_TEST
 ```
 
 ### C++ Primitives Microbenchmarks
@@ -196,7 +185,7 @@ The benchmarks are broken apart by algorithm category, so you will find several 
 It can take sometime to compile all of the benchmarks. You can build individual benchmarks by providing a semicolon-separated list to the `--limit-bench-prims` option in `build.sh`:
 
 ```bash
-./build.sh libraft bench-prims -n --limit-bench=NEIGHBORS_PRIMS_BENCH;DISTANCE_PRIMS_BENCH;LINALG_PRIMS_BENCH
+./build.sh libraft bench-prims -n --limit-bench=NEIGHBORS_PRIMS_BENCH;MATRIX_PRIMS_BENCH;LINALG_PRIMS_BENCH
 ```
 
 ### Python libraries

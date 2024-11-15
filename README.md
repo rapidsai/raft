@@ -230,7 +230,6 @@ RAFT's C++ and Python libraries can both be installed through Conda and the Pyth
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` C++ headers
-- `libraft` (optional) C++ shared library containing pre-compiled template instantiations and runtime API.
 - `pylibraft` (optional) Python library
 - `raft-dask` (optional) Python library for deployment of multi-node multi-GPU algorithms that use the RAFT `raft::comms` abstraction layer in Dask clusters.
 
