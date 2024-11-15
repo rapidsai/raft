@@ -290,8 +290,6 @@ PROPERTIES CXX_STANDARD                        17
            INTERFACE_POSITION_INDEPENDENT_CODE ON)
 ```
 
-The [C++ example template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) provides an end-to-end buildable example of what a `CMakeLists.txt` that uses RAFT should look like. The items below point out some of the needed details.
-
 #### CMake Targets
 
 The `raft::raft` CMake target is made available when including RAFT into your CMake project but additional CMake targets can be made available by adding to the `COMPONENTS` option in CMake's `find_package(raft)` (refer to [CMake docs](https://cmake.org/cmake/help/latest/command/find_package.html#basic-signature) to learn more). The components should be separated by spaces. The `raft::raft` target will always be available. Note that the `distributed` component also exports additional dependencies.
