@@ -232,8 +232,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SOLVERS_TEST PATH cluster/cluster_solvers_deprecated.cu linalg/eigen_solvers.cu lap/lap.cu
-    sparse/mst.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME SOLVERS_TEST PATH linalg/eigen_solvers.cu lap/lap.cu sparse/mst.cu LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
