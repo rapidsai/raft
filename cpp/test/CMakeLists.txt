@@ -267,11 +267,6 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SPARSE_NEIGHBORS_TEST PATH sparse/neighbors/cross_component_nn.cu
-    sparse/neighbors/brute_force.cu sparse/neighbors/knn_graph.cu LIB EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureTest(
     NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
     neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
@@ -296,7 +291,6 @@ if(BUILD_TESTS)
     stats/mean_center.cu
     stats/minmax.cu
     stats/mutual_info_score.cu
-    stats/neighborhood_recall.cu
     stats/r2_score.cu
     stats/rand_index.cu
     stats/regression_metrics.cu
