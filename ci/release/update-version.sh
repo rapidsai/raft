@@ -81,8 +81,6 @@ sed_runner "/^set(RAFT_VERSION/ s|\".*\"|\"${NEXT_SHORT_TAG}\"|g" docs/source/bu
 sed_runner "s|branch-[0-9][0-9].[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" docs/source/build.md
 sed_runner "/rapidsai\/raft/ s|branch-[0-9][0-9].[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" docs/source/developer_guide.md
 
-sed_runner "s|:[0-9][0-9].[0-9][0-9]|:${NEXT_SHORT_TAG}|g" docs/source/raft_ann_benchmarks.md
-
 sed_runner "s|branch-[0-9][0-9].[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" README.md
 
 # .devcontainer files

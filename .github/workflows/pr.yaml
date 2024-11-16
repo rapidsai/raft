@@ -151,5 +151,5 @@ jobs:
       cuda: '["12.5"]'
       build_command: |
         sccache -z;
-        build-all -DBUILD_PRIMS_BENCH=ON -DBUILD_ANN_BENCH=ON --verbose;
+        build-all -DBUILD_PRIMS_BENCH=ON --verbose;
         sccache -s;

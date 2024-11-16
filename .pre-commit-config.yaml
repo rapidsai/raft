@@ -62,7 +62,7 @@ repos:
                 entry: ./cpp/scripts/run-cmake-format.sh cmake-format
                 language: python
                 types: [cmake]
-                exclude: .*/thirdparty/.*|.*FindAVX.cmake.*
+                exclude: .*/thirdparty/.*
                 # Note that pre-commit autoupdate does not update the versions
                 # of dependencies, so we'll have to update this manually.
                 additional_dependencies:
@@ -114,7 +114,6 @@ repos:
                   cpp/include/raft/neighbors/detail/faiss_select/|
                   cpp/include/raft/thirdparty/|
                   docs/source/sphinxext/github_link[.]py|
-                  cpp/cmake/modules/FindAVX[.]cmake
           - id: verify-alpha-spec
       - repo: https://github.com/rapidsai/dependency-file-generator
         rev: v1.16.0

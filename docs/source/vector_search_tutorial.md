@@ -17,7 +17,7 @@
 
 RAFT has several important algorithms for performing vector search on the GPU and this tutorial walks through the primary vector search APIs from start to finish to provide a reference for quick setup and C++ API usage.
 
-This tutorial assumes RAFT has been installed and/or added to your build so that you are able to compile and run RAFT code. If not done already, please follow the [build and install instructions](build.md) and consider taking a look at the [example c++ template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) for ready-to-go examples that you can immediately build and start playing with. Also take a look at RAFT's library of [reproducible vector search benchmarks](raft_ann_benchmarks.md) to run benchmarks that compare RAFT against other state-of-the-art nearest neighbors algorithms at scale.
+This tutorial assumes RAFT has been installed and/or added to your build so that you are able to compile and run RAFT code. If not done already, please follow the [build and install instructions](build.md) and consider taking a look at the [example c++ template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) for ready-to-go examples that you can immediately build and start playing with.
 
 For more information about the various APIs demonstrated in this tutorial, along with comprehensive usage examples of all the APIs offered by RAFT, please refer to the [RAFT's C++ API Documentation](https://docs.rapids.ai/api/raft/nightly/cpp_api/).
 
@@ -271,7 +271,7 @@ auto removed_indices = raft::make_device_vector<IdxT>(res, n_removed_indices);
 raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
   res, removed_indices.view(), dataset.extent(0));
 
-// ... Populate the bitset ... 
+// ... Populate the bitset ...
 
 // search K nearest neighbours according to a bitset filter
 auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);

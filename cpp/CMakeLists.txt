@@ -17,17 +17,13 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
-option(BUILD_CPU_ONLY "Build CPU only components. Applies to RAFT ANN benchmarks currently" OFF)
-
 # workaround for rapids_cuda_init_architectures not working for arch detection with
 # enable_language(CUDA)
 set(lang_list "CXX")
 
-if(NOT BUILD_CPU_ONLY)
-  include(rapids-cuda)
-  rapids_cuda_init_architectures(RAFT)
-  list(APPEND lang_list "CUDA")
-endif()
+include(rapids-cuda)
+rapids_cuda_init_architectures(RAFT)
+list(APPEND lang_list "CUDA")
 
 project(
   RAFT
@@ -53,7 +49,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
-option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
 option(BUILD_CAGRA_HNSWLIB "Build CAGRA+hnswlib interface" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
@@ -68,22 +63,12 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
-if((BUILD_TESTS
-    OR BUILD_PRIMS_BENCH
-    OR BUILD_ANN_BENCH
-   )
-   AND NOT BUILD_CPU_ONLY
-)
+if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
   set(RAFT_COMPILE_LIBRARY_DEFAULT ON)
 endif()
 option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
-
-if(BUILD_CPU_ONLY)
-  set(BUILD_SHARED_LIBS OFF)
-  set(BUILD_TESTS OFF)
-endif()
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -97,20 +82,14 @@ include(CMakeDependentOption)
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_PRIMS_BENCH}")
-message(VERBOSE "RAFT: Building ANN benchmarks: ${BUILD_ANN_BENCH}")
-message(VERBOSE "RAFT: Build CPU only components: ${BUILD_CPU_ONLY}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${RAFT_NVTX}")
-message(VERBOSE
-        "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}"
-)
-message(VERBOSE
-        "RAFT: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}"
-)
+message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "RAFT: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL
@@ -143,21 +122,17 @@ if(CUDA_STATIC_MATH_LIBRARIES)
   set(_ctk_static_suffix "_static")
 endif()
 
-if(NOT BUILD_CPU_ONLY)
-  # CUDA runtime
-  rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
-  # * find CUDAToolkit package
-  # * determine GPU architectures
-  # * enable the CMake CUDA language
-  # * set other CUDA compilation flags
-  rapids_find_package(
-    CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
-  )
-else()
-  add_compile_definitions(BUILD_CPU_ONLY)
-endif()
+# CUDA runtime
+rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+# * find CUDAToolkit package
+# * determine GPU architectures
+# * enable the CMake CUDA language
+# * set other CUDA compilation flags
+rapids_find_package(
+  CUDAToolkit REQUIRED
+  BUILD_EXPORT_SET raft-exports
+  INSTALL_EXPORT_SET raft-exports
+)
 
 if(NOT DISABLE_OPENMP)
   rapids_find_package(
@@ -178,22 +153,20 @@ include(cmake/modules/ConfigureCUDA.cmake)
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-if(NOT BUILD_CPU_ONLY)
-  # CCCL before rmm/cuco so we get the right version of CCCL
-  include(cmake/thirdparty/get_cccl.cmake)
-  include(cmake/thirdparty/get_rmm.cmake)
-  include(cmake/thirdparty/get_cutlass.cmake)
+# CCCL before rmm/cuco so we get the right version of CCCL
+include(cmake/thirdparty/get_cccl.cmake)
+include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_cutlass.cmake)
 
-  include(${rapids-cmake-dir}/cpm/cuco.cmake)
-  rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
-endif()
+include(${rapids-cmake-dir}/cpm/cuco.cmake)
+rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
 
 if(BUILD_TESTS)
   include(${rapids-cmake-dir}/cpm/gtest.cmake)
   rapids_cpm_gtest(BUILD_STATIC)
 endif()
 
-if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
+if(BUILD_PRIMS_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
   rapids_cpm_gbench(BUILD_STATIC)
 endif()
@@ -214,10 +187,8 @@ if(BUILD_CAGRA_HNSWLIB)
   target_link_libraries(raft INTERFACE hnswlib::hnswlib)
 endif()
 
-if(NOT BUILD_CPU_ONLY)
-  # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass CCCL::CCCL)
-endif()
+# Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
+target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass CCCL::CCCL)
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
@@ -846,11 +817,4 @@ endif()
 
 if(BUILD_PRIMS_BENCH)
   add_subdirectory(bench/prims/)
-endif()
-
-# ##################################################################################################
-# * build ann benchmark executable -----------------------------------------------
-
-if(BUILD_ANN_BENCH)
-  add_subdirectory(bench/ann/)
 endif()
