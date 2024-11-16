@@ -29,6 +29,10 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    docs             - build the documentation
    tests            - build the tests
    bench-prims      - build micro-benchmarks for primitives
+<<<<<<< HEAD
+=======
+   template         - build the example RAFT application template
+>>>>>>> branch-24.12
 
  and <flag> is:
    -v                          - verbose build mode
