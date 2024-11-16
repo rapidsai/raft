@@ -164,7 +164,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cmake_ver cmake>=3.26.4,!=3.30.0
-          - cython>=3.0.0
+          - cython>=3.0.0,<3.1.0a0
           - ninja
       - output_types: [conda]
         packages:
@@ -223,11 +223,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - &cuda_python12 cuda-python>=12.0,<13.0a0
+              - &cuda_python12 cuda-python>=12.0,<13.0a0,<=12.6.0
           - matrix:
               cuda: "11.*"
             packages:
-              - &cuda_python11 cuda-python>=11.7.1,<12.0a0
+              - &cuda_python11 cuda-python>=11.7.1,<12.0a0,<=11.8.3
           - matrix:
             packages:
               - &cuda_python cuda-python
