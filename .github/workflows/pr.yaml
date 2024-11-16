@@ -43,15 +43,7 @@ jobs:
           - '!README.md'
           - '!docs/**'
           - '!img/**'
-          - '!notebooks/**'
           - '!python/**'
-          - '!thirdparty/LICENSES/**'
-        test_notebooks:
-          - '**'
-          - '!.devcontainer/**'
-          - '!.pre-commit-config.yaml'
-          - '!CONTRIBUTING.md'
-          - '!README.md'
           - '!thirdparty/LICENSES/**'
         test_python:
           - '**'
@@ -61,7 +53,6 @@ jobs:
           - '!README.md'
           - '!docs/**'
           - '!img/**'
-          - '!notebooks/**'
           - '!thirdparty/LICENSES/**'
   checks:
     secrets: inherit
