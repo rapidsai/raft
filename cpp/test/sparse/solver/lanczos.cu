@@ -313,6 +313,7 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
   raft::device_vector<ValueType, uint32_t, raft::col_major> expected_eigenvalues;
 };
 
+// TODO: Find a way to generate and validate test data without hardcoding them (issue #2485)
 const std::vector<lanczos_inputs<int, float>> inputsf = {
   {2,
    34,
