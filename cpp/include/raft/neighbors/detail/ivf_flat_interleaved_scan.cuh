@@ -16,10 +16,4 @@
 
 #pragma once
 
-#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 #include "ivf_flat_interleaved_scan-inl.cuh"
-#endif
-
-#ifdef RAFT_COMPILED
-#include "ivf_flat_interleaved_scan-ext.cuh"
-#endif
