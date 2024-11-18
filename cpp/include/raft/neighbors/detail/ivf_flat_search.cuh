@@ -15,10 +15,4 @@
  */
 #pragma once
 
-#ifndef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include "ivf_flat_search-inl.cuh"
-#endif
-
-#ifdef RAFT_COMPILED
-#include "ivf_flat_search-ext.cuh"
-#endif
