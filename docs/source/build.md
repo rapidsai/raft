@@ -103,9 +103,9 @@ mamba env create --name rapids_raft -f conda/environments/all_cuda-125_arch-x86_
 mamba activate rapids_raft
 ```
 
-All of RAFT's C++ APIs can be used header-only
+All of RAFT's C++ APIs can be used header-only.
 
-The process for building from source with CUDA 11 differs slightly in that your host system will also need to have CUDA toolkit installed which is greater than, or equal to, the version you install into you conda environment. Installing CUDA toolkit into your host system is necessary because `nvcc` is not provided with Conda's cudatoolkit dependencies for CUDA 11. The following example will install create and install dependencies for a CUDA 11.8 conda environment
+The process for building from source with CUDA 11 differs slightly in that your host system will also need to have CUDA toolkit installed which is greater than, or equal to, the version you install into you conda environment. Installing CUDA toolkit into your host system is necessary because `nvcc` is not provided with Conda's cudatoolkit dependencies for CUDA 11. The following example will install create and install dependencies for a CUDA 11.8 conda environment:
 ```bash
 mamba env create --name rapids_raft -f conda/environments/all_cuda-118_arch-x86_64.yaml
 mamba activate rapids_raft
@@ -133,7 +133,7 @@ Once installed, `libraft` headers (and dependencies which were downloaded and in
 
 ### C++ Shared Library (optional)
 
-A shared library must be built in order to build `pylibraft`. The shared library also contains a runtime API that allows Pass the `--compile-lib` flag to `build.sh` to build the library:
+A shared library must be built in order to build `pylibraft`. Pass the `--compile-lib` flag to `build.sh` to build the library:
 ```bash
 ./build.sh libraft --compile-lib
 ```
