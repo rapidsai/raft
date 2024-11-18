@@ -18,7 +18,7 @@ ARGS=$*
 # scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims clean --uninstall  -v -g -n --compile-lib --compile-static-lib --allgpuarch --no-nvtx --show_depr_warn --incl-cache-stats --time -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench-prims clean --uninstall  -v -g -n --compile-lib --compile-static-lib --allgpuarch --no-nvtx --show_depr_warn --incl-cache-stats --time -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--build-metrics=<filename>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -29,7 +29,6 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    docs             - build the documentation
    tests            - build the tests
    bench-prims      - build micro-benchmarks for primitives
-   template         - build the example RAFT application template
 
  and <flag> is:
    -v                          - verbose build mode
@@ -73,8 +72,8 @@ INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
 BUILD_REPORT_INCL_CACHE_STATS=OFF
 
-TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;NEIGHBORS_TEST;NEIGHBORS_ANN_BRUTE_FORCE_TEST;NEIGHBORS_ANN_CAGRA_TEST;NEIGHBORS_ANN_NN_DESCENT_TEST;NEIGHBORS_ANN_IVF_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
-BENCH_TARGETS="CLUSTER_BENCH;CORE_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
+TEST_TARGETS="CORE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;STATS_TEST;UTILS_TEST"
+BENCH_TARGETS="CORE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
 
 CACHE_ARGS=""
 NVTX=ON
@@ -480,11 +479,3 @@ if hasArg docs; then
     sphinx-build -b html source _html
 fi
 
-################################################################################
-# Initiate build for example RAFT application template (if needed)
-
-if hasArg template; then
-    pushd ${REPODIR}/cpp/template
-    ./build.sh
-    popd
-fi

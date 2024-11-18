@@ -65,12 +65,14 @@ if(NOT raft_FOUND)
   add_subdirectory(../../cpp raft-cpp EXCLUDE_FROM_ALL)
 
   if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
-    set_property(TARGET raft_lib PROPERTY INSTALL_RPATH
-      "$ORIGIN/../nvidia/cublas/lib"
-      "$ORIGIN/../nvidia/curand/lib"
-      "$ORIGIN/../nvidia/cusolver/lib"
-      "$ORIGIN/../nvidia/cusparse/lib"
-      "$ORIGIN/../nvidia/nvjitlink/lib"
+    set_property(
+      TARGET raft_lib
+      PROPERTY INSTALL_RPATH
+               "$ORIGIN/../nvidia/cublas/lib"
+               "$ORIGIN/../nvidia/curand/lib"
+               "$ORIGIN/../nvidia/cusolver/lib"
+               "$ORIGIN/../nvidia/cusparse/lib"
+               "$ORIGIN/../nvidia/nvjitlink/lib"
     )
   endif()
 
@@ -84,11 +86,7 @@ endif()
 rapids_cython_init()
 
 add_subdirectory(pylibraft/common)
-add_subdirectory(pylibraft/distance)
-add_subdirectory(pylibraft/matrix)
-add_subdirectory(pylibraft/neighbors)
 add_subdirectory(pylibraft/random)
-add_subdirectory(pylibraft/cluster)
 
 if(DEFINED cython_lib_dir)
   rapids_cython_add_rpath_entries(TARGET raft PATHS "${cython_lib_dir}")
