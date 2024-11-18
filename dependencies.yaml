@@ -22,19 +22,6 @@ files:
       - run_pylibraft
       - test_python_common
       - test_pylibraft
-  bench_ann:
-    output: conda
-    matrix:
-      cuda: ["11.8", "12.0"]
-      arch: [x86_64, aarch64]
-    includes:
-      - rapids_build
-      - cuda
-      - cuda_version
-      - develop
-      - nn_bench
-      - nn_bench_python
-      - rapids_build_skbuild
   test_cpp:
     output: none
     includes:
@@ -127,20 +114,6 @@ files:
       key: test
     includes:
       - test_python_common
-  py_build_raft_ann_bench:
-    output: pyproject
-    pyproject_dir: python/raft-ann-bench
-    extras:
-      table: build-system
-    includes:
-      - rapids_build_setuptools
-  py_run_raft_ann_bench:
-    output: pyproject
-    pyproject_dir: python/raft-ann-bench
-    extras:
-      table: project
-    includes:
-      - nn_bench_python
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -164,7 +137,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cmake_ver cmake>=3.26.4,!=3.30.0
-          - cython>=3.0.0
+          - cython>=3.0.0,<3.1.0a0
           - ninja
       - output_types: [conda]
         packages:
@@ -255,25 +228,6 @@ dependencies:
         packages:
           - clang==16.0.6
           - clang-tools=16.0.6
-  nn_bench:
-    common:
-      - output_types: [conda, pyproject, requirements]
-        packages:
-          - hnswlib=0.7.0
-          - nlohmann_json>=3.11.2
-          - glog>=0.6.0
-          - h5py>=3.8.0
-          - benchmark>=1.8.2
-          - openblas
-          - *rmm_unsuffixed
-  nn_bench_python:
-    common:
-      - output_types: [conda]
-        packages:
-          - matplotlib
-          - pandas
-          - pyyaml
-          - pandas
   cuda_version:
     specific:
       - output_types: conda
