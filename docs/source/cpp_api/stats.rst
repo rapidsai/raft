@@ -16,4 +16,3 @@ This page provides C++ class references for the publicly-exposed elements of the
    stats_regression.rst
    stats_classification.rst
    stats_clustering.rst
-   stats_neighborhood.rst

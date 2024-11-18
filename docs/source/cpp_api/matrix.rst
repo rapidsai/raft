@@ -17,4 +17,3 @@ headers cover many operations on matrices that are otherwise not covered by `raf
    matrix_manipulation.rst
    matrix_ordering.rst
    matrix_reduction.rst
-   matrix_selection.rst
