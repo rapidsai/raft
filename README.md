@@ -1,7 +1,7 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
 
 > [!IMPORTANT]
-> The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). We will continue to support the vector search algorithms in RAFT during this move, but will no longer update them after the RAPIDS 24.06 (June) release. We plan to complete the migration by RAPIDS 24.10 (October) release and will be removing them altogether in the 24.12 (December) release.
+> The vector search and clustering algorithms in RAFT have been formally migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). The headers for the vector search and clustering algorithms in RAFT will remain for a bried period, but will no longer be tested, benchmarked, included in the pre-compiled libraft binary, or otherwise updated after the 24.12 (December 2024) release. We will be removing these headers altogether in a future release. It is strongly suggested to use cuVS for these routines, which include any headers in the `distance`, `neighbors`, `cluster` and `spatial` directories, and use the RAFT versions at your own risk.
 
 ![RAFT tech stack](img/raft-tech-stack-vss.png)
 
@@ -27,7 +27,6 @@
 - [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
 - [RAFT Getting Started](./docs/source/quick_start.md): Getting started with RAFT.
 - [Build and Install RAFT](./docs/source/build.md): Instructions for installing and building RAFT.
-- [Example Notebooks](./notebooks): Example jupyter notebooks
 - [RAPIDS Community](https://rapids.ai/community.html): Get help, contribute, and collaborate.
 - [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
 - [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
@@ -120,13 +119,13 @@ auto metric = raft::distance::DistanceType::L2SqrtExpanded;
 raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
-It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information:
+It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information. Take this example from the [NVIDIA cuVS](https://github.com/rapidsai/cuvs) library:
 
 ```c++
 #include <raft/core/device_resources.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/random/make_blobs.cuh>
-#include <raft/distance/distance.cuh>
+#include <cuvs/distance/distance.hpp>
 
 raft::device_resources handle;
 
@@ -147,8 +146,8 @@ auto output_view = raft::make_device_matrix_view(output, n_samples, n_samples);
 
 raft::random::make_blobs(handle, input_view, labels_view);
 
-auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-raft::distance::pairwise_distance(handle, input_view, input_view, output_view, metric);
+auto metric = cuvs::distance::DistanceType::L2SqrtExpanded;
+cuvs::distance::pairwise_distance(handle, input_view, input_view, output_view, metric);
 ```
 
 
@@ -156,12 +155,12 @@ raft::distance::pairwise_distance(handle, input_view, input_view, output_view, m
 
 The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
 
-The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. Note that CuPy is not a required dependency for `pylibraft`.
+The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays using the [NVIDIA cuVS](https://github.com/rapidsai/cuvs) library. Note that CuPy is not a required dependency for `pylibraft`.
 
 ```python
 import cupy as cp
 
-from pylibraft.distance import pairwise_distance
+from cuvs.distance import pairwise_distance
 
 n_samples = 5000
 n_features = 50
@@ -208,7 +207,7 @@ pylibraft.config.set_output_as(lambda device_ndarray: return device_ndarray.copy
 ```python
 import cupy as cp
 
-from pylibraft.distance import pairwise_distance
+from cuvs.distance import pairwise_distance
 
 n_samples = 5000
 n_features = 50
@@ -223,18 +222,15 @@ pairwise_distance(in1, in2, out=output, metric="euclidean")
 
 ## Installing
 
-RAFT's C++ and Python libraries can both be installed through Conda and the Python libraries through Pip. 
+RAFT's C++ and Python libraries can both be installed through Conda and the Python libraries through Pip.
 
 
 ### Installing C++ and Python through Conda
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` C++ headers
-- `libraft` (optional) C++ shared library containing pre-compiled template instantiations and runtime API.
 - `pylibraft` (optional) Python library
 - `raft-dask` (optional) Python library for deployment of multi-node multi-GPU algorithms that use the RAFT `raft::comms` abstraction layer in Dask clusters.
-- `raft-ann-bench` (optional) Benchmarking tool for easily producing benchmarks that compare RAFT's vector search algorithms against other state-of-the-art implementations.
-- `raft-ann-bench-cpu` (optional) Reproducible benchmarking tool similar to above, but doesn't require CUDA to be installed on the machine. Can be used to test in environments with competitive CPUs.
 
 Use the following command, depending on your CUDA version, to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
@@ -255,8 +251,6 @@ You can also install the conda packages individually using the `mamba` command a
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.5
 ```
 
-If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.12/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
-
 ### Installing Python through Pip
 
 `pylibraft` and `raft-dask` both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
@@ -265,11 +259,9 @@ pip install pylibraft-cu11 --extra-index-url=https://pypi.nvidia.com
 pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
 ```
 
-These packages statically build RAFT's pre-compiled instantiations and so the C++ headers and pre-compiled shared library won't be readily available to use in your code.
+These packages statically build RAFT's pre-compiled instantiations and so the C++ headers won't be readily available to use in your code.
 
 The [build instructions](https://docs.rapids.ai/api/raft/nightly/build/) contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ and Python from source](https://docs.rapids.ai/api/raft/nightly/build/#building-c-and-python-from-source) section of the build instructions.
-
-You can find an example [RAFT project template](cpp/template/README.md) in the `cpp/template` directory, which demonstrates how to build a new application with RAFT or incorporate RAFT into an existing CMake project.
 
 
 ## Contributing
@@ -284,7 +276,7 @@ When citing RAFT generally, please consider referencing this Github project.
   title={Rapidsai/raft: RAFT contains fundamental widely-used algorithms and primitives for data science, Graph and machine learning.},
   url={https://github.com/rapidsai/raft},
   journal={GitHub},
-  publisher={Nvidia RAPIDS},
+  publisher={NVIDIA RAPIDS},
   author={Rapidsai},
   year={2022}
 }
