@@ -35,7 +35,6 @@ function sed_runner() {
     sed -i.bak ''"$1"'' $2 && rm -f ${2}.bak
 }
 
-sed_runner "s/set(RAPIDS_VERSION .*)/set(RAPIDS_VERSION \"${NEXT_SHORT_TAG}\")/g" cpp/template/cmake/thirdparty/fetch_rapids.cmake
 sed_runner 's/'"find_and_configure_ucxx(VERSION .*"'/'"find_and_configure_ucxx(VERSION  ${NEXT_UCXX_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
 sed_runner 's/'"branch-.*"'/'"branch-${NEXT_UCXX_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
 
