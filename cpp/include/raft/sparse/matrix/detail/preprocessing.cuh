@@ -85,7 +85,7 @@ struct mapper {
     if (new_value) {
       return new_value;
     } else {
-      return 0.0;
+      return 0.0f;
     }
   }
 
