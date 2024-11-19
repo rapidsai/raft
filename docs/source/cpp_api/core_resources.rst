@@ -55,6 +55,20 @@ namespace *raft::core*
     :project: RAFT
     :members:
 
+SNMG Device Resources
+---------------------
+
+The `raft::device_resources_snmg` provides a convenient way
+to setup a NCCL clique and access device-related resources on each device.
+
+``#include <raft/core/device_resources_snmg.hpp>``
+
+namespace *raft::core*
+
+.. doxygenclass:: raft::device_resources_snmg
+    :project: RAFT
+    :members:
+
 Resource Functions
 ------------------
 
