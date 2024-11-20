@@ -175,7 +175,6 @@ endif()
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
 
-message(WARNING "\${RAFT_SOURCE_DIR}/include: ${RAFT_SOURCE_DIR}/include")
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
