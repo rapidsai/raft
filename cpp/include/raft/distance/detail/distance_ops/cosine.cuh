@@ -29,6 +29,7 @@ struct cosine_cutlass_op {
     return static_cast<AccT>(1.0) - static_cast<AccT>(accVal / (aNorm * bNorm));
   }
   __device__ AccT operator()(DataT aData) const noexcept { return aData; }
+  static const bool kIsSingleSource = false;
 };
 
 /**
