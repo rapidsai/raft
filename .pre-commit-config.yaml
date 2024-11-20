@@ -96,7 +96,7 @@ repos:
                 exclude: |
                   (?x)
                     ^CHANGELOG[.]md$|
-                    ^cpp/cmake/thirdparty/patches/cutlass/build-export[.]patch$
+                    ^cpp/cmake/patches/cutlass/build-export[.]patch$
       - repo: https://github.com/pre-commit/pre-commit-hooks
         rev: v4.5.0
         hooks:
