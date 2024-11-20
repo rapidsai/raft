@@ -49,7 +49,6 @@ template <typename ElementC_,
           typename ElementZ_,
           typename ElementT_,
           int ElementsPerAccess,
-          bool IsSingleSource,
           typename DistanceOp_,
           typename FinalOp_>
 class PairwiseDistanceEpilogueElementwise {
@@ -62,7 +61,7 @@ class PairwiseDistanceEpilogueElementwise {
   using ElementT                      = ElementT_;
   static int const kElementsPerAccess = ElementsPerAccess;
   static int const kCount             = kElementsPerAccess;
-  static bool const kIsSingleSource   = IsSingleSource;
+  static bool const kIsSingleSource   = true;
 
   using DistanceOp = DistanceOp_;
   using FinalOp    = FinalOp_;
