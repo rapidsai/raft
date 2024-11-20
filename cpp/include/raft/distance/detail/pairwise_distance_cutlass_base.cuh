@@ -83,6 +83,7 @@ std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(const Da
                                                                    AccT,   // ElementZ_
                                                                    OutT,   // ElementT_
                                                                    1,      // Elements per access 1
+                                                                   false,  // Single source
                                                                    DistanceFn,
                                                                    FinalLambda>;
   constexpr int batch_count = 1;
