@@ -79,8 +79,9 @@ function(find_and_configure_cutlass)
   )
 endfunction()
 
+set(_cutlass_version 3.5.1)
 if(NOT RAFT_CUTLASS_GIT_TAG)
-  set(RAFT_CUTLASS_GIT_TAG v2.10.0)
+  set(RAFT_CUTLASS_GIT_TAG "v${_cutlass_version}")
 endif()
 
 if(NOT RAFT_CUTLASS_GIT_REPOSITORY)
@@ -88,5 +89,5 @@ if(NOT RAFT_CUTLASS_GIT_REPOSITORY)
 endif()
 
 find_and_configure_cutlass(
-  VERSION 2.10.0 REPOSITORY ${RAFT_CUTLASS_GIT_REPOSITORY} PINNED_TAG ${RAFT_CUTLASS_GIT_TAG}
+  VERSION ${_cutlass_version} REPOSITORY ${RAFT_CUTLASS_GIT_REPOSITORY} PINNED_TAG ${RAFT_CUTLASS_GIT_TAG}
 )
