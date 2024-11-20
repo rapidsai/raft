@@ -16,6 +16,8 @@ function(find_and_configure_cutlass)
   set(oneValueArgs VERSION REPOSITORY PINNED_TAG)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
+  find_package(Git REQUIRED)
+
   # if(RAFT_ENABLE_DIST_DEPENDENCIES OR RAFT_COMPILE_LIBRARIES)
   set(CUTLASS_ENABLE_HEADERS_ONLY
       ON
@@ -42,6 +44,7 @@ function(find_and_configure_cutlass)
     GIT_TAG ${PKG_PINNED_TAG}
     GIT_SHALLOW TRUE
     OPTIONS "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
+    PATCH_COMMAND ${CMAKE_COMMAND} -E env GIT_COMMITTER_NAME=rapids-cmake GIT_COMMITTER_EMAIL=rapids.cmake@rapids.ai ${GIT_EXECUTABLE} am -3 ${CMAKE_CURRENT_SOURCE_DIR}/patches/cutlass/build-export.patch
   )
 
   if(TARGET CUTLASS AND NOT TARGET nvidia::cutlass::cutlass)

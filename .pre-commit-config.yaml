@@ -93,7 +93,10 @@ repos:
               - id: codespell
                 additional_dependencies: [tomli]
                 args: ["--toml", "pyproject.toml"]
-                exclude: (?x)^(^CHANGELOG.md$)
+                exclude: |
+                  (?x)
+                    ^CHANGELOG[.]md$|
+                    ^cpp/cmake/thirdparty/patches/cutlass/build-export[.]patch$
       - repo: https://github.com/pre-commit/pre-commit-hooks
         rev: v4.5.0
         hooks:
