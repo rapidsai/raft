@@ -9,4 +9,3 @@ Python API
 
    pylibraft_api/common.rst
    pylibraft_api/random.rst
-   pylibraft_api/sparse.rst

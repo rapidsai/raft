@@ -30,25 +30,7 @@ namespace linalg {
 namespace detail {
 
 /**
- * @brief create a cuSparse dense descriptor for a vector
- * @tparam ValueType Data type of vector_view (float/double)
- * @tparam IndexType Type of vector_view
- * @param[in] vector_view input raft::device_vector_view
- * @returns dense vector descriptor to be used by cuSparse API
- */
-template <typename ValueType, typename IndexType>
-cusparseDnVecDescr_t create_descriptor(raft::device_vector_view<ValueType, IndexType> vector_view)
-{
-  cusparseDnVecDescr_t descr;
-  RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednvec(
-    &descr,
-    vector_view.extent(0),
-    const_cast<std::remove_const_t<ValueType>*>(vector_view.data_handle())));
-  return descr;
-}
-
-/**
- * @brief create a cuSparse dense descriptor for a matrix
+ * @brief create a cuSparse dense descriptor
  * @tparam ValueType Data type of dense_view (float/double)
  * @tparam IndexType Type of dense_view
  * @tparam LayoutPolicy layout of dense_view
