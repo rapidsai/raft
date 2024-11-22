@@ -223,12 +223,13 @@ void print_vector(const char* variable_name, const T* ptr, size_t componentsCoun
 {
   cudaPointerAttributes attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
-  if (attr.hostPointer != nullptr) {
+  if (attr.hostPointer) {
     print_host_vector(variable_name, reinterpret_cast<T*>(attr.hostPointer), componentsCount, out);
   } else if (attr.type == cudaMemoryTypeUnregistered) {
     print_host_vector(variable_name, ptr, componentsCount, out);
   } else {
-    print_device_vector(variable_name, ptr, componentsCount, out);
+    print_device_vector(
+      variable_name, reinterpret_cast<T*>(attr.devicePointer), componentsCount, out);
   }
 }
 /** @} */

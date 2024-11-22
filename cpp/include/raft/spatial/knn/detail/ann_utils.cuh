@@ -61,14 +61,9 @@ struct pointer_residency_count<Type, Types...> {
     auto [on_device, on_host] = pointer_residency_count<Types...>::run(ptrs...);
     cudaPointerAttributes attr;
     RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
-    switch (attr.type) {
-      case cudaMemoryTypeUnregistered: return std::make_tuple(on_device, on_host + 1);
-      case cudaMemoryTypeHost:
-        return std::make_tuple(on_device + int(attr.devicePointer == ptr), on_host + 1);
-      case cudaMemoryTypeDevice: return std::make_tuple(on_device + 1, on_host);
-      case cudaMemoryTypeManaged: return std::make_tuple(on_device + 1, on_host + 1);
-      default: return std::make_tuple(on_device, on_host);
-    }
+    if (attr.devicePointer || attr.type == cudaMemoryTypeDevice) { ++on_device; }
+    if (attr.hostPointer || attr.type == cudaMemoryTypeUnregistered) { ++on_host; }
+    return std::make_tuple(on_device, on_host);
   }
 };
 
