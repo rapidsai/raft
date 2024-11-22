@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include <raft/core/mdspan.hpp>
 #include <raft/sparse/solver/lanczos.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 
@@ -58,31 +57,19 @@ struct lanczos_solver_t {
   {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
-    index_type_t iters{0};  // TODO: return total number of iter
-    auto lanczos_config = raft::sparse::solver::lanczos_solver_config<value_type_t>{
-      config_.n_eigVecs, config_.maxIter, config_.restartIter, config_.tol, config_.seed};
-    auto csr_structure =
-      raft::make_device_compressed_structure_view<index_type_t, index_type_t, index_type_t>(
-        const_cast<index_type_t*>(A.row_offsets_),
-        const_cast<index_type_t*>(A.col_indices_),
-        A.nrows_,
-        A.ncols_,
-        A.nnz_);
+    index_type_t iters{};
+    sparse::solver::computeSmallestEigenvectors(handle,
+                                                A,
+                                                config_.n_eigVecs,
+                                                config_.maxIter,
+                                                config_.restartIter,
+                                                config_.tol,
+                                                config_.reorthogonalize,
+                                                iters,
+                                                eigVals,
+                                                eigVecs,
+                                                config_.seed);
 
-    auto csr_matrix =
-      raft::make_device_csr_matrix_view<value_type_t, index_type_t, index_type_t, index_type_t>(
-        const_cast<value_type_t*>(A.values_), csr_structure);
-    std::optional<raft::device_vector_view<value_type_t, uint32_t, raft::row_major>> v0_opt;
-
-    sparse::solver::lanczos_compute_smallest_eigenvectors(
-      handle,
-      lanczos_config,
-      csr_matrix,
-      v0_opt,
-      raft::make_device_vector_view<value_type_t, uint32_t, raft::col_major>(eigVals,
-                                                                             config_.n_eigVecs),
-      raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(
-        eigVecs, A.nrows_, config_.n_eigVecs));
 
     return iters;
   }
