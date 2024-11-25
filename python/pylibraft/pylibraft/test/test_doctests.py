@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,6 @@ import io
 
 import pytest
 
-import pylibraft.cluster
-import pylibraft.distance
-import pylibraft.matrix
-import pylibraft.neighbors
 import pylibraft.random
 
 # Code adapted from https://github.com/rapidsai/cudf/blob/branch-23.02/python/cudf/cudf/tests/test_doctests.py  # noqa
@@ -92,16 +88,7 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
 # since the root pylibraft module doesn't import submodules (or define an
 # __all__) we are explicitly adding all the submodules we want to run
 # doctests for here
-DOC_STRINGS = list(_find_doctests_in_obj(pylibraft.cluster))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.common))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.distance))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.matrix.select_k))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.brute_force))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.cagra))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.ivf_flat))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.ivf_pq))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.refine))
+DOC_STRINGS = list(_find_doctests_in_obj(pylibraft.common))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.random))
 
 

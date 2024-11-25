@@ -23,7 +23,7 @@ auto vector = raft::make_device_vector<float>(handle, n_cols);
 auto matrix = raft::make_device_matrix<float>(handle, n_rows, n_cols);
 ```
 
-The `mdspan` is a lightweight non-owning view that can wrap around any pointer, maintaining shape, layout, and indexing information for accessing elements. 
+The `mdspan` is a lightweight non-owning view that can wrap around any pointer, maintaining shape, layout, and indexing information for accessing elements.
 
 
 We can construct `mdspan` instances directly from the above `mdarray` instances:
@@ -95,13 +95,13 @@ auto vector = raft::make_device_vector_view(vector_ptr, raft::make_vector_stride
 Most of the primitives in RAFT accept a `raft::handle_t` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
 
 The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
-pairwise Euclidean distances:
+pairwise Euclidean distances with [NVIDIA cuVS](https://github.com/rapidsai/cuvs):
 
 ```c++
 #include <raft/core/handle.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
-#include <raft/distance/distance.cuh>
+#include <cuvs/distance/distance.hpp>
 
 raft::handle_t handle;
 
@@ -114,20 +114,20 @@ auto output = raft::make_device_matrix<float>(handle, n_samples, n_samples);
 
 raft::random::make_blobs(handle, input.view(), labels.view());
 
-auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
+auto metric = cuvs::distance::DistanceType::L2SqrtExpanded;
+cuvs::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
 ## Python Example
 
 The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
 
-The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. Note that CuPy is not a required dependency for `pylibraft`.
+The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays with the [NVIDIA cuVS](https://github.com/rapidsai/cuvs) library. Note that CuPy is not a required dependency for `pylibraft`.
 
 ```python
 import cupy as cp
 
-from pylibraft.distance import pairwise_distance
+from cuvs.distance import pairwise_distance
 
 n_samples = 5000
 n_features = 50
@@ -170,7 +170,7 @@ pylibraft.config.set_output_as(lambda device_ndarray: return device_ndarray.copy
 ```python
 import cupy as cp
 
-from pylibraft.distance import pairwise_distance
+from cuvs.distance import pairwise_distance
 
 n_samples = 5000
 n_features = 50
