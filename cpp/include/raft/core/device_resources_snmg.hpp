@@ -55,13 +55,15 @@ namespace raft {
  * Note that the NCCL communications sometimes require
  * the use of multiple threads to avoid hangs
  */
-class device_resources_snmg : public resources {
+class device_resources_snmg : public device_resources {
  public:
   /**
    * @brief Construct a SNMG resources instance with all available GPUs
    */
-  device_resources_snmg() : resources{}, root_rank_(0)
+  device_resources_snmg() : device_resources(), root_rank_(0),
   {
+    cudaGetDevice(&main_gpu_id_);
+
     int num_ranks;
     RAFT_CUDA_TRY(cudaGetDeviceCount(&num_ranks));
     device_ids_.resize(num_ranks);
@@ -76,8 +78,10 @@ class device_resources_snmg : public resources {
    * @param[in] device_ids List of device IDs to be used by the NCCL clique
    */
   device_resources_snmg(const std::vector<int>& device_ids)
-    : resources{}, root_rank_(0), device_ids_(device_ids), nccl_comms_(device_ids.size())
+    : device_resources(), root_rank_(0), device_ids_(device_ids), nccl_comms_(device_ids.size())
   {
+    cudaGetDevice(&main_gpu_id_);
+
     initialize();
   }
 
@@ -87,8 +91,9 @@ class device_resources_snmg : public resources {
    * @param[in] clique A SNMG resources instance
    */
   device_resources_snmg(const device_resources_snmg& clique)
-    : resources(clique),
+    : device_resources(clique),
       root_rank_(clique.root_rank_),
+      main_gpu_id_(clique.main_gpu_id_),
       device_ids_(clique.device_ids_),
       nccl_comms_(clique.nccl_comms_),
       device_resources_(clique.device_resources_)
@@ -161,6 +166,12 @@ class device_resources_snmg : public resources {
     }
   }
 
+  bool has_resource_factory(resource::resource_type resource_type) const override
+  {
+    cudaSetDevice(this->main_gpu_id_);
+    raft::resource::has_resource_factory(resource_type);
+  }
+
   /** Destroys all held-up resources */
   ~device_resources_snmg()
   {
@@ -189,6 +200,7 @@ class device_resources_snmg : public resources {
   }
 
   int root_rank_;
+  int main_gpu_id_;
   std::vector<int> device_ids_;
   std::vector<ncclComm_t> nccl_comms_;
   std::vector<raft::device_resources> device_resources_;
