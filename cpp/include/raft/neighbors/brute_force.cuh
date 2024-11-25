@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,11 @@
  * limitations under the License.
  */
 #pragma once
-#include <memory>
-
-#ifndef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include "brute_force-inl.cuh"
-#endif
-
-#ifdef RAFT_COMPILED
-#include "brute_force-ext.cuh"
-#endif
 
 #include <raft/neighbors/detail/knn_brute_force_batch_k_query.cuh>
+
+#include <memory>
 
 namespace raft::neighbors::brute_force {
 /**
