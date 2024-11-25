@@ -210,7 +210,7 @@ auto constexpr make_device_strided_matrix_view(ElementType* ptr,
   constexpr auto is_row_major = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
   constexpr auto is_col_major = std::is_same_v<LayoutPolicy, layout_f_contiguous>;
 
-  assert(is_row_major || is_col_major);
+  static_assert(is_row_major || is_col_major);
 
   IndexType stride0 = is_row_major ? (stride > 0 ? stride : n_cols) : 1;
   IndexType stride1 = is_row_major ? 1 : (stride > 0 ? stride : n_rows);
