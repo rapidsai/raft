@@ -90,16 +90,7 @@ endfunction()
 # ##################################################################################################
 # test sources ##################################################################################
 # ##################################################################################################
-
-# ##################################################################################################
-# * distance tests -------------------------------------------------------------------------
-
 if(BUILD_TESTS)
-  ConfigureTest(
-    NAME CLUSTER_TEST PATH cluster/kmeans.cu cluster/kmeans_balanced.cu cluster/kmeans_find_k.cu
-    cluster/cluster_solvers.cu cluster/linkage.cu cluster/spectral.cu LIB EXPLICIT_INSTANTIATE_ONLY
-  )
-
   ConfigureTest(
     NAME
     CORE_TEST
@@ -139,58 +130,7 @@ if(BUILD_TESTS)
     NOCUDA
   )
 
-  ConfigureTest(
-    NAME
-    DISTANCE_TEST
-    PATH
-    distance/dist_adj.cu
-    distance/dist_adj_distance_instance.cu
-    distance/dist_canberra.cu
-    distance/dist_correlation.cu
-    distance/dist_cos.cu
-    distance/dist_dice.cu
-    distance/dist_hamming.cu
-    distance/dist_hellinger.cu
-    distance/dist_inner_product.cu
-    distance/dist_jensen_shannon.cu
-    distance/dist_kl_divergence.cu
-    distance/dist_l1.cu
-    distance/dist_l2_exp.cu
-    distance/dist_l2_unexp.cu
-    distance/dist_l2_sqrt_exp.cu
-    distance/dist_l_inf.cu
-    distance/dist_lp_unexp.cu
-    distance/dist_russell_rao.cu
-    distance/masked_nn.cu
-    distance/masked_nn_compress_to_bits.cu
-    distance/fused_l2_nn.cu
-    distance/fused_cosine_nn.cu
-    distance/gram.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  list(
-    APPEND
-    EXT_HEADER_TEST_SOURCES
-    ext_headers/raft_neighbors_brute_force.cu
-    ext_headers/raft_distance_distance.cu
-    ext_headers/raft_distance_detail_pairwise_matrix_dispatch.cu
-    ext_headers/raft_matrix_detail_select_k.cu
-    ext_headers/raft_neighbors_ball_cover.cu
-    ext_headers/raft_spatial_knn_detail_fused_l2_knn.cu
-    ext_headers/raft_distance_fused_l2_nn.cu
-    ext_headers/raft_neighbors_ivf_pq.cu
-    ext_headers/raft_neighbors_ivf_flat.cu
-    ext_headers/raft_core_logger.cpp
-    ext_headers/raft_neighbors_refine.cu
-    ext_headers/raft_neighbors_detail_ivf_flat_search.cu
-    ext_headers/raft_linalg_detail_coalesced_reduction.cu
-    ext_headers/raft_sparse_matrix_detail_select_k.cu
-    ext_headers/raft_spatial_knn_detail_ball_cover_registers.cu
-    ext_headers/raft_neighbors_detail_ivf_flat_interleaved_scan.cu
-    ext_headers/raft_neighbors_detail_ivf_pq_compute_similarity.cu
-  )
+  list(APPEND EXT_HEADER_TEST_SOURCES ext_headers/raft_core_logger.cpp)
 
   # Test that the split headers compile in isolation with:
   #
@@ -292,8 +232,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SOLVERS_TEST PATH cluster/cluster_solvers_deprecated.cu linalg/eigen_solvers.cu lap/lap.cu
-    sparse/mst.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME SOLVERS_TEST PATH linalg/eigen_solvers.cu lap/lap.cu sparse/mst.cu
+    sparse/solver/lanczos.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -322,133 +262,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SPARSE_DIST_TEST PATH sparse/dist_coo_spmv.cu sparse/distance.cu sparse/gram.cu LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureTest(
-    NAME SPARSE_NEIGHBORS_TEST PATH sparse/neighbors/cross_component_nn.cu
-    sparse/neighbors/brute_force.cu sparse/neighbors/knn_graph.cu LIB EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureTest(
-    NAME
-    NEIGHBORS_TEST
-    PATH
-    neighbors/knn.cu
-    neighbors/fused_l2_knn.cu
-    neighbors/tiled_knn.cu
-    neighbors/haversine.cu
-    neighbors/ball_cover.cu
-    neighbors/epsilon_neighborhood.cu
-    neighbors/refine.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureTest(
-    NAME NEIGHBORS_ANN_BRUTE_FORCE_TEST PATH neighbors/ann_brute_force/test_float.cu LIB
-    EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT 100
-  )
-
-  ConfigureTest(
-    NAME
-    NEIGHBORS_ANN_CAGRA_TEST
-    PATH
-    neighbors/ann_cagra/test_float_uint32_t.cu
-    neighbors/ann_cagra/test_half_uint32_t.cu
-    neighbors/ann_cagra/test_int8_t_uint32_t.cu
-    neighbors/ann_cagra/test_uint8_t_uint32_t.cu
-    neighbors/ann_cagra/test_float_int64_t.cu
-    neighbors/ann_cagra/test_half_int64_t.cu
-    neighbors/ann_cagra_vpq/test_float_int64_t.cu
-    neighbors/ann_cagra_vpq/test_float_uint32_t.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim128_t8.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim256_t16.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim512_t32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_multi_cta_float_uint64_dim1024_t32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_single_cta_float_uint64_dim128_t8.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_single_cta_float_uint64_dim256_t16.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_single_cta_float_uint64_dim512_t32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_single_cta_float_uint64_dim1024_t32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim128_t8.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim256_t16.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim512_t32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_multi_cta_half_uint64_dim1024_t32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_single_cta_half_uint64_dim128_t8.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_single_cta_half_uint64_dim256_t16.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_single_cta_half_uint64_dim512_t32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/cagra/search_single_cta_half_uint64_dim1024_t32.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-    GPUS
-    1
-    PERCENT
-    100
-  )
-
-  ConfigureTest(
-    NAME
-    NEIGHBORS_ANN_IVF_TEST
-    PATH
-    neighbors/ann_ivf_flat/test_filter_float_int64_t.cu
-    neighbors/ann_ivf_flat/test_float_int64_t.cu
-    neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
-    neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
-    neighbors/ann_ivf_pq/ivf_pq_build_float_uint32_t.cu
-    neighbors/ann_ivf_pq/ivf_pq_search_float_uint32_t.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_search_filtering_float_int64_t.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_float_filt32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_filt32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_filt32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_half_filt32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_filt32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_filt32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_half_filt32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_float_bitset32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_bitset32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_bitset32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_half_bitset32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_bitset32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_bitset32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_half_bitset32.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_float_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_half_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_half_bitset64.cu
-    neighbors/ann_ivf_pq/test_float_uint32_t.cu
-    neighbors/ann_ivf_pq/test_float_int64_t.cu
-    neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
-    neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
-    neighbors/ann_ivf_pq/test_filter_float_int64_t.cu
-    neighbors/ann_ivf_pq/test_filter_int8_t_int64_t.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-    GPUS
-    1
-    PERCENT
-    100
-  )
-
-  ConfigureTest(
-    NAME
-    NEIGHBORS_ANN_NN_DESCENT_TEST
-    PATH
-    neighbors/ann_nn_descent/test_float_uint32_t.cu
-    neighbors/ann_nn_descent/test_int8_t_uint32_t.cu
-    neighbors/ann_nn_descent/test_uint8_t_uint32_t.cu
-    # TODO: Investigate why this test is failing Reference issue
-    # https://github.com/rapidsai/raft/issues/2450
-    # neighbors/ann_nn_descent/test_batch_float_uint32_t.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-    GPUS
-    1
-    PERCENT
-    100
+    NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
+    neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -471,14 +286,11 @@ if(BUILD_TESTS)
     stats/mean_center.cu
     stats/minmax.cu
     stats/mutual_info_score.cu
-    stats/neighborhood_recall.cu
     stats/r2_score.cu
     stats/rand_index.cu
     stats/regression_metrics.cu
-    stats/silhouette_score.cu
     stats/stddev.cu
     stats/sum.cu
-    stats/trustworthiness.cu
     stats/weighted_mean.cu
     stats/v_measure.cu
     LIB

@@ -61,6 +61,7 @@ class PairwiseDistanceEpilogueElementwise {
   using ElementT                      = ElementT_;
   static int const kElementsPerAccess = ElementsPerAccess;
   static int const kCount             = kElementsPerAccess;
+  static bool const kIsSingleSource   = true;
 
   using DistanceOp = DistanceOp_;
   using FinalOp    = FinalOp_;
