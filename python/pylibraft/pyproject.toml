@@ -136,7 +136,7 @@ select = [
 ]
 
 # detect when package size grows significantly
-max_allowed_size_compressed = '825M'
+max_allowed_size_compressed = '600M'
 
 [tool.pytest.ini_options]
 filterwarnings = [
