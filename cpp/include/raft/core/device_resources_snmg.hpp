@@ -60,7 +60,7 @@ class device_resources_snmg : public device_resources {
   /**
    * @brief Construct a SNMG resources instance with all available GPUs
    */
-  device_resources_snmg() : device_resources(), root_rank_(0),
+  device_resources_snmg() : device_resources(), root_rank_(0)
   {
     cudaGetDevice(&main_gpu_id_);
 
@@ -164,12 +164,13 @@ class device_resources_snmg : public device_resources {
         rmm::percent_of_free_device_memory(percent_of_free_memory);  // check limit for each device
       raft::resource::set_workspace_to_pool_resource(get_device_resources(rank), limit);
     }
+    cudaSetDevice(this->main_gpu_id_);
   }
 
   bool has_resource_factory(resource::resource_type resource_type) const override
   {
     cudaSetDevice(this->main_gpu_id_);
-    raft::resource::has_resource_factory(resource_type);
+    return raft::resources::has_resource_factory(resource_type);
   }
 
   /** Destroys all held-up resources */
@@ -180,6 +181,7 @@ class device_resources_snmg : public device_resources {
       RAFT_CUDA_TRY(cudaSetDevice(get_device_id(rank)));
       RAFT_NCCL_TRY(ncclCommDestroy(get_nccl_comm(rank)));
     }
+    cudaSetDevice(this->main_gpu_id_);
   }
 
  private:
@@ -197,6 +199,7 @@ class device_resources_snmg : public device_resources {
       // ideally add the ncclComm_t to the device_resources object with
       // raft::comms::build_comms_nccl_only
     }
+    cudaSetDevice(this->main_gpu_id_);
   }
 
   int root_rank_;
