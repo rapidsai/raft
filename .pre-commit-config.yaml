@@ -62,7 +62,7 @@ repos:
                 entry: ./cpp/scripts/run-cmake-format.sh cmake-format
                 language: python
                 types: [cmake]
-                exclude: .*/thirdparty/.*|.*FindAVX.cmake.*
+                exclude: .*/thirdparty/.*
                 # Note that pre-commit autoupdate does not update the versions
                 # of dependencies, so we'll have to update this manually.
                 additional_dependencies:
@@ -93,7 +93,10 @@ repos:
               - id: codespell
                 additional_dependencies: [tomli]
                 args: ["--toml", "pyproject.toml"]
-                exclude: (?x)^(^CHANGELOG.md$)
+                exclude: |
+                  (?x)
+                    ^CHANGELOG[.]md$|
+                    ^cpp/cmake/patches/cutlass/build-export[.]patch$
       - repo: https://github.com/pre-commit/pre-commit-hooks
         rev: v4.5.0
         hooks:
@@ -114,10 +117,9 @@ repos:
                   cpp/include/raft/neighbors/detail/faiss_select/|
                   cpp/include/raft/thirdparty/|
                   docs/source/sphinxext/github_link[.]py|
-                  cpp/cmake/modules/FindAVX[.]cmake
           - id: verify-alpha-spec
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.13.11
+        rev: v1.16.0
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]

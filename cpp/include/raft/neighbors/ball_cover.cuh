@@ -15,10 +15,4 @@
  */
 
 #pragma once
-#ifndef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include "ball_cover-inl.cuh"
-#endif
-
-#ifdef RAFT_COMPILED
-#include "ball_cover-ext.cuh"
-#endif

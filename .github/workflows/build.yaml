@@ -52,7 +52,6 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-      skip_upload_pkgs: libraft-template
   docs-build:
     if: github.ref_type == 'branch'
     needs: python-build
