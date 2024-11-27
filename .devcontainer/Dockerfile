@@ -13,6 +13,7 @@ RUN apt update -y \
  && rm -rf /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*;
 
 ENV DEFAULT_VIRTUAL_ENV=rapids
+ENV RAPIDS_LIBUCX_PREFER_SYSTEM_LIBRARY=true
 
 FROM ${BASE} as conda-base
 
