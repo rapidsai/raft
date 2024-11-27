@@ -181,8 +181,7 @@ target_include_directories(
 
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
 target_link_libraries(
-  raft INTERFACE rmm::rmm rmm::rmm_logger rmm::rmm_logger_impl cuco::cuco nvidia::cutlass::cutlass
-                 CCCL::CCCL
+  raft INTERFACE rmm::rmm rmm::rmm_logger cuco::cuco nvidia::cutlass::cutlass CCCL::CCCL
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -318,6 +317,8 @@ if(RAFT_COMPILE_LIBRARY)
     # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
     target_link_options(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
   endforeach()
+  target_link_libraries(raft_lib PRIVATE rmm::rmm_logger_impl)
+  target_link_libraries(raft_lib_static PRIVATE rmm::rmm_logger_impl)
 endif()
 
 if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
