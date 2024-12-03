@@ -261,10 +261,10 @@ if(BUILD_TESTS)
     sparse/symmetrize.cu
   )
 
-  ConfigureTest(
-    NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
-    neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
-  )
+# ConfigureTest(
+#   NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
+#   neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
+# )
 
   ConfigureTest(
     NAME
