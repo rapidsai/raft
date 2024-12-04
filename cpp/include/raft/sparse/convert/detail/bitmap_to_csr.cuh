@@ -55,11 +55,12 @@ RAFT_KERNEL __launch_bounds__(bitmap_to_csr_tpb) calc_nnz_by_rows_kernel(const b
 {
   using mutable_bitmap_t = typename std::remove_const_t<bitmap_t>;
   using BlockReduce      = cub::BlockReduce<index_t, bitmap_to_csr_tpb>;
+
   __shared__ typename BlockReduce::TempStorage reduce_storage;
 
   constexpr index_t BITS_PER_BITMAP = sizeof(bitmap_t) * 8;
 
-  auto tid       = threadIdx.x;
+  const auto tid = threadIdx.x;
   const auto row = blockIdx.x;
 
   const auto num_sub_cols = gridDim.y;
@@ -150,11 +151,11 @@ RAFT_KERNEL __launch_bounds__(bitmap_to_csr_tpb)
   constexpr index_t BITS_PER_BITMAP = sizeof(bitmap_t) * 8;
 
   using mutable_bitmap_t = typename std::remove_const_t<bitmap_t>;
+  using BlockScan        = cub::BlockScan<int, bitmap_to_csr_tpb>;
 
-  using BlockScan = cub::BlockScan<int, bitmap_to_csr_tpb>;
   __shared__ typename BlockScan::TempStorage scan_storage;
 
-  auto tid       = threadIdx.x;
+  const auto tid = threadIdx.x;
   const auto row = blockIdx.x;
 
   // Ensure the HBM allocated for CSR values is sufficient to handle all non-zero bitmap bits.
