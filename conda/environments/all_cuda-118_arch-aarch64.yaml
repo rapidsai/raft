@@ -54,6 +54,7 @@ dependencies:
 - scikit-build-core>=0.10.0
 - scikit-learn
 - scipy
+- spdlog>=1.14.1,<1.15
 - sphinx-copybutton
 - sphinx-markdown-tables
 - sysroot_linux-aarch64==2.17
