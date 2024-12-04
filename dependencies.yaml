@@ -143,8 +143,9 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - nccl>=2.19
           - libucxx==0.42.*,>=0.0.0a0
+          - nccl>=2.19
+          - spdlog>=1.14.1,<1.15
     specific:
       - output_types: conda
         matrices:
