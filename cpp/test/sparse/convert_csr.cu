@@ -257,7 +257,7 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
     }
 
     std::random_device rd;
-    std::mt19937 gen(rd());
+    std::mt19937 gen(random_number = rd());
     std::uniform_int_distribution<index_t> dis(0, total - 1);
 
     while (num_ones > 0) {
@@ -318,8 +318,8 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
       size_t start_idx = row_ptrs1[i];
       size_t end_idx   = row_ptrs1[i + 1];
 
-      std::vector<int> cols1(col_indices1.begin() + start_idx, col_indices1.begin() + end_idx);
-      std::vector<int> cols2(col_indices2.begin() + start_idx, col_indices2.begin() + end_idx);
+      std::vector<index_t> cols1(col_indices1.begin() + start_idx, col_indices1.begin() + end_idx);
+      std::vector<index_t> cols2(col_indices2.begin() + start_idx, col_indices2.begin() + end_idx);
 
       std::sort(cols1.begin(), cols1.end());
       std::sort(cols2.begin(), cols2.end());
@@ -396,9 +396,13 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
 
     resource::sync_stream(handle);
 
-    ASSERT_TRUE(csr_compare(indptr_h, indices_h, indptr_expected_h, indices_expected_h));
-    ASSERT_TRUE(raft::devArrMatch<value_t>(
-      values_expected_d.data(), values_d.data(), nnz, raft::Compare<value_t>(), stream));
+    EXPECT_TRUE(csr_compare(indptr_h, indices_h, indptr_expected_h, indices_expected_h))
+      << " n_row: " << params.n_rows << ", n_cols: " << params.n_cols << ", nnz: " << nnz
+      << ", random_number: " << random_number;
+    EXPECT_TRUE(raft::devArrMatch<value_t>(
+      values_expected_d.data(), values_d.data(), nnz, raft::Compare<value_t>(), stream))
+      << " n_row: " << params.n_rows << ", n_cols: " << params.n_cols << ", nnz: " << nnz
+      << ", random_number: " << random_number;
   }
 
  protected:
@@ -418,6 +422,8 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
   rmm::device_uvector<index_t> indptr_expected_d;
   rmm::device_uvector<index_t> indices_expected_d;
   rmm::device_uvector<float> values_expected_d;
+
+  unsigned int random_number;
 };
 
 using BitmapToCSRTestI = BitmapToCSRTest<uint32_t, int, float>;
