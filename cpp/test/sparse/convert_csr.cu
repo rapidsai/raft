@@ -426,6 +426,9 @@ TEST_P(BitmapToCSRTestI, Result) { Run(); }
 using BitmapToCSRTestL = BitmapToCSRTest<uint32_t, int64_t, float>;
 TEST_P(BitmapToCSRTestL, Result) { Run(); }
 
+using BitmapToCSRTestLOnLargeSize = BitmapToCSRTest<uint32_t, int64_t, float>;
+TEST_P(BitmapToCSRTestLOnLargeSize, Result) { Run(); }
+
 template <typename index_t>
 const std::vector<BitmapToCSRInputs<index_t>> bitmaptocsr_inputs = {
   {0, 0, 0.2, false},
@@ -454,12 +457,19 @@ const std::vector<BitmapToCSRInputs<index_t>> bitmaptocsr_inputs = {
   {2, 33, 0.2, true},              // Check peeling-remainder
 };
 
+template <typename index_t>
+const std::vector<BitmapToCSRInputs<index_t>> bitmaptocsr_large_inputs = {
+  {100, 100000000, 0.01, true}, {100, 100000000, 0.05, false}, {100, 100000000 + 17, 0.05, false}};
+
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
                         BitmapToCSRTestI,
                         ::testing::ValuesIn(bitmaptocsr_inputs<int>));
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
                         BitmapToCSRTestL,
                         ::testing::ValuesIn(bitmaptocsr_inputs<int64_t>));
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
+                        BitmapToCSRTestLOnLargeSize,
+                        ::testing::ValuesIn(bitmaptocsr_large_inputs<int64_t>));
 
 }  // namespace sparse
 }  // namespace raft
