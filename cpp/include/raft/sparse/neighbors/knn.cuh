@@ -109,6 +109,8 @@ void brute_force_knn(const value_idx* idxIndptr,
 /**
  * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
  * using some distance implementation
+ * @tparam value_idx is the type of the edges index in the csr matrix
+ * @tparam value_t is the type of the values array in the csr matrix
  * @param[in] csr_idx index csr matrix
  * @param[in] csr_query query csr matrix
  * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
@@ -146,9 +148,13 @@ void brute_force_knn(raft::device_csr_matrix<value_t,
   auto idxIndices = csr_idx.structure_view().get_indices();
   auto idxData    = csr_idx.view().get_elements();
 
+  RAFT_EXPECTS(idxData.size() > 0, "No Values were detected in the Index CSR Matrix.");
+
   auto queryIndptr  = csr_query.structure_view().get_indptr();
   auto queryIndices = csr_query.structure_view().get_indices();
   auto queryData    = csr_query.view().get_elements();
+
+  RAFT_EXPECTS(queryData.size() > 0, "No Values were detected in the Query CSR Matrix.");
 
   brute_force::knn<value_idx, value_t>(idxIndptr.data(),
                                        idxIndices.data(),
@@ -175,6 +181,8 @@ void brute_force_knn(raft::device_csr_matrix<value_t,
 /**
  * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
  * using some distance implementation
+ * @tparam value_idx is the type of the edges index in the coo matrix
+ * @tparam value_t is the type of the values array in the coo matrix
  * @param[in] coo_idx index coo matrix
  * @param[in] coo_query query coo matrix
  * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
@@ -214,9 +222,13 @@ void brute_force_knn(raft::device_coo_matrix<value_t,
   auto idxCols = coo_idx.structure_view().get_cols();
   auto idxData = coo_idx.view().get_elements();
 
+  RAFT_EXPECTS(idxData.size() > 0, "No Values were detected in the Index COO Matrix.");
+
   auto queryRows = coo_query.structure_view().get_rows();
   auto queryCols = coo_query.structure_view().get_cols();
   auto queryData = coo_query.view().get_elements();
+
+  RAFT_EXPECTS(queryData.size() > 0, "No Values were detected in the Query COO Matrix.");
 
   raft::sparse::op::coo_sort(int(idxRows.size()),
                              int(idxCols.size()),

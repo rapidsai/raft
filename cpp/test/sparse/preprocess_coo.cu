@@ -162,11 +162,25 @@ TEST_P(SparsePreprocessTfidfCoo, Result) { Run(false); }
 using SparsePreprocessBm25Coo = SparsePreprocessCoo<float, int>;
 TEST_P(SparsePreprocessBm25Coo, Result) { Run(true); }
 
+using SparsePreprocessTfidfCooBig = SparsePreprocessCoo<float, int>;
+TEST_P(SparsePreprocessTfidfCooBig, Result) { Run(false); }
+
+using SparsePreprocessBm25CooBig = SparsePreprocessCoo<float, int>;
+TEST_P(SparsePreprocessBm25CooBig, Result) { Run(true); }
+
 const std::vector<SparsePreprocessInputs<float, int>> sparse_preprocess_inputs = {
   {
     10,   // n_rows_factor
     10,   // n_cols_factor
     1000  // nnz_edges
+  },
+};
+
+const std::vector<SparsePreprocessInputs<float, int>> sparse_preprocess_inputs_big = {
+  {
+    15,      // n_rows_factor
+    15,      // n_cols_factor
+    1000000  // nnz_edges
   },
 };
 
@@ -176,6 +190,13 @@ INSTANTIATE_TEST_CASE_P(SparsePreprocessCoo,
 INSTANTIATE_TEST_CASE_P(SparsePreprocessCoo,
                         SparsePreprocessBm25Coo,
                         ::testing::ValuesIn(sparse_preprocess_inputs));
+
+INSTANTIATE_TEST_CASE_P(SparsePreprocessCoo,
+                        SparsePreprocessTfidfCooBig,
+                        ::testing::ValuesIn(sparse_preprocess_inputs_big));
+INSTANTIATE_TEST_CASE_P(SparsePreprocessCoo,
+                        SparsePreprocessBm25CooBig,
+                        ::testing::ValuesIn(sparse_preprocess_inputs_big));
 
 }  // namespace sparse
 }  // namespace raft

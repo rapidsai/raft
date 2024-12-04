@@ -116,9 +116,9 @@ class SparsePreprocessCSR
                                              columns_nnz.view(),
                                              values_nnz.view(),
                                              num_rows);
-    auto rows_csr = raft::make_device_vector<int, int64_t>(handle, non_dupe_nnz_count);
+    auto rows_csr = raft::make_device_vector<Index_, int64_t>(handle, non_dupe_nnz_count);
     raft::sparse::convert::sorted_coo_to_csr(
-      rows_nnz.data_handle(), int(rows_nnz.size()), rows_csr.data_handle(), num_rows, stream);
+      rows_nnz.data_handle(), non_dupe_nnz_count, rows_csr.data_handle(), num_rows, stream);
 
     auto csr_struct_view = raft::make_device_compressed_structure_view(rows_csr.data_handle(),
                                                                        columns_nnz.data_handle(),
@@ -169,11 +169,25 @@ TEST_P(SparsePreprocessTfidfCsr, Result) { Run(false); }
 using SparsePreprocessBm25Csr = SparsePreprocessCSR<float, int>;
 TEST_P(SparsePreprocessBm25Csr, Result) { Run(true); }
 
+using SparsePreprocessTfidfCsrBig = SparsePreprocessCSR<float, int>;
+TEST_P(SparsePreprocessTfidfCsrBig, Result) { Run(false); }
+
+using SparsePreprocessBm25CsrBig = SparsePreprocessCSR<float, int>;
+TEST_P(SparsePreprocessBm25CsrBig, Result) { Run(true); }
+
 const std::vector<SparsePreprocessInputs<float, int>> sparse_preprocess_inputs = {
   {
     7,  // n_rows_factor
     5,  // n_cols_factor
     10  // num nnz values
+  },
+};
+
+const std::vector<SparsePreprocessInputs<float, int>> sparse_preprocess_inputs_big = {
+  {
+    12,     // n_rows_factor
+    12,     // n_cols_factor
+    100000  // nnz_edges
   },
 };
 
@@ -183,6 +197,13 @@ INSTANTIATE_TEST_CASE_P(SparsePreprocessCSR,
 INSTANTIATE_TEST_CASE_P(SparsePreprocessCSR,
                         SparsePreprocessBm25Csr,
                         ::testing::ValuesIn(sparse_preprocess_inputs));
+
+INSTANTIATE_TEST_CASE_P(SparsePreprocessCSR,
+                        SparsePreprocessTfidfCsrBig,
+                        ::testing::ValuesIn(sparse_preprocess_inputs_big));
+INSTANTIATE_TEST_CASE_P(SparsePreprocessCSR,
+                        SparsePreprocessBm25CsrBig,
+                        ::testing::ValuesIn(sparse_preprocess_inputs_big));
 
 }  // namespace sparse
 }  // namespace raft
