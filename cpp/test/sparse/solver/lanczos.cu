@@ -36,6 +36,7 @@
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda_runtime.h>
 #include <driver_types.h>
 
 #include <gtest/gtest.h>
@@ -265,6 +266,18 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
 
   void Run()
   {
+    int runtimeVersion;
+    cudaError_t result = cudaRuntimeGetVersion(&runtimeVersion);
+
+    if (result == cudaSuccess) {
+      int major = runtimeVersion / 1000;
+      int minor = (runtimeVersion % 1000) / 10;
+
+      // Skip gtests for CUDA 11.4.x and below because hard-coded results are causing issues.
+      // See https://github.com/rapidsai/raft/issues/2519 for more information.
+      if (major == 11 && minor <= 4) { GTEST_SKIP(); }
+    }
+
     raft::random::uniform<ValueType>(handle, rng, v0.view(), 0, 1);
     std::tuple<IndexType, ValueType, IndexType> stats;
 
