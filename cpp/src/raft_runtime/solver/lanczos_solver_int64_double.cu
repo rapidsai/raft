@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "lanczos_solver.cuh"
 
-#include "ivf_flat_interleaved_scan-inl.cuh"
+namespace raft::runtime::solver {
+
+FUNC_DEF(int64_t, double);
+
+}  // namespace raft::runtime::solver

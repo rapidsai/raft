@@ -268,6 +268,10 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
+    src/raft_runtime/solver/lanczos_solver_int64_double.cu
+    src/raft_runtime/solver/lanczos_solver_int64_float.cu
+    src/raft_runtime/solver/lanczos_solver_int_double.cu
+    src/raft_runtime/solver/lanczos_solver_int_float.cu
   )
   set_target_properties(
     raft_objs
