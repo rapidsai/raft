@@ -61,7 +61,7 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  *               params,
  *               X,
  *               std::nullopt,
- *               centroids,
+ *               centroids.view(),
  *               raft::make_scalar_view(&inertia),
  *               raft::make_scalar_view(&n_iter));
  * @endcode
