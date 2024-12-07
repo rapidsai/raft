@@ -230,6 +230,7 @@ RAFT_KERNEL __launch_bounds__(bitmap_to_csr_tpb)
     int l_bits    = raft::detail::popc(l_bitmap);
     int l_sum_32b = 0;
     BlockScan(scan_storage).InclusiveSum(l_bits, l_sum_32b);
+    __syncthreads();
     l_sum = l_sum_32b + g_sum - l_bits;
 
 #pragma unroll
