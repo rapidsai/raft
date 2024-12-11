@@ -445,12 +445,12 @@ install(
 #   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 # )
 
-install(
-  TARGETS raft
-  COMPONENT raft
-  FILE_SET raft_headers
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+# install(
+#   TARGETS raft
+#   COMPONENT raft
+#   FILE_SET raft_headers
+#   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+# )
 
 # Temporary install of raft.hpp while the file is removed
 install(
