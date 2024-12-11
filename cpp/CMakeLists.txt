@@ -386,6 +386,7 @@ rapids_cmake_install_lib_dir(lib_dir)
 include(GNUInstallDirs)
 include(CPack)
 
+message(FATAL_ERROR "--- using jameslamb/raft ---")
 install(
   TARGETS raft
   DESTINATION ${lib_dir}
