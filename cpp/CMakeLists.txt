@@ -185,7 +185,7 @@ target_sources(
   raft
   PUBLIC
   FILE_SET raft_headers
-    HEADERS
+    TYPE HEADERS
     BASE_DIRS include/raft
 )
 
