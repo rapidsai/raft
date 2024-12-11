@@ -447,6 +447,7 @@ install(
 install(
   TARGETS raft
   COMPONENT raft
+  FILE_SET raft_headers
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
