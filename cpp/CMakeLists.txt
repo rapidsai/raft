@@ -185,8 +185,8 @@ target_sources(
   raft
   PUBLIC
   FILE_SET raft_headers
-  TYPE HEADERS
-  BASE_DIRS include/raft
+    HEADERS
+    BASE_DIRS include/raft
 )
 
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
