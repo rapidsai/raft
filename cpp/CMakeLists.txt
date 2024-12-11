@@ -188,7 +188,7 @@ target_sources(
     TYPE HEADERS
     FILES
       include/raft/common/cub_wrappers.cuh
-    BASE_DIRS include/raft/
+    # BASE_DIRS include/raft/
 )
 
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
