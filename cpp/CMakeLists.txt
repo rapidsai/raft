@@ -401,6 +401,7 @@ install(
   TARGETS raft
   DESTINATION ${lib_dir}
   COMPONENT raft
+  FILE_SET raft_headers
   EXPORT raft-exports
 )
 
