@@ -13,7 +13,9 @@
 # =============================================================================
 
 function(find_and_configure_cutlass)
-  set(oneValueArgs VERSION REPOSITORY PINNED_TAG)
+  set(options)
+  set(oneValueArgs)
+  set(multiValueArgs)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   # if(RAFT_ENABLE_DIST_DEPENDENCIES OR RAFT_COMPILE_LIBRARIES)
@@ -34,13 +36,22 @@ function(find_and_configure_cutlass)
     set(CUDART_LIBRARY "${CUDA_cudart_static_LIBRARY}" CACHE FILEPATH "fixing cutlass cmake code" FORCE)
   endif()
 
+  include("${rapids-cmake-dir}/cpm/package_override.cmake")
+  rapids_cpm_package_override("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../patches/cutlass_override.json")
+
+  include("${rapids-cmake-dir}/cpm/detail/package_details.cmake")
+  rapids_cpm_package_details(cutlass version repository tag shallow exclude)
+
+  include("${rapids-cmake-dir}/cpm/detail/generate_patch_command.cmake")
+  rapids_cpm_generate_patch_command(cutlass ${version} patch_command)
+
   rapids_cpm_find(
-    NvidiaCutlass ${PKG_VERSION}
+    NvidiaCutlass ${version}
     GLOBAL_TARGETS nvidia::cutlass::cutlass
     CPM_ARGS
-    GIT_REPOSITORY ${PKG_REPOSITORY}
-    GIT_TAG ${PKG_PINNED_TAG}
-    GIT_SHALLOW TRUE
+    GIT_REPOSITORY ${repository}
+    GIT_TAG ${tag}
+    GIT_SHALLOW ${shallow} ${patch_command}
     OPTIONS "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
   )
 
@@ -79,14 +90,4 @@ function(find_and_configure_cutlass)
   )
 endfunction()
 
-if(NOT RAFT_CUTLASS_GIT_TAG)
-  set(RAFT_CUTLASS_GIT_TAG v2.10.0)
-endif()
-
-if(NOT RAFT_CUTLASS_GIT_REPOSITORY)
-  set(RAFT_CUTLASS_GIT_REPOSITORY https://github.com/NVIDIA/cutlass.git)
-endif()
-
-find_and_configure_cutlass(
-  VERSION 2.10.0 REPOSITORY ${RAFT_CUTLASS_GIT_REPOSITORY} PINNED_TAG ${RAFT_CUTLASS_GIT_TAG}
-)
+find_and_configure_cutlass()

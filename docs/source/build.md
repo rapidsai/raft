@@ -1,6 +1,6 @@
 # Installation
 
-RAFT currently provides libraries for C++ and Python. The C++ libraries, including the header-only and optional shared library, can be installed with Conda. 
+RAFT currently provides libraries for C++ and Python. The C++ libraries, including the header-only and optional shared library, can be installed with Conda.
 
 Both the C++ and Python APIs require CMake to build from source.
 
@@ -31,11 +31,8 @@ Both the C++ and Python APIs require CMake to build from source.
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` C++ headers
-- `libraft` (optional) C++ shared library containing pre-compiled template instantiations and runtime API.
 - `pylibraft` (optional) Python library
 - `raft-dask` (optional) Python library for deployment of multi-node multi-GPU algorithms that use the RAFT `raft::comms` abstraction layer in Dask clusters.
-- `raft-ann-bench` (optional) Benchmarking tool for easily producing benchmarks that compare RAFT's vector search algorithms against other state-of-the-art implementations.
-- `raft-ann-bench-cpu` (optional) Reproducible benchmarking tool similar to above, but doesn't require CUDA to be installed on the machine. Can be used to test in environments with competitive CPUs.
 
 Use the following command, depending on your CUDA version, to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
@@ -50,17 +47,15 @@ mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-vers
 
 Note that the above commands will also install `libraft-headers` and `libraft`.
 
-You can also install the conda packages individually using the `mamba` command above. For example, if you'd like to install RAFT's headers and pre-compiled shared library to use in your project:
+You can also install the conda packages individually using the `mamba` command above. For example, if you'd like to install RAFT's headers to use in your project:
 ```bash
 # for CUDA 12.0
-mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
+mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=12.0
 ```
-
-If installing the C++ APIs Please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.10/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
 
 ## Installing Python through Pip
 
-`pylibraft` and `raft-dask` both have packages that can be [installed through pip](https://rapids.ai/pip.html#install). 
+`pylibraft` and `raft-dask` both have packages that can be [installed through pip](https://rapids.ai/pip.html#install).
 
 For CUDA 11 packages:
 ```bash
@@ -74,20 +69,18 @@ pip install pylibraft-cu12 --extra-index-url=https://pypi.nvidia.com
 pip install raft-dask-cu12 --extra-index-url=https://pypi.nvidia.com
 ```
 
-These packages statically build RAFT's pre-compiled instantiations, so the C++ headers and pre-compiled shared library won't be readily available to use in your code. 
-
 ## Building C++ and Python from source
 
 ### CUDA/GPU Requirements
 - cmake 3.26.4+
 - GCC 9.3+ (9.5.0+ recommended)
-- CUDA Toolkit 11.2+
+- CUDA Toolkit 11.8+
 - NVIDIA driver 450.80.02+
-- Pascal architecture or better (compute capability >= 6.0)
+- Volta architecture or better (compute capability >= 7.0)
 
 ### Build Dependencies
 
-In addition to the libraries included with cudatoolkit 11.0+, there are some other dependencies below for building RAFT from source. Many of the dependencies are optional and depend only on the primitives being used. All of these can be installed with cmake or [rapids-cpm](https://github.com/rapidsai/rapids-cmake#cpm) and many of them can be installed with [conda](https://anaconda.org).
+In addition to the libraries included with cudatoolkit 11.8+, there are some other dependencies below for building RAFT from source. Many of the dependencies are optional and depend only on the primitives being used. All of these can be installed with cmake or [rapids-cpm](https://github.com/rapidsai/rapids-cmake#cpm) and many of them can be installed with [conda](https://anaconda.org).
 
 #### Required
 - [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
@@ -110,9 +103,9 @@ mamba env create --name rapids_raft -f conda/environments/all_cuda-125_arch-x86_
 mamba activate rapids_raft
 ```
 
-All of RAFT's C++ APIs can be used header-only and optional pre-compiled shared libraries provide some host-accessible runtime APIs and template instantiations to accelerate compile times.
+All of RAFT's C++ APIs can be used header-only.
 
-The process for building from source with CUDA 11 differs slightly in that your host system will also need to have CUDA toolkit installed which is greater than, or equal to, the version you install into you conda environment. Installing CUDA toolkit into your host system is necessary because `nvcc` is not provided with Conda's cudatoolkit dependencies for CUDA 11. The following example will install create and install dependencies for a CUDA 11.8 conda environment
+The process for building from source with CUDA 11 differs slightly in that your host system will also need to have CUDA toolkit installed which is greater than, or equal to, the version you install into you conda environment. Installing CUDA toolkit into your host system is necessary because `nvcc` is not provided with Conda's cudatoolkit dependencies for CUDA 11. The following example will install create and install dependencies for a CUDA 11.8 conda environment:
 ```bash
 mamba env create --name rapids_raft -f conda/environments/all_cuda-118_arch-x86_64.yaml
 mamba activate rapids_raft
@@ -124,7 +117,7 @@ The recommended way to build and install RAFT from source is to use the `build.s
 
 `build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like CUTLASS, which will need to be explicitly enabled in `build.sh`.
 
-The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. 
+The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`.
 ```bash
 ./build.sh libraft
 ```
@@ -140,7 +133,7 @@ Once installed, `libraft` headers (and dependencies which were downloaded and in
 
 ### C++ Shared Library (optional)
 
-A shared library can be built for speeding up compile times. The shared library also contains a runtime API that allows you to invoke RAFT APIs directly from C++ source files (without `nvcc`). The shared library can also significantly improve re-compile times both while developing RAFT and using its APIs to develop applications. Pass the `--compile-lib` flag to `build.sh` to build the library:
+A shared library must be built in order to build `pylibraft`. Pass the `--compile-lib` flag to `build.sh` to build the library:
 ```bash
 ./build.sh libraft --compile-lib
 ```
@@ -169,23 +162,17 @@ Compile the tests using the `tests` target in `build.sh`.
 ./build.sh libraft tests
 ```
 
-Test compile times can be improved significantly by using the optional shared libraries. If installed, they will be used automatically when building the tests but `--compile-libs` can be used to add additional compilation units and compile them with the tests.
-
-```bash
-./build.sh libraft tests --compile-lib
-```
-
 The tests are broken apart by algorithm category, so you will find several binaries in `cpp/build/` named `*_TEST`.
 
 For example, to run the distance tests:
 ```bash
-./cpp/build/DISTANCE_TEST
+./cpp/build/MATRIX_TEST
 ```
 
 It can take sometime to compile all of the tests. You can build individual tests by providing a semicolon-separated list to the `--limit-tests` option in `build.sh`:
 
 ```bash
-./build.sh libraft tests -n --limit-tests=NEIGHBORS_TEST;DISTANCE_TEST;MATRIX_TEST
+./build.sh libraft tests -n --limit-tests=CORE_TEST;MATRIX_TEST
 ```
 
 ### C++ Primitives Microbenchmarks
@@ -198,10 +185,8 @@ The benchmarks are broken apart by algorithm category, so you will find several 
 It can take sometime to compile all of the benchmarks. You can build individual benchmarks by providing a semicolon-separated list to the `--limit-bench-prims` option in `build.sh`:
 
 ```bash
-./build.sh libraft bench-prims -n --limit-bench=NEIGHBORS_PRIMS_BENCH;DISTANCE_PRIMS_BENCH;LINALG_PRIMS_BENCH
+./build.sh libraft bench-prims -n --limit-bench=NEIGHBORS_PRIMS_BENCH;MATRIX_PRIMS_BENCH;LINALG_PRIMS_BENCH
 ```
-
-In addition to microbenchmarks for individual primitives, RAFT contains a reproducible benchmarking tool for evaluating the performance of RAFT's vector search algorithms against the existing state-of-the-art. Please refer to the [RAFT ANN Benchmarks](https://docs.rapids.ai/api/raft/nightly/raft_ann_benchmarks/) guide for more information on this tool.
 
 ### Python libraries
 
@@ -242,7 +227,7 @@ The Python packages can also be uninstalled using the `build.sh` script:
 
 ### Using CMake directly
 
-When building RAFT from source, the `build.sh` script offers a nice wrapper around the `cmake` commands to ease the burdens of manually configuring the various available cmake options. When more fine-grained control over the CMake configuration is desired, the `cmake` command can be invoked directly as the below example demonstrates. 
+When building RAFT from source, the `build.sh` script offers a nice wrapper around the `cmake` commands to ease the burdens of manually configuring the various available cmake options. When more fine-grained control over the CMake configuration is desired, the `cmake` command can be invoked directly as the below example demonstrates.
 
 The `CMAKE_INSTALL_PREFIX` installs RAFT into a specific location. The example below installs RAFT into the current Conda environment:
 ```bash
@@ -259,7 +244,6 @@ RAFT's CMake has the following configurable flags available:
 |---------------------------------|----------------------| --- |------------------------------------------------------------------------------|
 | BUILD_TESTS                     | ON, OFF              | ON  | Compile Googletests                                                          |
 | BUILD_PRIMS_BENCH               | ON, OFF              | OFF | Compile benchmarks                                                           |
-| BUILD_ANN_BENCH                 | ON, OFF              | OFF | Compile end-to-end ANN benchmarks                                            |
 | CUDA_ENABLE_KERNELINFO          | ON, OFF              | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer`         |
 | CUDA_ENABLE_LINEINFO            | ON, OFF              | OFF | Enable the -lineinfo option for nvcc                                         |
 | CUDA_STATIC_RUNTIME             | ON, OFF              | OFF | Statically link the CUDA runtime                                             |
@@ -267,10 +251,10 @@ RAFT's CMake has the following configurable flags available:
 | DETECT_CONDA_ENV                | ON, OFF              | ON  | Enable detection of conda environment for dependencies                       |
 | raft_FIND_COMPONENTS            | compiled distributed |     | Configures the optional components as a space-separated list                 |
 | RAFT_COMPILE_LIBRARY            | ON, OFF              | ON if either BUILD_TESTS or BUILD_PRIMS_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
-| RAFT_ENABLE_CUBLAS_DEPENDENCY   | ON, OFF              | ON  | Link against cublas library in `raft::raft`                                  | 
-| RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF              | ON  | Link against cusolver library in `raft::raft`                                | 
-| RAFT_ENABLE_CUSPARSE_DEPENDENCY | ON, OFF              | ON  | Link against cusparse library in `raft::raft`                                | 
-| RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF              | ON  | Link against curand library in `raft::raft`                                  | 
+| RAFT_ENABLE_CUBLAS_DEPENDENCY   | ON, OFF              | ON  | Link against cublas library in `raft::raft`                                  |
+| RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF              | ON  | Link against cusolver library in `raft::raft`                                |
+| RAFT_ENABLE_CUSPARSE_DEPENDENCY | ON, OFF              | ON  | Link against cusparse library in `raft::raft`                                |
+| RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF              | ON  | Link against curand library in `raft::raft`                                  |
 | RAFT_NVTX                       | ON, OFF              | OFF | Enable NVTX Markers                                                          |
 
 ### Build documentation
@@ -306,8 +290,6 @@ PROPERTIES CXX_STANDARD                        17
            INTERFACE_POSITION_INDEPENDENT_CODE ON)
 ```
 
-The [C++ example template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) provides an end-to-end buildable example of what a `CMakeLists.txt` that uses RAFT should look like. The items below point out some of the needed details.
-
 #### CMake Targets
 
 The `raft::raft` CMake target is made available when including RAFT into your CMake project but additional CMake targets can be made available by adding to the `COMPONENTS` option in CMake's `find_package(raft)` (refer to [CMake docs](https://cmake.org/cmake/help/latest/command/find_package.html#basic-signature) to learn more). The components should be separated by spaces. The `raft::raft` target will always be available. Note that the `distributed` component also exports additional dependencies.
@@ -316,4 +298,4 @@ The `raft::raft` CMake target is made available when including RAFT into your CM
 |-------------|---------------------|----------------------------------------------------------|----------------------------------------|
 | n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
 | compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                             |
-| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL         
+| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL
