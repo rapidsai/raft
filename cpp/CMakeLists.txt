@@ -183,7 +183,7 @@ target_include_directories(
 # headers via 'install(TARGETS raft)`
 target_sources(
   raft
-  INTERFACE 
+  PUBLIC
   FILE_SET raft_headers
   TYPE HEADERS
   BASE_DIRS include/raft
