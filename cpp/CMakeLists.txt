@@ -179,6 +179,16 @@ target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
 
+# associate headers with the target, so other projects can install just the
+# headers via 'install(TARGETS raft)`
+target_sources(
+  raft
+  INTERFACE 
+  FILE_SET raft-headers
+  TYPE HEADERS
+  BASE_DIRS include/raft
+)
+
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
 target_link_libraries(
   raft INTERFACE rmm::rmm rmm::rmm_logger spdlog::spdlog_header_only cuco::cuco
@@ -386,7 +396,7 @@ rapids_cmake_install_lib_dir(lib_dir)
 include(GNUInstallDirs)
 include(CPack)
 
-message(FATAL_ERROR "--- using jameslamb/raft ---")
+message(STATUS "--- using jameslamb/raft ---")
 install(
   TARGETS raft
   DESTINATION ${lib_dir}
@@ -428,8 +438,14 @@ install(
   EXPORT raft-distributed-exports
 )
 
+# install(
+#   DIRECTORY include/raft
+#   COMPONENT raft
+#   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+# )
+
 install(
-  DIRECTORY include/raft
+  TARGETS raft
   COMPONENT raft
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
