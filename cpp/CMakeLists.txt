@@ -187,7 +187,7 @@ target_sources(
   FILE_SET raft_headers
     TYPE HEADERS
     FILES
-      common/cub_wrappers.cuh
+      include/raft/common/cub_wrappers.cuh
     BASE_DIRS include/raft/
 )
 
