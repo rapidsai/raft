@@ -250,7 +250,7 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
   index_t create_sparse_matrix(index_t m, index_t n, float sparsity, std::vector<bitmap_t>& bitmap)
   {
     index_t total    = static_cast<index_t>(m * n);
-    index_t num_ones = static_cast<index_t>((total * 1.0f) * sparsity);
+    index_t num_ones = static_cast<index_t>((total * 1.0f) * (1.0f - sparsity));
     index_t res      = num_ones;
 
     for (auto& item : bitmap) {
@@ -258,7 +258,7 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
     }
 
     std::random_device rd;
-    std::mt19937 gen(rd());
+    std::mt19937 gen(random_number = rd());
     std::uniform_int_distribution<index_t> dis(0, total - 1);
 
     while (num_ones > 0) {
@@ -319,8 +319,8 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
       size_t start_idx = row_ptrs1[i];
       size_t end_idx   = row_ptrs1[i + 1];
 
-      std::vector<int> cols1(col_indices1.begin() + start_idx, col_indices1.begin() + end_idx);
-      std::vector<int> cols2(col_indices2.begin() + start_idx, col_indices2.begin() + end_idx);
+      std::vector<index_t> cols1(col_indices1.begin() + start_idx, col_indices1.begin() + end_idx);
+      std::vector<index_t> cols2(col_indices2.begin() + start_idx, col_indices2.begin() + end_idx);
 
       std::sort(cols1.begin(), cols1.end());
       std::sort(cols2.begin(), cols2.end());
@@ -397,9 +397,13 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
 
     resource::sync_stream(handle);
 
-    ASSERT_TRUE(csr_compare(indptr_h, indices_h, indptr_expected_h, indices_expected_h));
-    ASSERT_TRUE(raft::devArrMatch<value_t>(
-      values_expected_d.data(), values_d.data(), nnz, raft::Compare<value_t>(), stream));
+    EXPECT_TRUE(csr_compare(indptr_h, indices_h, indptr_expected_h, indices_expected_h))
+      << " n_row: " << params.n_rows << ", n_cols: " << params.n_cols << ", nnz: " << nnz
+      << ", random_number: " << random_number;
+    EXPECT_TRUE(raft::devArrMatch<value_t>(
+      values_expected_d.data(), values_d.data(), nnz, raft::Compare<value_t>(), stream))
+      << " n_row: " << params.n_rows << ", n_cols: " << params.n_cols << ", nnz: " << nnz
+      << ", random_number: " << random_number;
   }
 
  protected:
@@ -419,6 +423,8 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
   rmm::device_uvector<index_t> indptr_expected_d;
   rmm::device_uvector<index_t> indices_expected_d;
   rmm::device_uvector<float> values_expected_d;
+
+  unsigned int random_number;
 };
 
 using BitmapToCSRTestI = BitmapToCSRTest<uint32_t, int, float>;
@@ -427,33 +433,40 @@ TEST_P(BitmapToCSRTestI, Result) { Run(); }
 using BitmapToCSRTestL = BitmapToCSRTest<uint32_t, int64_t, float>;
 TEST_P(BitmapToCSRTestL, Result) { Run(); }
 
+using BitmapToCSRTestLOnLargeSize = BitmapToCSRTest<uint32_t, int64_t, float>;
+TEST_P(BitmapToCSRTestLOnLargeSize, Result) { Run(); }
+
 template <typename index_t>
 const std::vector<BitmapToCSRInputs<index_t>> bitmaptocsr_inputs = {
-  {0, 0, 0.2, false},
-  {10, 32, 0.4, false},
-  {10, 3, 0.2, false},
-  {32, 1024, 0.4, false},
-  {1024, 1048576, 0.01, false},
-  {1024, 1024, 0.4, false},
-  {64 * 1024 + 10, 2, 0.3, false},  // 64K + 10 is slightly over maximum of blockDim.y
-  {16, 16, 0.3, false},             // No peeling-remainder
-  {17, 16, 0.3, false},             // Check peeling-remainder
-  {18, 16, 0.3, false},             // Check peeling-remainder
-  {32 + 9, 33, 0.2, false},         // Check peeling-remainder
-  {2, 33, 0.2, false},              // Check peeling-remainder
-  {0, 0, 0.2, true},
-  {10, 32, 0.4, true},
-  {10, 3, 0.2, true},
-  {32, 1024, 0.4, true},
-  {1024, 1048576, 0.01, true},
-  {1024, 1024, 0.4, true},
-  {64 * 1024 + 10, 2, 0.3, true},  // 64K + 10 is slightly over maximum of blockDim.y
-  {16, 16, 0.3, true},             // No peeling-remainder
-  {17, 16, 0.3, true},             // Check peeling-remainder
-  {18, 16, 0.3, true},             // Check peeling-remainder
-  {32 + 9, 33, 0.2, true},         // Check peeling-remainder
-  {2, 33, 0.2, true},              // Check peeling-remainder
+  {0, 0, 0.8, false},
+  {10, 32, 0.6, false},
+  {10, 3, 0.8, false},
+  {32, 1024, 0.6, false},
+  {1024, 1048576, 0.99, false},
+  {1024, 1024, 0.6, false},
+  {64 * 1024 + 10, 2, 0.7, false},  // 64K + 10 is slightly over maximum of blockDim.y
+  {16, 16, 0.7, false},             // No peeling-remainder
+  {17, 16, 0.7, false},             // Check peeling-remainder
+  {18, 16, 0.7, false},             // Check peeling-remainder
+  {32 + 9, 33, 0.8, false},         // Check peeling-remainder
+  {2, 33, 0.8, false},              // Check peeling-remainder
+  {0, 0, 0.8, true},
+  {10, 32, 0.6, true},
+  {10, 3, 0.8, true},
+  {32, 1024, 0.6, true},
+  {1024, 1048576, 0.99, true},
+  {1024, 1024, 0.6, true},
+  {64 * 1024 + 10, 2, 0.7, true},  // 64K + 10 is slightly over maximum of blockDim.y
+  {16, 16, 0.7, true},             // No peeling-remainder
+  {17, 16, 0.7, true},             // Check peeling-remainder
+  {18, 16, 0.7, true},             // Check peeling-remainder
+  {32 + 9, 33, 0.8, true},         // Check peeling-remainder
+  {2, 33, 0.8, true},              // Check peeling-remainder
 };
+
+template <typename index_t>
+const std::vector<BitmapToCSRInputs<index_t>> bitmaptocsr_large_inputs = {
+  {100, 100000000, 0.99, true}, {100, 100000000, 0.95, false}, {100, 100000000 + 17, 0.95, false}};
 
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
                         BitmapToCSRTestI,
@@ -461,6 +474,9 @@ INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
                         BitmapToCSRTestL,
                         ::testing::ValuesIn(bitmaptocsr_inputs<int64_t>));
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
+                        BitmapToCSRTestLOnLargeSize,
+                        ::testing::ValuesIn(bitmaptocsr_large_inputs<int64_t>));
 
 /******************************** bitset to csr ********************************/
 
