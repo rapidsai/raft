@@ -184,7 +184,7 @@ target_include_directories(
 target_sources(
   raft
   INTERFACE 
-  FILE_SET raft-headers
+  FILE_SET raft_headers
   TYPE HEADERS
   BASE_DIRS include/raft
 )
