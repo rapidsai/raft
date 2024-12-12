@@ -181,13 +181,19 @@ target_include_directories(
 
 # associate headers with the target, so other projects can install just the
 # headers via 'install(TARGETS raft)`
+file(
+  GLOB_RECURSE _raft_headers
+  RELATIVE include/
+  *
+)
 target_sources(
   raft
   PUBLIC
   FILE_SET raft_headers
     TYPE HEADERS
     FILES
-      include/raft/common/cub_wrappers.cuh
+      #include/raft/common/cub_wrappers.cuh
+      ${_raft_headers}
     # BASE_DIRS include/raft/
 )
 
