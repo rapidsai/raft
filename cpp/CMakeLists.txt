@@ -183,7 +183,8 @@ target_include_directories(
 # headers via 'install(TARGETS raft)`
 file(
   GLOB_RECURSE _raft_headers
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/*"
+  #"${CMAKE_CURRENT_SOURCE_DIR}/include/*"
+  "include/*"
 )
 message(FATAL_ERROR "--- _raft_headers: ${_raft_headers}")
 target_sources(
