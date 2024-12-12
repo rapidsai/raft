@@ -186,7 +186,6 @@ file(
   #"${CMAKE_CURRENT_SOURCE_DIR}/include/*"
   "include/*"
 )
-message(FATAL_ERROR "--- _raft_headers: ${_raft_headers}")
 target_sources(
   raft
   PUBLIC
