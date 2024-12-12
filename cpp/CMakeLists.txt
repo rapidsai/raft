@@ -447,19 +447,6 @@ install(
   EXPORT raft-distributed-exports
 )
 
-# install(
-#   DIRECTORY include/raft
-#   COMPONENT raft
-#   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-# )
-
-# install(
-#   TARGETS raft
-#   COMPONENT raft
-#   FILE_SET raft_headers
-#   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-# )
-
 # Temporary install of raft.hpp while the file is removed
 install(
   FILES include/raft.hpp
