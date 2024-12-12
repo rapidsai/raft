@@ -401,7 +401,7 @@ include(CPack)
 message(STATUS "--- using jameslamb/raft ---")
 install(
   TARGETS raft
-  EXPORT raft-exports
+  #EXPORT raft-exports
   DESTINATION ${lib_dir}
   COMPONENT raft
   FILE_SET raft_headers
