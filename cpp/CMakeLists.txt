@@ -181,6 +181,7 @@ target_include_directories(
 
 # associate headers with the target, so other projects can install just the
 # headers via 'install(TARGETS raft)`
+# TODO(jameslamb): remove commented-out stuff
 file(
   GLOB_RECURSE _raft_headers
   #"${CMAKE_CURRENT_SOURCE_DIR}/include/*"
@@ -407,9 +408,9 @@ include(CPack)
 message(STATUS "--- using jameslamb/raft ---")
 install(
   TARGETS raft
-  EXPORT raft-exports
   DESTINATION ${lib_dir}
   COMPONENT raft
+  EXPORT raft-exports
   FILE_SET raft_headers
 )
 
