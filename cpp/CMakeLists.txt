@@ -184,8 +184,9 @@ target_include_directories(
 file(
   GLOB_RECURSE _raft_headers
   RELATIVE include/
-  *
+  .*
 )
+message(FATAL_ERROR "--- _raft_headers: ${_raft_headers}")
 target_sources(
   raft
   PUBLIC
