@@ -48,12 +48,16 @@
 namespace raft {
 
 /**
- * @brief SNMG resource container object that stores a NCCL clique and
- * all necessary resources used for calling device functions, cuda kernels,
- * libraries and/or NCCL communications on each GPU
+ * @brief SNMG (single-node multi-GPU) resource container object that stores a NCCL clique and all
+ * necessary resources used for calling device functions, cuda kernels, libraries and/or NCCL
+ * communications on each GPU. Note the `device_resources_snmg` object can also be used as a classic
+ * `device_resources` object. The associated resources will be the ones of the GPU used during
+ * object instantiation and a GPU switch operation will be ordered during the retrieval of said
+ * resources.
  *
- * Note that the NCCL communications sometimes require
- * the use of multiple threads to avoid hangs
+ * The `device_resources_snmg` class is intended to be used in a single process to manage several
+ * GPUs. Please note that NCCL communications are the responsibility of the user. Blocking NCCL
+ * calls will sometimes require the use of several threads to avoid hangs.
  */
 class device_resources_snmg : public device_resources {
  public:
