@@ -27,21 +27,7 @@ project(
   LANGUAGES CXX CUDA
 )
 
-option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
-
-# If the user requested it we attempt to find RAFT.
-if(FIND_RAFT_CPP)
-  find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS compiled)
-  if(NOT TARGET raft::raft_lib)
-    message(
-      FATAL_ERROR
-        "Building against a preexisting libraft library requires the compiled libraft to have been built!"
-    )
-
-  endif()
-else()
-  set(raft_FOUND OFF)
-endif()
+find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS raft compiled)
 
 include(rapids-cython-core)
 

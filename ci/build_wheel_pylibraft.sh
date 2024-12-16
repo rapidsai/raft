@@ -5,17 +5,8 @@ set -euo pipefail
 
 package_dir="python/pylibraft"
 
-case "${RAPIDS_CUDA_VERSION}" in
-  12.*)
-    EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=ON"
-  ;;
-  11.*)
-    EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=OFF"
-  ;;
-esac
-
 # Set up skbuild options. Enable sccache in skbuild config options
-export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DFIND_RAFT_CPP=OFF${EXTRA_CMAKE_ARGS}"
+export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;"
 
 ci/build_wheel.sh pylibraft ${package_dir} python
 ci/validate_wheel.sh ${package_dir} final_dist pylibraft

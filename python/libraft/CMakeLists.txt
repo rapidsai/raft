@@ -52,6 +52,9 @@ elseif(USE_CUDA_MATH_WHEELS)
   message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
 endif()
 
+# ensure installs are inside the libraft/ folder in site-packages/
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+
 add_subdirectory(../../cpp raft-cpp)
 
 if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)

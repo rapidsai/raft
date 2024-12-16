@@ -65,6 +65,13 @@ files:
       - build_pylibraft
       - depends_on_librmm
       - rapids_build
+  py_run_libraft:
+    output: pyproject
+    pyproject_dir: python/libraft
+    extras:
+      table: project
+    includes:
+      - cuda_wheels
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -79,6 +86,7 @@ files:
       table: tool.rapids-build-backend
       key: requires
     includes:
+      - depends_on_libraft
       - rapids_build
       - build_pylibraft
   py_run_pylibraft:
@@ -88,6 +96,7 @@ files:
       table: project
     includes:
       - cuda_wheels
+      - depends_on_libraft
       - run_pylibraft
   py_test_pylibraft:
     output: pyproject
@@ -113,6 +122,7 @@ files:
       table: tool.rapids-build-backend
       key: requires
     includes:
+      - depends_on_libraft
       - rapids_build
       - depends_on_ucx_build
   py_run_raft_dask:
@@ -121,6 +131,7 @@ files:
     extras:
       table: project
     includes:
+      - depends_on_libraft
       - run_raft_dask
       - depends_on_distributed_ucxx
   py_test_raft_dask:
@@ -554,6 +565,29 @@ dependencies:
             packages:
               - distributed-ucxx-cu11==0.42.*,>=0.0.0a0
           - {matrix: null, packages: [*distributed_ucxx_unsuffixed]}
+  depends_on_libraft:
+    common:
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - libraft-cu12==25.2.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
+            packages:
+              - libraft-cu11==25.2.*,>=0.0.0a0
+          - matrix:
+            packages:
+              - libraft==25.2.*,>=0.0.0a0
   depends_on_librmm:
     common:
       - output_types: conda
