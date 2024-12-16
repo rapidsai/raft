@@ -36,15 +36,18 @@ def _load_wheel_installation(soname: str):
     """Try to dlopen() the library indicated by ``soname``
     Returns ``None`` if the library cannot be loaded.
     """
-    if os.path.isfile(lib := os.path.join(os.path.dirname(__file__), "lib64", soname)):
+    if os.path.isfile(
+        lib := os.path.join(os.path.dirname(__file__), "lib64", soname)
+    ):
         return ctypes.CDLL(lib, PREFERRED_LOAD_FLAG)
     return None
 
 
 def load_library():
-    """Dynamically load libcugraph.so and its dependencies"""
+    """Dynamically load libraft.so and its dependencies"""
     prefer_system_installation = (
-        os.getenv("RAPIDS_LIBRAFT_PREFER_SYSTEM_LIBRARY", "false").lower() != "false"
+        os.getenv("RAPIDS_LIBRAFT_PREFER_SYSTEM_LIBRARY", "false").lower()
+        != "false"
     )
 
     soname = "libraft.so"
@@ -73,5 +76,5 @@ def load_library():
 
     # The caller almost never needs to do anything with this library, but no
     # harm in offering the option since this object at least provides a handle
-    # to inspect where libcugraph was loaded from.
+    # to inspect where libraft was loaded from.
     return libraft_lib

@@ -29,6 +29,10 @@ option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libr
 
 # Check if raft is already available. If so, it is the user's responsibility to ensure that the
 # CMake package is also available at build time of the Python raft package.
+
+find_package(CUDAToolkit REQUIRED)
+
+# TODO(jameslamb): make this work
 find_package(raft "${RAPIDS_VERSION}")
 
 if(raft_FOUND)
