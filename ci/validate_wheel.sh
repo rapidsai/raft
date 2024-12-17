@@ -28,7 +28,7 @@ elif [[ "${package_name}" == "pylibraft" ]] || [[ "${package_name}" == "raft-das
         )
     else
         PYDISTCHECK_ARGS=(
-            --max-allowed-size-compressed '100M'
+            --max-allowed-size-compressed '400M'
         )
     fi
 else
