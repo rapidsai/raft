@@ -40,6 +40,12 @@ case "${RAPIDS_CUDA_VERSION}" in
   ;;
 esac
 
+if [[ ${package_name} != "libraft" ]]; then
+    EXCLUDE_ARGS+=(
+      --exclude "libraft.so"
+    )
+fi
+
 sccache --zero-stats
 
 rapids-logger "Building '${package_name}' wheel"

@@ -21,7 +21,7 @@ if [[ "${package_name}" == "libraft" ]]; then
             --max-allowed-size-compressed '5.0G'
         )
     fi
-elif [[ "${package_name}" == "pylibraft" ]]; then
+elif [[ "${package_name}" == "pylibraft" ]] || [[ "${package_name}" == "raft-dask" ]]; then
     if [[ "${RAPIDS_CUDA_MAJOR}" == "11" ]]; then
         PYDISTCHECK_ARGS=(
             --max-allowed-size-compressed '600M'
