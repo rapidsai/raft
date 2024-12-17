@@ -20,6 +20,7 @@ jobs:
       # - conda-python-build
       # - conda-python-tests
       # - docs-build
+      - wheel-build-libraft
       - wheel-build-pylibraft
       - wheel-tests-pylibraft
       - wheel-build-raft-dask
