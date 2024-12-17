@@ -31,8 +31,11 @@ rapids_cpm_init()
 find_package(ucx REQUIRED)
 include(cmake/thirdparty/get_ucxx.cmake)
 
-# raft-dask doesn't actually use raft libraries, it just needs the headers
-find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS raft)
+# why these components:
+#
+#   * 'raft' = the headers, needed to link against libraft
+#   * 'distributed = needed for 'nccl'
+find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS raft distributed)
 
 # list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR}/cmake/find_modules)
 # find_package(NCCL REQUIRED)

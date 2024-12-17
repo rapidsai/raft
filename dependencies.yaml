@@ -122,9 +122,14 @@ files:
     extras:
       table: tool.rapids-build-backend
       key: requires
+    # TODO(jameslamb): use libucxx?
     includes:
       - depends_on_libraft
-      - depends_on_librmm
+      # CMake Error at /pyenv/versions/3.12.7/lib/python3.12/site-packages/librmm/lib64/cmake/rmm/rmm-targets.cmake:42 (message):
+      # Some (but not all) targets in this export set were already defined.
+      # Targets Defined: rmm::rmm
+      # Targets not yet defined: rmm::rmm_logger, rmm::rmm_logger_im
+      # - depends_on_librmm
       - rapids_build
       - depends_on_ucx_build
   py_run_raft_dask:
