@@ -109,7 +109,7 @@ jobs:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
     with:
-      build_type: ${{ inputs.build_type || 'branch' }}
+      build_type: pull-request
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}

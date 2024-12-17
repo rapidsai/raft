@@ -78,7 +78,7 @@ jobs:
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
   wheel-publish-libraft:
-    needs: wheel-publish-libcugraph
+    needs: wheel-build-libraft
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-25.02
     with:
