@@ -26,6 +26,7 @@ project(
 )
 
 rapids_cpm_init()
+# TODO(jameslamb): could this just use the libucxx wheel?
 # Once https://github.com/rapidsai/ucxx/issues/173 is resolved we can remove this.
 find_package(ucx REQUIRED)
 include(cmake/thirdparty/get_ucxx.cmake)
