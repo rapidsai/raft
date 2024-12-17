@@ -62,8 +62,8 @@ def load_library():
             libraft_lib = _load_wheel_installation(soname)
     else:
         # Prefer the libraries bundled in this package. If they aren't found
-        # (which might be the case in builds where the library was prebuilt before
-        # packaging the wheel), look for a system installation.
+        # (which might be the case in builds where the library was prebuilt
+        # before packaging the wheel), look for a system installation.
         try:
             libraft_lib = _load_wheel_installation(soname)
             if libraft_lib is None:
