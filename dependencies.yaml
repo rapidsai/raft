@@ -87,6 +87,7 @@ files:
       key: requires
     includes:
       - depends_on_libraft
+      - depends_on_librmm
       - rapids_build
       - build_pylibraft
   py_run_pylibraft:
@@ -123,6 +124,7 @@ files:
       key: requires
     includes:
       - depends_on_libraft
+      - depends_on_librmm
       - rapids_build
       - depends_on_ucx_build
   py_run_raft_dask:

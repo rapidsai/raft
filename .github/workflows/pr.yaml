@@ -103,8 +103,18 @@ jobs:
       arch: "amd64"
       container_image: "rapidsai/ci-conda:latest"
       run_script: "ci/build_docs.sh"
-  wheel-build-pylibraft:
+  wheel-build-libraft:
     needs: checks
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
+    with:
+      build_type: ${{ inputs.build_type || 'branch' }}
+      branch: ${{ inputs.branch }}
+      sha: ${{ inputs.sha }}
+      date: ${{ inputs.date }}
+      script: ci/build_wheel_libraft.sh
+  wheel-build-pylibraft:
+    needs: [checks, wheel-build-libraft]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
     with:
@@ -119,7 +129,7 @@ jobs:
       build_type: pull-request
       script: ci/test_wheel_pylibraft.sh
   wheel-build-raft-dask:
-    needs: wheel-tests-pylibraft
+    needs: [checks, wheel-build-libraft]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
     with:
