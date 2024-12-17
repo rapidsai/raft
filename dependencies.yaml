@@ -97,7 +97,6 @@ files:
     extras:
       table: project
     includes:
-      - cuda_wheels
       - depends_on_libraft
       - depends_on_cuda_python
       - depends_on_rmm
