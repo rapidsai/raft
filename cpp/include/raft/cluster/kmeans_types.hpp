@@ -82,7 +82,7 @@ struct KMeansParams : kmeans_base_params {
   /**
    * verbosity level.
    */
-  int verbosity = RAFT_LEVEL_INFO;
+  level_enum verbosity = level_enum::info;
 
   /**
    * Seed to the random number generator.

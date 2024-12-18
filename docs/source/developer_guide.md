@@ -256,14 +256,14 @@ There are 7 logging levels with each successive level becoming quieter:
 7. RAFT_LEVEL_OFF
    Pass one of these as per your needs into the `set_level()` method as follows:
 ```cpp
-raft::logger::get().set_level(RAFT_LEVEL_WARN);
+raft::default_logger().set_level(RAFT_LEVEL_WARN);
 // From now onwards, this will print only WARN and above kind of messages
 ```
 
 ### Changing logging pattern
 Pass the [format string](https://github.com/gabime/spdlog/wiki/3.-Custom-formatting) as follows in order use a different logging pattern than the default.
 ```cpp
-raft::logger::get.set_pattern(YourFavoriteFormat);
+raft::default_logger().set_pattern(YourFavoriteFormat);
 ```
 One can also use the corresponding `get_pattern()` method to know the current format as well.
 

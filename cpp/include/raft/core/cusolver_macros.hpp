@@ -19,11 +19,10 @@
 
 #pragma once
 
+#include <raft/util/cudart_utils.hpp>
+
 #include <cusolverDn.h>
 #include <cusolverSp.h>
-///@todo: enable this once logging is enabled
-// #include <cuml/common/logger.hpp>
-#include <raft/util/cudart_utils.hpp>
 
 #include <type_traits>
 

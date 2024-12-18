@@ -23,9 +23,6 @@
 
 #include <cublas_v2.h>
 
-///@todo: enable this once we have logger enabled
-// #include <cuml/common/logger.hpp>
-
 #include <cstdint>
 
 #define _CUBLAS_ERR_TO_STR(err) \

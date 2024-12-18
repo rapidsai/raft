@@ -26,6 +26,7 @@
 
 #include "../linear_assignment_types.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 

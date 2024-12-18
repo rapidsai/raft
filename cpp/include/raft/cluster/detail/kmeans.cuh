@@ -369,7 +369,7 @@ void kmeans_fit_main(raft::resources const& handle,
                      rmm::device_uvector<char>& workspace)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_fit_main");
-  logger::get(RAFT_NAME).set_level(params.verbosity);
+  default_logger().set_level(params.verbosity);
   cudaStream_t stream = resource::get_cuda_stream(handle);
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
@@ -865,7 +865,7 @@ void kmeans_fit(raft::resources const& handle,
       params.n_clusters);
   }
 
-  logger::get(RAFT_NAME).set_level(params.verbosity);
+  default_logger().set_level(params.verbosity);
 
   // Allocate memory
   rmm::device_uvector<char> workspace(0, stream);
@@ -1010,7 +1010,7 @@ void kmeans_predict(raft::resources const& handle,
   RAFT_EXPECTS(centroids.extent(1) == n_features,
                "invalid parameter (centroids.extent(1) != n_features)");
 
-  logger::get(RAFT_NAME).set_level(params.verbosity);
+  default_logger().set_level(params.verbosity);
   auto metric = params.metric;
 
   // Allocate memory
@@ -1201,7 +1201,7 @@ void kmeans_transform(raft::resources const& handle,
                       raft::device_matrix_view<DataT> X_new)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_transform");
-  logger::get(RAFT_NAME).set_level(params.verbosity);
+  default_logger().set_level(params.verbosity);
   cudaStream_t stream = resource::get_cuda_stream(handle);
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
