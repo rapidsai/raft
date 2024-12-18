@@ -33,8 +33,6 @@ requires-python = ">=3.10"
 dependencies = [
     "dask-cuda==25.2.*,>=0.0.0a0",
     "distributed-ucxx==0.42.*,>=0.0.0a0",
-    "joblib>=0.11",
-    "numba>=0.57",
     "pylibraft==25.2.*,>=0.0.0a0",
     "rapids-dask-dependency==25.2.*,>=0.0.0a0",
     "ucx-py==0.42.*,>=0.0.0a0",

@@ -27,7 +27,6 @@ dependencies:
 - gcc_linux-64=11.*
 - graphviz
 - ipython
-- joblib>=0.11
 - libcublas-dev
 - libcurand-dev
 - libcusolver-dev
@@ -35,7 +34,6 @@ dependencies:
 - libucxx==0.42.*,>=0.0.0a0
 - nccl>=2.19
 - ninja
-- numba>=0.57
 - numpy>=1.23,<3.0a0
 - numpydoc
 - pre-commit

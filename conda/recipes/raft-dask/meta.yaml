@@ -1,7 +1,5 @@
 # Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
-# Usage:
-#   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set py_version = environ['CONDA_PY'] %}
@@ -70,7 +68,6 @@ requirements:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     - dask-cuda ={{ minor_version }}
     - rapids-dask-dependency ={{ minor_version }}
-    - joblib >=0.11
     - nccl {{ nccl_version }}
     - pylibraft {{ version }}
     - python x.x
@@ -87,5 +84,5 @@ tests:
 about:
   home: https://rapids.ai/
   license: Apache-2.0
-  # license_file: LICENSE
+  license_file: LICENSE
   summary: raft-dask library
