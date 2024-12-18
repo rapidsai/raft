@@ -179,6 +179,25 @@ target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
 
+# associate headers with the target, so other projects can install just the
+# headers via 'install(TARGETS raft)`
+# TODO(jameslamb): remove commented-out stuff
+file(
+  GLOB_RECURSE _raft_headers
+  #"${CMAKE_CURRENT_SOURCE_DIR}/include/*"
+  "include/*"
+)
+target_sources(
+  raft
+  PUBLIC
+  FILE_SET raft_headers
+    TYPE HEADERS
+    FILES
+      #include/raft/common/cub_wrappers.cuh
+      ${_raft_headers}
+    # BASE_DIRS include/raft/
+)
+
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
 target_link_libraries(
   raft INTERFACE rmm::rmm rmm::rmm_logger spdlog::spdlog_header_only cuco::cuco
@@ -386,11 +405,13 @@ rapids_cmake_install_lib_dir(lib_dir)
 include(GNUInstallDirs)
 include(CPack)
 
+message(STATUS "--- using jameslamb/raft ---")
 install(
   TARGETS raft
   DESTINATION ${lib_dir}
   COMPONENT raft
   EXPORT raft-exports
+  FILE_SET raft_headers
 )
 
 install(
@@ -425,12 +446,6 @@ install(
   DESTINATION ${lib_dir}
   COMPONENT distributed
   EXPORT raft-distributed-exports
-)
-
-install(
-  DIRECTORY include/raft
-  COMPONENT raft
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 # Temporary install of raft.hpp while the file is removed
