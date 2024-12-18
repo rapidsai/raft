@@ -52,7 +52,7 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  *   #include <raft/cluster/kmeans_types.hpp>
  *   using namespace raft::cluster;
  *   ...
- *   raft::raft::resources handle;
+ *   raft::resources handle;
  *   raft::cluster::KMeansParams params;
  *   int n_features = 15, inertia, n_iter;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
@@ -61,7 +61,7 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  *               params,
  *               X,
  *               std::nullopt,
- *               centroids,
+ *               centroids.view(),
  *               raft::make_scalar_view(&inertia),
  *               raft::make_scalar_view(&n_iter));
  * @endcode
@@ -107,7 +107,7 @@ template <typename DataT, typename IndexT>
  *   #include <raft/cluster/kmeans_types.hpp>
  *   using namespace raft::cluster;
  *   ...
- *   raft::raft::resources handle;
+ *   raft::resources handle;
  *   raft::cluster::KMeansParams params;
  *   int n_features = 15, inertia, n_iter;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
@@ -175,7 +175,7 @@ template <typename DataT, typename IndexT>
  *   #include <raft/cluster/kmeans_types.hpp>
  *   using namespace raft::cluster;
  *   ...
- *   raft::raft::resources handle;
+ *   raft::resources handle;
  *   raft::cluster::KMeansParams params;
  *   int n_features = 15, inertia, n_iter;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
