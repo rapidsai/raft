@@ -52,7 +52,7 @@ using std_comms = detail::std_comms;
  * #include <raft/core/device_mdarray.hpp>
  *
  * ncclComm_t nccl_comm;
- * raft::raft::resources handle;
+ * raft::resources handle;
  *
  * build_comms_nccl_only(&handle, nccl_comm, 5, 0);
  * ...
@@ -98,7 +98,7 @@ void build_comms_nccl_only(resources* handle, ncclComm_t nccl_comm, int num_rank
  * #include <raft/core/device_mdarray.hpp>
  *
  * ncclComm_t nccl_comm;
- * raft::raft::resources handle;
+ * raft::resources handle;
  * ucp_worker_h ucp_worker;
  * ucp_ep_h *ucp_endpoints_arr;
  *
