@@ -20,6 +20,7 @@
 #include <raft/random/rmat_rectangular_generator.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/convert/coo.cuh>
+#include <raft/sparse/convert/dense.cuh>
 #include <raft/sparse/matrix/preprocessing.cuh>
 #include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/filter.cuh>
@@ -40,34 +41,25 @@ struct check_zeroes {
 };
 
 template <typename T1, typename T2>
-void preproc_coo(raft::resources& handle,
-                 raft::host_vector_view<T1> h_rows,
-                 raft::host_vector_view<T1> h_cols,
-                 raft::host_vector_view<T2> h_elems,
-                 raft::device_vector_view<T2> results,
-                 int num_rows,
-                 int num_cols,
-                 bool tf_idf)
+void preproc(raft::resources& handle,
+             raft::device_vector_view<T2> dense_values,
+             raft::device_vector_view<T2> results,
+             int num_rows,
+             int num_cols,
+             bool tf_idf)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  int rows_size       = h_rows.size();
-  int cols_size       = h_cols.size();
-  int elements_size   = h_elems.size();
-  auto device_matrix  = raft::make_device_matrix<T2, int64_t>(handle, num_rows, num_cols);
-  raft::matrix::fill<T2>(handle, device_matrix.view(), 0.0f);
-  auto host_matrix = raft::make_host_matrix<T2, int64_t>(handle, num_rows, num_cols);
-  raft::copy(host_matrix.data_handle(), device_matrix.data_handle(), device_matrix.size(), stream);
 
-  raft::resource::sync_stream(handle, stream);
+  auto host_dense_vals = raft::make_host_vector<T2, int64_t>(handle, dense_values.size());
+  raft::copy(
+    host_dense_vals.data_handle(), dense_values.data_handle(), dense_values.size(), stream);
 
-  for (int i = 0; i < elements_size; i++) {
-    int row               = h_rows(i);
-    int col               = h_cols(i);
-    float element         = h_elems(i);
-    host_matrix(row, col) = element;
-  }
+  auto host_matrix =
+    raft::make_host_matrix_view<T2, int64_t>(host_dense_vals.data_handle(), num_rows, num_cols);
+  auto device_matrix = raft::make_device_matrix<T2, int64_t>(handle, num_rows, num_cols);
 
   raft::copy(device_matrix.data_handle(), host_matrix.data_handle(), host_matrix.size(), stream);
+
   auto output_cols_lengths = raft::make_device_matrix<T2, int64_t>(handle, 1, num_cols);
   raft::linalg::reduce(output_cols_lengths.data_handle(),
                        device_matrix.data_handle(),
@@ -96,6 +88,7 @@ void preproc_coo(raft::resources& handle,
              output_cols_length_sum.data_handle(),
              output_cols_length_sum.size(),
              stream);
+
   T2 avg_col_length = T2(h_output_cols_length_sum(0)) / num_cols;
 
   auto output_rows_freq = raft::make_device_matrix<T2, int64_t>(handle, 1, num_rows);
@@ -153,98 +146,48 @@ void preproc_coo(raft::resources& handle,
       }
     }
   }
+
   raft::copy(results.data_handle(), out_host_vector.data_handle(), out_host_vector.size(), stream);
 }
 
 template <typename T1, typename T2>
-int get_dupe_mask_count(raft::resources& handle,
-                        raft::device_vector_view<T1> rows,
-                        raft::device_vector_view<T1> columns,
-                        raft::device_vector_view<T2> values,
-                        const raft::device_vector_view<T1>& mask)
+void calc_tfidf_bm25(raft::resources& handle,
+                     raft::device_csr_matrix_view<T2, T1, T1, T1> csr_in,
+                     raft::device_vector_view<T2> results,
+                     bool tf_idf = false)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+  int num_rows        = csr_in.structure_view().get_n_rows();
+  int num_cols        = csr_in.structure_view().get_n_cols();
+  int rows_size       = csr_in.structure_view().get_indptr().size();
+  int cols_size       = csr_in.structure_view().get_indices().size();
+  int elements_size   = csr_in.get_elements().size();
 
-  raft::sparse::op::coo_sort(int(rows.size()),
-                             int(columns.size()),
-                             int(values.size()),
-                             rows.data_handle(),
-                             columns.data_handle(),
-                             values.data_handle(),
-                             stream);
+  auto indptr = raft::make_device_vector_view<T1, int64_t>(
+    csr_in.structure_view().get_indptr().data(), rows_size);
+  auto indices = raft::make_device_vector_view<T1, int64_t>(
+    csr_in.structure_view().get_indices().data(), cols_size);
+  auto values =
+    raft::make_device_vector_view<T2, int64_t>(csr_in.get_elements().data(), elements_size);
+  auto dense_values = raft::make_device_vector<T2, int64_t>(handle, num_rows * num_cols);
 
-  raft::sparse::op::compute_duplicates_mask<T1>(
-    mask.data_handle(), rows.data_handle(), columns.data_handle(), rows.size(), stream);
+  cusparseHandle_t cu_handle;
+  RAFT_CUSPARSE_TRY(cusparseCreate(&cu_handle));
 
-  int col_nnz_count = thrust::reduce(raft::resource::get_thrust_policy(handle),
-                                     mask.data_handle(),
-                                     mask.data_handle() + mask.size());
-  return col_nnz_count;
-}
+  raft::sparse::convert::csr_to_dense(cu_handle,
+                                      num_rows,
+                                      num_cols,
+                                      elements_size,
+                                      indptr.data_handle(),
+                                      indices.data_handle(),
+                                      values.data_handle(),
+                                      num_rows,
+                                      dense_values.data_handle(),
+                                      stream,
+                                      true);
 
-template <typename T1, typename T2>
-void remove_dupes(raft::resources& handle,
-                  raft::device_vector_view<T1> rows,
-                  raft::device_vector_view<T1> columns,
-                  raft::device_vector_view<T2> values,
-                  raft::device_vector_view<T1> mask,
-                  const raft::device_vector_view<T1>& out_rows,
-                  const raft::device_vector_view<T1>& out_cols,
-                  const raft::device_vector_view<T2>& out_vals,
-                  int num_rows = 128)
-{
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-
-  auto col_counts = raft::make_device_vector<T1, int64_t>(handle, columns.size());
-
-  thrust::fill(raft::resource::get_thrust_policy(handle),
-               col_counts.data_handle(),
-               col_counts.data_handle() + col_counts.size(),
-               1.0f);
-
-  auto keys_out   = raft::make_device_vector<T1, int64_t>(handle, num_rows);
-  auto counts_out = raft::make_device_vector<T1, int64_t>(handle, num_rows);
-
-  thrust::reduce_by_key(raft::resource::get_thrust_policy(handle),
-                        rows.data_handle(),
-                        rows.data_handle() + rows.size(),
-                        col_counts.data_handle(),
-                        keys_out.data_handle(),
-                        counts_out.data_handle());
-
-  auto mask_out = raft::make_device_vector<T2, int64_t>(handle, rows.size());
-
-  raft::linalg::map(handle, mask_out.view(), raft::cast_op<T2>{}, raft::make_const_mdspan(mask));
-
-  auto values_c = raft::make_device_vector<T2, int64_t>(handle, values.size());
-  raft::linalg::map(handle,
-                    values_c.view(),
-                    raft::mul_op{},
-                    raft::make_const_mdspan(values),
-                    raft::make_const_mdspan(mask_out.view()));
-
-  auto keys_nnz_out   = raft::make_device_vector<T1, int64_t>(handle, num_rows);
-  auto counts_nnz_out = raft::make_device_vector<T1, int64_t>(handle, num_rows);
-
-  thrust::reduce_by_key(raft::resource::get_thrust_policy(handle),
-                        rows.data_handle(),
-                        rows.data_handle() + rows.size(),
-                        mask.data_handle(),
-                        keys_nnz_out.data_handle(),
-                        counts_nnz_out.data_handle());
-
-  raft::sparse::op::coo_remove_scalar<T2>(rows.data_handle(),
-                                          columns.data_handle(),
-                                          values_c.data_handle(),
-                                          values_c.size(),
-                                          out_rows.data_handle(),
-                                          out_cols.data_handle(),
-                                          out_vals.data_handle(),
-                                          counts_nnz_out.data_handle(),
-                                          counts_out.data_handle(),
-                                          0,
-                                          num_rows,
-                                          stream);
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  preproc<T1, T2>(handle, dense_values.view(), results, num_rows, num_cols, tf_idf);
 }
 
 template <typename T1, typename T2>

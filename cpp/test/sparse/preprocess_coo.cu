@@ -21,7 +21,6 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/matrix/preprocessing.cuh>
-#include <raft/sparse/selection/knn.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
@@ -32,37 +31,6 @@
 
 namespace raft {
 namespace sparse {
-
-template <typename T1, typename T2>
-void calc_tfidf_bm25(raft::resources& handle,
-                     raft::device_coo_matrix_view<T2, T1, T1, T1> coo_in,
-                     raft::device_vector_view<T2> results,
-                     bool tf_idf = false)
-{
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  int num_rows        = coo_in.structure_view().get_n_rows();
-  int num_cols        = coo_in.structure_view().get_n_cols();
-  int rows_size       = coo_in.structure_view().get_cols().size();
-  int cols_size       = coo_in.structure_view().get_rows().size();
-  int elements_size   = coo_in.get_elements().size();
-
-  auto h_rows  = raft::make_host_vector<T1, int64_t>(handle, rows_size);
-  auto h_cols  = raft::make_host_vector<T1, int64_t>(handle, cols_size);
-  auto h_elems = raft::make_host_vector<T2, int64_t>(handle, elements_size);
-
-  raft::copy(h_rows.data_handle(),
-             coo_in.structure_view().get_rows().data(),
-             coo_in.structure_view().get_rows().size(),
-             stream);
-  raft::copy(h_cols.data_handle(),
-             coo_in.structure_view().get_cols().data(),
-             coo_in.structure_view().get_cols().size(),
-             stream);
-  raft::copy(
-    h_elems.data_handle(), coo_in.get_elements().data(), coo_in.get_elements().size(), stream);
-  raft::util::preproc_coo<T1, T2>(
-    handle, h_rows.view(), h_cols.view(), h_elems.view(), results, num_rows, num_cols, tf_idf);
-}
 
 template <typename Type_f, typename Index_>
 struct SparsePreprocessInputs {
@@ -94,51 +62,71 @@ class SparsePreprocessCoo
     auto rows    = raft::make_device_vector<Index_, int64_t>(handle, params.nnz_edges);
     auto columns = raft::make_device_vector<Index_, int64_t>(handle, params.nnz_edges);
     auto values  = raft::make_device_vector<Type_f, int64_t>(handle, params.nnz_edges);
-    auto mask    = raft::make_device_vector<Index_, int64_t>(handle, params.nnz_edges);
+
+    rmm::device_uvector<Index_> rows_uvec(rows.size(), stream);
+    rmm::device_uvector<Index_> cols_uvec(rows.size(), stream);
+    rmm::device_uvector<Type_f> vals_uvec(rows.size(), stream);
 
     raft::util::create_dataset<Index_, Type_f>(
       handle, rows.view(), columns.view(), values.view(), 5, params.n_rows, params.n_cols);
-    int non_dupe_nnz_count = raft::util::get_dupe_mask_count<Index_, Type_f>(
-      handle, rows.view(), columns.view(), values.view(), mask.view());
 
-    auto rows_nnz    = raft::make_device_vector<Index_, int64_t>(handle, non_dupe_nnz_count);
-    auto columns_nnz = raft::make_device_vector<Index_, int64_t>(handle, non_dupe_nnz_count);
-    auto values_nnz  = raft::make_device_vector<Type_f, int64_t>(handle, non_dupe_nnz_count);
-    raft::util::remove_dupes<Index_, Type_f>(handle,
-                                             rows.view(),
-                                             columns.view(),
-                                             values.view(),
-                                             mask.view(),
-                                             rows_nnz.view(),
-                                             columns_nnz.view(),
-                                             values_nnz.view(),
-                                             num_rows);
+    raft::sparse::op::coo_sort(int(rows.size()),
+                               int(columns.size()),
+                               int(values.size()),
+                               rows.data_handle(),
+                               columns.data_handle(),
+                               values.data_handle(),
+                               stream);
 
-    auto coo_struct_view = raft::make_device_coordinate_structure_view(rows_nnz.data_handle(),
-                                                                       columns_nnz.data_handle(),
-                                                                       num_rows,
-                                                                       num_cols,
-                                                                       int(values_nnz.size()));
+    raft::copy(rows_uvec.data(), rows.data_handle(), rows.size(), stream);
+    raft::copy(cols_uvec.data(), columns.data_handle(), columns.size(), stream);
+    raft::copy(vals_uvec.data(), values.data_handle(), values.size(), stream);
+
+    raft::sparse::COO<Type_f, Index_> coo(stream);
+    raft::sparse::op::max_duplicates(handle,
+                                     coo,
+                                     rows_uvec.data(),
+                                     cols_uvec.data(),
+                                     vals_uvec.data(),
+                                     params.nnz_edges,
+                                     num_rows,
+                                     num_cols);
+
+    auto rows_csr = raft::make_device_vector<Index_, int64_t>(handle, num_rows + 1);
+
+    raft::sparse::convert::sorted_coo_to_csr(
+      coo.rows(), coo.nnz, rows_csr.data_handle(), num_rows + 1, stream);
+
+    auto csr_struct_view = raft::make_device_compressed_structure_view(
+      rows_csr.data_handle(), coo.cols(), num_rows, num_cols, coo.nnz);
+
+    auto csr_matrix =
+      raft::make_device_csr_matrix<Type_f, Index_, Index_, Index_>(handle, csr_struct_view);
+    raft::update_device<Type_f>(
+      csr_matrix.view().get_elements().data(), coo.vals(), coo.nnz, stream);
+
+    auto coo_struct_view = raft::make_device_coordinate_structure_view(
+      coo.rows(), coo.cols(), num_rows, num_cols, int(coo.nnz));
     auto c_matrix =
       raft::make_device_coo_matrix<Type_f, Index_, Index_, Index_>(handle, coo_struct_view);
-    raft::update_device<Type_f>(
-      c_matrix.view().get_elements().data(), values_nnz.data_handle(), values_nnz.size(), stream);
+    raft::update_device<Type_f>(c_matrix.view().get_elements().data(), coo.vals(), coo.nnz, stream);
 
-    auto result     = raft::make_device_vector<Type_f, int64_t>(handle, values_nnz.size());
-    auto bm25_vals  = raft::make_device_vector<Type_f, int64_t>(handle, values_nnz.size());
-    auto tfidf_vals = raft::make_device_vector<Type_f, int64_t>(handle, values_nnz.size());
+    auto result = raft::make_device_vector<Type_f, int64_t>(handle, coo.nnz);
 
     if (bm25_on) {
+      auto bm25_vals = raft::make_device_vector<Type_f, int64_t>(handle, coo.nnz);
       sparse::matrix::encode_bm25<Index_, Type_f>(handle, c_matrix.view(), result.view());
-      calc_tfidf_bm25<Index_, Type_f>(handle, c_matrix.view(), bm25_vals.view());
+      raft::util::calc_tfidf_bm25<Index_, Type_f>(handle, csr_matrix.view(), bm25_vals.view());
       ASSERT_TRUE(raft::devArrMatch<Type_f>(bm25_vals.data_handle(),
                                             result.data_handle(),
                                             result.size(),
                                             raft::CompareApprox<Type_f>(2e-5),
                                             stream));
     } else {
+      auto tfidf_vals = raft::make_device_vector<Type_f, int64_t>(handle, coo.nnz);
       sparse::matrix::encode_tfidf<Index_, Type_f>(handle, c_matrix.view(), result.view());
-      calc_tfidf_bm25<Index_, Type_f>(handle, c_matrix.view(), tfidf_vals.view(), true);
+      raft::util::calc_tfidf_bm25<Index_, Type_f>(
+        handle, csr_matrix.view(), tfidf_vals.view(), true);
       ASSERT_TRUE(raft::devArrMatch<Type_f>(tfidf_vals.data_handle(),
                                             result.data_handle(),
                                             result.size(),
