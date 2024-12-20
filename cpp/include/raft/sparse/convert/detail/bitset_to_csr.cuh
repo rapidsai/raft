@@ -118,24 +118,52 @@ void bitset_to_csr(raft::resources const& handle,
 
   RAFT_CUDA_TRY(cudaMemsetAsync(indptr, 0, (csr_view.get_n_rows() + 1) * sizeof(index_t), stream));
 
-  calc_nnz_by_rows(handle, bitset.data(), row_t(1), csr_view.get_n_cols(), indptr);
-  thrust::exclusive_scan(thrust_policy, indptr, indptr + 2, indptr);
+  size_t sub_nnz_size      = 0;
+  index_t bits_per_sub_col = 0;
+
+  // Get buffer size and number of bits per each sub-columns
+  calc_nnz_by_rows(handle,
+                   bitset.data(),
+                   row_t(1),
+                   csr_view.get_n_cols(),
+                   static_cast<nnz_t*>(nullptr),
+                   sub_nnz_size,
+                   bits_per_sub_col);
+
+  rmm::device_async_resource_ref device_memory = resource::get_workspace_resource(handle);
+  rmm::device_uvector<nnz_t> sub_nnz(sub_nnz_size + 1, stream, device_memory);
+
+  calc_nnz_by_rows(handle,
+                   bitset.data(),
+                   row_t(1),
+                   csr_view.get_n_cols(),
+                   sub_nnz.data(),
+                   sub_nnz_size,
+                   bits_per_sub_col);
+
+  thrust::exclusive_scan(
+    thrust_policy, sub_nnz.data(), sub_nnz.data() + sub_nnz_size + 1, sub_nnz.data());
 
   index_t bitset_nnz = 0;
-
   if constexpr (is_device_csr_sparsity_owning_v<csr_matrix_t>) {
-    RAFT_CUDA_TRY(
-      cudaMemcpyAsync(&bitset_nnz, indptr + 1, sizeof(index_t), cudaMemcpyDeviceToHost, stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
+      &bitset_nnz, sub_nnz.data() + sub_nnz_size, sizeof(index_t), cudaMemcpyDeviceToHost, stream));
     resource::sync_stream(handle);
     csr.initialize_sparsity(bitset_nnz * csr_view.get_n_rows());
   } else {
     bitset_nnz = csr_view.get_nnz() / csr_view.get_n_rows();
   }
-
   constexpr bool check_nnz = is_device_csr_sparsity_preserving_v<csr_matrix_t>;
-  fill_indices_by_rows<bitset_t, index_t, nnz_t, check_nnz>(
-    handle, bitset.data(), indptr, 1, csr_view.get_n_cols(), bitset_nnz, indices);
-
+  fill_indices_by_rows<bitset_t, index_t, nnz_t, check_nnz>(handle,
+                                                            bitset.data(),
+                                                            indptr,
+                                                            1,
+                                                            csr_view.get_n_cols(),
+                                                            csr_view.get_nnz(),
+                                                            indices,
+                                                            sub_nnz.data(),
+                                                            bits_per_sub_col,
+                                                            sub_nnz_size);
   if (csr_view.get_n_rows() > 1) {
     gpu_repeat_csr<index_t, nnz_t>(handle,
                                    indptr,

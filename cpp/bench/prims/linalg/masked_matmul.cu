@@ -22,7 +22,7 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/random/rng.cuh>
-#include <raft/sparse/linalg/masked_matmul.hpp>
+#include <raft/sparse/linalg/masked_matmul.cuh>
 #include <raft/util/itertools.hpp>
 
 #include <cusparse_v2.h>
