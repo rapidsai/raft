@@ -19,7 +19,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/make_blobs.cuh>
-#include <raft/sparse/linalg/masked_matmul.hpp>
+#include <raft/sparse/linalg/masked_matmul.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/reduce.h>
@@ -45,6 +45,8 @@ struct MaskedMatmulInputs {
 
   unsigned long long int seed;
 };
+
+enum class BitsLayout { Bitset, Bitmap };
 
 template <typename value_t>
 struct sum_abs_op {
@@ -87,7 +89,8 @@ bool isCuSparseVersionGreaterThan_12_0_1()
 template <typename value_t,
           typename output_t,
           typename index_t,
-          typename bitmap_t      = uint32_t,
+          BitsLayout bits_layout = BitsLayout::Bitmap,
+          typename bits_t        = uint32_t,
           typename LayoutPolicyA = raft::row_major,
           typename LayoutPolicyB = raft::row_major>
 class MaskedMatmulTest
@@ -98,7 +101,7 @@ class MaskedMatmulTest
       stream(resource::get_cuda_stream(handle)),
       a_data_d(0, resource::get_cuda_stream(handle)),
       b_data_d(0, resource::get_cuda_stream(handle)),
-      bitmap_d(0, resource::get_cuda_stream(handle)),
+      bits_d(0, resource::get_cuda_stream(handle)),
       c_indptr_d(0, resource::get_cuda_stream(handle)),
       c_indices_d(0, resource::get_cuda_stream(handle)),
       c_data_d(0, resource::get_cuda_stream(handle)),
@@ -107,14 +110,14 @@ class MaskedMatmulTest
   }
 
  protected:
-  index_t create_sparse_matrix(index_t m, index_t n, float sparsity, std::vector<bitmap_t>& bitmap)
+  index_t create_sparse_matrix(index_t m, index_t n, float sparsity, std::vector<bits_t>& bits)
   {
     index_t total    = static_cast<index_t>(m * n);
     index_t num_ones = static_cast<index_t>((total * 1.0f) * sparsity);
     index_t res      = num_ones;
 
-    for (auto& item : bitmap) {
-      item = static_cast<bitmap_t>(0);
+    for (auto& item : bits) {
+      item = static_cast<bits_t>(0);
     }
 
     std::random_device rd;
@@ -124,8 +127,8 @@ class MaskedMatmulTest
     while (num_ones > 0) {
       index_t index = dis(gen);
 
-      bitmap_t& element    = bitmap[index / (8 * sizeof(bitmap_t))];
-      index_t bit_position = index % (8 * sizeof(bitmap_t));
+      bits_t& element      = bits[index / (8 * sizeof(bits_t))];
+      index_t bit_position = index % (8 * sizeof(bits_t));
 
       if (((element >> bit_position) & 1) == 0) {
         element |= (static_cast<index_t>(1) << bit_position);
@@ -135,7 +138,27 @@ class MaskedMatmulTest
     return res;
   }
 
-  void cpu_convert_to_csr(std::vector<bitmap_t>& bitmap,
+  void repeat_cpu_bitset_inplace(std::vector<bits_t>& inout, size_t input_bits, size_t repeat)
+  {
+    size_t output_bit_index = input_bits;
+
+    for (size_t r = 0; r < repeat; ++r) {
+      for (size_t i = 0; i < input_bits; ++i) {
+        size_t input_unit_index = i / (sizeof(bits_t) * 8);
+        size_t input_bit_offset = i % (sizeof(bits_t) * 8);
+        bool bit                = (inout[input_unit_index] >> input_bit_offset) & 1;
+
+        size_t output_unit_index = output_bit_index / (sizeof(bits_t) * 8);
+        size_t output_bit_offset = output_bit_index % (sizeof(bits_t) * 8);
+
+        inout[output_unit_index] |= (static_cast<bits_t>(bit) << output_bit_offset);
+
+        ++output_bit_index;
+      }
+    }
+  }
+
+  void cpu_convert_to_csr(std::vector<bits_t>& bits,
                           index_t rows,
                           index_t cols,
                           std::vector<index_t>& indices,
@@ -146,14 +169,14 @@ class MaskedMatmulTest
     indptr[offset_indptr++] = 0;
 
     index_t index        = 0;
-    bitmap_t element     = 0;
+    bits_t element       = 0;
     index_t bit_position = 0;
 
     for (index_t i = 0; i < rows; ++i) {
       for (index_t j = 0; j < cols; ++j) {
         index        = i * cols + j;
-        element      = bitmap[index / (8 * sizeof(bitmap_t))];
-        bit_position = index % (8 * sizeof(bitmap_t));
+        element      = bits[index / (8 * sizeof(bits_t))];
+        bit_position = index % (8 * sizeof(bits_t));
 
         if (((element >> bit_position) & 1)) {
           indices[offset_values] = static_cast<index_t>(j);
@@ -201,15 +224,17 @@ class MaskedMatmulTest
     index_t b_size = params.k * params.n;
     index_t c_size = params.m * params.n;
 
-    index_t element = raft::ceildiv(params.m * params.n, index_t(sizeof(bitmap_t) * 8));
-    std::vector<bitmap_t> bitmap_h(element);
+    index_t element = raft::ceildiv(params.m * params.n, index_t(sizeof(bits_t) * 8));
+    std::vector<bits_t> bits_h(element);
+
+    std::memset(bits_h.data(), 0, bits_h.size() * sizeof(bits_t));
 
     std::vector<value_t> a_data_h(a_size);
     std::vector<value_t> b_data_h(b_size);
 
     a_data_d.resize(a_size, stream);
     b_data_d.resize(b_size, stream);
-    bitmap_d.resize(bitmap_h.size(), stream);
+    bits_d.resize(bits_h.size(), stream);
 
     auto blobs_a_b = raft::make_device_matrix<output_t, index_t>(handle, 1, a_size + b_size);
     auto labels    = raft::make_device_vector<index_t, index_t>(handle, 1);
@@ -262,18 +287,27 @@ class MaskedMatmulTest
 
     resource::sync_stream(handle);
 
-    index_t c_true_nnz = create_sparse_matrix(params.m, params.n, params.sparsity, bitmap_h);
+    index_t c_true_nnz = 0;
+    if constexpr (bits_layout == BitsLayout::Bitmap) {
+      c_true_nnz = create_sparse_matrix(params.m, params.n, params.sparsity, bits_h);
+    } else if constexpr (bits_layout == BitsLayout::Bitset) {
+      c_true_nnz = create_sparse_matrix(1, params.n, params.sparsity, bits_h);
+      repeat_cpu_bitset_inplace(bits_h, params.n, params.m - 1);
+      c_true_nnz *= params.m;
+    } else {
+      GTEST_SKIP() << "Unsupported BitsLayout!";
+    }
 
     std::vector<index_t> c_indptr_h(params.m + 1);
     std::vector<index_t> c_indices_h(c_true_nnz);
     std::vector<output_t> c_data_h(c_true_nnz);
 
-    cpu_convert_to_csr(bitmap_h, params.m, params.n, c_indices_h, c_indptr_h);
+    cpu_convert_to_csr(bits_h, params.m, params.n, c_indices_h, c_indptr_h);
 
     c_data_d.resize(c_data_h.size(), stream);
 
     update_device(c_data_d.data(), c_data_h.data(), c_data_h.size(), stream);
-    update_device(bitmap_d.data(), bitmap_h.data(), bitmap_h.size(), stream);
+    update_device(bits_d.data(), bits_h.data(), bits_h.size(), stream);
     resource::sync_stream(handle);
 
     cpu_sddmm(a_data_h, b_data_h, c_data_h, c_indices_h, c_indptr_h, true, true);
@@ -304,9 +338,6 @@ class MaskedMatmulTest
     auto B =
       raft::make_device_matrix_view<const value_t, index_t>(b_data_d.data(), params.n, params.k);
 
-    auto mask =
-      raft::core::bitmap_view<const bitmap_t, index_t>(bitmap_d.data(), params.m, params.n);
-
     auto c_structure = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
       c_indptr_d.data(),
       c_indices_d.data(),
@@ -316,7 +347,15 @@ class MaskedMatmulTest
 
     auto C = raft::make_device_csr_matrix_view<output_t>(c_data_d.data(), c_structure);
 
-    raft::sparse::linalg::masked_matmul(handle, A, B, mask, C);
+    if constexpr (bits_layout == BitsLayout::Bitmap) {
+      auto mask = raft::core::bitmap_view<const bits_t, index_t>(bits_d.data(), params.m, params.n);
+      raft::sparse::linalg::masked_matmul(handle, A, B, mask, C);
+    } else if constexpr (bits_layout == BitsLayout::Bitset) {
+      auto mask = raft::core::bitset_view<const bits_t, index_t>(bits_d.data(), params.n);
+      raft::sparse::linalg::masked_matmul(handle, A, B, mask, C);
+    } else {
+      GTEST_SKIP() << "Unsupported BitsLayout!";
+    }
 
     resource::sync_stream(handle);
 
@@ -344,7 +383,7 @@ class MaskedMatmulTest
 
   rmm::device_uvector<value_t> a_data_d;
   rmm::device_uvector<value_t> b_data_d;
-  rmm::device_uvector<bitmap_t> bitmap_d;
+  rmm::device_uvector<bits_t> bits_d;
 
   rmm::device_uvector<index_t> c_indptr_d;
   rmm::device_uvector<index_t> c_indices_d;
@@ -353,14 +392,23 @@ class MaskedMatmulTest
   rmm::device_uvector<output_t> c_expected_data_d;
 };
 
-using MaskedMatmulTestF = MaskedMatmulTest<float, float, int>;
-TEST_P(MaskedMatmulTestF, Result) { Run(); }
+using MaskedMatmulOnBitmapTestF = MaskedMatmulTest<float, float, int, BitsLayout::Bitmap>;
+TEST_P(MaskedMatmulOnBitmapTestF, Result) { Run(); }
 
-using MaskedMatmulTestD = MaskedMatmulTest<double, double, int>;
-TEST_P(MaskedMatmulTestD, Result) { Run(); }
+using MaskedMatmulOnBitmapTestD = MaskedMatmulTest<double, double, int, BitsLayout::Bitmap>;
+TEST_P(MaskedMatmulOnBitmapTestD, Result) { Run(); }
 
-using MaskedMatmulTestH = MaskedMatmulTest<half, float, int>;
-TEST_P(MaskedMatmulTestH, Result) { Run(); }
+using MaskedMatmulOnBitmapTestH = MaskedMatmulTest<half, float, int, BitsLayout::Bitmap>;
+TEST_P(MaskedMatmulOnBitmapTestH, Result) { Run(); }
+
+using MaskedMatmulOnBitsetTestF = MaskedMatmulTest<float, float, int, BitsLayout::Bitset>;
+TEST_P(MaskedMatmulOnBitsetTestF, Result) { Run(); }
+
+using MaskedMatmulOnBitsetTestD = MaskedMatmulTest<double, double, int, BitsLayout::Bitset>;
+TEST_P(MaskedMatmulOnBitsetTestD, Result) { Run(); }
+
+using MaskedMatmulOnBitsetTestH = MaskedMatmulTest<half, float, int, BitsLayout::Bitset>;
+TEST_P(MaskedMatmulOnBitsetTestH, Result) { Run(); }
 
 const std::vector<MaskedMatmulInputs<float, float, int>> sddmm_inputs_f = {
   {0.001f, 2, 255, 1023, 0.19, 1234ULL},
@@ -419,11 +467,29 @@ const std::vector<MaskedMatmulInputs<half, float, int>> sddmm_inputs_h = {
   {0.0003f, 31, 1025, 1025, 0.19, 1234ULL},
   {0.001f, 1024, 1024, 1024, 0.1, 1234ULL}};
 
-INSTANTIATE_TEST_CASE_P(MaskedMatmulTest, MaskedMatmulTestF, ::testing::ValuesIn(sddmm_inputs_f));
+INSTANTIATE_TEST_CASE_P(MaskedMatmulTest,
+                        MaskedMatmulOnBitmapTestF,
+                        ::testing::ValuesIn(sddmm_inputs_f));
 
-INSTANTIATE_TEST_CASE_P(MaskedMatmulTest, MaskedMatmulTestD, ::testing::ValuesIn(sddmm_inputs_d));
+INSTANTIATE_TEST_CASE_P(MaskedMatmulTest,
+                        MaskedMatmulOnBitmapTestD,
+                        ::testing::ValuesIn(sddmm_inputs_d));
 
-INSTANTIATE_TEST_CASE_P(MaskedMatmulTest, MaskedMatmulTestH, ::testing::ValuesIn(sddmm_inputs_h));
+INSTANTIATE_TEST_CASE_P(MaskedMatmulTest,
+                        MaskedMatmulOnBitmapTestH,
+                        ::testing::ValuesIn(sddmm_inputs_h));
+
+INSTANTIATE_TEST_CASE_P(MaskedMatmulTest,
+                        MaskedMatmulOnBitsetTestF,
+                        ::testing::ValuesIn(sddmm_inputs_f));
+
+INSTANTIATE_TEST_CASE_P(MaskedMatmulTest,
+                        MaskedMatmulOnBitsetTestD,
+                        ::testing::ValuesIn(sddmm_inputs_d));
+
+INSTANTIATE_TEST_CASE_P(MaskedMatmulTest,
+                        MaskedMatmulOnBitsetTestH,
+                        ::testing::ValuesIn(sddmm_inputs_h));
 
 }  // namespace sparse
 }  // namespace raft
