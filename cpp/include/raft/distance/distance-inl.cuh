@@ -366,7 +366,7 @@ void pairwise_distance(raft::resources const& handle,
  * #include <raft/random/make_blobs.cuh>
  * #include <raft/distance/distance.cuh>
  *
- * raft::raft::resources handle;
+ * raft::resources handle;
  * int n_samples = 5000;
  * int n_features = 50;
  *
