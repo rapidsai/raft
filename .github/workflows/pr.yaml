@@ -14,11 +14,11 @@ jobs:
     needs:
       - changed-files
       - checks
-      # - conda-cpp-build
-      # - conda-cpp-tests
+      - conda-cpp-build
+      - conda-cpp-tests
       # - conda-cpp-checks
-      # - conda-python-build
-      # - conda-python-tests
+      - conda-python-build
+      - conda-python-tests
       # - docs-build
       - wheel-build-libraft
       - wheel-build-pylibraft
@@ -60,20 +60,20 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-25.02
     with:
       enable_check_generated_files: false
-  # conda-cpp-build:
-  #   needs: checks
-  #   secrets: inherit
-  #   uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-25.02
-  #   with:
-  #     build_type: pull-request
-  #     node_type: cpu16
-  # conda-cpp-tests:
-  #   needs: [conda-cpp-build, changed-files]
-  #   secrets: inherit
-  #   uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-25.02
-  #   if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
-  #   with:
-  #     build_type: pull-request
+  conda-cpp-build:
+    needs: checks
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-25.02
+    with:
+      build_type: pull-request
+      node_type: cpu16
+  conda-cpp-tests:
+    needs: [conda-cpp-build, changed-files]
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-25.02
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
+    with:
+      build_type: pull-request
   # conda-cpp-checks:
   #   needs: conda-cpp-build
   #   secrets: inherit
@@ -81,19 +81,19 @@ jobs:
   #   with:
   #     build_type: pull-request
   #     enable_check_symbols: true
-  # conda-python-build:
-  #   needs: conda-cpp-build
-  #   secrets: inherit
-  #   uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@branch-25.02
-  #   with:
-  #     build_type: pull-request
-  # conda-python-tests:
-  #   needs: [conda-python-build, changed-files]
-  #   secrets: inherit
-  #   uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.02
-  #   if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
-  #   with:
-  #     build_type: pull-request
+  conda-python-build:
+    needs: conda-cpp-build
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@branch-25.02
+    with:
+      build_type: pull-request
+  conda-python-tests:
+    needs: [conda-python-build, changed-files]
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.02
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    with:
+      build_type: pull-request
   # docs-build:
   #   needs: conda-python-build
   #   secrets: inherit
