@@ -165,8 +165,8 @@ rapids_cpm_init()
 
 # Not using rapids-cmake since we never want to find, always download.
 CPMAddPackage(
-  NAME rapids_logger GITHUB_REPOSITORY vyasr/rapids-logger GIT_SHALLOW FALSE GIT_TAG feat/cuml
-  VERSION feat/cuml
+  NAME rapids_logger GITHUB_REPOSITORY rapidsai/rapids-logger GIT_SHALLOW FALSE GIT_TAG
+  4df3ee70c6746fd1b6c0dc14209dae2e2d4378c6 VERSION 4df3ee70c6746fd1b6c0dc14209dae2e2d4378c6
 )
 rapids_make_logger(raft LOGGER_HEADER_DIR include/raft/core EXPORT_SET raft-exports)
 
