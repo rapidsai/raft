@@ -12,6 +12,7 @@ concurrency:
 jobs:
   pr-builder:
     needs:
+      - check-nightly-ci
       - changed-files
       - checks
       - conda-cpp-build
@@ -31,6 +32,18 @@ jobs:
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
+  check-nightly-ci:
+    # Switch to ubuntu-latest once it defaults to a version of Ubuntu that
+    # provides at least Python 3.11 (see
+    # https://docs.python.org/3/library/datetime.html#datetime.date.fromisoformat)
+    runs-on: ubuntu-24.04
+    env:
+      RAPIDS_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check if nightly CI is passing
+        uses: rapidsai/shared-actions/check_nightly_success/dispatch@main
+        with:
+          repo: raft
   changed-files:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@branch-25.02

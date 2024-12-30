@@ -100,6 +100,17 @@ set_property(
 )
 message(VERBOSE "RAFT: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
+# Set logging level
+set(LIBRAFT_LOGGING_LEVEL
+    "INFO"
+    CACHE STRING "Choose the logging level."
+)
+set_property(
+  CACHE LIBRAFT_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
+                                       "OFF"
+)
+message(VERBOSE "RAFT: LIBRAFT_LOGGING_LEVEL = '${LIBRAFT_LOGGING_LEVEL}'.")
+
 # ##################################################################################################
 # * Conda environment detection ----------------------------------------------
 
@@ -152,6 +163,13 @@ include(cmake/modules/ConfigureCUDA.cmake)
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+# Not using rapids-cmake since we never want to find, always download.
+CPMAddPackage(
+  NAME rapids_logger GITHUB_REPOSITORY rapidsai/rapids-logger GIT_SHALLOW FALSE GIT_TAG
+  4df3ee70c6746fd1b6c0dc14209dae2e2d4378c6 VERSION 4df3ee70c6746fd1b6c0dc14209dae2e2d4378c6
+)
+rapids_make_logger(raft LOGGER_HEADER_DIR include/raft/core EXPORT_SET raft-exports)
+
 # CCCL before rmm/cuco so we get the right version of CCCL
 include(cmake/thirdparty/get_cccl.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
@@ -182,13 +200,16 @@ target_include_directories(
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
 target_link_libraries(
   raft INTERFACE rmm::rmm rmm::rmm_logger spdlog::spdlog_header_only cuco::cuco
-                 nvidia::cutlass::cutlass CCCL::CCCL
+                 nvidia::cutlass::cutlass CCCL::CCCL raft_logger
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
   raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
                  --expt-relaxed-constexpr>
+)
+target_compile_definitions(
+  raft INTERFACE "RAFT_LOG_ACTIVE_LEVEL=RAFT_LOG_LEVEL_${LIBRAFT_LOGGING_LEVEL}"
 )
 
 set(RAFT_CUSOLVER_DEPENDENCY CUDA::cusolver${_ctk_static_suffix})
@@ -265,7 +286,6 @@ set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 if(RAFT_COMPILE_LIBRARY)
   add_library(
     raft_objs OBJECT
-    src/core/logger.cpp
     src/linalg/detail/coalesced_reduction.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
@@ -318,8 +338,8 @@ if(RAFT_COMPILE_LIBRARY)
     # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
     target_link_options(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
   endforeach()
-  target_link_libraries(raft_lib PRIVATE rmm::rmm_logger_impl)
-  target_link_libraries(raft_lib_static PRIVATE rmm::rmm_logger_impl)
+  target_link_libraries(raft_lib PRIVATE rmm::rmm_logger_impl raft_logger_impl)
+  target_link_libraries(raft_lib_static PRIVATE rmm::rmm_logger_impl raft_logger_impl)
 endif()
 
 if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
