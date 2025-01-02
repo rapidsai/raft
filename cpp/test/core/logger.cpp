@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-// We set RAFT_ACTIVE_LEVEL to a value that would enable testing trace and debug logs
+// We set RAFT_LOG_ACTIVE_LEVEL to a value that would enable testing trace and debug logs
 // (otherwise trace and debug logs are desabled by default).
-#undef RAFT_ACTIVE_LEVEL
-#define RAFT_ACTIVE_LEVEL 6
+#undef RAFT_LOG_ACTIVE_LEVEL
+#define RAFT_LOG_ACTIVE_LEVEL RAFT_LOG_LEVEL_TRACE
 
 #include <raft/core/logger.hpp>
 
@@ -34,15 +34,15 @@ TEST(logger, Test)
   RAFT_LOG_WARN("This is a warning message");
   RAFT_LOG_INFO("This is an info message");
 
-  logger::get(RAFT_NAME).set_level(RAFT_LEVEL_WARN);
-  ASSERT_EQ(RAFT_LEVEL_WARN, logger::get(RAFT_NAME).get_level());
-  logger::get(RAFT_NAME).set_level(RAFT_LEVEL_INFO);
-  ASSERT_EQ(RAFT_LEVEL_INFO, logger::get(RAFT_NAME).get_level());
+  default_logger().set_level(raft::level_enum::warn);
+  ASSERT_EQ(raft::level_enum::warn, default_logger().level());
+  default_logger().set_level(raft::level_enum::info);
+  ASSERT_EQ(raft::level_enum::info, default_logger().level());
 
-  ASSERT_FALSE(logger::get(RAFT_NAME).should_log_for(RAFT_LEVEL_TRACE));
-  ASSERT_FALSE(logger::get(RAFT_NAME).should_log_for(RAFT_LEVEL_DEBUG));
-  ASSERT_TRUE(logger::get(RAFT_NAME).should_log_for(RAFT_LEVEL_INFO));
-  ASSERT_TRUE(logger::get(RAFT_NAME).should_log_for(RAFT_LEVEL_WARN));
+  ASSERT_FALSE(default_logger().should_log(raft::level_enum::trace));
+  ASSERT_FALSE(default_logger().should_log(raft::level_enum::debug));
+  ASSERT_TRUE(default_logger().should_log(raft::level_enum::info));
+  ASSERT_TRUE(default_logger().should_log(raft::level_enum::warn));
 }
 
 std::string logged = "";
@@ -57,60 +57,61 @@ class loggerTest : public ::testing::Test {
   {
     flushCount = 0;
     logged     = "";
-    logger::get(RAFT_NAME).set_level(RAFT_LEVEL_TRACE);
+    default_logger().set_level(raft::level_enum::trace);
   }
 
   void TearDown() override
   {
-    logger::get(RAFT_NAME).set_callback(nullptr);
-    logger::get(RAFT_NAME).set_flush(nullptr);
-    logger::get(RAFT_NAME).set_level(RAFT_LEVEL_INFO);
+    default_logger().sinks().pop_back();
+    default_logger().set_level(raft::level_enum::info);
   }
 };
 
-// The logging macros depend on `RAFT_ACTIVE_LEVEL` as well as the logger verbosity;
-// The verbosity is set to `RAFT_LEVEL_TRACE`, but `RAFT_ACTIVE_LEVEL` is set outside of here.
-auto check_if_logged(const std::string& msg, int log_level_def) -> bool
+// The logging macros depend on `RAFT_LOG_ACTIVE_LEVEL` as well as the logger verbosity;
+// The verbosity is set to `RAFT_LOG_LEVEL_TRACE`, but `RAFT_LOG_ACTIVE_LEVEL` is set outside of
+// here.
+auto check_if_logged(const std::string& msg, raft::level_enum log_level_def) -> bool
 {
   bool actually_logged  = logged.find(msg) != std::string::npos;
-  bool should_be_logged = RAFT_ACTIVE_LEVEL >= log_level_def;
+  bool should_be_logged = RAFT_LOG_ACTIVE_LEVEL <= static_cast<int>(log_level_def);
   return actually_logged == should_be_logged;
 }
 
 TEST_F(loggerTest, callback)
 {
   std::string testMsg;
-  logger::get(RAFT_NAME).set_callback(exampleCallback);
+  default_logger().sinks().push_back(std::make_shared<callback_sink_mt>(exampleCallback));
 
   testMsg = "This is a critical message";
   RAFT_LOG_CRITICAL(testMsg.c_str());
-  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_CRITICAL));
+  ASSERT_TRUE(check_if_logged(testMsg, raft::level_enum::critical));
 
   testMsg = "This is an error message";
   RAFT_LOG_ERROR(testMsg.c_str());
-  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_ERROR));
+  ASSERT_TRUE(check_if_logged(testMsg, raft::level_enum::error));
 
   testMsg = "This is a warning message";
   RAFT_LOG_WARN(testMsg.c_str());
-  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_WARN));
+  ASSERT_TRUE(check_if_logged(testMsg, raft::level_enum::warn));
 
   testMsg = "This is an info message";
   RAFT_LOG_INFO(testMsg.c_str());
-  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_INFO));
+  ASSERT_TRUE(check_if_logged(testMsg, raft::level_enum::info));
 
   testMsg = "This is a debug message";
   RAFT_LOG_DEBUG(testMsg.c_str());
-  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_DEBUG));
+  ASSERT_TRUE(check_if_logged(testMsg, raft::level_enum::debug));
 
   testMsg = "This is a trace message";
   RAFT_LOG_TRACE(testMsg.c_str());
-  ASSERT_TRUE(check_if_logged(testMsg, RAFT_LEVEL_TRACE));
+  ASSERT_TRUE(check_if_logged(testMsg, raft::level_enum::trace));
 }
 
 TEST_F(loggerTest, flush)
 {
-  logger::get(RAFT_NAME).set_flush(exampleFlush);
-  logger::get(RAFT_NAME).flush();
+  default_logger().sinks().push_back(
+    std::make_shared<callback_sink_mt>(exampleCallback, exampleFlush));
+  default_logger().flush();
   ASSERT_EQ(1, flushCount);
 }
 
