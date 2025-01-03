@@ -23,6 +23,8 @@ set +u
 conda activate test
 set -u
 
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1776 cpp)
+LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2534 cpp)
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}/
 mkdir -p "${RAPIDS_TESTS_DIR}"
@@ -30,6 +32,8 @@ mkdir -p "${RAPIDS_TESTS_DIR}"
 rapids-print-env
 
 rapids-mamba-retry install \
+  --channel "${LIBRMM_CHANNEL}" \
+  --channel "${LIBRAFT_CHANNEL}" \
   --channel "${CPP_CHANNEL}" \
   "libraft-headers=${RAPIDS_VERSION}" \
   "libraft=${RAPIDS_VERSION}" \
