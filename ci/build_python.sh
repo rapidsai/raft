@@ -15,8 +15,6 @@ rapids-print-env
 
 rapids-logger "Begin py build"
 
-LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1776 cpp)
-PYLIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1776 python)
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 version=$(rapids-generate-version)
@@ -31,8 +29,6 @@ sccache --zero-stats
 rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
-  --channel "${LIBRMM_CHANNEL}" \
-  --channel "${PYLIBRMM_CHANNEL}" \
   conda/recipes/pylibraft
 
 sccache --show-adv-stats
@@ -41,8 +37,6 @@ sccache --zero-stats
 rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
-  --channel "${LIBRMM_CHANNEL}" \
-  --channel "${PYLIBRMM_CHANNEL}" \
   --channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
   conda/recipes/raft-dask
 

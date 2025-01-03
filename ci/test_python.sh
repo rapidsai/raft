@@ -24,10 +24,6 @@ conda activate test
 set -u
 
 rapids-logger "Downloading artifacts from previous jobs"
-LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1776 cpp)
-PYLIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1776 python)
-LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2534 cpp)
-PYLIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2534 python)
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 
@@ -38,10 +34,6 @@ mkdir -p "${RAPIDS_TESTS_DIR}" "${RAPIDS_COVERAGE_DIR}"
 rapids-print-env
 
 rapids-mamba-retry install \
-  --channel "${LIBRMM_CHANNEL}" \
-  --channel "${PYLIBRMM_CHANNEL}" \
-  --channel "${LIBRAFT_CHANNEL}" \
-  --channel "${PYLIBRAFT_CHANNEL}" \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
   "libraft=${RAPIDS_VERSION}" \

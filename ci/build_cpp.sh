@@ -17,9 +17,7 @@ rapids-logger "Begin cpp build"
 
 sccache --zero-stats
 
-LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1776 cpp)
-
-RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild --channel "${LIBRMM_CHANNEL}" conda/recipes/libraft
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libraft
 
 sccache --show-adv-stats
 
