@@ -24,7 +24,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
-#include <raft/core/logger-macros.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
