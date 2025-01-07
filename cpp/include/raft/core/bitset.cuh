@@ -35,10 +35,30 @@ namespace raft::core {
 template <typename bitset_t, typename index_t>
 _RAFT_HOST_DEVICE inline bool bitset_view<bitset_t, index_t>::test(const index_t sample_index) const
 {
-  const bitset_t bit_element = bitset_ptr_[sample_index / bitset_element_size];
-  const index_t bit_index    = sample_index % bitset_element_size;
-  const bool is_bit_set      = (bit_element & (bitset_t{1} << bit_index)) != 0;
-  return is_bit_set;
+  auto nbits = sizeof(bitset_t) * 8;
+  if (original_nbits_ == 0 || nbits == original_nbits_) {
+    const bitset_t bit_element = bitset_ptr_[sample_index / bitset_element_size];
+    const index_t bit_offset   = sample_index % bitset_element_size;
+    const bool is_bit_set      = (bit_element & (bitset_t{1} << bit_offset)) != 0;
+    return is_bit_set;
+  } else {
+    const index_t original_bit_index  = sample_index / original_nbits_;
+    const index_t original_bit_offset = sample_index % original_nbits_;
+    index_t new_bit_index             = original_bit_index * original_nbits_ / nbits;
+    index_t new_bit_offset            = 0;
+    if (original_nbits_ > nbits) {
+      new_bit_index += original_bit_offset / nbits;
+      new_bit_offset = original_bit_offset % nbits;
+    } else {
+      index_t ratio = nbits / original_nbits_;
+      new_bit_offset += (original_bit_index % ratio) * original_nbits_;
+      new_bit_offset += original_bit_offset % nbits;
+    }
+    const bitset_t bit_element = bitset_ptr_[new_bit_index];
+
+    const bool is_bit_set = (bit_element & (bitset_t{1} << new_bit_offset)) != 0;
+    return is_bit_set;
+  }
 }
 
 template <typename bitset_t, typename index_t>

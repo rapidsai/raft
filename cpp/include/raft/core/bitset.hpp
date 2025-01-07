@@ -42,8 +42,10 @@ template <typename bitset_t = uint32_t, typename index_t = uint32_t>
 struct bitset_view {
   static constexpr index_t bitset_element_size = sizeof(bitset_t) * 8;
 
-  _RAFT_HOST_DEVICE bitset_view(bitset_t* bitset_ptr, index_t bitset_len)
-    : bitset_ptr_{bitset_ptr}, bitset_len_{bitset_len}
+  _RAFT_HOST_DEVICE bitset_view(bitset_t* bitset_ptr,
+                                index_t bitset_len,
+                                index_t original_nbits = 0)
+    : bitset_ptr_{bitset_ptr}, bitset_len_{bitset_len}, original_nbits_{original_nbits}
   {
   }
   /**
@@ -51,10 +53,15 @@ struct bitset_view {
    *
    * @param bitset_span Device vector view of the bitset
    * @param bitset_len Number of bits in the bitset
+   * @param original_nbits Original number of bits used when the bitset was created, to handle
+   * potential mismatches of data types.
    */
   _RAFT_HOST_DEVICE bitset_view(raft::device_vector_view<bitset_t, index_t> bitset_span,
-                                index_t bitset_len)
-    : bitset_ptr_{bitset_span.data_handle()}, bitset_len_{bitset_len}
+                                index_t bitset_len,
+                                index_t original_nbits = 0)
+    : bitset_ptr_{bitset_span.data_handle()},
+      bitset_len_{bitset_len},
+      original_nbits_{original_nbits}
   {
   }
   /**
@@ -180,9 +187,16 @@ struct bitset_view {
     return (bitset_len + bits_per_element - 1) / bits_per_element;
   }
 
+  /**
+   * @brief Get the original number of bits of the bitset.
+   */
+  auto get_original_nbits() const -> index_t { return original_nbits_; }
+  void set_original_nbits(index_t original_nbits) { original_nbits_ = original_nbits; }
+
  private:
   bitset_t* bitset_ptr_;
   index_t bitset_len_;
+  index_t original_nbits_;
 };
 
 /**
