@@ -117,6 +117,28 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
    */
   inline _RAFT_HOST_DEVICE index_t get_n_cols() const { return cols_; }
 
+  /**
+   * @brief Converts to a Compressed Sparse Row (CSR) format matrix.
+   *
+   * This method transforms a two-dimensional bitmap matrix into a CSR representation,
+   * where each '1' bit in the bitmap corresponds to a non-zero entry in the CSR matrix.
+   * The bitmap is interpreted as a row-major matrix, with rows and columns defined by
+   * the dimensions of the bitmap.
+   *
+   * @tparam bitmap_t The data type of the elements in the bitmap matrix.
+   * @tparam index_t The data type used for indexing the elements in the matrices.
+   * @tparam csr_matrix_t Specifies the CSR matrix type, constrained to raft::device_csr_matrix.
+   *
+   * @param[in] res RAFT resources for managing CUDA streams and execution policies.
+   * @param[out] csr Output parameter where the resulting CSR matrix is stored. Each '1' bit in
+   * the bitmap corresponds to a non-zero element in the CSR matrix.
+   *
+   * The caller must ensure that: The `csr` matrix is pre-allocated with dimensions and non-zero
+   * count matching the expected output.
+   */
+  template <typename csr_matrix_t>
+  void to_csr(const raft::resources& res, csr_matrix_t& csr) const;
+
  private:
   index_t rows_;
   index_t cols_;

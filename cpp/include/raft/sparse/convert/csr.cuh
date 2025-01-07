@@ -18,7 +18,8 @@
 
 #pragma once
 
-#include <raft/core/bitmap.cuh>
+#include <raft/core/bitmap.hpp>
+#include <raft/core/bitset.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/sparse/convert/detail/adj_to_csr.cuh>
 #include <raft/sparse/convert/detail/bitmap_to_csr.cuh>

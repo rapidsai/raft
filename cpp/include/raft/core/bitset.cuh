@@ -23,6 +23,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/popc.cuh>
 
@@ -163,6 +164,13 @@ double bitset_view<bitset_t, index_t>::sparsity(const raft::resources& res) cons
   index_t count_h = this->count(res);
 
   return static_cast<double>((1.0 * (size_h - count_h)) / (1.0 * size_h));
+}
+
+template <typename bitset_t, typename index_t>
+template <typename csr_matrix_t>
+void bitset_view<bitset_t, index_t>::to_csr(const raft::resources& res, csr_matrix_t& csr) const
+{
+  raft::sparse::convert::bitset_to_csr(res, *this, csr);
 }
 
 template <typename bitset_t, typename index_t>

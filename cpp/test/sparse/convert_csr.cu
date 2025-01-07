@@ -371,7 +371,7 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
         raft::make_device_csr_matrix<value_t, index_t>(handle, params.n_rows, params.n_cols, nnz);
       auto csr_view = csr.structure_view();
 
-      convert::bitmap_to_csr(handle, bitmap, csr);
+      bitmap.to_csr(handle, csr);
       raft::copy(indptr_d.data(), csr_view.get_indptr().data(), indptr_d.size(), stream);
       raft::copy(indices_d.data(), csr_view.get_indices().data(), indices_d.size(), stream);
       raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
@@ -380,7 +380,7 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
         indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
       auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
 
-      convert::bitmap_to_csr(handle, bitmap, csr);
+      bitmap.to_csr(handle, csr);
       raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
     }
     resource::sync_stream(handle);
@@ -661,7 +661,7 @@ class BitsetToCSRTest : public ::testing::TestWithParam<BitsetToCSRInputs<index_
         raft::make_device_csr_matrix<value_t, index_t>(handle, params.n_repeat, params.n_cols, nnz);
       auto csr_view = csr.structure_view();
 
-      convert::bitset_to_csr(handle, bitset, csr);
+      bitset.to_csr(handle, csr);
       raft::copy(indptr_d.data(), csr_view.get_indptr().data(), indptr_d.size(), stream);
       raft::copy(indices_d.data(), csr_view.get_indices().data(), indices_d.size(), stream);
       raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
@@ -670,7 +670,7 @@ class BitsetToCSRTest : public ::testing::TestWithParam<BitsetToCSRInputs<index_
         indptr_d.data(), indices_d.data(), params.n_repeat, params.n_cols, nnz);
       auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
 
-      convert::bitset_to_csr(handle, bitset, csr);
+      bitset.to_csr(handle, csr);
       raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
     }
     resource::sync_stream(handle);
