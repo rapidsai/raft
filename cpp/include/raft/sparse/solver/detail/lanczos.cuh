@@ -1045,7 +1045,7 @@ int computeSmallestEigenvectors(
   unsigned long long seed = 1234567)
 {
   // Matrix dimension
-  index_type_t n = A.nrows_;
+  size_t n = A.nrows_;
 
   // Check that parameters are valid
   RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");
@@ -1395,7 +1395,7 @@ int computeLargestEigenvectors(
   unsigned long long seed = 123456)
 {
   // Matrix dimension
-  index_type_t n = A.nrows_;
+  size_t n = A.nrows_;
 
   // Check that parameters are valid
   RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");

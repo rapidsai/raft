@@ -46,7 +46,7 @@ namespace spectral {
 namespace matrix {
 namespace detail {
 
-using size_type = int;  // for now; TODO: move it in appropriate header
+using size_type = size_t;  // for now; TODO: move it in appropriate header
 
 // Apply diagonal matrix to vector:
 //
