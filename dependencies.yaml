@@ -427,8 +427,6 @@ dependencies:
       - output_types: [conda, pyproject]
         packages:
           - dask-cuda==25.2.*,>=0.0.0a0
-          - joblib>=0.11
-          - numba>=0.57
           - rapids-dask-dependency==25.2.*,>=0.0.0a0
       - output_types: conda
         packages:
@@ -437,7 +435,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
@@ -567,7 +564,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          # This index is needed for rmm-cu{11,12}.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
