@@ -53,6 +53,7 @@ endif()
 # ensure installs are inside the libraft/ folder in site-packages/
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
+# TODO(jameslamb): do not install the static library in the wheel
 add_subdirectory(../../cpp raft-cpp)
 
 if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
