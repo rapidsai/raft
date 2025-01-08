@@ -57,7 +57,7 @@ template <typename value_t, typename output_t, typename index_t, typename nnz_t,
 void masked_matmul(raft::resources const& handle,
                    raft::device_matrix_view<const value_t, index_t, raft::row_major> A,
                    raft::device_matrix_view<const value_t, index_t, raft::row_major> B,
-                   raft::core::bitmap_view<const bitmap_t, index_t> mask,
+                   raft::core::bitmap_view<bitmap_t, index_t> mask,
                    raft::device_csr_matrix_view<output_t, index_t, index_t, nnz_t> C,
                    std::optional<raft::host_scalar_view<output_t>> alpha = std::nullopt,
                    std::optional<raft::host_scalar_view<output_t>> beta  = std::nullopt)
@@ -86,7 +86,7 @@ void masked_matmul(raft::resources const& handle,
  * @tparam output_t   Data type of output matrix elements (e.g., float, double).
  * @tparam index_t    Type for matrix indices.
  * @tparam nnz_t      Type for non-zero entries in CSR format.
- * @tparam bitmap_t   Type for the bitmap mask.
+ * @tparam bitset_t   Type for the bitset mask.
  *
  * @param[in] handle  RAFT handle for managing resources.
  * @param[in] A       Dense input matrix [m, k] (row-major).
@@ -98,11 +98,11 @@ void masked_matmul(raft::resources const& handle,
  * @param[in] alpha   Scalar multiplier for (A * B) (default: 1.0 if std::nullopt).
  * @param[in] beta    Scalar multiplier for the initial C (default: 0 if std::nullopt).
  */
-template <typename value_t, typename output_t, typename index_t, typename nnz_t, typename bitmap_t>
+template <typename value_t, typename output_t, typename index_t, typename nnz_t, typename bitset_t>
 void masked_matmul(raft::resources const& handle,
                    raft::device_matrix_view<const value_t, index_t, raft::row_major> A,
                    raft::device_matrix_view<const value_t, index_t, raft::row_major> B,
-                   raft::core::bitset_view<const bitmap_t, index_t> mask,
+                   raft::core::bitset_view<bitset_t, index_t> mask,
                    raft::device_csr_matrix_view<output_t, index_t, index_t, nnz_t> C,
                    std::optional<raft::host_scalar_view<output_t>> alpha = std::nullopt,
                    std::optional<raft::host_scalar_view<output_t>> beta  = std::nullopt)
