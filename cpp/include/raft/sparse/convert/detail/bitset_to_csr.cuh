@@ -41,12 +41,12 @@ namespace convert {
 namespace detail {
 
 template <typename index_t, typename nnz_t>
-__global__ void repeat_csr_kernel(const index_t* indptr,
-                                  const index_t* indices,
-                                  index_t* repeated_indptr,
-                                  index_t* repeated_indices,
-                                  nnz_t nnz,
-                                  index_t repeat_count)
+RAFT_KERNEL repeat_csr_kernel(const index_t* indptr,
+                              const index_t* indices,
+                              index_t* repeated_indptr,
+                              index_t* repeated_indices,
+                              nnz_t nnz,
+                              index_t repeat_count)
 {
   int global_id                  = blockIdx.x * blockDim.x + threadIdx.x;
   bool guard                     = global_id < nnz;
