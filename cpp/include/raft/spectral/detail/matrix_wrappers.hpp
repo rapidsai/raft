@@ -39,7 +39,7 @@
 // =========================================================
 
 // Get index of matrix entry
-#define IDX(i, j, lda) ((i) + (j) * (lda))
+#define IDX(i, j, lda) ((size_t)(i) + (j) * (lda))
 
 namespace raft {
 namespace spectral {
