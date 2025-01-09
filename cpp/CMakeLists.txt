@@ -411,7 +411,8 @@ install(
 )
 
 install(
-  TARGETS raft_compiled raft_compiled_static
+  # TARGETS raft_compiled raft_compiled_static
+  TARGETS raft_compiled
   DESTINATION ${lib_dir}
   COMPONENT raft
   EXPORT raft-compiled-exports
@@ -424,12 +425,13 @@ if(TARGET raft_lib)
     COMPONENT compiled
     EXPORT raft-compiled-lib-exports
   )
-  install(
-    TARGETS raft_lib_static
-    DESTINATION ${lib_dir}
-    COMPONENT compiled-static
-    EXPORT raft-compiled-static-lib-exports
-  )
+  # TODO(jameslamb): put all these static-skipping things behind an option like RAFT_BUILD_STATIC_LIB
+  # install(
+  #   TARGETS raft_lib_static
+  #   DESTINATION ${lib_dir}
+  #   COMPONENT compiled-static
+  #   EXPORT raft-compiled-static-lib-exports
+  # )
   install(
     DIRECTORY include/raft_runtime
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
@@ -500,8 +502,10 @@ endif()
 set(raft_components compiled distributed)
 set(raft_export_sets raft-compiled-exports raft-distributed-exports)
 if(TARGET raft_lib)
-  list(APPEND raft_components compiled compiled-static)
-  list(APPEND raft_export_sets raft-compiled-lib-exports raft-compiled-static-lib-exports)
+  #list(APPEND raft_components compiled compiled-static)
+  #list(APPEND raft_export_sets raft-compiled-lib-exports raft-compiled-static-lib-exports)
+  list(APPEND raft_components compiled)
+  list(APPEND raft_export_sets raft-compiled-lib-exports)
 endif()
 
 string(

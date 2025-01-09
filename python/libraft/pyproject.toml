@@ -99,8 +99,24 @@ minimum-version = "build-system.requires"
 ninja.make-fallback = true
 sdist.exclude = ["*tests*"]
 sdist.reproducible = true
-wheel.packages = ["libraft"]
+# exclude static libraries from the wheel
+#
+# TODO(jameslamb): if we agree on this as the mechanism, open an issue about updating install
+#                  rules and using 'build.targets = ["raft_lib"]' instead.
+# wheel.exclude = ["*.a"]
+# build.targets = [
+#     "raft"
+# ]
+# cannot reliably us 'install.components' / 'build.targets' to limit what gets
+# installed because RAFT is installing dependencies like cutlass and cuco
+# by including them in "all"
+#install.components = [
+#    "raft",
+#    "compiled",
+#    "libraft_wheel_interface_dependencies"
+#]
 wheel.install-dir = "libraft"
+wheel.packages = ["libraft"]
 wheel.py-api = "py3"
 
 [tool.scikit-build.metadata.version]

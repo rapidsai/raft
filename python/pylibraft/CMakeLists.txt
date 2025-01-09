@@ -38,6 +38,9 @@ rapids_cpm_init()
 include(../../cpp/cmake/thirdparty/get_cccl.cmake)
 include(../../cpp/cmake/thirdparty/get_rmm.cmake)
 
+# TODO(jameslamb): remove this... just testing my understanding
+# include(../../cpp/cmake/thirdparty/get_cutlass.cmake)
+
 find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS raft compiled)
 
 include(rapids-cython-core)

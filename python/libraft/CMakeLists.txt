@@ -53,8 +53,19 @@ endif()
 # ensure installs are inside the libraft/ folder in site-packages/
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
-# TODO(jameslamb): do not install the static library in the wheel
+# TODO(jameslamb): figure out how to keep the static library (libraft.a) out of wheels.
+#
+# things tried:
+#
+# - 
 add_subdirectory(../../cpp raft-cpp)
+
+# install(
+#   TARGETS
+#     cuco
+#     CUTLASS
+#   COMPONENT libraft_wheel_interface_dependencies
+# )
 
 if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
   set_property(
