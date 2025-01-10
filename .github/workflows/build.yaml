@@ -87,6 +87,7 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: libraft
+      package-type: cpp
   wheel-build-pylibraft:
     needs: wheel-publish-libraft
     secrets: inherit
@@ -107,6 +108,7 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: pylibraft
+      package-type: python
   wheel-build-raft-dask:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
@@ -126,3 +128,4 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: raft_dask
+      package-type: python

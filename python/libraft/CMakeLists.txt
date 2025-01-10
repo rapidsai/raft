@@ -16,13 +16,10 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../../rapids_config.cmake)
 
-# include(rapids-cuda)
-# rapids_cuda_init_architectures(libraft-python)
-
 project(
   libraft-python
   VERSION "${RAPIDS_VERSION}"
-  LANGUAGES CXX CUDA
+  LANGUAGES CXX
 )
 
 option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
@@ -53,9 +50,6 @@ if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
 elseif(USE_CUDA_MATH_WHEELS)
   message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
 endif()
-
-# ensure installs are inside the libraft/ folder in site-packages/
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
 add_subdirectory(../../cpp raft-cpp)
 

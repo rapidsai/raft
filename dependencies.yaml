@@ -6,6 +6,8 @@ files:
       cuda: ["11.8", "12.5"]
       arch: [x86_64, aarch64]
     includes:
+      - build_common
+      - build_cython
       - checks
       - cuda
       - cuda_version
@@ -15,7 +17,6 @@ files:
       - depends_on_rmm
       - develop
       - docs
-      - rapids_build
       - rapids_build_skbuild
       - run_pylibraft
       - run_raft_dask
@@ -62,9 +63,8 @@ files:
       table: tool.rapids-build-backend
       key: requires
     includes:
-      - depends_on_cuda_python
+      - build_common
       - depends_on_librmm
-      - rapids_build
   py_run_libraft:
     output: pyproject
     pyproject_dir: python/libraft
@@ -86,11 +86,12 @@ files:
       table: tool.rapids-build-backend
       key: requires
     includes:
+      - build_common
+      - build_cython
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_cuda_python
       - depends_on_rmm
-      - rapids_build
   py_run_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -125,10 +126,11 @@ files:
       table: tool.rapids-build-backend
       key: requires
     includes:
+      - build_common
+      - build_cython
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_ucx_build
-      - rapids_build
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -164,12 +166,11 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.10.0
-  rapids_build:
+  build_common:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cmake_ver cmake>=3.26.4,!=3.30.0
-          - cython>=3.0.0,<3.1.0a0
           - ninja
       - output_types: [conda]
         packages:
@@ -211,7 +212,11 @@ dependencies:
             packages: [nvcc_linux-64=11.2]
           - matrix: {cuda: "11.2", arch: aarch64}
             packages: [nvcc_linux-aarch64=11.2]
-
+  build_cython:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - cython>=3.0.0,<3.1.0a0
   checks:
     common:
       - output_types: [conda, requirements]
