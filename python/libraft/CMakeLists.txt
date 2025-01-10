@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -26,8 +26,6 @@ project(
 )
 
 option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
-
-# find_package(CUDAToolkit REQUIRED)
 
 # Check if raft is already available. If so, it is the user's responsibility to ensure that the
 # CMake package is also available at build time of the Python raft package.

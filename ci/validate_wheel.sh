@@ -10,18 +10,17 @@ package_name=$3
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
 
 # some packages are much larger on CUDA 11 than on CUDA 12
+PYDISTCHECK_ARGS=()
 if [[ "${package_name}" == "libraft" ]]; then
     if [[ "${RAPIDS_CUDA_MAJOR}" == "11" ]]; then
-        PYDISTCHECK_ARGS=(
+        PYDISTCHECK_ARGS+=(
             --max-allowed-size-compressed '750M'
         )
     else
-        PYDISTCHECK_ARGS=(
+        PYDISTCHECK_ARGS+=(
             --max-allowed-size-compressed '100M'
         )
     fi
-else
-    PYDISTCHECK_ARGS=()
 fi
 
 cd "${package_dir}"

@@ -348,8 +348,7 @@ if [[ ${CMAKE_TARGET} == "" ]]; then
 fi
 
 # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
-SKBUILD_EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS}"
-SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${SKBUILD_EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
+SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then

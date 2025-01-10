@@ -124,15 +124,9 @@ files:
     extras:
       table: tool.rapids-build-backend
       key: requires
-    # TODO(jameslamb): use libucxx?
     includes:
       - depends_on_libraft
-      # CMake Error at /pyenv/versions/3.12.7/lib/python3.12/site-packages/librmm/lib64/cmake/rmm/rmm-targets.cmake:42 (message):
-      # Some (but not all) targets in this export set were already defined.
-      # Targets Defined: rmm::rmm
-      # Targets not yet defined: rmm::rmm_logger, rmm::rmm_logger_im
-      # - depends_on_librmm
-      - rapids_build
+      - depends_on_librmm
       - depends_on_ucx_build
       - rapids_build
   py_run_raft_dask:
@@ -537,7 +531,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          # This index is needed for rmm-cu{11,12}.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
