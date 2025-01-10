@@ -326,7 +326,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
         raft_handle, row_offsets, col_indices, values, nrows, nnz),
       diagonal_(raft_handle, nrows)
   {
-    vector_t<value_type> ones{raft_handle, nrows};
+    vector_t<value_type> ones{raft_handle, (size_t)nrows};
     ones.fill(1.0);
     sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0, diagonal_.raw());
   }
@@ -341,7 +341,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
                                               csr_m.nnz_),
       diagonal_(raft_handle, csr_m.nrows_)
   {
-    vector_t<value_type> ones{raft_handle, csr_m.nrows_};
+    vector_t<value_type> ones{raft_handle, (size_t)csr_m.nrows_};
     ones.fill(1.0);
     sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0, diagonal_.raw());
   }
