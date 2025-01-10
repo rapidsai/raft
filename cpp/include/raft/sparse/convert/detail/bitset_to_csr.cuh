@@ -58,11 +58,8 @@ RAFT_KERNEL repeat_csr_kernel(const index_t* indptr,
 
   __syncthreads();
 
-  int block_offset = blockIdx.x * blockDim.x;
-
   index_t item;
-  int idx = block_offset + threadIdx.x;
-  item    = (idx < nnz) ? indices[idx] : -1;
+  item = (global_id < nnz) ? indices[global_id] : -1;
 
   __syncthreads();
 
@@ -144,10 +141,10 @@ void bitset_to_csr(raft::resources const& handle,
   thrust::exclusive_scan(
     thrust_policy, sub_nnz.data(), sub_nnz.data() + sub_nnz_size + 1, sub_nnz.data());
 
-  index_t bitset_nnz = 0;
+  nnz_t bitset_nnz = 0;
   if constexpr (is_device_csr_sparsity_owning_v<csr_matrix_t>) {
     RAFT_CUDA_TRY(cudaMemcpyAsync(
-      &bitset_nnz, sub_nnz.data() + sub_nnz_size, sizeof(index_t), cudaMemcpyDeviceToHost, stream));
+      &bitset_nnz, sub_nnz.data() + sub_nnz_size, sizeof(nnz_t), cudaMemcpyDeviceToHost, stream));
     resource::sync_stream(handle);
     csr.initialize_sparsity(bitset_nnz * csr_view.get_n_rows());
   } else {

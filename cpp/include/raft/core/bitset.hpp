@@ -231,8 +231,6 @@ struct bitset_view {
    * //                1, 1, 1, 1];
    * @endcode
    *
-   * @tparam bitset_t The data type of the elements in the bitset matrix.
-   * @tparam index_t The data type used for indexing the elements in the matrices.
    * @tparam csr_matrix_t Specifies the CSR matrix type, constrained to raft::device_csr_matrix.
    *
    * @param[in] res RAFT resources for managing CUDA streams and execution policies.

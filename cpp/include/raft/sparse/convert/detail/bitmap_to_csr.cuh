@@ -330,9 +330,9 @@ void bitmap_to_csr(raft::resources const& handle,
     thrust_policy, sub_nnz.data(), sub_nnz.data() + sub_nnz_size + 1, sub_nnz.data());
 
   if constexpr (is_device_csr_sparsity_owning_v<csr_matrix_t>) {
-    index_t nnz = 0;
+    nnz_t nnz = 0;
     RAFT_CUDA_TRY(cudaMemcpyAsync(
-      &nnz, sub_nnz.data() + sub_nnz_size, sizeof(index_t), cudaMemcpyDeviceToHost, stream));
+      &nnz, sub_nnz.data() + sub_nnz_size, sizeof(nnz_t), cudaMemcpyDeviceToHost, stream));
     resource::sync_stream(handle);
     csr.initialize_sparsity(nnz);
   }

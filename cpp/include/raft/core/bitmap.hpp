@@ -125,8 +125,6 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
    * The bitmap is interpreted as a row-major matrix, with rows and columns defined by
    * the dimensions of the bitmap.
    *
-   * @tparam bitmap_t The data type of the elements in the bitmap matrix.
-   * @tparam index_t The data type used for indexing the elements in the matrices.
    * @tparam csr_matrix_t Specifies the CSR matrix type, constrained to raft::device_csr_matrix.
    *
    * @param[in] res RAFT resources for managing CUDA streams and execution policies.
