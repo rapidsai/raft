@@ -26,7 +26,6 @@ project(
 )
 
 rapids_cpm_init()
-# TODO(jameslamb): could this just use the libucxx wheel?
 # Once https://github.com/rapidsai/ucxx/issues/173 is resolved we can remove this.
 find_package(ucx REQUIRED)
 include(cmake/thirdparty/get_ucxx.cmake)
@@ -34,11 +33,8 @@ include(cmake/thirdparty/get_ucxx.cmake)
 # why these components:
 #
 #   * 'raft' = the headers, needed to link against libraft
-#   * 'distributed = needed for 'nccl'
+#   * 'distributed' = needed for NCCL
 find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS raft distributed)
-
-# list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR}/cmake/find_modules)
-# find_package(NCCL REQUIRED)
 
 include(rapids-cython-core)
 rapids_cython_init()

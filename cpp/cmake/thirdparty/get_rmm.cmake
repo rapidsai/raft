@@ -16,9 +16,8 @@
 
 function(find_and_configure_rmm)
     include(${rapids-cmake-dir}/cpm/rmm.cmake)
-    # intentionally not re-exporting
-    # TODO(jameslamb): make this description better
-    rapids_cpm_rmm()
+    rapids_cpm_rmm(BUILD_EXPORT_SET raft-exports
+                   INSTALL_EXPORT_SET raft-exports)
 endfunction()
 
 find_and_configure_rmm()

@@ -27,20 +27,7 @@ project(
   LANGUAGES CXX CUDA
 )
 
-# CCCL before rmm/cuco so we get the right version of CCCL
-# TODO(jameslamb): is this necessary?
-include(rapids-cmake)
-include(rapids-cpm)
-include(rapids-export)
-include(rapids-find)
-# add third party dependencies using CPM
-rapids_cpm_init()
-include(../../cpp/cmake/thirdparty/get_cccl.cmake)
-include(../../cpp/cmake/thirdparty/get_rmm.cmake)
-
-# TODO(jameslamb): remove this... just testing my understanding
-# include(../../cpp/cmake/thirdparty/get_cutlass.cmake)
-
+# an installed version of raft contains the other necessary targets (like CCCL and cuco)
 find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS raft compiled)
 
 include(rapids-cython-core)
