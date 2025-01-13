@@ -59,8 +59,8 @@ TEST_F(MakeMonotonicTest, Result)
 
   ASSERT_TRUE(devArrMatch(actual.data(), expected.data(), m, raft::Compare<bool>(), stream));
 
-  delete data_h;
-  delete expected_h;
+  delete [] data_h;
+  delete [] expected_h;
 }
 
 TEST(labelTest, Classlabels)
