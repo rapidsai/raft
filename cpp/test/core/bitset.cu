@@ -24,6 +24,8 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
+#include <cstdlib>
 #include <numeric>
 
 namespace raft::core {
@@ -70,6 +72,40 @@ void test_cpu_bitset(const std::vector<bitset_t>& bitset,
   for (size_t i = 0; i < queries.size(); i++) {
     result[i] = uint8_t((bitset[queries[i] / bitset_element_size] &
                          (bitset_t{1} << (queries[i] % bitset_element_size))) != 0);
+  }
+}
+
+template <typename bitset_t, typename index_t>
+void test_cpu_bitset_nbits(const bitset_t* bitset,
+                           const std::vector<index_t>& queries,
+                           std::vector<uint8_t>& result,
+                           unsigned original_nbits_)
+{
+  constexpr size_t nbits = sizeof(bitset_t) * 8;
+  if (original_nbits_ == nbits) {
+    for (size_t i = 0; i < queries.size(); i++) {
+      result[i] =
+        uint8_t((bitset[queries[i] / nbits] & (bitset_t{1} << (queries[i] % nbits))) != 0);
+    }
+  }
+  for (size_t i = 0; i < queries.size(); i++) {
+    const index_t sample_index        = queries[i];
+    const index_t original_bit_index  = sample_index / original_nbits_;
+    const index_t original_bit_offset = sample_index % original_nbits_;
+    index_t new_bit_index             = original_bit_index * original_nbits_ / nbits;
+    index_t new_bit_offset            = 0;
+    if (original_nbits_ > nbits) {
+      new_bit_index += original_bit_offset / nbits;
+      new_bit_offset = original_bit_offset % nbits;
+    } else {
+      index_t ratio = nbits / original_nbits_;
+      new_bit_offset += (original_bit_index % ratio) * original_nbits_;
+      new_bit_offset += original_bit_offset % nbits;
+    }
+    const bitset_t bit_element = bitset[new_bit_index];
+    const bool is_bit_set      = (bit_element & (bitset_t{1} << new_bit_offset)) != 0;
+
+    result[i] = uint8_t(is_bit_set);
   }
 }
 
@@ -168,11 +204,12 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     resource::sync_stream(res, stream);
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
 
-    auto query_device  = raft::make_device_vector<index_t, index_t>(res, spec.query_len);
-    auto result_device = raft::make_device_vector<uint8_t, index_t>(res, spec.query_len);
-    auto query_cpu     = std::vector<index_t>(spec.query_len);
-    auto result_cpu    = std::vector<uint8_t>(spec.query_len);
-    auto result_ref    = std::vector<uint8_t>(spec.query_len);
+    auto query_device     = raft::make_device_vector<index_t, index_t>(res, spec.query_len);
+    auto result_device    = raft::make_device_vector<uint8_t, index_t>(res, spec.query_len);
+    auto query_cpu        = std::vector<index_t>(spec.query_len);
+    auto result_cpu       = std::vector<uint8_t>(spec.query_len);
+    auto result_ref_nbits = std::vector<uint8_t>(spec.query_len);
+    auto result_ref       = std::vector<uint8_t>(spec.query_len);
 
     // Create queries and verify the test results
     raft::random::uniformInt(res, rng, query_device.view(), index_t(0), index_t(spec.bitset_len));
@@ -193,6 +230,57 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     add_cpu_bitset(bitset_ref, mask_cpu);
     resource::sync_stream(res, stream);
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
+
+    // Reinterpret the bitset as uint8_t, uint32 then uint64_t
+    {
+      // Test CPU logic
+      test_cpu_bitset(bitset_ref, query_cpu, result_ref);
+      uint8_t* bitset_cpu_uint8 = (uint8_t*)std::malloc(sizeof(bitset_t) * bitset_ref.size());
+      std::memcpy(bitset_cpu_uint8, bitset_ref.data(), sizeof(bitset_t) * bitset_ref.size());
+      test_cpu_bitset_nbits(bitset_cpu_uint8, query_cpu, result_ref_nbits, sizeof(bitset_t) * 8);
+      ASSERT_TRUE(hostVecMatch(result_ref, result_ref_nbits, raft::Compare<uint8_t>()));
+      std::free(bitset_cpu_uint8);
+
+      // Test GPU uint8_t, uint32_t, uint64_t
+      auto my_bitset_view_uint8_t = raft::core::bitset_view<uint8_t, uint32_t>(
+        reinterpret_cast<uint8_t*>(my_bitset.data()), my_bitset.size(), sizeof(bitset_t) * 8);
+      raft::linalg::map(
+        res,
+        result_device.view(),
+        [my_bitset_view_uint8_t] __device__(index_t query) {
+          return my_bitset_view_uint8_t.test(query);
+        },
+        raft::make_const_mdspan(query_device.view()));
+      update_host(result_cpu.data(), result_device.data_handle(), result_device.extent(0), stream);
+      resource::sync_stream(res, stream);
+      ASSERT_TRUE(hostVecMatch(result_ref, result_cpu, Compare<uint8_t>()));
+
+      auto my_bitset_view_uint32_t = raft::core::bitset_view<uint32_t, uint32_t>(
+        reinterpret_cast<uint32_t*>(my_bitset.data()), my_bitset.size(), sizeof(bitset_t) * 8);
+      raft::linalg::map(
+        res,
+        result_device.view(),
+        [my_bitset_view_uint32_t] __device__(index_t query) {
+          return my_bitset_view_uint32_t.test(query);
+        },
+        raft::make_const_mdspan(query_device.view()));
+      update_host(result_cpu.data(), result_device.data_handle(), result_device.extent(0), stream);
+      resource::sync_stream(res, stream);
+      ASSERT_TRUE(hostVecMatch(result_ref, result_cpu, Compare<uint8_t>()));
+
+      auto my_bitset_view_uint64_t = raft::core::bitset_view<uint64_t, uint32_t>(
+        reinterpret_cast<uint64_t*>(my_bitset.data()), my_bitset.size(), sizeof(bitset_t) * 8);
+      raft::linalg::map(
+        res,
+        result_device.view(),
+        [my_bitset_view_uint64_t] __device__(index_t query) {
+          return my_bitset_view_uint64_t.test(query);
+        },
+        raft::make_const_mdspan(query_device.view()));
+      update_host(result_cpu.data(), result_device.data_handle(), result_device.extent(0), stream);
+      resource::sync_stream(res, stream);
+      ASSERT_TRUE(hostVecMatch(result_ref, result_cpu, Compare<uint8_t>()));
+    }
 
     // test sparsity, repeat and eval_n_elements
     {
