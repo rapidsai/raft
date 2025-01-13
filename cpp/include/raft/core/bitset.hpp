@@ -42,6 +42,16 @@ template <typename bitset_t = uint32_t, typename index_t = uint32_t>
 struct bitset_view {
   static constexpr index_t bitset_element_size = sizeof(bitset_t) * 8;
 
+  /**
+   * @brief Create a bitset view from a device pointer to the bitset.
+   *
+   * @param bitset_ptr Device pointer to the bitset
+   * @param bitset_len Number of bits in the bitset
+   * @param original_nbits Original number of bits used when the bitset was created, to handle
+   * potential mismatches of data types. This is useful for using ANN indexes when a bitset was
+   * originally created with a different data type than the ones currently supported in cuVS ANN
+   * indexes.
+   */
   _RAFT_HOST_DEVICE bitset_view(bitset_t* bitset_ptr,
                                 index_t bitset_len,
                                 index_t original_nbits = 0)
@@ -54,7 +64,9 @@ struct bitset_view {
    * @param bitset_span Device vector view of the bitset
    * @param bitset_len Number of bits in the bitset
    * @param original_nbits Original number of bits used when the bitset was created, to handle
-   * potential mismatches of data types.
+   * potential mismatches of data types. This is useful for using ANN indexes when a bitset was
+   * originally created with a different data type than the ones currently supported in cuVS ANN
+   * indexes.
    */
   _RAFT_HOST_DEVICE bitset_view(raft::device_vector_view<bitset_t, index_t> bitset_span,
                                 index_t bitset_len,
