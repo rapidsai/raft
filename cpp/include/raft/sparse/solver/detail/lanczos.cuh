@@ -624,7 +624,7 @@ static int lanczosRestart(raft::resources const& handle,
   value_type_t* shifts_host;
 
   // Orthonormal matrix for similarity transform
-  value_type_t* V_dev = work_dev + n * iter;
+  value_type_t* V_dev = work_dev + (size_t)n * (size_t)iter;
 
   // -------------------------------------------------------
   // Implementation
@@ -641,7 +641,7 @@ static int lanczosRestart(raft::resources const& handle,
   // std::cout <<std::endl;
 
   // Initialize similarity transform with identity matrix
-  memset(V_host, 0, iter * iter * sizeof(value_type_t));
+  memset(V_host, 0, (size_t)iter * (size_t)iter * (size_t)sizeof(value_type_t));
   for (i = 0; i < iter; ++i)
     V_host[IDX(i, i, iter)] = 1;
 
@@ -679,8 +679,11 @@ static int lanczosRestart(raft::resources const& handle,
       WARNING("error in implicitly shifted QR algorithm");
 
   // Obtain new residual
-  RAFT_CUDA_TRY(cudaMemcpyAsync(
-    V_dev, V_host, iter * iter * sizeof(value_type_t), cudaMemcpyHostToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(V_dev,
+                                V_host,
+                                (size_t)iter * (size_t)iter * (size_t)sizeof(value_type_t),
+                                cudaMemcpyHostToDevice,
+                                stream));
 
   beta_host[iter - 1] = beta_host[iter - 1] * V_host[IDX(iter - 1, iter_new - 1, iter)];
   RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(cublas_h,
@@ -716,7 +719,7 @@ static int lanczosRestart(raft::resources const& handle,
 
   RAFT_CUDA_TRY(cudaMemcpyAsync(lanczosVecs_dev,
                                 work_dev,
-                                n * iter_new * sizeof(value_type_t),
+                                (size_t)n * (size_t)iter_new * (size_t)sizeof(value_type_t),
                                 cudaMemcpyDeviceToDevice,
                                 stream));
 
@@ -1045,10 +1048,10 @@ int computeSmallestEigenvectors(
   unsigned long long seed = 1234567)
 {
   // Matrix dimension
-  index_type_t n = A.nrows_;
+  size_t n = A.nrows_;
 
   // Check that parameters are valid
-  RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");
+  RAFT_EXPECTS(nEigVecs > 0 && (size_t)nEigVecs <= n, "Invalid number of eigenvectors.");
   RAFT_EXPECTS(restartIter > 0, "Invalid restartIter.");
   RAFT_EXPECTS(tol > 0, "Invalid tolerance.");
   RAFT_EXPECTS(maxIter >= nEigVecs, "Invalid maxIter.");
@@ -1395,10 +1398,10 @@ int computeLargestEigenvectors(
   unsigned long long seed = 123456)
 {
   // Matrix dimension
-  index_type_t n = A.nrows_;
+  size_t n = A.nrows_;
 
   // Check that parameters are valid
-  RAFT_EXPECTS(nEigVecs > 0 && nEigVecs <= n, "Invalid number of eigenvectors.");
+  RAFT_EXPECTS(nEigVecs > 0 && (size_t)nEigVecs <= n, "Invalid number of eigenvectors.");
   RAFT_EXPECTS(restartIter > 0, "Invalid restartIter.");
   RAFT_EXPECTS(tol > 0, "Invalid tolerance.");
   RAFT_EXPECTS(maxIter >= nEigVecs, "Invalid maxIter.");
