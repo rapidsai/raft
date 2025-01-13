@@ -40,7 +40,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
+        - {{ compiler('cuda') }}
         {% else %}
         - {{ compiler('cuda') }}
         - cuda-cudart-dev
@@ -51,7 +51,7 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
@@ -86,7 +86,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
+        - {{ compiler('cuda') }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
@@ -131,7 +131,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
+        - {{ compiler('cuda') }}
         {% else %}
         - {{ compiler('cuda') }}
         - cuda-cudart-dev
@@ -145,7 +145,7 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
@@ -197,7 +197,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
+        - {{ compiler('cuda') }}
         {% else %}
         - {{ compiler('cuda') }}
         - cuda-cudart-dev
@@ -207,7 +207,7 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
@@ -259,7 +259,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
+        - {{ compiler('cuda') }}
         {% else %}
         - {{ compiler('cuda') }}
         - cuda-cudart-dev
@@ -273,7 +273,7 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
