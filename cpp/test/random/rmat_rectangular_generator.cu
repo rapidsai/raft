@@ -155,10 +155,10 @@ RAFT_KERNEL compute_hist(
   size_t idx = (threadIdx.x + blockIdx.x * blockDim.x) * 2;
   if (idx + 1 < len) {
     auto src = out[idx], dst = out[idx + 1];
-    for (size_t j = 0; j < max_scale; ++j) {
-      bool src_bit = j < r_scale ? src & (1 << (r_scale - j - 1)) : 0;
-      bool dst_bit = j < c_scale ? dst & (1 << (c_scale - j - 1)) : 0;
-      auto idx     = j * 4 + src_bit * 2 + dst_bit;
+    for (size_t bit_pos = 0; bit_pos < max_scale; ++bit_pos) {
+      bool src_bit = bit_pos < r_scale ? src & (1 << bit_pos) : 0;
+      bool dst_bit = bit_pos < c_scale ? dst & (1 << bit_pos) : 0;
+      auto idx     = bit_pos * 4 + src_bit * 2 + dst_bit;
       atomicAdd(hist + idx, 1);
     }
   }
