@@ -17,7 +17,7 @@ echo "libraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo /tmp/libraft_dist/libraft
 export PIP_CONSTRAINT="/tmp/constraints.txt"
 
 # Set up skbuild options. Enable sccache in skbuild config options
-export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;"
+export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF"
 
 ci/build_wheel.sh pylibraft ${package_dir} python
 ci/validate_wheel.sh ${package_dir} final_dist pylibraft

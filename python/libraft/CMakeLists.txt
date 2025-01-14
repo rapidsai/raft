@@ -34,13 +34,6 @@ endif()
 
 unset(raft_FOUND)
 
-set(BUILD_TESTS OFF)
-set(BUILD_PRIMS_BENCH OFF)
-
-# --- RAFT ---#
-set(RAFT_COMPILE_DYNAMIC_ONLY ON)
-set(RAFT_COMPILE_LIBRARY ON)
-
 # --- CUDA --- #
 find_package(CUDAToolkit REQUIRED)
 set(CUDA_STATIC_RUNTIME ON)
@@ -50,6 +43,12 @@ if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
 elseif(USE_CUDA_MATH_WHEELS)
   message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
 endif()
+
+# --- RAFT ---#
+set(BUILD_TESTS OFF)
+set(BUILD_PRIMS_BENCH OFF)
+set(RAFT_COMPILE_DYNAMIC_ONLY ON)
+set(RAFT_COMPILE_LIBRARY ON)
 
 add_subdirectory(../../cpp raft-cpp)
 
