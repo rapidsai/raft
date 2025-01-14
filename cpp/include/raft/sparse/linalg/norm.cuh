@@ -36,10 +36,10 @@ namespace linalg {
  * @param result: l1 normalized data array
  * @param stream: cuda stream to use
  */
-template <typename T>
-void csr_row_normalize_l1(const int* ia,  // csr row ex_scan (sorted by row)
+template <typename T, typename indT>
+void csr_row_normalize_l1(const indT* ia,  // csr row ex_scan (sorted by row)
                           const T* vals,
-                          int nnz,  // array of values and number of non-zeros
+                          indT nnz,  // array of values and number of non-zeros
                           int m,    // num rows in csr
                           T* result,
                           cudaStream_t stream)

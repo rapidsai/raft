@@ -38,7 +38,7 @@ namespace op {
  * @param stream: cuda stream to use
  */
 template <typename T, typename IdxT = int>
-void coo_sort(IdxT m, IdxT n, IdxT nnz, IdxT* rows, IdxT* cols, T* vals, cudaStream_t stream)
+void coo_sort(IdxT m, IdxT n, uint64_t nnz, IdxT* rows, IdxT* cols, T* vals, cudaStream_t stream)
 {
   detail::coo_sort(m, n, nnz, rows, cols, vals, stream);
 }

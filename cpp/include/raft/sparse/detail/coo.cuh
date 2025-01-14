@@ -52,7 +52,7 @@ class COO {
   rmm::device_uvector<T> vals_arr;
 
  public:
-  Index_Type nnz;
+  uint64_t nnz;
   Index_Type n_rows;
   Index_Type n_cols;
 
@@ -75,7 +75,7 @@ class COO {
   COO(rmm::device_uvector<Index_Type>& rows,
       rmm::device_uvector<Index_Type>& cols,
       rmm::device_uvector<T>& vals,
-      Index_Type nnz,
+      uint64_t nnz,
       Index_Type n_rows = 0,
       Index_Type n_cols = 0)
     : rows_arr(rows), cols_arr(cols), vals_arr(vals), nnz(nnz), n_rows(n_rows), n_cols(n_cols)
@@ -90,7 +90,7 @@ class COO {
    * @param init: initialize arrays with zeros
    */
   COO(cudaStream_t stream,
-      Index_Type nnz,
+      uint64_t nnz,
       Index_Type n_rows = 0,
       Index_Type n_cols = 0,
       bool init         = true)
@@ -121,7 +121,7 @@ class COO {
    */
   bool validate_size() const
   {
-    if (this->nnz < 0 || n_rows < 0 || n_cols < 0) return false;
+    if (this->nnz <= 0 || n_rows <= 0 || n_cols <= 0) return false;
     return true;
   }
 
@@ -204,7 +204,7 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: CUDA stream to use
    */
-  void allocate(Index_Type nnz, bool init, cudaStream_t stream)
+  void allocate(uint64_t nnz, bool init, cudaStream_t stream)
   {
     this->allocate(nnz, 0, init, stream);
   }
@@ -216,7 +216,7 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: CUDA stream to use
    */
-  void allocate(Index_Type nnz, Index_Type size, bool init, cudaStream_t stream)
+  void allocate(uint64_t nnz, Index_Type size, bool init, cudaStream_t stream)
   {
     this->allocate(nnz, size, size, init, stream);
   }
@@ -230,7 +230,7 @@ class COO {
    * @param stream: stream to use for init
    */
   void allocate(
-    Index_Type nnz, Index_Type n_rows, Index_Type n_cols, bool init, cudaStream_t stream)
+    uint64_t nnz, Index_Type n_rows, Index_Type n_cols, bool init, cudaStream_t stream)
   {
     this->n_rows = n_rows;
     this->n_cols = n_cols;

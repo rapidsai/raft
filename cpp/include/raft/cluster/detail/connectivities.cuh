@@ -95,7 +95,7 @@ struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx,
                       });
 
     raft::sparse::convert::sorted_coo_to_csr(
-      knn_graph_coo.rows(), knn_graph_coo.nnz, indptr.data(), m + 1, stream);
+      knn_graph_coo.rows(), (value_idx)knn_graph_coo.nnz, indptr.data(), m + 1, stream);
 
     // TODO: Wouldn't need to copy here if we could compute knn
     // graph directly on the device uvectors

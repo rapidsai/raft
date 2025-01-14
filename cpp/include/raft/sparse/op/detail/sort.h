@@ -69,7 +69,7 @@ struct TupleComp {
  * @param stream: cuda stream to use
  */
 template <typename T, typename IdxT = int>
-void coo_sort(IdxT m, IdxT n, IdxT nnz, IdxT* rows, IdxT* cols, T* vals, cudaStream_t stream)
+void coo_sort(IdxT m, IdxT n, uint64_t nnz, IdxT* rows, IdxT* cols, T* vals, cudaStream_t stream)
 {
   auto coo_indices = thrust::make_zip_iterator(thrust::make_tuple(rows, cols));
 

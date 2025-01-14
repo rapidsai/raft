@@ -34,7 +34,7 @@ namespace linalg {
  * @param stream: cuda stream to use
  */
 template <typename T = int>
-void coo_degree(const T* rows, int nnz, T* results, cudaStream_t stream)
+void coo_degree(const T* rows, uint64_t nnz, T* results, cudaStream_t stream)
 {
   detail::coo_degree<64, T>(rows, nnz, results, stream);
 }
@@ -66,7 +66,7 @@ void coo_degree(COO<T>* in, int* results, cudaStream_t stream)
  */
 template <typename T>
 void coo_degree_scalar(
-  const int* rows, const T* vals, int nnz, T scalar, int* results, cudaStream_t stream = 0)
+  const int* rows, const T* vals, uint64_t nnz, T scalar, int* results, cudaStream_t stream = 0)
 {
   detail::coo_degree_scalar<64>(rows, vals, nnz, scalar, results, stream);
 }

@@ -48,7 +48,7 @@ namespace detail {
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
 template <int TPB_X = 128, typename T, typename Lambda>
-RAFT_KERNEL coo_symmetrize_kernel(int* row_ind,
+RAFT_KERNEL coo_symmetrize_kernel(uint64_t* row_ind,
                                   int* rows,
                                   int* cols,
                                   T* vals,
@@ -56,17 +56,17 @@ RAFT_KERNEL coo_symmetrize_kernel(int* row_ind,
                                   int* ocols,
                                   T* ovals,
                                   int n,
-                                  int cnnz,
+                                  uint64_t cnnz,
                                   Lambda reduction_op)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
   if (row < n) {
-    int start_idx = row_ind[row];  // each thread processes one row
-    int stop_idx  = get_stop_idx(row, n, cnnz, row_ind);
+    uint64_t start_idx = row_ind[row];  // each thread processes one row
+    uint64_t stop_idx  = get_stop_idx(row, n, cnnz, row_ind);
 
     int row_nnz       = 0;
-    int out_start_idx = start_idx * 2;
+    uint64_t out_start_idx = start_idx * 2;
 
     for (int idx = 0; idx < stop_idx - start_idx; idx++) {
       int cur_row = rows[idx + start_idx];
@@ -74,13 +74,13 @@ RAFT_KERNEL coo_symmetrize_kernel(int* row_ind,
       T cur_val   = vals[idx + start_idx];
 
       int lookup_row = cur_col;
-      int t_start    = row_ind[lookup_row];  // Start at
-      int t_stop     = get_stop_idx(lookup_row, n, cnnz, row_ind);
+      uint64_t t_start    = row_ind[lookup_row];  // Start at
+      uint64_t t_stop     = get_stop_idx(lookup_row, n, cnnz, row_ind);
 
       T transpose = 0.0;
 
       bool found_match = false;
-      for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
+      for (uint64_t t_idx = t_start; t_idx < t_stop; t_idx++) {
         // If we find a match, let's get out of the loop. We won't
         // need to modify the transposed value, since that will be
         // done in a different thread.
@@ -142,7 +142,7 @@ void coo_symmetrize(COO<T>* in,
 
   ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
 
-  rmm::device_uvector<int> in_row_ind(in->n_rows, stream);
+  rmm::device_uvector<uint64_t> in_row_ind(in->n_rows, stream);
 
   convert::sorted_coo_to_csr(in, in_row_ind.data(), stream);
 

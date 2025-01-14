@@ -109,8 +109,8 @@ class SparseSymmetrizeTest
     rmm::device_scalar<value_idx> sum(stream);
     sum.set_value_to_zero_async(stream);
 
-    assert_symmetry<<<raft::ceildiv(out.nnz, 256), 256, 0, stream>>>(
-      out.rows(), out.cols(), out.vals(), out.nnz, sum.data());
+    assert_symmetry<<<raft::ceildiv(out.nnz, (uint64_t)256), 256, 0, stream>>>(
+      out.rows(), out.cols(), out.vals(), (value_idx)out.nnz, sum.data());
 
     sum_h = sum.value(stream);
     resource::sync_stream(handle, stream);

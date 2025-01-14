@@ -242,7 +242,7 @@ void perform_1nn(raft::resources const& handle,
   // the color components.
   auto colors_group_idxs = raft::make_device_vector<value_idx, value_idx>(handle, n_components + 1);
   raft::sparse::convert::sorted_coo_to_csr(
-    colors, n_rows, colors_group_idxs.data_handle(), n_components + 1, stream);
+    colors, (value_idx)n_rows, colors_group_idxs.data_handle(), n_components + 1, stream);
 
   auto group_idxs_view = raft::make_device_vector_view<const value_idx, value_idx>(
     colors_group_idxs.data_handle() + 1, n_components);
