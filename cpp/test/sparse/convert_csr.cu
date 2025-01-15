@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 
 #include <raft/core/bitmap.cuh>
+#include <raft/core/bitset.cuh>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
@@ -370,7 +371,7 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
         raft::make_device_csr_matrix<value_t, index_t>(handle, params.n_rows, params.n_cols, nnz);
       auto csr_view = csr.structure_view();
 
-      convert::bitmap_to_csr(handle, bitmap, csr);
+      bitmap.to_csr(handle, csr);
       raft::copy(indptr_d.data(), csr_view.get_indptr().data(), indptr_d.size(), stream);
       raft::copy(indices_d.data(), csr_view.get_indices().data(), indices_d.size(), stream);
       raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
@@ -379,7 +380,7 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
         indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
       auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
 
-      convert::bitmap_to_csr(handle, bitmap, csr);
+      bitmap.to_csr(handle, csr);
       raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
     }
     resource::sync_stream(handle);
@@ -476,6 +477,290 @@ INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
                         BitmapToCSRTestLOnLargeSize,
                         ::testing::ValuesIn(bitmaptocsr_large_inputs<int64_t>));
+
+/******************************** bitset to csr ********************************/
+
+template <typename index_t>
+struct BitsetToCSRInputs {
+  index_t n_repeat;
+  index_t n_cols;
+  float sparsity;
+  bool owning;
+};
+
+template <typename bitset_t, typename index_t, typename value_t>
+class BitsetToCSRTest : public ::testing::TestWithParam<BitsetToCSRInputs<index_t>> {
+ public:
+  BitsetToCSRTest()
+    : stream(resource::get_cuda_stream(handle)),
+      params(::testing::TestWithParam<BitsetToCSRInputs<index_t>>::GetParam()),
+      bitset_d(0, stream),
+      indices_d(0, stream),
+      indptr_d(0, stream),
+      values_d(0, stream),
+      indptr_expected_d(0, stream),
+      indices_expected_d(0, stream),
+      values_expected_d(0, stream)
+  {
+  }
+
+ protected:
+  void repeat_cpu_bitset(std::vector<bitset_t>& input,
+                         size_t input_bits,
+                         size_t repeat,
+                         std::vector<bitset_t>& output)
+  {
+    const size_t output_bits  = input_bits * repeat;
+    const size_t output_units = (output_bits + sizeof(bitset_t) * 8 - 1) / (sizeof(bitset_t) * 8);
+
+    std::memset(output.data(), 0, output_units * sizeof(bitset_t));
+
+    size_t output_bit_index = 0;
+
+    for (size_t r = 0; r < repeat; ++r) {
+      for (size_t i = 0; i < input_bits; ++i) {
+        size_t input_unit_index = i / (sizeof(bitset_t) * 8);
+        size_t input_bit_offset = i % (sizeof(bitset_t) * 8);
+        bool bit                = (input[input_unit_index] >> input_bit_offset) & 1;
+
+        size_t output_unit_index = output_bit_index / (sizeof(bitset_t) * 8);
+        size_t output_bit_offset = output_bit_index % (sizeof(bitset_t) * 8);
+
+        output[output_unit_index] |= (static_cast<bitset_t>(bit) << output_bit_offset);
+
+        ++output_bit_index;
+      }
+    }
+  }
+
+  index_t create_sparse_matrix(index_t m, index_t n, float sparsity, std::vector<bitset_t>& bitset)
+  {
+    index_t total    = static_cast<index_t>(m * n);
+    index_t num_ones = static_cast<index_t>((total * 1.0f) * sparsity);
+    index_t res      = num_ones;
+
+    for (auto& item : bitset) {
+      item = static_cast<bitset_t>(0);
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<index_t> dis(0, total - 1);
+
+    while (num_ones > 0) {
+      index_t index = dis(gen);
+
+      bitset_t& element    = bitset[index / (8 * sizeof(bitset_t))];
+      index_t bit_position = index % (8 * sizeof(bitset_t));
+
+      if (((element >> bit_position) & 1) == 0) {
+        element |= (static_cast<index_t>(1) << bit_position);
+        num_ones--;
+      }
+    }
+    return res;
+  }
+
+  void cpu_convert_to_csr(std::vector<bitset_t>& bitset,
+                          index_t rows,
+                          index_t cols,
+                          std::vector<index_t>& indices,
+                          std::vector<index_t>& indptr)
+  {
+    index_t offset_indptr   = 0;
+    index_t offset_values   = 0;
+    indptr[offset_indptr++] = 0;
+
+    index_t index        = 0;
+    bitset_t element     = 0;
+    index_t bit_position = 0;
+
+    for (index_t i = 0; i < rows; ++i) {
+      for (index_t j = 0; j < cols; ++j) {
+        index        = i * cols + j;
+        element      = bitset[index / (8 * sizeof(bitset_t))];
+        bit_position = index % (8 * sizeof(bitset_t));
+
+        if (((element >> bit_position) & 1)) {
+          indices[offset_values] = static_cast<index_t>(j);
+          offset_values++;
+        }
+      }
+      indptr[offset_indptr++] = static_cast<index_t>(offset_values);
+    }
+  }
+
+  bool csr_compare(const std::vector<index_t>& row_ptrs1,
+                   const std::vector<index_t>& col_indices1,
+                   const std::vector<index_t>& row_ptrs2,
+                   const std::vector<index_t>& col_indices2)
+  {
+    if (row_ptrs1.size() != row_ptrs2.size()) { return false; }
+
+    if (col_indices1.size() != col_indices2.size()) { return false; }
+
+    if (!std::equal(row_ptrs1.begin(), row_ptrs1.end(), row_ptrs2.begin())) { return false; }
+
+    for (size_t i = 0; i < row_ptrs1.size() - 1; ++i) {
+      size_t start_idx = row_ptrs1[i];
+      size_t end_idx   = row_ptrs1[i + 1];
+
+      std::vector<index_t> cols1(col_indices1.begin() + start_idx, col_indices1.begin() + end_idx);
+      std::vector<index_t> cols2(col_indices2.begin() + start_idx, col_indices2.begin() + end_idx);
+
+      std::sort(cols1.begin(), cols1.end());
+      std::sort(cols2.begin(), cols2.end());
+
+      if (cols1 != cols2) { return false; }
+    }
+
+    return true;
+  }
+
+  void SetUp() override
+  {
+    index_t element = raft::ceildiv(1 * params.n_cols, index_t(sizeof(bitset_t) * 8));
+    std::vector<bitset_t> bitset_h(element);
+    std::vector<bitset_t> bitset_repeat_h(element * params.n_repeat);
+
+    nnz = create_sparse_matrix(1, params.n_cols, params.sparsity, bitset_h);
+
+    repeat_cpu_bitset(bitset_h, size_t(params.n_cols), size_t(params.n_repeat), bitset_repeat_h);
+    nnz *= params.n_repeat;
+
+    std::vector<index_t> indices_h(nnz);
+    std::vector<index_t> indptr_h(params.n_repeat + 1);
+
+    cpu_convert_to_csr(bitset_repeat_h, params.n_repeat, params.n_cols, indices_h, indptr_h);
+
+    bitset_d.resize(bitset_h.size(), stream);
+    indptr_d.resize(params.n_repeat + 1, stream);
+    indices_d.resize(nnz, stream);
+
+    indptr_expected_d.resize(params.n_repeat + 1, stream);
+    indices_expected_d.resize(nnz, stream);
+    values_expected_d.resize(nnz, stream);
+
+    thrust::fill_n(resource::get_thrust_policy(handle), values_expected_d.data(), nnz, value_t{1});
+
+    values_d.resize(nnz, stream);
+
+    update_device(indices_expected_d.data(), indices_h.data(), indices_h.size(), stream);
+    update_device(indptr_expected_d.data(), indptr_h.data(), indptr_h.size(), stream);
+    update_device(bitset_d.data(), bitset_h.data(), bitset_h.size(), stream);
+
+    resource::sync_stream(handle);
+  }
+
+  void Run()
+  {
+    auto bitset = raft::core::bitset_view<bitset_t, index_t>(bitset_d.data(), params.n_cols);
+
+    if (params.owning) {
+      auto csr =
+        raft::make_device_csr_matrix<value_t, index_t>(handle, params.n_repeat, params.n_cols, nnz);
+      auto csr_view = csr.structure_view();
+
+      bitset.to_csr(handle, csr);
+      raft::copy(indptr_d.data(), csr_view.get_indptr().data(), indptr_d.size(), stream);
+      raft::copy(indices_d.data(), csr_view.get_indices().data(), indices_d.size(), stream);
+      raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
+    } else {
+      auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
+        indptr_d.data(), indices_d.data(), params.n_repeat, params.n_cols, nnz);
+      auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
+
+      bitset.to_csr(handle, csr);
+      raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
+    }
+    resource::sync_stream(handle);
+
+    std::vector<index_t> indices_h(indices_expected_d.size(), 0);
+    std::vector<index_t> indices_expected_h(indices_expected_d.size(), 0);
+    update_host(indices_h.data(), indices_d.data(), indices_h.size(), stream);
+    update_host(indices_expected_h.data(), indices_expected_d.data(), indices_h.size(), stream);
+
+    std::vector<index_t> indptr_h(indptr_expected_d.size(), 0);
+    std::vector<index_t> indptr_expected_h(indptr_expected_d.size(), 0);
+    update_host(indptr_h.data(), indptr_d.data(), indptr_h.size(), stream);
+    update_host(indptr_expected_h.data(), indptr_expected_d.data(), indptr_h.size(), stream);
+
+    resource::sync_stream(handle);
+
+    ASSERT_TRUE(csr_compare(indptr_h, indices_h, indptr_expected_h, indices_expected_h));
+    ASSERT_TRUE(raft::devArrMatch<value_t>(
+      values_expected_d.data(), values_d.data(), nnz, raft::Compare<value_t>(), stream));
+  }
+
+ protected:
+  raft::resources handle;
+  cudaStream_t stream;
+
+  BitsetToCSRInputs<index_t> params;
+
+  rmm::device_uvector<bitset_t> bitset_d;
+
+  index_t nnz;
+
+  rmm::device_uvector<index_t> indptr_d;
+  rmm::device_uvector<index_t> indices_d;
+  rmm::device_uvector<float> values_d;
+
+  rmm::device_uvector<index_t> indptr_expected_d;
+  rmm::device_uvector<index_t> indices_expected_d;
+  rmm::device_uvector<float> values_expected_d;
+};
+
+using BitsetToCSRTestI = BitsetToCSRTest<uint32_t, int, float>;
+TEST_P(BitsetToCSRTestI, Result) { Run(); }
+
+using BitsetToCSRTestL = BitsetToCSRTest<uint32_t, int64_t, float>;
+TEST_P(BitsetToCSRTestL, Result) { Run(); }
+
+using BitsetToCSRTestLOnLargeSize = BitsetToCSRTest<uint32_t, int64_t, float>;
+TEST_P(BitsetToCSRTestLOnLargeSize, Result) { Run(); }
+
+template <typename index_t>
+const std::vector<BitsetToCSRInputs<index_t>> bitsettocsr_inputs = {
+  {0, 0, 0.2, false},
+  {10, 32, 0.4, false},
+  {10, 3, 0.2, false},
+  {32, 1024, 0.4, false},
+  {1024, 1048576, 0.01, false},
+  {1024, 1024, 0.4, false},
+  {64 * 1024 + 10, 2, 0.3, false},  // 64K + 10 is slightly over maximum of blockDim.y
+  {16, 16, 0.3, false},             // No peeling-remainder
+  {17, 16, 0.3, false},             // Check peeling-remainder
+  {18, 16, 0.3, false},             // Check peeling-remainder
+  {32 + 9, 33, 0.2, false},         // Check peeling-remainder
+  {2, 33, 0.2, false},              // Check peeling-remainder
+  {0, 0, 0.2, true},
+  {10, 32, 0.4, true},
+  {10, 3, 0.2, true},
+  {32, 1024, 0.4, true},
+  {1024, 1048576, 0.01, true},
+  {1024, 1024, 0.4, true},
+  {64 * 1024 + 10, 2, 0.3, true},  // 64K + 10 is slightly over maximum of blockDim.y
+  {16, 16, 0.3, true},             // No peeling-remainder
+  {17, 16, 0.3, true},             // Check peeling-remainder
+  {18, 16, 0.3, true},             // Check peeling-remainder
+  {32 + 9, 33, 0.2, true},         // Check peeling-remainder
+  {2, 33, 0.2, true},              // Check peeling-remainder
+};
+
+template <typename index_t>
+const std::vector<BitsetToCSRInputs<index_t>> bitsettocsr_large_inputs = {
+  {100, 100000000, 0.01, true}, {100, 100000000, 0.05, false}, {100, 100000000 + 17, 0.05, false}};
+
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
+                        BitsetToCSRTestI,
+                        ::testing::ValuesIn(bitsettocsr_inputs<int>));
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
+                        BitsetToCSRTestL,
+                        ::testing::ValuesIn(bitsettocsr_inputs<int64_t>));
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest,
+                        BitsetToCSRTestLOnLargeSize,
+                        ::testing::ValuesIn(bitsettocsr_large_inputs<int64_t>));
 
 }  // namespace sparse
 }  // namespace raft
