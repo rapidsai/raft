@@ -20,6 +20,7 @@
 #include <raft/cluster/kmeans_balanced_types.hpp>
 #include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/logger-macros.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>

@@ -110,8 +110,7 @@ repos:
                   [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
                   CMakeLists[.]txt$|
                   CMakeLists_standalone[.]txt$|
-                  meta[.]yaml$|
-                  setup[.]cfg$
+                  meta[.]yaml$
             exclude: |
               (?x)
                   cpp/include/raft/neighbors/detail/faiss_select/|

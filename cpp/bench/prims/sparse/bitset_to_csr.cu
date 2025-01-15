@@ -30,7 +30,7 @@ namespace raft::bench::sparse {
 
 template <typename index_t>
 struct bench_param {
-  index_t n_rows;
+  index_t n_repeat;
   index_t n_cols;
   float sparsity;
 };
@@ -38,44 +38,45 @@ struct bench_param {
 template <typename index_t>
 inline auto operator<<(std::ostream& os, const bench_param<index_t>& params) -> std::ostream&
 {
-  os << " rows*cols=" << params.n_rows << "*" << params.n_cols << "\tsparsity=" << params.sparsity;
+  os << " rows*cols=" << params.n_repeat << "*" << params.n_cols
+     << "\tsparsity=" << params.sparsity;
   return os;
 }
 
-template <typename bitmap_t, typename index_t, typename value_t = float>
-struct BitmapToCsrBench : public fixture {
-  BitmapToCsrBench(const bench_param<index_t>& p)
+template <typename bitset_t, typename index_t, typename value_t = float>
+struct BitsetToCsrBench : public fixture {
+  BitsetToCsrBench(const bench_param<index_t>& p)
     : fixture(true),
       params(p),
       handle(stream),
-      bitmap_d(0, stream),
+      bitset_d(0, stream),
       nnz(0),
       indptr_d(0, stream),
       indices_d(0, stream),
       values_d(0, stream)
   {
-    index_t element = raft::ceildiv(params.n_rows * params.n_cols, index_t(sizeof(bitmap_t) * 8));
-    std::vector<bitmap_t> bitmap_h(element);
-    nnz = create_sparse_matrix(params.n_rows, params.n_cols, params.sparsity, bitmap_h);
+    index_t element = raft::ceildiv(1 * params.n_cols, index_t(sizeof(bitset_t) * 8));
+    std::vector<bitset_t> bitset_h(element);
+    nnz = create_sparse_matrix(1, params.n_cols, params.sparsity, bitset_h);
 
-    bitmap_d.resize(bitmap_h.size(), stream);
-    indptr_d.resize(params.n_rows + 1, stream);
+    bitset_d.resize(bitset_h.size(), stream);
+    indptr_d.resize(params.n_repeat + 1, stream);
     indices_d.resize(nnz, stream);
     values_d.resize(nnz, stream);
 
-    update_device(bitmap_d.data(), bitmap_h.data(), bitmap_h.size(), stream);
+    update_device(bitset_d.data(), bitset_h.data(), bitset_h.size(), stream);
 
     resource::sync_stream(handle);
   }
 
-  index_t create_sparse_matrix(index_t m, index_t n, float sparsity, std::vector<bitmap_t>& bitmap)
+  index_t create_sparse_matrix(index_t m, index_t n, float sparsity, std::vector<bitset_t>& bitset)
   {
     index_t total    = static_cast<index_t>(m * n);
     index_t num_ones = static_cast<index_t>((total * 1.0f) * (1.0f - sparsity));
     index_t res      = num_ones;
 
-    for (auto& item : bitmap) {
-      item = static_cast<bitmap_t>(0);
+    for (auto& item : bitset) {
+      item = static_cast<bitset_t>(0);
     }
 
     std::random_device rd;
@@ -85,8 +86,8 @@ struct BitmapToCsrBench : public fixture {
     while (num_ones > 0) {
       index_t index = dis(gen);
 
-      bitmap_t& element    = bitmap[index / (8 * sizeof(bitmap_t))];
-      index_t bit_position = index % (8 * sizeof(bitmap_t));
+      bitset_t& element    = bitset[index / (8 * sizeof(bitset_t))];
+      index_t bit_position = index % (8 * sizeof(bitset_t));
 
       if (((element >> bit_position) & 1) == 0) {
         element |= (static_cast<index_t>(1) << bit_position);
@@ -102,18 +103,17 @@ struct BitmapToCsrBench : public fixture {
     label_stream << params;
     state.SetLabel(label_stream.str());
 
-    auto bitmap =
-      raft::core::bitmap_view<bitmap_t, index_t>(bitmap_d.data(), params.n_rows, params.n_cols);
+    auto bitset = raft::core::bitset_view<bitset_t, index_t>(bitset_d.data(), 1 * params.n_cols);
 
     auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
-      indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
+      indptr_d.data(), indices_d.data(), params.n_repeat, params.n_cols, nnz);
     auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
 
-    raft::sparse::convert::bitmap_to_csr<bitmap_t, index_t>(handle, bitmap, csr);
+    raft::sparse::convert::bitset_to_csr<bitset_t, index_t>(handle, bitset, csr);
 
     resource::sync_stream(handle);
-    loop_on_state(state, [this, &bitmap, &csr]() {
-      raft::sparse::convert::bitmap_to_csr<bitmap_t, index_t>(handle, bitmap, csr);
+    loop_on_state(state, [this, &bitset, &csr]() {
+      raft::sparse::convert::bitset_to_csr<bitset_t, index_t>(handle, bitset, csr);
     });
   }
 
@@ -122,13 +122,13 @@ struct BitmapToCsrBench : public fixture {
 
   bench_param<index_t> params;
 
-  rmm::device_uvector<bitmap_t> bitmap_d;
+  rmm::device_uvector<bitset_t> bitset_d;
   rmm::device_uvector<index_t> indptr_d;
   rmm::device_uvector<index_t> indices_d;
   rmm::device_uvector<value_t> values_d;
 
   index_t nnz;
-};  // struct BitmapToCsrBench
+};  // struct BitsetToCsrBench
 
 template <typename index_t>
 const std::vector<bench_param<index_t>> getInputs()
@@ -170,9 +170,9 @@ const std::vector<bench_param<index_t>> getLargeInputs()
   return param_vec;
 }
 
-RAFT_BENCH_REGISTER((BitmapToCsrBench<uint32_t, int, float>), "", getInputs<int>());
-RAFT_BENCH_REGISTER((BitmapToCsrBench<uint64_t, int, double>), "", getInputs<int>());
+RAFT_BENCH_REGISTER((BitsetToCsrBench<uint32_t, int, float>), "", getInputs<int>());
+RAFT_BENCH_REGISTER((BitsetToCsrBench<uint64_t, int, double>), "", getInputs<int>());
 
-RAFT_BENCH_REGISTER((BitmapToCsrBench<uint32_t, int64_t, float>), "", getLargeInputs<int64_t>());
+RAFT_BENCH_REGISTER((BitsetToCsrBench<uint32_t, int64_t, float>), "", getLargeInputs<int64_t>());
 
 }  // namespace raft::bench::sparse

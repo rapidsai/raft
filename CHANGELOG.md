@@ -1,3 +1,42 @@
+# raft 24.12.00 (11 Dec 2024)
+
+## 🚨 Breaking Changes
+
+- Do not initialize the pinned mdarray at construction time ([#2478](https://github.com/rapidsai/raft/pull/2478)) [@achirkin](https://github.com/achirkin)
+
+## 🐛 Bug Fixes
+
+- Skip gtests for new lanczos solver when CUDA version is 11.4 or below. ([#2520](https://github.com/rapidsai/raft/pull/2520)) [@cjnolet](https://github.com/cjnolet)
+- Switch `assert` to `static_assert` ([#2510](https://github.com/rapidsai/raft/pull/2510)) [@divyegala](https://github.com/divyegala)
+- Revert use of new Lanczos solver in spectral clustering ([#2507](https://github.com/rapidsai/raft/pull/2507)) [@lowener](https://github.com/lowener)
+- Put a ceiling on cuda-python ([#2486](https://github.com/rapidsai/raft/pull/2486)) [@bdice](https://github.com/bdice)
+- Don&#39;t presume pointers location infers usability. ([#2480](https://github.com/rapidsai/raft/pull/2480)) [@robertmaynard](https://github.com/robertmaynard)
+- Use Python for sccache hit rate computation. ([#2474](https://github.com/rapidsai/raft/pull/2474)) [@bdice](https://github.com/bdice)
+- Allow compilation with CUDA 12.6.1 ([#2469](https://github.com/rapidsai/raft/pull/2469)) [@robertmaynard](https://github.com/robertmaynard)
+
+## 🚀 New Features
+
+- [FEA] Lanczos solver v2 ([#2481](https://github.com/rapidsai/raft/pull/2481)) [@lowener](https://github.com/lowener)
+
+## 🛠️ Improvements
+
+- Skip gtests for Rmat Lanczos tests with cuda &lt;= 11.4 ([#2525](https://github.com/rapidsai/raft/pull/2525)) [@benfred](https://github.com/benfred)
+- Upgrade to latest cutlass version ([#2503](https://github.com/rapidsai/raft/pull/2503)) [@vyasr](https://github.com/vyasr)
+- Removing some left over places where implicit instantiations were being ignored in headers ([#2501](https://github.com/rapidsai/raft/pull/2501)) [@cjnolet](https://github.com/cjnolet)
+- Remove leftover template project code. ([#2500](https://github.com/rapidsai/raft/pull/2500)) [@bdice](https://github.com/bdice)
+- 2412 remove libraft vss instantiations ([#2498](https://github.com/rapidsai/raft/pull/2498)) [@cjnolet](https://github.com/cjnolet)
+- Remove raft-ann-bench ([#2497](https://github.com/rapidsai/raft/pull/2497)) [@cjnolet](https://github.com/cjnolet)
+- Pin FAISS Version for raft-ann-bench ([#2496](https://github.com/rapidsai/raft/pull/2496)) [@tarang-jain](https://github.com/tarang-jain)
+- enforce wheel size limits and README formatting in CI, put a ceiling on Cython dependency ([#2490](https://github.com/rapidsai/raft/pull/2490)) [@jameslamb](https://github.com/jameslamb)
+- Do not initialize the pinned mdarray at construction time ([#2478](https://github.com/rapidsai/raft/pull/2478)) [@achirkin](https://github.com/achirkin)
+- Use environment variables in cache hit rate computation. ([#2475](https://github.com/rapidsai/raft/pull/2475)) [@bdice](https://github.com/bdice)
+- devcontainer: replace `VAULT_HOST` with `AWS_ROLE_ARN` ([#2472](https://github.com/rapidsai/raft/pull/2472)) [@jjacobelli](https://github.com/jjacobelli)
+- print sccache stats in builds ([#2470](https://github.com/rapidsai/raft/pull/2470)) [@jameslamb](https://github.com/jameslamb)
+- make package installations in CI stricter ([#2467](https://github.com/rapidsai/raft/pull/2467)) [@jameslamb](https://github.com/jameslamb)
+- Prune workflows based on changed files ([#2466](https://github.com/rapidsai/raft/pull/2466)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Merge branch-24.10 into branch-24.12 ([#2461](https://github.com/rapidsai/raft/pull/2461)) [@jameslamb](https://github.com/jameslamb)
+- Update all rmm imports to use pylibrmm/librmm ([#2451](https://github.com/rapidsai/raft/pull/2451)) [@Matt711](https://github.com/Matt711)
+
 # raft 24.10.00 (9 Oct 2024)
 
 ## 🚨 Breaking Changes

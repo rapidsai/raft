@@ -182,7 +182,7 @@ class COO {
    * @param n_rows: number of rows in the dense matrix
    * @param n_cols: number of columns in the dense matrix
    */
-  void setSize(int n_rows, int n_cols)
+  void setSize(Index_Type n_rows, Index_Type n_cols)
   {
     this->n_rows = n_rows;
     this->n_cols = n_cols;
@@ -192,7 +192,7 @@ class COO {
    * @brief Set the number of rows and cols for a square dense matrix
    * @param n: number of rows and cols
    */
-  void setSize(int n)
+  void setSize(Index_Type n)
   {
     this->n_rows = n;
     this->n_cols = n;
@@ -204,7 +204,10 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: CUDA stream to use
    */
-  void allocate(int nnz, bool init, cudaStream_t stream) { this->allocate(nnz, 0, init, stream); }
+  void allocate(Index_Type nnz, bool init, cudaStream_t stream)
+  {
+    this->allocate(nnz, 0, init, stream);
+  }
 
   /**
    * @brief Allocate the underlying arrays
@@ -213,7 +216,7 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: CUDA stream to use
    */
-  void allocate(int nnz, int size, bool init, cudaStream_t stream)
+  void allocate(Index_Type nnz, Index_Type size, bool init, cudaStream_t stream)
   {
     this->allocate(nnz, size, size, init, stream);
   }
@@ -226,7 +229,8 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: stream to use for init
    */
-  void allocate(int nnz, int n_rows, int n_cols, bool init, cudaStream_t stream)
+  void allocate(
+    Index_Type nnz, Index_Type n_rows, Index_Type n_cols, bool init, cudaStream_t stream)
   {
     this->n_rows = n_rows;
     this->n_cols = n_cols;
