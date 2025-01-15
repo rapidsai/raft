@@ -32,8 +32,8 @@ include(cmake/thirdparty/get_ucxx.cmake)
 
 # why these components:
 #
-#   * 'raft' = the headers, needed to link against libraft
-#   * 'distributed' = needed for NCCL
+# * 'raft' = the headers, needed to link against libraft
+# * 'distributed' = needed for NCCL
 find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS raft distributed)
 
 include(rapids-cython-core)
