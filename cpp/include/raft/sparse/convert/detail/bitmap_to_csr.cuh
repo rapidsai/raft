@@ -283,10 +283,6 @@ void bitmap_to_csr(raft::resources const& handle,
   using nnz_t   = typename csr_matrix_t::nnz_type;
   auto csr_view = csr.structure_view();
 
-  if (csr_view.get_n_rows() == 0 || csr_view.get_n_cols() == 0 || csr_view.get_nnz() == 0) {
-    return;
-  }
-
   RAFT_EXPECTS(bitmap.get_n_rows() == csr_view.get_n_rows(),
                "Number of rows in bitmap must be equal to "
                "number of rows in csr");
@@ -294,6 +290,8 @@ void bitmap_to_csr(raft::resources const& handle,
   RAFT_EXPECTS(bitmap.get_n_cols() == csr_view.get_n_cols(),
                "Number of columns in bitmap must be equal to "
                "number of columns in csr");
+
+  if (csr_view.get_n_rows() == 0 || csr_view.get_n_cols() == 0) { return; }
 
   auto thrust_policy = resource::get_thrust_policy(handle);
   auto stream        = resource::get_cuda_stream(handle);
@@ -335,7 +333,9 @@ void bitmap_to_csr(raft::resources const& handle,
       &nnz, sub_nnz.data() + sub_nnz_size, sizeof(nnz_t), cudaMemcpyDeviceToHost, stream));
     resource::sync_stream(handle);
     csr.initialize_sparsity(nnz);
+    if (nnz == 0) return;
   }
+
   constexpr bool check_nnz = is_device_csr_sparsity_preserving_v<csr_matrix_t>;
   fill_indices_by_rows<bitmap_t, index_t, nnz_t, check_nnz>(handle,
                                                             bitmap.data(),

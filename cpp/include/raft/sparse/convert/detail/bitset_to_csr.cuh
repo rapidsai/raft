@@ -78,6 +78,8 @@ void gpu_repeat_csr(raft::resources const& handle,
                     index_t* d_repeated_indptr,
                     index_t* d_repeated_indices)
 {
+  if (nnz == 0) return;
+
   auto stream            = resource::get_cuda_stream(handle);
   index_t repeat_csr_tpb = 256;
   index_t grid           = (nnz + repeat_csr_tpb - 1) / (repeat_csr_tpb);
@@ -99,13 +101,10 @@ void bitset_to_csr(raft::resources const& handle,
 
   auto csr_view = csr.structure_view();
 
-  if (csr_view.get_n_rows() == 0 || csr_view.get_n_cols() == 0 || csr_view.get_nnz() == 0) {
-    return;
-  }
-
   RAFT_EXPECTS(bitset.size() == csr_view.get_n_cols(),
                "Number of size in bitset must be equal to "
                "number of columns in csr");
+  if (csr_view.get_n_rows() == 0 || csr_view.get_n_cols() == 0) { return; }
 
   auto thrust_policy = resource::get_thrust_policy(handle);
   auto stream        = resource::get_cuda_stream(handle);
@@ -147,9 +146,11 @@ void bitset_to_csr(raft::resources const& handle,
       &bitset_nnz, sub_nnz.data() + sub_nnz_size, sizeof(nnz_t), cudaMemcpyDeviceToHost, stream));
     resource::sync_stream(handle);
     csr.initialize_sparsity(bitset_nnz * csr_view.get_n_rows());
+    if (bitset_nnz == 0) return;
   } else {
     bitset_nnz = csr_view.get_nnz() / csr_view.get_n_rows();
   }
+
   constexpr bool check_nnz = is_device_csr_sparsity_preserving_v<csr_matrix_t>;
   fill_indices_by_rows<bitset_t, index_t, nnz_t, check_nnz>(handle,
                                                             bitset.data(),
