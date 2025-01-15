@@ -111,19 +111,18 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
             # fn is expected to be the absolute path.
             fn = os.path.relpath(source_file, start=package)
             print("{}:{}".format(
-                os.path.abspath(os.path.join("..", "python", "raft", fn)),
+                os.path.abspath(os.path.join("..", "python", "pylibraft", fn)),
                 lineno))
         else:
             return
     else:
-        if fn.endswith(".pyx"):
-            sp_path = next(x for x in sys.path if re.match(".*site-packages$", x))
-            fn = fn.replace("/opt/conda/conda-bld/work/python/cuvs", sp_path)
+        # Test if we are absolute or not (pyx are relative)
+        if (not os.path.isabs(fn)):
+            # Should be relative to docs right now
+            fn = os.path.abspath(os.path.join("..", "python", fn))
 
         # Convert to relative from module root
-        fn = os.path.relpath(fn,
-                             start=os.path.dirname(
-                                 __import__(package).__file__))
+        fn = os.path.relpath(fn, start=package)
 
     # Get the line number if we need it. (Can work without it)
     if (lineno is None):
