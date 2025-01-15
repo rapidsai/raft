@@ -89,7 +89,7 @@ jobs:
       package-name: libraft
       package-type: cpp
   wheel-build-pylibraft:
-    needs: wheel-publish-libraft
+    needs: wheel-build-libraft
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
     with:
@@ -110,6 +110,7 @@ jobs:
       package-name: pylibraft
       package-type: python
   wheel-build-raft-dask:
+    needs: wheel-build-libraft
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
     with:

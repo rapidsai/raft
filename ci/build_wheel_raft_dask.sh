@@ -16,8 +16,5 @@ RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-f
 echo "libraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo /tmp/libraft_dist/libraft_*.whl)" > /tmp/constraints.txt
 export PIP_CONSTRAINT="/tmp/constraints.txt"
 
-# Set up skbuild options. Enable sccache in skbuild config options
-export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF"
-
 ci/build_wheel.sh raft-dask ${package_dir} python
 ci/validate_wheel.sh ${package_dir} final_dist raft-dask
