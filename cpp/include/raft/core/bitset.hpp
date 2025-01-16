@@ -205,6 +205,69 @@ struct bitset_view {
   auto get_original_nbits() const -> index_t { return original_nbits_; }
   void set_original_nbits(index_t original_nbits) { original_nbits_ = original_nbits; }
 
+  /**
+   * @brief Converts to a Compressed Sparse Row (CSR) format matrix.
+   *
+   * This method transforms the bitset view into a CSR matrix representation, where each '1' bit in
+   * the bitset corresponds to a non-zero entry in the CSR matrix. The bitset format supports
+   * only a single-row matrix, so if the CSR matrix requires multiple rows, the bitset data is
+   * repeated for each row in the output.
+   *
+   * Example usage:
+   *
+   * @code{.cpp}
+   * #include <raft/core/resource/cuda_stream.hpp>
+   * #include <raft/sparse/convert/csr.cuh>
+   * #include <rmm/device_uvector.hpp>
+   *
+   * using bitset_t = uint32_t;
+   * using index_t  = int;
+   * using value_t  = float;
+   *
+   * raft::resources handle;
+   * auto stream    = resource::get_cuda_stream(handle);
+   * index_t n_rows = 3;
+   * index_t n_cols = 30;
+   *
+   * // Compute bitset size and initialize device memory
+   * index_t bitset_size = (n_cols + sizeof(bitset_t) * 8 - 1) / (sizeof(bitset_t) * 8);
+   * rmm::device_uvector<bitset_t> bitset_d(bitset_size, stream);
+   * std::vector<bitset_t> bitset_h = {
+   *   bitset_t(0b11001010),
+   * };  // Example bitset, with 4 non-zero entries.
+   *
+   * raft::copy(bitset_d.data(), bitset_h.data(), bitset_h.size(), stream);
+   *
+   * // Create bitset view and CSR matrix
+   * auto bitset_view = raft::core::bitset_view<bitset_t, index_t>(bitset_d.data(), n_cols);
+   * auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, n_rows, n_cols, 4 * n_rows);
+   *
+   * // Convert bitset to CSR
+   * bitset_view.to_csr(handle, csr);
+   * resource::sync_stream(handle);
+   *
+   * // Results:
+   * // csr.indptr  = [0, 4, 8, 12];
+   * // csr.indices = [1, 3, 6, 7,
+   * //                1, 3, 6, 7,
+   * //                1, 3, 6, 7];
+   * // csr.values  = [1, 1, 1, 1,
+   * //                1, 1, 1, 1,
+   * //                1, 1, 1, 1];
+   * @endcode
+   *
+   * @tparam csr_matrix_t Specifies the CSR matrix type, constrained to raft::device_csr_matrix.
+   *
+   * @param[in] res RAFT resources for managing CUDA streams and execution policies.
+   * @param[out] csr Output parameter where the resulting CSR matrix is stored. Each '1' bit in
+   * the bitset corresponds to a non-zero element in the CSR matrix.
+   *
+   * The caller must ensure that: The `csr` matrix is pre-allocated with dimensions and non-zero
+   * count matching the expected output, i.e., `nnz_for_csr = nnz_for_bitset * n_rows`.
+   */
+  template <typename csr_matrix_t>
+  void to_csr(const raft::resources& res, csr_matrix_t& csr) const;
+
  private:
   bitset_t* bitset_ptr_;
   index_t bitset_len_;
