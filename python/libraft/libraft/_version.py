@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,17 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
-# If libraft was installed as a wheel, we must request it to load the library
-# symbols. Otherwise, we assume that the library was installed in a system path that ld
-# can find.
+import importlib.resources
+
+__version__ = (
+    importlib.resources.files(__package__)
+    .joinpath("VERSION")
+    .read_text()
+    .strip()
+)
 try:
-    import libraft
-except ModuleNotFoundError:
-    pass
-else:
-    libraft.load_library()
-    del libraft
+    __git_commit__ = (
+        importlib.resources.files(__package__)
+        .joinpath("GIT_COMMIT")
+        .read_text()
+        .strip()
+    )
+except FileNotFoundError:
+    __git_commit__ = ""
 
-from pylibraft._version import __git_commit__, __version__
+__all__ = ["__git_commit__", "__version__"]

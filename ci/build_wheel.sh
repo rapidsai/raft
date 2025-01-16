@@ -5,6 +5,7 @@ set -euo pipefail
 
 package_name=$1
 package_dir=$2
+package_type=$3
 underscore_package_name=$(echo "${package_name}" | tr "-" "_")
 
 # Clear out system ucx files to ensure that we're getting ucx from the wheel.
@@ -39,6 +40,12 @@ case "${RAPIDS_CUDA_VERSION}" in
   ;;
 esac
 
+if [[ ${package_name} != "libraft" ]]; then
+    EXCLUDE_ARGS+=(
+      --exclude "libraft.so"
+    )
+fi
+
 sccache --zero-stats
 
 rapids-logger "Building '${package_name}' wheel"
@@ -55,4 +62,4 @@ sccache --show-adv-stats
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
 
-RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python final_dist
+RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_type} final_dist
