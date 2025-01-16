@@ -25,6 +25,7 @@
 
 #include <raft/core/detail/macros.hpp>
 
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <type_traits>

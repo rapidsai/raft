@@ -39,14 +39,14 @@
 // =========================================================
 
 // Get index of matrix entry
-#define IDX(i, j, lda) ((i) + (j) * (lda))
+#define IDX(i, j, lda) ((size_t)(i) + (j) * (lda))
 
 namespace raft {
 namespace spectral {
 namespace matrix {
 namespace detail {
 
-using size_type = int;  // for now; TODO: move it in appropriate header
+using size_type = size_t;  // for now; TODO: move it in appropriate header
 
 // Apply diagonal matrix to vector:
 //
@@ -326,7 +326,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
         raft_handle, row_offsets, col_indices, values, nrows, nnz),
       diagonal_(raft_handle, nrows)
   {
-    vector_t<value_type> ones{raft_handle, nrows};
+    vector_t<value_type> ones{raft_handle, (size_t)nrows};
     ones.fill(1.0);
     sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0, diagonal_.raw());
   }
@@ -341,7 +341,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
                                               csr_m.nnz_),
       diagonal_(raft_handle, csr_m.nrows_)
   {
-    vector_t<value_type> ones{raft_handle, csr_m.nrows_};
+    vector_t<value_type> ones{raft_handle, (size_t)csr_m.nrows_};
     ones.fill(1.0);
     sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0, diagonal_.raw());
   }
