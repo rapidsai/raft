@@ -19,21 +19,6 @@ c_stdlib_version:
 cmake_version:
   - ">=3.26.4,!=3.30.0"
 
-nccl_version:
-  - ">=2.9.9"
-
-glog_version:
-  - ">=0.6.0"
-
-faiss_version:
-  - ">=1.7.1"
-
-h5py_version:
-  - ">=3.8.0"
-
-nlohmann_json_version:
-  - ">=3.11.2"
-
 # The CTK libraries below are missing from the conda-forge::cudatoolkit package
 # for CUDA 11. The "*_host_*" version specifiers correspond to `11.8` packages
 # and the "*_run_*" version specifiers correspond to `11.x` packages.
@@ -73,7 +58,7 @@ cuda11_cuda_profiler_api_run_version:
   - ">=11.4.240,<12"
 
 spdlog_version:
-  - ">=1.12.0,<1.13"
+  - ">=1.14.1,<1.15"
 
 fmt_version:
-  - ">=10.1.1,<11"
+  - ">=11.0.2,<12"

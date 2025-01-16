@@ -52,7 +52,7 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  *   #include <raft/cluster/kmeans_types.hpp>
  *   using namespace raft::cluster;
  *   ...
- *   raft::raft::resources handle;
+ *   raft::resources handle;
  *   raft::cluster::KMeansParams params;
  *   int n_features = 15, inertia, n_iter;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
@@ -61,7 +61,7 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  *               params,
  *               X,
  *               std::nullopt,
- *               centroids,
+ *               centroids.view(),
  *               raft::make_scalar_view(&inertia),
  *               raft::make_scalar_view(&n_iter));
  * @endcode
@@ -86,13 +86,14 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  * @param[out]    n_iter        Number of iterations run.
  */
 template <typename DataT, typename IndexT>
-void fit(raft::resources const& handle,
-         const KMeansParams& params,
-         raft::device_matrix_view<const DataT, IndexT> X,
-         std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
-         raft::device_matrix_view<DataT, IndexT> centroids,
-         raft::host_scalar_view<DataT> inertia,
-         raft::host_scalar_view<IndexT> n_iter)
+[[deprecated("Use cuVS instead")]] void fit(
+  raft::resources const& handle,
+  const KMeansParams& params,
+  raft::device_matrix_view<const DataT, IndexT> X,
+  std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
+  raft::device_matrix_view<DataT, IndexT> centroids,
+  raft::host_scalar_view<DataT> inertia,
+  raft::host_scalar_view<IndexT> n_iter)
 {
   detail::kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
 }
@@ -106,7 +107,7 @@ void fit(raft::resources const& handle,
  *   #include <raft/cluster/kmeans_types.hpp>
  *   using namespace raft::cluster;
  *   ...
- *   raft::raft::resources handle;
+ *   raft::resources handle;
  *   raft::cluster::KMeansParams params;
  *   int n_features = 15, inertia, n_iter;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
@@ -150,14 +151,15 @@ void fit(raft::resources const& handle,
  *                                 their closest cluster center.
  */
 template <typename DataT, typename IndexT>
-void predict(raft::resources const& handle,
-             const KMeansParams& params,
-             raft::device_matrix_view<const DataT, IndexT> X,
-             std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
-             raft::device_matrix_view<const DataT, IndexT> centroids,
-             raft::device_vector_view<IndexT, IndexT> labels,
-             bool normalize_weight,
-             raft::host_scalar_view<DataT> inertia)
+[[deprecated("Use cuVS instead")]] void predict(
+  raft::resources const& handle,
+  const KMeansParams& params,
+  raft::device_matrix_view<const DataT, IndexT> X,
+  std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
+  raft::device_matrix_view<const DataT, IndexT> centroids,
+  raft::device_vector_view<IndexT, IndexT> labels,
+  bool normalize_weight,
+  raft::host_scalar_view<DataT> inertia)
 {
   detail::kmeans_predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, labels, normalize_weight, inertia);
@@ -173,7 +175,7 @@ void predict(raft::resources const& handle,
  *   #include <raft/cluster/kmeans_types.hpp>
  *   using namespace raft::cluster;
  *   ...
- *   raft::raft::resources handle;
+ *   raft::resources handle;
  *   raft::cluster::KMeansParams params;
  *   int n_features = 15, inertia, n_iter;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
@@ -213,14 +215,15 @@ void predict(raft::resources const& handle,
  * @param[out]    n_iter        Number of iterations run.
  */
 template <typename DataT, typename IndexT>
-void fit_predict(raft::resources const& handle,
-                 const KMeansParams& params,
-                 raft::device_matrix_view<const DataT, IndexT> X,
-                 std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
-                 std::optional<raft::device_matrix_view<DataT, IndexT>> centroids,
-                 raft::device_vector_view<IndexT, IndexT> labels,
-                 raft::host_scalar_view<DataT> inertia,
-                 raft::host_scalar_view<IndexT> n_iter)
+[[deprecated("Use cuVS instead")]] void fit_predict(
+  raft::resources const& handle,
+  const KMeansParams& params,
+  raft::device_matrix_view<const DataT, IndexT> X,
+  std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
+  std::optional<raft::device_matrix_view<DataT, IndexT>> centroids,
+  raft::device_vector_view<IndexT, IndexT> labels,
+  raft::host_scalar_view<DataT> inertia,
+  raft::host_scalar_view<IndexT> n_iter)
 {
   detail::kmeans_fit_predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, labels, inertia, n_iter);
@@ -252,13 +255,13 @@ void transform(raft::resources const& handle,
 }
 
 template <typename DataT, typename IndexT>
-void transform(raft::resources const& handle,
-               const KMeansParams& params,
-               const DataT* X,
-               const DataT* centroids,
-               IndexT n_samples,
-               IndexT n_features,
-               DataT* X_new)
+[[deprecated("Use cuVS instead")]] void transform(raft::resources const& handle,
+                                                  const KMeansParams& params,
+                                                  const DataT* X,
+                                                  const DataT* centroids,
+                                                  IndexT n_samples,
+                                                  IndexT n_features,
+                                                  DataT* X_new)
 {
   detail::kmeans_transform<DataT, IndexT>(
     handle, params, X, centroids, n_samples, n_features, X_new);

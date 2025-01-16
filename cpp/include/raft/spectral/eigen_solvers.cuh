@@ -69,6 +69,7 @@ struct lanczos_solver_t {
                                                 eigVals,
                                                 eigVecs,
                                                 config_.seed);
+
     return iters;
   }
 

@@ -17,17 +17,13 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
-option(BUILD_CPU_ONLY "Build CPU only components. Applies to RAFT ANN benchmarks currently" OFF)
-
 # workaround for rapids_cuda_init_architectures not working for arch detection with
 # enable_language(CUDA)
 set(lang_list "CXX")
 
-if(NOT BUILD_CPU_ONLY)
-  include(rapids-cuda)
-  rapids_cuda_init_architectures(RAFT)
-  list(APPEND lang_list "CUDA")
-endif()
+include(rapids-cuda)
+rapids_cuda_init_architectures(RAFT)
+list(APPEND lang_list "CUDA")
 
 project(
   RAFT
@@ -53,8 +49,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
-option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
-option(BUILD_CAGRA_HNSWLIB "Build CAGRA+hnswlib interface" ON)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -68,22 +62,12 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
-if((BUILD_TESTS
-    OR BUILD_PRIMS_BENCH
-    OR BUILD_ANN_BENCH
-   )
-   AND NOT BUILD_CPU_ONLY
-)
+if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
   set(RAFT_COMPILE_LIBRARY_DEFAULT ON)
 endif()
 option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
-
-if(BUILD_CPU_ONLY)
-  set(BUILD_SHARED_LIBS OFF)
-  set(BUILD_TESTS OFF)
-endif()
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -97,20 +81,14 @@ include(CMakeDependentOption)
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_PRIMS_BENCH}")
-message(VERBOSE "RAFT: Building ANN benchmarks: ${BUILD_ANN_BENCH}")
-message(VERBOSE "RAFT: Build CPU only components: ${BUILD_CPU_ONLY}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${RAFT_NVTX}")
-message(VERBOSE
-        "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}"
-)
-message(VERBOSE
-        "RAFT: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}"
-)
+message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "RAFT: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL
@@ -121,6 +99,17 @@ set_property(
   CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF"
 )
 message(VERBOSE "RAFT: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
+
+# Set logging level
+set(LIBRAFT_LOGGING_LEVEL
+    "INFO"
+    CACHE STRING "Choose the logging level."
+)
+set_property(
+  CACHE LIBRAFT_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
+                                       "OFF"
+)
+message(VERBOSE "RAFT: LIBRAFT_LOGGING_LEVEL = '${LIBRAFT_LOGGING_LEVEL}'.")
 
 # ##################################################################################################
 # * Conda environment detection ----------------------------------------------
@@ -143,21 +132,17 @@ if(CUDA_STATIC_MATH_LIBRARIES)
   set(_ctk_static_suffix "_static")
 endif()
 
-if(NOT BUILD_CPU_ONLY)
-  # CUDA runtime
-  rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
-  # * find CUDAToolkit package
-  # * determine GPU architectures
-  # * enable the CMake CUDA language
-  # * set other CUDA compilation flags
-  rapids_find_package(
-    CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
-  )
-else()
-  add_compile_definitions(BUILD_CPU_ONLY)
-endif()
+# CUDA runtime
+rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+# * find CUDAToolkit package
+# * determine GPU architectures
+# * enable the CMake CUDA language
+# * set other CUDA compilation flags
+rapids_find_package(
+  CUDAToolkit REQUIRED
+  BUILD_EXPORT_SET raft-exports
+  INSTALL_EXPORT_SET raft-exports
+)
 
 if(NOT DISABLE_OPENMP)
   rapids_find_package(
@@ -178,28 +163,26 @@ include(cmake/modules/ConfigureCUDA.cmake)
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-if(NOT BUILD_CPU_ONLY)
-  # CCCL before rmm/cuco so we get the right version of CCCL
-  include(cmake/thirdparty/get_cccl.cmake)
-  include(cmake/thirdparty/get_rmm.cmake)
-  include(cmake/thirdparty/get_cutlass.cmake)
+include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
+rapids_cpm_rapids_logger()
+rapids_make_logger(raft LOGGER_HEADER_DIR include/raft/core EXPORT_SET raft-exports)
 
-  include(${rapids-cmake-dir}/cpm/cuco.cmake)
-  rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
-endif()
+# CCCL before rmm/cuco so we get the right version of CCCL
+include(cmake/thirdparty/get_cccl.cmake)
+include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_cutlass.cmake)
+
+include(${rapids-cmake-dir}/cpm/cuco.cmake)
+rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
 
 if(BUILD_TESTS)
   include(${rapids-cmake-dir}/cpm/gtest.cmake)
   rapids_cpm_gtest(BUILD_STATIC)
 endif()
 
-if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
+if(BUILD_PRIMS_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
   rapids_cpm_gbench(BUILD_STATIC)
-endif()
-
-if(BUILD_CAGRA_HNSWLIB)
-  include(cmake/thirdparty/get_hnswlib.cmake)
 endif()
 
 # ##################################################################################################
@@ -210,19 +193,20 @@ add_library(raft::raft ALIAS raft)
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
-if(BUILD_CAGRA_HNSWLIB)
-  target_link_libraries(raft INTERFACE hnswlib::hnswlib)
-endif()
 
-if(NOT BUILD_CPU_ONLY)
-  # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass CCCL::CCCL)
-endif()
+# Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
+target_link_libraries(
+  raft INTERFACE rmm::rmm rmm::rmm_logger spdlog::spdlog_header_only cuco::cuco
+                 nvidia::cutlass::cutlass CCCL::CCCL raft_logger
+)
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
   raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
                  --expt-relaxed-constexpr>
+)
+target_compile_definitions(
+  raft INTERFACE "RAFT_LOG_ACTIVE_LEVEL=RAFT_LOG_LEVEL_${LIBRAFT_LOGGING_LEVEL}"
 )
 
 set(RAFT_CUSOLVER_DEPENDENCY CUDA::cusolver${_ctk_static_suffix})
@@ -299,278 +283,15 @@ set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 if(RAFT_COMPILE_LIBRARY)
   add_library(
     raft_objs OBJECT
-    src/core/logger.cpp
-    src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_correlation_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_correlation_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_cosine_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_cosine_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_dice_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_dice_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_hellinger_expanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_hellinger_expanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_jensen_shannon_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_jensen_shannon_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_kl_divergence_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_kl_divergence_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l1_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l1_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l2_expanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l2_expanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l_inf_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_l_inf_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_rbf.cu
-    src/distance/detail/pairwise_matrix/dispatch_russel_rao_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_russel_rao_float_float_float_int.cu
-    src/distance/distance.cu
-    src/distance/fused_l2_nn.cu
-    src/distance/fused_distance_nn.cu
     src/linalg/detail/coalesced_reduction.cu
-    src/matrix/detail/select_k_double_int64_t.cu
-    src/matrix/detail/select_k_double_uint32_t.cu
-    src/matrix/detail/select_k_float_int64_t.cu
-    src/matrix/detail/select_k_float_uint32_t.cu
-    src/matrix/detail/select_k_float_int32.cu
-    src/matrix/detail/select_k_half_int64_t.cu
-    src/matrix/detail/select_k_half_uint32_t.cu
-    src/neighbors/ball_cover.cu
-    src/neighbors/brute_force_fused_l2_knn_float_int64_t.cu
-    src/neighbors/brute_force_knn_int64_t_float_int64_t.cu
-    src/neighbors/brute_force_knn_int64_t_float_uint32_t.cu
-    src/neighbors/brute_force_knn_int_float_int.cu
-    src/neighbors/brute_force_knn_uint32_t_float_uint32_t.cu
-    src/neighbors/brute_force_knn_index_float.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_half_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_float_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_half_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim128_t8.cu
-    src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim256_t16.cu
-    src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim512_t32.cu
-    src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim1024_t32.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_int8_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_uint8_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_float_uint64_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_multi_cta_half_uint64_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_int8_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_uint8_uint32_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_float_uint64_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim128_t8_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim128_t8_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim256_t16_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim256_t16_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim512_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim512_t32_8pq_4subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim1024_t32_8pq_2subd_half.cu
-    src/neighbors/detail/cagra/q_search_single_cta_half_uint64_dim1024_t32_8pq_4subd_half.cu
-    src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
-    src/neighbors/detail/ivf_flat_interleaved_scan_half_half_int64_t.cu
-    src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
-    src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
-    src/neighbors/detail/ivf_flat_search.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_float.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_half.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
-    src/neighbors/detail/refine_host_float_float.cpp
-    src/neighbors/detail/refine_host_half_float.cpp
-    src/neighbors/detail/refine_host_int8_t_float.cpp
-    src/neighbors/detail/refine_host_uint8_t_float.cpp
-    src/neighbors/ivf_flat_build_float_int64_t.cu
-    src/neighbors/ivf_flat_build_int8_t_int64_t.cu
-    src/neighbors/ivf_flat_build_uint8_t_int64_t.cu
-    src/neighbors/ivf_flat_extend_float_int64_t.cu
-    src/neighbors/ivf_flat_extend_int8_t_int64_t.cu
-    src/neighbors/ivf_flat_extend_uint8_t_int64_t.cu
-    src/neighbors/ivf_flat_search_float_int64_t.cu
-    src/neighbors/ivf_flat_search_int8_t_int64_t.cu
-    src/neighbors/ivf_flat_search_uint8_t_int64_t.cu
-    src/neighbors/ivfpq_build_float_int64_t.cu
-    src/neighbors/ivfpq_build_half_int64_t.cu
-    src/neighbors/ivfpq_build_int8_t_int64_t.cu
-    src/neighbors/ivfpq_build_uint8_t_int64_t.cu
-    src/neighbors/ivfpq_extend_float_int64_t.cu
-    src/neighbors/ivfpq_extend_half_int64_t.cu
-    src/neighbors/ivfpq_extend_int8_t_int64_t.cu
-    src/neighbors/ivfpq_extend_uint8_t_int64_t.cu
-    src/neighbors/ivfpq_search_float_int64_t.cu
-    src/neighbors/ivfpq_search_half_int64_t.cu
-    src/neighbors/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/ivfpq_search_uint8_t_int64_t.cu
-    src/neighbors/refine_float_float.cu
-    src/neighbors/refine_half_float.cu
-    src/neighbors/refine_int8_t_float.cu
-    src/neighbors/refine_uint8_t_float.cu
-    src/raft_runtime/cluster/cluster_cost.cuh
-    src/raft_runtime/cluster/cluster_cost_double.cu
-    src/raft_runtime/cluster/cluster_cost_float.cu
-    src/raft_runtime/cluster/kmeans_fit_double.cu
-    src/raft_runtime/cluster/kmeans_fit_float.cu
-    src/raft_runtime/cluster/kmeans_init_plus_plus_double.cu
-    src/raft_runtime/cluster/kmeans_init_plus_plus_float.cu
-    src/raft_runtime/cluster/update_centroids.cuh
-    src/raft_runtime/cluster/update_centroids_double.cu
-    src/raft_runtime/cluster/update_centroids_float.cu
-    src/raft_runtime/distance/fused_distance_min_arg.cu
-    src/raft_runtime/distance/fused_l2_min_arg.cu
-    src/raft_runtime/distance/pairwise_distance.cu
-    src/raft_runtime/matrix/select_k_float_int64_t.cu
-    src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
-    src/raft_runtime/neighbors/cagra_build.cu
-    src/raft_runtime/neighbors/cagra_search.cu
-    src/raft_runtime/neighbors/cagra_serialize.cu
-    src/raft_runtime/neighbors/eps_neighborhood.cu
-    $<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:src/raft_runtime/neighbors/hnsw.cpp>
-    src/raft_runtime/neighbors/ivf_flat_build.cu
-    src/raft_runtime/neighbors/ivf_flat_search.cu
-    src/raft_runtime/neighbors/ivf_flat_serialize.cu
-    src/raft_runtime/neighbors/ivfpq_build.cu
-    src/raft_runtime/neighbors/ivfpq_deserialize.cu
-    src/raft_runtime/neighbors/ivfpq_search_float_int64_t.cu
-    src/raft_runtime/neighbors/ivfpq_search_int8_t_int64_t.cu
-    src/raft_runtime/neighbors/ivfpq_search_uint8_t_int64_t.cu
-    src/raft_runtime/neighbors/ivfpq_serialize.cu
-    src/raft_runtime/neighbors/refine_d_int64_t_float.cu
-    src/raft_runtime/neighbors/refine_d_int64_t_int8_t.cu
-    src/raft_runtime/neighbors/refine_d_int64_t_uint8_t.cu
-    src/raft_runtime/neighbors/refine_h_int64_t_float.cu
-    src/raft_runtime/neighbors/refine_h_int64_t_int8_t.cu
-    src/raft_runtime/neighbors/refine_h_int64_t_uint8_t.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
-    src/spatial/knn/detail/ball_cover/registers_eps_pass_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_dist.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_dist.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_dist.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_dist.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_haversine.cu
-    src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
-    src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
-    src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
+    src/raft_runtime/solver/lanczos_solver_int64_double.cu
+    src/raft_runtime/solver/lanczos_solver_int64_float.cu
+    src/raft_runtime/solver/lanczos_solver_int_double.cu
+    src/raft_runtime/solver/lanczos_solver_int_float.cu
   )
   set_target_properties(
     raft_objs
@@ -587,8 +308,10 @@ if(RAFT_COMPILE_LIBRARY)
                       "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
 
-  add_library(raft_lib SHARED $<TARGET_OBJECTS:raft_objs>)
-  add_library(raft_lib_static STATIC $<TARGET_OBJECTS:raft_objs>)
+  # Make sure not to add the rmm logger twice since it will be brought in as an interface source by
+  # the rmm::rmm_logger_impl target.
+  add_library(raft_lib SHARED $<FILTER:$<TARGET_OBJECTS:raft_objs>,EXCLUDE,rmm.*logger>)
+  add_library(raft_lib_static STATIC $<FILTER:$<TARGET_OBJECTS:raft_objs>,EXCLUDE,rmm.*logger>)
 
   set_target_properties(
     raft_lib raft_lib_static
@@ -612,6 +335,8 @@ if(RAFT_COMPILE_LIBRARY)
     # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
     target_link_options(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
   endforeach()
+  target_link_libraries(raft_lib PRIVATE rmm::rmm_logger_impl raft_logger_impl)
+  target_link_libraries(raft_lib_static PRIVATE rmm::rmm_logger_impl raft_logger_impl)
 endif()
 
 if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
@@ -846,11 +571,4 @@ endif()
 
 if(BUILD_PRIMS_BENCH)
   add_subdirectory(bench/prims/)
-endif()
-
-# ##################################################################################################
-# * build ann benchmark executable -----------------------------------------------
-
-if(BUILD_ANN_BENCH)
-  add_subdirectory(bench/ann/)
 endif()

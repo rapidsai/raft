@@ -1,7 +1,7 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
 
 > [!IMPORTANT]
-> The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). We will continue to support the vector search algorithms in RAFT during this move, but will no longer update them after the RAPIDS 24.06 (June) release. We plan to complete the migration by RAPIDS 24.08 (August) release.
+> The vector search and clustering algorithms in RAFT have been formally migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). The headers for the vector search and clustering algorithms in RAFT will remain for a bried period, but will no longer be tested, benchmarked, included in the pre-compiled libraft binary, or otherwise updated after the 24.12 (December 2024) release. We will be removing these headers altogether in a future release. It is strongly suggested to use cuVS for these routines, which include any headers in the `distance`, `neighbors`, `cluster` and `spatial` directories, and use the RAFT versions at your own risk.
 
 ![RAFT tech stack](img/raft-tech-stack-vss.png)
 
@@ -27,7 +27,6 @@
 - [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
 - [RAFT Getting Started](./docs/source/quick_start.md): Getting started with RAFT.
 - [Build and Install RAFT](./docs/source/build.md): Instructions for installing and building RAFT.
-- [Example Notebooks](./notebooks): Example jupyter notebooks
 - [RAPIDS Community](https://rapids.ai/community.html): Get help, contribute, and collaborate.
 - [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
 - [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
@@ -36,7 +35,7 @@
 
 ## What is RAFT?
 
-RAFT contains fundamental widely-used algorithms and primitives for machine learning and information retrieval. The algorithms are CUDA-accelerated and form building blocks for more easily writing high performance applications.
+RAFT contains fundamental widely-used algorithms and primitives for machine learning and data mining. The algorithms are CUDA-accelerated and form building blocks for more easily writing high performance applications.
 
 By taking a primitives-based approach to algorithm development, RAFT
 - accelerates algorithm construction time
@@ -47,12 +46,10 @@ While not exhaustive, the following general categories help summarize the accele
 #####
 | Category              | Accelerated Functions in RAFT                                                                                                     |
 |-----------------------|-----------------------------------------------------------------------------------------------------------------------------------|
-| **Nearest Neighbors** | vector search, neighborhood graph construction, epsilon neighborhoods, pairwise distances                                         |
-| **Basic Clustering**  | spectral clustering, hierarchical clustering, k-means                                                                             |
-| **Solvers**           | combinatorial optimization, iterative solvers                                                                                     |
 | **Data Formats**      | sparse & dense, conversions, data generation                                                                                      |
 | **Dense Operations**  | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
 | **Sparse Operations** | linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling             |
+| **Solvers**           | combinatorial optimization, iterative solvers                                                                                     |
 | **Statistics**        | sampling, moments and summary statistics, metrics, model evaluation                                                               |
 | **Tools & Utilities** | common tools and utilities for developing CUDA applications, multi-node multi-gpu infrastructure                                  |
 
@@ -67,42 +64,6 @@ In addition being a C++ library, RAFT also provides 2 Python libraries:
 
 ![RAFT is a C++ header-only template library with optional shared library and lightweight Python wrappers](img/arch.png)
 
-## Use cases
-
-### Vector Similarity Search
-
-RAFT contains state-of-the-art implementations of approximate nearest neighbors search (ANNS) algorithms on the GPU, such as:
-
-* [Brute force](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#brute-force). Performs a brute force nearest neighbors search without an index.
-* [IVF-Flat](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-flat) and [IVF-PQ](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-pq). Use an inverted file index structure to map contents to their locations. IVF-PQ additionally uses product quantization to reduce the memory usage of vectors. These methods were originally popularized by the [FAISS](https://github.com/facebookresearch/faiss) library.
-* [CAGRA](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#cagra) (Cuda Anns GRAph-based). Uses a fast ANNS graph construction and search implementation optimized for the GPU. CAGRA outperforms state-of-the art CPU methods (i.e. HNSW) for large batch queries, single queries, and graph construction time. 
-
-Projects that use the RAFT ANNS algorithms for accelerating vector search include: [Milvus](https://milvus.io/), [Redis](https://redis.io/), and [Faiss](https://github.com/facebookresearch/faiss). 
-
-Please see the example [Jupyter notebook](https://github.com/rapidsai/raft/blob/HEAD/notebooks/VectorSearch_QuestionRetrieval.ipynb) to get started RAFT for vector search in Python.
-
-
-
-### Information Retrieval
-
-RAFT contains a catalog of reusable primitives for composing algorithms that require fast neighborhood computations, such as
-
-1. Computing distances between vectors and computing kernel gramm matrices
-2. Performing ball radius queries for constructing epsilon neighborhoods
-3. Clustering points to partition a space for smaller and faster searches
-4. Constructing neighborhood "connectivities" graphs from dense vectors
-
-### Machine Learning
-
-RAFT's primitives are used in several RAPIDS libraries, including [cuML](https://github.com/rapidsai/cuml), [cuGraph](https://github.com/rapidsai/cugraph), and [cuOpt](https://github.com/rapidsai/cuopt) to build many end-to-end machine learning algorithms that span a large spectrum of different applications, including 
-- data generation 
-- model evaluation
-- classification and regression
-- clustering
-- manifold learning
-- dimensionality reduction.
-
-RAFT is also used by the popular collaborative filtering library [implicit](https://github.com/benfred/implicit) for recommender systems.
 
 ## Is RAFT right for me?
 
@@ -158,13 +119,13 @@ auto metric = raft::distance::DistanceType::L2SqrtExpanded;
 raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
-It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information:
+It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information. Take this example from the [NVIDIA cuVS](https://github.com/rapidsai/cuvs) library:
 
 ```c++
 #include <raft/core/device_resources.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/random/make_blobs.cuh>
-#include <raft/distance/distance.cuh>
+#include <cuvs/distance/distance.hpp>
 
 raft::device_resources handle;
 
@@ -185,8 +146,8 @@ auto output_view = raft::make_device_matrix_view(output, n_samples, n_samples);
 
 raft::random::make_blobs(handle, input_view, labels_view);
 
-auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-raft::distance::pairwise_distance(handle, input_view, input_view, output_view, metric);
+auto metric = cuvs::distance::DistanceType::L2SqrtExpanded;
+cuvs::distance::pairwise_distance(handle, input_view, input_view, output_view, metric);
 ```
 
 
@@ -194,12 +155,12 @@ raft::distance::pairwise_distance(handle, input_view, input_view, output_view, m
 
 The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
 
-The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. Note that CuPy is not a required dependency for `pylibraft`.
+The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays using the [NVIDIA cuVS](https://github.com/rapidsai/cuvs) library. Note that CuPy is not a required dependency for `pylibraft`.
 
 ```python
 import cupy as cp
 
-from pylibraft.distance import pairwise_distance
+from cuvs.distance import pairwise_distance
 
 n_samples = 5000
 n_features = 50
@@ -246,7 +207,7 @@ pylibraft.config.set_output_as(lambda device_ndarray: return device_ndarray.copy
 ```python
 import cupy as cp
 
-from pylibraft.distance import pairwise_distance
+from cuvs.distance import pairwise_distance
 
 n_samples = 5000
 n_features = 50
@@ -261,18 +222,15 @@ pairwise_distance(in1, in2, out=output, metric="euclidean")
 
 ## Installing
 
-RAFT's C++ and Python libraries can both be installed through Conda and the Python libraries through Pip. 
+RAFT's C++ and Python libraries can both be installed through Conda and the Python libraries through Pip.
 
 
 ### Installing C++ and Python through Conda
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` C++ headers
-- `libraft` (optional) C++ shared library containing pre-compiled template instantiations and runtime API.
 - `pylibraft` (optional) Python library
 - `raft-dask` (optional) Python library for deployment of multi-node multi-GPU algorithms that use the RAFT `raft::comms` abstraction layer in Dask clusters.
-- `raft-ann-bench` (optional) Benchmarking tool for easily producing benchmarks that compare RAFT's vector search algorithms against other state-of-the-art implementations.
-- `raft-ann-bench-cpu` (optional) Reproducible benchmarking tool similar to above, but doesn't require CUDA to be installed on the machine. Can be used to test in environments with competitive CPUs.
 
 Use the following command, depending on your CUDA version, to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
@@ -293,8 +251,6 @@ You can also install the conda packages individually using the `mamba` command a
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.5
 ```
 
-If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-24.08/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
-
 ### Installing Python through Pip
 
 `pylibraft` and `raft-dask` both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
@@ -303,11 +259,9 @@ pip install pylibraft-cu11 --extra-index-url=https://pypi.nvidia.com
 pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
 ```
 
-These packages statically build RAFT's pre-compiled instantiations and so the C++ headers and pre-compiled shared library won't be readily available to use in your code.
+These packages statically build RAFT's pre-compiled instantiations and so the C++ headers won't be readily available to use in your code.
 
 The [build instructions](https://docs.rapids.ai/api/raft/nightly/build/) contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ and Python from source](https://docs.rapids.ai/api/raft/nightly/build/#building-c-and-python-from-source) section of the build instructions.
-
-You can find an example [RAFT project template](cpp/template/README.md) in the `cpp/template` directory, which demonstrates how to build a new application with RAFT or incorporate RAFT into an existing CMake project.
 
 
 ## Contributing
@@ -322,75 +276,8 @@ When citing RAFT generally, please consider referencing this Github project.
   title={Rapidsai/raft: RAFT contains fundamental widely-used algorithms and primitives for data science, Graph and machine learning.},
   url={https://github.com/rapidsai/raft},
   journal={GitHub},
-  publisher={Nvidia RAPIDS},
+  publisher={NVIDIA RAPIDS},
   author={Rapidsai},
   year={2022}
-}
-```
-If citing the sparse pairwise distances API, please consider using the following bibtex:
-```bibtex
-@article{nolet2021semiring,
-  title={Semiring primitives for sparse neighborhood methods on the gpu},
-  author={Nolet, Corey J and Gala, Divye and Raff, Edward and Eaton, Joe and Rees, Brad and Zedlewski, John and Oates, Tim},
-  journal={arXiv preprint arXiv:2104.06357},
-  year={2021}
-}
-```
-
-If citing the single-linkage agglomerative clustering APIs, please consider the following bibtex:
-```bibtex
-@misc{nolet2023cuslink,
-      title={cuSLINK: Single-linkage Agglomerative Clustering on the GPU},
-      author={Corey J. Nolet and Divye Gala and Alex Fender and Mahesh Doijade and Joe Eaton and Edward Raff and John Zedlewski and Brad Rees and Tim Oates},
-      year={2023},
-      eprint={2306.16354},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
-}
-```
-
-If citing CAGRA, please consider the following bibtex:
-```bibtex
-@misc{ootomo2023cagra,
-      title={CAGRA: Highly Parallel Graph Construction and Approximate Nearest Neighbor Search for GPUs},
-      author={Hiroyuki Ootomo and Akira Naruse and Corey Nolet and Ray Wang and Tamas Feher and Yong Wang},
-      year={2024},
-      series = {ICDE '24}
-}
-```
-
-If citing the k-selection routines, please consider the following bibtex:
-
-```bibtex
-@proceedings{10.1145/3581784,
-    title = {Parallel Top-K Algorithms on GPU: A Comprehensive Study and New Methods},
-    author={Jingrong Zhang, Akira Naruse, Xipeng Li, and Yong Wang},
-    year = {2023},
-    isbn = {9798400701092},
-    publisher = {Association for Computing Machinery},
-    address = {New York, NY, USA},
-    location = {Denver, CO, USA},
-    series = {SC '23}
-}
-```
-
-If citing the nearest neighbors descent API, please consider the following bibtex:
-```bibtex
-@inproceedings{10.1145/3459637.3482344,
-    author = {Wang, Hui and Zhao, Wan-Lei and Zeng, Xiangxiang and Yang, Jianye},
-    title = {Fast K-NN Graph Construction by GPU Based NN-Descent},
-    year = {2021},
-    isbn = {9781450384469},
-    publisher = {Association for Computing Machinery},
-    address = {New York, NY, USA},
-    url = {https://doi.org/10.1145/3459637.3482344},
-    doi = {10.1145/3459637.3482344},
-    abstract = {NN-Descent is a classic k-NN graph construction approach. It is still widely employed in machine learning, computer vision, and information retrieval tasks due to its efficiency and genericness. However, the current design only works well on CPU. In this paper, NN-Descent has been redesigned to adapt to the GPU architecture. A new graph update strategy called selective update is proposed. It reduces the data exchange between GPU cores and GPU global memory significantly, which is the processing bottleneck under GPU computation architecture. This redesign leads to full exploitation of the parallelism of the GPU hardware. In the meantime, the genericness, as well as the simplicity of NN-Descent, are well-preserved. Moreover, a procedure that allows to k-NN graph to be merged efficiently on GPU is proposed. It makes the construction of high-quality k-NN graphs for out-of-GPU-memory datasets tractable. Our approach is 100-250\texttimes{} faster than the single-thread NN-Descent and is 2.5-5\texttimes{} faster than the existing GPU-based approaches as we tested on million as well as billion scale datasets.},
-    booktitle = {Proceedings of the 30th ACM International Conference on Information \& Knowledge Management},
-    pages = {1929–1938},
-    numpages = {10},
-    keywords = {high-dimensional, nn-descent, gpu, k-nearest neighbor graph},
-    location = {Virtual Event, Queensland, Australia},
-    series = {CIKM '21}
 }
 ```

@@ -16,7 +16,6 @@
 #pragma once
 
 #include <raft/core/bitmap.cuh>
-#include <raft/core/detail/popc.cuh>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -38,14 +37,14 @@ namespace sparse {
 namespace linalg {
 namespace detail {
 
-template <typename value_t, typename index_t, typename nnz_t, typename bitmap_t>
+template <typename value_t, typename output_t, typename index_t, typename nnz_t, typename bitmap_t>
 void masked_matmul(raft::resources const& handle,
                    raft::device_matrix_view<const value_t, index_t, raft::row_major>& A,
                    raft::device_matrix_view<const value_t, index_t, raft::row_major>& B,
                    raft::core::bitmap_view<const bitmap_t, index_t>& mask,
-                   raft::device_csr_matrix_view<value_t, index_t, index_t, nnz_t>& C,
-                   std::optional<raft::host_scalar_view<value_t>> alpha,
-                   std::optional<raft::host_scalar_view<value_t>> beta)
+                   raft::device_csr_matrix_view<output_t, index_t, index_t, nnz_t>& C,
+                   std::optional<raft::host_scalar_view<output_t>> alpha,
+                   std::optional<raft::host_scalar_view<output_t>> beta)
 {
   index_t m   = A.extent(0);
   index_t n   = B.extent(0);
@@ -61,24 +60,24 @@ void masked_matmul(raft::resources const& handle,
 
   auto stream = raft::resource::get_cuda_stream(handle);
 
-  auto C_matrix = raft::make_device_csr_matrix<value_t, index_t>(handle, compressed_C_view);
+  auto C_matrix = raft::make_device_csr_matrix<output_t, index_t>(handle, compressed_C_view);
 
   // fill C
   raft::sparse::convert::bitmap_to_csr(handle, mask, C_matrix);
 
   if (m > 10 || alpha.has_value() || beta.has_value()) {
-    auto C_view = raft::make_device_csr_matrix_view<value_t, index_t, index_t, index_t>(
+    auto C_view = raft::make_device_csr_matrix_view<output_t, index_t, index_t, index_t>(
       C.get_elements().data(), compressed_C_view);
 
     // create B col_major view
     auto B_col_major = raft::make_device_matrix_view<const value_t, index_t, raft::col_major>(
       B.data_handle(), dim, n);
 
-    value_t default_alpha = static_cast<value_t>(1.0f);
-    value_t default_beta  = static_cast<value_t>(0.0f);
+    output_t default_alpha = static_cast<output_t>(1.0f);
+    output_t default_beta  = static_cast<output_t>(0.0f);
 
-    if (!alpha.has_value()) { alpha = raft::make_host_scalar_view<value_t>(&default_alpha); }
-    if (!beta.has_value()) { beta = raft::make_host_scalar_view<value_t>(&default_beta); }
+    if (!alpha.has_value()) { alpha = raft::make_host_scalar_view<output_t>(&default_alpha); }
+    if (!beta.has_value()) { beta = raft::make_host_scalar_view<output_t>(&default_beta); }
 
     raft::sparse::linalg::sddmm(handle,
                                 A,

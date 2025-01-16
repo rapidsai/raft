@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,9 @@ struct Contractions_NT {
   /** block of Y data loaded from global mem after `ldgXY()` */
   DataT ldgDataY[P::LdgPerThY][P::Veclen];
 
-  static constexpr DataT Zero = (DataT)0;
+  // static constexpr DataT Zero = DataT{0};
+
+  static constexpr DataT Zero() { return DataT{0}; }
 
  public:
   /**
@@ -197,7 +199,7 @@ struct Contractions_NT {
         } else {
 #pragma unroll
           for (int j = 0; j < P::Veclen; ++j) {
-            ldgDataX[i][j] = Zero;
+            ldgDataX[i][j] = Zero();
           }
         }
       }
@@ -211,7 +213,7 @@ struct Contractions_NT {
         } else {
 #pragma unroll
           for (int j = 0; j < P::Veclen; ++j) {
-            ldgDataX[i][j] = Zero;
+            ldgDataX[i][j] = Zero();
           }
         }
       }
@@ -235,7 +237,7 @@ struct Contractions_NT {
         } else {
 #pragma unroll
           for (int j = 0; j < P::Veclen; ++j) {
-            ldgDataY[i][j] = Zero;
+            ldgDataY[i][j] = Zero();
           }
         }
       }
@@ -249,7 +251,7 @@ struct Contractions_NT {
         } else {
 #pragma unroll
           for (int j = 0; j < P::Veclen; ++j) {
-            ldgDataY[i][j] = Zero;
+            ldgDataY[i][j] = Zero();
           }
         }
       }

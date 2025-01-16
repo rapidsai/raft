@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -16,18 +16,9 @@
 function(find_and_configure_spdlog)
 
     include(${rapids-cmake-dir}/cpm/spdlog.cmake)
-    rapids_cpm_spdlog(FMT_OPTION "EXTERNAL_FMT_HO" INSTALL_EXPORT_SET rmm-exports)
-    rapids_export_package(BUILD spdlog rmm-exports)
+    rapids_cpm_spdlog(FMT_OPTION "EXTERNAL_FMT_HO" INSTALL_EXPORT_SET raft-exports)
+    rapids_export_package(BUILD spdlog raft-exports)
 
-    if(spdlog_ADDED)
-        rapids_export(
-                BUILD spdlog
-                EXPORT_SET spdlog
-                GLOBAL_TARGETS spdlog spdlog_header_only
-                NAMESPACE spdlog::)
-        include("${rapids-cmake-dir}/export/find_package_root.cmake")
-        rapids_export_find_package_root(BUILD spdlog [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET rmm-exports)
-    endif()
 endfunction()
 
 find_and_configure_spdlog()

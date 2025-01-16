@@ -16,10 +16,4 @@
 
 #pragma once
 
-#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 #include "ivf_pq_compute_similarity-inl.cuh"
-#endif
-
-#ifdef RAFT_COMPILED
-#include "ivf_pq_compute_similarity-ext.cuh"
-#endif

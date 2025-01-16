@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 79
-target-version = ["py39"]
+target-version = ["py310"]
 include = '\.py?$'
 force-exclude = '''
 /(
@@ -45,6 +45,6 @@ exclude = [
 skip = "./.git,./.github,./cpp/build,.*egg-info.*,./.mypy_cache,.*_skbuild"
 # ignore short words, and typename parameters like OffsetT
 ignore-regex = "\\b(.{1,4}|[A-Z]\\w*T)\\b"
-ignore-words-list = "inout,numer"
+ignore-words-list = "inout,unparseable,numer"
 builtin = "clear"
 quiet-level = 3

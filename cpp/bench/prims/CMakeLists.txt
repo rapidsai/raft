@@ -32,6 +32,7 @@ function(ConfigureBench)
     PRIVATE raft::raft
             raft_internal
             $<$<BOOL:${ConfigureBench_LIB}>:raft::compiled>
+            $<$<NOT:$<BOOL:${ConfigureBench_LIB}>>:bench_rmm_logger>
             ${RAFT_CTK_MATH_DEPENDENCIES}
             benchmark::benchmark
             Threads::Threads
@@ -73,43 +74,13 @@ function(ConfigureBench)
 
 endfunction()
 
+add_library(bench_rmm_logger OBJECT)
+target_link_libraries(bench_rmm_logger PRIVATE rmm::rmm_logger_impl)
+
 if(BUILD_PRIMS_BENCH)
-  ConfigureBench(
-    NAME
-    CORE_BENCH
-    PATH
-    core/bitset.cu
-    core/copy.cu
-    core/popc.cu
-    main.cpp
-  )
+  ConfigureBench(NAME CORE_BENCH PATH core/bitset.cu core/copy.cu main.cpp)
 
-  ConfigureBench(
-    NAME CLUSTER_BENCH PATH cluster/kmeans_balanced.cu cluster/kmeans.cu
-    main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureBench(
-    NAME TUNE_DISTANCE PATH distance/tune_pairwise/kernel.cu
-    distance/tune_pairwise/bench.cu main.cpp
-  )
-
-  ConfigureBench(
-    NAME
-    DISTANCE_BENCH
-    PATH
-    distance/distance_cosine.cu
-    distance/distance_exp_l2.cu
-    distance/distance_l1.cu
-    distance/distance_unexp_l2.cu
-    distance/fused_l2_nn.cu
-    distance/masked_nn.cu
-    distance/kernels.cu
-    main.cpp
-    OPTIONAL
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
+  ConfigureBench(NAME UTIL_BENCH PATH util/popc.cu main.cpp)
 
   ConfigureBench(
     NAME
@@ -125,58 +96,23 @@ if(BUILD_PRIMS_BENCH)
     linalg/reduce_rows_by_key.cu
     linalg/reduce.cu
     linalg/sddmm.cu
+    linalg/transpose.cu
     main.cpp
   )
 
   ConfigureBench(
-    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu
-    matrix/select_k.cu main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu matrix/select_k.cu main.cpp OPTIONAL
+    LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
-    NAME RANDOM_BENCH PATH random/make_blobs.cu random/permute.cu
-   random/rng.cu random/subsample.cu main.cpp
-  )
-
-  ConfigureBench(
-    NAME
-    SPARSE_BENCH
-    PATH
-    sparse/bitmap_to_csr.cu
-    sparse/convert_csr.cu
-    sparse/select_k_csr.cu
+    NAME RANDOM_BENCH PATH random/make_blobs.cu random/permute.cu random/rng.cu random/subsample.cu
     main.cpp
   )
 
   ConfigureBench(
-    NAME
-    NEIGHBORS_BENCH
-    PATH
-    neighbors/knn/brute_force_float_int64_t.cu
-    neighbors/knn/brute_force_float_uint32_t.cu
-    neighbors/knn/cagra_float_uint32_t.cu
-    neighbors/knn/ivf_flat_filter_float_int64_t.cu
-    neighbors/knn/ivf_flat_float_int64_t.cu
-    neighbors/knn/ivf_flat_int8_t_int64_t.cu
-    neighbors/knn/ivf_flat_uint8_t_int64_t.cu
-    neighbors/knn/ivf_pq_float_int64_t.cu
-    neighbors/knn/ivf_pq_filter_float_int64_t.cu
-    neighbors/knn/ivf_pq_int8_t_int64_t.cu
-    neighbors/knn/ivf_pq_uint8_t_int64_t.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_search_filtering_float_int64_t.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_float_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_float_half_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true_bitset64.cu
-    ${RAFT_SOURCE_DIR}/src/neighbors/detail/ivf_pq_compute_similarity_half_half_bitset64.cu
-    neighbors/refine_float_int64_t.cu
-    neighbors/refine_uint8_t_int64_t.cu
+    NAME SPARSE_BENCH PATH sparse/bitmap_to_csr.cu sparse/convert_csr.cu sparse/select_k_csr.cu
     main.cpp
-    OPTIONAL
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
   )
 
 endif()

@@ -19,10 +19,12 @@
 #include "cusolver_wrappers.hpp"
 
 #include <raft/core/resource/cusolver_dn_handle.hpp>
+#include <raft/core/resource/detail/stream_sync_event.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/copy.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/cuda_stream.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -90,7 +92,22 @@ void eigDC(raft::resources const& handle,
 {
 #if CUDART_VERSION < 11010
   eigDC_legacy(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream);
-#else
+  return;
+#endif
+
+  int cudart_version = 0;
+  RAFT_CUDA_TRY(cudaRuntimeGetVersion(&cudart_version));
+  cudaStream_t stream_new;
+  cudaEvent_t sync_event = resource::detail::get_cuda_stream_sync_event(handle);
+  rmm::cuda_stream stream_new_wrapper;
+  if (cudart_version < 12050) {
+    // Use a new stream instead of `cudaStreamPerThread` to avoid cusolver bug # 4580093.
+    stream_new = stream_new_wrapper.value();
+    RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream));
+    RAFT_CUDA_TRY(cudaStreamWaitEvent(stream_new, sync_event));
+  } else {
+    stream_new = stream;
+  }
   cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
   cusolverDnParams_t dn_params = nullptr;
@@ -108,15 +125,13 @@ void eigDC(raft::resources const& handle,
                                                 eig_vals,
                                                 &workspaceDevice,
                                                 &workspaceHost,
-                                                stream));
+                                                stream_new));
 
-  rmm::device_uvector<math_t> d_work(workspaceDevice / sizeof(math_t), stream);
-  rmm::device_scalar<int> d_dev_info(stream);
+  rmm::device_uvector<math_t> d_work(workspaceDevice / sizeof(math_t), stream_new);
+  rmm::device_scalar<int> d_dev_info(stream_new);
   std::vector<math_t> h_work(workspaceHost / sizeof(math_t));
 
-  raft::matrix::copy(handle,
-                     make_device_matrix_view<const math_t>(in, n_rows, n_cols),
-                     make_device_matrix_view<math_t>(eig_vectors, n_rows, n_cols));
+  raft::copy(eig_vectors, in, n_rows * n_cols, stream_new);
 
   RAFT_CUSOLVER_TRY(cusolverDnxsyevd(cusolverH,
                                      dn_params,
@@ -131,15 +146,20 @@ void eigDC(raft::resources const& handle,
                                      h_work.data(),
                                      workspaceHost,
                                      d_dev_info.data(),
-                                     stream));
+                                     stream_new));
 
   RAFT_CUDA_TRY(cudaGetLastError());
   RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
-  int dev_info = d_dev_info.value(stream);
+  int dev_info = d_dev_info.value(stream_new);
   ASSERT(dev_info == 0,
          "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
-#endif
+
+  if (cudart_version < 12050) {
+    // Synchronize the created stream with the original stream before return
+    RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream_new));
+    RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_event));
+  }
 }
 
 enum EigVecMemUsage { OVERWRITE_INPUT, COPY_INPUT };
