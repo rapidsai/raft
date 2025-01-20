@@ -298,9 +298,9 @@ RAFT is a heavily templated library. Several core functions are expensive to com
 
 **Macros.** We define the macros `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY`. The `RAFT_COMPILED` macro is defined by `CMake` when compiling code that (1) is part of `libraft.so` or (2) is linked with `libraft.so`. It indicates that a precompiled `libraft.so` is present at runtime.
 
-The `RAFT_EXPLICIT_INSTANTIATE_ONLY` macro is defined by `CMake` during compilation of `libraft.so` itself. When defined, it indicates that implicit instantiations of expensive function templates are forbidden (they result in a compiler error). In the RAFT project, we additionally define this macro during compilation of the tests and benchmarks. 
+The `RAFT_EXPLICIT_INSTANTIATE_ONLY` macro is defined by `CMake` during compilation of `libraft.so` itself. When defined, it indicates that implicit instantiations of expensive function templates are forbidden (they result in a compiler error). In the RAFT project, we additionally define this macro during compilation of the tests and benchmarks.
 
-Below, we summarize which combinations of `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY` are used in practice and what the effect of the combination is. 
+Below, we summarize which combinations of `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY` are used in practice and what the effect of the combination is.
 
 | RAFT_COMPILED | RAFT_EXPLICIT_INSTANTIATE_ONLY | Which targets                                                                                        |
 |---------------|--------------------------------|------------------------------------------------------------------------------------------------------|
@@ -349,7 +349,7 @@ The file `expensive-ext.cuh` contains the following:
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 namespace raft {
-// (1) define templates to raise an error in case of accidental instantiation 
+// (1) define templates to raise an error in case of accidental instantiation
 template <typename T> void expensive(T arg) RAFT_EXPLICIT;
 } // namespace raft
 #endif //RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -371,7 +371,7 @@ template void raft::expensive<int>(int);
 template void raft::expensive<float>(float);
 ```
 
-**Design considerations**: 
+**Design considerations**:
 
 1. In the `-ext.cuh` header, do not include implementation headers. Only include function parameter types and types that are used to instantiate the templates. If a primitive takes custom parameter types, define them in a separate header called `<primitive_name>_types.hpp`. (see [Common Design Considerations](https://github.com/rapidsai/raft/blob/7b065aff81a0b1976e2a9e2f3de6690361a1111b/docs/source/developer_guide.md#common-design-considerations)).
 
@@ -381,7 +381,7 @@ template void raft::expensive<float>(float);
 
 4. If a header file defines multiple expensive templates, it can be that one of them is not instantiated. In this case, **do define** the template with `RAFT_EXPLICIT` in the `-ext` header. This way, when the template is instantiated, the developer gets a helpful error message instead of a confusing "function not found".
 
-This header structure was proposed in [issue #1416](https://github.com/rapidsai/raft/issues/1416), which contains more background on the motivation of this structure and the mechanics of C++ template instantiation. 
+This header structure was proposed in [issue #1416](https://github.com/rapidsai/raft/issues/1416), which contains more background on the motivation of this structure and the mechanics of C++ template instantiation.
 
 ## Testing
 
