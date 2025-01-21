@@ -65,13 +65,13 @@ RAFT_KERNEL coo_symmetrize_kernel(uint64_t* row_ind,
     uint64_t start_idx = row_ind[row];  // each thread processes one row
     uint64_t stop_idx  = get_stop_idx(row, n, cnnz, row_ind);
 
-    int row_nnz       = 0;
+    uint64_t row_nnz       = 0;
     uint64_t out_start_idx = start_idx * 2;
 
-    for (int idx = 0; idx < stop_idx - start_idx; idx++) {
-      int cur_row = rows[idx + start_idx];
-      int cur_col = cols[idx + start_idx];
-      T cur_val   = vals[idx + start_idx];
+    for (uint64_t idx = 0; idx < stop_idx - start_idx; idx++) {
+      int cur_row = rows[start_idx + idx];
+      int cur_col = cols[start_idx + idx];
+      T cur_val   = vals[start_idx + idx];
 
       int lookup_row = cur_col;
       uint64_t t_start    = row_ind[lookup_row];  // Start at
@@ -104,7 +104,7 @@ RAFT_KERNEL coo_symmetrize_kernel(uint64_t* row_ind,
       // Note that if we did find a match, we don't need to
       // compute `res` on it here because it will be computed
       // in a different thread.
-      if (!found_match && vals[idx] != 0.0) {
+      if (!found_match && cur_val != 0.0) {
         orows[out_start_idx + row_nnz] = cur_col;
         ocols[out_start_idx + row_nnz] = cur_row;
         ovals[out_start_idx + row_nnz] = res;
@@ -158,7 +158,7 @@ void coo_symmetrize(COO<T>* in,
                                                             in->n_rows,
                                                             in->nnz,
                                                             reduction_op);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

@@ -151,7 +151,7 @@ int performLanczosIteration(raft::resources const& handle,
 
   RAFT_EXPECTS(A != nullptr, "Null matrix pointer.");
 
-  index_type_t n = A->nrows_;
+  uint64_t n = A->nrows_;
 
   // -------------------------------------------------------
   // Compute second Lanczos vector
@@ -814,7 +814,7 @@ int computeSmallestEigenvectors(
   constexpr value_type_t zero = 0;
 
   // Matrix dimension
-  index_type_t n = A->nrows_;
+  uint64_t n = A->nrows_;
 
   // Shift for implicit restart
   value_type_t shiftUpper;
@@ -1160,7 +1160,7 @@ int computeLargestEigenvectors(
   constexpr value_type_t zero = 0;
 
   // Matrix dimension
-  index_type_t n = A->nrows_;
+  uint64_t n = A->nrows_;
 
   // Lanczos iteration counters
   index_type_t maxIter_curr = restartIter;  // Maximum size of Lanczos system
