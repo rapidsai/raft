@@ -48,9 +48,9 @@ add_subdirectory(../../cpp raft-cpp)
 set_property(
   TARGET raft_lib
   PROPERTY INSTALL_RPATH
-            "$ORIGIN/../../nvidia/cublas/lib"
-            "$ORIGIN/../../nvidia/curand/lib"
-            "$ORIGIN/../../nvidia/cusolver/lib"
-            "$ORIGIN/../../nvidia/cusparse/lib"
-            "$ORIGIN/../../nvidia/nvjitlink/lib"
+           "$ORIGIN/../../nvidia/cublas/lib"
+           "$ORIGIN/../../nvidia/curand/lib"
+           "$ORIGIN/../../nvidia/cusolver/lib"
+           "$ORIGIN/../../nvidia/cusparse/lib"
+           "$ORIGIN/../../nvidia/nvjitlink/lib"
 )

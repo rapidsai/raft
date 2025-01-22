@@ -22,16 +22,13 @@ rapids-generate-version > ./VERSION
 cd "${package_dir}"
 
 EXCLUDE_ARGS=(
-  --exclude "libcublas.so.11"
-  --exclude "libcublas.so.12"
-  --exclude "libcublasLt.so.11"
-  --exclude "libcublasLt.so.12"
-  --exclude "libcurand.so.10"
-  --exclude "libcusolver.so.11"
-  --exclude "libcusparse.so.11"
-  --exclude "libcusparse.so.12"
-  --exclude "libnvJitLink.so.12"
-  --exclude "libucp.so.0"
+  --exclude "libcublas.so.*"
+  --exclude "libcublasLt.so.*"
+  --exclude "libcurand.so.*"
+  --exclude "libcusolver.so.*"
+  --exclude "libcusparse.so.*"
+  --exclude "libnvJitLink.so.*"
+  --exclude "libucp.so.*"
 )
 
 if [[ ${package_name} != "libraft" ]]; then
