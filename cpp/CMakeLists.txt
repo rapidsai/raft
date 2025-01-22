@@ -65,8 +65,11 @@ set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
 if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
   set(RAFT_COMPILE_LIBRARY_DEFAULT ON)
 endif()
-option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
+option(RAFT_COMPILE_LIBRARY "Enable building raft library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
+)
+option(RAFT_COMPILE_DYNAMIC_ONLY "Only build the shared library and skip the
+static library. Has no effect if RAFT_COMPILE_LIBRARY is OFF" OFF
 )
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
@@ -311,17 +314,23 @@ if(RAFT_COMPILE_LIBRARY)
   # Make sure not to add the rmm logger twice since it will be brought in as an interface source by
   # the rmm::rmm_logger_impl target.
   add_library(raft_lib SHARED $<FILTER:$<TARGET_OBJECTS:raft_objs>,EXCLUDE,rmm.*logger>)
-  add_library(raft_lib_static STATIC $<FILTER:$<TARGET_OBJECTS:raft_objs>,EXCLUDE,rmm.*logger>)
+
+  set(_raft_lib_targets raft_lib)
+  if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+    add_library(raft_lib_static STATIC $<FILTER:$<TARGET_OBJECTS:raft_objs>,EXCLUDE,rmm.*logger>)
+    list(APPEND _raft_lib_targets raft_lib_static)
+  endif()
 
   set_target_properties(
-    raft_lib raft_lib_static
+    ${_raft_lib_targets}
     PROPERTIES OUTPUT_NAME raft
                BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  foreach(target raft_lib raft_lib_static raft_objs)
+  list(APPEND _raft_lib_targets raft_objs)
+  foreach(target IN LISTS _raft_lib_targets)
     target_link_libraries(
       ${target}
       PUBLIC raft::raft
@@ -336,7 +345,9 @@ if(RAFT_COMPILE_LIBRARY)
     target_link_options(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
   endforeach()
   target_link_libraries(raft_lib PRIVATE rmm::rmm_logger_impl raft_logger_impl)
-  target_link_libraries(raft_lib_static PRIVATE rmm::rmm_logger_impl raft_logger_impl)
+  if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+    target_link_libraries(raft_lib_static PRIVATE rmm::rmm_logger_impl raft_logger_impl)
+  endif()
 endif()
 
 if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
@@ -348,20 +359,22 @@ target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS
 # ##################################################################################################
 # * raft_compiled_static----------------------------------------------------------------------------
 
-add_library(raft_compiled_static INTERFACE)
+if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+  add_library(raft_compiled_static INTERFACE)
 
-if(TARGET raft_compiled_static AND (NOT TARGET raft::compiled_static))
-  add_library(raft::compiled_static ALIAS raft_compiled_static)
+  if(TARGET raft_compiled_static AND (NOT TARGET raft::compiled_static))
+    add_library(raft::compiled_static ALIAS raft_compiled_static)
+  endif()
+  set_target_properties(raft_compiled_static PROPERTIES EXPORT_NAME compiled_static)
+
+  if(TARGET raft_lib_static AND (NOT TARGET raft::raft_lib_static))
+    add_library(raft::raft_lib_static ALIAS raft_lib_static)
+  endif()
+
+  target_link_libraries(
+    raft_compiled_static INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib_static>
+  )
 endif()
-set_target_properties(raft_compiled_static PROPERTIES EXPORT_NAME compiled_static)
-
-if(TARGET raft_lib_static AND (NOT TARGET raft::raft_lib_static))
-  add_library(raft::raft_lib_static ALIAS raft_lib_static)
-endif()
-
-target_link_libraries(
-  raft_compiled_static INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib_static>
-)
 
 # ##################################################################################################
 # * raft_distributed -------------------------------------------------------------------------------
@@ -410,8 +423,12 @@ install(
   EXPORT raft-exports
 )
 
+set(_raft_compiled_install_targets raft_compiled)
+if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+  list(APPEND _raft_compiled_install_targets raft_compiled_static)
+endif()
 install(
-  TARGETS raft_compiled raft_compiled_static
+  TARGETS ${_raft_compiled_install_targets}
   DESTINATION ${lib_dir}
   COMPONENT raft
   EXPORT raft-compiled-exports
@@ -424,12 +441,14 @@ if(TARGET raft_lib)
     COMPONENT compiled
     EXPORT raft-compiled-lib-exports
   )
-  install(
-    TARGETS raft_lib_static
-    DESTINATION ${lib_dir}
-    COMPONENT compiled-static
-    EXPORT raft-compiled-static-lib-exports
-  )
+  if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+    install(
+      TARGETS raft_lib_static
+      DESTINATION ${lib_dir}
+      COMPONENT compiled-static
+      EXPORT raft-compiled-static-lib-exports
+    )
+  endif()
   install(
     DIRECTORY include/raft_runtime
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
@@ -500,8 +519,12 @@ endif()
 set(raft_components compiled distributed)
 set(raft_export_sets raft-compiled-exports raft-distributed-exports)
 if(TARGET raft_lib)
-  list(APPEND raft_components compiled compiled-static)
-  list(APPEND raft_export_sets raft-compiled-lib-exports raft-compiled-static-lib-exports)
+  list(APPEND raft_components compiled)
+  list(APPEND raft_export_sets raft-compiled-lib-exports)
+  if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+    list(APPEND raft_components compiled-static)
+    list(APPEND raft_export_sets raft-compiled-static-lib-exports)
+  endif()
 endif()
 
 string(

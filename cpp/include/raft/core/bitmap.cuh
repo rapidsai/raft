@@ -22,6 +22,7 @@
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/sparse/convert/csr.cuh>
 
 #include <type_traits>
 
@@ -40,6 +41,13 @@ _RAFT_DEVICE void bitmap_view<bitmap_t, index_t>::set(const index_t row,
                                                       bool new_value) const
 {
   set(row * cols_ + col, new_value);
+}
+
+template <typename bitmap_t, typename index_t>
+template <typename csr_matrix_t>
+void bitmap_view<bitmap_t, index_t>::to_csr(const raft::resources& res, csr_matrix_t& csr) const
+{
+  raft::sparse::convert::bitmap_to_csr(res, *this, csr);
 }
 
 }  // end namespace raft::core
