@@ -208,7 +208,7 @@ def setup(app):
 linkcode_resolve = make_linkcode_resolve(
     "pylibraft",
     "https://github.com/rapidsai/raft"
-    "raft/blob/{revision}/python/pylibraft"
+    "/blob/{revision}/python/pylibraft/"
     "{package}/{path}#L{lineno}",
 )
 
