@@ -28,16 +28,5 @@ export PIP_NO_BUILD_ISOLATION=0
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-case "${RAPIDS_CUDA_VERSION}" in
-  12.*)
-    EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=ON"
-  ;;
-  11.*)
-    EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=OFF"
-  ;;
-esac
-
-export SKBUILD_CMAKE_ARGS="${EXTRA_CMAKE_ARGS}"
-
 ci/build_wheel.sh libraft ${package_dir} cpp
 ci/validate_wheel.sh ${package_dir} final_dist libraft

@@ -358,11 +358,14 @@ dependencies:
               - nvidia-curand-cu12
               - nvidia-cusolver-cu12
               - nvidia-cusparse-cu12
-          # CUDA 11 does not provide wheels, so use the system libraries instead
           - matrix:
               cuda: "11.*"
               use_cuda_wheels: "true"
             packages:
+              - nvidia-cublas-cu11
+              - nvidia-curand-cu11
+              - nvidia-cusolver-cu11
+              - nvidia-cusparse-cu11
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
           # (e.g. for DLFW and pip devcontainers)
           - matrix:

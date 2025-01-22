@@ -22,8 +22,6 @@ project(
   LANGUAGES CXX
 )
 
-option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
-
 # Check if raft is already available. If so, it is the user's responsibility to ensure that the
 # CMake package is also available at build time of the Python raft package.
 find_package(raft "${RAPIDS_VERSION}")
@@ -35,14 +33,8 @@ endif()
 unset(raft_FOUND)
 
 # --- CUDA --- #
-find_package(CUDAToolkit REQUIRED)
 set(CUDA_STATIC_RUNTIME ON)
-set(CUDA_STATIC_MATH_LIBRARIES ON)
-if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
-  set(CUDA_STATIC_MATH_LIBRARIES OFF)
-elseif(USE_CUDA_MATH_WHEELS)
-  message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
-endif()
+set(CUDA_STATIC_MATH_LIBRARIES OFF)
 
 # --- RAFT ---#
 set(BUILD_TESTS OFF)
@@ -52,14 +44,13 @@ set(RAFT_COMPILE_LIBRARY ON)
 
 add_subdirectory(../../cpp raft-cpp)
 
-if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
-  set_property(
-    TARGET raft_lib
-    PROPERTY INSTALL_RPATH
-             "$ORIGIN/../nvidia/cublas/lib"
-             "$ORIGIN/../nvidia/curand/lib"
-             "$ORIGIN/../nvidia/cusolver/lib"
-             "$ORIGIN/../nvidia/cusparse/lib"
-             "$ORIGIN/../nvidia/nvjitlink/lib"
-  )
-endif()
+# assumes libraft.so is installed 2 levels deep, e.g. site-packages/libraft/lib64/libraft.so
+set_property(
+  TARGET raft_lib
+  PROPERTY INSTALL_RPATH
+            "$ORIGIN/../../nvidia/cublas/lib"
+            "$ORIGIN/../../nvidia/curand/lib"
+            "$ORIGIN/../../nvidia/cusolver/lib"
+            "$ORIGIN/../../nvidia/cusparse/lib"
+            "$ORIGIN/../../nvidia/nvjitlink/lib"
+)
