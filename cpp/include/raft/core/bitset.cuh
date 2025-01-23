@@ -23,6 +23,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/popc.cuh>
 
@@ -32,12 +33,41 @@
 
 namespace raft::core {
 
+template <typename index_t>
+_RAFT_HOST_DEVICE void inline compute_original_nbits_position(const index_t original_nbits,
+                                                              const index_t nbits,
+                                                              const index_t sample_index,
+                                                              index_t& new_bit_index,
+                                                              index_t& new_bit_offset)
+{
+  const index_t original_bit_index  = sample_index / original_nbits;
+  const index_t original_bit_offset = sample_index % original_nbits;
+  new_bit_index                     = original_bit_index * original_nbits / nbits;
+  new_bit_offset                    = 0;
+  if (original_nbits > nbits) {
+    new_bit_index += original_bit_offset / nbits;
+    new_bit_offset = original_bit_offset % nbits;
+  } else {
+    index_t ratio = nbits / original_nbits;
+    new_bit_offset += (original_bit_index % ratio) * original_nbits;
+    new_bit_offset += original_bit_offset % nbits;
+  }
+}
+
 template <typename bitset_t, typename index_t>
 _RAFT_HOST_DEVICE inline bool bitset_view<bitset_t, index_t>::test(const index_t sample_index) const
 {
-  const bitset_t bit_element = bitset_ptr_[sample_index / bitset_element_size];
-  const index_t bit_index    = sample_index % bitset_element_size;
-  const bool is_bit_set      = (bit_element & (bitset_t{1} << bit_index)) != 0;
+  const index_t nbits = sizeof(bitset_t) * 8;
+  index_t bit_index   = 0;
+  index_t bit_offset  = 0;
+  if (original_nbits_ == 0 || nbits == original_nbits_) {
+    bit_index  = sample_index / bitset_element_size;
+    bit_offset = sample_index % bitset_element_size;
+  } else {
+    compute_original_nbits_position(original_nbits_, nbits, sample_index, bit_index, bit_offset);
+  }
+  const bitset_t bit_element = bitset_ptr_[bit_index];
+  const bool is_bit_set      = (bit_element & (bitset_t{1} << bit_offset)) != 0;
   return is_bit_set;
 }
 
@@ -51,14 +81,22 @@ template <typename bitset_t, typename index_t>
 _RAFT_DEVICE void bitset_view<bitset_t, index_t>::set(const index_t sample_index,
                                                       bool set_value) const
 {
-  const index_t bit_element = sample_index / bitset_element_size;
-  const index_t bit_index   = sample_index % bitset_element_size;
-  const bitset_t bitmask    = bitset_t{1} << bit_index;
+  const index_t nbits = sizeof(bitset_t) * 8;
+  index_t bit_index   = 0;
+  index_t bit_offset  = 0;
+
+  if (original_nbits_ == 0 || nbits == original_nbits_) {
+    bit_index  = sample_index / bitset_element_size;
+    bit_offset = sample_index % bitset_element_size;
+  } else {
+    compute_original_nbits_position(original_nbits_, nbits, sample_index, bit_index, bit_offset);
+  }
+  const bitset_t bitmask = bitset_t{1} << bit_offset;
   if (set_value) {
-    atomicOr(bitset_ptr_ + bit_element, bitmask);
+    atomicOr(bitset_ptr_ + bit_index, bitmask);
   } else {
     const bitset_t bitmask2 = ~bitmask;
-    atomicAnd(bitset_ptr_ + bit_element, bitmask2);
+    atomicAnd(bitset_ptr_ + bit_index, bitmask2);
   }
 }
 
@@ -163,6 +201,13 @@ double bitset_view<bitset_t, index_t>::sparsity(const raft::resources& res) cons
   index_t count_h = this->count(res);
 
   return static_cast<double>((1.0 * (size_h - count_h)) / (1.0 * size_h));
+}
+
+template <typename bitset_t, typename index_t>
+template <typename csr_matrix_t>
+void bitset_view<bitset_t, index_t>::to_csr(const raft::resources& res, csr_matrix_t& csr) const
+{
+  raft::sparse::convert::bitset_to_csr(res, *this, csr);
 }
 
 template <typename bitset_t, typename index_t>

@@ -42,8 +42,20 @@ template <typename bitset_t = uint32_t, typename index_t = uint32_t>
 struct bitset_view {
   static constexpr index_t bitset_element_size = sizeof(bitset_t) * 8;
 
-  _RAFT_HOST_DEVICE bitset_view(bitset_t* bitset_ptr, index_t bitset_len)
-    : bitset_ptr_{bitset_ptr}, bitset_len_{bitset_len}
+  /**
+   * @brief Create a bitset view from a device pointer to the bitset.
+   *
+   * @param bitset_ptr Device pointer to the bitset
+   * @param bitset_len Number of bits in the bitset
+   * @param original_nbits Original number of bits used when the bitset was created, to handle
+   * potential mismatches of data types. This is useful for using ANN indexes when a bitset was
+   * originally created with a different data type than the ones currently supported in cuVS ANN
+   * indexes.
+   */
+  _RAFT_HOST_DEVICE bitset_view(bitset_t* bitset_ptr,
+                                index_t bitset_len,
+                                index_t original_nbits = 0)
+    : bitset_ptr_{bitset_ptr}, bitset_len_{bitset_len}, original_nbits_{original_nbits}
   {
   }
   /**
@@ -51,10 +63,17 @@ struct bitset_view {
    *
    * @param bitset_span Device vector view of the bitset
    * @param bitset_len Number of bits in the bitset
+   * @param original_nbits Original number of bits used when the bitset was created, to handle
+   * potential mismatches of data types. This is useful for using ANN indexes when a bitset was
+   * originally created with a different data type than the ones currently supported in cuVS ANN
+   * indexes.
    */
   _RAFT_HOST_DEVICE bitset_view(raft::device_vector_view<bitset_t, index_t> bitset_span,
-                                index_t bitset_len)
-    : bitset_ptr_{bitset_span.data_handle()}, bitset_len_{bitset_len}
+                                index_t bitset_len,
+                                index_t original_nbits = 0)
+    : bitset_ptr_{bitset_span.data_handle()},
+      bitset_len_{bitset_len},
+      original_nbits_{original_nbits}
   {
   }
   /**
@@ -180,9 +199,79 @@ struct bitset_view {
     return (bitset_len + bits_per_element - 1) / bits_per_element;
   }
 
+  /**
+   * @brief Get the original number of bits of the bitset.
+   */
+  auto get_original_nbits() const -> index_t { return original_nbits_; }
+  void set_original_nbits(index_t original_nbits) { original_nbits_ = original_nbits; }
+
+  /**
+   * @brief Converts to a Compressed Sparse Row (CSR) format matrix.
+   *
+   * This method transforms the bitset view into a CSR matrix representation, where each '1' bit in
+   * the bitset corresponds to a non-zero entry in the CSR matrix. The bitset format supports
+   * only a single-row matrix, so if the CSR matrix requires multiple rows, the bitset data is
+   * repeated for each row in the output.
+   *
+   * Example usage:
+   *
+   * @code{.cpp}
+   * #include <raft/core/resource/cuda_stream.hpp>
+   * #include <raft/sparse/convert/csr.cuh>
+   * #include <rmm/device_uvector.hpp>
+   *
+   * using bitset_t = uint32_t;
+   * using index_t  = int;
+   * using value_t  = float;
+   *
+   * raft::resources handle;
+   * auto stream    = resource::get_cuda_stream(handle);
+   * index_t n_rows = 3;
+   * index_t n_cols = 30;
+   *
+   * // Compute bitset size and initialize device memory
+   * index_t bitset_size = (n_cols + sizeof(bitset_t) * 8 - 1) / (sizeof(bitset_t) * 8);
+   * rmm::device_uvector<bitset_t> bitset_d(bitset_size, stream);
+   * std::vector<bitset_t> bitset_h = {
+   *   bitset_t(0b11001010),
+   * };  // Example bitset, with 4 non-zero entries.
+   *
+   * raft::copy(bitset_d.data(), bitset_h.data(), bitset_h.size(), stream);
+   *
+   * // Create bitset view and CSR matrix
+   * auto bitset_view = raft::core::bitset_view<bitset_t, index_t>(bitset_d.data(), n_cols);
+   * auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, n_rows, n_cols, 4 * n_rows);
+   *
+   * // Convert bitset to CSR
+   * bitset_view.to_csr(handle, csr);
+   * resource::sync_stream(handle);
+   *
+   * // Results:
+   * // csr.indptr  = [0, 4, 8, 12];
+   * // csr.indices = [1, 3, 6, 7,
+   * //                1, 3, 6, 7,
+   * //                1, 3, 6, 7];
+   * // csr.values  = [1, 1, 1, 1,
+   * //                1, 1, 1, 1,
+   * //                1, 1, 1, 1];
+   * @endcode
+   *
+   * @tparam csr_matrix_t Specifies the CSR matrix type, constrained to raft::device_csr_matrix.
+   *
+   * @param[in] res RAFT resources for managing CUDA streams and execution policies.
+   * @param[out] csr Output parameter where the resulting CSR matrix is stored. Each '1' bit in
+   * the bitset corresponds to a non-zero element in the CSR matrix.
+   *
+   * The caller must ensure that: The `csr` matrix is pre-allocated with dimensions and non-zero
+   * count matching the expected output, i.e., `nnz_for_csr = nnz_for_bitset * n_rows`.
+   */
+  template <typename csr_matrix_t>
+  void to_csr(const raft::resources& res, csr_matrix_t& csr) const;
+
  private:
   bitset_t* bitset_ptr_;
   index_t bitset_len_;
+  index_t original_nbits_;
 };
 
 /**

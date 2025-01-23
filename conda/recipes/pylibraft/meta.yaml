@@ -1,7 +1,5 @@
 # Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
-# Usage:
-#   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set py_version = environ['CONDA_PY'] %}
@@ -43,10 +41,10 @@ requirements:
     - {{ stdlib("c") }}
   host:
     {% if cuda_major == "11" %}
-    - cuda-python >=11.7.1,<12.0a0,<=11.8.3
+    - cuda-python >=11.8.5,<12.0a0
     - cudatoolkit
     {% else %}
-    - cuda-python >=12.0,<13.0a0,<=12.6.0
+    - cuda-python >=12.6.2,<13.0a0
     - cuda-cudart-dev
     {% endif %}
     - cuda-version ={{ cuda_version }}
@@ -61,10 +59,10 @@ requirements:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
     - cudatoolkit
-    - cuda-python >=11.7.1,<12.0a0,<=11.8.3
+    - cuda-python >=11.8.5,<12.0a0
     {% else %}
     - cuda-cudart
-    - cuda-python >=12.0,<13.0a0,<=12.6.0
+    - cuda-python >=12.6.2,<13.0a0
     {% endif %}
     - libraft {{ version }}
     - libraft-headers {{ version }}
@@ -81,5 +79,5 @@ tests:
 about:
   home: https://rapids.ai/
   license: Apache-2.0
-  # license_file: LICENSE
+  license_file: LICENSE
   summary: pylibraft library

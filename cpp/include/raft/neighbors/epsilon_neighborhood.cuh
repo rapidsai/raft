@@ -76,7 +76,7 @@ void epsUnexpL2SqNeighborhood(bool* adj,
  *  #include <raft/core/resources.hpp>
  *  #include <raft/core/device_mdarray.hpp>
  *  using namespace raft::neighbors;
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  auto adj = raft::make_device_matrix<bool>(handle, m * n);
  *  auto vd = raft::make_device_vector<int>(handle, m+1);
