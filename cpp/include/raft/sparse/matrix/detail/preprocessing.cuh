@@ -47,13 +47,14 @@ __global__ void _scan(int* rows, int nnz, int* counts)
   }
 }
 
-__global__ void _fit_compute_occurs(int* cols, int nnz, int* counts, int* feats)
+__global__ void _fit_compute_occurs(int* cols, int nnz, int* counts, int* feats, int vocabSize)
 {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
   if ((index < nnz) && (counts[index] == 1)) {
     int targetVal = cols[index];
+    int vocab     = targetVal % vocabSize;
     while (targetVal == cols[index]) {
-      feats[targetVal] = feats[targetVal] + 1;
+      feats[vocab] = feats[vocab] + 1;
       index++;
       if (index >= nnz) { return; }
     }
@@ -71,6 +72,7 @@ __global__ void _transform(int* rows,
                            float k,
                            float b,
                            int nnz,
+                           int vocabSize,
                            bool bm25 = false)
 {
   int start_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -86,7 +88,8 @@ __global__ void _transform(int* rows,
     index = start_index;
     float result;
     while (targetVal == rows[index]) {
-      int vocab     = columns[index];
+      int col       = columns[index];
+      int vocab     = col % vocabSize;
       float tf      = (float)values[index] / row_length;
       double idf_in = (double)num_rows / feat_id_count[vocab];
       float idf     = (float)raft::log<double>(idf_in);

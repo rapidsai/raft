@@ -119,7 +119,7 @@ void SparseEncoder<ValueType, IndexType>::_fit_feats(IndexType* cols,
   int num_blocks = (nnz + blockSize - 1) / blockSize;
   raft::sparse::matrix::detail::_scan<<<blockSize, num_blocks>>>(cols, nnz, counts);
   raft::sparse::matrix::detail::_fit_compute_occurs<<<blockSize, num_blocks>>>(
-    cols, nnz, counts, results);
+    cols, nnz, counts, results, vocabSize);
 }
 
 template <typename ValueType, typename IndexType>
@@ -302,6 +302,7 @@ void SparseEncoder<ValueType, IndexType>::transform(
                                                                       k_param,
                                                                       b_param,
                                                                       nnz,
+                                                                      vocabSize,
                                                                       bm25_on);
   cudaFree(counts);
   cudaDeviceSynchronize();
