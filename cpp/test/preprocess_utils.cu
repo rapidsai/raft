@@ -28,6 +28,19 @@
 
 namespace raft::util {
 
+template <typename T>
+void print_vals(raft::resources& handle, const raft::device_vector_view<T, size_t>& out)
+{
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+  auto h_out          = raft::make_host_vector<T>(out.size());
+  raft::copy(h_out.data_handle(), out.data_handle(), out.size(), stream);
+  int limit = int(out.size());
+  for (int i = 0; i < limit; i++) {
+    std::cout << float(h_out(i)) << ", ";
+  }
+  std::cout << std::endl;
+}
+
 template <typename T1, typename T2>
 struct check_zeroes {
   float __device__ operator()(const T1& value, const T2& idx)
@@ -50,6 +63,7 @@ void preproc(raft::resources& handle,
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
+  // create matrix and copy to device
   auto host_dense_vals = raft::make_host_vector<T2, int64_t>(handle, dense_values.size());
   raft::copy(
     host_dense_vals.data_handle(), dense_values.data_handle(), dense_values.size(), stream);
@@ -60,62 +74,55 @@ void preproc(raft::resources& handle,
 
   raft::copy(device_matrix.data_handle(), host_matrix.data_handle(), host_matrix.size(), stream);
 
-  auto output_cols_lengths = raft::make_device_matrix<T2, int64_t>(handle, 1, num_cols);
-  raft::linalg::reduce(output_cols_lengths.data_handle(),
+  // get sum reduce for each row (length of the document)
+  auto output_rows_lengths = raft::make_device_matrix<T2, int64_t>(handle, 1, num_rows);
+  raft::linalg::reduce(output_rows_lengths.data_handle(),
                        device_matrix.data_handle(),
-                       num_rows,
                        num_cols,
+                       num_rows,
                        0.0f,
-                       false,
+                       true,
                        true,
                        stream);
-  auto h_output_cols_lengths = raft::make_host_matrix<T2, int64_t>(handle, 1, num_cols);
-  raft::copy(h_output_cols_lengths.data_handle(),
-             output_cols_lengths.data_handle(),
-             output_cols_lengths.size(),
+  auto h_output_rows_lengths = raft::make_host_matrix<T2, int64_t>(handle, 1, num_rows);
+  raft::copy(h_output_rows_lengths.data_handle(),
+             output_rows_lengths.data_handle(),
+             output_rows_lengths.size(),
              stream);
 
-  auto output_cols_length_sum = raft::make_device_scalar<T1>(handle, 0);
-  raft::linalg::mapReduce(output_cols_length_sum.data_handle(),
-                          num_cols,
-                          0,
+  // find the avg size of a document
+  auto output_rows_length_sum = raft::make_device_scalar<T2>(handle, 0);
+  raft::linalg::mapReduce(output_rows_length_sum.data_handle(),
+                          num_rows,
+                          0.0f,
                           raft::identity_op(),
                           raft::add_op(),
                           stream,
-                          output_cols_lengths.data_handle());
-  auto h_output_cols_length_sum = raft::make_host_scalar<T1>(handle, 0);
-  raft::copy(h_output_cols_length_sum.data_handle(),
-             output_cols_length_sum.data_handle(),
-             output_cols_length_sum.size(),
+                          output_rows_lengths.data_handle());
+  auto h_output_rows_length_sum = raft::make_host_scalar<T2>(handle, 0);
+  raft::copy(h_output_rows_length_sum.data_handle(),
+             output_rows_length_sum.data_handle(),
+             output_rows_length_sum.size(),
              stream);
+  T2 avg_row_length = (T2)h_output_rows_length_sum(0) / num_rows;
 
-  T2 avg_col_length = T2(h_output_cols_length_sum(0)) / num_cols;
-
-  auto output_rows_freq = raft::make_device_matrix<T2, int64_t>(handle, 1, num_rows);
-  raft::linalg::reduce(output_rows_freq.data_handle(),
+  // find the number of docs(row) each vocab(col) word is in
+  auto output_cols_cnt = raft::make_device_matrix<T2, int64_t>(handle, 1, num_cols);
+  raft::linalg::reduce(output_cols_cnt.data_handle(),
                        device_matrix.data_handle(),
-                       num_rows,
                        num_cols,
-                       0.0f,
-                       false,
-                       false,
-                       stream);
-
-  auto output_rows_cnt = raft::make_device_matrix<T2, int64_t>(handle, 1, num_rows);
-  raft::linalg::reduce(output_rows_cnt.data_handle(),
-                       device_matrix.data_handle(),
                        num_rows,
-                       num_cols,
                        0.0f,
-                       false,
+                       true,
                        false,
                        stream,
                        false,
                        check_zeroes<T2, T2>());
-  auto h_output_rows_cnt = raft::make_host_matrix<T2, int64_t>(handle, 1, num_rows);
+  auto h_output_cols_cnt = raft::make_host_matrix<T2, int64_t>(handle, 1, num_cols);
   raft::copy(
-    h_output_rows_cnt.data_handle(), output_rows_cnt.data_handle(), output_rows_cnt.size(), stream);
+    h_output_cols_cnt.data_handle(), output_cols_cnt.data_handle(), output_cols_cnt.size(), stream);
 
+  // perform bm25/tfidf calculations
   auto out_device_matrix = raft::make_device_matrix<T2, int64_t>(handle, num_rows, num_cols);
   raft::matrix::fill<T2>(handle, out_device_matrix.view(), 0.0f);
   auto out_host_matrix = raft::make_host_matrix<T2, int64_t>(handle, num_rows, num_cols);
@@ -128,18 +135,21 @@ void preproc(raft::resources& handle,
   for (int row = 0; row < num_rows; row++) {
     for (int col = 0; col < num_cols; col++) {
       float val = host_matrix(row, col);
+      // std::cout << val << ", ";
       if (val == 0) {
         out_host_matrix(row, col) = 0.0f;
       } else {
-        float tf  = float(val / h_output_cols_lengths(0, col));
-        float idf = raft::log<T2>(num_cols / h_output_rows_cnt(0, row));
+        float tf      = (float)val / h_output_rows_lengths(0, row);
+        double idf_in = (double)num_rows / h_output_cols_cnt(0, col);
+        float idf     = (float)raft::log<double>(idf_in);
         if (tf_idf) {
           result = tf * idf;
         } else {
           float bm25 = ((k1 + 1) * tf) /
-                       (k1 * ((1 - b) + b * (h_output_cols_lengths(0, col) / avg_col_length)) + tf);
+                       (k1 * ((1 - b) + b * (h_output_rows_lengths(0, row) / avg_row_length)) + tf);
           result = idf * bm25;
         }
+        // result = avg_row_length;
         out_host_matrix(row, col) = result;
         out_host_vector(count)    = result;
         count++;
