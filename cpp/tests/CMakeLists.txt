@@ -77,7 +77,7 @@ function(ConfigureTest)
     target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_DISABLE_CUDA")
   endif()
 
-  target_include_directories(${TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>")
+  target_include_directories(${TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/tests>")
 
   rapids_test_add(
     NAME ${TEST_NAME}
