@@ -32,7 +32,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 
   # Allow invalid CUDA kernels in the short term
   if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.8.0)
-    list(APPEND RAFT_CUDA_FLAGS -static-global-template-stub=false )
+    list(APPEND RAFT_CUDA_FLAGS -static-global-template-stub=false)
   endif()
 
 endif()
