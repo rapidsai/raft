@@ -95,8 +95,8 @@ class SparsePreprocessCSR
       csr_matrix.view().get_elements().data(), coo.vals(), coo.nnz, stream);
 
     auto result = raft::make_device_vector<Type_f, int64_t>(handle, coo.nnz);
-    raft::sparse::matrix::detail::SparseEncoder* sparseEncoder =
-      new raft::sparse::matrix::detail::SparseEncoder(num_cols);
+    raft::sparse::matrix::SparseEncoder<float, int>* sparseEncoder =
+      new raft::sparse::matrix::SparseEncoder<float, int>(num_cols);
 
     if (coo_on) {
       auto coo_struct_view = raft::make_device_coordinate_structure_view(
