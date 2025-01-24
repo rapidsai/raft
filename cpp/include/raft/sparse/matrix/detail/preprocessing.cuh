@@ -28,6 +28,18 @@
 
 namespace raft::sparse::matrix::detail {
 
+/**
+ * This function creates a representation of input data (rows) that identifies when
+ * value changes in the input data. This function assumes data is sorted.
+ *
+ * @param[in] rows
+ *   The input data
+ * @param[in] nnz
+ *   The size of the input data.
+ * @param[in] counts
+ *   The resulting representation of the index value changes of the input. Should be
+ *   the same size as the input (nnz)
+ */
 __global__ void _scan(int* rows, int nnz, int* counts)
 {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -47,6 +59,22 @@ __global__ void _scan(int* rows, int nnz, int* counts)
   }
 }
 
+/**
+ * This function counts the occurrences of the input array. Uses modulo logic as a
+ * rudimentary hash (should be changed with better hash function).
+ *
+ * @param[in] cols
+ *   The input data
+ * @param[in] nnz
+ *   The size of the input data.
+ * @param[in] counts
+ *   The resulting representation of the index value changes of the input. Should be
+ *   the same size as the input (nnz)
+ * @param[in] feats
+ *   The array that will house the occurrence counts
+ * @param[in] vocabSize
+ *   The size of the occurrence counts array (feats).
+ */
 __global__ void _fit_compute_occurs(int* cols, int nnz, int* counts, int* feats, int vocabSize)
 {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -61,6 +89,37 @@ __global__ void _fit_compute_occurs(int* cols, int nnz, int* counts, int* feats,
   }
 }
 
+/**
+ * This function calculates tfidf or bm25, depending on options supplied, from the
+ * values input array.
+ *
+ * @param[in] rows
+ *   The input rows.
+ * @param[in] columns
+ *   The input columns (features).
+ * @param[in] values
+ *   The input values.
+ * @param[in] feat_id_count
+ *   The array holding the feature(column) occurrence counts for all fitted inputs.
+ * @param[in] counts
+ *   The array representing value changes in rows input.
+ * @param[in] out_values
+ *   The array that will store calculated values, should be size NNZ.
+ * @param[in] vocabSize
+ *   The number of the features (columns).
+ * @param[in] num_rows
+ *   Total number of rows for all fitted inputs.
+ * @param[in] avgRowLen
+ *   The average length of a row (sum of all values for each row).
+ * @param[in] k
+ *   The bm25 formula variable. Helps with optimization.
+ * @param[in] b
+ *   The bm25 formula variable. Helps with optimization.
+ * @param[in] nnz
+ *   The size of the input arrays (rows, columns, values).
+ * @param[in] bm25
+ *   Boolean that activates bm25 calculation instead of tfidf
+ */
 __global__ void _transform(int* rows,
                            int* columns,
                            float* values,
@@ -105,6 +164,21 @@ __global__ void _transform(int* rows,
   }
 }
 
+/**
+ * This function converts a raft csr matrix in to a coo (rows, columns,values)
+ * representation.
+ *
+ * @param[in] handle
+ *   The input data
+ * @param[in] csr_in
+ *   The input raft csr matrix.
+ * @param[in] rows
+ *   The output rows from the csr conversion.
+ * @param[in] columns
+ *   The output columns from the csr conversion.
+ * @param[in] values
+ *   The output values from the csr conversion.
+ */
 template <typename ValueType, typename IndexType>
 void convert_csr_to_coo(raft::resources& handle,
                         raft::device_csr_matrix<ValueType,
