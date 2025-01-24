@@ -6,6 +6,8 @@ files:
       cuda: ["11.8", "12.5"]
       arch: [x86_64, aarch64]
     includes:
+      - build_common
+      - build_cython
       - checks
       - cuda
       - cuda_version
@@ -15,7 +17,6 @@ files:
       - depends_on_rmm
       - develop
       - docs
-      - rapids_build
       - rapids_build_skbuild
       - run_pylibraft
       - run_raft_dask
@@ -48,6 +49,29 @@ files:
       - docs
       - py_version
       - test_pylibraft
+  py_build_libraft:
+    output: pyproject
+    pyproject_dir: python/libraft
+    extras:
+      table: build-system
+    includes:
+      - rapids_build_skbuild
+  py_rapids_build_libraft:
+    output: pyproject
+    pyproject_dir: python/libraft
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
+    includes:
+      - build_common
+      - depends_on_librmm
+  py_run_libraft:
+    output: pyproject
+    pyproject_dir: python/libraft
+    extras:
+      table: project
+    includes:
+      - cuda_wheels
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -62,16 +86,19 @@ files:
       table: tool.rapids-build-backend
       key: requires
     includes:
+      - build_common
+      - build_cython
+      - depends_on_libraft
+      - depends_on_librmm
       - depends_on_cuda_python
       - depends_on_rmm
-      - rapids_build
   py_run_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
     extras:
       table: project
     includes:
-      - cuda_wheels
+      - depends_on_libraft
       - depends_on_cuda_python
       - depends_on_rmm
       - run_pylibraft
@@ -99,8 +126,11 @@ files:
       table: tool.rapids-build-backend
       key: requires
     includes:
+      - build_common
+      - build_cython
+      - depends_on_libraft
+      - depends_on_librmm
       - depends_on_ucx_build
-      - rapids_build
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -108,6 +138,7 @@ files:
       table: project
     includes:
       - depends_on_distributed_ucxx
+      - depends_on_libraft
       - run_raft_dask
   py_test_raft_dask:
     output: pyproject
@@ -135,12 +166,11 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.10.0
-  rapids_build:
+  build_common:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cmake_ver cmake>=3.26.4,!=3.30.0
-          - cython>=3.0.0,<3.1.0a0
           - ninja
       - output_types: [conda]
         packages:
@@ -154,14 +184,28 @@ dependencies:
         matrices:
           - matrix:
               arch: x86_64
+              cuda: "11.8"
             packages:
               - gcc_linux-64=11.*
-              - sysroot_linux-64==2.17
+              - sysroot_linux-64==2.28
           - matrix:
               arch: aarch64
+              cuda: "11.8"
             packages:
               - gcc_linux-aarch64=11.*
-              - sysroot_linux-aarch64==2.17
+              - sysroot_linux-aarch64==2.28
+          - matrix:
+              arch: x86_64
+              cuda: "12.*"
+            packages:
+              - gcc_linux-64=13.*
+              - sysroot_linux-64==2.28
+          - matrix:
+              arch: aarch64
+              cuda: "12.*"
+            packages:
+              - gcc_linux-aarch64=13.*
+              - sysroot_linux-aarch64==2.28
       - output_types: conda
         matrices:
           - matrix: {cuda: "12.*"}
@@ -182,7 +226,11 @@ dependencies:
             packages: [nvcc_linux-64=11.2]
           - matrix: {cuda: "11.2", arch: aarch64}
             packages: [nvcc_linux-aarch64=11.2]
-
+  build_cython:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - cython>=3.0.0,<3.1.0a0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -310,11 +358,14 @@ dependencies:
               - nvidia-curand-cu12
               - nvidia-cusolver-cu12
               - nvidia-cusparse-cu12
-          # CUDA 11 does not provide wheels, so use the system libraries instead
           - matrix:
               cuda: "11.*"
               use_cuda_wheels: "true"
             packages:
+              - nvidia-cublas-cu11
+              - nvidia-curand-cu11
+              - nvidia-cusolver-cu11
+              - nvidia-cusparse-cu11
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
           # (e.g. for DLFW and pip devcontainers)
           - matrix:
@@ -471,6 +522,55 @@ dependencies:
             packages:
               - distributed-ucxx-cu11==0.42.*,>=0.0.0a0
           - {matrix: null, packages: [*distributed_ucxx_unsuffixed]}
+  depends_on_libraft:
+    common:
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - libraft-cu12==25.2.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
+            packages:
+              - libraft-cu11==25.2.*,>=0.0.0a0
+          - matrix:
+            packages:
+              - libraft==25.2.*,>=0.0.0a0
+  depends_on_librmm:
+    common:
+      - output_types: conda
+        packages:
+          - &librmm_unsuffixed librmm==25.2.*,>=0.0.0a0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - librmm-cu12==25.2.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
+            packages:
+              - librmm-cu11==25.2.*,>=0.0.0a0
+          - matrix:
+            packages:
+              - *librmm_unsuffixed
   depends_on_rmm:
     common:
       - output_types: conda
