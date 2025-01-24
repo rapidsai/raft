@@ -88,7 +88,7 @@ repos:
                 exclude: .*/thirdparty/.*
               - id: include-check
                 name: include-check
-                entry: python ./cpp/scripts/include_checker.py cpp/bench cpp/include cpp/test
+                entry: python ./cpp/scripts/include_checker.py cpp/bench cpp/include cpp/tests
                 pass_filenames: false
                 language: python
                 additional_dependencies: [gitpython]
@@ -103,7 +103,7 @@ repos:
                     ^CHANGELOG[.]md$|
                     ^cpp/cmake/patches/cutlass/build-export[.]patch$
       - repo: https://github.com/pre-commit/pre-commit-hooks
-        rev: v4.5.0
+        rev: v5.0.0
         hooks:
               - id: check-json
       - repo: https://github.com/rapidsai/pre-commit-hooks
@@ -123,7 +123,7 @@ repos:
                   docs/source/sphinxext/github_link[.]py|
           - id: verify-alpha-spec
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.16.0
+        rev: v1.17.0
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]

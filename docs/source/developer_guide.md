@@ -211,7 +211,7 @@ This will bring up an interactive prompt to select which spelling fixes to apply
 
 Manually, run the following to bulk-fix include style issues:
 ```bash
-python ./cpp/scripts/include_checker.py --inplace [cpp/include cpp/test ... list of folders which you want to fix]
+python ./cpp/scripts/include_checker.py --inplace [cpp/include cpp/tests ... list of folders which you want to fix]
 ```
 
 ### Copyright header
