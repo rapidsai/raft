@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuda.ccudart cimport cudaStream_t
+from cuda.bindings.cyruntime cimport cudaStream_t
 
 
 cdef class Stream:

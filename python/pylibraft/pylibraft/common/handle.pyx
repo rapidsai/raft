@@ -21,7 +21,7 @@
 
 import functools
 
-from cuda.ccudart cimport cudaStream_t
+from cuda.bindings.cyruntime cimport cudaStream_t
 from libc.stdint cimport uintptr_t
 
 from rmm.librmm.cuda_stream_view cimport (
