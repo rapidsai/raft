@@ -229,8 +229,7 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: stream to use for init
    */
-  void allocate(
-    uint64_t nnz, Index_Type n_rows, Index_Type n_cols, bool init, cudaStream_t stream)
+  void allocate(uint64_t nnz, Index_Type n_rows, Index_Type n_cols, bool init, cudaStream_t stream)
   {
     this->n_rows = n_rows;
     this->n_cols = n_cols;

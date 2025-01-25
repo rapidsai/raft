@@ -73,9 +73,9 @@ RAFT_KERNEL coo_symmetrize_kernel(uint64_t* row_ind,
       int cur_col = cols[start_idx + idx];
       T cur_val   = vals[start_idx + idx];
 
-      int lookup_row = cur_col;
-      uint64_t t_start    = row_ind[lookup_row];  // Start at
-      uint64_t t_stop     = get_stop_idx(lookup_row, n, cnnz, row_ind);
+      int lookup_row   = cur_col;
+      uint64_t t_start = row_ind[lookup_row];  // Start at
+      uint64_t t_stop  = get_stop_idx(lookup_row, n, cnnz, row_ind);
 
       T transpose = 0.0;
 
@@ -158,7 +158,7 @@ void coo_symmetrize(COO<T>* in,
                                                             in->n_rows,
                                                             in->nnz,
                                                             reduction_op);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

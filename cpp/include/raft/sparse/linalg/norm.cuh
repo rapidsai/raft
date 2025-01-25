@@ -40,7 +40,7 @@ template <typename T, typename indT>
 void csr_row_normalize_l1(const indT* ia,  // csr row ex_scan (sorted by row)
                           const T* vals,
                           indT nnz,  // array of values and number of non-zeros
-                          int m,    // num rows in csr
+                          int m,     // num rows in csr
                           T* result,
                           cudaStream_t stream)
 {  // output array
