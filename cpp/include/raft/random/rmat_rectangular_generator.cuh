@@ -30,8 +30,18 @@ namespace raft::random {
 /**
  * @brief Generate a bipartite RMAT graph for a rectangular adjacency matrix.
  *
- * This is the most general of several overloads of `rmat_rectangular_gen`
- * in this file, and thus has the most detailed documentation.
+ * This function generates a random graph represented by a (sparse) adjacency matrix. As described
+ * in [1], to generate connections, we recursively subdivide the adjacency matrix into four
+ * equal-sized partitions, and distribute edges within these partitions with a unequal
+ * probabilities. The probabilities are described by numbers [a, b, c, d]. We chose the upper left
+ * partition with probability `a`. The chosen partition is again subdivided into four smaller
+ * partitions, and the procedure is repeated until we reach a single element (1 x 1 partition).
+ *
+ * We can prescribe different probability distribution at each iteariton. The `theta` array stores
+ * the probability values for each level.
+ *
+ * [1] "R-MAT: A Recursive Model for Graph Mining" Deepayan Chakrabarti, Yiping Zhan, Christos
+ * Faloutsos (2004) https://doi.org/10.1137/1.9781611972740.43
  *
  * @tparam IdxT  Type of each node index
  * @tparam ProbT Data type used for probability distributions (either fp32 or fp64)
@@ -49,11 +59,14 @@ namespace raft::random {
  * @param[out] out_dst Destination node id's [on device].  `out_src` and `out_dst`
  *                     together form the struct-of-arrays representation of the same
  *                     output data as `out`.
- * @param[in]  theta   distribution of each quadrant at each level of resolution.
- *                     Since these are probabilities, each of the 2x2 matrices for
- *                     each level of the RMAT must sum to one. [on device]
- *                     [dim = max(r_scale, c_scale) x 2 x 2]. Of course, it is assumed
- *                     that each of the group of 2 x 2 numbers all sum up to 1.
+ * @param[in]  theta   array [on device] with the distribution of each quadrant at each level of
+ *                     resolution. theta = [a0, b0, c0, d0, a1, b1, c1, d1, ...], where
+ *                     [a0, b0, c0, d0]  defines the probability at the finest level (2x2).
+ *                     The last four elements in the array describe the probability in the
+ *                     coarsest level (where matrix size = [2^r_scale, 2^c_scale]).
+ *                     Since these are probabilities, the four [a_i, b_i, c_i, d_i] values for
+ *                     each level of the RMAT must sum to one.
+ *                     [dim = max(r_scale, c_scale) x 2 x 2].
  * @param[in]  r_scale 2^r_scale represents the number of source nodes
  * @param[in]  c_scale 2^c_scale represents the number of destination nodes
  *

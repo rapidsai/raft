@@ -169,4 +169,3 @@ test<CP<CP<int*, int*>, CP<int*, int*>>, 4 * sizeof(int*), non_empty>();
 // </editor-fold> end compressed pair layout: 2 nested pairs, 4 leaf elements }}}1
 //==============================================================================
 }
-

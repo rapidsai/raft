@@ -253,12 +253,12 @@ def run_clang_command(clang_cmd, cwd):
 class LockContext(object):
     def __init__(self, lock=None) -> None:
         self._lock = lock
-    
+
     def __enter__(self):
         if self._lock:
             self._lock.acquire()
         return self
-    
+
     def __exit__(self, _, __, ___):
         if self._lock:
             self._lock.release()

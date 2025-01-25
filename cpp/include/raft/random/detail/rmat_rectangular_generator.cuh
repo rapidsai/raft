@@ -54,8 +54,8 @@ DI void gen_and_update_bits(IdxT& src_id,
   } else {
     src_bit = dst_bit = true;
   }
-  if (curr_depth < r_scale) { src_id |= (IdxT(src_bit) << (r_scale - curr_depth - 1)); }
-  if (curr_depth < c_scale) { dst_id |= (IdxT(dst_bit) << (c_scale - curr_depth - 1)); }
+  if (curr_depth < r_scale) { src_id |= (IdxT(src_bit) << (curr_depth)); }
+  if (curr_depth < c_scale) { dst_id |= (IdxT(dst_bit) << (curr_depth)); }
 }
 
 template <typename IdxT>

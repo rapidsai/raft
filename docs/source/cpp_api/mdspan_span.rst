@@ -25,4 +25,3 @@ span: One-dimensional Non-owning View
     :project: RAFT
     :members:
     :content-only:
-

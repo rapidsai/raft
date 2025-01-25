@@ -14,4 +14,4 @@ python -m pip install \
     ./local-libraft-dep/libraft*.whl \
     "$(echo ./dist/pylibraft*.whl)[test]"
 
-python -m pytest ./python/pylibraft/pylibraft/test
+python -m pytest ./python/pylibraft/pylibraft/tests
