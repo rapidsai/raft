@@ -41,4 +41,3 @@ namespace *raft::matrix*
     :project: RAFT
     :members:
     :content-only:
-

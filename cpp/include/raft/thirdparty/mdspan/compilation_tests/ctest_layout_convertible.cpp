@@ -117,5 +117,3 @@ MDSPAN_STATIC_TEST(
 MDSPAN_STATIC_TEST(
   !std::is_constructible<LS1, NotARealLayout::mapping<E2>>::value
 );
-
-
