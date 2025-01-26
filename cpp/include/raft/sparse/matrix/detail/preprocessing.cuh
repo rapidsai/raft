@@ -140,7 +140,7 @@ __global__ void _transform(int* rows,
     int row_length = 0;
     int targetVal  = rows[index];
     while (targetVal == rows[index]) {
-      row_length = row_length + values[index];
+      row_length += values[index];
       index++;
       if (index >= nnz) { break; }
     }

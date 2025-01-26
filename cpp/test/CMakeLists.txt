@@ -256,6 +256,7 @@ if(BUILD_TESTS)
     sparse/masked_matmul.cu
     sparse/norm.cu
     sparse/normalize.cu
+    sparse/preprocess.cu
     sparse/reduce.cu
     sparse/row_op.cu
     sparse/sddmm.cu
@@ -264,7 +265,6 @@ if(BUILD_TESTS)
     sparse/spgemmi.cu
     sparse/spmm.cu
     sparse/symmetrize.cu
-    sparse/preprocess.cu
   )
 
   ConfigureTest(

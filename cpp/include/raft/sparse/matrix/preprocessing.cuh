@@ -22,6 +22,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/sparse/matrix/detail/preprocessing.cuh>
 
+#include <map>
 #include <optional>
 
 namespace raft::sparse::matrix {
@@ -36,6 +37,7 @@ class SparseEncoder {
 
  public:
   SparseEncoder(int vocab_size);
+  SparseEncoder(std::map<int, int> featIdValues, int num_rows, int full_id_len, int vocab_size);
   ~SparseEncoder();
   void fit(raft::resources& handle,
            raft::device_coo_matrix<ValueType,
@@ -100,6 +102,21 @@ SparseEncoder<ValueType, IndexType>::SparseEncoder(int vocab) : vocabSize(vocab)
   numRows   = 0;
   for (int i = 0; i < vocabSize; i++) {
     featIdCount[i] = 0;
+  }
+}
+
+template <typename ValueType, typename IndexType>
+SparseEncoder<ValueType, IndexType>::SparseEncoder(std::map<int, int> featIdValues,
+                                                   int num_rows,
+                                                   int full_id_len,
+                                                   int vocab_size)
+  : vocabSize(vocab_size), numRows(num_rows), fullIdLen(full_id_len)
+{
+  cudaMallocManaged(&featIdCount, vocabSize * sizeof(int));
+  cudaMemset(featIdCount, 0, vocabSize * sizeof(int));
+
+  for (const auto& item : featIdValues) {
+    featIdCount[item.first] = item.second;
   }
 }
 
