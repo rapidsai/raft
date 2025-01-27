@@ -27,6 +27,28 @@
 
 namespace raft::sparse::matrix {
 
+/**
+ * The class facilitates the creation a tfidf and bm25 encoding values for sparse matrices
+ *
+ * This class creates tfidf and bm25 encoding values for sparse matrices. It allows for
+ * batched matrix processing by calling fit for all matrix chunks. Once all matrices have
+ * been fitted, the user can use transform to actually produce the encoded values for each
+ * subset (chunk) matrix.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] featIdCount
+ *   An array that holds the count of how many different rows each feature occurs in.
+ * @param[in] fullIdLen
+ *   The value that represents the total number of words seen during the fit process.
+ * @param[out] vocabSize
+ *   A value that represents the number of features that exist for the matrices encoded.
+ * @param[out] numRows
+ *   The number of rows observed during the fit process, accumulates over all fit calls.
+ */
 template <typename ValueType = float, typename IndexType = int>
 class SparseEncoder {
  private:
@@ -94,6 +116,18 @@ class SparseEncoder {
                  float b_param = 0.75f);
 };
 
+/**
+ * This constructor creates the `SparseEncoder` class with a vocabSize equal to the
+ * int vocab parameter supplied.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] vocab
+ *   Value that represents the number of features that exist for the matrices encoded.
+ */
 template <typename ValueType, typename IndexType>
 SparseEncoder<ValueType, IndexType>::SparseEncoder(int vocab) : vocabSize(vocab)
 {
@@ -104,7 +138,25 @@ SparseEncoder<ValueType, IndexType>::SparseEncoder(int vocab) : vocabSize(vocab)
     featIdCount[i] = 0;
   }
 }
-
+/**
+ * This constructor creates the `SparseEncoder` class with a vocabSize equal to the
+ * int vocab parameter supplied.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] featIdValues
+ *   A map that consists of all the indices and values, to populate the featIdCount array.
+ * @param[in] num_rows
+ *   Value that represents the number of rows observed during fit cycle.
+ * @param[in] full_id_len
+ *   Value that represents the number overall number of features observed during the fit
+ * cycle.
+ * @param[in] vocab_size
+ *   Value that represents the number of features that exist for the matrices encoded.
+ * */
 template <typename ValueType, typename IndexType>
 SparseEncoder<ValueType, IndexType>::SparseEncoder(std::map<int, int> featIdValues,
                                                    int num_rows,
@@ -120,6 +172,14 @@ SparseEncoder<ValueType, IndexType>::SparseEncoder(std::map<int, int> featIdValu
   }
 }
 
+/**
+ * This destructor deallocates/frees the reserved memory of the class.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ * */
 template <typename ValueType, typename IndexType>
 SparseEncoder<ValueType, IndexType>::~SparseEncoder()
 {
@@ -176,6 +236,21 @@ void SparseEncoder<ValueType, IndexType>::_fit(raft::resources& handle,
   cudaDeviceSynchronize();
 }
 
+/**
+ * This function fits the input matrix, recording required statistics to later create
+ * encoding values.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] handle
+ *   Container for managing reusable resources.
+ * @param[in] coo_in
+ *   Raft container housing a coordinate format sparse matrix representation.
+
+ * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::fit(raft::resources& handle,
                                               raft::device_coo_matrix<ValueType,
@@ -203,6 +278,21 @@ void SparseEncoder<ValueType, IndexType>::fit(raft::resources& handle,
   _fit(handle, d_rows.view(), d_cols.view(), d_vals.view(), n_rows);
 }
 
+/**
+ * This function fits the input matrix, recording required statistics to later create
+ * encoding values.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] handle
+ *   Container for managing reusable resources.
+ * @param[in] csr_in
+ *   Raft container housing a compressed sparse row matrix representation.
+
+ * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::fit(raft::resources& handle,
                                               raft::device_csr_matrix<ValueType,
@@ -222,7 +312,21 @@ void SparseEncoder<ValueType, IndexType>::fit(raft::resources& handle,
     handle, csr_in, rows.view(), columns.view(), values.view());
   _fit(handle, rows.view(), columns.view(), values.view(), csr_in.structure_view().get_n_rows());
 }
+/**
+ * This function transforms the coo matrix based on statistics collected during fit
+ * cycle.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] handle
+ *   Container for managing reusable resources.
+ * @param[in] coo_in
+ *   Raft container housing a compressed sparse row matrix representation.
 
+ * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::transform(
   raft::resources& handle,
@@ -254,6 +358,21 @@ void SparseEncoder<ValueType, IndexType>::transform(
     handle, d_rows.view(), d_cols.view(), d_vals.view(), nnz, results, bm25_on, k_param, b_param);
 }
 
+/**
+ * This function transforms the csr matrix based on statistics collected during fit
+ * cycle.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] handle
+ *   Container for managing reusable resources.
+ * @param[in] csr_in
+ *   Raft container housing a compressed sparse row matrix representation.
+
+ * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::transform(
   raft::resources& handle,
