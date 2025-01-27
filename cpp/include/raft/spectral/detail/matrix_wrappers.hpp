@@ -142,7 +142,7 @@ struct sparse_matrix_t {
                   value_type const* values,
                   index_type const nrows,
                   index_type const ncols,
-                  index_type const nnz)
+                  uint64_t const nnz)
     : handle_(raft_handle),
       row_offsets_(row_offsets),
       col_indices_(col_indices),
@@ -158,7 +158,7 @@ struct sparse_matrix_t {
                   index_type const* col_indices,
                   value_type const* values,
                   index_type const nrows,
-                  index_type const nnz)
+                  uint64_t const nnz)
     : handle_(raft_handle),
       row_offsets_(row_offsets),
       col_indices_(col_indices),
@@ -311,7 +311,7 @@ struct sparse_matrix_t {
   value_type const* values_;
   index_type const nrows_;
   index_type const ncols_;
-  index_type const nnz_;
+  uint64_t const nnz_;
 };
 
 template <typename index_type, typename value_type>

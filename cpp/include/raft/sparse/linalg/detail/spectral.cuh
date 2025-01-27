@@ -45,8 +45,7 @@ void fit_embedding(raft::resources const& handle,
   rmm::device_uvector<int> src_offsets(n + 1, stream);
   rmm::device_uvector<int> dst_cols(nnz, stream);
   rmm::device_uvector<T> dst_vals(nnz, stream);
-  convert::coo_to_csr(
-    handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(), dst_vals.data());
+  convert::coo_to_csr(handle, rows, cols, vals, static_cast<int>(nnz), static_cast<int>(n), src_offsets.data(), dst_cols.data(), dst_vals.data());
 
   rmm::device_uvector<T> eigVals(n_components + 1, stream);
   rmm::device_uvector<T> eigVecs(n * (n_components + 1), stream);
@@ -65,7 +64,7 @@ void fit_embedding(raft::resources const& handle,
   value_type* vs = dst_vals.data();
 
   raft::spectral::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{
-    handle, ro, ci, vs, n, nnz};
+    handle, ro, ci, vs, static_cast<int>(n), nnz};
 
   index_type neigvs       = n_components + 1;
   index_type maxiter      = 4000;  // default reset value (when set to 0);
