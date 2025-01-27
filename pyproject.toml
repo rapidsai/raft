@@ -36,7 +36,7 @@ ignore_missing_imports = true
 # they are imported by a checked file.
 follow_imports = "skip"
 exclude = [
-    "pylibraft/pylibraft/test",
+    "pylibraft/pylibraft/tests",
  ]
 
 [tool.codespell]

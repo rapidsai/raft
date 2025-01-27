@@ -66,5 +66,3 @@ Accessors
 
 .. doxygentypedef:: raft::managed_accessor
     :project: RAFT
-
-

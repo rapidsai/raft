@@ -114,4 +114,3 @@ namespace *raft::linalg*
     :project: RAFT
     :members:
     :content-only:
-

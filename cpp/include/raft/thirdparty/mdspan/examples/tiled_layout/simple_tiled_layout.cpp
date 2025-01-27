@@ -207,4 +207,3 @@ int main() {
     std::cout << "Success! SimpleTiledLayout2D works as expected." << std::endl;
   }
 }
-

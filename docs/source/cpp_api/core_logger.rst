@@ -12,4 +12,3 @@ namespace *raft::core*
 .. doxygenclass:: raft::logger
     :project: RAFT
     :members:
-

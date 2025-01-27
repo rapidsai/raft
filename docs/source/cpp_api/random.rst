@@ -26,4 +26,3 @@ namespace *raft::random*
    random_sampling_univariate.rst
    random_sampling_multivariable.rst
    random_sampling_without_replacement.rst
-

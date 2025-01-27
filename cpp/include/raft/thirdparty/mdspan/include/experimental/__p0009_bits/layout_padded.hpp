@@ -45,7 +45,7 @@
 // NOTE: This code is prematurely taken from https://github.com/kokkos/mdspan/pull/180
 // and matches requirements described in https://github.com/ORNL/cpp-proposals-pub/pull/296
 // Some parts (as submdspan integration) are missing
-// EDIT: the meaning of the template argument 'padding_stride' was adjusted from a 
+// EDIT: the meaning of the template argument 'padding_stride' was adjusted from a
 // fixed stride to a padding alignment, allowing dimensions > padding_stride to be padded
 // to multiples of 'padding_stride'
 
@@ -140,7 +140,7 @@ namespace details {
 // layout_padded_left implementation
 
 namespace details {
-   
+
 
   // The *_helper functions work around not having C++20
   // templated lambdas: []<size_t... TrailingIndices>{} .

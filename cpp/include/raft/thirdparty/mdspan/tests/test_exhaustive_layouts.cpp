@@ -424,4 +424,3 @@ TYPED_TEST(TestLayoutConversion, implicit_conversion) {
     ASSERT_EQ(map1.stride(r), map2.stride(r));
   }
 }
-

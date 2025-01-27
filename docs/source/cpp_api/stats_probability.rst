@@ -53,4 +53,3 @@ namespace *raft::stats*
     :project: RAFT
     :members:
     :content-only:
-

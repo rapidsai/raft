@@ -49,4 +49,3 @@ if __name__ == "__main__":
        "#define _MDSPAN_SINGLE_HEADER_INCLUDE_GUARD_\n"],
       ["#endif // _MDSPAN_SINGLE_HEADER_INCLUDE_GUARD_\n"],
       [abspath(sys.argv[1])]))
-

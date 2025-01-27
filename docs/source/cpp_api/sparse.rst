@@ -16,4 +16,3 @@ Core to RAFT's computational patterns for sparse data is its vocabulary of spars
    sparse_linalg.rst
    sparse_matrix.rst
    sparse_solver.rst
-

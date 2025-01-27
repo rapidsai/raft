@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -29,6 +29,12 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.2.0)
     list(APPEND RAFT_CUDA_FLAGS -Werror=all-warnings)
   endif()
+
+  # Allow invalid CUDA kernels in the short term
+  if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.8.0)
+    list(APPEND RAFT_CUDA_FLAGS -static-global-template-stub=false)
+  endif()
+
 endif()
 
 if(CUDA_LOG_COMPILE_TIME)

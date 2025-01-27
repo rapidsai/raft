@@ -15,7 +15,7 @@ python -m pip install -v \
     ./local-pylibraft-dep/pylibraft*.whl \
     "$(echo ./dist/raft_dask_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
-test_dir="python/raft-dask/raft_dask/test"
+test_dir="python/raft-dask/raft_dask/tests"
 
 rapids-logger "pytest raft-dask"
 python -m pytest --import-mode=append ${test_dir}

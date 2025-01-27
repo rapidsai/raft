@@ -42,7 +42,7 @@
 */
 
 
-// NOTE: This code is prematurely taken from an example based on 
+// NOTE: This code is prematurely taken from an example based on
 // https://github.com/kokkos/mdspan/pull/176
 
 #pragma once

@@ -13,5 +13,3 @@ namespace *raft::core*
     :project: RAFT
     :members:
     :content-only:
-
-

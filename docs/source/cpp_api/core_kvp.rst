@@ -12,4 +12,3 @@ namespace *raft::core*
 .. doxygenstruct:: raft::KeyValuePair
     :project: RAFT
     :members:
-

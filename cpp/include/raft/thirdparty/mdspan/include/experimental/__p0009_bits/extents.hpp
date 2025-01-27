@@ -531,7 +531,7 @@ struct __extents_to_partially_static_sizes;
 template <class IndexType, size_t... ExtentsPack>
 struct __extents_to_partially_static_sizes<::std::experimental::extents<IndexType, ExtentsPack...>> {
   using type = detail::__partially_static_sizes<
-          typename ::std::experimental::extents<IndexType, ExtentsPack...>::index_type, size_t, 
+          typename ::std::experimental::extents<IndexType, ExtentsPack...>::index_type, size_t,
           ExtentsPack...>;
 };
 
