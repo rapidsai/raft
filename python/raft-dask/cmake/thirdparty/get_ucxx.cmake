@@ -45,8 +45,8 @@ function(find_and_configure_ucxx)
 endfunction()
 
 # Change pinned tag here to test a commit in CI
-# To use a different RAFT locally, set the CMake variable
-# CPM_raft_SOURCE=/path/to/local/raft
+# To use a different ucxx locally, set the CMake variable
+# CPM_ucxx_SOURCE=/path/to/local/ucxx
 find_and_configure_ucxx(VERSION  0.42
         FORK             rapidsai
         PINNED_TAG       branch-0.42

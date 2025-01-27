@@ -19,7 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from cuda.ccudart cimport (
+from cuda.bindings.cyruntime cimport (
     cudaError_t,
     cudaGetErrorName,
     cudaGetErrorString,

@@ -176,4 +176,3 @@ MDSPAN_STATIC_TEST(
     stdex::extents<size_t,stdex::dynamic_extent, stdex::dynamic_extent, stdex::dynamic_extent>
   >::value
 );
-

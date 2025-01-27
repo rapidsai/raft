@@ -164,4 +164,3 @@ TEST(TestLayoutStrideCTAD, test_ctad) {
 */
 }
 #endif
-
