@@ -45,7 +45,15 @@ void fit_embedding(raft::resources const& handle,
   rmm::device_uvector<int> src_offsets(n + 1, stream);
   rmm::device_uvector<int> dst_cols(nnz, stream);
   rmm::device_uvector<T> dst_vals(nnz, stream);
-  convert::coo_to_csr(handle, rows, cols, vals, static_cast<int>(nnz), static_cast<int>(n), src_offsets.data(), dst_cols.data(), dst_vals.data());
+  convert::coo_to_csr(handle,
+                      rows,
+                      cols,
+                      vals,
+                      static_cast<int>(nnz),
+                      static_cast<int>(n),
+                      src_offsets.data(),
+                      dst_cols.data(),
+                      dst_vals.data());
 
   rmm::device_uvector<T> eigVals(n_components + 1, stream);
   rmm::device_uvector<T> eigVecs(n * (n_components + 1), stream);
