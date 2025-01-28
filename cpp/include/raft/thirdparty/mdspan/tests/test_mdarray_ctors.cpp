@@ -740,7 +740,7 @@ TEST(TestMdarrayCTAD, layout_stride) {
   ASSERT_EQ(m0.stride(1), 128);
   ASSERT_FALSE(m0.is_exhaustive());
 
-  /* 
+  /*
   stdex::mdarray m1{d.data(), stdex::layout_stride::mapping{stdex::extents{16, 32}, stdex::extents{1, 128}}};
   ASSERT_EQ(m1.data(), d.data());
   ASSERT_EQ(m1.rank(), 2);

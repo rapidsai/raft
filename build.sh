@@ -473,4 +473,3 @@ if hasArg docs; then
     cd ${SPHINX_BUILD_DIR}
     sphinx-build -b html source _html
 fi
-
