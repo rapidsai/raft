@@ -187,7 +187,7 @@ RAFT relies on `clang-format` to enforce code style across all C++ and CUDA sour
 1. Do not split empty functions/records/namespaces.
 2. Two-space indentation everywhere, including the line continuations.
 3. Disable reflowing of comments.
-   The reasons behind these deviations from the Google style guide are given in comments [here](https://github.com/rapidsai/raft/blob/branch-24.12/cpp/.clang-format).
+   The reasons behind these deviations from the Google style guide are given in comments [here](https://github.com/rapidsai/raft/blob/branch-25.02/cpp/.clang-format).
 
 [`doxygen`](https://doxygen.nl/) is used as documentation generator and also as a documentation linter.
 In order to run doxygen as a linter on C++/CUDA code, run
@@ -205,13 +205,13 @@ you can run  `codespell -i 3 -w .` from the repository root directory.
 This will bring up an interactive prompt to select which spelling fixes to apply.
 
 ### #include style
-[include_checker.py](https://github.com/rapidsai/raft/blob/branch-24.12/cpp/scripts/include_checker.py) is used to enforce the include style as follows:
+[include_checker.py](https://github.com/rapidsai/raft/blob/branch-25.02/cpp/scripts/include_checker.py) is used to enforce the include style as follows:
 1. `#include "..."` should be used for referencing local files only. It is acceptable to be used for referencing files in a sub-folder/parent-folder of the same algorithm, but should never be used to include files in other algorithms or between algorithms and the primitives or other dependencies.
 2. `#include <...>` should be used for referencing everything else
 
 Manually, run the following to bulk-fix include style issues:
 ```bash
-python ./cpp/scripts/include_checker.py --inplace [cpp/include cpp/test ... list of folders which you want to fix]
+python ./cpp/scripts/include_checker.py --inplace [cpp/include cpp/tests ... list of folders which you want to fix]
 ```
 
 ### Copyright header
@@ -230,7 +230,7 @@ Call CUDA APIs via the provided helper macros `RAFT_CUDA_TRY`, `RAFT_CUBLAS_TRY`
 ## Logging
 
 ### Introduction
-Anything and everything about logging is defined inside [logger.hpp](https://github.com/rapidsai/raft/blob/branch-24.12/cpp/include/raft/core/logger.hpp). It uses [spdlog](https://github.com/gabime/spdlog) underneath, but this information is transparent to all.
+Anything and everything about logging is defined inside [logger.hpp](https://github.com/rapidsai/raft/blob/branch-25.02/cpp/include/raft/core/logger.hpp). It uses [spdlog](https://github.com/gabime/spdlog) underneath, but this information is transparent to all.
 
 ### Usage
 ```cpp
@@ -256,14 +256,14 @@ There are 7 logging levels with each successive level becoming quieter:
 7. RAFT_LEVEL_OFF
    Pass one of these as per your needs into the `set_level()` method as follows:
 ```cpp
-raft::logger::get().set_level(RAFT_LEVEL_WARN);
+raft::default_logger().set_level(RAFT_LEVEL_WARN);
 // From now onwards, this will print only WARN and above kind of messages
 ```
 
 ### Changing logging pattern
 Pass the [format string](https://github.com/gabime/spdlog/wiki/3.-Custom-formatting) as follows in order use a different logging pattern than the default.
 ```cpp
-raft::logger::get.set_pattern(YourFavoriteFormat);
+raft::default_logger().set_pattern(YourFavoriteFormat);
 ```
 One can also use the corresponding `get_pattern()` method to know the current format as well.
 
@@ -298,9 +298,9 @@ RAFT is a heavily templated library. Several core functions are expensive to com
 
 **Macros.** We define the macros `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY`. The `RAFT_COMPILED` macro is defined by `CMake` when compiling code that (1) is part of `libraft.so` or (2) is linked with `libraft.so`. It indicates that a precompiled `libraft.so` is present at runtime.
 
-The `RAFT_EXPLICIT_INSTANTIATE_ONLY` macro is defined by `CMake` during compilation of `libraft.so` itself. When defined, it indicates that implicit instantiations of expensive function templates are forbidden (they result in a compiler error). In the RAFT project, we additionally define this macro during compilation of the tests and benchmarks. 
+The `RAFT_EXPLICIT_INSTANTIATE_ONLY` macro is defined by `CMake` during compilation of `libraft.so` itself. When defined, it indicates that implicit instantiations of expensive function templates are forbidden (they result in a compiler error). In the RAFT project, we additionally define this macro during compilation of the tests and benchmarks.
 
-Below, we summarize which combinations of `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY` are used in practice and what the effect of the combination is. 
+Below, we summarize which combinations of `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY` are used in practice and what the effect of the combination is.
 
 | RAFT_COMPILED | RAFT_EXPLICIT_INSTANTIATE_ONLY | Which targets                                                                                        |
 |---------------|--------------------------------|------------------------------------------------------------------------------------------------------|
@@ -349,7 +349,7 @@ The file `expensive-ext.cuh` contains the following:
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 namespace raft {
-// (1) define templates to raise an error in case of accidental instantiation 
+// (1) define templates to raise an error in case of accidental instantiation
 template <typename T> void expensive(T arg) RAFT_EXPLICIT;
 } // namespace raft
 #endif //RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -371,7 +371,7 @@ template void raft::expensive<int>(int);
 template void raft::expensive<float>(float);
 ```
 
-**Design considerations**: 
+**Design considerations**:
 
 1. In the `-ext.cuh` header, do not include implementation headers. Only include function parameter types and types that are used to instantiate the templates. If a primitive takes custom parameter types, define them in a separate header called `<primitive_name>_types.hpp`. (see [Common Design Considerations](https://github.com/rapidsai/raft/blob/7b065aff81a0b1976e2a9e2f3de6690361a1111b/docs/source/developer_guide.md#common-design-considerations)).
 
@@ -381,7 +381,7 @@ template void raft::expensive<float>(float);
 
 4. If a header file defines multiple expensive templates, it can be that one of them is not instantiated. In this case, **do define** the template with `RAFT_EXPLICIT` in the `-ext` header. This way, when the template is instantiated, the developer gets a helpful error message instead of a confusing "function not found".
 
-This header structure was proposed in [issue #1416](https://github.com/rapidsai/raft/issues/1416), which contains more background on the motivation of this structure and the mechanics of C++ template instantiation. 
+This header structure was proposed in [issue #1416](https://github.com/rapidsai/raft/issues/1416), which contains more background on the motivation of this structure and the mechanics of C++ template instantiation.
 
 ## Testing
 

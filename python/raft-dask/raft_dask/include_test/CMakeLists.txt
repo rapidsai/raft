@@ -15,6 +15,5 @@
 set(cython_sources raft_include_test.pyx)
 set(linked_libraries raft::raft)
 rapids_cython_create_modules(
-  SOURCE_FILES "${cython_sources}" ASSOCIATED_TARGETS raft LINKED_LIBRARIES "${linked_libraries}"
-                                                                            CXX
+  SOURCE_FILES "${cython_sources}" LINKED_LIBRARIES "${linked_libraries}" CXX
 )

@@ -53,9 +53,18 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
    * @param bitmap_ptr Device raw pointer
    * @param rows Number of row in the matrix.
    * @param cols Number of col in the matrix.
+   * @param original_nbits Original number of bits used when the bitmap was created, to handle
+   * potential mismatches of data types. This is useful for using ANN indexes when a bitmap was
+   * originally created with a different data type than the ones currently supported in cuVS ANN
+   * indexes.
    */
-  _RAFT_HOST_DEVICE bitmap_view(bitmap_t* bitmap_ptr, index_t rows, index_t cols)
-    : bitset_view<bitmap_t, index_t>(bitmap_ptr, rows * cols), rows_(rows), cols_(cols)
+  _RAFT_HOST_DEVICE bitmap_view(bitmap_t* bitmap_ptr,
+                                index_t rows,
+                                index_t cols,
+                                index_t original_nbits = 0)
+    : bitset_view<bitmap_t, index_t>(bitmap_ptr, rows * cols, original_nbits),
+      rows_(rows),
+      cols_(cols)
   {
   }
 
@@ -65,11 +74,18 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
    * @param bitmap_span Device vector view of the bitmap
    * @param rows Number of row in the matrix.
    * @param cols Number of col in the matrix.
+   * @param original_nbits Original number of bits used when the bitmap was created, to handle
+   * potential mismatches of data types. This is useful for using ANN indexes when a bitmap was
+   * originally created with a different data type than the ones currently supported in cuVS ANN
+   * indexes.
    */
   _RAFT_HOST_DEVICE bitmap_view(raft::device_vector_view<bitmap_t, index_t> bitmap_span,
                                 index_t rows,
-                                index_t cols)
-    : bitset_view<bitmap_t, index_t>(bitmap_span, rows * cols), rows_(rows), cols_(cols)
+                                index_t cols,
+                                index_t original_nbits = 0)
+    : bitset_view<bitmap_t, index_t>(bitmap_span, rows * cols, original_nbits),
+      rows_(rows),
+      cols_(cols)
   {
   }
 
@@ -116,6 +132,26 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
    * @return index_t The total number of columns
    */
   inline _RAFT_HOST_DEVICE index_t get_n_cols() const { return cols_; }
+
+  /**
+   * @brief Converts to a Compressed Sparse Row (CSR) format matrix.
+   *
+   * This method transforms a two-dimensional bitmap matrix into a CSR representation,
+   * where each '1' bit in the bitmap corresponds to a non-zero entry in the CSR matrix.
+   * The bitmap is interpreted as a row-major matrix, with rows and columns defined by
+   * the dimensions of the bitmap.
+   *
+   * @tparam csr_matrix_t Specifies the CSR matrix type, constrained to raft::device_csr_matrix.
+   *
+   * @param[in] res RAFT resources for managing CUDA streams and execution policies.
+   * @param[out] csr Output parameter where the resulting CSR matrix is stored. Each '1' bit in
+   * the bitmap corresponds to a non-zero element in the CSR matrix.
+   *
+   * The caller must ensure that: The `csr` matrix is pre-allocated with dimensions and non-zero
+   * count matching the expected output.
+   */
+  template <typename csr_matrix_t>
+  void to_csr(const raft::resources& res, csr_matrix_t& csr) const;
 
  private:
   index_t rows_;

@@ -65,8 +65,11 @@ set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
 if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
   set(RAFT_COMPILE_LIBRARY_DEFAULT ON)
 endif()
-option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
+option(RAFT_COMPILE_LIBRARY "Enable building raft library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
+)
+option(RAFT_COMPILE_DYNAMIC_ONLY "Only build the shared library and skip the
+static library. Has no effect if RAFT_COMPILE_LIBRARY is OFF" OFF
 )
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
@@ -99,6 +102,17 @@ set_property(
   CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF"
 )
 message(VERBOSE "RAFT: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
+
+# Set logging level
+set(LIBRAFT_LOGGING_LEVEL
+    "INFO"
+    CACHE STRING "Choose the logging level."
+)
+set_property(
+  CACHE LIBRAFT_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
+                                       "OFF"
+)
+message(VERBOSE "RAFT: LIBRAFT_LOGGING_LEVEL = '${LIBRAFT_LOGGING_LEVEL}'.")
 
 # ##################################################################################################
 # * Conda environment detection ----------------------------------------------
@@ -152,6 +166,10 @@ include(cmake/modules/ConfigureCUDA.cmake)
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
+rapids_cpm_rapids_logger()
+rapids_make_logger(raft LOGGER_HEADER_DIR include/raft/core EXPORT_SET raft-exports)
+
 # CCCL before rmm/cuco so we get the right version of CCCL
 include(cmake/thirdparty/get_cccl.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
@@ -180,12 +198,18 @@ target_include_directories(
 )
 
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass CCCL::CCCL)
+target_link_libraries(
+  raft INTERFACE rmm::rmm rmm::rmm_logger spdlog::spdlog_header_only cuco::cuco
+                 nvidia::cutlass::cutlass CCCL::CCCL raft_logger
+)
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
   raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
                  --expt-relaxed-constexpr>
+)
+target_compile_definitions(
+  raft INTERFACE "RAFT_LOG_ACTIVE_LEVEL=RAFT_LOG_LEVEL_${LIBRAFT_LOGGING_LEVEL}"
 )
 
 set(RAFT_CUSOLVER_DEPENDENCY CUDA::cusolver${_ctk_static_suffix})
@@ -262,7 +286,6 @@ set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 if(RAFT_COMPILE_LIBRARY)
   add_library(
     raft_objs OBJECT
-    src/core/logger.cpp
     src/linalg/detail/coalesced_reduction.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
@@ -288,18 +311,26 @@ if(RAFT_COMPILE_LIBRARY)
                       "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
 
-  add_library(raft_lib SHARED $<TARGET_OBJECTS:raft_objs>)
-  add_library(raft_lib_static STATIC $<TARGET_OBJECTS:raft_objs>)
+  # Make sure not to add the rmm logger twice since it will be brought in as an interface source by
+  # the rmm::rmm_logger_impl target.
+  add_library(raft_lib SHARED $<FILTER:$<TARGET_OBJECTS:raft_objs>,EXCLUDE,rmm.*logger>)
+
+  set(_raft_lib_targets raft_lib)
+  if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+    add_library(raft_lib_static STATIC $<FILTER:$<TARGET_OBJECTS:raft_objs>,EXCLUDE,rmm.*logger>)
+    list(APPEND _raft_lib_targets raft_lib_static)
+  endif()
 
   set_target_properties(
-    raft_lib raft_lib_static
+    ${_raft_lib_targets}
     PROPERTIES OUTPUT_NAME raft
                BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  foreach(target raft_lib raft_lib_static raft_objs)
+  list(APPEND _raft_lib_targets raft_objs)
+  foreach(target IN LISTS _raft_lib_targets)
     target_link_libraries(
       ${target}
       PUBLIC raft::raft
@@ -313,6 +344,10 @@ if(RAFT_COMPILE_LIBRARY)
     # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
     target_link_options(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
   endforeach()
+  target_link_libraries(raft_lib PRIVATE rmm::rmm_logger_impl raft_logger_impl)
+  if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+    target_link_libraries(raft_lib_static PRIVATE rmm::rmm_logger_impl raft_logger_impl)
+  endif()
 endif()
 
 if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
@@ -324,20 +359,22 @@ target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS
 # ##################################################################################################
 # * raft_compiled_static----------------------------------------------------------------------------
 
-add_library(raft_compiled_static INTERFACE)
+if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+  add_library(raft_compiled_static INTERFACE)
 
-if(TARGET raft_compiled_static AND (NOT TARGET raft::compiled_static))
-  add_library(raft::compiled_static ALIAS raft_compiled_static)
+  if(TARGET raft_compiled_static AND (NOT TARGET raft::compiled_static))
+    add_library(raft::compiled_static ALIAS raft_compiled_static)
+  endif()
+  set_target_properties(raft_compiled_static PROPERTIES EXPORT_NAME compiled_static)
+
+  if(TARGET raft_lib_static AND (NOT TARGET raft::raft_lib_static))
+    add_library(raft::raft_lib_static ALIAS raft_lib_static)
+  endif()
+
+  target_link_libraries(
+    raft_compiled_static INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib_static>
+  )
 endif()
-set_target_properties(raft_compiled_static PROPERTIES EXPORT_NAME compiled_static)
-
-if(TARGET raft_lib_static AND (NOT TARGET raft::raft_lib_static))
-  add_library(raft::raft_lib_static ALIAS raft_lib_static)
-endif()
-
-target_link_libraries(
-  raft_compiled_static INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib_static>
-)
 
 # ##################################################################################################
 # * raft_distributed -------------------------------------------------------------------------------
@@ -386,8 +423,12 @@ install(
   EXPORT raft-exports
 )
 
+set(_raft_compiled_install_targets raft_compiled)
+if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+  list(APPEND _raft_compiled_install_targets raft_compiled_static)
+endif()
 install(
-  TARGETS raft_compiled raft_compiled_static
+  TARGETS ${_raft_compiled_install_targets}
   DESTINATION ${lib_dir}
   COMPONENT raft
   EXPORT raft-compiled-exports
@@ -400,12 +441,14 @@ if(TARGET raft_lib)
     COMPONENT compiled
     EXPORT raft-compiled-lib-exports
   )
-  install(
-    TARGETS raft_lib_static
-    DESTINATION ${lib_dir}
-    COMPONENT compiled-static
-    EXPORT raft-compiled-static-lib-exports
-  )
+  if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+    install(
+      TARGETS raft_lib_static
+      DESTINATION ${lib_dir}
+      COMPONENT compiled-static
+      EXPORT raft-compiled-static-lib-exports
+    )
+  endif()
   install(
     DIRECTORY include/raft_runtime
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
@@ -476,8 +519,12 @@ endif()
 set(raft_components compiled distributed)
 set(raft_export_sets raft-compiled-exports raft-distributed-exports)
 if(TARGET raft_lib)
-  list(APPEND raft_components compiled compiled-static)
-  list(APPEND raft_export_sets raft-compiled-lib-exports raft-compiled-static-lib-exports)
+  list(APPEND raft_components compiled)
+  list(APPEND raft_export_sets raft-compiled-lib-exports)
+  if(NOT RAFT_COMPILE_DYNAMIC_ONLY)
+    list(APPEND raft_components compiled-static)
+    list(APPEND raft_export_sets raft-compiled-static-lib-exports)
+  endif()
 endif()
 
 string(
@@ -539,7 +586,7 @@ endif()
 # * build test executable ----------------------------------------------------
 
 if(BUILD_TESTS)
-  add_subdirectory(test)
+  add_subdirectory(tests)
 endif()
 
 # ##################################################################################################
