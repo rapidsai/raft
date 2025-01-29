@@ -54,10 +54,10 @@ RAFT_KERNEL coo_degree_kernel(const T* rows, nnz_t nnz, outT* results)
  * @param results: output result array
  * @param stream: cuda stream to use
  */
-template <uint64_t TPB_X = 64, typename T = int, typename outT, typename nnz_t>
+template <int TPB_X = 64, typename T = int, typename outT, typename nnz_t>
 void coo_degree(const T* rows, nnz_t nnz, outT* results, cudaStream_t stream)
 {
-  dim3 grid_rc(raft::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid_rc(raft::ceildiv((nnz_t)nnz, (nnz_t)TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_degree_kernel<TPB_X><<<grid_rc, blk_rc, 0, stream>>>(rows, nnz, results);

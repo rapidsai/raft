@@ -144,11 +144,11 @@ void coo_remove_scalar(const int* rows,
  * @param scalar: scalar to remove from arrays
  * @param stream: cuda stream to use
  */
-template <int TPB_X, typename T>
+template <int TPB_X, typename T, typename nnz_t>
 void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
 {
-  rmm::device_uvector<nnz_t> row_count_nz(in->n_rows, stream);
-  rmm::device_uvector<nnz_t> row_count(in->n_rows, stream);
+  rmm::device_uvector<uint64_t> row_count_nz(in->n_rows, stream);
+  rmm::device_uvector<uint64_t> row_count(in->n_rows, stream);
 
   RAFT_CUDA_TRY(
     cudaMemsetAsync(row_count_nz.data(), 0, (uint64_t)in->n_rows * sizeof(uint64_t), stream));
@@ -166,7 +166,7 @@ void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
                             stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
+  thrust::device_ptr<uint64_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
   uint64_t out_nnz =
     thrust::reduce(rmm::exec_policy(stream), d_row_count_nz, d_row_count_nz + in->n_rows);
 

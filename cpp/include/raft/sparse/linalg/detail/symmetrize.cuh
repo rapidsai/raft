@@ -68,7 +68,7 @@ RAFT_KERNEL coo_symmetrize_kernel(nnz_t* row_ind,
     nnz_t row_nnz       = 0;
     nnz_t out_start_idx = start_idx * 2;
 
-    for (uint64_t idx = 0; idx < stop_idx - start_idx; idx++) {
+    for (nnz_t idx = 0; idx < stop_idx - start_idx; idx++) {
       int cur_row = rows[start_idx + idx];
       int cur_col = cols[start_idx + idx];
       T cur_val   = vals[start_idx + idx];
@@ -156,7 +156,7 @@ void coo_symmetrize(COO<T>* in,
                                                             out->cols(),
                                                             out->vals(),
                                                             in->n_rows,
-                                                            in->nnz,
+                                                            in->safe_nnz,
                                                             reduction_op);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
