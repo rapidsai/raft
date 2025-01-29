@@ -19,7 +19,7 @@ fi
 # echo to expand wildcard before adding `[extra]` requires for pip
 #
 # I am so sorry:
-for i in {1..50}; do
+for i in {1..20}; do
     rapids-pip-retry install --force-reinstall -v \
         ./local-libraft-dep/libraft*.whl \
         ./local-pylibraft-dep/pylibraft*.whl \

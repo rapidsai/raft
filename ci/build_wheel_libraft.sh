@@ -27,7 +27,7 @@ fi
 rapids-logger "Installing build requirements"
 
 # I am so sorry:
-for i in {1..50}; do
+for i in {1..20}; do
   rapids-pip-retry install --force-reinstall \
       -v \
       --prefer-binary \

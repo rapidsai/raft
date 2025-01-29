@@ -50,12 +50,16 @@ sccache --zero-stats
 
 rapids-logger "Building '${package_name}' wheel"
 
-rapids-pip-retry wheel \
-    -w dist \
-    -v \
-    --no-deps \
-    --disable-pip-version-check \
-    .
+# I am so sorry:
+for i in {1..20}; do
+  rapids-pip-retry wheel \
+      --force-reinstall \
+      -w dist \
+      -v \
+      --no-deps \
+      --disable-pip-version-check \
+      .
+done
 
 sccache --show-adv-stats
 
