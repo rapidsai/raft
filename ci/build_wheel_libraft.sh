@@ -25,10 +25,14 @@ then
 fi
 
 rapids-logger "Installing build requirements"
-rapids-pip-retry install \
-    -v \
-    --prefer-binary \
-    -r /tmp/requirements-build.txt
+
+# I am so sorry:
+for i in {1..50}; do
+  rapids-pip-retry install --force-reinstall \
+      -v \
+      --prefer-binary \
+      -r /tmp/requirements-build.txt
+done
 
 # build with '--no-build-isolation', for better sccache hit rate
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)

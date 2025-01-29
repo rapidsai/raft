@@ -17,10 +17,14 @@ then
     export PATH="$PWD/gha-tools/tools":$PATH
 fi
 # echo to expand wildcard before adding `[extra]` requires for pip
-rapids-pip-retry install -v \
-    ./local-libraft-dep/libraft*.whl \
-    ./local-pylibraft-dep/pylibraft*.whl \
-    "$(echo ./dist/raft_dask_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
+#
+# I am so sorry:
+for i in {1..50}; do
+    rapids-pip-retry install --force-reinstall -v \
+        ./local-libraft-dep/libraft*.whl \
+        ./local-pylibraft-dep/pylibraft*.whl \
+        "$(echo ./dist/raft_dask_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
+done
 
 test_dir="python/raft-dask/raft_dask/tests"
 
