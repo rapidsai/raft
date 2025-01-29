@@ -47,8 +47,8 @@ namespace detail {
 
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
-template <int TPB_X = 128, typename T, typename Lambda>
-RAFT_KERNEL coo_symmetrize_kernel(uint64_t* row_ind,
+template <int TPB_X = 128, typename T, typename Lambda, typename nnz_t>
+RAFT_KERNEL coo_symmetrize_kernel(nnz_t* row_ind,
                                   int* rows,
                                   int* cols,
                                   T* vals,
@@ -56,31 +56,31 @@ RAFT_KERNEL coo_symmetrize_kernel(uint64_t* row_ind,
                                   int* ocols,
                                   T* ovals,
                                   int n,
-                                  uint64_t cnnz,
+                                  nnz_t cnnz,
                                   Lambda reduction_op)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
   if (row < n) {
-    uint64_t start_idx = row_ind[row];  // each thread processes one row
-    uint64_t stop_idx  = get_stop_idx(row, n, cnnz, row_ind);
+    nnz_t start_idx = row_ind[row];  // each thread processes one row
+    nnz_t stop_idx  = get_stop_idx(row, n, cnnz, row_ind);
 
-    uint64_t row_nnz       = 0;
-    uint64_t out_start_idx = start_idx * 2;
+    nnz_t row_nnz       = 0;
+    nnz_t out_start_idx = start_idx * 2;
 
     for (uint64_t idx = 0; idx < stop_idx - start_idx; idx++) {
       int cur_row = rows[start_idx + idx];
       int cur_col = cols[start_idx + idx];
       T cur_val   = vals[start_idx + idx];
 
-      int lookup_row   = cur_col;
-      uint64_t t_start = row_ind[lookup_row];  // Start at
-      uint64_t t_stop  = get_stop_idx(lookup_row, n, cnnz, row_ind);
+      int lookup_row = cur_col;
+      nnz_t t_start  = row_ind[lookup_row];  // Start at
+      nnz_t t_stop   = get_stop_idx(lookup_row, n, cnnz, row_ind);
 
       T transpose = 0.0;
 
       bool found_match = false;
-      for (uint64_t t_idx = t_start; t_idx < t_stop; t_idx++) {
+      for (nnz_t t_idx = t_start; t_idx < t_stop; t_idx++) {
         // If we find a match, let's get out of the loop. We won't
         // need to modify the transposed value, since that will be
         // done in a different thread.

@@ -57,7 +57,7 @@ void coo_to_csr(raft::resources const& handle,
 template <typename T, typename nnz_type, typename outT>
 void sorted_coo_to_csr(const T* rows, nnz_type nnz, outT* row_ind, int m, cudaStream_t stream)
 {
-  detail::sorted_coo_to_csr(rows, (uint64_t)nnz, row_ind, m, stream);
+  detail::sorted_coo_to_csr(rows, nnz, row_ind, m, stream);
 }
 
 /**

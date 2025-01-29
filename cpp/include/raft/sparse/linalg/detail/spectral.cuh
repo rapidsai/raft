@@ -30,13 +30,13 @@ namespace sparse {
 namespace spectral {
 namespace detail {
 
-template <typename T>
+template <typename T, typename IndT, typename nnz_t>
 void fit_embedding(raft::resources const& handle,
                    int* rows,
                    int* cols,
                    T* vals,
-                   uint64_t nnz,
-                   uint64_t n,
+                   nnz_t nnz,
+                   IndT n,
                    int n_components,
                    T* out,
                    unsigned long long seed = 1234567)
