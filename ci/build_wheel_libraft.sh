@@ -16,8 +16,16 @@ rapids-dependency-file-generator \
   --matrix "${matrix_selectors}" \
 | tee /tmp/requirements-build.txt
 
+# TODO: remove me once gha-tools is released
+if ! command -v "rapids-pip-retry" &> /dev/null
+then
+    git clone --branch rapids-pip-retry https://github.com/gforsyth/gha-tools.git
+
+    export PATH="$PWD/gha-tools/tools":$PATH
+fi
+
 rapids-logger "Installing build requirements"
-python -m pip install \
+rapids-pip-retry install \
     -v \
     --prefer-binary \
     -r /tmp/requirements-build.txt

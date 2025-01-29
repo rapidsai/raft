@@ -37,11 +37,20 @@ if [[ ${package_name} != "libraft" ]]; then
     )
 fi
 
+
+# TODO: remove me once gha-tools is released
+if ! command -v "rapids-pip-retry" &> /dev/null
+then
+    git clone --branch rapids-pip-retry https://github.com/gforsyth/gha-tools.git
+
+    export PATH="$PWD/gha-tools/tools":$PATH
+fi
+
 sccache --zero-stats
 
 rapids-logger "Building '${package_name}' wheel"
 
-python -m pip wheel \
+rapids-pip-retry wheel \
     -w dist \
     -v \
     --no-deps \

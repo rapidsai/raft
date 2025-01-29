@@ -9,8 +9,15 @@ RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-f
 RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./local-pylibraft-dep
 RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./dist
 
+# TODO: remove me once gha-tools is released
+if ! command -v "rapids-pip-retry" &> /dev/null
+then
+    git clone --branch rapids-pip-retry https://github.com/gforsyth/gha-tools.git
+
+    export PATH="$PWD/gha-tools/tools":$PATH
+fi
 # echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install -v \
+rapids-pip-retry install -v \
     ./local-libraft-dep/libraft*.whl \
     ./local-pylibraft-dep/pylibraft*.whl \
     "$(echo ./dist/raft_dask_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
