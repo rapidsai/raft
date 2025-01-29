@@ -52,7 +52,8 @@ class COO {
   rmm::device_uvector<T> vals_arr;
 
  public:
-  uint64_t nnz;
+  Index_Type nnz;
+  uint64_t safe_nnz;
   Index_Type n_rows;
   Index_Type n_cols;
 
@@ -60,7 +61,13 @@ class COO {
    * @param stream: CUDA stream to use
    */
   COO(cudaStream_t stream)
-    : rows_arr(0, stream), cols_arr(0, stream), vals_arr(0, stream), nnz(0), n_rows(0), n_cols(0)
+    : rows_arr(0, stream),
+      cols_arr(0, stream),
+      vals_arr(0, stream),
+      nnz(0),
+      n_rows(0),
+      n_cols(0),
+      safe_nnz(0)
   {
   }
 
@@ -72,13 +79,20 @@ class COO {
    * @param n_rows: number of rows in the dense matrix
    * @param n_cols: number of cols in the dense matrix
    */
+  template <typename SafeNNZ_Type>
   COO(rmm::device_uvector<Index_Type>& rows,
       rmm::device_uvector<Index_Type>& cols,
       rmm::device_uvector<T>& vals,
-      uint64_t nnz,
+      SafeNNZ_Type nnz,
       Index_Type n_rows = 0,
       Index_Type n_cols = 0)
-    : rows_arr(rows), cols_arr(cols), vals_arr(vals), nnz(nnz), n_rows(n_rows), n_cols(n_cols)
+    : rows_arr(rows),
+      cols_arr(cols),
+      vals_arr(vals),
+      nnz((Index_Type)nnz),
+      n_rows(n_rows),
+      n_cols(n_cols),
+      safe_nnz((uint64_t)nnz)
   {
   }
 
@@ -89,8 +103,9 @@ class COO {
    * @param n_cols: number of cols in the dense matrix
    * @param init: initialize arrays with zeros
    */
+  template <typename SafeNNZ_Type>
   COO(cudaStream_t stream,
-      uint64_t nnz,
+      SafeNNZ_Type nnz,
       Index_Type n_rows = 0,
       Index_Type n_cols = 0,
       bool init         = true)
@@ -99,7 +114,8 @@ class COO {
       vals_arr(nnz, stream),
       nnz(nnz),
       n_rows(n_rows),
-      n_cols(n_cols)
+      n_cols(n_cols),
+      safe_nnz(nnz)
   {
     if (init) init_arrays(stream);
   }
@@ -107,10 +123,10 @@ class COO {
   void init_arrays(cudaStream_t stream)
   {
     RAFT_CUDA_TRY(
-      cudaMemsetAsync(this->rows_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
+      cudaMemsetAsync(this->rows_arr.data(), 0, this->safe_nnz * sizeof(Index_Type), stream));
     RAFT_CUDA_TRY(
-      cudaMemsetAsync(this->cols_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
-    RAFT_CUDA_TRY(cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream));
+      cudaMemsetAsync(this->cols_arr.data(), 0, this->safe_nnz * sizeof(Index_Type), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(this->vals_arr.data(), 0, this->safe_nnz * sizeof(T), stream));
   }
 
   ~COO() {}
@@ -121,7 +137,7 @@ class COO {
    */
   bool validate_size() const
   {
-    if (this->nnz <= 0 || n_rows <= 0 || n_cols <= 0) return false;
+    if (this->safe_nnz <= 0 || n_rows <= 0 || n_cols <= 0) return false;
     return true;
   }
 
@@ -162,10 +178,10 @@ class COO {
       cudaStream_t stream;
       RAFT_CUDA_TRY(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
-      out << raft::arr2Str(c.rows_arr.data(), c.nnz, "rows", stream) << std::endl;
-      out << raft::arr2Str(c.cols_arr.data(), c.nnz, "cols", stream) << std::endl;
-      out << raft::arr2Str(c.vals_arr.data(), c.nnz, "vals", stream) << std::endl;
-      out << "nnz=" << c.nnz << std::endl;
+      out << raft::arr2Str(c.rows_arr.data(), c.safe_nnz, "rows", stream) << std::endl;
+      out << raft::arr2Str(c.cols_arr.data(), c.safe_nnz, "cols", stream) << std::endl;
+      out << raft::arr2Str(c.vals_arr.data(), c.safe_nnz, "vals", stream) << std::endl;
+      out << "nnz=" << c.safe_nnz << std::endl;
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;
 
@@ -204,7 +220,8 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: CUDA stream to use
    */
-  void allocate(uint64_t nnz, bool init, cudaStream_t stream)
+  template <typename SafeNNZ_Type>
+  void allocate(SafeNNZ_Type nnz, bool init, cudaStream_t stream)
   {
     this->allocate(nnz, 0, init, stream);
   }
@@ -216,7 +233,8 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: CUDA stream to use
    */
-  void allocate(uint64_t nnz, Index_Type size, bool init, cudaStream_t stream)
+  template <typename SafeNNZ_Type>
+  void allocate(SafeNNZ_Type nnz, Index_Type size, bool init, cudaStream_t stream)
   {
     this->allocate(nnz, size, size, init, stream);
   }
@@ -229,15 +247,18 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: stream to use for init
    */
-  void allocate(uint64_t nnz, Index_Type n_rows, Index_Type n_cols, bool init, cudaStream_t stream)
+  template <typename SafeNNZ_Type>
+  void allocate(
+    SafeNNZ_Type nnz, Index_Type n_rows, Index_Type n_cols, bool init, cudaStream_t stream)
   {
-    this->n_rows = n_rows;
-    this->n_cols = n_cols;
-    this->nnz    = nnz;
+    this->n_rows   = n_rows;
+    this->n_cols   = n_cols;
+    this->nnz      = (Index_Type)nnz;
+    this->safe_nnz = nnz;
 
-    this->rows_arr.resize(this->nnz, stream);
-    this->cols_arr.resize(this->nnz, stream);
-    this->vals_arr.resize(this->nnz, stream);
+    this->rows_arr.resize(nnz, stream);
+    this->cols_arr.resize(nnz, stream);
+    this->vals_arr.resize(nnz, stream);
 
     if (init) init_arrays(stream);
   }

@@ -33,10 +33,10 @@ namespace linalg {
  * @param results: output result array
  * @param stream: cuda stream to use
  */
-template <typename T = int, typename outT>
-void coo_degree(const T* rows, uint64_t nnz, outT* results, cudaStream_t stream)
+template <typename T = int, typename nnz_type, typename outT>
+void coo_degree(const T* rows, nnz_type nnz, outT* results, cudaStream_t stream)
 {
-  detail::coo_degree<64, T>(rows, nnz, results, stream);
+  detail::coo_degree<64, T>(rows, (uint64_t)nnz, results, stream);
 }
 
 /**
@@ -50,7 +50,7 @@ void coo_degree(const T* rows, uint64_t nnz, outT* results, cudaStream_t stream)
 template <typename T, typename outT>
 void coo_degree(COO<T>* in, outT* results, cudaStream_t stream)
 {
-  coo_degree(in->rows(), in->nnz, results, stream);
+  coo_degree(in->rows(), in->safe_nnz, results, stream);
 }
 
 /**
@@ -64,11 +64,11 @@ void coo_degree(COO<T>* in, outT* results, cudaStream_t stream)
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-template <typename T, typename outT>
+template <typename T, typename nnz_type, typename outT>
 void coo_degree_scalar(
-  const int* rows, const T* vals, uint64_t nnz, T scalar, outT* results, cudaStream_t stream = 0)
+  const int* rows, const T* vals, nnz_type nnz, T scalar, outT* results, cudaStream_t stream = 0)
 {
-  detail::coo_degree_scalar<64>(rows, vals, nnz, scalar, results, stream);
+  detail::coo_degree_scalar<64>(rows, vals, (uint64_t)nnz, scalar, results, stream);
 }
 
 /**
@@ -83,7 +83,7 @@ void coo_degree_scalar(
 template <typename T, typename outT>
 void coo_degree_scalar(COO<T>* in, T scalar, outT* results, cudaStream_t stream)
 {
-  coo_degree_scalar(in->rows(), in->vals(), in->nnz, scalar, results, stream);
+  coo_degree_scalar(in->rows(), in->vals(), in->safe_nnz, scalar, results, stream);
 }
 
 /**

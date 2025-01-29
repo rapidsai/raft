@@ -98,7 +98,7 @@ void connect_knn_graph(
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
   raft::sparse::convert::sorted_coo_to_csr(
-    connected_edges.rows(), (value_idx)connected_edges.nnz, indptr2.data(), m + 1, stream);
+    connected_edges.rows(), connected_edges.nnz, indptr2.data(), m + 1, stream);
 
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process

@@ -134,7 +134,7 @@ class vector_t {
   const thrust_exec_policy_t thrust_policy;
 };
 
-template <typename index_type, typename value_type>
+template <typename index_type, typename value_type, typename nnz_type = index_type>
 struct sparse_matrix_t {
   sparse_matrix_t(resources const& raft_handle,
                   index_type const* row_offsets,
@@ -142,7 +142,7 @@ struct sparse_matrix_t {
                   value_type const* values,
                   index_type const nrows,
                   index_type const ncols,
-                  uint64_t const nnz)
+                  nnz_type const nnz)
     : handle_(raft_handle),
       row_offsets_(row_offsets),
       col_indices_(col_indices),
@@ -158,7 +158,7 @@ struct sparse_matrix_t {
                   index_type const* col_indices,
                   value_type const* values,
                   index_type const nrows,
-                  uint64_t const nnz)
+                  nnz_type const nnz)
     : handle_(raft_handle),
       row_offsets_(row_offsets),
       col_indices_(col_indices),
@@ -311,7 +311,7 @@ struct sparse_matrix_t {
   value_type const* values_;
   index_type const nrows_;
   index_type const ncols_;
-  uint64_t const nnz_;
+  nnz_type const nnz_;
 };
 
 template <typename index_type, typename value_type>

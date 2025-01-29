@@ -161,7 +161,7 @@ void construct_landmark_1nn(raft::resources const& handle,
 
   // convert to CSR for fast lookup
   raft::sparse::convert::sorted_coo_to_csr(R_1nn_inds.data(),
-                                           (value_idx)index.m,
+                                           index.m,
                                            index.get_R_indptr().data_handle(),
                                            index.n_landmarks + 1,
                                            resource::get_cuda_stream(handle));

@@ -54,10 +54,10 @@ void coo_to_csr(raft::resources const& handle,
  * @param m: number of rows in dense matrix
  * @param stream: cuda stream to use
  */
-template <typename T, typename outT>
-void sorted_coo_to_csr(const T* rows, outT nnz, outT* row_ind, int m, cudaStream_t stream)
+template <typename T, typename nnz_type, typename outT>
+void sorted_coo_to_csr(const T* rows, nnz_type nnz, outT* row_ind, int m, cudaStream_t stream)
 {
-  detail::sorted_coo_to_csr(rows, nnz, row_ind, m, stream);
+  detail::sorted_coo_to_csr(rows, (uint64_t)nnz, row_ind, m, stream);
 }
 
 /**
@@ -70,7 +70,7 @@ void sorted_coo_to_csr(const T* rows, outT nnz, outT* row_ind, int m, cudaStream
 template <typename T, typename outT>
 void sorted_coo_to_csr(COO<T>* coo, outT* row_ind, cudaStream_t stream)
 {
-  detail::sorted_coo_to_csr(coo->rows(), (outT)coo->nnz, row_ind, coo->n_rows, stream);
+  detail::sorted_coo_to_csr(coo->rows(), coo->safe_nnz, row_ind, coo->n_rows, stream);
 }
 
 /**

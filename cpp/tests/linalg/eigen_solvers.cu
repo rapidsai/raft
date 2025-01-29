@@ -46,7 +46,7 @@ TEST(Raft, EigenSolvers)
   index_type nnz   = 0;
   index_type nrows = 0;
 
-  sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, static_cast<uint64_t>(nnz)};
+  sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
   ASSERT_EQ(nullptr, sm1.row_offsets_);
 
   index_type neigvs{10};

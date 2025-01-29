@@ -173,7 +173,7 @@ class rmat_lanczos_tests
       raft::make_device_vector<IndexType, uint32_t, raft::row_major>(handle,
                                                                      symmetric_coo.n_rows + 1);
     raft::sparse::convert::sorted_coo_to_csr(symmetric_coo.rows(),
-                                             static_cast<int>(symmetric_coo.nnz),
+                                             symmetric_coo.nnz,
                                              row_indices.data_handle(),
                                              symmetric_coo.n_rows + 1,
                                              stream);
