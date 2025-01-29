@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,6 @@ namespace raft::sparse::neighbors::brute_force {
 /**
  * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
  * using some distance implementation
- * template parameter value_idx is the type of the Indptr and Indices arrays.
- * template parameter value_t is the type of the Data array.
  * @param[in] idxIndptr csr indptr of the index matrix (size n_idx_rows + 1)
  * @param[in] idxIndices csr column indices array of the index matrix (size n_idx_nnz)
  * @param[in] idxData csr data array of the index matrix (size idxNNZ)
