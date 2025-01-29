@@ -111,7 +111,7 @@ class COO {
   void init_arrays(cudaStream_t stream)
   {
     RAFT_CUDA_TRY(
-      cudaMemsetAsync(this->rows_arr.data(), 0, this - nnz * sizeof(Index_Type), stream));
+      cudaMemsetAsync(this->rows_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
     RAFT_CUDA_TRY(
       cudaMemsetAsync(this->cols_arr.data(), 0, this->nnz * sizeof(Index_Type), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream));

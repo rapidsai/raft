@@ -192,7 +192,7 @@ class rmat_lanczos_tests
       raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(
         handle, symmetric_coo.n_rows, n_components);
 
-    raft::spectral::matrix::sparse_matrix_t<IndexType, ValueType> const csr_m{
+    raft::spectral::matrix::sparse_matrix_t<IndexType, ValueType, uint64_t> const csr_m{
       handle,
       row_indices.data_handle(),
       symmetric_coo.cols(),
@@ -203,7 +203,7 @@ class rmat_lanczos_tests
       n_components, params.maxiter, params.restartiter, params.tol, rng.seed};
 
     auto csr_structure =
-      raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
+      raft::make_device_compressed_structure_view<IndexType, IndexType, uint64_t>(
         const_cast<IndexType*>(row_indices.data_handle()),
         const_cast<IndexType*>(symmetric_coo.cols()),
         symmetric_coo.n_rows,

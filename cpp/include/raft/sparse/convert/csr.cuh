@@ -70,7 +70,7 @@ void sorted_coo_to_csr(const T* rows, nnz_type nnz, outT* row_ind, int m, cudaSt
 template <typename T, typename outT>
 void sorted_coo_to_csr(COO<T>* coo, outT* row_ind, cudaStream_t stream)
 {
-  detail::sorted_coo_to_csr(coo->rows(), coo->safe_nnz, row_ind, coo->n_rows, stream);
+  detail::sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows, stream);
 }
 
 /**

@@ -49,11 +49,11 @@ void coo_sort(IdxT m, IdxT n, nnz_t nnz, IdxT* rows, IdxT* cols, T* vals, cudaSt
  * @param in: COO to sort by row
  * @param stream: the cuda stream to use
  */
-template <typename T, typename IdxT = int>
-void coo_sort(COO<T, IdxT>* const in, cudaStream_t stream)
+template <typename T, typename IdxT = int, typename nnz_t>
+void coo_sort(COO<T, IdxT, nnz_t>* const in, cudaStream_t stream)
 {
-  coo_sort<T, IdxT>(
-    in->n_rows, in->n_cols, in->safe_nnz, in->rows(), in->cols(), in->vals(), stream);
+  coo_sort<T, IdxT, nnz_t>(
+    in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), stream);
 }
 
 /**

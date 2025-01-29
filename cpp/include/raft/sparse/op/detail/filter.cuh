@@ -90,18 +90,18 @@ RAFT_KERNEL coo_remove_scalar_kernel(const int* rows,
  * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
-template <int TPB_X, typename T, typename nnz_t>
-void coo_remove_scalar(const int* rows,
-                       const int* cols,
+template <int TPB_X, typename T, typename idx_t, typename nnz_t>
+void coo_remove_scalar(const idx_t* rows,
+                       const idx_t* cols,
                        const T* vals,
                        nnz_t nnz,
-                       int* crows,
-                       int* ccols,
+                       idx_t* crows,
+                       idx_t* ccols,
                        T* cvals,
                        nnz_t* cnnz,
                        nnz_t* cur_cnnz,
                        T scalar,
-                       int n,
+                       idx_t n,
                        cudaStream_t stream)
 {
   rmm::device_uvector<uint64_t> ex_scan(n, stream);
@@ -144,46 +144,43 @@ void coo_remove_scalar(const int* rows,
  * @param scalar: scalar to remove from arrays
  * @param stream: cuda stream to use
  */
-template <int TPB_X, typename T, typename nnz_t>
-void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
+template <int TPB_X, typename T, typename idx_t, typename nnz_t>
+void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
+                       COO<T, idx_t, nnz_t>* out,
+                       T scalar,
+                       cudaStream_t stream)
 {
-  rmm::device_uvector<uint64_t> row_count_nz(in->n_rows, stream);
-  rmm::device_uvector<uint64_t> row_count(in->n_rows, stream);
+  rmm::device_uvector<nnz_t> row_count_nz(in->n_rows, stream);
+  rmm::device_uvector<nnz_t> row_count(in->n_rows, stream);
 
-  RAFT_CUDA_TRY(
-    cudaMemsetAsync(row_count_nz.data(), 0, (uint64_t)in->n_rows * sizeof(uint64_t), stream));
-  RAFT_CUDA_TRY(
-    cudaMemsetAsync(row_count.data(), 0, (uint64_t)in->n_rows * sizeof(uint64_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_count_nz.data(), 0, (idx_t)in->n_rows * sizeof(idx_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_count.data(), 0, (idx_t)in->n_rows * sizeof(idx_t), stream));
 
-  linalg::coo_degree(in->rows(), in->safe_nnz, row_count.data(), stream);
+  linalg::coo_degree(in->rows(), in->nnz, row_count.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  linalg::coo_degree_scalar(in->rows(),
-                            in->vals(),
-                            in->safe_nnz,
-                            scalar,
-                            (unsigned long long int*)row_count_nz.data(),
-                            stream);
+  linalg::coo_degree_scalar(
+    in->rows(), in->vals(), in->nnz, scalar, (unsigned long long int*)row_count_nz.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  thrust::device_ptr<uint64_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
+  thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
   uint64_t out_nnz =
     thrust::reduce(rmm::exec_policy(stream), d_row_count_nz, d_row_count_nz + in->n_rows);
 
   out->allocate(out_nnz, in->n_rows, in->n_cols, false, stream);
 
-  coo_remove_scalar<TPB_X, T>(in->rows(),
-                              in->cols(),
-                              in->vals(),
-                              in->nnz,
-                              out->rows(),
-                              out->cols(),
-                              out->vals(),
-                              row_count_nz.data(),
-                              row_count.data(),
-                              scalar,
-                              in->n_rows,
-                              stream);
+  coo_remove_scalar<TPB_X, T, idx_t, nnz_t>(in->rows(),
+                                            in->cols(),
+                                            in->vals(),
+                                            in->nnz,
+                                            out->rows(),
+                                            out->cols(),
+                                            out->vals(),
+                                            row_count_nz.data(),
+                                            row_count.data(),
+                                            scalar,
+                                            in->n_rows,
+                                            stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -194,10 +191,10 @@ void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
  * @param out: output COO matrix
  * @param stream: cuda stream to use
  */
-template <int TPB_X, typename T>
-void coo_remove_zeros(COO<T>* in, COO<T>* out, cudaStream_t stream)
+template <int TPB_X, typename T, typename idx_t, typename nnz_t>
+void coo_remove_zeros(COO<T, idx_t, nnz_t>* in, COO<T, idx_t, nnz_t>* out, cudaStream_t stream)
 {
-  coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
+  coo_remove_scalar<TPB_X, T, idx_t, nnz_t>(in, out, T(0.0), stream);
 }
 
 };  // namespace detail

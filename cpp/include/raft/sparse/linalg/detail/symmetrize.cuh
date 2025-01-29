@@ -156,7 +156,7 @@ void coo_symmetrize(COO<T>* in,
                                                             out->cols(),
                                                             out->vals(),
                                                             in->n_rows,
-                                                            in->safe_nnz,
+                                                            in->nnz,
                                                             reduction_op);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

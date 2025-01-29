@@ -42,21 +42,21 @@ namespace op {
  * @param n: number of rows in dense matrix
  * @param stream: cuda stream to use
  */
-template <typename T>
-void coo_remove_scalar(const int* rows,
-                       const int* cols,
+template <typename T, typename idx_t, typename nnz_t>
+void coo_remove_scalar(const idx_t* rows,
+                       const idx_t* cols,
                        const T* vals,
                        int nnz,
-                       int* crows,
-                       int* ccols,
+                       idx_t* crows,
+                       idx_t* ccols,
                        T* cvals,
-                       int* cnnz,
-                       int* cur_cnnz,
+                       nnz_t* cnnz,
+                       nnz_t* cur_cnnz,
                        T scalar,
-                       int n,
+                       idx_t n,
                        cudaStream_t stream)
 {
-  detail::coo_remove_scalar<128, T>(
+  detail::coo_remove_scalar<128, T, idx_t, nnz_t>(
     rows, cols, vals, nnz, crows, ccols, cvals, cnnz, cur_cnnz, scalar, n, stream);
 }
 
@@ -68,10 +68,13 @@ void coo_remove_scalar(const int* rows,
  * @param scalar: scalar to remove from arrays
  * @param stream: cuda stream to use
  */
-template <typename T>
-void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
+template <typename T, typename idx_t, typename nnz_t>
+void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
+                       COO<T, idx_t, nnz_t>* out,
+                       T scalar,
+                       cudaStream_t stream)
 {
-  detail::coo_remove_scalar<128, T>(in, out, scalar, stream);
+  detail::coo_remove_scalar<128, T, idx_t, nnz_t>(in, out, scalar, stream);
 }
 
 /**
@@ -81,10 +84,10 @@ void coo_remove_scalar(COO<T>* in, COO<T>* out, T scalar, cudaStream_t stream)
  * @param out: output COO matrix
  * @param stream: cuda stream to use
  */
-template <typename T>
-void coo_remove_zeros(COO<T>* in, COO<T>* out, cudaStream_t stream)
+template <typename T, typename idx_t, typename nnz_t>
+void coo_remove_zeros(COO<T, idx_t, nnz_t>* in, COO<T, idx_t, nnz_t>* out, cudaStream_t stream)
 {
-  coo_remove_scalar<T>(in, out, T(0.0), stream);
+  coo_remove_scalar<T, idx_t, nnz_t>(in, out, T(0.0), stream);
 }
 
 };  // namespace op
