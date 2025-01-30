@@ -178,7 +178,6 @@ dependencies:
           - cxx-compiler
           - libucxx==0.43.*,>=0.0.0a0
           - nccl>=2.19
-          - spdlog>=1.14.1,<1.15
     specific:
       - output_types: conda
         matrices:

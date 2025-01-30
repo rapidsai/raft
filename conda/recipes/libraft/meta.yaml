@@ -71,8 +71,6 @@ outputs:
         - cuda-cudart
         {% endif %}
         - librmm ={{ minor_version }}
-        - spdlog {{ spdlog_version }}
-        - fmt {{ fmt_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
