@@ -407,8 +407,7 @@ TEST(Rng, MeanError)
     RngState r(seed, rtype);
     normal(handle, r, data.data(), len, 3.3f, 0.23f);
     // uniform(r, data, len, -1.0, 2.0);
-    raft::stats::mean(
-      mean_result.data(), data.data(), num_samples, num_experiments, false, false, stream);
+    raft::stats::mean(mean_result.data(), data.data(), num_samples, num_experiments, false, stream);
     raft::stats::stddev(std_result.data(),
                         data.data(),
                         mean_result.data(),
