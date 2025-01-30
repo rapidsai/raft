@@ -36,7 +36,7 @@ namespace linalg {
 template <typename T = int, typename nnz_type, typename outT>
 void coo_degree(const T* rows, nnz_type nnz, outT* results, cudaStream_t stream)
 {
-  detail::coo_degree<64, T>(rows, (nnz_type)nnz, results, stream);
+  detail::coo_degree<64, T>(rows, nnz, results, stream);
 }
 
 /**

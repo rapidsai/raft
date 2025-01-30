@@ -49,7 +49,7 @@ void fit_embedding(raft::resources const& handle,
                       rows,
                       cols,
                       vals,
-                      static_cast<int>(nnz),
+                      static_cast<uint64_t>(nnz),
                       static_cast<int>(n),
                       src_offsets.data(),
                       dst_cols.data(),
@@ -72,7 +72,7 @@ void fit_embedding(raft::resources const& handle,
   value_type* vs = dst_vals.data();
 
   raft::spectral::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{
-    handle, ro, ci, vs, static_cast<int>(n), nnz};
+    handle, ro, ci, vs, static_cast<index_type>(n), static_cast<uint64_t>(nnz)};
 
   index_type neigvs       = n_components + 1;
   index_type maxiter      = 4000;  // default reset value (when set to 0);
