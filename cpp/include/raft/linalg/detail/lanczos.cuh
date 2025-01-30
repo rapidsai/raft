@@ -745,10 +745,10 @@ static int lanczosRestart(raft::resources const& handle,
  *  @param seed random seed.
  *  @return error flag.
  */
-template <typename index_type_t, typename value_type_t>
+template <typename index_type_t, typename value_type_t, typename nnz_type_t>
 int computeSmallestEigenvectors(
   raft::resources const& handle,
-  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t, nnz_type_t> const* A,
   index_type_t nEigVecs,
   index_type_t maxIter,
   index_type_t restartIter,
@@ -986,10 +986,10 @@ int computeSmallestEigenvectors(
   return 0;
 }
 
-template <typename index_type_t, typename value_type_t>
+template <typename index_type_t, typename value_type_t, typename nnz_type_t>
 int computeSmallestEigenvectors(
   raft::resources const& handle,
-  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t, nnz_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,
   index_type_t restartIter,
@@ -1090,10 +1090,10 @@ int computeSmallestEigenvectors(
  *  @param seed random seed.
  *  @return error flag.
  */
-template <typename index_type_t, typename value_type_t>
+template <typename index_type_t, typename value_type_t, typename nnz_type_t>
 int computeLargestEigenvectors(
   raft::resources const& handle,
-  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t, nnz_type_t> const* A,
   index_type_t nEigVecs,
   index_type_t maxIter,
   index_type_t restartIter,
@@ -1334,10 +1334,10 @@ int computeLargestEigenvectors(
   return 0;
 }
 
-template <typename index_type_t, typename value_type_t>
+template <typename index_type_t, typename value_type_t, typename nnz_type_t>
 int computeLargestEigenvectors(
   raft::resources const& handle,
-  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t, nnz_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,
   index_type_t restartIter,
