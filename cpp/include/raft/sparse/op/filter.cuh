@@ -46,7 +46,7 @@ template <typename T, typename idx_t, typename nnz_t>
 void coo_remove_scalar(const idx_t* rows,
                        const idx_t* cols,
                        const T* vals,
-                       int nnz,
+                       nnz_t nnz,
                        idx_t* crows,
                        idx_t* ccols,
                        T* cvals,

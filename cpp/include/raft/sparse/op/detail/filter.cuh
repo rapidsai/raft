@@ -153,8 +153,8 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
   rmm::device_uvector<nnz_t> row_count_nz(in->n_rows, stream);
   rmm::device_uvector<nnz_t> row_count(in->n_rows, stream);
 
-  RAFT_CUDA_TRY(cudaMemsetAsync(row_count_nz.data(), 0, (idx_t)in->n_rows * sizeof(idx_t), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(row_count.data(), 0, (idx_t)in->n_rows * sizeof(idx_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_count_nz.data(), 0, (nnz_t)in->n_rows * sizeof(nnz_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(row_count.data(), 0, (nnz_t)in->n_rows * sizeof(nnz_t), stream));
 
   linalg::coo_degree(in->rows(), in->nnz, row_count.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -164,7 +164,7 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
-  uint64_t out_nnz =
+  nnz_t out_nnz =
     thrust::reduce(rmm::exec_policy(stream), d_row_count_nz, d_row_count_nz + in->n_rows);
 
   out->allocate(out_nnz, in->n_rows, in->n_cols, false, stream);

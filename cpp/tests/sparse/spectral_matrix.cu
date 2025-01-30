@@ -55,7 +55,7 @@ TEST(Raft, SpectralMatrices)
   value_type* vs{nullptr};
   index_type nnz   = 0;
   index_type nrows = 0;
-  sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
+  sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, (uint64_t)nnz};
   sparse_matrix_t<index_type, value_type> sm2{h, csr_v};
   ASSERT_EQ(nullptr, sm1.row_offsets_);
   ASSERT_EQ(nullptr, sm2.row_offsets_);

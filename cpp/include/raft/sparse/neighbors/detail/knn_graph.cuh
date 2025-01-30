@@ -142,7 +142,7 @@ void knn_graph(raft::resources const& handle,
   conv_indices(int64_indices.data(), indices.data(), nnz, stream);
 
   raft::sparse::linalg::symmetrize(
-    handle, rows.data(), indices.data(), data.data(), m, k, nnz, out);
+    handle, rows.data(), indices.data(), data.data(), (value_idx)m, (value_idx)k, (nnz_t)nnz, out);
 }
 
 };  // namespace raft::sparse::neighbors::detail
