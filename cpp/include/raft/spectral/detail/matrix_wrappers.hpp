@@ -334,11 +334,11 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type, nnz_type> {
   laplacian_matrix_t(resources const& raft_handle,
                      sparse_matrix_t<index_type, value_type, nnz_type> const& csr_m)
     : sparse_matrix_t<index_type, value_type, nnz_type>(raft_handle,
-                                              csr_m.row_offsets_,
-                                              csr_m.col_indices_,
-                                              csr_m.values_,
-                                              csr_m.nrows_,
-                                              csr_m.nnz_),
+                                                        csr_m.row_offsets_,
+                                                        csr_m.col_indices_,
+                                                        csr_m.values_,
+                                                        csr_m.nrows_,
+                                                        csr_m.nnz_),
       diagonal_(raft_handle, csr_m.nrows_)
   {
     vector_t<value_type> ones{raft_handle, (size_t)csr_m.nrows_};
@@ -382,7 +382,8 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type, nnz_type> {
 
     // Apply adjacency matrix
     //
-    sparse_matrix_t<index_type, value_type, nnz_type>::mv(-alpha, x, 1, y, alg, transpose, symmetric);
+    sparse_matrix_t<index_type, value_type, nnz_type>::mv(
+      -alpha, x, 1, y, alg, transpose, symmetric);
   }
 
   vector_t<value_type> diagonal_;
@@ -427,36 +428,37 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type, nnz_type
 
     // y = A*x
     //
-    sparse_matrix_t<index_type, value_type, nnz_type>::mv(alpha, x, 0, y, alg, transpose, symmetric);
+    sparse_matrix_t<index_type, value_type, nnz_type>::mv(
+      alpha, x, 0, y, alg, transpose, symmetric);
     value_type dot_res;
 
     // gamma = d'*x
     //
     // Cublas::dot(this->n, D.raw(), 1, x, 1, &dot_res);
     // TODO: Call from public API when ready
-    RAFT_CUBLAS_TRY(
-      raft::linalg::detail::cublasdot(cublas_h,
-                                      n,
-                                      laplacian_matrix_t<index_type, value_type, nnz_type>::diagonal_.raw(),
-                                      1,
-                                      x,
-                                      1,
-                                      &dot_res,
-                                      stream));
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasdot(
+      cublas_h,
+      n,
+      laplacian_matrix_t<index_type, value_type, nnz_type>::diagonal_.raw(),
+      1,
+      x,
+      1,
+      &dot_res,
+      stream));
 
     // y = y -(gamma/edge_sum)*d
     //
     value_type gamma_ = -dot_res / edge_sum_;
     // TODO: Call from public API when ready
-    RAFT_CUBLAS_TRY(
-      raft::linalg::detail::cublasaxpy(cublas_h,
-                                       n,
-                                       &gamma_,
-                                       laplacian_matrix_t<index_type, value_type, nnz_type>::diagonal_.raw(),
-                                       1,
-                                       y,
-                                       1,
-                                       stream));
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasaxpy(
+      cublas_h,
+      n,
+      &gamma_,
+      laplacian_matrix_t<index_type, value_type, nnz_type>::diagonal_.raw(),
+      1,
+      y,
+      1,
+      stream));
   }
 
   value_type edge_sum_;
