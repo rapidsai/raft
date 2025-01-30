@@ -92,13 +92,13 @@ void conv_indices(in_t* inds, out_t* out, size_t size, cudaStream_t stream)
  * @param[out] out output edge list
  * @param c
  */
-template <typename value_idx = int, typename value_t = float>
+template <typename value_idx = int, typename value_t = float, typename nnz_t>
 void knn_graph(raft::resources const& handle,
                const value_t* X,
                size_t m,
                size_t n,
                raft::distance::DistanceType metric,
-               raft::sparse::COO<value_t, value_idx>& out,
+               raft::sparse::COO<value_t, value_idx, nnz_t>& out,
                int c = 15)
 {
   size_t k = build_k(m, c);
@@ -142,7 +142,7 @@ void knn_graph(raft::resources const& handle,
   conv_indices(int64_indices.data(), indices.data(), nnz, stream);
 
   raft::sparse::linalg::symmetrize(
-    handle, rows.data(), indices.data(), data.data(), m, k, nnz, out);
+    handle, rows.data(), indices.data(), data.data(), (value_idx)m, (value_idx)k, (nnz_t)nnz, out);
 }
 
 };  // namespace raft::sparse::neighbors::detail

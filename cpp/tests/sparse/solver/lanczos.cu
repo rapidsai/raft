@@ -198,7 +198,7 @@ class rmat_lanczos_tests
       symmetric_coo.cols(),
       symmetric_coo.vals(),
       symmetric_coo.n_rows,
-      symmetric_coo.nnz};
+      (uint64_t)symmetric_coo.nnz};
     raft::sparse::solver::lanczos_solver_config<ValueType> config{
       n_components, params.maxiter, params.restartiter, params.tol, rng.seed};
 
