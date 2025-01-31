@@ -187,6 +187,10 @@ if(BUILD_TESTS)
     linalg/ternary_op.cu
     linalg/transpose.cu
     linalg/unary_op.cu
+    GPUS
+    1
+    PERCENT
+    50
   )
 
   ConfigureTest(
@@ -211,12 +215,19 @@ if(BUILD_TESTS)
     sparse/spectral_matrix.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    50
   )
 
-  ConfigureTest(NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY)
+  ConfigureTest(
+    NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT 50
+  )
 
   ConfigureTest(
-    NAME MATRIX_SELECT_LARGE_TEST PATH matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_SELECT_LARGE_TEST PATH matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS
+    1 PERCENT 50
   )
 
   ConfigureTest(
