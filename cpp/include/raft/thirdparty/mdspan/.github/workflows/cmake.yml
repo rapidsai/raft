@@ -37,27 +37,27 @@ jobs:
 
     - name: Create Build Environment
       run: cmake -E make_directory ${{github.workspace}}/mdspan-build
-      
+
     - name: Check Out
       uses: actions/checkout@v2
       with:
         path: ${{github.workspace}}/mdspan-src
-      
+
     - name: Configure CMake
       shell: bash
       working-directory: ${{github.workspace}}/mdspan-build
       run: CXX=${{ matrix.compiler_prefix}}/${{ matrix.compiler_driver }} cmake $GITHUB_WORKSPACE/mdspan-src -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/mdspan-install -DMDSPAN_ENABLE_TESTS=ON -DMDSPAN_ENABLE_EXAMPLES=ON
-      
+
     - name: Build
       shell: bash
       working-directory: ${{github.workspace}}/mdspan-build
       run: make -j
-      
+
     - name: Test
       working-directory: ${{github.workspace}}/mdspan-build
       shell: bash
       run: ctest
-            
+
     - name: Install
       shell: bash
       working-directory: ${{github.workspace}}/mdspan-build
