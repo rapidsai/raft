@@ -41,9 +41,9 @@ TEST(Raft, SpectralMatrices)
 {
   using index_type = int;
   using value_type = double;
-  using nnz_type   = uint64_t
+  using nnz_type   = uint64_t;
 
-    raft::resources h;
+  raft::resources h;
   ASSERT_EQ(0, raft::resource::get_device_id(h));
 
   csr_view_t<index_type, value_type> csr_v{nullptr, nullptr, nullptr, 0, 0};
