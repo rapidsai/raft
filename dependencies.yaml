@@ -352,7 +352,7 @@ dependencies:
               - *libcusparse114
   cuda_wheels:
     specific:
-      - output_types: pyproject
+      - output_types: [pyproject, requirements]
         matrices:
           - matrix:
               cuda: "12.*"
@@ -439,12 +439,12 @@ dependencies:
               - python>=3.10,<3.13
   run_pylibraft:
     common:
-      - output_types: [conda, pyproject]
+      - output_types: [conda, pyproject, requirements]
         packages:
           - numpy>=1.23,<3.0a0
   run_raft_dask:
     common:
-      - output_types: [conda, pyproject]
+      - output_types: [conda, pyproject, requirements]
         packages:
           - dask-cuda==25.4.*,>=0.0.0a0
           - rapids-dask-dependency==25.4.*,>=0.0.0a0
