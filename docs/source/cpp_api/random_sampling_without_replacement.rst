@@ -22,5 +22,3 @@ namespace *raft::random*
     :project: RAFT
     :members:
     :content-only:
-
-
