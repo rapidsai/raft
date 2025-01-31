@@ -190,7 +190,7 @@ if(BUILD_TESTS)
     GPUS
     1
     PERCENT
-    50
+    100
   )
 
   ConfigureTest(
@@ -218,16 +218,17 @@ if(BUILD_TESTS)
     GPUS
     1
     PERCENT
-    50
+    100
   )
 
   ConfigureTest(
-    NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT 50
+    NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT
+    100
   )
 
   ConfigureTest(
     NAME MATRIX_SELECT_LARGE_TEST PATH matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS
-    1 PERCENT 50
+    1 PERCENT 100
   )
 
   ConfigureTest(
