@@ -27,12 +27,14 @@ namespace raft::random::device {
 
 /**
  * @brief warp-level random sampling of an index.
+ *
  * It selects an index with the given discrete probability
- * distribution(represented by weights of each index)
+ * distribution(represented by weights of each index).
+ * Only thread 0 will contain the valid reduced result.
+ *
  * @param rng random number generator, must have next_u32() function
  * @param weight weight of the rank/index.
  * @param idx index to be used as rank
- * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename rng_t, typename i_t = int>
 DI void warp_random_sample(rng_t& rng, T& weight, i_t& idx)
