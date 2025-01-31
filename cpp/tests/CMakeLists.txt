@@ -276,6 +276,10 @@ if(BUILD_TESTS)
     sparse/spgemmi.cu
     sparse/spmm.cu
     sparse/symmetrize.cu
+    GPUS
+    1
+    PERCENT
+    100
   )
 
   ConfigureTest(
