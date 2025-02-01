@@ -123,18 +123,19 @@ inline curandStatus_t curandGenerateNormalX(
  *    Workspace. Not needed if full reorthogonalization is disabled.
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename index_type_t, typename value_type_t>
-int performLanczosIteration(raft::resources const& handle,
-                            spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
-                            index_type_t* iter,
-                            index_type_t maxIter,
-                            value_type_t shift,
-                            value_type_t tol,
-                            bool reorthogonalize,
-                            value_type_t* __restrict__ alpha_host,
-                            value_type_t* __restrict__ beta_host,
-                            value_type_t* __restrict__ lanczosVecs_dev,
-                            value_type_t* __restrict__ work_dev)
+template <typename index_type_t, typename value_type_t, typename nnz_type_t>
+int performLanczosIteration(
+  raft::resources const& handle,
+  spectral::matrix::sparse_matrix_t<index_type_t, value_type_t, nnz_type_t> const* A,
+  index_type_t* iter,
+  index_type_t maxIter,
+  value_type_t shift,
+  value_type_t tol,
+  bool reorthogonalize,
+  value_type_t* __restrict__ alpha_host,
+  value_type_t* __restrict__ beta_host,
+  value_type_t* __restrict__ lanczosVecs_dev,
+  value_type_t* __restrict__ work_dev)
 {
   // -------------------------------------------------------
   // Variable declaration
@@ -888,17 +889,17 @@ int computeSmallestEigenvectors(
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
   *shift   = 0;
-  status   = performLanczosIteration<index_type_t, value_type_t>(handle,
-                                                               A,
-                                                               effIter,
-                                                               maxIter_curr,
-                                                               *shift,
-                                                               0.0,
-                                                               reorthogonalize,
-                                                               alpha_host,
-                                                               beta_host,
-                                                               lanczosVecs_dev,
-                                                               work_dev);
+  status   = performLanczosIteration<index_type_t, value_type_t, nnz_type_t>(handle,
+                                                                           A,
+                                                                           effIter,
+                                                                           maxIter_curr,
+                                                                           *shift,
+                                                                           0.0,
+                                                                           reorthogonalize,
+                                                                           alpha_host,
+                                                                           beta_host,
+                                                                           lanczosVecs_dev,
+                                                                           work_dev);
   if (status) WARNING("error in Lanczos iteration");
 
   // Determine largest eigenvalue
@@ -913,17 +914,17 @@ int computeSmallestEigenvectors(
   // Obtain tridiagonal matrix with Lanczos
   *effIter = 0;
 
-  status = performLanczosIteration<index_type_t, value_type_t>(handle,
-                                                               A,
-                                                               effIter,
-                                                               maxIter_curr,
-                                                               *shift,
-                                                               0,
-                                                               reorthogonalize,
-                                                               alpha_host,
-                                                               beta_host,
-                                                               lanczosVecs_dev,
-                                                               work_dev);
+  status = performLanczosIteration<index_type_t, value_type_t, nnz_type_t>(handle,
+                                                                           A,
+                                                                           effIter,
+                                                                           maxIter_curr,
+                                                                           *shift,
+                                                                           0,
+                                                                           reorthogonalize,
+                                                                           alpha_host,
+                                                                           beta_host,
+                                                                           lanczosVecs_dev,
+                                                                           work_dev);
   if (status) WARNING("error in Lanczos iteration");
   *totalIter += *effIter;
 
@@ -961,17 +962,17 @@ int computeSmallestEigenvectors(
 
     // Proceed with Lanczos method
 
-    status = performLanczosIteration<index_type_t, value_type_t>(handle,
-                                                                 A,
-                                                                 effIter,
-                                                                 maxIter_curr,
-                                                                 *shift,
-                                                                 tol * fabs(shiftLower),
-                                                                 reorthogonalize,
-                                                                 alpha_host,
-                                                                 beta_host,
-                                                                 lanczosVecs_dev,
-                                                                 work_dev);
+    status = performLanczosIteration<index_type_t, value_type_t, nnz_type_t>(handle,
+                                                                             A,
+                                                                             effIter,
+                                                                             maxIter_curr,
+                                                                             *shift,
+                                                                             tol * fabs(shiftLower),
+                                                                             reorthogonalize,
+                                                                             alpha_host,
+                                                                             beta_host,
+                                                                             lanczosVecs_dev,
+                                                                             work_dev);
     if (status) WARNING("error in Lanczos iteration");
     *totalIter += *effIter - iter_new;
   }
@@ -1236,17 +1237,17 @@ int computeLargestEigenvectors(
   value_type_t shift_val = 0.0;
   value_type_t* shift    = &shift_val;
 
-  status = performLanczosIteration<index_type_t, value_type_t>(handle,
-                                                               A,
-                                                               effIter,
-                                                               maxIter_curr,
-                                                               *shift,
-                                                               0,
-                                                               reorthogonalize,
-                                                               alpha_host,
-                                                               beta_host,
-                                                               lanczosVecs_dev,
-                                                               work_dev);
+  status = performLanczosIteration<index_type_t, value_type_t, nnz_type_t>(handle,
+                                                                           A,
+                                                                           effIter,
+                                                                           maxIter_curr,
+                                                                           *shift,
+                                                                           0,
+                                                                           reorthogonalize,
+                                                                           alpha_host,
+                                                                           beta_host,
+                                                                           lanczosVecs_dev,
+                                                                           work_dev);
   if (status) WARNING("error in Lanczos iteration");
   *totalIter += *effIter;
 
@@ -1284,17 +1285,17 @@ int computeLargestEigenvectors(
 
     // Proceed with Lanczos method
 
-    status = performLanczosIteration<index_type_t, value_type_t>(handle,
-                                                                 A,
-                                                                 effIter,
-                                                                 maxIter_curr,
-                                                                 *shift,
-                                                                 tol * fabs(shiftLower),
-                                                                 reorthogonalize,
-                                                                 alpha_host,
-                                                                 beta_host,
-                                                                 lanczosVecs_dev,
-                                                                 work_dev);
+    status = performLanczosIteration<index_type_t, value_type_t, nnz_type_t>(handle,
+                                                                             A,
+                                                                             effIter,
+                                                                             maxIter_curr,
+                                                                             *shift,
+                                                                             tol * fabs(shiftLower),
+                                                                             reorthogonalize,
+                                                                             alpha_host,
+                                                                             beta_host,
+                                                                             lanczosVecs_dev,
+                                                                             work_dev);
     if (status) WARNING("error in Lanczos iteration");
     *totalIter += *effIter - iter_new;
   }

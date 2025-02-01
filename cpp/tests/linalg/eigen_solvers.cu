@@ -36,6 +36,7 @@ TEST(Raft, EigenSolvers)
   using namespace matrix;
   using index_type = int;
   using value_type = double;
+  using nnz_type   = int;
 
   raft::resources h;
   ASSERT_EQ(0, resource::get_device_id(h));
@@ -46,7 +47,7 @@ TEST(Raft, EigenSolvers)
   index_type nnz   = 0;
   index_type nrows = 0;
 
-  sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, (uint64_t)nnz};
+  sparse_matrix_t<index_type, value_type, nnz_type> sm1{h, ro, ci, vs, nrows, nnz};
   ASSERT_EQ(nullptr, sm1.row_offsets_);
 
   index_type neigvs{10};
@@ -64,7 +65,7 @@ TEST(Raft, EigenSolvers)
   eigen_solver_config_t<index_type, value_type> cfg{
     neigvs, maxiter, restart_iter, tol, reorthog, seed};
 
-  lanczos_solver_t<index_type, value_type> eig_solver{cfg};
+  lanczos_solver_t<index_type, value_type, nnz_type> eig_solver{cfg};
 
   EXPECT_ANY_THROW(eig_solver.solve_smallest_eigenvectors(h, sm1, eigvals, eigvecs));
 
@@ -77,6 +78,7 @@ TEST(Raft, SpectralSolvers)
   using namespace matrix;
   using index_type = int;
   using value_type = double;
+  using nnz_type   = int;
 
   raft::resources h;
   ASSERT_EQ(0, resource::get_device_id(h)
@@ -99,14 +101,14 @@ TEST(Raft, SpectralSolvers)
 
   eigen_solver_config_t<index_type, value_type> eig_cfg{
     neigvs, maxiter, restart_iter, tol, reorthog, seed};
-  lanczos_solver_t<index_type, value_type> eig_solver{eig_cfg};
+  lanczos_solver_t<index_type, value_type, nnz_type> eig_solver{eig_cfg};
 
   index_type k{5};
 
   cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol, seed};
   kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
-  sparse_matrix_t<index_type, value_type> sm{h, nullptr, nullptr, nullptr, 0, 0};
+  sparse_matrix_t<index_type, value_type, nnz_type> sm{h, nullptr, nullptr, nullptr, 0, 0};
   EXPECT_ANY_THROW(
     spectral::partition(h, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
 

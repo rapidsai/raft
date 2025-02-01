@@ -404,7 +404,7 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type, nnz_type
   }
 
   modularity_matrix_t(resources const& raft_handle,
-                      sparse_matrix_t<index_type, value_type> const& csr_m)
+                      sparse_matrix_t<index_type, value_type, nnz_type> const& csr_m)
     : laplacian_matrix_t<index_type, value_type, nnz_type>(raft_handle, csr_m)
   {
     edge_sum_ = laplacian_matrix_t<index_type, value_type, nnz_type>::diagonal_.nrm1();
@@ -420,9 +420,9 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type, nnz_type
           bool transpose      = false,
           bool symmetric      = false) const override
   {
-    auto n = sparse_matrix_t<index_type, value_type>::nrows_;
+    auto n = sparse_matrix_t<index_type, value_type, nnz_type>::nrows_;
 
-    auto handle   = sparse_matrix_t<index_type, value_type>::get_handle();
+    auto handle   = sparse_matrix_t<index_type, value_type, nnz_type>::get_handle();
     auto cublas_h = resource::get_cublas_handle(handle);
     auto stream   = resource::get_cuda_stream(handle);
 
