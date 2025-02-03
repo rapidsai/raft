@@ -45,6 +45,11 @@ def _load_wheel_installation(soname: str):
 
 def load_library():
     """Dynamically load libraft.so and its dependencies"""
+    try:
+        import librmm  # noqa: F401
+    except ModuleNotFoundError:
+        pass
+
     prefer_system_installation = (
         os.getenv("RAPIDS_LIBRAFT_PREFER_SYSTEM_LIBRARY", "false").lower()
         != "false"

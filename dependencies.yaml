@@ -72,6 +72,7 @@ files:
       table: project
     includes:
       - cuda_wheels
+      - depends_on_librmm
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
