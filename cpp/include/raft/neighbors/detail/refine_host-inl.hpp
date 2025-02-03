@@ -25,7 +25,194 @@
 
 #include <algorithm>
 
+#if defined(__arm__) || defined(__aarch64__)
+#include <arm_neon.h>
+#endif
+
 namespace raft::neighbors::detail {
+
+// -----------------------------------------------------------------------------
+//  Generic implementation
+// -----------------------------------------------------------------------------
+
+template <typename DC, typename DistanceT, typename DataT>
+DistanceT euclidean_distance_squared_generic(DataT const* a, DataT const* b, size_t n) {
+  // vector register capacity in elements
+  size_t constexpr vreg_len = (128 / 8) / sizeof(DistanceT);
+  // unroll factor = vector register capacity * number of ports;
+  size_t constexpr unroll_factor = vreg_len * 4;
+
+  // unroll factor is a power of two
+  size_t n_rounded = n & (0xFFFFFFFF ^ (unroll_factor - 1));
+  DistanceT distance[unroll_factor] = {0};
+
+  for (size_t i = 0; i < n_rounded; i += unroll_factor) {
+    for (size_t j = 0; j < unroll_factor; ++j) {
+      distance[j] += DC::template eval<DistanceT>(a[i + j], b[i + j]);
+    }
+  }
+
+  for (size_t i = n_rounded; i < n; ++i) {
+    distance[i] += DC::template eval<DistanceT>(a[i], b[i]);
+  }
+
+  for (size_t i = 1; i < unroll_factor; ++i) {
+    distance[0] += distance[i];
+  }
+
+  return distance[0];
+}
+
+// -----------------------------------------------------------------------------
+//  NEON implementation
+// -----------------------------------------------------------------------------
+
+struct distance_comp_l2;
+struct distance_comp_inner;
+
+// fallback
+template<typename DC, typename DistanceT, typename DataT>
+DistanceT euclidean_distance_squared(DataT const* a, DataT const* b, size_t n) {
+  return euclidean_distance_squared_generic<DC, DistanceT, DataT>(a, b, n);
+}
+
+#if defined(__arm__) || defined(__aarch64__)
+
+template<>
+inline float euclidean_distance_squared<distance_comp_l2, float, float>(
+  float const* a, float const* b, size_t n) {
+
+  int n_rounded = n - (n % 4);
+
+  float32x4_t vreg_dsum = vdupq_n_f32(0.f);
+  for (int i = 0; i < n_rounded; i += 4) {
+    float32x4_t vreg_a = vld1q_f32(&a[i]);
+    float32x4_t vreg_b = vld1q_f32(&b[i]);
+    float32x4_t vreg_d = vsubq_f32(vreg_a, vreg_b);
+    vreg_dsum = vfmaq_f32(vreg_dsum, vreg_d, vreg_d);
+  }
+
+  float dsum = vaddvq_f32(vreg_dsum);
+  for (int i = n_rounded; i < n; ++i) {
+      float d = a[i] - b[i];
+      dsum += d * d;
+  }
+
+  return dsum;
+}
+
+template<>
+inline float euclidean_distance_squared<distance_comp_l2, float, ::std::int8_t>(
+  ::std::int8_t const* a, ::std::int8_t const* b, size_t n) {
+
+  int n_rounded = n - (n % 16);
+  float dsum = 0.f;
+
+  if (n_rounded > 0) {
+    float32x4_t vreg_dsum_fp32_0 = vdupq_n_f32(0.f);
+    float32x4_t vreg_dsum_fp32_1 = vreg_dsum_fp32_0;
+    float32x4_t vreg_dsum_fp32_2 = vreg_dsum_fp32_0;
+    float32x4_t vreg_dsum_fp32_3 = vreg_dsum_fp32_0;
+
+    for (int i = 0; i < n_rounded; i += 16) {
+      int8x16_t vreg_a = vld1q_s8(&a[i]);
+      int16x8_t vreg_a_s16_0 = vmovl_s8(vget_low_s8(vreg_a));
+      int16x8_t vreg_a_s16_1 = vmovl_s8(vget_high_s8(vreg_a));
+
+      int8x16_t vreg_b = vld1q_s8(&b[i]);
+      int16x8_t vreg_b_s16_0 = vmovl_s8(vget_low_s8(vreg_b));
+      int16x8_t vreg_b_s16_1 = vmovl_s8(vget_high_s8(vreg_b));
+
+      int16x8_t vreg_d_s16_0 = vsubq_s16(vreg_a_s16_0, vreg_b_s16_0);
+      int16x8_t vreg_d_s16_1 = vsubq_s16(vreg_a_s16_1, vreg_b_s16_1);
+
+      float32x4_t vreg_d_fp32_0 = vcvtq_f32_s32(vmovl_s16(vget_low_s16(vreg_d_s16_0)));
+      float32x4_t vreg_d_fp32_1 = vcvtq_f32_s32(vmovl_s16(vget_high_s16(vreg_d_s16_0)));
+      float32x4_t vreg_d_fp32_2 = vcvtq_f32_s32(vmovl_s16(vget_low_s16(vreg_d_s16_1)));
+      float32x4_t vreg_d_fp32_3 = vcvtq_f32_s32(vmovl_s16(vget_high_s16(vreg_d_s16_1)));
+
+      vreg_dsum_fp32_0 = vfmaq_f32(vreg_dsum_fp32_0, vreg_d_fp32_0, vreg_d_fp32_0);
+      vreg_dsum_fp32_1 = vfmaq_f32(vreg_dsum_fp32_1, vreg_d_fp32_1, vreg_d_fp32_1);
+      vreg_dsum_fp32_2 = vfmaq_f32(vreg_dsum_fp32_2, vreg_d_fp32_2, vreg_d_fp32_2);
+      vreg_dsum_fp32_3 = vfmaq_f32(vreg_dsum_fp32_3, vreg_d_fp32_3, vreg_d_fp32_3);
+    }
+
+    vreg_dsum_fp32_0 = vaddq_f32(vreg_dsum_fp32_0, vreg_dsum_fp32_1);
+    vreg_dsum_fp32_2 = vaddq_f32(vreg_dsum_fp32_2, vreg_dsum_fp32_3);
+    vreg_dsum_fp32_0 = vaddq_f32(vreg_dsum_fp32_0, vreg_dsum_fp32_2);
+
+    dsum = vaddvq_f32(vreg_dsum_fp32_0); // faddp
+  }
+
+  for (int i = n_rounded; i < n; ++i) {
+      float d = a[i] - b[i];
+      dsum += d * d; // [nvc++] faddp, [clang] fadda, [gcc] vecsum+fadda
+  }
+
+  return dsum;
+}
+
+template<>
+inline float euclidean_distance_squared<distance_comp_l2, float, ::std::uint8_t>(
+  ::std::uint8_t const* a, ::std::uint8_t const* b, size_t n) {
+
+  int n_rounded = n - (n % 16);
+  float dsum = 0.f;
+
+  if (n_rounded > 0) {
+    float32x4_t vreg_dsum_fp32_0 = vdupq_n_f32(0.f);
+    float32x4_t vreg_dsum_fp32_1 = vreg_dsum_fp32_0;
+    float32x4_t vreg_dsum_fp32_2 = vreg_dsum_fp32_0;
+    float32x4_t vreg_dsum_fp32_3 = vreg_dsum_fp32_0;
+
+    for (int i = 0; i < n_rounded; i += 16) {
+      uint8x16_t vreg_a = vld1q_u8(&a[i]);
+      uint16x8_t vreg_a_u16_0 = vmovl_u8(vget_low_u8(vreg_a));
+      uint16x8_t vreg_a_u16_1 = vmovl_u8(vget_high_u8(vreg_a));
+      float32x4_t vreg_a_fp32_0 = vcvtq_f32_u32(vmovl_u16(vget_low_u16(vreg_a_u16_0)));
+      float32x4_t vreg_a_fp32_1 = vcvtq_f32_u32(vmovl_u16(vget_high_u16(vreg_a_u16_0)));
+      float32x4_t vreg_a_fp32_2 = vcvtq_f32_u32(vmovl_u16(vget_low_u16(vreg_a_u16_1)));
+      float32x4_t vreg_a_fp32_3 = vcvtq_f32_u32(vmovl_u16(vget_high_u16(vreg_a_u16_1)));
+
+      uint8x16_t vreg_b = vld1q_u8(&b[i]);
+      uint16x8_t vreg_b_u16_0 = vmovl_u8(vget_low_u8(vreg_b));
+      uint16x8_t vreg_b_u16_1 = vmovl_u8(vget_high_u8(vreg_b));
+      float32x4_t vreg_b_fp32_0 = vcvtq_f32_u32(vmovl_u16(vget_low_u16(vreg_b_u16_0)));
+      float32x4_t vreg_b_fp32_1 = vcvtq_f32_u32(vmovl_u16(vget_high_u16(vreg_b_u16_0)));
+      float32x4_t vreg_b_fp32_2 = vcvtq_f32_u32(vmovl_u16(vget_low_u16(vreg_b_u16_1)));
+      float32x4_t vreg_b_fp32_3 = vcvtq_f32_u32(vmovl_u16(vget_high_u16(vreg_b_u16_1)));
+
+      float32x4_t vreg_d_fp32_0 = vsubq_f32(vreg_a_fp32_0, vreg_b_fp32_0);
+      float32x4_t vreg_d_fp32_1 = vsubq_f32(vreg_a_fp32_1, vreg_b_fp32_1);
+      float32x4_t vreg_d_fp32_2 = vsubq_f32(vreg_a_fp32_2, vreg_b_fp32_2);
+      float32x4_t vreg_d_fp32_3 = vsubq_f32(vreg_a_fp32_3, vreg_b_fp32_3);
+
+      vreg_dsum_fp32_0 = vfmaq_f32(vreg_dsum_fp32_0, vreg_d_fp32_0, vreg_d_fp32_0);
+      vreg_dsum_fp32_1 = vfmaq_f32(vreg_dsum_fp32_1, vreg_d_fp32_1, vreg_d_fp32_1);
+      vreg_dsum_fp32_2 = vfmaq_f32(vreg_dsum_fp32_2, vreg_d_fp32_2, vreg_d_fp32_2);
+      vreg_dsum_fp32_3 = vfmaq_f32(vreg_dsum_fp32_3, vreg_d_fp32_3, vreg_d_fp32_3);
+    }
+
+    vreg_dsum_fp32_0 = vaddq_f32(vreg_dsum_fp32_0, vreg_dsum_fp32_1);
+    vreg_dsum_fp32_2 = vaddq_f32(vreg_dsum_fp32_2, vreg_dsum_fp32_3);
+    vreg_dsum_fp32_0 = vaddq_f32(vreg_dsum_fp32_0, vreg_dsum_fp32_2);
+
+    dsum = vaddvq_f32(vreg_dsum_fp32_0); // faddp
+  }
+
+  for (int i = n_rounded; i < n; ++i) {
+      float d = a[i] - b[i];
+      dsum += d * d; // [nvc++] faddp, [clang] fadda, [gcc] vecsum+fadda
+  }
+
+  return dsum;
+}
+
+#endif // defined(__arm__) || defined(__aarch64__)
+
+// -----------------------------------------------------------------------------
+//  Refine kernel
+// -----------------------------------------------------------------------------
 
 template <typename DC, typename IdxT, typename DataT, typename DistanceT, typename ExtentsT>
 [[gnu::optimize(3), gnu::optimize("tree-vectorize")]] void refine_host_impl(
@@ -112,9 +299,7 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
           distance = std::numeric_limits<DistanceT>::max();
         } else {
           const DataT* row = dataset.data_handle() + dim * id;
-          for (size_t k = 0; k < dim; k++) {
-            distance += DC::template eval<DistanceT>(query[k], row[k]);
-          }
+          distance = euclidean_distance_squared<DC, DistanceT, DataT>(query, row, dim);
         }
         refined_pairs[j] = std::make_tuple(distance, id);
       }
