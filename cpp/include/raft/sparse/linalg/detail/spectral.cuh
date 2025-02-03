@@ -71,7 +71,7 @@ void fit_embedding(raft::resources const& handle,
   index_type* ci = dst_cols.data();
   value_type* vs = dst_vals.data();
 
-  raft::spectral::matrix::sparse_matrix_t<index_type, value_type> const r_csr_m{
+  raft::spectral::matrix::sparse_matrix_t<index_type, value_type, nnz_t> const r_csr_m{
     handle, ro, ci, vs, static_cast<index_type>(n), static_cast<uint64_t>(nnz)};
 
   index_type neigvs       = n_components + 1;
@@ -79,12 +79,12 @@ void fit_embedding(raft::resources const& handle,
   value_type tol          = 0.01;
   index_type restart_iter = 15 + neigvs;  // what cugraph is using
 
-  raft::spectral::eigen_solver_config_t<index_type, value_type> cfg{
+  raft::spectral::eigen_solver_config_t<index_type, value_type, nnz_t> cfg{
     neigvs, maxiter, restart_iter, tol};
 
   cfg.seed = seed;
 
-  raft::spectral::lanczos_solver_t<index_type, value_type> eig_solver{cfg};
+  raft::spectral::lanczos_solver_t<index_type, value_type, nnz_t> eig_solver{cfg};
 
   // cluster computation here is irrelevant,
   // hence define a no-op such solver to
