@@ -192,6 +192,9 @@ class SparsePreprocessCSR
         handle, ab_rows.view(), ab_columns.view(), ab_values.view(), num_rows * 2, num_cols);
       sparseEncoder->fit(handle, a_matrix);
       sparseEncoder->fit(handle, b_matrix);
+      sparseEncoder->save(handle, "test_save.txt");
+      sparseEncoder =
+        raft::sparse::matrix::loadSparseEncoder<Type_f, Index_>(handle, "test_save.txt");
       sparseEncoder->transform(handle, c_matrix, result.data_handle(), bm25_on);
     } else {
       sparseEncoder->fit(handle, csr_matrix);
