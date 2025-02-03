@@ -199,7 +199,6 @@ void SparseEncoder<ValueType, IndexType>::save(raft::resources& handle, std::str
     saveFile << vocabSize << " ";
     saveFile << numRows << " ";
     saveFile << fullIdLen << " ";
-    // serialize_mdspan<IndexType>(handle, oss, featIdCount_md.view());
     for (int i = 0; i < vocabSize; i++) {
       saveFile << featIdCount[i] << " ";
     }
