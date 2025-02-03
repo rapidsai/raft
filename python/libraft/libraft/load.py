@@ -47,6 +47,9 @@ def load_library():
     """Dynamically load libraft.so and its dependencies"""
     try:
         import librmm  # noqa: F401
+        import rapids_logger
+
+        rapids_logger.load_library()
     except ModuleNotFoundError:
         pass
 
