@@ -29,6 +29,7 @@ EXCLUDE_ARGS=(
   --exclude "libcusparse.so.*"
   --exclude "libnvJitLink.so.*"
   --exclude "libucp.so.*"
+  --exclude "librapids_logger.so"
 )
 
 if [[ ${package_name} != "libraft" ]]; then
