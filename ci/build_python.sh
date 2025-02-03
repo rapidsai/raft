@@ -19,7 +19,6 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 LIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 cpp conda)
 PYLIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 python conda)
 LIBUCXX_CHANNEL=$(_rapids-get-pr-artifact ucxx 364 cpp conda)
-PYLIBUCXX_CHANNEL=$(_rapids-get-pr-artifact ucxx 364 python conda)
 
 version=$(rapids-generate-version)
 git_commit=$(git rev-parse HEAD)
@@ -46,7 +45,6 @@ rapids-conda-retry mambabuild \
   --channel "${LIBRMM_CHANNEL}" \
   --channel "${PYLIBRMM_CHANNEL}" \
   --channel "${LIBUCXX_CHANNEL}" \
-  --channel "${PYLIBUCXX_CHANNEL}" \
   --channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
   conda/recipes/raft-dask
 
