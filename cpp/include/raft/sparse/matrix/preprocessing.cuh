@@ -149,6 +149,8 @@ SparseEncoder<ValueType, IndexType>::SparseEncoder(int feats) : numFeats(feats)
  * @tparam IndexType
  *   Type of the indices associated with the values.
  *
+ * @param[in] handle
+ *   Container for managing reusable resources.
  * @param[in] featIdValues
  *   A map that consists of all the indices and values, to populate the featIdCount array.
  * @param[in] num_rows
