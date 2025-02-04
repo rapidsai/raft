@@ -44,7 +44,7 @@ namespace raft::sparse::matrix {
  *   An array that holds the count of how many different rows each feature occurs in.
  * @param[in] fullIdLen
  *   The value that represents the total number of words seen during the fit process.
- * @param[out] vocabSize
+ * @param[out] numFeats
  *   A value that represents the number of features that exist for the matrices encoded.
  * @param[out] numRows
  *   The number of rows observed during the fit process, accumulates over all fit calls.
@@ -54,13 +54,13 @@ class SparseEncoder {
  private:
   int* featIdCount;
   int fullIdLen;
-  int vocabSize;
+  int numFeats;
   int numRows;
 
  public:
-  SparseEncoder(int vocab_size);
+  SparseEncoder(int num_feats);
   SparseEncoder(
-    raft::resources& handle, int* featIdValues, int num_rows, int full_id_len, int vocab_size);
+    raft::resources& handle, int* featIdValues, int num_rows, int full_id_len, int num_feats);
   ~SparseEncoder();
   void fit(raft::resources& handle,
            raft::device_coo_matrix<ValueType,
@@ -119,30 +119,30 @@ class SparseEncoder {
 };
 
 /**
- * This constructor creates the `SparseEncoder` class with a vocabSize equal to the
- * int vocab parameter supplied.
+ * This constructor creates the `SparseEncoder` class with a numFeats equal to the
+ * int feats parameter supplied.
  *
  * @tparam ValueType
  *   Type of the values in the sparse matrix.
  * @tparam IndexType
  *   Type of the indices associated with the values.
  *
- * @param[in] vocab
+ * @param[in] feats
  *   Value that represents the number of features that exist for the matrices encoded.
  */
 template <typename ValueType, typename IndexType>
-SparseEncoder<ValueType, IndexType>::SparseEncoder(int vocab) : vocabSize(vocab)
+SparseEncoder<ValueType, IndexType>::SparseEncoder(int feats) : numFeats(feats)
 {
-  cudaMallocManaged(&featIdCount, vocab * sizeof(int));
+  cudaMallocManaged(&featIdCount, feats * sizeof(int));
   fullIdLen = 0;
   numRows   = 0;
-  for (int i = 0; i < vocabSize; i++) {
+  for (int i = 0; i < numFeats; i++) {
     featIdCount[i] = 0;
   }
 }
 /**
- * This constructor creates the `SparseEncoder` class with a vocabSize equal to the
- * int vocab parameter supplied.
+ * This constructor creates the `SparseEncoder` class with a numFeats equal to the
+ * int feats parameter supplied.
  *
  * @tparam ValueType
  *   Type of the values in the sparse matrix.
@@ -156,19 +156,18 @@ SparseEncoder<ValueType, IndexType>::SparseEncoder(int vocab) : vocabSize(vocab)
  * @param[in] full_id_len
  *   Value that represents the number overall number of features observed during the fit
  * cycle.
- * @param[in] vocab_size
+ * @param[in] num_feats
  *   Value that represents the number of features that exist for the matrices encoded.
  * */
 template <typename ValueType, typename IndexType>
 SparseEncoder<ValueType, IndexType>::SparseEncoder(
-  raft::resources& handle, int* featIdValues, int vocab_size, int num_rows, int full_id_len)
-  : vocabSize(vocab_size), numRows(num_rows), fullIdLen(full_id_len)
+  raft::resources& handle, int* featIdValues, int num_feats, int num_rows, int full_id_len)
+  : numFeats(num_feats), numRows(num_rows), fullIdLen(full_id_len)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  cudaMallocManaged(&featIdCount, vocabSize * sizeof(int));
-  cudaMemset(featIdCount, 0, vocabSize * sizeof(int));
-  // raft::copy(featIdCount, featIdValues, vocabSize, stream);
-  for (int i = 0; i < vocabSize; i++) {
+  cudaMallocManaged(&featIdCount, numFeats * sizeof(int));
+  cudaMemset(featIdCount, 0, numFeats * sizeof(int));
+  for (int i = 0; i < numFeats; i++) {
     featIdCount[i] = featIdValues[i];
   }
 }
@@ -187,19 +186,33 @@ SparseEncoder<ValueType, IndexType>::~SparseEncoder()
   cudaFree(featIdCount);
 }
 
+/**
+ * This function exports all values required to recreate the SparseEncoder to a
+ * file.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] handle
+ *   Container for managing reusable resources.
+ * @param[in] save_path
+ *   The path to save the file container all values required to recreate SparseEncoder.
+ * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::save(raft::resources& handle, std::string save_path)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto featIdCount_md = raft::make_device_vector<IndexType, int64_t>(handle, vocabSize);
-  raft::copy(featIdCount_md.data_handle(), featIdCount, vocabSize, stream);
+  auto featIdCount_md = raft::make_device_vector<IndexType, int64_t>(handle, numFeats);
+  raft::copy(featIdCount_md.data_handle(), featIdCount, numFeats, stream);
   std::ofstream saveFile(save_path);
   if (saveFile.is_open()) {
     std::ostringstream oss;
-    saveFile << vocabSize << " ";
+    saveFile << numFeats << " ";
     saveFile << numRows << " ";
     saveFile << fullIdLen << " ";
-    for (int i = 0; i < vocabSize; i++) {
+    for (int i = 0; i < numFeats; i++) {
       saveFile << featIdCount[i] << " ";
     }
     saveFile.close();
@@ -216,7 +229,7 @@ void SparseEncoder<ValueType, IndexType>::_fit_feats(IndexType* cols,
   int num_blocks = (nnz + blockSize - 1) / blockSize;
   raft::sparse::matrix::detail::_scan<<<blockSize, num_blocks>>>(cols, nnz, counts);
   raft::sparse::matrix::detail::_fit_compute_occurs<<<blockSize, num_blocks>>>(
-    cols, nnz, counts, results, vocabSize);
+    cols, nnz, counts, results, numFeats);
 }
 
 template <typename ValueType, typename IndexType>
@@ -458,32 +471,45 @@ void SparseEncoder<ValueType, IndexType>::transform(
                                                                       k_param,
                                                                       b_param,
                                                                       nnz,
-                                                                      vocabSize,
+                                                                      numFeats,
                                                                       bm25_on);
   cudaFree(counts);
   cudaDeviceSynchronize();
 }
 
+/**
+ * This function loads a sparse encoder from a previously saved file path.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] handle
+ *   Container for managing reusable resources.
+ * @param[in] save_path
+ *   The path with the saved SparseEncoder data.
+ * */
 template <typename ValueType, typename IndexType>
 SparseEncoder<ValueType, IndexType>* loadSparseEncoder(raft::resources& handle,
                                                        std::string save_path)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
   std::ifstream loadFile(save_path, std::ios_base::in);
-  int vocab_size, num_rows, fullIdLen;
-  loadFile >> vocab_size;
+  IndexType num_feats, num_rows, fullIdLen;
+  loadFile >> num_feats;
   loadFile >> num_rows;
   loadFile >> fullIdLen;
-  int val;
-  std::vector<int> vals;
+  IndexType val;
+  std::vector<IndexType> vals;
   while (loadFile >> val) {
     vals.push_back(val);
   }
-  auto featIdCount_h = raft::make_host_vector<IndexType, int64_t>(handle, vocab_size);
+  auto featIdCount_h = raft::make_host_vector<IndexType, int64_t>(handle, num_feats);
   raft::copy(featIdCount_h.data_handle(), vals.data(), vals.size(), stream);
   loadFile.close();
   return new SparseEncoder<ValueType, IndexType>(
-    handle, featIdCount_h.data_handle(), vocab_size, num_rows, fullIdLen);
+    handle, featIdCount_h.data_handle(), num_feats, num_rows, fullIdLen);
 }
 
 }  // namespace raft::sparse::matrix
