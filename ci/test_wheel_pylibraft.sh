@@ -10,7 +10,7 @@ RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels
 
 
 # echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install \
+rapids-pip-retry install \
     ./local-libraft-dep/libraft*.whl \
     "$(echo ./dist/pylibraft*.whl)[test]"
 
