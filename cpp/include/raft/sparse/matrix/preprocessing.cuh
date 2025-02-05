@@ -466,6 +466,8 @@ void SparseEncoder<ValueType, IndexType>::transform(
  *   array coo representation of columns for non zero values.
  * @param[in] values
  *   array coo representation of non zero values.
+ * @param[in] nnz
+ *   The number of non-zero values in the coo array representations.
  * @param[in] results
  *   array that is the size of the csr_in nnz that will store the encoded
  *      transform values.
