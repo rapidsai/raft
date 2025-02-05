@@ -528,7 +528,7 @@ auto adjust_centers(MathT* centers,
                     MathT threshold,
                     MappingOpT mapping_op,
                     rmm::cuda_stream_view stream,
-                    rmm::device_async_resource_ref workspace_resource) -> bool
+                    rmm::device_async_resource_ref device_memory) -> bool
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "adjust_centers(%zu, %u)", static_cast<size_t>(n_rows), n_clusters);
@@ -551,7 +551,7 @@ auto adjust_centers(MathT* centers,
   constexpr uint32_t kBlockDimY = 4;
   const dim3 block_dim(WarpSize, kBlockDimY, 1);
   const dim3 grid_dim(1, raft::ceildiv(n_clusters, static_cast<IdxT>(kBlockDimY)), 1);
-  rmm::device_scalar<IdxT> update_count(0, stream, workspace_resource);
+  rmm::device_scalar<IdxT> update_count(0, stream, device_memory);
   adjust_centers_kernel<kBlockDimY><<<grid_dim, block_dim, 0, stream>>>(centers,
                                                                         n_clusters,
                                                                         dim,
@@ -603,7 +603,7 @@ auto adjust_centers(MathT* centers,
  *   the rebalancing takes place if any cluster is smaller than `avg_size * balancing_threshold`
  *   on a given iteration (default should be `~ 0.25`).
  * @param[in] mapping_op Mapping operation from T to MathT
- * @param[inout] workspace_resource
+ * @param[inout] device_memory
  *   A memory resource for device allocations (makes sense to provide a memory pool here)
  */
 template <typename T,
@@ -626,7 +626,7 @@ void balancing_em_iters(const raft::resources& handle,
                         uint32_t balancing_pullback,
                         MathT balancing_threshold,
                         MappingOpT mapping_op,
-                        rmm::device_async_resource_ref workspace_resource)
+                        rmm::device_async_resource_ref device_memory)
 {
   auto stream                = resource::get_cuda_stream(handle);
   uint32_t balancing_counter = balancing_pullback;
@@ -643,7 +643,7 @@ void balancing_em_iters(const raft::resources& handle,
                                    balancing_threshold,
                                    mapping_op,
                                    stream,
-                                   workspace_resource)) {
+                                   device_memory)) {
       if (balancing_counter++ >= balancing_pullback) {
         balancing_counter -= balancing_pullback;
         n_iters++;
@@ -675,7 +675,7 @@ void balancing_em_iters(const raft::resources& handle,
             n_rows,
             cluster_labels,
             mapping_op,
-            workspace_resource,
+            device_memory,
             dataset_norm);
     // M: Maximization step - calculate optimal cluster centers
     calc_centers_and_sizes(handle,
@@ -688,7 +688,7 @@ void balancing_em_iters(const raft::resources& handle,
                            cluster_labels,
                            true,
                            mapping_op,
-                           workspace_resource);
+                           device_memory);
   }
 }
 
@@ -709,7 +709,7 @@ void build_clusters(const raft::resources& handle,
                     LabelT* cluster_labels,
                     CounterT* cluster_sizes,
                     MappingOpT mapping_op,
-                    rmm::device_async_resource_ref workspace_resource,
+                    rmm::device_async_resource_ref device_memory,
                     const MathT* dataset_norm = nullptr)
 {
   auto stream = resource::get_cuda_stream(handle);
@@ -732,7 +732,7 @@ void build_clusters(const raft::resources& handle,
                          cluster_labels,
                          true,
                          mapping_op,
-                         workspace_resource);
+                         device_memory);
 
   // run EM
   balancing_em_iters(handle,
@@ -749,7 +749,7 @@ void build_clusters(const raft::resources& handle,
                      2,
                      MathT{0.25},
                      mapping_op,
-                     workspace_resource);
+                     device_memory);
 }
 
 /** Calculate how many fine clusters should belong to each mesocluster. */
@@ -851,27 +851,25 @@ auto build_fine_clusters(const raft::resources& handle,
                          IdxT fine_clusters_nums_max,
                          MathT* cluster_centers,
                          MappingOpT mapping_op,
-                         rmm::device_async_resource_ref current_device_resource,
-                         rmm::device_async_resource_ref workspace_resource) -> IdxT
+                         rmm::device_async_resource_ref managed_memory,
+                         rmm::device_async_resource_ref device_memory) -> IdxT
 {
   auto stream = resource::get_cuda_stream(handle);
-  rmm::device_uvector<IdxT> mc_trainset_ids_buf(
-    mesocluster_size_max, stream, current_device_resource);
-  rmm::device_uvector<MathT> mc_trainset_buf(
-    mesocluster_size_max * dim, stream, workspace_resource);
-  rmm::device_uvector<MathT> mc_trainset_norm_buf(mesocluster_size_max, stream, workspace_resource);
+  rmm::device_uvector<IdxT> mc_trainset_ids_buf(mesocluster_size_max, stream, managed_memory);
+  rmm::device_uvector<MathT> mc_trainset_buf(mesocluster_size_max * dim, stream, device_memory);
+  rmm::device_uvector<MathT> mc_trainset_norm_buf(mesocluster_size_max, stream, device_memory);
   auto mc_trainset_ids  = mc_trainset_ids_buf.data();
   auto mc_trainset      = mc_trainset_buf.data();
   auto mc_trainset_norm = mc_trainset_norm_buf.data();
 
   // label (cluster ID) of each vector
-  rmm::device_uvector<LabelT> mc_trainset_labels(mesocluster_size_max, stream, workspace_resource);
+  rmm::device_uvector<LabelT> mc_trainset_labels(mesocluster_size_max, stream, device_memory);
 
   rmm::device_uvector<MathT> mc_trainset_ccenters(
-    fine_clusters_nums_max * dim, stream, workspace_resource);
+    fine_clusters_nums_max * dim, stream, device_memory);
   // number of vectors in each cluster
   rmm::device_uvector<CounterT> mc_trainset_csizes_tmp(
-    fine_clusters_nums_max, stream, workspace_resource);
+    fine_clusters_nums_max, stream, device_memory);
 
   // Training clusters in each meso-cluster
   IdxT n_clusters_done = 0;
@@ -917,7 +915,7 @@ auto build_fine_clusters(const raft::resources& handle,
                    mc_trainset_labels.data(),
                    mc_trainset_csizes_tmp.data(),
                    mapping_op,
-                   workspace_resource,
+                   device_memory,
                    mc_trainset_norm);
 
     raft::copy(cluster_centers + (dim * fine_clusters_csum[i]),
@@ -969,15 +967,14 @@ void build_hierarchical(const raft::resources& handle,
   IdxT n_mesoclusters = std::min(n_clusters, static_cast<IdxT>(std::sqrt(n_clusters) + 0.5));
   RAFT_LOG_DEBUG("build_hierarchical: n_mesoclusters: %u", n_mesoclusters);
 
-  rmm::device_async_resource_ref current_device_resource = rmm::mr::get_current_device_resource();
-  rmm::device_async_resource_ref workspace_resource =
-    resource::get_large_workspace_resource(handle);
+  rmm::device_async_resource_ref managed_memory = rmm::mr::get_current_device_resource();
+  rmm::device_async_resource_ref device_memory = resource::get_large_workspace_resource(handle);
   auto [max_minibatch_size, mem_per_row] =
     calc_minibatch_size<MathT>(n_clusters, n_rows, dim, params.metric, std::is_same_v<T, MathT>);
 
   // Precompute the L2 norm of the dataset if relevant.
   const MathT* dataset_norm = nullptr;
-  rmm::device_uvector<MathT> dataset_norm_buf(0, stream, workspace_resource);
+  rmm::device_uvector<MathT> dataset_norm_buf(0, stream, device_memory);
   if (params.metric == raft::distance::DistanceType::L2Expanded ||
       params.metric == raft::distance::DistanceType::L2SqrtExpanded) {
     dataset_norm_buf.resize(n_rows, stream);
@@ -989,7 +986,7 @@ void build_hierarchical(const raft::resources& handle,
                    dim,
                    minibatch_size,
                    mapping_op,
-                   workspace_resource);
+                   device_memory);
     }
     dataset_norm = (const MathT*)dataset_norm_buf.data();
   }
@@ -1000,12 +997,10 @@ void build_hierarchical(const raft::resources& handle,
     CounterT;
 
   // build coarse clusters (mesoclusters)
-  rmm::device_uvector<LabelT> mesocluster_labels_buf(n_rows, stream, current_device_resource);
-  rmm::device_uvector<CounterT> mesocluster_sizes_buf(
-    n_mesoclusters, stream, current_device_resource);
+  rmm::device_uvector<LabelT> mesocluster_labels_buf(n_rows, stream, managed_memory);
+  rmm::device_uvector<CounterT> mesocluster_sizes_buf(n_mesoclusters, stream, managed_memory);
   {
-    rmm::device_uvector<MathT> mesocluster_centers_buf(
-      n_mesoclusters * dim, stream, workspace_resource);
+    rmm::device_uvector<MathT> mesocluster_centers_buf(n_mesoclusters * dim, stream, device_memory);
     build_clusters(handle,
                    params,
                    dim,
@@ -1016,7 +1011,7 @@ void build_hierarchical(const raft::resources& handle,
                    mesocluster_labels_buf.data(),
                    mesocluster_sizes_buf.data(),
                    mapping_op,
-                   workspace_resource,
+                   device_memory,
                    dataset_norm);
   }
 
@@ -1059,12 +1054,12 @@ void build_hierarchical(const raft::resources& handle,
                                              fine_clusters_nums_max,
                                              cluster_centers,
                                              mapping_op,
-                                             current_device_resource,
-                                             workspace_resource);
+                                             managed_memory,
+                                             device_memory);
   RAFT_EXPECTS(n_clusters_done == n_clusters, "Didn't process all clusters.");
 
-  rmm::device_uvector<CounterT> cluster_sizes(n_clusters, stream, workspace_resource);
-  rmm::device_uvector<LabelT> labels(n_rows, stream, workspace_resource);
+  rmm::device_uvector<CounterT> cluster_sizes(n_clusters, stream, device_memory);
+  rmm::device_uvector<LabelT> labels(n_rows, stream, device_memory);
 
   // Fine-tuning k-means for all clusters
   //
@@ -1087,7 +1082,7 @@ void build_hierarchical(const raft::resources& handle,
                      5,
                      MathT{0.2},
                      mapping_op,
-                     workspace_resource);
+                     device_memory);
 }
 
 }  // namespace raft::cluster::detail
