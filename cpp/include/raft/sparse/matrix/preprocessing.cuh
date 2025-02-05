@@ -360,7 +360,15 @@ void SparseEncoder<ValueType, IndexType>::fit(raft::resources& handle,
  *   Container for managing reusable resources.
  * @param[in] coo_in
  *   Raft container housing a compressed sparse row matrix representation.
-
+ * @param[in] results
+ *   array that is the size of the coo_in nnz that will store the encoded
+ *      transform values.
+ * @param[in] bm25_on
+ *   When true calculates bm25 encoding values, otherwise tfidf.
+ * @param[in] k_param
+ *   bm25 okapi optimization parameter k1
+ * @param[in] b_param
+ *   bm25 okapi optimization parameter b
  * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::transform(
@@ -406,7 +414,15 @@ void SparseEncoder<ValueType, IndexType>::transform(
  *   Container for managing reusable resources.
  * @param[in] csr_in
  *   Raft container housing a compressed sparse row matrix representation.
-
+ * @param[in] results
+ *   array that is the size of the csr_in nnz that will store the encoded
+ *      transform values.
+ * @param[in] bm25_on
+ *   When true calculates bm25 encoding values, otherwise tfidf.
+ * @param[in] k_param
+ *   bm25 okapi optimization parameter k1
+ * @param[in] b_param
+ *   bm25 okapi optimization parameter b
  * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::transform(
@@ -433,6 +449,33 @@ void SparseEncoder<ValueType, IndexType>::transform(
     handle, rows.view(), columns.view(), values.view(), nnz, results, bm25_on, k_param, b_param);
 }
 
+/**
+ * This function transforms the csr matrix based on statistics collected during fit
+ * cycle.
+ *
+ * @tparam ValueType
+ *   Type of the values in the sparse matrix.
+ * @tparam IndexType
+ *   Type of the indices associated with the values.
+ *
+ * @param[in] handle
+ *   Container for managing reusable resources.
+ * @param[in] rows
+ *   array coo representation of rows for non zero values.
+ * @param[in] columns
+ *   array coo representation of columns for non zero values.
+ * @param[in] values
+ *   array coo representation of non zero values.
+ * @param[in] results
+ *   array that is the size of the csr_in nnz that will store the encoded
+ *      transform values.
+ * @param[in] bm25_on
+ *   When true calculates bm25 encoding values, otherwise tfidf.
+ * @param[in] k_param
+ *   bm25 okapi optimization parameter k1
+ * @param[in] b_param
+ *   bm25 okapi optimization parameter b
+ * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::transform(
   raft::resources& handle,
