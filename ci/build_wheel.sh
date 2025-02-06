@@ -15,7 +15,7 @@ rm -rf /usr/lib64/libuc*
 source rapids-configure-sccache
 source rapids-date-string
 
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 rapids-generate-version > ./VERSION
 
@@ -53,4 +53,4 @@ sccache --show-adv-stats
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
 
-RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_type} final_dist
+RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 "${package_type}" final_dist
