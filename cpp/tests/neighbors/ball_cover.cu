@@ -78,7 +78,7 @@ RAFT_KERNEL count_discrepancies_kernel(value_idx* actual_idx,
 }
 
 struct is_nonzero {
-  __host__ __device__ bool operator()(uint32_t& i) { return i > 0; }
+  __host__ __device__ bool operator()(const uint32_t& i) { return i > 0; }
 };
 
 template <typename value_idx, typename value_t>
