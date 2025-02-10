@@ -7,7 +7,8 @@ rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
 RAPIDS_VERSION="$(rapids-version)"
-export RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
+RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
+export RAPIDS_VERSION_MAJOR_MINOR
 
 rapids-dependency-file-generator \
   --output conda \
@@ -31,7 +32,8 @@ rapids-mamba-retry install \
   "pylibraft=${RAPIDS_VERSION}" \
   "raft-dask=${RAPIDS_VERSION}"
 
-export RAPIDS_DOCS_DIR="$(mktemp -d)"
+RAPIDS_DOCS_DIR="$(mktemp -d)"
+export RAPIDS_DOCS_DIR
 
 rapids-logger "Build CPP docs"
 pushd cpp/doxygen
