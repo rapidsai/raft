@@ -21,7 +21,6 @@ PYLIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 python conda)
 LIBUCXX_CHANNEL=$(_rapids-get-pr-artifact ucxx 364 cpp conda)
 
 version=$(rapids-generate-version)
-git_commit=$(git rev-parse HEAD)
 export RAPIDS_PACKAGE_VERSION=${version}
 echo "${version}" > VERSION
 

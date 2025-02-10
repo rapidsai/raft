@@ -27,11 +27,23 @@ jobs:
       - wheel-build-raft-dask
       - wheel-tests-raft-dask
       - devcontainer
+      - telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-25.04
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
+  telemetry-setup:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      OTEL_SERVICE_NAME: "pr-raft"
+    steps:
+      - name: Telemetry setup
+        # This gate is here and not at the job level because we need the job to not be skipped,
+        # since other jobs depend on it.
+        if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
+        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   check-nightly-ci:
     # Switch to ubuntu-latest once it defaults to a version of Ubuntu that
     # provides at least Python 3.11 (see
@@ -46,6 +58,7 @@ jobs:
           repo: raft
   changed-files:
     secrets: inherit
+    needs: telemetry-setup
     uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@branch-25.04
     with:
       files_yaml: |
@@ -70,9 +83,11 @@ jobs:
           - '!thirdparty/LICENSES/**'
   checks:
     secrets: inherit
+    needs: telemetry-setup
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-25.04
     with:
       enable_check_generated_files: false
+      ignored_pr_jobs: telemetry-summarize
   conda-cpp-build:
     needs: checks
     secrets: inherit
@@ -113,7 +128,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-25.04
     with:
       build_type: pull-request
-      node_type: "gpu-v100-latest-1"
+      node_type: "gpu-l4-latest-1"
       arch: "amd64"
       container_image: "rapidsai/ci-conda:latest"
       run_script: "ci/build_docs.sh"
@@ -160,6 +175,7 @@ jobs:
       build_type: pull-request
       script: ci/test_wheel_raft_dask.sh
   devcontainer:
+    needs: telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.04
     with:
@@ -169,3 +185,12 @@ jobs:
         sccache -z;
         build-all -DBUILD_PRIMS_BENCH=ON --verbose;
         sccache -s;
+  telemetry-summarize:
+    # This job must use a self-hosted runner to record telemetry traces.
+    runs-on: linux-amd64-cpu4
+    needs: pr-builder
+    if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
+    continue-on-error: true
+    steps:
+      - name: Telemetry summarize
+        uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main

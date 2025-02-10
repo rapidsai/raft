@@ -46,4 +46,4 @@ export GTEST_OUTPUT=xml:${RAPIDS_TESTS_DIR}/
 ./ci/run_ctests.sh -j8 && EXITCODE=$? || EXITCODE=$?;
 
 rapids-logger "Test script exiting with value: $EXITCODE"
-exit ${EXITCODE}
+exit "${EXITCODE}"
