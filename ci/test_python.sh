@@ -23,9 +23,6 @@ set +u
 conda activate test
 set -u
 
-LIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 cpp conda)
-PYLIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 python conda)
-
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
@@ -39,8 +36,6 @@ rapids-print-env
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
-  --channel "${LIBRMM_CHANNEL}" \
-  --channel "${PYLIBRMM_CHANNEL}" \
   "libraft=${RAPIDS_VERSION}" \
   "libraft-headers=${RAPIDS_VERSION}" \
   "pylibraft=${RAPIDS_VERSION}" \
