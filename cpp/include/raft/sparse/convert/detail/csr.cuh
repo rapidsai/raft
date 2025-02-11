@@ -84,11 +84,12 @@ void coo_to_csr(raft::resources const& handle,
  * @param m: number of rows in dense matrix
  * @param stream: cuda stream to use
  */
-template <typename T, typename outT>
-void sorted_coo_to_csr(const T* rows, uint64_t nnz, outT* row_ind, int m, cudaStream_t stream)
+template <typename T, typename nnz_t, typename outT>
+void sorted_coo_to_csr(const T* rows, nnz_t nnz, outT* row_ind, int m, cudaStream_t stream)
 {
   rmm::device_uvector<outT> row_counts(m, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(row_counts.data(), 0, (uint64_t)m * sizeof(outT), stream));
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(row_counts.data(), 0, static_cast<nnz_t>(m) * sizeof(outT), stream));
 
   linalg::coo_degree(rows, nnz, row_counts.data(), stream);
 

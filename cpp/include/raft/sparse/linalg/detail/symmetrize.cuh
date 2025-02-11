@@ -352,7 +352,7 @@ void symmetrize(raft::resources const& handle,
   // sort COO
   raft::sparse::op::coo_sort((value_idx)m,
                              (value_idx)n,
-                             (nnz_t)nnz * 2,
+                             static_cast<nnz_t>(nnz) * 2,
                              symm_rows.data(),
                              symm_cols.data(),
                              symm_vals.data(),
