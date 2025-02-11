@@ -99,8 +99,6 @@ if(BUILD_TESTS)
     core/bitset.cu
     core/device_resources_manager.cpp
     core/device_setter.cpp
-    # TODO: Clean out tests, they're all now in rapids-logger
-    core/logger.cpp
     core/math_device.cu
     core/math_host.cpp
     core/operators_device.cu
