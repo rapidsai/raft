@@ -152,7 +152,7 @@ int performLanczosIteration(
 
   RAFT_EXPECTS(A != nullptr, "Null matrix pointer.");
 
-  uint64_t n = A->nrows_;
+  nnz_type_t n = A->nrows_;
 
   // -------------------------------------------------------
   // Compute second Lanczos vector
@@ -815,7 +815,7 @@ int computeSmallestEigenvectors(
   constexpr value_type_t zero = 0;
 
   // Matrix dimension
-  uint64_t n = A->nrows_;
+  nnz_type_t n = A->nrows_;
 
   // Shift for implicit restart
   value_type_t shiftUpper;
@@ -837,7 +837,7 @@ int computeSmallestEigenvectors(
   // -------------------------------------------------------
   // Check that parameters are valid
   // -------------------------------------------------------
-  RAFT_EXPECTS(nEigVecs > 0 && static_cast<uint64_t>(nEigVecs) <= n,
+  RAFT_EXPECTS(nEigVecs > 0 && static_cast<nnz_type_t>(nEigVecs) <= n,
                "Invalid number of eigenvectors.");
   RAFT_EXPECTS(restartIter > 0, "Invalid restartIter.");
   RAFT_EXPECTS(tol > 0, "Invalid tolerance.");
@@ -1162,7 +1162,7 @@ int computeLargestEigenvectors(
   constexpr value_type_t zero = 0;
 
   // Matrix dimension
-  uint64_t n = A->nrows_;
+  nnz_type_t n = A->nrows_;
 
   // Lanczos iteration counters
   index_type_t maxIter_curr = restartIter;  // Maximum size of Lanczos system
@@ -1185,7 +1185,7 @@ int computeLargestEigenvectors(
   // -------------------------------------------------------
   // Check that parameters are valid
   // -------------------------------------------------------
-  RAFT_EXPECTS(nEigVecs > 0 && static_cast<uint64_t>(nEigVecs) <= n,
+  RAFT_EXPECTS(nEigVecs > 0 && static_cast<nnz_type_t>(nEigVecs) <= n,
                "Invalid number of eigenvectors.");
   RAFT_EXPECTS(restartIter > 0, "Invalid restartIter.");
   RAFT_EXPECTS(tol > 0, "Invalid tolerance.");

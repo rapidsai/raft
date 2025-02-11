@@ -1004,7 +1004,7 @@ int computeSmallestEigenvectors(
   index_type_t n = A.nrows_;
 
   // Check that parameters are valid
-  RAFT_EXPECTS(nEigVecs > 0 && static_cast<uint64_t>(nEigVecs) <= n,
+  RAFT_EXPECTS(nEigVecs > 0 && static_cast<nnz_type_t>(nEigVecs) <= n,
                "Invalid number of eigenvectors.");
   RAFT_EXPECTS(restartIter > 0, "Invalid restartIter.");
   RAFT_EXPECTS(tol > 0, "Invalid tolerance.");

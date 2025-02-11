@@ -68,7 +68,7 @@ template <typename T, typename nnz_type, typename outT>
 void coo_degree_scalar(
   const int* rows, const T* vals, nnz_type nnz, T scalar, outT* results, cudaStream_t stream = 0)
 {
-  detail::coo_degree_scalar<64>(rows, vals, (uint64_t)nnz, scalar, results, stream);
+  detail::coo_degree_scalar<64>(rows, vals, nnz, scalar, results, stream);
 }
 
 /**

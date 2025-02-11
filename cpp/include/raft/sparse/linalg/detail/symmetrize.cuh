@@ -104,7 +104,7 @@ RAFT_KERNEL coo_symmetrize_kernel(nnz_t* row_ind,
       // Note that if we did find a match, we don't need to
       // compute `res` on it here because it will be computed
       // in a different thread.
-      if (!found_match && cur_val != 0.0) {
+      if (!found_match && vals[idx] != 0.0) {
         orows[out_start_idx + row_nnz] = cur_col;
         ocols[out_start_idx + row_nnz] = cur_row;
         ovals[out_start_idx + row_nnz] = res;
@@ -131,9 +131,9 @@ RAFT_KERNEL coo_symmetrize_kernel(nnz_t* row_ind,
  * @param reduction_op: a custom reduction function
  * @param stream: cuda stream to use
  */
-template <int TPB_X = 128, typename T, typename Lambda>
-void coo_symmetrize(COO<T>* in,
-                    COO<T>* out,
+template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
+void coo_symmetrize(COO<T, IdxT, nnz_t>* in,
+                    COO<T, IdxT, nnz_t>* out,
                     Lambda reduction_op,  // two-argument reducer
                     cudaStream_t stream)
 {
@@ -142,7 +142,7 @@ void coo_symmetrize(COO<T>* in,
 
   ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
 
-  rmm::device_uvector<uint64_t> in_row_ind(in->n_rows, stream);
+  rmm::device_uvector<nnz_t> in_row_ind(in->n_rows, stream);
 
   convert::sorted_coo_to_csr(in, in_row_ind.data(), stream);
 

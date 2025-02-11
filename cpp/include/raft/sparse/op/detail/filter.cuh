@@ -104,10 +104,10 @@ void coo_remove_scalar(const idx_t* rows,
                        idx_t n,
                        cudaStream_t stream)
 {
-  rmm::device_uvector<uint64_t> ex_scan(n, stream);
-  rmm::device_uvector<uint64_t> cur_ex_scan(n, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(ex_scan.data(), 0, (nnz_t)n * sizeof(uint64_t), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(cur_ex_scan.data(), 0, (nnz_t)n * sizeof(uint64_t), stream));
+  rmm::device_uvector<nnz_t> ex_scan(n, stream);
+  rmm::device_uvector<nnz_t> cur_ex_scan(n, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(ex_scan.data(), 0, (nnz_t)n * sizeof(nnz_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(cur_ex_scan.data(), 0, (nnz_t)n * sizeof(nnz_t), stream));
 
   thrust::device_ptr<nnz_t> dev_cnnz    = thrust::device_pointer_cast(cnnz);
   thrust::device_ptr<nnz_t> dev_ex_scan = thrust::device_pointer_cast(ex_scan.data());
