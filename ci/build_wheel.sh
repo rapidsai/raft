@@ -28,6 +28,7 @@ EXCLUDE_ARGS=(
   --exclude "libcusolver.so.*"
   --exclude "libcusparse.so.*"
   --exclude "libnvJitLink.so.*"
+  --exclude "librapids_logger.so"
   --exclude "libucp.so.*"
 )
 

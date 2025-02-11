@@ -89,7 +89,8 @@ TEST(DeviceResourcesManager, ObeysSetters)
 
   // Suppress the many warnings from testing use of setters after initial
   // get_device_resources call
-  auto scoped_log_level = log_level_setter{level_enum::error};
+  auto scoped_log_level =
+    rapids_logger::log_level_setter{default_logger(), rapids_logger::level_enum::error};
 
   omp_set_dynamic(0);
 #pragma omp parallel for num_threads(5)

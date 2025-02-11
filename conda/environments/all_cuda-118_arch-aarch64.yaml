@@ -47,12 +47,12 @@ dependencies:
 - pytest==7.*
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
 - rapids-dask-dependency==25.4.*,>=0.0.0a0
+- rapids-logger==0.1.*,>=0.0.0a0
 - recommonmark
 - rmm==25.4.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
 - scikit-learn
 - scipy
-- spdlog>=1.14.1,<1.15
 - sphinx-copybutton
 - sphinx-markdown-tables
 - sysroot_linux-aarch64==2.28

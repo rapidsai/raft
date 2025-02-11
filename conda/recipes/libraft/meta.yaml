@@ -63,6 +63,7 @@ outputs:
         - cuda-cudart-dev
         {% endif %}
         - librmm ={{ minor_version }}
+        - rapids-logger =0.1
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -71,8 +72,7 @@ outputs:
         - cuda-cudart
         {% endif %}
         - librmm ={{ minor_version }}
-        - spdlog {{ spdlog_version }}
-        - fmt {{ fmt_version }}
+        - rapids-logger =0.1
     about:
       home: https://rapids.ai/
       license: Apache-2.0
