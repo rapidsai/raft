@@ -129,7 +129,6 @@ if(BUILD_TESTS)
     NOCUDA
   )
 
-  # TODO: What?
   list(APPEND EXT_HEADER_TEST_SOURCES ext_headers/raft_core_logger.cpp)
 
   # Test that the split headers compile in isolation with:
