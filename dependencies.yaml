@@ -29,6 +29,9 @@ files:
     includes:
       - cuda_version
       - test_libraft
+      - depends_on_libraft_headers
+      - depends_on_libraft
+      - depends_on_libraft_tests
   test_python:
     output: none
     includes:
@@ -583,6 +586,11 @@ dependencies:
       - output_types: conda
         packages:
           - raft-dask==25.4.*,>=0.0.0a0
+  depends_on_libraft_tests:
+    common:
+      - output_types: conda
+        packages:
+          - libraft-tests==25.4.*,>=0.0.0a0
   depends_on_librmm:
     common:
       - output_types: conda
