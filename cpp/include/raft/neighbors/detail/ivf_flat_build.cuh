@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/cluster/kmeans_balanced.cuh>
-#include <raft/core/logger-macros.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>

@@ -103,10 +103,10 @@ void iota_fill(value_idx* indices, value_idx nrows, value_idx ncols, cudaStream_
   iota_fill_block_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
 }
 
-template <typename T>
-__device__ int get_stop_idx(T row, T m, T nnz, const T* ind)
+template <typename T, typename indT>
+__device__ indT get_stop_idx(T row, T m, indT nnz, const indT* ind)
 {
-  int stop_idx = 0;
+  indT stop_idx = 0;
   if (row < (m - 1))
     stop_idx = ind[row + 1];
   else
