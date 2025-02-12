@@ -47,6 +47,8 @@ DEPENDENCIES=(
   pylibraft
   rmm
   rapids-dask-dependency
+  libraft-headers
+  raft-dask
 )
 UCXX_DEPENDENCIES=(
   ucx-py
