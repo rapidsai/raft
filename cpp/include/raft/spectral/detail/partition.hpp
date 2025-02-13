@@ -21,7 +21,7 @@
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/detail/spectral_util.cuh>
 #include <raft/spectral/eigen_solvers.cuh>
-#include <raft/spectral/laplacian.cuh>
+#include <raft/sparse/linalg/laplacian.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 
 #include <cuda.h>
@@ -99,7 +99,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
 
   // Initialize Laplacian
   auto laplacian =
-    raft::spectral::matrix::compute_graph_laplacian(handle, csr_m.to_csr_matrix_view());
+    raft::sparse::linalg::compute_graph_laplacian(handle, csr_m.to_csr_matrix_view());
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs     = eigen_config.n_eigVecs;

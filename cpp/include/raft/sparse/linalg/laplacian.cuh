@@ -20,8 +20,8 @@
 #include <type_traits>
 
 namespace raft {
-namespace spectral {
-namespace matrix {
+namespace sparse {
+namespace linalg {
 namespace detail {
 
 /* Compute the graph Laplacian of an adjacency matrix
@@ -117,6 +117,6 @@ auto compute_graph_laplacian(
   return result;
 }
 
-}  // namespace matrix
-}  // namespace spectral
+}  // namespace linalg
+}  // namespace sparse
 }  // namespace raft
