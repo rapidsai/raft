@@ -739,4 +739,46 @@ DI void block_copy(raft::device_span<T> dst, const raft::device_span<T> src)
 
 /** @} */
 
+/**
+ * @defgroup GlobalStores Global Store Operations
+ * @{
+ * @brief Perform conditional stores to global memory.
+ *
+ * These functions store data to a specified global memory address,
+ * controlled by a guard flag to enable conditional execution.
+ *
+ * @param[in] reg   The data to store in global memory.
+ *                  The type of `reg` determines the size of the store.
+ * @param[in] addr  The global memory address where the data will be stored.
+ * @param[in] guard A flag to conditionally enable the store operation.
+ *                  If `true`, the store is performed; otherwise, it is skipped
+ */
+DI void stg(const int& reg, void* addr, bool guard)
+{
+  asm volatile(
+    "{\n"
+    ".reg .pred p;\n"
+    "setp.ne.b32 p, %2, 0;\n"
+    "@p st.global.b32 [%0], %1;\n"
+    "}\n"
+    :
+    : "l"(addr), "r"(reg), "r"((int)guard)
+    : "memory");
+}
+
+DI void stg(const int64_t& reg, void* addr, bool guard)
+{
+  asm volatile(
+    "{\n"
+    ".reg .pred p;\n"
+    "setp.ne.b32 p, %2, 0;\n"
+    "@p st.global.b64 [%0], %1;\n"
+    "}\n"
+    :
+    : "l"(addr), "l"(reg), "r"((int)guard)
+    : "memory");
+}
+
+/** @} */
+
 }  // namespace raft

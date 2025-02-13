@@ -36,7 +36,7 @@ namespace raft::util::itertools {
  *              fields of the structure (if the structure has more fields, some might be initialized
  *              with their default value).
  * @param lists One or more initializer lists.
- * @return std::vector<S> A vector of structures containing the cartesian product.
+ * @return `std::vector<S>` A vector of structures containing the cartesian product.
  */
 template <typename S, typename... Args>
 std::vector<S> product(std::initializer_list<Args>... lists)
