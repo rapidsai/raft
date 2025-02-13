@@ -1,3 +1,59 @@
+# raft 25.02.00 (13 Feb 2025)
+
+## 🚨 Breaking Changes
+
+- Update pip devcontainers to UCX 1.18 ([#2550](https://github.com/rapidsai/raft/pull/2550)) [@jameslamb](https://github.com/jameslamb)
+- Switch over to rapids-logger ([#2530](https://github.com/rapidsai/raft/pull/2530)) [@vyasr](https://github.com/vyasr)
+- Adapt to rmm logger changes ([#2513](https://github.com/rapidsai/raft/pull/2513)) [@vyasr](https://github.com/vyasr)
+
+## 🐛 Bug Fixes
+
+- Rename test to tests. ([#2546](https://github.com/rapidsai/raft/pull/2546)) [@bdice](https://github.com/bdice)
+- Fix bit order of RMAT Rectangular Generator to match expectation ([#2542](https://github.com/rapidsai/raft/pull/2542)) [@mfoerste4](https://github.com/mfoerste4)
+- Fix broken link to python doc ([#2537](https://github.com/rapidsai/raft/pull/2537)) [@lowener](https://github.com/lowener)
+- Fix lanczos solver integer overflow ([#2536](https://github.com/rapidsai/raft/pull/2536)) [@viclafargue](https://github.com/viclafargue)
+- Fix rnd bit generation in rmat_rectangular_kernel ([#2524](https://github.com/rapidsai/raft/pull/2524)) [@tfeher](https://github.com/tfeher)
+
+## 📖 Documentation
+
+- Fix docs builds ([#2562](https://github.com/rapidsai/raft/pull/2562)) [@bdice](https://github.com/bdice)
+- [DOC] Fix sample codes ([#2518](https://github.com/rapidsai/raft/pull/2518)) [@enp1s0](https://github.com/enp1s0)
+
+## 🚀 New Features
+
+- Add cuda 12.8 support ([#2551](https://github.com/rapidsai/raft/pull/2551)) [@robertmaynard](https://github.com/robertmaynard)
+- Add support for different data type of bitset ([#2535](https://github.com/rapidsai/raft/pull/2535)) [@lowener](https://github.com/lowener)
+- [Feat] Support `bitset_to_csr` ([#2523](https://github.com/rapidsai/raft/pull/2523)) [@rhdong](https://github.com/rhdong)
+- Remove upper bounds on cuda-python to allow 12.6.2 and 11.8.5 ([#2517](https://github.com/rapidsai/raft/pull/2517)) [@bdice](https://github.com/bdice)
+
+## 🛠️ Improvements
+
+- Revert CUDA 12.8 shared workflow branch changes ([#2560](https://github.com/rapidsai/raft/pull/2560)) [@vyasr](https://github.com/vyasr)
+- Build and test with CUDA 12.8.0 ([#2555](https://github.com/rapidsai/raft/pull/2555)) [@bdice](https://github.com/bdice)
+- Update pip devcontainers to UCX 1.18 ([#2550](https://github.com/rapidsai/raft/pull/2550)) [@jameslamb](https://github.com/jameslamb)
+- use dynamic CUDA wheels on CUDA 11 ([#2548](https://github.com/rapidsai/raft/pull/2548)) [@jameslamb](https://github.com/jameslamb)
+- Normalize whitespace ([#2547](https://github.com/rapidsai/raft/pull/2547)) [@bdice](https://github.com/bdice)
+- Use cuda.bindings layout. ([#2545](https://github.com/rapidsai/raft/pull/2545)) [@bdice](https://github.com/bdice)
+- Revert &quot;Introduction of the `raft::device_resources_snmg` type ([#2487)&quot; (#2543](https://github.com/rapidsai/raft/pull/2487)&quot; (#2543)) [@cjnolet](https://github.com/cjnolet)
+- Add missing `#include &lt;cstdint&gt;` ([#2540](https://github.com/rapidsai/raft/pull/2540)) [@jakirkham](https://github.com/jakirkham)
+- Use GCC 13 in CUDA 12 conda builds. ([#2539](https://github.com/rapidsai/raft/pull/2539)) [@bdice](https://github.com/bdice)
+- Use rapids-cmake for the logger ([#2534](https://github.com/rapidsai/raft/pull/2534)) [@vyasr](https://github.com/vyasr)
+- Check if nightlies have succeeded recently enough ([#2533](https://github.com/rapidsai/raft/pull/2533)) [@vyasr](https://github.com/vyasr)
+- remove unused &#39;joblib&#39; and &#39;numba&#39; dependencies, other packaging cleanup ([#2532](https://github.com/rapidsai/raft/pull/2532)) [@jameslamb](https://github.com/jameslamb)
+- introduce libraft wheels ([#2531](https://github.com/rapidsai/raft/pull/2531)) [@jameslamb](https://github.com/jameslamb)
+- Switch over to rapids-logger ([#2530](https://github.com/rapidsai/raft/pull/2530)) [@vyasr](https://github.com/vyasr)
+- reduce duplication, removed unused things in dependencies.yaml ([#2529](https://github.com/rapidsai/raft/pull/2529)) [@jameslamb](https://github.com/jameslamb)
+- Update cuda-python lower bounds to 12.6.2 / 11.8.5 ([#2522](https://github.com/rapidsai/raft/pull/2522)) [@bdice](https://github.com/bdice)
+- [Opt] Optimizing the performance of `bitmap_to_csr` ([#2516](https://github.com/rapidsai/raft/pull/2516)) [@rhdong](https://github.com/rhdong)
+- prefer system install of UCX in devcontainers, update outdated RAPIDS references ([#2514](https://github.com/rapidsai/raft/pull/2514)) [@jameslamb](https://github.com/jameslamb)
+- Adapt to rmm logger changes ([#2513](https://github.com/rapidsai/raft/pull/2513)) [@vyasr](https://github.com/vyasr)
+- Require approval to run CI on draft PRs ([#2512](https://github.com/rapidsai/raft/pull/2512)) [@bdice](https://github.com/bdice)
+- Shrink wheel size limit following removal of vector search APIs. ([#2509](https://github.com/rapidsai/raft/pull/2509)) [@bdice](https://github.com/bdice)
+- Forward-merge branch-24.12 to branch-25.02 ([#2508](https://github.com/rapidsai/raft/pull/2508)) [@bdice](https://github.com/bdice)
+- Introduction of the `raft::device_resources_snmg` type ([#2487](https://github.com/rapidsai/raft/pull/2487)) [@viclafargue](https://github.com/viclafargue)
+- Add breaking change workflow trigger ([#2482](https://github.com/rapidsai/raft/pull/2482)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Remove &#39;sample&#39; parameter from stats::mean API ([#2389](https://github.com/rapidsai/raft/pull/2389)) [@mfoerste4](https://github.com/mfoerste4)
+
 # raft 24.12.00 (11 Dec 2024)
 
 ## 🚨 Breaking Changes
