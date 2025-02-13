@@ -250,6 +250,11 @@ class BloomFilter {
     }
   }
 
+  void set_nrow(size_t nrow)
+  {
+    nrow_ = nrow;
+  }
+
   bool check(size_t list_id, Index_t key)
   {
     bool is_present       = true;
@@ -1255,9 +1260,14 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
 {
   using input_t = typename std::remove_const<Data_t>::type;
 
+  // // printf("update counter when entering build: %d\n", static_cast<int>(update_counter_));
+  // std::cout << "update counter when entering build " << update_counter_.load() << std::endl;
+
   cudaStream_t stream = raft::resource::get_cuda_stream(res);
   nrow_               = nrow;
   graph_.nrow         = nrow;
+  graph_.bloom_filter.set_nrow(nrow);
+  update_counter_ = 0;
   graph_.h_graph      = (InternalID_t<Index_t>*)output_graph;
 
   cudaPointerAttributes data_ptr_attr;
@@ -1354,8 +1364,9 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
     }
 
     update_and_sample_thread.join();
-
+    // std::cout << "iter "<< it+1 << "inside the loop, before hitting update counter " << update_counter_.load() << std::endl;
     if (update_counter_ == -1) { break; }
+    // printf("iter %lu inside the loop, after hitting update counter %d\n", it+1, update_counter_.load());
     raft::copy(thrust::raw_pointer_cast(graph_host_buffer_.data()),
                graph_buffer_.data_handle(),
                nrow_ * DEGREE_ON_DEVICE,
@@ -1367,6 +1378,23 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
                raft::resource::get_cuda_stream(res));
 
     graph_.sample_graph_new(thrust::raw_pointer_cast(graph_host_buffer_.data()), DEGREE_ON_DEVICE);
+
+    // Index_t* h_dists_ptr = (Index_t*)graph_.h_dists.data_handle();
+    // // printf("iter %lu\n", it + 1);
+    // raft::print_host_vector("host distances batch row 18", graph_.h_dists.data_handle() + 18 * build_config_.node_degree, build_config_.node_degree, std::cout);
+    // // raft::print_host_vector("host indices batch row 18", h_dists_ptr + 18 * build_config_.node_degree, build_config_.node_degree, std::cout);
+    // printf("host indices batch row 18: [");
+    // for (size_t p = 0; p < build_config_.node_degree; p++) {
+    //   printf("%d,", graph_.h_graph[18 * build_config_.node_degree + p].id());
+    // }
+    // printf("\n");
+    // raft::print_host_vector("host distances batch row 33", graph_.h_dists.data_handle() + 33 * build_config_.node_degree, build_config_.node_degree, std::cout);
+    // printf("host indices batch row 33: [");
+    // for (size_t p = 0; p < build_config_.node_degree; p++) {
+    //   printf("%d,", graph_.h_graph[33 * build_config_.node_degree + p].id());
+    // }
+    // printf("\n");
+    // // raft::print_host_vector("host indices batch row 33", h_dists_ptr + 33 * build_config_.node_degree, build_config_.node_degree, std::cout);
   }
 
   graph_.update_graph(thrust::raw_pointer_cast(graph_host_buffer_.data()),
