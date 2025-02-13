@@ -64,10 +64,14 @@ namespace detail {
  *    performed.
  *  @return error flag.
  */
-template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
+template <typename vertex_t,
+          typename weight_t,
+          typename nnz_t,
+          typename EigenSolver,
+          typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   raft::resources const& handle,
-  raft::spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  raft::spectral::matrix::sparse_matrix_t<vertex_t, weight_t, nnz_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
   vertex_t* __restrict__ clusters,
@@ -89,7 +93,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   // Compute eigenvectors of Modularity Matrix
 
   // Initialize Modularity Matrix
-  raft::spectral::matrix::modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
+  raft::spectral::matrix::modularity_matrix_t<vertex_t, weight_t, nnz_t> B{handle, csr_m};
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs     = eigen_config.n_eigVecs;
@@ -125,12 +129,13 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
  *  @param clusters (Input, device memory, n entries) Cluster assignments.
  *  @param modularity On exit, modularity
  */
-template <typename vertex_t, typename weight_t>
-void analyzeModularity(raft::resources const& handle,
-                       raft::spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
-                       vertex_t nClusters,
-                       vertex_t const* __restrict__ clusters,
-                       weight_t& modularity)
+template <typename vertex_t, typename weight_t, typename nnz_t>
+void analyzeModularity(
+  raft::resources const& handle,
+  raft::spectral::matrix::sparse_matrix_t<vertex_t, weight_t, nnz_t> const& csr_m,
+  vertex_t nClusters,
+  vertex_t const* __restrict__ clusters,
+  weight_t& modularity)
 {
   RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
 
@@ -149,7 +154,7 @@ void analyzeModularity(raft::resources const& handle,
   RAFT_CUBLAS_TRY(linalg::detail::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
 
   // Initialize Modularity
-  raft::spectral::matrix::modularity_matrix_t<vertex_t, weight_t> B{handle, csr_m};
+  raft::spectral::matrix::modularity_matrix_t<vertex_t, weight_t, nnz_t> B{handle, csr_m};
 
   // Initialize output
   modularity = 0;
