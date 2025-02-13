@@ -29,6 +29,9 @@ files:
     includes:
       - cuda_version
       - test_libraft
+      - depends_on_libraft_headers
+      - depends_on_libraft
+      - depends_on_libraft_tests
   test_python:
     output: none
     includes:
@@ -37,6 +40,10 @@ files:
       - py_version
       - test_pylibraft
       - test_python_common
+      - depends_on_libraft
+      - depends_on_libraft_headers
+      - depends_on_pylibraft
+      - depends_on_raft_dask
   checks:
     output: none
     includes:
@@ -545,6 +552,9 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+      - output_types: conda
+        packages:
+          - libraft==25.4.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -561,6 +571,26 @@ dependencies:
           - matrix:
             packages:
               - libraft==25.4.*,>=0.0.0a0
+  depends_on_libraft_headers:
+    common:
+      - output_types: conda
+        packages:
+          - libraft-headers==25.4.*,>=0.0.0a0
+  depends_on_pylibraft:
+    common:
+      - output_types: conda
+        packages:
+          - pylibraft==25.4.*,>=0.0.0a0
+  depends_on_raft_dask:
+    common:
+      - output_types: conda
+        packages:
+          - raft-dask==25.4.*,>=0.0.0a0
+  depends_on_libraft_tests:
+    common:
+      - output_types: conda
+        packages:
+          - libraft-tests==25.4.*,>=0.0.0a0
   depends_on_librmm:
     common:
       - output_types: conda

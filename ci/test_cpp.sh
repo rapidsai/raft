@@ -8,13 +8,17 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 . /opt/conda/etc/profile.d/conda.sh
 
-RAPIDS_VERSION="$(rapids-version)"
+CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}/
+mkdir -p "${RAPIDS_TESTS_DIR}"
 
 rapids-logger "Generate C++ testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
   --file-key test_cpp \
-  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" | tee env.yaml
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" \
+  --prepend-channel "${CPP_CHANNEL}" \
+  | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 
@@ -23,17 +27,7 @@ set +u
 conda activate test
 set -u
 
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}/
-mkdir -p "${RAPIDS_TESTS_DIR}"
-
 rapids-print-env
-
-rapids-mamba-retry install \
-  --channel "${CPP_CHANNEL}" \
-  "libraft-headers=${RAPIDS_VERSION}" \
-  "libraft=${RAPIDS_VERSION}" \
-  "libraft-tests=${RAPIDS_VERSION}"
 
 rapids-logger "Check GPU usage"
 nvidia-smi
