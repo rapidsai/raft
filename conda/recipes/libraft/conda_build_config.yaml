@@ -17,7 +17,7 @@ c_stdlib_version:
   - "2.28"
 
 cmake_version:
-  - ">=3.26.4,!=3.30.0"
+  - ">=3.30.4"
 
 # The CTK libraries below are missing from the conda-forge::cudatoolkit package
 # for CUDA 11. The "*_host_*" version specifiers correspond to `11.8` packages
