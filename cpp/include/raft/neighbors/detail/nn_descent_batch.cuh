@@ -361,9 +361,7 @@ void build_and_merge(raft::resources const& res,
                      IdxT* batch_indices_d,
                      float* batch_distances_d,
                      GNND<const T, int, epilogue_op>& nnd,
-                     epilogue_op distance_epilogue,
-                    size_t num_cols,
-                  size_t cluster_id)
+                     epilogue_op distance_epilogue)
 {
   nnd.build(
     cluster_data, num_data_in_cluster, int_graph, true, batch_distances_d, distance_epilogue);
@@ -376,90 +374,6 @@ void build_and_merge(raft::resources const& res,
       batch_indices_h[i * graph_degree + j] = inverted_indices[local_idx];
     }
   }
-
-  // // looking for duplicates
-  // auto batch_distances_h = raft::make_host_matrix<float, int64_t, raft::row_major>(num_data_in_cluster, graph_degree);
-  // raft::copy(batch_distances_h.data_handle(),
-  //   batch_distances_d,
-  //   num_data_in_cluster * graph_degree,
-  //   raft::resource::get_cuda_stream(res));
-  
-  // auto cluster_data_h = raft::make_host_matrix<T, int64_t, raft::row_major>(1, num_cols);
-  
-  // for (size_t i = 0; i < num_data_in_cluster; i++) {
-  //   size_t global_row_idx = inverted_indices[i];
-  //   printf("\nbatch row %lu, global row %lu\n", i, global_row_idx);
-  //   raft::print_device_vector("batch distances:", batch_distances_d + i * graph_degree, graph_degree, std::cout);
-  //   raft::print_host_vector("global distances:", global_distances_d + global_row_idx * graph_degree, graph_degree, std::cout);
-  //   raft::print_host_vector("batch indices:", batch_indices_h + i * graph_degree, graph_degree, std::cout);
-  //   raft::print_host_vector("global indices:", global_indices_d + global_row_idx * graph_degree, graph_degree, std::cout);
-    
-  //   if(cluster_id == 0) {
-  //     raft::copy(cluster_data_h.data_handle(),
-  //     cluster_data + i * num_cols,
-  //     num_cols,
-  //     raft::resource::get_cuda_stream(res));
-  //     raft::print_host_vector("item1(global row)",cluster_data_h.data_handle(), num_cols, std::cout);
-  //   }
-    
-  //   for (size_t j = 0; j < graph_degree; j++) {
-  //     size_t batch_index_ij = batch_indices_h[i * graph_degree + j];
-      
-  //     if(cluster_id == 0) {
-  //       printf("\titem2 index %lu (batch row %lu)\t", batch_index_ij, j);
-  //       for (size_t p = 0; p < num_data_in_cluster; p++) {
-  //         if (inverted_indices[p] == batch_index_ij) {
-  //           raft::copy(cluster_data_h.data_handle(),
-  //           cluster_data + p * num_cols,
-  //           num_cols,
-  //           raft::resource::get_cuda_stream(res));
-  //           raft::print_host_vector("item2(batch)",cluster_data_h.data_handle(), num_cols, std::cout);
-  //           break;
-  //         }
-  //       }
-  //     }
-
-  //     for (size_t k = 0; k < graph_degree; k++) {
-  //       size_t global_index_ik = global_indices_d[global_row_idx * graph_degree + k];
-
-  //       float batch_dist_ij =  batch_distances_h(i, j);
-  //       float global_dist_ik = global_distances_d[global_row_idx * graph_degree + k];
-        
-
-  //       if (batch_index_ij == global_index_ik) {
-  //         // distances should be the same for these two
-  //         // printf("Looking at same index for row %lu\n", global_row_idx);
-          
-  //         if (batch_dist_ij != global_dist_ik && global_dist_ik != std::numeric_limits<float>::max()) {
-  //           // raft::print_device_vector("batch distances:", batch_distances_d + i * graph_degree, graph_degree, std::cout);
-  //           // raft::print_host_vector("global distances:", global_distances_d + global_row_idx * graph_degree, graph_degree, std::cout);
-  //           // raft::print_host_vector("batch indices:", batch_indices_h + i * graph_degree, graph_degree, std::cout);
-  //           // raft::print_host_vector("global indices:", global_indices_d + global_row_idx * graph_degree, graph_degree, std::cout);
-  //           printf("\tWrong dist calculation [%lu]. For row %lu, distance to item %lu differs: %f VS %f\n", i, global_row_idx, batch_index_ij, batch_dist_ij, global_dist_ik);
-            
-  //           raft::copy(cluster_data_h.data_handle(),
-  //             cluster_data + i * num_cols,
-  //             num_cols,
-  //             raft::resource::get_cuda_stream(res));
-  //           raft::print_host_vector("item1",cluster_data_h.data_handle(), num_cols, std::cout);
-            
-  //           for (size_t p = 0; p < num_data_in_cluster; p++) {
-  //             if (inverted_indices[p] == batch_index_ij) {
-  //               raft::copy(cluster_data_h.data_handle(),
-  //               cluster_data + p * num_cols,
-  //               num_cols,
-  //               raft::resource::get_cuda_stream(res));
-  //               printf("batch row %lu\t", p);
-  //               raft::print_host_vector("item2",cluster_data_h.data_handle(), num_cols, std::cout);
-  //               break;
-  //           }
-  //           }
-            
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
 
   raft::copy(batch_indices_d,
              batch_indices_h,
@@ -553,8 +467,6 @@ void cluster_nnd(raft::resources const& res,
       "# Data on host. Running clusters: %lu / %lu", cluster_id + 1, params.n_clusters);
     size_t num_data_in_cluster = cluster_size[cluster_id];
     size_t offset              = offsets[cluster_id];
-    // printf(
-    //   "# Data on host. Running clusters: %lu / %lu (num data in cluster: %lu)\n", cluster_id + 1, params.n_clusters, num_data_in_cluster);
 #pragma omp parallel for
     for (size_t i = 0; i < num_data_in_cluster; i++) {
       for (size_t j = 0; j < num_cols; j++) {
@@ -564,9 +476,6 @@ void cluster_nnd(raft::resources const& res,
     }
 
     distance_epilogue.preprocess_for_batch(cluster_data_indices + offset, num_data_in_cluster);
-
-    // raft::print_host_vector("HOST cluster data", cluster_data_matrix.data_handle(), 5, std::cout);
-    // raft::print_host_vector("HOST cluster data", cluster_data_matrix.data_handle() + num_cols, 5, std::cout);
 
     build_and_merge<T, IdxT>(res,
                              params,
@@ -583,9 +492,7 @@ void cluster_nnd(raft::resources const& res,
                              batch_indices_d,
                              batch_distances_d,
                              nnd,
-                             distance_epilogue,
-                            num_cols,
-                          cluster_id);
+                             distance_epilogue);
     nnd.reset(res);
   }
 }
@@ -623,8 +530,6 @@ void cluster_nnd(raft::resources const& res,
       "# Data on device. Running clusters: %lu / %lu", cluster_id + 1, params.n_clusters);
     size_t num_data_in_cluster = cluster_size[cluster_id];
     size_t offset              = offsets[cluster_id];
-    // printf(
-    //   "# Data on device. Running clusters: %lu / %lu (num data in cluster: %lu)\n", cluster_id + 1, params.n_clusters, num_data_in_cluster);
 
     auto cluster_data_view = raft::make_device_matrix_view<T, IdxT>(
       cluster_data_matrix.data_handle(), num_data_in_cluster, num_cols);
@@ -636,9 +541,6 @@ void cluster_nnd(raft::resources const& res,
       raft::make_device_matrix_view<const T, IdxT>(dataset.data_handle(), num_rows, num_cols);
     raft::matrix::gather(res, dataset_IdxT, cluster_data_indices_view, cluster_data_view);
     
-    // raft::print_device_vector("DEVICE cluster data", cluster_data_view.data_handle(), 5, std::cout);
-    // raft::print_device_vector("DEVICE cluster data", cluster_data_view.data_handle() + num_cols, 5, std::cout);
-
     build_and_merge<T, IdxT>(res,
                              params,
                              num_data_in_cluster,
@@ -654,9 +556,7 @@ void cluster_nnd(raft::resources const& res,
                              batch_indices_d,
                              batch_distances_d,
                              nnd,
-                             distance_epilogue,
-                            num_cols,
-                            cluster_id);
+                             distance_epilogue);
     nnd.reset(res);
   }
 }
@@ -673,7 +573,6 @@ index<IdxT> batch_build(raft::resources const& res,
 {
   size_t graph_degree        = params.graph_degree;
   size_t intermediate_degree = params.intermediate_graph_degree;
-  // printf("graph degree: %lu, intermediate graph degree: %lu\n", graph_degree, intermediate_degree);
 
   size_t num_rows = static_cast<size_t>(dataset.extent(0));
   size_t num_cols = static_cast<size_t>(dataset.extent(1));
@@ -681,7 +580,6 @@ index<IdxT> batch_build(raft::resources const& res,
   auto centroids =
     raft::make_device_matrix<T, IdxT, raft::row_major>(res, params.n_clusters, num_cols);
   get_balanced_kmeans_centroids<T, IdxT>(res, params.metric, dataset, centroids.view());
-  // raft::print_device_vector("centroids", centroids.data_handle(), params.n_clusters, std::cout);
 
   size_t k                    = 2;
   auto global_nearest_cluster = raft::make_host_matrix<IdxT, IdxT, raft::row_major>(num_rows, k);
@@ -693,7 +591,6 @@ index<IdxT> batch_build(raft::resources const& res,
                                 global_nearest_cluster.view(),
                                 centroids.view(),
                                 params.metric);
-  // raft::print_host_vector("global nearest clusters", global_nearest_cluster.data_handle(), 10, std::cout);
 
   auto inverted_indices = raft::make_host_vector<IdxT, IdxT, raft::row_major>(num_rows * k);
   auto cluster_size     = raft::make_host_vector<IdxT, IdxT, raft::row_major>(params.n_clusters);
@@ -728,7 +625,6 @@ index<IdxT> batch_build(raft::resources const& res,
     align32::roundUp(static_cast<size_t>(graph_degree * (graph_degree <= 32 ? 1.0 : 1.3)));
   size_t extended_intermediate_degree = align32::roundUp(
     static_cast<size_t>(intermediate_degree * (intermediate_degree <= 32 ? 1.0 : 1.3)));
-  // printf("extended graph degree: %lu, extended intermediate graph degree: %lu\n", extended_graph_degree, extended_intermediate_degree);
 
   auto int_graph = raft::make_host_matrix<int, int64_t, row_major>(
     max_cluster_size, static_cast<int64_t>(extended_graph_degree));
