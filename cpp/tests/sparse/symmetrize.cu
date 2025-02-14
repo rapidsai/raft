@@ -32,9 +32,9 @@
 namespace raft {
 namespace sparse {
 
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename nnz_t>
 RAFT_KERNEL assert_symmetry(
-  value_idx* rows, value_idx* cols, value_t* vals, value_idx nnz, value_idx* sum)
+  value_idx* rows, value_idx* cols, value_t* vals, nnz_t nnz, value_idx* sum)
 {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -60,7 +60,7 @@ template <typename value_idx, typename value_t>
   return os;
 }
 
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename nnz_t>
 class SparseSymmetrizeTest
   : public ::testing::TestWithParam<SparseSymmetrizeInputs<value_idx, value_t>> {
  public:
@@ -93,15 +93,15 @@ class SparseSymmetrizeTest
   {
     make_data();
 
-    value_idx m   = params.indptr_h.size() - 1;
-    value_idx n   = params.n_cols;
-    value_idx nnz = params.indices_h.size();
+    value_idx m = params.indptr_h.size() - 1;
+    value_idx n = params.n_cols;
+    nnz_t nnz   = params.indices_h.size();
 
     rmm::device_uvector<value_idx> coo_rows(nnz, stream);
 
     raft::sparse::convert::csr_to_coo(indptr.data(), m, coo_rows.data(), nnz, stream);
 
-    raft::sparse::COO<value_t, value_idx> out(stream);
+    raft::sparse::COO<value_t, value_idx, nnz_t> out(stream);
 
     raft::sparse::linalg::symmetrize(
       handle, coo_rows.data(), indices.data(), data.data(), m, n, coo_rows.size(), out);
@@ -109,8 +109,8 @@ class SparseSymmetrizeTest
     rmm::device_scalar<value_idx> sum(stream);
     sum.set_value_to_zero_async(stream);
 
-    assert_symmetry<<<raft::ceildiv(out.nnz, 256), 256, 0, stream>>>(
-      out.rows(), out.cols(), out.vals(), out.nnz, sum.data());
+    assert_symmetry<<<raft::ceildiv(out.nnz, (nnz_t)256), 256, 0, stream>>>(
+      out.rows(), out.cols(), out.vals(), (nnz_t)out.nnz, sum.data());
 
     sum_h = sum.value(stream);
     resource::sync_stream(handle, stream);
@@ -211,7 +211,7 @@ const std::vector<SparseSymmetrizeInputs<int, float>> symm_inputs_fint = {
 
 };
 
-typedef SparseSymmetrizeTest<int, float> SparseSymmetrizeTestF_int;
+typedef SparseSymmetrizeTest<int, float, uint64_t> SparseSymmetrizeTestF_int;
 TEST_P(SparseSymmetrizeTestF_int, Result) { ASSERT_TRUE(sum_h == 0); }
 
 INSTANTIATE_TEST_CASE_P(SparseSymmetrizeTest,

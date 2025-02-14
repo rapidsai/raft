@@ -60,9 +60,9 @@ RAFT_KERNEL csr_to_coo_kernel(const value_idx* row_ind,
  * @param nnz: size of output COO row array
  * @param stream: cuda stream to use
  */
-template <typename value_idx = int, int TPB_X = 32>
+template <typename value_idx = int, typename nnz_t, int TPB_X = 32>
 void csr_to_coo(
-  const value_idx* row_ind, value_idx m, value_idx* coo_rows, value_idx nnz, cudaStream_t stream)
+  const value_idx* row_ind, value_idx m, value_idx* coo_rows, nnz_t nnz, cudaStream_t stream)
 {
   // @TODO: Use cusparse for this.
   dim3 grid(raft::ceildiv(m, (value_idx)TPB_X), 1, 1);

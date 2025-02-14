@@ -44,13 +44,13 @@ namespace sparse {
 namespace op {
 namespace detail {
 
-template <typename value_idx>
+template <typename value_idx, typename nnz_t>
 RAFT_KERNEL compute_duplicates_diffs_kernel(const value_idx* rows,
                                             const value_idx* cols,
                                             value_idx* diff,
-                                            size_t nnz)
+                                            nnz_t nnz)
 {
-  size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
+  nnz_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid >= nnz) return;
 
   value_idx d = 1;
@@ -98,13 +98,13 @@ RAFT_KERNEL max_duplicates_kernel(const value_idx* src_rows,
  * @param[in] nnz number of nonzeros in input arrays
  * @param[in] stream cuda ops will be ordered wrt this stream
  */
-template <typename value_idx>
+template <typename value_idx, typename nnz_t>
 void compute_duplicates_mask(
-  value_idx* mask, const value_idx* rows, const value_idx* cols, size_t nnz, cudaStream_t stream)
+  value_idx* mask, const value_idx* rows, const value_idx* cols, nnz_t nnz, cudaStream_t stream)
 {
   RAFT_CUDA_TRY(cudaMemsetAsync(mask, 0, nnz * sizeof(value_idx), stream));
 
-  compute_duplicates_diffs_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0, stream>>>(
+  compute_duplicates_diffs_kernel<<<raft::ceildiv(nnz, (nnz_t)256), 256, 0, stream>>>(
     rows, cols, mask, nnz);
 }
 
@@ -124,15 +124,15 @@ void compute_duplicates_mask(
  * @param[in] n number of columns in COO input matrix
  * @param[in] stream cuda ops will be ordered wrt this stream
  */
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename nnz_t>
 void max_duplicates(raft::resources const& handle,
-                    raft::sparse::COO<value_t, value_idx>& out,
+                    raft::sparse::COO<value_t, value_idx, nnz_t>& out,
                     const value_idx* rows,
                     const value_idx* cols,
                     const value_t* vals,
-                    size_t nnz,
-                    size_t m,
-                    size_t n)
+                    nnz_t nnz,
+                    value_idx m,
+                    value_idx n)
 {
   auto stream        = resource::get_cuda_stream(handle);
   auto thrust_policy = resource::get_thrust_policy(handle);
@@ -153,7 +153,7 @@ void max_duplicates(raft::resources const& handle,
   out.allocate(size, m, n, true, stream);
 
   // perform reduce
-  max_duplicates_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0, stream>>>(
+  max_duplicates_kernel<<<raft::ceildiv(nnz, (nnz_t)256), 256, 0, stream>>>(
     rows, cols, vals, diff.data() + 1, out.rows(), out.cols(), out.vals(), nnz);
 }
 

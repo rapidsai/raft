@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <common/benchmark.hpp>
 
 #include <raft/core/copy.cuh>
@@ -26,6 +25,7 @@
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
 #include <cstdint>
+#include <numeric>
 
 namespace raft::bench::core {
 

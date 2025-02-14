@@ -45,17 +45,21 @@ namespace spectral {
  *  @param eigVecs Output eigenvector array pointer on device
  *  @return statistics: number of eigensolver iterations, .
  */
-template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
+template <typename vertex_t,
+          typename weight_t,
+          typename nnz_t,
+          typename EigenSolver,
+          typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> partition(
   raft::resources const& handle,
-  matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  matrix::sparse_matrix_t<vertex_t, weight_t, nnz_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
   vertex_t* __restrict__ clusters,
   weight_t* eigVals,
   weight_t* eigVecs)
 {
-  return raft::spectral::detail::partition<vertex_t, weight_t, EigenSolver, ClusterSolver>(
+  return raft::spectral::detail::partition<vertex_t, weight_t, nnz_t, EigenSolver, ClusterSolver>(
     handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
 }
 
@@ -77,15 +81,15 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
  *  @param edgeCut On exit, weight of edges cut by partition.
  *  @param cost On exit, partition cost function.
  */
-template <typename vertex_t, typename weight_t>
+template <typename vertex_t, typename weight_t, typename nnz_t>
 void analyzePartition(raft::resources const& handle,
-                      matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+                      matrix::sparse_matrix_t<vertex_t, weight_t, nnz_t> const& csr_m,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,
                       weight_t& edgeCut,
                       weight_t& cost)
 {
-  raft::spectral::detail::analyzePartition<vertex_t, weight_t>(
+  raft::spectral::detail::analyzePartition<vertex_t, weight_t, nnz_t>(
     handle, csr_m, nClusters, clusters, edgeCut, cost);
 }
 

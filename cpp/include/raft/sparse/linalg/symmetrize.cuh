@@ -148,15 +148,15 @@ void from_knn_symmetrize_matrix(const value_idx* __restrict__ knn_indices,
 /**
  * Symmetrizes a COO matrix
  */
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename nnz_t>
 void symmetrize(raft::resources const& handle,
                 const value_idx* rows,
                 const value_idx* cols,
                 const value_t* vals,
-                size_t m,
-                size_t n,
-                size_t nnz,
-                raft::sparse::COO<value_t, value_idx>& out)
+                value_idx m,
+                value_idx n,
+                nnz_t nnz,
+                raft::sparse::COO<value_t, value_idx, nnz_t>& out)
 {
   detail::symmetrize(handle, rows, cols, vals, m, n, nnz, out);
 }

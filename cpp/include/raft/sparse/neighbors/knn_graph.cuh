@@ -40,13 +40,13 @@ namespace raft::sparse::neighbors {
  * @param[out] out output edge list
  * @param c
  */
-template <typename value_idx = int, typename value_t = float>
+template <typename value_idx = int, typename value_t = float, typename nnz_t = size_t>
 void knn_graph(raft::resources const& handle,
                const value_t* X,
-               std::size_t m,
-               std::size_t n,
+               value_idx m,
+               value_idx n,
                raft::distance::DistanceType metric,
-               raft::sparse::COO<value_t, value_idx>& out,
+               raft::sparse::COO<value_t, value_idx, nnz_t>& out,
                int c = 15)
 {
   detail::knn_graph(handle, X, m, n, metric, out, c);

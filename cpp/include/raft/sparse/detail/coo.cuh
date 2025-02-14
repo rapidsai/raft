@@ -44,7 +44,7 @@ namespace detail {
  * @tparam Index_Type: the type of index array
  *
  */
-template <typename T, typename Index_Type = int>
+template <typename T, typename Index_Type = int, typename nnz_type = uint64_t>
 class COO {
  protected:
   rmm::device_uvector<Index_Type> rows_arr;
@@ -52,7 +52,11 @@ class COO {
   rmm::device_uvector<T> vals_arr;
 
  public:
-  Index_Type nnz;
+  using value_t = T;
+  using index_t = Index_Type;
+  using nnz_t   = nnz_type;
+
+  nnz_type nnz;
   Index_Type n_rows;
   Index_Type n_cols;
 
@@ -75,7 +79,7 @@ class COO {
   COO(rmm::device_uvector<Index_Type>& rows,
       rmm::device_uvector<Index_Type>& cols,
       rmm::device_uvector<T>& vals,
-      Index_Type nnz,
+      nnz_type nnz,
       Index_Type n_rows = 0,
       Index_Type n_cols = 0)
     : rows_arr(rows), cols_arr(cols), vals_arr(vals), nnz(nnz), n_rows(n_rows), n_cols(n_cols)
@@ -90,7 +94,7 @@ class COO {
    * @param init: initialize arrays with zeros
    */
   COO(cudaStream_t stream,
-      Index_Type nnz,
+      nnz_type nnz,
       Index_Type n_rows = 0,
       Index_Type n_cols = 0,
       bool init         = true)
@@ -121,7 +125,7 @@ class COO {
    */
   bool validate_size() const
   {
-    if (this->nnz < 0 || n_rows < 0 || n_cols < 0) return false;
+    if (this->nnz <= 0 || n_rows <= 0 || n_cols <= 0) return false;
     return true;
   }
 
@@ -156,7 +160,7 @@ class COO {
   /**
    * @brief Send human-readable state information to output stream
    */
-  friend std::ostream& operator<<(std::ostream& out, const COO<T, Index_Type>& c)
+  friend std::ostream& operator<<(std::ostream& out, const COO<T, Index_Type, nnz_type>& c)
   {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
@@ -204,7 +208,7 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: CUDA stream to use
    */
-  void allocate(Index_Type nnz, bool init, cudaStream_t stream)
+  void allocate(nnz_type nnz, bool init, cudaStream_t stream)
   {
     this->allocate(nnz, 0, init, stream);
   }
@@ -216,7 +220,7 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: CUDA stream to use
    */
-  void allocate(Index_Type nnz, Index_Type size, bool init, cudaStream_t stream)
+  void allocate(nnz_type nnz, Index_Type size, bool init, cudaStream_t stream)
   {
     this->allocate(nnz, size, size, init, stream);
   }
@@ -229,16 +233,15 @@ class COO {
    * @param init: should values be initialized to 0?
    * @param stream: stream to use for init
    */
-  void allocate(
-    Index_Type nnz, Index_Type n_rows, Index_Type n_cols, bool init, cudaStream_t stream)
+  void allocate(nnz_type nnz, Index_Type n_rows, Index_Type n_cols, bool init, cudaStream_t stream)
   {
     this->n_rows = n_rows;
     this->n_cols = n_cols;
     this->nnz    = nnz;
 
-    this->rows_arr.resize(this->nnz, stream);
-    this->cols_arr.resize(this->nnz, stream);
-    this->vals_arr.resize(this->nnz, stream);
+    this->rows_arr.resize(nnz, stream);
+    this->cols_arr.resize(nnz, stream);
+    this->vals_arr.resize(nnz, stream);
 
     if (init) init_arrays(stream);
   }
