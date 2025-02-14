@@ -168,7 +168,7 @@ class sparse_matrix {
                 row_type n_rows,
                 col_type n_cols,
                 nnz_type nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
-    : structure_{handle, n_rows, n_cols, nnz}, cp_{}, c_elements_{cp_.create(handle, 0)} {};
+    : structure_{handle, n_rows, n_cols, nnz}, cp_{}, c_elements_{cp_.create(handle, nnz)} {};
 
   // Constructor that owns the data but not the structure
   // This constructor is only callable with a `structure_type == *_structure_view`
