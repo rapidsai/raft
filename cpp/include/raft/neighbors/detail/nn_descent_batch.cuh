@@ -656,10 +656,6 @@ index<IdxT> batch_build(raft::resources const& res,
     raft::make_device_matrix<IdxT, int64_t, row_major>(res, max_cluster_size, graph_degree);
   auto batch_distances_d =
     raft::make_device_matrix<float, int64_t, row_major>(res, max_cluster_size, graph_degree);
-  thrust::fill(thrust::device.on(raft::resource::get_cuda_stream(res)),
-               batch_distances_d.data_handle(),
-               batch_distances_d.data_handle() + max_cluster_size * graph_degree,
-               std::numeric_limits<float>::max());
 
   auto cluster_data_indices = raft::make_device_vector<IdxT, IdxT>(res, num_rows * k);
   raft::copy(cluster_data_indices.data_handle(),
