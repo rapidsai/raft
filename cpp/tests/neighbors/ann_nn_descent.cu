@@ -89,7 +89,7 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
         index_params.metric                    = ps.metric;
         index_params.graph_degree              = ps.graph_degree;
         index_params.intermediate_graph_degree = 2 * ps.graph_degree;
-        index_params.max_iterations            = 20;
+        index_params.max_iterations            = 100;
         index_params.return_distances          = true;
         index_params.n_clusters                = ps.recall_cluster.second;
 
