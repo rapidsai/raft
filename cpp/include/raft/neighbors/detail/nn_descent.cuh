@@ -1359,8 +1359,8 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
     }
 
     update_and_sample_thread.join();
-    if (update_counter_ == -1) { break; }
 
+    if (update_counter_ == -1) { break; }
     raft::copy(thrust::raw_pointer_cast(graph_host_buffer_.data()),
                graph_buffer_.data_handle(),
                nrow_ * DEGREE_ON_DEVICE,
