@@ -281,10 +281,6 @@ if(BUILD_TESTS)
     neighbors/epsilon_neighborhood.cu neighbors/ann_nn_descent.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
-  # ConfigureTest(
-  #   NAME NEIGHBORS_TEST PATH neighbors/ann_nn_descent.cu LIB EXPLICIT_INSTANTIATE_ONLY
-  # )
-
   ConfigureTest(
     NAME
     STATS_TEST

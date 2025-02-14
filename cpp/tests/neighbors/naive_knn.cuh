@@ -16,123 +16,121 @@
 
 //  #pragma once
 
-//  #include "ann_utils.cuh"
-//  #include <cuvs/distance/distance.hpp>
- #include <raft/distance/distance_types.hpp>
- #include <raft/matrix/detail/select_k.cuh>
- #include <raft/util/cuda_utils.cuh>
- 
- #include <raft/core/resource/cuda_stream.hpp>
- #include <rmm/cuda_stream_view.hpp>
- #include <rmm/device_uvector.hpp>
- #include <rmm/mr/device/device_memory_resource.hpp>
- 
- namespace raft::neighbors {
- 
- template <typename EvalT, typename DataT, typename IdxT>
- RAFT_KERNEL naive_distance_kernel(EvalT* dist,
-                                   const DataT* x,
-                                   const DataT* y,
-                                   IdxT m,
-                                   IdxT n,
-                                   IdxT k,
-                                   raft::distance::DistanceType metric)
- {
-   IdxT midx = IdxT(threadIdx.x) + IdxT(blockIdx.x) * IdxT(blockDim.x);
-   if (midx >= m) return;
-   IdxT grid_size = IdxT(blockDim.y) * IdxT(gridDim.y);
-   for (IdxT nidx = threadIdx.y + blockIdx.y * blockDim.y; nidx < n; nidx += grid_size) {
-     EvalT acc   = EvalT(0);
-     EvalT normX = EvalT(0);
-     EvalT normY = EvalT(0);
-     for (IdxT i = 0; i < k; ++i) {
-       IdxT xidx = i + midx * k;
-       IdxT yidx = i + nidx * k;
-       auto xv   = EvalT(x[xidx]);
-       auto yv   = EvalT(y[yidx]);
-       switch (metric) {
-         case raft::distance::DistanceType::InnerProduct: {
-           acc += xv * yv;
-         } break;
-         case raft::distance::DistanceType::CosineExpanded: {
-           acc += xv * yv;
-           normX += xv * xv;
-           normY += yv * yv;
-         } break;
-         case raft::distance::DistanceType::L2SqrtExpanded:
-         case raft::distance::DistanceType::L2SqrtUnexpanded:
-         case raft::distance::DistanceType::L2Expanded:
-         case raft::distance::DistanceType::L2Unexpanded: {
-           auto diff = xv - yv;
-           acc += diff * diff;
-         } break;
-         default: break;
-       }
-     }
-     switch (metric) {
-       case raft::distance::DistanceType::L2SqrtExpanded:
-       case raft::distance::DistanceType::L2SqrtUnexpanded: {
-         acc = raft::sqrt(acc);
-       } break;
-       case raft::distance::DistanceType::CosineExpanded: {
-         acc = 1 - acc / (raft::sqrt(normX) * raft::sqrt(normY));
-       }
-       default: break;
-     }
-     dist[midx * n + nidx] = acc;
-   }
- }
- 
- /**
-  * Naive, but flexible bruteforce KNN search.
-  *
-  * TODO: either replace this with brute_force_knn or with distance+select_k
-  *       when either distance or brute_force_knn support 8-bit int inputs.
-  */
- template <typename EvalT, typename DataT, typename IdxT>
- void naive_knn(raft::resources const& handle,
-                EvalT* dist_topk,
-                IdxT* indices_topk,
-                const DataT* x,
-                const DataT* y,
-                size_t n_inputs,
-                size_t input_len,
-                size_t dim,
-                uint32_t k,
-                raft::distance::DistanceType type)
- {
-   rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource();
- 
-   auto stream = raft::resource::get_cuda_stream(handle);
-   dim3 block_dim(16, 32, 1);
-   // maximum reasonable grid size in `y` direction
-   auto grid_y =
-     static_cast<uint16_t>(std::min<size_t>(raft::ceildiv<size_t>(input_len, block_dim.y), 32768));
- 
-   // bound the memory used by this function
-   size_t max_batch_size =
-     std::min<size_t>(n_inputs, raft::ceildiv<size_t>(size_t(1) << size_t(27), input_len));
-   rmm::device_uvector<EvalT> dist(max_batch_size * input_len, stream, mr);
- 
-   for (size_t offset = 0; offset < n_inputs; offset += max_batch_size) {
-     size_t batch_size = std::min(max_batch_size, n_inputs - offset);
-     dim3 grid_dim(raft::ceildiv<size_t>(batch_size, block_dim.x), grid_y, 1);
- 
-     naive_distance_kernel<EvalT, DataT, IdxT><<<grid_dim, block_dim, 0, stream>>>(
-       dist.data(), x + offset * dim, y, batch_size, input_len, dim, type);
- 
-     raft::matrix::detail::select_k<EvalT, IdxT>(handle,
-                                                 dist.data(),
-                                                 nullptr,
-                                                 batch_size,
-                                                 input_len,
-                                                 static_cast<int>(k),
-                                                 dist_topk + offset * k,
-                                                 indices_topk + offset * k,
-                                                 raft::distance::is_min_close(type),
-                                                 mr);
-   }
-   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
- }
- 
- }  // namespace raft::neighbors
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/matrix/detail/select_k.cuh>
+#include <raft/util/cuda_utils.cuh>
+
+#include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+
+namespace raft::neighbors {
+
+template <typename EvalT, typename DataT, typename IdxT>
+RAFT_KERNEL naive_distance_kernel(EvalT* dist,
+                                  const DataT* x,
+                                  const DataT* y,
+                                  IdxT m,
+                                  IdxT n,
+                                  IdxT k,
+                                  raft::distance::DistanceType metric)
+{
+  IdxT midx = IdxT(threadIdx.x) + IdxT(blockIdx.x) * IdxT(blockDim.x);
+  if (midx >= m) return;
+  IdxT grid_size = IdxT(blockDim.y) * IdxT(gridDim.y);
+  for (IdxT nidx = threadIdx.y + blockIdx.y * blockDim.y; nidx < n; nidx += grid_size) {
+    EvalT acc   = EvalT(0);
+    EvalT normX = EvalT(0);
+    EvalT normY = EvalT(0);
+    for (IdxT i = 0; i < k; ++i) {
+      IdxT xidx = i + midx * k;
+      IdxT yidx = i + nidx * k;
+      auto xv   = EvalT(x[xidx]);
+      auto yv   = EvalT(y[yidx]);
+      switch (metric) {
+        case raft::distance::DistanceType::InnerProduct: {
+          acc += xv * yv;
+        } break;
+        case raft::distance::DistanceType::CosineExpanded: {
+          acc += xv * yv;
+          normX += xv * xv;
+          normY += yv * yv;
+        } break;
+        case raft::distance::DistanceType::L2SqrtExpanded:
+        case raft::distance::DistanceType::L2SqrtUnexpanded:
+        case raft::distance::DistanceType::L2Expanded:
+        case raft::distance::DistanceType::L2Unexpanded: {
+          auto diff = xv - yv;
+          acc += diff * diff;
+        } break;
+        default: break;
+      }
+    }
+    switch (metric) {
+      case raft::distance::DistanceType::L2SqrtExpanded:
+      case raft::distance::DistanceType::L2SqrtUnexpanded: {
+        acc = raft::sqrt(acc);
+      } break;
+      case raft::distance::DistanceType::CosineExpanded: {
+        acc = 1 - acc / (raft::sqrt(normX) * raft::sqrt(normY));
+      }
+      default: break;
+    }
+    dist[midx * n + nidx] = acc;
+  }
+}
+
+/**
+ * Naive, but flexible bruteforce KNN search.
+ *
+ * TODO: either replace this with brute_force_knn or with distance+select_k
+ *       when either distance or brute_force_knn support 8-bit int inputs.
+ */
+template <typename EvalT, typename DataT, typename IdxT>
+void naive_knn(raft::resources const& handle,
+               EvalT* dist_topk,
+               IdxT* indices_topk,
+               const DataT* x,
+               const DataT* y,
+               size_t n_inputs,
+               size_t input_len,
+               size_t dim,
+               uint32_t k,
+               raft::distance::DistanceType type)
+{
+  rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource();
+
+  auto stream = raft::resource::get_cuda_stream(handle);
+  dim3 block_dim(16, 32, 1);
+  // maximum reasonable grid size in `y` direction
+  auto grid_y =
+    static_cast<uint16_t>(std::min<size_t>(raft::ceildiv<size_t>(input_len, block_dim.y), 32768));
+
+  // bound the memory used by this function
+  size_t max_batch_size =
+    std::min<size_t>(n_inputs, raft::ceildiv<size_t>(size_t(1) << size_t(27), input_len));
+  rmm::device_uvector<EvalT> dist(max_batch_size * input_len, stream, mr);
+
+  for (size_t offset = 0; offset < n_inputs; offset += max_batch_size) {
+    size_t batch_size = std::min(max_batch_size, n_inputs - offset);
+    dim3 grid_dim(raft::ceildiv<size_t>(batch_size, block_dim.x), grid_y, 1);
+
+    naive_distance_kernel<EvalT, DataT, IdxT><<<grid_dim, block_dim, 0, stream>>>(
+      dist.data(), x + offset * dim, y, batch_size, input_len, dim, type);
+
+    raft::matrix::detail::select_k<EvalT, IdxT>(handle,
+                                                dist.data(),
+                                                nullptr,
+                                                batch_size,
+                                                input_len,
+                                                static_cast<int>(k),
+                                                dist_topk + offset * k,
+                                                indices_topk + offset * k,
+                                                raft::distance::is_min_close(type),
+                                                mr);
+  }
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+}
+
+}  // namespace raft::neighbors
