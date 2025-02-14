@@ -251,10 +251,7 @@ class BloomFilter {
     }
   }
 
-  void set_nrow(size_t nrow)
-  {
-    nrow_ = nrow;
-  }
+  void set_nrow(size_t nrow) { nrow_ = nrow; }
 
   bool check(size_t list_id, Index_t key)
   {
@@ -1266,7 +1263,7 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   graph_.nrow         = nrow;
   graph_.bloom_filter.set_nrow(nrow);
   update_counter_ = 0;
-  graph_.h_graph      = (InternalID_t<Index_t>*)output_graph;
+  graph_.h_graph  = (InternalID_t<Index_t>*)output_graph;
 
   cudaPointerAttributes data_ptr_attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&data_ptr_attr, data));
@@ -1363,6 +1360,7 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
 
     update_and_sample_thread.join();
     if (update_counter_ == -1) { break; }
+
     raft::copy(thrust::raw_pointer_cast(graph_host_buffer_.data()),
                graph_buffer_.data_handle(),
                nrow_ * DEGREE_ON_DEVICE,
