@@ -467,6 +467,7 @@ void cluster_nnd(raft::resources const& res,
       "# Data on host. Running clusters: %lu / %lu", cluster_id + 1, params.n_clusters);
     size_t num_data_in_cluster = cluster_size[cluster_id];
     size_t offset              = offsets[cluster_id];
+
 #pragma omp parallel for
     for (size_t i = 0; i < num_data_in_cluster; i++) {
       for (size_t j = 0; j < num_cols; j++) {
@@ -540,7 +541,7 @@ void cluster_nnd(raft::resources const& res,
     auto dataset_IdxT =
       raft::make_device_matrix_view<const T, IdxT>(dataset.data_handle(), num_rows, num_cols);
     raft::matrix::gather(res, dataset_IdxT, cluster_data_indices_view, cluster_data_view);
-    
+
     build_and_merge<T, IdxT>(res,
                              params,
                              num_data_in_cluster,
@@ -656,9 +657,9 @@ index<IdxT> batch_build(raft::resources const& res,
   auto batch_distances_d =
     raft::make_device_matrix<float, int64_t, row_major>(res, max_cluster_size, graph_degree);
   thrust::fill(thrust::device.on(raft::resource::get_cuda_stream(res)),
-      batch_distances_d.data_handle(),
-      batch_distances_d.data_handle() + max_cluster_size * graph_degree,
-      std::numeric_limits<float>::max());
+               batch_distances_d.data_handle(),
+               batch_distances_d.data_handle() + max_cluster_size * graph_degree,
+               std::numeric_limits<float>::max());
 
   auto cluster_data_indices = raft::make_device_vector<IdxT, IdxT>(res, num_rows * k);
   raft::copy(cluster_data_indices.data_handle(),
