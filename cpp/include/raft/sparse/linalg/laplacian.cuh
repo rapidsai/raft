@@ -16,67 +16,13 @@
 #pragma once
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/sparse/linalg/detail/laplacian.cuh>
 
 #include <type_traits>
 
 namespace raft {
 namespace sparse {
 namespace linalg {
-namespace detail {
-
-/* Compute the graph Laplacian of an adjacency matrix
- *
- * This kernel implements the necessary logic for computing a graph
- * Laplacian for an adjacency matrix in CSR format. A custom kernel is
- * required because cusparse does not conveniently implement matrix subtraction with 64-bit
- * indices. The custom kernel also allows the computation to be completed
- * with no extra allocations or compute.
- */
-template <typename ElementType, typename IndptrType, typename IndicesType>
-RAFT_KERNEL compute_graph_laplacian_kernel(ElementType* output_values,
-                                           IndicesType* output_indices,
-                                           IndptrType* output_indptr,
-                                           IndptrType dim,
-                                           ElementType const* adj_values,
-                                           IndicesType const* adj_indices,
-                                           IndptrType const* adj_indptr)
-{
-  /* The graph Laplacian L of an adjacency matrix A is given by:
-   * L = D - A
-   * where D is the degree matrix of A. The degree matrix is itself defined
-   * as the sum of each row of A and represents the degree of the node
-   * indicated by the index of the row. */
-
-  for (auto row = threadIdx.x + blockIdx.x * blockDim.x; row < dim; row += blockDim.x * gridDim.x) {
-    auto row_begin = adj_indptr[row];
-    auto row_end   = adj_indptr[row + 1];
-    // All output indexes will need to be offset by the row, since every row will
-    // gain exactly one new non-zero element. degree_output_index is the index
-    // where we will store the degree of each row
-    auto degree_output_index = row_begin + row;
-    auto degree_value        = ElementType{};
-    // value_index indicates the index of the current value in the original
-    // adjacency matrix
-    for (auto value_index = row_begin; value_index < row_end; ++value_index) {
-      auto col_index         = adj_indices[value_index];
-      auto is_lower_diagonal = col_index < row;
-      auto output_index      = value_index + row + !is_lower_diagonal;
-      auto input_value       = adj_values[value_index];
-      degree_value += input_value;
-      output_values[output_index]  = ElementType{-1} * input_value;
-      output_indices[output_index] = col_index;
-      // Increment the index where we will store the degree for every non-zero
-      // element before we reach the diagonal
-      degree_output_index += is_lower_diagonal;
-    }
-    output_values[degree_output_index]  = degree_value;
-    output_indices[degree_output_index] = row;
-    output_indptr[row]                  = row_begin + row;
-    output_indptr[row + 1]              = row_end + row + 1;
-  }
-}
-
-}  // namespace detail
 
 /** Given a CSR adjacency matrix, return the graph Laplacian
  *
