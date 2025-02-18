@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/resources.hpp>
 
 #include <type_traits>
