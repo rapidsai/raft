@@ -147,7 +147,7 @@ class rmat_lanczos_tests
     raft::device_vector<ValueType, uint32_t, raft::row_major> out_data =
       raft::make_device_vector<ValueType, uint32_t, raft::row_major>(handle, n_edges);
     raft::matrix::fill<ValueType>(handle, out_data.view(), 1.0);
-    raft::sparse::COO<ValueType, IndexType> coo(stream);
+    raft::sparse::COO<ValueType, IndexType, IndexType> coo(stream);
 
     raft::sparse::op::coo_sort<ValueType, int>(n_nodes,
                                                n_nodes,
@@ -161,11 +161,11 @@ class rmat_lanczos_tests
                                                            out_src.data_handle(),
                                                            out_dst.data_handle(),
                                                            out_data.data_handle(),
-                                                           n_edges,
-                                                           n_nodes,
-                                                           n_nodes);
+                                                           (IndexType)n_edges,
+                                                           (IndexType)n_nodes,
+                                                           (IndexType)n_nodes);
 
-    raft::sparse::COO<ValueType, IndexType> symmetric_coo(stream);
+    raft::sparse::COO<ValueType, IndexType, IndexType> symmetric_coo(stream);
     raft::sparse::linalg::symmetrize(
       handle, coo.rows(), coo.cols(), coo.vals(), coo.n_rows, coo.n_cols, coo.nnz, symmetric_coo);
 
@@ -198,7 +198,7 @@ class rmat_lanczos_tests
       symmetric_coo.cols(),
       symmetric_coo.vals(),
       symmetric_coo.n_rows,
-      symmetric_coo.nnz};
+      (uint64_t)symmetric_coo.nnz};
     raft::sparse::solver::lanczos_solver_config<ValueType> config{
       n_components, params.maxiter, params.restartiter, params.tol, rng.seed};
 

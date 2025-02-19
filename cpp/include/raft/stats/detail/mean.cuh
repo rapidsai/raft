@@ -27,7 +27,25 @@ namespace stats {
 namespace detail {
 
 template <typename Type, typename IdxType = int>
-void mean(
+void mean(Type* mu, const Type* data, IdxType D, IdxType N, bool rowMajor, cudaStream_t stream)
+{
+  Type ratio = Type(1) / Type(N);
+  raft::linalg::reduce(mu,
+                       data,
+                       D,
+                       N,
+                       Type(0),
+                       rowMajor,
+                       false,
+                       stream,
+                       false,
+                       raft::identity_op(),
+                       raft::add_op(),
+                       raft::mul_const_op<Type>(ratio));
+}
+
+template <typename Type, typename IdxType = int>
+[[deprecated]] void mean(
   Type* mu, const Type* data, IdxType D, IdxType N, bool sample, bool rowMajor, cudaStream_t stream)
 {
   Type ratio = Type(1) / ((sample) ? Type(N - 1) : Type(N));

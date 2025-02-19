@@ -133,16 +133,17 @@ struct equal_to_i_op {
 
 // Construct indicator vector for ith partition
 //
-template <typename vertex_t, typename edge_t, typename weight_t>
-bool construct_indicator(raft::resources const& handle,
-                         edge_t index,
-                         edge_t n,
-                         weight_t& clustersize,
-                         weight_t& partStats,
-                         vertex_t const* __restrict__ clusters,
-                         raft::spectral::matrix::vector_t<weight_t>& part_i,
-                         raft::spectral::matrix::vector_t<weight_t>& Bx,
-                         raft::spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> const& B)
+template <typename vertex_t, typename edge_t, typename weight_t, typename nnz_t>
+bool construct_indicator(
+  raft::resources const& handle,
+  edge_t index,
+  edge_t n,
+  weight_t& clustersize,
+  weight_t& partStats,
+  vertex_t const* __restrict__ clusters,
+  raft::spectral::matrix::vector_t<weight_t>& part_i,
+  raft::spectral::matrix::vector_t<weight_t>& Bx,
+  raft::spectral::matrix::laplacian_matrix_t<vertex_t, weight_t, nnz_t> const& B)
 {
   auto stream             = resource::get_cuda_stream(handle);
   auto cublas_h           = resource::get_cublas_handle(handle);

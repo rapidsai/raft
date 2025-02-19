@@ -47,8 +47,8 @@ namespace detail {
 
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
-template <int TPB_X = 128, typename T, typename Lambda>
-RAFT_KERNEL coo_symmetrize_kernel(int* row_ind,
+template <int TPB_X = 128, typename T, typename Lambda, typename nnz_t>
+RAFT_KERNEL coo_symmetrize_kernel(nnz_t* row_ind,
                                   int* rows,
                                   int* cols,
                                   T* vals,
@@ -56,31 +56,31 @@ RAFT_KERNEL coo_symmetrize_kernel(int* row_ind,
                                   int* ocols,
                                   T* ovals,
                                   int n,
-                                  int cnnz,
+                                  nnz_t cnnz,
                                   Lambda reduction_op)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
   if (row < n) {
-    int start_idx = row_ind[row];  // each thread processes one row
-    int stop_idx  = get_stop_idx(row, n, cnnz, row_ind);
+    nnz_t start_idx = row_ind[row];  // each thread processes one row
+    nnz_t stop_idx  = get_stop_idx(row, n, cnnz, row_ind);
 
-    int row_nnz       = 0;
-    int out_start_idx = start_idx * 2;
+    nnz_t row_nnz       = 0;
+    nnz_t out_start_idx = start_idx * 2;
 
-    for (int idx = 0; idx < stop_idx - start_idx; idx++) {
-      int cur_row = rows[idx + start_idx];
-      int cur_col = cols[idx + start_idx];
-      T cur_val   = vals[idx + start_idx];
+    for (nnz_t idx = 0; idx < stop_idx - start_idx; idx++) {
+      int cur_row = rows[start_idx + idx];
+      int cur_col = cols[start_idx + idx];
+      T cur_val   = vals[start_idx + idx];
 
       int lookup_row = cur_col;
-      int t_start    = row_ind[lookup_row];  // Start at
-      int t_stop     = get_stop_idx(lookup_row, n, cnnz, row_ind);
+      nnz_t t_start  = row_ind[lookup_row];  // Start at
+      nnz_t t_stop   = get_stop_idx(lookup_row, n, cnnz, row_ind);
 
       T transpose = 0.0;
 
       bool found_match = false;
-      for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
+      for (nnz_t t_idx = t_start; t_idx < t_stop; t_idx++) {
         // If we find a match, let's get out of the loop. We won't
         // need to modify the transposed value, since that will be
         // done in a different thread.
@@ -131,9 +131,9 @@ RAFT_KERNEL coo_symmetrize_kernel(int* row_ind,
  * @param reduction_op: a custom reduction function
  * @param stream: cuda stream to use
  */
-template <int TPB_X = 128, typename T, typename Lambda>
-void coo_symmetrize(COO<T>* in,
-                    COO<T>* out,
+template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
+void coo_symmetrize(COO<T, IdxT, nnz_t>* in,
+                    COO<T, IdxT, nnz_t>* out,
                     Lambda reduction_op,  // two-argument reducer
                     cudaStream_t stream)
 {
@@ -142,7 +142,7 @@ void coo_symmetrize(COO<T>* in,
 
   ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
 
-  rmm::device_uvector<int> in_row_ind(in->n_rows, stream);
+  rmm::device_uvector<nnz_t> in_row_ind(in->n_rows, stream);
 
   convert::sorted_coo_to_csr(in, in_row_ind.data(), stream);
 
@@ -324,15 +324,15 @@ void from_knn_symmetrize_matrix(const value_idx* __restrict__ knn_indices,
 /**
  * Symmetrizes a COO matrix
  */
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename nnz_t>
 void symmetrize(raft::resources const& handle,
                 const value_idx* rows,
                 const value_idx* cols,
                 const value_t* vals,
-                size_t m,
-                size_t n,
-                size_t nnz,
-                raft::sparse::COO<value_t, value_idx>& out)
+                value_idx m,
+                value_idx n,
+                nnz_t nnz,
+                raft::sparse::COO<value_t, value_idx, nnz_t>& out)
 {
   auto stream = resource::get_cuda_stream(handle);
 
@@ -352,7 +352,7 @@ void symmetrize(raft::resources const& handle,
   // sort COO
   raft::sparse::op::coo_sort((value_idx)m,
                              (value_idx)n,
-                             (value_idx)nnz * 2,
+                             static_cast<nnz_t>(nnz) * 2,
                              symm_rows.data(),
                              symm_cols.data(),
                              symm_vals.data(),
