@@ -57,6 +57,10 @@ files:
       - docs
       - py_version
       - test_pylibraft
+      - depends_on_libraft
+      - depends_on_libraft_headers
+      - depends_on_pylibraft
+      - depends_on_raft_dask
   py_build_libraft:
     output: pyproject
     pyproject_dir: python/libraft

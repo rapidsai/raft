@@ -47,6 +47,7 @@
 #include <rmm/resource_ref.hpp>
 
 #include <thrust/gather.h>
+#include <thrust/iterator/transform_iterator.h>
 #include <thrust/transform.h>
 
 #include <limits>
@@ -288,7 +289,8 @@ void calc_centers_and_sizes(const raft::resources& handle,
       dataset, dim, labels, nullptr, n_rows, dim, n_clusters, centers, stream, reset_counters);
   } else {
     // todo(lsugy): use iterator from KV output of fusedL2NN
-    cub::TransformInputIterator<MathT, MappingOpT, const T*> mapping_itr(dataset, mapping_op);
+    thrust::transform_iterator<MappingOpT, const T*, thrust::use_default, MathT> mapping_itr(
+      dataset, mapping_op);
     raft::linalg::reduce_rows_by_key(
       mapping_itr, dim, labels, nullptr, n_rows, dim, n_clusters, centers, stream, reset_counters);
   }
@@ -894,7 +896,8 @@ auto build_fine_clusters(const raft::resources& handle,
                    "Number of fine clusters must be non-zero for a non-empty mesocluster");
     }
 
-    cub::TransformInputIterator<MathT, MappingOpT, const T*> mapping_itr(dataset_mptr, mapping_op);
+    thrust::transform_iterator<MappingOpT, const T*, thrust::use_default, MathT> mapping_itr(
+      dataset_mptr, mapping_op);
     raft::matrix::gather(mapping_itr, dim, n_rows, mc_trainset_ids, k, mc_trainset, stream);
     if (params.metric == raft::distance::DistanceType::L2Expanded ||
         params.metric == raft::distance::DistanceType::L2SqrtExpanded) {
