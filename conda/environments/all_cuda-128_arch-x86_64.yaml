@@ -51,6 +51,7 @@ dependencies:
 - scipy
 - sphinx-copybutton
 - sphinx-markdown-tables
+- sphinx<8.2.0
 - sysroot_linux-64==2.28
 - ucx-py==0.43.*,>=0.0.0a0
 name: all_cuda-128_arch-x86_64

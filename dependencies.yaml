@@ -441,6 +441,7 @@ dependencies:
           - recommonmark
           - sphinx-copybutton
           - sphinx-markdown-tables
+          - sphinx<8.2.0
   py_version:
     specific:
       - output_types: conda
