@@ -40,15 +40,15 @@ namespace sparse {
 namespace linalg {
 namespace detail {
 
-template <int TPB_X = 64, typename T>
+template <int TPB_X = 64, typename T, typename indT>
 RAFT_KERNEL csr_row_normalize_l1_kernel(
   // @TODO: This can be done much more parallel by
   // having threads in a warp compute the sum in parallel
   // over each row and then divide the values in parallel.
-  const int* ia,  // csr row ex_scan (sorted by row)
+  const indT* ia,  // csr row ex_scan (sorted by row)
   const T* vals,
-  int nnz,  // array of values and number of non-zeros
-  int m,    // num rows in csr
+  indT nnz,  // array of values and number of non-zeros
+  int m,     // num rows in csr
   T* result)
 {  // output array
 
@@ -57,19 +57,19 @@ RAFT_KERNEL csr_row_normalize_l1_kernel(
 
   // sum all vals_arr for row and divide each val by sum
   if (row < m) {
-    int start_idx = ia[row];
-    int stop_idx  = 0;
+    indT start_idx = ia[row];
+    indT stop_idx  = 0;
     if (row < m - 1) {
       stop_idx = ia[row + 1];
     } else
       stop_idx = nnz;
 
     T sum = T(0.0);
-    for (int j = start_idx; j < stop_idx; j++) {
+    for (indT j = start_idx; j < stop_idx; j++) {
       sum = sum + fabs(vals[j]);
     }
 
-    for (int j = start_idx; j < stop_idx; j++) {
+    for (indT j = start_idx; j < stop_idx; j++) {
       if (sum != 0.0) {
         T val     = vals[j];
         result[j] = val / sum;
@@ -90,11 +90,11 @@ RAFT_KERNEL csr_row_normalize_l1_kernel(
  * @param result: l1 normalized data array
  * @param stream: cuda stream to use
  */
-template <int TPB_X = 64, typename T>
-void csr_row_normalize_l1(const int* ia,  // csr row ex_scan (sorted by row)
+template <int TPB_X = 64, typename T, typename indT>
+void csr_row_normalize_l1(const indT* ia,  // csr row ex_scan (sorted by row)
                           const T* vals,
-                          int nnz,  // array of values and number of non-zeros
-                          int m,    // num rows in csr
+                          indT nnz,  // array of values and number of non-zeros
+                          int m,     // num rows in csr
                           T* result,
                           cudaStream_t stream)
 {  // output array

@@ -17,7 +17,8 @@ rapids-logger "Begin cpp build"
 
 sccache --zero-stats
 
-RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libraft
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild \
+  conda/recipes/libraft
 
 sccache --show-adv-stats
 

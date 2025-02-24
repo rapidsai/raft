@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <raft/core/device_csr_matrix.hpp>
+#include <raft/core/device_span.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusparse_handle.hpp>
@@ -33,6 +35,7 @@
 #include <thrust/system/cuda/execution_policy.h>
 
 #include <algorithm>
+#include <cstddef>
 
 // =========================================================
 // Useful macros
@@ -134,7 +137,7 @@ class vector_t {
   const thrust_exec_policy_t thrust_policy;
 };
 
-template <typename index_type, typename value_type>
+template <typename index_type, typename value_type, typename nnz_type = uint64_t>
 struct sparse_matrix_t {
   sparse_matrix_t(resources const& raft_handle,
                   index_type const* row_offsets,
@@ -142,7 +145,7 @@ struct sparse_matrix_t {
                   value_type const* values,
                   index_type const nrows,
                   index_type const ncols,
-                  index_type const nnz)
+                  nnz_type const nnz)
     : handle_(raft_handle),
       row_offsets_(row_offsets),
       col_indices_(col_indices),
@@ -158,7 +161,7 @@ struct sparse_matrix_t {
                   index_type const* col_indices,
                   value_type const* values,
                   index_type const nrows,
-                  index_type const nnz)
+                  nnz_type const nnz)
     : handle_(raft_handle),
       row_offsets_(row_offsets),
       col_indices_(col_indices),
@@ -179,6 +182,19 @@ struct sparse_matrix_t {
       ncols_(csr_view.number_of_vertices),
       nnz_(csr_view.number_of_edges)
   {
+  }
+
+  auto to_csr_matrix_view() const
+  {
+    // The usage of sparse_matrix_t prior to introduction of this method
+    // assumed that all data was strictly on device. We will make the same
+    // assumption for construction of the csr_matrix_view
+    return device_csr_matrix_view<value_type const, index_type const, index_type const, index_type>{
+      device_span<value_type const>{values_, std::uint64_t(nnz_)},
+      device_compressed_structure_view<index_type const, index_type const, index_type>{
+        device_span<index_type const>{row_offsets_, std::uint64_t(nrows_ + 1)},
+        device_span<index_type const>{col_indices_, std::uint64_t(nnz_)},
+        ncols_}};
   }
 
   virtual ~sparse_matrix_t(void) =
@@ -311,18 +327,18 @@ struct sparse_matrix_t {
   value_type const* values_;
   index_type const nrows_;
   index_type const ncols_;
-  index_type const nnz_;
+  nnz_type const nnz_;
 };
 
-template <typename index_type, typename value_type>
-struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
+template <typename index_type, typename value_type, typename nnz_type = uint64_t>
+struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type, nnz_type> {
   laplacian_matrix_t(resources const& raft_handle,
                      index_type const* row_offsets,
                      index_type const* col_indices,
                      value_type const* values,
                      index_type const nrows,
-                     index_type const nnz)
-    : sparse_matrix_t<index_type, value_type>(
+                     nnz_type const nnz)
+    : sparse_matrix_t<index_type, value_type, nnz_type>(
         raft_handle, row_offsets, col_indices, values, nrows, nnz),
       diagonal_(raft_handle, nrows)
   {
@@ -332,18 +348,18 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
   }
 
   laplacian_matrix_t(resources const& raft_handle,
-                     sparse_matrix_t<index_type, value_type> const& csr_m)
-    : sparse_matrix_t<index_type, value_type>(raft_handle,
-                                              csr_m.row_offsets_,
-                                              csr_m.col_indices_,
-                                              csr_m.values_,
-                                              csr_m.nrows_,
-                                              csr_m.nnz_),
+                     sparse_matrix_t<index_type, value_type, nnz_type> const& csr_m)
+    : sparse_matrix_t<index_type, value_type, nnz_type>(raft_handle,
+                                                        csr_m.row_offsets_,
+                                                        csr_m.col_indices_,
+                                                        csr_m.values_,
+                                                        csr_m.nrows_,
+                                                        csr_m.nnz_),
       diagonal_(raft_handle, csr_m.nrows_)
   {
     vector_t<value_type> ones{raft_handle, (size_t)csr_m.nrows_};
     ones.fill(1.0);
-    sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0, diagonal_.raw());
+    sparse_matrix_t<index_type, value_type, nnz_type>::mv(1, ones.raw(), 0, diagonal_.raw());
   }
 
   // y = alpha*A*x + beta*y
@@ -357,9 +373,9 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
           bool symmetric      = false) const override
   {
     constexpr int BLOCK_SIZE = 1024;
-    auto n                   = sparse_matrix_t<index_type, value_type>::nrows_;
+    auto n                   = sparse_matrix_t<index_type, value_type, nnz_type>::nrows_;
 
-    auto handle   = sparse_matrix_t<index_type, value_type>::get_handle();
+    auto handle   = sparse_matrix_t<index_type, value_type, nnz_type>::get_handle();
     auto cublas_h = resource::get_cublas_handle(handle);
     auto stream   = resource::get_cuda_stream(handle);
 
@@ -382,31 +398,32 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
 
     // Apply adjacency matrix
     //
-    sparse_matrix_t<index_type, value_type>::mv(-alpha, x, 1, y, alg, transpose, symmetric);
+    sparse_matrix_t<index_type, value_type, nnz_type>::mv(
+      -alpha, x, 1, y, alg, transpose, symmetric);
   }
 
   vector_t<value_type> diagonal_;
 };
 
-template <typename index_type, typename value_type>
-struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
+template <typename index_type, typename value_type, typename nnz_type = uint64_t>
+struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type, nnz_type> {
   modularity_matrix_t(resources const& raft_handle,
                       index_type const* row_offsets,
                       index_type const* col_indices,
                       value_type const* values,
                       index_type const nrows,
-                      index_type const nnz)
-    : laplacian_matrix_t<index_type, value_type>(
+                      nnz_type const nnz)
+    : laplacian_matrix_t<index_type, value_type, nnz_type>(
         raft_handle, row_offsets, col_indices, values, nrows, nnz)
   {
-    edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1();
+    edge_sum_ = laplacian_matrix_t<index_type, value_type, nnz_type>::diagonal_.nrm1();
   }
 
   modularity_matrix_t(resources const& raft_handle,
-                      sparse_matrix_t<index_type, value_type> const& csr_m)
-    : laplacian_matrix_t<index_type, value_type>(raft_handle, csr_m)
+                      sparse_matrix_t<index_type, value_type, nnz_type> const& csr_m)
+    : laplacian_matrix_t<index_type, value_type, nnz_type>(raft_handle, csr_m)
   {
-    edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1();
+    edge_sum_ = laplacian_matrix_t<index_type, value_type, nnz_type>::diagonal_.nrm1();
   }
 
   // y = alpha*A*x + beta*y
@@ -419,44 +436,45 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
           bool transpose      = false,
           bool symmetric      = false) const override
   {
-    auto n = sparse_matrix_t<index_type, value_type>::nrows_;
+    auto n = sparse_matrix_t<index_type, value_type, nnz_type>::nrows_;
 
-    auto handle   = sparse_matrix_t<index_type, value_type>::get_handle();
+    auto handle   = sparse_matrix_t<index_type, value_type, nnz_type>::get_handle();
     auto cublas_h = resource::get_cublas_handle(handle);
     auto stream   = resource::get_cuda_stream(handle);
 
     // y = A*x
     //
-    sparse_matrix_t<index_type, value_type>::mv(alpha, x, 0, y, alg, transpose, symmetric);
+    sparse_matrix_t<index_type, value_type, nnz_type>::mv(
+      alpha, x, 0, y, alg, transpose, symmetric);
     value_type dot_res;
 
     // gamma = d'*x
     //
     // Cublas::dot(this->n, D.raw(), 1, x, 1, &dot_res);
     // TODO: Call from public API when ready
-    RAFT_CUBLAS_TRY(
-      raft::linalg::detail::cublasdot(cublas_h,
-                                      n,
-                                      laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
-                                      1,
-                                      x,
-                                      1,
-                                      &dot_res,
-                                      stream));
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasdot(
+      cublas_h,
+      n,
+      laplacian_matrix_t<index_type, value_type, nnz_type>::diagonal_.raw(),
+      1,
+      x,
+      1,
+      &dot_res,
+      stream));
 
     // y = y -(gamma/edge_sum)*d
     //
     value_type gamma_ = -dot_res / edge_sum_;
     // TODO: Call from public API when ready
-    RAFT_CUBLAS_TRY(
-      raft::linalg::detail::cublasaxpy(cublas_h,
-                                       n,
-                                       &gamma_,
-                                       laplacian_matrix_t<index_type, value_type>::diagonal_.raw(),
-                                       1,
-                                       y,
-                                       1,
-                                       stream));
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasaxpy(
+      cublas_h,
+      n,
+      &gamma_,
+      laplacian_matrix_t<index_type, value_type, nnz_type>::diagonal_.raw(),
+      1,
+      y,
+      1,
+      stream));
   }
 
   value_type edge_sum_;

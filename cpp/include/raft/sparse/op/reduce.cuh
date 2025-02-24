@@ -68,15 +68,15 @@ void compute_duplicates_mask(
  * @param[in] m number of rows in COO input matrix
  * @param[in] n number of columns in COO input matrix
  */
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename nnz_t>
 void max_duplicates(raft::resources const& handle,
-                    raft::sparse::COO<value_t, value_idx>& out,
+                    raft::sparse::COO<value_t, value_idx, nnz_t>& out,
                     const value_idx* rows,
                     const value_idx* cols,
                     const value_t* vals,
-                    size_t nnz,
-                    size_t m,
-                    size_t n)
+                    nnz_t nnz,
+                    value_idx m,
+                    value_idx n)
 {
   detail::max_duplicates(handle, out, rows, cols, vals, nnz, m, n);
 }

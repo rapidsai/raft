@@ -43,10 +43,14 @@ namespace spectral {
  *  @param eigVecs Output eigenvector array pointer on device
  *  @return statistics: number of eigensolver iterations, .
  */
-template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
+template <typename vertex_t,
+          typename weight_t,
+          typename nnz_t,
+          typename EigenSolver,
+          typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   raft::resources const& handle,
-  matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  matrix::sparse_matrix_t<vertex_t, weight_t, nnz_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
   vertex_t* __restrict__ clusters,
@@ -54,7 +58,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   weight_t* eigVecs)
 {
   return raft::spectral::detail::
-    modularity_maximization<vertex_t, weight_t, EigenSolver, ClusterSolver>(
+    modularity_maximization<vertex_t, weight_t, nnz_t, EigenSolver, ClusterSolver>(
       handle, csr_m, eigen_solver, cluster_solver, clusters, eigVals, eigVecs);
 }
 //===================================================
@@ -69,14 +73,14 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
  *  @param clusters (Input, device memory, n entries) Cluster assignments.
  *  @param modularity On exit, modularity
  */
-template <typename vertex_t, typename weight_t>
+template <typename vertex_t, typename weight_t, typename nnz_t>
 void analyzeModularity(raft::resources const& handle,
-                       matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+                       matrix::sparse_matrix_t<vertex_t, weight_t, nnz_t> const& csr_m,
                        vertex_t nClusters,
                        vertex_t const* __restrict__ clusters,
                        weight_t& modularity)
 {
-  raft::spectral::detail::analyzeModularity<vertex_t, weight_t>(
+  raft::spectral::detail::analyzeModularity<vertex_t, weight_t, nnz_t>(
     handle, csr_m, nClusters, clusters, modularity);
 }
 

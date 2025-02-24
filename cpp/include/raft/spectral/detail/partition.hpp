@@ -18,6 +18,7 @@
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/sparse/linalg/laplacian.cuh>
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/detail/spectral_util.cuh>
 #include <raft/spectral/eigen_solvers.cuh>
@@ -63,10 +64,14 @@ namespace detail {
  *    performed.
  *  @return statistics: number of eigensolver iterations, .
  */
-template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
+template <typename vertex_t,
+          typename weight_t,
+          typename nnz_t,
+          typename EigenSolver,
+          typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> partition(
   raft::resources const& handle,
-  spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+  spectral::matrix::sparse_matrix_t<vertex_t, weight_t, nnz_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
   vertex_t* __restrict__ clusters,
@@ -93,14 +98,15 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   // Compute eigenvectors of Laplacian
 
   // Initialize Laplacian
-  /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
+  auto laplacian =
+    raft::sparse::linalg::compute_graph_laplacian(handle, csr_m.to_csr_matrix_view());
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs     = eigen_config.n_eigVecs;
 
   // Compute smallest eigenvalues and eigenvectors
-  std::get<0>(stats) = eigen_solver.solve_smallest_eigenvectors(handle, L, eigVals, eigVecs);
+  std::get<0>(stats) =
+    eigen_solver.solve_smallest_eigenvectors(handle, laplacian.view(), eigVals, eigVecs);
 
   // Whiten eigenvector matrix
   transform_eigen_matrix(handle, n, nEigVecs, eigVecs);
@@ -132,9 +138,9 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
  *  @param cost On exit, partition cost function.
  *  @return error flag.
  */
-template <typename vertex_t, typename weight_t>
+template <typename vertex_t, typename weight_t, typename nnz_t>
 void analyzePartition(raft::resources const& handle,
-                      spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
+                      spectral::matrix::sparse_matrix_t<vertex_t, weight_t, nnz_t> const& csr_m,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,
                       weight_t& edgeCut,
@@ -160,7 +166,7 @@ void analyzePartition(raft::resources const& handle,
 
   // Initialize Laplacian
   /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
+  spectral::matrix::laplacian_matrix_t<vertex_t, weight_t, nnz_t> L{handle, csr_m};
 
   // Initialize output
   cost    = 0;
