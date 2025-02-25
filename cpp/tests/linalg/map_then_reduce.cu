@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <cuda/functional>
 
 #include <gtest/gtest.h>
 
@@ -161,7 +163,7 @@ class MapGenericReduceTest : public ::testing::Test {
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cub::Min());
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cuda::minimum{});
     EXPECT_TRUE(raft::devArrMatch(
       OutType(1), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
@@ -171,7 +173,7 @@ class MapGenericReduceTest : public ::testing::Test {
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cub::Max());
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cuda::maximum{});
     EXPECT_TRUE(raft::devArrMatch(
       OutType(5), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
