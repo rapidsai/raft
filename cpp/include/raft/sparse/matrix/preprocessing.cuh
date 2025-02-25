@@ -52,32 +52,32 @@ namespace raft::sparse::matrix {
 template <typename ValueType = float, typename IndexType = int>
 class SparseEncoder {
  private:
-  int* featIdCount;
-  int fullIdLen;
-  int numFeats;
-  int numRows;
+  IndexType* featIdCount;
+  IndexType fullIdLen;
+  IndexType numFeats;
+  IndexType numRows;
 
  public:
   SparseEncoder(int num_feats);
   SparseEncoder(
-    raft::resources& handle, int* featIdValues, int num_rows, int full_id_len, int num_feats);
+    raft::resources const& handle, int* featIdValues, int num_rows, int full_id_len, int num_feats);
   ~SparseEncoder();
-  void fit(raft::resources& handle,
+  void fit(raft::resources const& handle,
            raft::device_coo_matrix<ValueType,
                                    IndexType,
                                    IndexType,
                                    IndexType,
                                    raft::device_uvector_policy,
                                    raft::PRESERVING> coo_in);
-  void save(raft::resources& handle, std::string save_path);
-  void fit(raft::resources& handle,
+  void save(raft::resources const& handle, std::string save_path);
+  void fit(raft::resources const& handle,
            raft::device_csr_matrix<ValueType,
                                    IndexType,
                                    IndexType,
                                    IndexType,
                                    raft::device_uvector_policy,
                                    raft::PRESERVING> csr_in);
-  void transform(raft::resources& handle,
+  void transform(raft::resources const& handle,
                  raft::device_csr_matrix<ValueType,
                                          IndexType,
                                          IndexType,
@@ -88,7 +88,7 @@ class SparseEncoder {
                  bool bm25_on,
                  float k_param = 1.6f,
                  float b_param = 0.75f);
-  void transform(raft::resources& handle,
+  void transform(raft::resources const& handle,
                  raft::device_coo_matrix<ValueType,
                                          IndexType,
                                          IndexType,
@@ -101,13 +101,17 @@ class SparseEncoder {
                  float b_param = 0.75f);
 
  private:
-  void _fit(raft::resources& handle,
+  void _fit(raft::resources const& handle,
             raft::device_vector_view<IndexType, int64_t> rows,
             raft::device_vector_view<IndexType, int64_t> columns,
             raft::device_vector_view<ValueType, int64_t> values,
             int num_rows);
-  void _fit_feats(IndexType* cols, IndexType* counts, IndexType nnz, IndexType* results);
-  void transform(raft::resources& handle,
+  void _fit_feats(raft::resources const& handle,
+                  IndexType* cols,
+                  IndexType* counts,
+                  IndexType nnz,
+                  IndexType* results);
+  void transform(raft::resources const& handle,
                  raft::device_vector_view<IndexType, int64_t> rows,
                  raft::device_vector_view<IndexType, int64_t> columns,
                  raft::device_vector_view<ValueType, int64_t> values,
@@ -163,11 +167,12 @@ SparseEncoder<ValueType, IndexType>::SparseEncoder(int feats) : numFeats(feats)
  * */
 template <typename ValueType, typename IndexType>
 SparseEncoder<ValueType, IndexType>::SparseEncoder(
-  raft::resources& handle, int* featIdValues, int num_feats, int num_rows, int full_id_len)
+  raft::resources const& handle, int* featIdValues, int num_feats, int num_rows, int full_id_len)
   : numFeats(num_feats), numRows(num_rows), fullIdLen(full_id_len)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
   cudaMallocManaged(&featIdCount, numFeats * sizeof(int));
+
   cudaMemset(featIdCount, 0, numFeats * sizeof(int));
   for (int i = 0; i < numFeats; i++) {
     featIdCount[i] = featIdValues[i];
@@ -203,7 +208,7 @@ SparseEncoder<ValueType, IndexType>::~SparseEncoder()
  *   The path to save the file container all values required to recreate SparseEncoder.
  * */
 template <typename ValueType, typename IndexType>
-void SparseEncoder<ValueType, IndexType>::save(raft::resources& handle, std::string save_path)
+void SparseEncoder<ValueType, IndexType>::save(raft::resources const& handle, std::string save_path)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
   auto featIdCount_md = raft::make_device_vector<IndexType, int64_t>(handle, numFeats);
@@ -222,7 +227,8 @@ void SparseEncoder<ValueType, IndexType>::save(raft::resources& handle, std::str
 }
 
 template <typename ValueType, typename IndexType>
-void SparseEncoder<ValueType, IndexType>::_fit_feats(IndexType* cols,
+void SparseEncoder<ValueType, IndexType>::_fit_feats(raft::resources const& handle,
+                                                     IndexType* cols,
                                                      IndexType* counts,
                                                      IndexType nnz,
                                                      IndexType* results)
@@ -235,7 +241,7 @@ void SparseEncoder<ValueType, IndexType>::_fit_feats(IndexType* cols,
 }
 
 template <typename ValueType, typename IndexType>
-void SparseEncoder<ValueType, IndexType>::_fit(raft::resources& handle,
+void SparseEncoder<ValueType, IndexType>::_fit(raft::resources const& handle,
                                                raft::device_vector_view<IndexType, int64_t> rows,
                                                raft::device_vector_view<IndexType, int64_t> columns,
                                                raft::device_vector_view<ValueType, int64_t> values,
@@ -244,7 +250,7 @@ void SparseEncoder<ValueType, IndexType>::_fit(raft::resources& handle,
   numRows += num_rows;
   IndexType nnz       = values.size();
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto batchIdLen     = raft::make_host_scalar<ValueType>(handle, 0);
+  auto batchIdLen     = raft::make_host_scalar<ValueType>(0);
   auto values_mat     = raft::make_device_scalar<ValueType>(handle, 0);
   raft::linalg::mapReduce<ValueType>(values_mat.data_handle(),
                                      nnz,
@@ -266,7 +272,7 @@ void SparseEncoder<ValueType, IndexType>::_fit(raft::resources& handle,
   IndexType* counts;
   cudaMallocManaged(&counts, nnz * sizeof(IndexType));
   cudaMemset(counts, 0, nnz * sizeof(IndexType));
-  _fit_feats(d_cols.data_handle(), counts, nnz, featIdCount);
+  _fit_feats(handle, d_cols.data_handle(), counts, nnz, featIdCount);
   cudaFree(counts);
   cudaDeviceSynchronize();
 }
@@ -287,7 +293,7 @@ void SparseEncoder<ValueType, IndexType>::_fit(raft::resources& handle,
 
  * */
 template <typename ValueType, typename IndexType>
-void SparseEncoder<ValueType, IndexType>::fit(raft::resources& handle,
+void SparseEncoder<ValueType, IndexType>::fit(raft::resources const& handle,
                                               raft::device_coo_matrix<ValueType,
                                                                       IndexType,
                                                                       IndexType,
@@ -329,7 +335,7 @@ void SparseEncoder<ValueType, IndexType>::fit(raft::resources& handle,
 
  * */
 template <typename ValueType, typename IndexType>
-void SparseEncoder<ValueType, IndexType>::fit(raft::resources& handle,
+void SparseEncoder<ValueType, IndexType>::fit(raft::resources const& handle,
                                               raft::device_csr_matrix<ValueType,
                                                                       IndexType,
                                                                       IndexType,
@@ -372,7 +378,7 @@ void SparseEncoder<ValueType, IndexType>::fit(raft::resources& handle,
  * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::transform(
-  raft::resources& handle,
+  raft::resources const& handle,
   raft::device_coo_matrix<ValueType,
                           IndexType,
                           IndexType,
@@ -426,7 +432,7 @@ void SparseEncoder<ValueType, IndexType>::transform(
  * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::transform(
-  raft::resources& handle,
+  raft::resources const& handle,
   raft::device_csr_matrix<ValueType,
                           IndexType,
                           IndexType,
@@ -480,7 +486,7 @@ void SparseEncoder<ValueType, IndexType>::transform(
  * */
 template <typename ValueType, typename IndexType>
 void SparseEncoder<ValueType, IndexType>::transform(
-  raft::resources& handle,
+  raft::resources const& handle,
   raft::device_vector_view<IndexType, int64_t> rows,
   raft::device_vector_view<IndexType, int64_t> columns,
   raft::device_vector_view<ValueType, int64_t> values,
@@ -538,7 +544,7 @@ void SparseEncoder<ValueType, IndexType>::transform(
  *   The path with the saved SparseEncoder data.
  * */
 template <typename ValueType, typename IndexType>
-SparseEncoder<ValueType, IndexType>* loadSparseEncoder(raft::resources& handle,
+SparseEncoder<ValueType, IndexType>* loadSparseEncoder(raft::resources const& handle,
                                                        std::string save_path)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
@@ -552,7 +558,7 @@ SparseEncoder<ValueType, IndexType>* loadSparseEncoder(raft::resources& handle,
   while (loadFile >> val) {
     vals.push_back(val);
   }
-  auto featIdCount_h = raft::make_host_vector<IndexType, int64_t>(handle, num_feats);
+  auto featIdCount_h = raft::make_host_vector<IndexType, int64_t>(num_feats);
   raft::copy(featIdCount_h.data_handle(), vals.data(), vals.size(), stream);
   loadFile.close();
   return new SparseEncoder<ValueType, IndexType>(

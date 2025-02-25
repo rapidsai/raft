@@ -103,7 +103,7 @@ __global__ void _fit_compute_occurs(int* cols, int nnz, int* counts, int* feats,
  *   The array holding the feature(column) occurrence counts for all fitted inputs.
  * @param[in] counts
  *   The array representing value changes in rows input.
- * @param[in] out_values
+ * @param[out] out_values
  *   The array that will store calculated values, should be size NNZ.
  * @param[in] vocabSize
  *   The number of the features (columns).
@@ -180,7 +180,7 @@ __global__ void _transform(int* rows,
  *   The output values from the csr conversion.
  */
 template <typename ValueType, typename IndexType>
-void convert_csr_to_coo(raft::resources& handle,
+void convert_csr_to_coo(raft::resources const& handle,
                         raft::device_csr_matrix<ValueType,
                                                 IndexType,
                                                 IndexType,

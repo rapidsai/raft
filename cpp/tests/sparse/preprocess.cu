@@ -39,7 +39,7 @@ void get_clean_coo(raft::resources& handle,
                    int nnz,
                    int num_rows,
                    int num_cols,
-                   raft::sparse::COO<T2, T1>& coo)
+                   raft::sparse::COO<T2, T1, T1>& coo)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
   raft::sparse::op::coo_sort(int(rows.size()),
@@ -50,15 +50,14 @@ void get_clean_coo(raft::resources& handle,
                              values.data_handle(),
                              stream);
 
-  // raft::sparse::COO<Type_f, Index_> coo(stream);
-  raft::sparse::op::max_duplicates(handle,
-                                   coo,
-                                   rows.data_handle(),
-                                   columns.data_handle(),
-                                   values.data_handle(),
-                                   nnz,
-                                   num_rows,
-                                   num_cols);
+  raft::sparse::op::max_duplicates<T1, T2, T1>(handle,
+                                               coo,
+                                               rows.data_handle(),
+                                               columns.data_handle(),
+                                               values.data_handle(),
+                                               nnz,
+                                               num_rows,
+                                               num_cols);
 }
 template <typename T2, typename T1>
 raft::device_coo_matrix<T2, T1, T1, T1, raft::device_uvector_policy, raft::PRESERVING>
@@ -80,7 +79,7 @@ create_coo_matrix(raft::resources& handle,
 
 template <typename T2, typename T1>
 raft::device_coo_matrix<T2, T1, T1, T1, raft::device_uvector_policy, raft::PRESERVING>
-create_coo_matrix(raft::resources& handle, raft::sparse::COO<T2, T1>& coo)
+create_coo_matrix(raft::resources& handle, raft::sparse::COO<T2, T1, T1>& coo)
 {
   cudaStream_t stream  = raft::resource::get_cuda_stream(handle);
   auto coo_struct_view = raft::make_device_coordinate_structure_view(
@@ -135,11 +134,11 @@ class SparsePreprocessCSR
                                                params.n_cols,
                                                67584);
 
-    raft::sparse::COO<Type_f, Index_> coo_a(stream);
+    raft::sparse::COO<Type_f, Index_, Index_> coo_a(stream);
     get_clean_coo<Type_f, Index_>(
       handle, a_rows.view(), a_columns.view(), a_values.view(), nnz, num_rows, num_cols, coo_a);
 
-    raft::sparse::COO<Type_f, Index_> coo_b(stream);
+    raft::sparse::COO<Type_f, Index_, Index_> coo_b(stream);
     get_clean_coo<Type_f, Index_>(
       handle, b_rows.view(), b_columns.view(), b_values.view(), nnz, num_rows, num_cols, coo_b);
 
