@@ -35,19 +35,19 @@ namespace detail {
 // Note that the compensation will only be performed 'per-block' for performance
 // reasons and therefore not be equivalent to a sequential compensation.
 
-template <typename Type, typename MainLambda>
+template <typename Type, typename IdxType, typename MainLambda>
 RAFT_KERNEL stridedSummationKernel(
-  Type* out, const Type* data, int D, int N, Type init, MainLambda main_op)
+  Type* out, const Type* data, IdxType D, IdxType N, Type init, MainLambda main_op)
 {
   // Thread reduction
-  Type thread_sum = Type(init);
-  Type thread_c   = Type(0);
-  int colStart    = blockIdx.x * blockDim.x + threadIdx.x;
+  Type thread_sum  = Type(init);
+  Type thread_c    = Type(0);
+  IdxType colStart = blockIdx.x * blockDim.x + threadIdx.x;
   if (colStart < D) {
-    int rowStart = blockIdx.y * blockDim.y + threadIdx.y;
-    int stride   = blockDim.y * gridDim.y;
-    for (int j = rowStart; j < N; j += stride) {
-      int idx = colStart + j * D;
+    IdxType rowStart = blockIdx.y * blockDim.y + threadIdx.y;
+    IdxType stride   = blockDim.y * gridDim.y;
+    for (IdxType j = rowStart; j < N; j += stride) {
+      auto idx = colStart + j * D;
 
       // KahanBabushkaNeumaierSum
       const Type cur_value = main_op(data[idx], j);
@@ -97,8 +97,8 @@ template <typename InType,
           typename ReduceLambda>
 RAFT_KERNEL stridedReductionKernel(OutType* dots,
                                    const InType* data,
-                                   int D,
-                                   int N,
+                                   IdxType D,
+                                   IdxType N,
                                    OutType init,
                                    MainLambda main_op,
                                    ReduceLambda reduce_op)
@@ -167,7 +167,7 @@ void stridedReduction(OutType* dots,
                     raft::min((IdxType)MaxBlocksDimY, raft::ceildiv(N, (IdxType)MinRowsPerBlk)));
     const size_t shmemSize = sizeof(OutType) * Block.x * 2;
 
-    stridedSummationKernel<InType>
+    stridedSummationKernel<InType, IdxType>
       <<<grid, Block, shmemSize, stream>>>(dots, data, D, N, init, main_op);
   } else {
     // Arbitrary numbers for now, probably need to tune
