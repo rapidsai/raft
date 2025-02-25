@@ -53,6 +53,7 @@
 
 #include <cuda_fp16.h>
 #include <thrust/extrema.h>
+#include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
 
 #include <memory>
@@ -180,8 +181,8 @@ void select_residuals(raft::resources const& handle,
   rmm::device_uvector<float> tmp(size_t(n_rows) * size_t(dim), stream, device_memory);
   // Note: the number of rows of the input dataset isn't actually n_rows, but matrix::gather doesn't
   // need to know it, any strictly positive number would work.
-  cub::TransformInputIterator<float, utils::mapping<float>, const T*> mapping_itr(
-    dataset, utils::mapping<float>{});
+  thrust::transform_iterator<utils::mapping<float>, const T*> mapping_itr(dataset,
+                                                                          utils::mapping<float>{});
   raft::matrix::gather(mapping_itr, (IdxT)dim, n_rows, row_ids, n_rows, tmp.data(), stream);
 
   raft::matrix::linewise_op(handle,
