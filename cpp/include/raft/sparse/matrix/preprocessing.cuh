@@ -138,12 +138,10 @@ class SparseEncoder {
 template <typename ValueType, typename IndexType>
 SparseEncoder<ValueType, IndexType>::SparseEncoder(int feats) : numFeats(feats)
 {
-  cudaMallocManaged(&featIdCount, feats * sizeof(int));
+  cudaMallocManaged(&featIdCount, feats * sizeof(IndexType));
+  cudaMemset(featIdCount, 0, numFeats * sizeof(IndexType));
   fullIdLen = 0;
   numRows   = 0;
-  for (int i = 0; i < numFeats; i++) {
-    featIdCount[i] = 0;
-  }
 }
 /**
  * This constructor creates the `SparseEncoder` class with a numFeats equal to the
@@ -172,9 +170,9 @@ SparseEncoder<ValueType, IndexType>::SparseEncoder(
   : numFeats(num_feats), numRows(num_rows), fullIdLen(full_id_len)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  cudaMallocManaged(&featIdCount, numFeats * sizeof(int));
+  cudaMallocManaged(&featIdCount, numFeats * sizeof(IndexType));
 
-  cudaMemset(featIdCount, 0, numFeats * sizeof(int));
+  cudaMemset(featIdCount, 0, numFeats * sizeof(IndexType));
   for (int i = 0; i < numFeats; i++) {
     featIdCount[i] = featIdValues[i];
   }
