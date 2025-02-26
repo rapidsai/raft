@@ -33,14 +33,6 @@
 
 #include <limits>
 
-#if CCCL_MAJOR_VERSION >= 3
-using minimum = cuda::minimum;
-using maximum = cuda::maximum;
-#else
-using minimum = cub::Min;
-using maximum = cub::Max;
-#endif
-
 namespace raft {
 namespace linalg {
 
@@ -167,6 +159,12 @@ class MapGenericReduceTest : public ::testing::Test {
 
   void testMin()
   {
+#if CCCL_MAJOR_VERSION >= 3
+    using cuda::minimum;
+#else
+    using minimum = cub::Min;
+#endif
+
     OutType neutral  = std::numeric_limits<InType>::max();
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
@@ -177,6 +175,11 @@ class MapGenericReduceTest : public ::testing::Test {
   }
   void testMax()
   {
+#if CCCL_MAJOR_VERSION >= 3
+    using cuda::maximum;
+#else
+    using maximum = cub::Max;
+#endif
     OutType neutral  = std::numeric_limits<InType>::min();
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
