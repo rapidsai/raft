@@ -33,6 +33,14 @@
 
 #include <limits>
 
+#if CCCL_MAJOR_VERSION >= 3
+using minimum = cuda::minimum;
+using maximum = cuda::maximum;
+#else
+using minimum = cub::Min;
+using maximum = cub::Max;
+#endif
+
 namespace raft {
 namespace linalg {
 
@@ -163,7 +171,7 @@ class MapGenericReduceTest : public ::testing::Test {
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cuda::minimum{});
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, minimum{});
     EXPECT_TRUE(raft::devArrMatch(
       OutType(1), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
@@ -173,7 +181,7 @@ class MapGenericReduceTest : public ::testing::Test {
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cuda::maximum{});
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, maximum{});
     EXPECT_TRUE(raft::devArrMatch(
       OutType(5), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
