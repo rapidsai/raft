@@ -175,11 +175,15 @@ _RAFT_DEVICE void vectorized_process(
 
     static_assert(WarpSize >= wide_t::Ratio);
     // Processes the skipped elements on the left
-    if (thread_rank < skip_cnt_left) { f(in[thread_rank], thread_rank); }
+    for (IdxT i = thread_rank; i < skip_cnt_left; i += num_threads) {
+      f(in[i], i);
+    }
     // Processes the skipped elements on the right
     const IdxT skip_cnt_right = align_elems::mod(len - skip_cnt_left);
     const IdxT remain_i       = len - skip_cnt_right + thread_rank;
-    if (remain_i < len) { f(in[remain_i], remain_i); }
+    for (IdxT i = remain_i; i < len; i += num_threads) {
+      f(in[i], i);
+    }
   }
 }
 
