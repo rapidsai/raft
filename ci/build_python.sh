@@ -25,7 +25,7 @@ sccache --zero-stats
 
 # TODO: Remove `--no-test` flags once importing on a CPU
 # node works correctly
-rapids-conda-retry mambabuild \
+rapids-conda-retry build \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/pylibraft
@@ -33,7 +33,7 @@ rapids-conda-retry mambabuild \
 sccache --show-adv-stats
 sccache --zero-stats
 
-rapids-conda-retry mambabuild \
+rapids-conda-retry build \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   --channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
