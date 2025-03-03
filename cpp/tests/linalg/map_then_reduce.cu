@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <cuda/functional>
 
 #include <gtest/gtest.h>
 
@@ -157,21 +159,32 @@ class MapGenericReduceTest : public ::testing::Test {
 
   void testMin()
   {
+#if CCCL_MAJOR_VERSION >= 3
+    using cuda::minimum;
+#else
+    using minimum = cub::Min;
+#endif
+
     OutType neutral  = std::numeric_limits<InType>::max();
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cub::Min());
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, minimum{});
     EXPECT_TRUE(raft::devArrMatch(
       OutType(1), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
   void testMax()
   {
+#if CCCL_MAJOR_VERSION >= 3
+    using cuda::maximum;
+#else
+    using maximum = cub::Max;
+#endif
     OutType neutral  = std::numeric_limits<InType>::min();
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cub::Max());
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, maximum{});
     EXPECT_TRUE(raft::devArrMatch(
       OutType(5), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
