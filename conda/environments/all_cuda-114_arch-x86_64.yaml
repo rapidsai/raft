@@ -57,4 +57,4 @@ dependencies:
 - sphinx<8.2.0
 - sysroot_linux-64==2.28
 - ucx-py==0.43.*,>=0.0.0a0
-name: all_cuda-118_arch-x86_64
+name: all_cuda-114_arch-x86_64
