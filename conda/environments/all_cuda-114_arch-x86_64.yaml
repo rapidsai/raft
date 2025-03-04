@@ -13,7 +13,6 @@ dependencies:
 - clang==16.0.6
 - cmake>=3.30.4
 - cuda-nvtx=11.4
-- cuda-profiler-api=11.4.86
 - cuda-python>=11.4.1,<12.0a0
 - cuda-version=11.4=hfb901f2_3
 - cudatoolkit=11.4.3=h39f8164_13
