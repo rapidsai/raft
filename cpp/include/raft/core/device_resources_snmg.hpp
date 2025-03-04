@@ -158,7 +158,11 @@ class device_resources_snmg : public device_resources {
 
   bool has_resource_factory(resource::resource_type resource_type) const override
   {
-    cudaSetDevice(this->main_gpu_id_);
+    if (resource_type != raft::resource::NCCL_CLIQUE &&
+        resource_type != raft::resource::NCCL_COMM &&
+        resource_type != raft::resource::CLIQUE_ROOT_RANK)
+      // for resources unrelated to SNMG switch current GPU to main GPU ID
+      cudaSetDevice(this->main_gpu_id_);
     return raft::resources::has_resource_factory(resource_type);
   }
 

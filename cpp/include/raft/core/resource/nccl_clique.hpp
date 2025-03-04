@@ -116,7 +116,10 @@ inline void _init_nccl_comms(std::vector<raft::resources>& clique)
 
   ncclGroupStart();
   for (int rank = 0; rank < num_ranks; rank++) {
-    ncclComm_t& nccl_comm = raft::resource::get_nccl_comm(clique[rank]);
+    const raft::resources& dev_res = clique[rank];
+    int device_id                  = raft::resource::get_device_id(dev_res);
+    RAFT_CUDA_TRY(cudaSetDevice(device_id));
+    ncclComm_t& nccl_comm = raft::resource::get_nccl_comm(dev_res);
     RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm, num_ranks, id, rank));
   }
   ncclGroupEnd();
