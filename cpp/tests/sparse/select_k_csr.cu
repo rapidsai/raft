@@ -305,21 +305,20 @@ class SelectKCsrTest : public ::testing::TestWithParam<SelectKCsrInputs<index_t>
                                            out_idx.data_handle(),
                                            params.n_rows * params.top_k,
                                            raft::Compare<index_t>(),
-                                           stream)) << "n_rows: " << params.n_rows
-                                           << "n_cols: " << params.n_cols
-                                           << "sparsity: " << params.sparsity
-                                           << "select_min: " << params.select_min
-                                           << "customized_indices: " << params.customized_indices;
+                                           stream))
+      << "n_rows: " << params.n_rows << "n_cols: " << params.n_cols
+      << "sparsity: " << params.sparsity << "select_min: " << params.select_min
+      << "customized_indices: " << params.customized_indices;
 
     ASSERT_TRUE(raft::devArrMatch<value_t>(dst_values_expected_d.data(),
                                            out_val.data_handle(),
                                            params.n_rows * params.top_k,
                                            CompareApproxWithInf<value_t>(1e-6f),
-                                           stream)) << "n_rows: " << params.n_rows
-                                           << "n_cols: " << params.n_cols
-                                           << "sparsity: " << params.sparsity
-                                           << "select_min: " << params.select_min
-                                           << "customized_indices: " << params.customized_indices;;
+                                           stream))
+      << "n_rows: " << params.n_rows << "n_cols: " << params.n_cols
+      << "sparsity: " << params.sparsity << "select_min: " << params.select_min
+      << "customized_indices: " << params.customized_indices;
+    ;
   }
 
  protected:
