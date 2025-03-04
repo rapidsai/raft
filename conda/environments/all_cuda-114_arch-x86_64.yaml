@@ -12,9 +12,9 @@ dependencies:
 - clang-tools=16.0.6
 - clang==16.0.6
 - cmake>=3.30.4
-- cuda-nvtx=11.8
-- cuda-profiler-api=11.8.86
-- cuda-python>=11.8.5,<12.0a0
+- cuda-nvtx=11.4
+- cuda-profiler-api=11.4.86
+- cuda-python>=11.4.1,<12.0a0
 - cuda-version=11.4=hfb901f2_3
 - cudatoolkit=11.4.3=h39f8164_13
 - cupy>=12.0.0
@@ -39,7 +39,7 @@ dependencies:
 - ninja
 - numpy>=1.23,<3.0a0
 - numpydoc
-- nvcc_linux-64=11.8
+- nvcc_linux-64=11.4
 - pre-commit
 - pydata-sphinx-theme
 - pylibraft==25.4.*,>=0.0.0a0
