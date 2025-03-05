@@ -25,6 +25,27 @@
 #include <numeric>
 #include <vector>
 
+/**
+ * @brief Error checking macro for NCCL runtime API functions.
+ *
+ * Invokes a NCCL runtime API function call, if the call does not return ncclSuccess, throws an
+ * exception detailing the NCCL error that occurred
+ */
+#define RAFT_NCCL_TRY(call)                        \
+  do {                                             \
+    ncclResult_t const status = (call);            \
+    if (ncclSuccess != status) {                   \
+      std::string msg{};                           \
+      SET_ERROR_MSG(msg,                           \
+                    "NCCL error encountered at: ", \
+                    "call='%s', Reason=%d:%s",     \
+                    #call,                         \
+                    status,                        \
+                    ncclGetErrorString(status));   \
+      throw raft::logic_error(msg);                \
+    }                                              \
+  } while (0);
+
 namespace raft {
 
 /**
@@ -53,7 +74,11 @@ class device_resources_snmg : public device_resources {
     raft::resource::set_clique_root_rank(*this, root_rank);
 
     // initialize the NCCL clique
-    raft::resource::get_nccl_clique(*this);
+    std::vector<raft::resources>& clique = raft::resource::get_nccl_clique(*this);
+    _init_clique(clique);
+    _init_nccl_comms(clique);
+
+    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
 
   /**
@@ -70,7 +95,11 @@ class device_resources_snmg : public device_resources {
     raft::resource::set_clique_root_rank(*this, root_rank);
 
     // initialize the NCCL clique
-    raft::resource::get_nccl_clique(*this, device_ids);
+    std::vector<raft::resources>& clique = raft::resource::get_nccl_clique(*this);
+    _init_clique(clique, device_ids);
+    _init_nccl_comms(clique);
+
+    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
 
   /**
@@ -85,6 +114,19 @@ class device_resources_snmg : public device_resources {
 
   device_resources_snmg(device_resources_snmg&&)            = delete;
   device_resources_snmg& operator=(device_resources_snmg&&) = delete;
+
+  ~device_resources_snmg()
+  {
+    std::vector<raft::resources>& clique = raft::resource::get_nccl_clique(*this);
+    int num_ranks                        = clique.size();
+
+    ncclGroupStart();
+    for (int rank = 0; rank < num_ranks; rank++) {
+      ncclComm_t& nccl_comm = raft::resource::get_nccl_comm(clique[rank]);
+      RAFT_NCCL_TRY(ncclCommDestroy(nccl_comm));
+    }
+    ncclGroupEnd();
+  }
 
   /**
    * @brief Set root rank of NCCL clique
@@ -167,6 +209,49 @@ class device_resources_snmg : public device_resources {
   }
 
  private:
+  inline void _init_clique(std::vector<raft::resources>& clique)
+  {
+    int num_ranks;
+    RAFT_CUDA_TRY(cudaGetDeviceCount(&num_ranks));
+
+    for (int rank = 0; rank < num_ranks; rank++) {
+      RAFT_CUDA_TRY(cudaSetDevice(rank));
+      clique.emplace_back();
+
+      // initialize the device ID
+      raft::resource::get_device_id(clique.back());
+    }
+  }
+
+  inline void _init_clique(std::vector<raft::resources>& clique, const std::vector<int>& device_ids)
+  {
+    for (int rank = 0; rank < device_ids.size(); rank++) {
+      RAFT_CUDA_TRY(cudaSetDevice(device_ids[rank]));
+      clique.emplace_back();
+
+      // initialize the device ID
+      raft::resource::get_device_id(clique.back());
+    }
+  }
+
+  inline void _init_nccl_comms(std::vector<raft::resources>& clique)
+  {
+    ncclUniqueId id;
+    ncclGetUniqueId(&id);
+
+    int num_ranks = clique.size();
+
+    ncclGroupStart();
+    for (int rank = 0; rank < num_ranks; rank++) {
+      const raft::resources& dev_res = clique[rank];
+      int device_id                  = raft::resource::get_device_id(dev_res);
+      RAFT_CUDA_TRY(cudaSetDevice(device_id));
+      ncclComm_t& nccl_comm = raft::resource::get_nccl_comm(dev_res);
+      RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm, num_ranks, id, rank));
+    }
+    ncclGroupEnd();
+  }
+
   int main_gpu_id_;
 };  // class device_resources_snmg
 
