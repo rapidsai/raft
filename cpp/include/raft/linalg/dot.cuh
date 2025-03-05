@@ -58,7 +58,7 @@ void dot(raft::resources const& handle,
     if (err != cudaSuccess) {
       printf("Error getting pointer attributes: %s\n", cudaGetErrorString(err));
     } else {
-      if (attributes.memoryType == cudaMemoryTypeDevice) {
+      if (attributes.type == cudaMemoryTypeDevice) {
         printf("The X pointer is valid and points to device memory.\n");
       } else {
         printf("The X pointer is not pointing to device memory.\n");
@@ -72,7 +72,7 @@ void dot(raft::resources const& handle,
     if (err != cudaSuccess) {
       printf("Error getting pointer attributes: %s\n", cudaGetErrorString(err));
     } else {
-      if (attributes.memoryType == cudaMemoryTypeDevice) {
+      if (attributes.type == cudaMemoryTypeDevice) {
         printf("The X pointer is valid and points to device memory.\n");
       } else {
         printf("The X pointer is not pointing to device memory.\n");
