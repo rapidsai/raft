@@ -258,7 +258,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
+    neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
