@@ -51,7 +51,9 @@ void dot(raft::resources const& handle,
 {
   RAFT_EXPECTS(x.size() == y.size(),
                "Size mismatch between x and y input vectors in raft::linalg::dot");
-
+  std::cout << "x.size(): " << x.size() << std::endl; 
+  std::cout << "x.stride(0): " << x.stride(0) << std::endl; 
+  std::cout << "y.stride(0): " << y.stride(0) << std::endl; 
   RAFT_CUBLAS_TRY(detail::cublasdot(resource::get_cublas_handle(handle),
                                     x.size(),
                                     x.data_handle(),
