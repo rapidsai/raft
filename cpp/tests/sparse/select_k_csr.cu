@@ -349,52 +349,52 @@ TEST_P(SelectKCsrTest_double_int64, Result) { Run(); }
 
 template <typename index_t>
 const std::vector<SelectKCsrInputs<index_t>> selectk_inputs = {
-   {1, 1024, 258, 0.3, true, false},  // kWarpImmediate
-//   {10, 32, 10, 0.0, true, false},
-//   {10, 32, 10, 0.0, true, true},
-//   {10, 32, 10, 0.01, true, false},  // kWarpImmediate
-//   {10, 32, 10, 0.1, true, true},
-//   {10, 32, 251, 0.1, true, false},  // kWarpImmediate
-//   {10, 32, 251, 0.6, true, true},
-//   {1000, 1024 * 100, 1, 0.1, true, false},  // kWarpImmediate
-//   {1000, 1024 * 100, 1, 0.2, true, true},
-//   {1024, 1024, 258, 0.3, true, false},  // kRadix11bitsExtraPass
-//   {1024, 1024, 600, 0.2, true, true},
-//   {1024, 1024, 1024, 0.3, true, false},  // kRadix11bitsExtraPass
-//   {1024, 1024, 1024, 0.2, true, true},
-//   {100, 1024 * 1000, 251, 0.1, true, false},  // kWarpDistributedShm
-//   {100, 1024 * 1000, 251, 0.2, true, true},
-//   {1024, 1024 * 10, 251, 0.3, true, false},  // kWarpImmediate
-//   {1024, 1024 * 10, 251, 0.2, true, true},
-//   {1000, 1024 * 20, 1000, 0.2, true, false},  // kRadix11bits
-//   {1000, 1024 * 20, 1000, 0.3, true, true},
-//   {2048, 1024 * 10, 1000, 0.2, true, false},  // kRadix11bitsExtraPass
-//   {2048, 1024 * 10, 1000, 0.3, true, true},
-//   {2048, 1024 * 10, 2100, 0.1, true, false},  // kRadix11bitsExtraPass
-//   {2048, 1024 * 10, 2100, 0.2, true, true},
-//   {10, 32, 10, 0.0, false, false},
-//   {10, 32, 10, 0.0, false, true},
-//   {10, 32, 10, 0.01, false, false},  // kWarpImmediate
-//   {10, 32, 10, 0.1, false, true},
-//   {10, 32, 251, 0.1, false, false},  // kWarpImmediate
-//   {10, 32, 251, 0.6, false, true},
-//   {1000, 1024 * 100, 1, 0.1, false, false},  // kWarpImmediate
-//   {1000, 1024 * 100, 1, 0.2, false, true},
-//   {1024, 1024, 258, 0.3, false, false},  // kRadix11bitsExtraPass
-//   {1024, 1024, 600, 0.2, false, true},
-//   {1024, 1024, 1024, 0.3, false, false},  // kRadix11bitsExtraPass
-//   {1024, 1024, 1024, 0.2, false, true},
-//   {100, 1024 * 1000, 251, 0.1, false, false},  // kWarpDistributedShm
-//   {100, 1024 * 1000, 251, 0.2, false, true},
-//   {1024, 1024 * 10, 251, 0.3, false, false},  // kWarpImmediate
-//   {1024, 1024 * 10, 251, 0.2, false, true},
-//   {1000, 1024 * 20, 1000, 0.2, false, false},  // kRadix11bits
-//   {1000, 1024 * 20, 1000, 0.3, false, true},
-//   {2048, 1024 * 10, 1000, 0.2, false, false},  // kRadix11bitsExtraPass
-//   {2048, 1024 * 10, 1000, 0.3, false, true},
-//   {2048, 1024 * 10, 2100, 0.1, false, false},  // kRadix11bitsExtraPass
-//   {2048, 1024 * 10, 2100, 0.2, false, true}
-  };
+  {1, 1024, 258, 0.3, true, false},  // kWarpImmediate
+                                     //   {10, 32, 10, 0.0, true, false},
+                                     //   {10, 32, 10, 0.0, true, true},
+                                     //   {10, 32, 10, 0.01, true, false},  // kWarpImmediate
+                                     //   {10, 32, 10, 0.1, true, true},
+                                     //   {10, 32, 251, 0.1, true, false},  // kWarpImmediate
+                                     //   {10, 32, 251, 0.6, true, true},
+  //   {1000, 1024 * 100, 1, 0.1, true, false},  // kWarpImmediate
+  //   {1000, 1024 * 100, 1, 0.2, true, true},
+  //   {1024, 1024, 258, 0.3, true, false},  // kRadix11bitsExtraPass
+  //   {1024, 1024, 600, 0.2, true, true},
+  //   {1024, 1024, 1024, 0.3, true, false},  // kRadix11bitsExtraPass
+  //   {1024, 1024, 1024, 0.2, true, true},
+  //   {100, 1024 * 1000, 251, 0.1, true, false},  // kWarpDistributedShm
+  //   {100, 1024 * 1000, 251, 0.2, true, true},
+  //   {1024, 1024 * 10, 251, 0.3, true, false},  // kWarpImmediate
+  //   {1024, 1024 * 10, 251, 0.2, true, true},
+  //   {1000, 1024 * 20, 1000, 0.2, true, false},  // kRadix11bits
+  //   {1000, 1024 * 20, 1000, 0.3, true, true},
+  //   {2048, 1024 * 10, 1000, 0.2, true, false},  // kRadix11bitsExtraPass
+  //   {2048, 1024 * 10, 1000, 0.3, true, true},
+  //   {2048, 1024 * 10, 2100, 0.1, true, false},  // kRadix11bitsExtraPass
+  //   {2048, 1024 * 10, 2100, 0.2, true, true},
+  //   {10, 32, 10, 0.0, false, false},
+  //   {10, 32, 10, 0.0, false, true},
+  //   {10, 32, 10, 0.01, false, false},  // kWarpImmediate
+  //   {10, 32, 10, 0.1, false, true},
+  //   {10, 32, 251, 0.1, false, false},  // kWarpImmediate
+  //   {10, 32, 251, 0.6, false, true},
+  //   {1000, 1024 * 100, 1, 0.1, false, false},  // kWarpImmediate
+  //   {1000, 1024 * 100, 1, 0.2, false, true},
+  //   {1024, 1024, 258, 0.3, false, false},  // kRadix11bitsExtraPass
+  //   {1024, 1024, 600, 0.2, false, true},
+  //   {1024, 1024, 1024, 0.3, false, false},  // kRadix11bitsExtraPass
+  //   {1024, 1024, 1024, 0.2, false, true},
+  //   {100, 1024 * 1000, 251, 0.1, false, false},  // kWarpDistributedShm
+  //   {100, 1024 * 1000, 251, 0.2, false, true},
+  //   {1024, 1024 * 10, 251, 0.3, false, false},  // kWarpImmediate
+  //   {1024, 1024 * 10, 251, 0.2, false, true},
+  //   {1000, 1024 * 20, 1000, 0.2, false, false},  // kRadix11bits
+  //   {1000, 1024 * 20, 1000, 0.3, false, true},
+  //   {2048, 1024 * 10, 1000, 0.2, false, false},  // kRadix11bitsExtraPass
+  //   {2048, 1024 * 10, 1000, 0.3, false, true},
+  //   {2048, 1024 * 10, 2100, 0.1, false, false},  // kRadix11bitsExtraPass
+  //   {2048, 1024 * 10, 2100, 0.2, false, true}
+};
 
 // INSTANTIATE_TEST_CASE_P(SelectKCsrTest,
 //                         SelectKCsrTest_float_int,

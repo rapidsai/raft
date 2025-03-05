@@ -51,9 +51,37 @@ void dot(raft::resources const& handle,
 {
   RAFT_EXPECTS(x.size() == y.size(),
                "Size mismatch between x and y input vectors in raft::linalg::dot");
-  std::cout << "x.size(): " << x.size() << std::endl; 
-  std::cout << "x.stride(0): " << x.stride(0) << std::endl; 
-  std::cout << "y.stride(0): " << y.stride(0) << std::endl; 
+  {
+    cudaPointerAttributes attributes;
+    cudaError_t err = cudaPointerGetAttributes(&attributes, (void*)(x.data_handle()));
+
+    if (err != cudaSuccess) {
+      printf("Error getting pointer attributes: %s\n", cudaGetErrorString(err));
+    } else {
+      if (attributes.memoryType == cudaMemoryTypeDevice) {
+        printf("The X pointer is valid and points to device memory.\n");
+      } else {
+        printf("The X pointer is not pointing to device memory.\n");
+      }
+    }
+  }
+  {
+    cudaPointerAttributes attributes;
+    cudaError_t err = cudaPointerGetAttributes(&attributes, (void*)(y.data_handle()));
+
+    if (err != cudaSuccess) {
+      printf("Error getting pointer attributes: %s\n", cudaGetErrorString(err));
+    } else {
+      if (attributes.memoryType == cudaMemoryTypeDevice) {
+        printf("The X pointer is valid and points to device memory.\n");
+      } else {
+        printf("The X pointer is not pointing to device memory.\n");
+      }
+    }
+  }
+  std::cout << "x.size(): " << x.size() << std::endl;
+  std::cout << "x.stride(0): " << x.stride(0) << std::endl;
+  std::cout << "y.stride(0): " << y.stride(0) << std::endl;
   RAFT_CUBLAS_TRY(detail::cublasdot(resource::get_cublas_handle(handle),
                                     x.size(),
                                     x.data_handle(),
