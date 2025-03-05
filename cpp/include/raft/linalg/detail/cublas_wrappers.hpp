@@ -970,6 +970,18 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
   if (status != CUBLAS_STATUS_SUCCESS) {
     std::cerr << "cuBLAS initial fail!" << std::endl;
   }
+  cudaError_t err = cudaMemset(x, 0,  n * 4);
+  if (err != cudaSuccess) {
+      std::cerr << "CUDA memory x set failed: " << cudaGetErrorString(err) << std::endl;
+  }
+  cudaError_t err = cudaMemset(y, 0, n * 4);
+  if (err != cudaSuccess) {
+      std::cerr << "CUDA memory y set failed: " << cudaGetErrorString(err) << std::endl;
+  }
+  cudaError_t err = cudaMemset(result, 0, 4);
+  if (err != cudaSuccess) {
+      std::cerr << "CUDA memory res set failed: " << cudaGetErrorString(err) << std::endl;
+  }
   status = cublasDotEx(
     handlex, n, x, CUDA_R_32F, incx, y, CUDA_R_32F, incy, result, CUDA_R_32F, CUDA_R_32F);
   if (status != CUBLAS_STATUS_SUCCESS) {
