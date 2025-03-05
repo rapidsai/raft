@@ -30,10 +30,10 @@ dependencies:
 - libcublas>=11.5.2.43,<=11.6.5.2
 - libcurand-dev>=10.2.5.43,<=10.2.5.120
 - libcurand>=10.2.5.43,<=10.2.5.120
-- libcusolver-dev=>=11.2.0.43,<=11.2.0.120
-- libcusolver=>=11.2.0.43,<=11.2.0.120
-- libcusparse-dev=>=11.6.0.43,<=11.6.0.120
-- libcusparse=>=11.6.0.43,<=11.6.0.120
+- libcusolver-dev>=11.2.0.43,<=11.2.0.120
+- libcusolver>=11.2.0.43,<=11.2.0.120
+- libcusparse-dev>=11.6.0.43,<=11.6.0.120
+- libcusparse>=11.6.0.43,<=11.6.0.120
 - libucxx==0.43.*,>=0.0.0a0
 - nccl>=2.19
 - ninja
