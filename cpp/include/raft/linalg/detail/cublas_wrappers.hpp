@@ -965,6 +965,22 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
                                 cudaStream_t stream)
 {
   RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
+  cublasHandle_t handlex;
+  cublasStatus_t status = cublasCreate(&handlex);
+  if (status != CUBLAS_STATUS_SUCCESS) {
+    std::cerr << "cuBLAS initial fail!" << std::endl;
+    return -1;
+  }
+  status = cublasDotEx(
+    handlex, n, x, CUDA_R_32F, incx, y, CUDA_R_32F, incy, result, CUDA_R_32F, CUDA_R_32F);
+  if (status != CUBLAS_STATUS_SUCCESS) {
+    std::cerr << "cublasDotEx fail!" << std::endl;
+    cublasDestroy(handle);
+    cudaFree(d_x);
+    cudaFree(d_y);
+    cudaFree(d_result);
+    return -1;
+  }
   return cublasDotEx(
     handle, n, x, CUDA_R_32F, incx, y, CUDA_R_32F, incy, result, CUDA_R_32F, CUDA_R_32F);
 }
