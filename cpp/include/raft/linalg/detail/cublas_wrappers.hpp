@@ -969,15 +969,11 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
   cublasStatus_t status = cublasCreate(&handlex);
   if (status != CUBLAS_STATUS_SUCCESS) {
     std::cerr << "cuBLAS initial fail!" << std::endl;
-    cublasDestroy(handlex);
-    return -1;
   }
   status = cublasDotEx(
     handlex, n, x, CUDA_R_32F, incx, y, CUDA_R_32F, incy, result, CUDA_R_32F, CUDA_R_32F);
   if (status != CUBLAS_STATUS_SUCCESS) {
     std::cerr << "cublasDotEx fail!" << std::endl;
-    cublasDestroy(handlex);
-    return -1;
   }
   cublasDestroy(handlex);
   return cublasDotEx(
