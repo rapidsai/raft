@@ -967,14 +967,23 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
   RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
   cublasHandle_t handlex;
   cublasStatus_t status = cublasCreate(&handlex);
+  if (status != CUBLAS_STATUS_SUCCESS) { std::cerr << "cuBLAS initial fail!" << std::endl; }
+  cublasPointerMode_t mode;
+  status = cublasGetPointerMode(handle, &mode);
   if (status != CUBLAS_STATUS_SUCCESS) {
-    std::cerr << "cuBLAS initial fail!" << std::endl;
+    std::cerr << "get faill!" << std::endl;
+    cublasDestroy(handle);
   }
-  status = cublasSdot(
-    handlex, n, x, incx, y, incy, result);
-  if (status != CUBLAS_STATUS_SUCCESS) {
-    std::cerr << "cublasDotEx fail!" << std::endl;
+
+  if (mode == CUBLAS_POINTER_MODE_HOST) {
+    std::cout << "host mode" << std::endl;
+  } else if (mode == CUBLAS_POINTER_MODE_DEVICE) {
+    std::cout << "device mode" << std::endl;
+  } else {
+    std::cerr << "unknow!" << std::endl;
   }
+  status = cublasSdot(handlex, n, x, incx, y, incy, result);
+  if (status != CUBLAS_STATUS_SUCCESS) { std::cerr << "cublasDotEx fail!" << std::endl; }
   cublasDestroy(handlex);
   return cublasDotEx(
     handle, n, x, CUDA_R_32F, incx, y, CUDA_R_32F, incy, result, CUDA_R_32F, CUDA_R_32F);
