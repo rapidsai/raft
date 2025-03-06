@@ -32,11 +32,11 @@ namespace convert {
  * @param nnz: size of output COO row array
  * @param stream: cuda stream to use
  */
-template <typename value_idx = int>
+template <typename value_idx = int, typename nnz_t>
 void csr_to_coo(
-  const value_idx* row_ind, value_idx m, value_idx* coo_rows, value_idx nnz, cudaStream_t stream)
+  const value_idx* row_ind, value_idx m, value_idx* coo_rows, nnz_t nnz, cudaStream_t stream)
 {
-  detail::csr_to_coo<value_idx, 32>(row_ind, m, coo_rows, nnz, stream);
+  detail::csr_to_coo<value_idx, nnz_t, 32>(row_ind, m, coo_rows, nnz, stream);
 }
 
 };  // end NAMESPACE convert

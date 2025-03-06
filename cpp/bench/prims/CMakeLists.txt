@@ -32,7 +32,6 @@ function(ConfigureBench)
     PRIVATE raft::raft
             raft_internal
             $<$<BOOL:${ConfigureBench_LIB}>:raft::compiled>
-            $<$<NOT:$<BOOL:${ConfigureBench_LIB}>>:bench_rmm_logger>
             ${RAFT_CTK_MATH_DEPENDENCIES}
             benchmark::benchmark
             Threads::Threads
@@ -73,9 +72,6 @@ function(ConfigureBench)
   )
 
 endfunction()
-
-add_library(bench_rmm_logger OBJECT)
-target_link_libraries(bench_rmm_logger PRIVATE rmm::rmm_logger_impl)
 
 if(BUILD_PRIMS_BENCH)
   ConfigureBench(NAME CORE_BENCH PATH core/bitset.cu core/copy.cu main.cpp)

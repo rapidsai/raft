@@ -37,8 +37,8 @@ namespace op {
  * @param vals vals array from coo matrix
  * @param stream: cuda stream to use
  */
-template <typename T, typename IdxT = int>
-void coo_sort(IdxT m, IdxT n, IdxT nnz, IdxT* rows, IdxT* cols, T* vals, cudaStream_t stream)
+template <typename T, typename IdxT = int, typename nnz_t>
+void coo_sort(IdxT m, IdxT n, nnz_t nnz, IdxT* rows, IdxT* cols, T* vals, cudaStream_t stream)
 {
   detail::coo_sort(m, n, nnz, rows, cols, vals, stream);
 }
@@ -49,10 +49,11 @@ void coo_sort(IdxT m, IdxT n, IdxT nnz, IdxT* rows, IdxT* cols, T* vals, cudaStr
  * @param in: COO to sort by row
  * @param stream: the cuda stream to use
  */
-template <typename T, typename IdxT = int>
-void coo_sort(COO<T, IdxT>* const in, cudaStream_t stream)
+template <typename T, typename IdxT = int, typename nnz_t>
+void coo_sort(COO<T, IdxT, nnz_t>* const in, cudaStream_t stream)
 {
-  coo_sort<T, IdxT>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), stream);
+  coo_sort<T, IdxT, nnz_t>(
+    in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(), in->vals(), stream);
 }
 
 /**
@@ -65,9 +66,9 @@ void coo_sort(COO<T, IdxT>* const in, cudaStream_t stream)
  * @param[in] nnz number of edges in edge list
  * @param[in] stream cuda stream for which to order cuda operations
  */
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename nnz_t>
 void coo_sort_by_weight(
-  value_idx* rows, value_idx* cols, value_t* data, value_idx nnz, cudaStream_t stream)
+  value_idx* rows, value_idx* cols, value_t* data, nnz_t nnz, cudaStream_t stream)
 {
   detail::coo_sort_by_weight(rows, cols, data, nnz, stream);
 }

@@ -5,7 +5,7 @@ set -euo pipefail
 
 package_dir="python/pylibraft"
 
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 # Downloads libraft wheels from this current build,
 # then ensures 'pylibraft' wheel builds always use the 'libraft' just built in the same CI run.
@@ -17,4 +17,4 @@ echo "libraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo /tmp/libraft_dist/libraft
 export PIP_CONSTRAINT="/tmp/constraints.txt"
 
 ci/build_wheel.sh pylibraft ${package_dir} python
-ci/validate_wheel.sh ${package_dir} final_dist pylibraft
+ci/validate_wheel.sh ${package_dir} final_dist

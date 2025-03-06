@@ -20,7 +20,6 @@
 #include <raft/cluster/kmeans_balanced_types.hpp>
 #include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/core/logger-macros.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -48,6 +47,7 @@
 #include <rmm/resource_ref.hpp>
 
 #include <thrust/gather.h>
+#include <thrust/iterator/transform_iterator.h>
 #include <thrust/transform.h>
 
 #include <limits>
@@ -289,7 +289,8 @@ void calc_centers_and_sizes(const raft::resources& handle,
       dataset, dim, labels, nullptr, n_rows, dim, n_clusters, centers, stream, reset_counters);
   } else {
     // todo(lsugy): use iterator from KV output of fusedL2NN
-    cub::TransformInputIterator<MathT, MappingOpT, const T*> mapping_itr(dataset, mapping_op);
+    thrust::transform_iterator<MappingOpT, const T*, thrust::use_default, MathT> mapping_itr(
+      dataset, mapping_op);
     raft::linalg::reduce_rows_by_key(
       mapping_itr, dim, labels, nullptr, n_rows, dim, n_clusters, centers, stream, reset_counters);
   }
@@ -895,7 +896,8 @@ auto build_fine_clusters(const raft::resources& handle,
                    "Number of fine clusters must be non-zero for a non-empty mesocluster");
     }
 
-    cub::TransformInputIterator<MathT, MappingOpT, const T*> mapping_itr(dataset_mptr, mapping_op);
+    thrust::transform_iterator<MappingOpT, const T*, thrust::use_default, MathT> mapping_itr(
+      dataset_mptr, mapping_op);
     raft::matrix::gather(mapping_itr, dim, n_rows, mc_trainset_ids, k, mc_trainset, stream);
     if (params.metric == raft::distance::DistanceType::L2Expanded ||
         params.metric == raft::distance::DistanceType::L2SqrtExpanded) {
@@ -968,9 +970,10 @@ void build_hierarchical(const raft::resources& handle,
   IdxT n_mesoclusters = std::min(n_clusters, static_cast<IdxT>(std::sqrt(n_clusters) + 0.5));
   RAFT_LOG_DEBUG("build_hierarchical: n_mesoclusters: %u", n_mesoclusters);
 
-  // TODO: Remove the explicit managed memory- we shouldn't be creating this on the user's behalf.
+  // Need to use explicit managed_memory here since corresponding allocations
+  // must be both host and device accessible.
   rmm::mr::managed_memory_resource managed_memory;
-  rmm::device_async_resource_ref device_memory = resource::get_workspace_resource(handle);
+  rmm::device_async_resource_ref device_memory = resource::get_large_workspace_resource(handle);
   auto [max_minibatch_size, mem_per_row] =
     calc_minibatch_size<MathT>(n_clusters, n_rows, dim, params.metric, std::is_same_v<T, MathT>);
 

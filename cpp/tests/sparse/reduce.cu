@@ -41,8 +41,8 @@ struct SparseReduceInputs {
   std::vector<value_idx> out_cols;
   std::vector<value_t> out_vals;
 
-  size_t m;
-  size_t n;
+  value_idx m;
+  value_idx n;
 };
 
 template <typename value_t, typename value_idx>
@@ -73,15 +73,15 @@ class SparseReduceTest : public ::testing::TestWithParam<SparseReduceInputs<valu
     raft::update_device(out_cols.data(), params.out_cols.data(), params.out_cols.size(), stream);
     raft::update_device(out_vals.data(), params.out_vals.data(), params.out_vals.size(), stream);
 
-    raft::sparse::COO<value_t, value_idx> out(stream);
+    raft::sparse::COO<value_t, value_idx, value_idx> out(stream);
     raft::sparse::op::max_duplicates(handle,
                                      out,
                                      in_rows.data(),
                                      in_cols.data(),
                                      in_vals.data(),
-                                     params.in_rows.size(),
-                                     params.m,
-                                     params.n);
+                                     (value_idx)params.in_rows.size(),
+                                     (value_idx)params.m,
+                                     (value_idx)params.n);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     ASSERT_TRUE(raft::devArrMatch<value_idx>(
       out_rows.data(), out.rows(), out.nnz, raft::Compare<value_idx>()));
