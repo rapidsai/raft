@@ -1815,7 +1815,7 @@ auto lanczos_smallest(
   raft::copy(&res, output.data_handle(), 1, stream);
   resource::sync_stream(handle, stream);
 
-  auto uu  = raft::make_device_matrix<ValueTypeT>(handle, 0, nEigVecs);
+  auto uu  = raft::make_device_matrix<ValueTypeT>(handle, 1, nEigVecs);
   int iter = ncv;
   while (res > tol && iter < maxIter) {
     auto beta_view = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
