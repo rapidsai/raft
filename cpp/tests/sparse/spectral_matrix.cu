@@ -17,9 +17,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_id.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/sparse/linalg/laplacian.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
-#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 

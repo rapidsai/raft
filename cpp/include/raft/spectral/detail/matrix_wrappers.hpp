@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <raft/core/device_csr_matrix.hpp>
-#include <raft/core/device_span.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusparse_handle.hpp>
@@ -35,7 +33,6 @@
 #include <thrust/system/cuda/execution_policy.h>
 
 #include <algorithm>
-#include <cstddef>
 
 // =========================================================
 // Useful macros
@@ -182,19 +179,6 @@ struct sparse_matrix_t {
       ncols_(csr_view.number_of_vertices),
       nnz_(csr_view.number_of_edges)
   {
-  }
-
-  auto to_csr_matrix_view() const
-  {
-    // The usage of sparse_matrix_t prior to introduction of this method
-    // assumed that all data was strictly on device. We will make the same
-    // assumption for construction of the csr_matrix_view
-    return device_csr_matrix_view<value_type const, index_type const, index_type const, index_type>{
-      device_span<value_type const>{values_, std::uint64_t(nnz_)},
-      device_compressed_structure_view<index_type const, index_type const, index_type>{
-        device_span<index_type const>{row_offsets_, std::uint64_t(nrows_ + 1)},
-        device_span<index_type const>{col_indices_, std::uint64_t(nnz_)},
-        ncols_}};
   }
 
   virtual ~sparse_matrix_t(void) =
