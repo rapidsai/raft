@@ -1181,6 +1181,17 @@ void radix_topk_one_block(const T* in,
                           rmm::device_async_resource_ref mr)
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
+  {
+    int driverVersion = 0;
+    cudaDriverGetVersion(&driverVersion);
+    double version = (driverVersion / 1000) + ((driverVersion % 1000) / 10) / 100.0;
+    if (version < 535.86) {
+      RAFT_LOG_WARN(
+        "select_k: To prevent a known issue (https://nvbugspro.nvidia.com/bug/4034669), "
+        "the CUDA driver version %f must be at least 535.86.",
+        version);
+    }
+  }
 
   auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>;
   const IdxT buf_len = calc_buf_len<T, IdxT, unsigned>(len);
