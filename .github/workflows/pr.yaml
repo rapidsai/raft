@@ -56,6 +56,8 @@ jobs:
         uses: rapidsai/shared-actions/check_nightly_success/dispatch@main
         with:
           repo: raft
+          # Tracking Issue: https://github.com/rapidsai/raft/issues/2601
+          max_days_without_success: 30
   changed-files:
     secrets: inherit
     needs: telemetry-setup
