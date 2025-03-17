@@ -137,7 +137,8 @@ class AnnNNDescentBatchTest : public ::testing::TestWithParam<AnnNNDescentBatchI
                                   ps.graph_degree,
                                   0.01,
                                   min_recall,
-                                  true));
+                                  true,
+                                  static_cast<size_t>(ps.graph_degree)));
     }
   }
 
