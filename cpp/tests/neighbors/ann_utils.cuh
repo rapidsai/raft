@@ -154,9 +154,14 @@ auto calc_recall(const std::vector<T>& expected_idx,
 /** check uniqueness of indices
  */
 template <typename T, typename DistT = float>
-auto check_unique_indices(const std::vector<T>& actual_idx, size_t rows, size_t cols)
+auto check_unique_indices(const std::vector<T>& actual_idx,
+                          size_t rows,
+                          size_t cols,
+                          size_t max_duplicates = 0)
 {
   size_t max_count;
+  size_t dup_count = 0lu;
+
   std::set<T> unique_indices;
   for (size_t i = 0; i < rows; ++i) {
     unique_indices.clear();
@@ -169,8 +174,11 @@ auto check_unique_indices(const std::vector<T>& actual_idx, size_t rows, size_t 
       } else if (unique_indices.find(act_idx) == unique_indices.end()) {
         unique_indices.insert(act_idx);
       } else {
-        return testing::AssertionFailure()
-               << "Duplicated index " << act_idx << " at k " << k << " for query " << i << "! ";
+        dup_count++;
+        if (dup_count > max_duplicates) {
+          return testing::AssertionFailure()
+                 << "Duplicated index " << act_idx << " at k " << k << " for query " << i << "! ";
+        }
       }
     }
   }
@@ -253,7 +261,8 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
                      size_t cols,
                      double eps,
                      double min_recall,
-                     bool test_unique = true) -> testing::AssertionResult
+                     bool test_unique      = true,
+                     size_t max_duplicates = 0) -> testing::AssertionResult
 {
   auto [actual_recall, match_count, total_count] =
     calc_recall(expected_idx, actual_idx, expected_dist, actual_dist, rows, cols, eps);
@@ -271,7 +280,7 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
            << min_recall << "); eps = " << eps << ". ";
   }
   if (test_unique)
-    return check_unique_indices(actual_idx, rows, cols);
+    return check_unique_indices(actual_idx, rows, cols, max_duplicates);
   else
     return testing::AssertionSuccess();
 }
