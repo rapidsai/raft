@@ -8,6 +8,8 @@ package_dir=$2
 package_type=$3
 underscore_package_name=$(echo "${package_name}" | tr "-" "_")
 
+wheel_dir=${RAPIDS_WHEEL_BLD_OUTPUT_DIR}
+
 # Clear out system ucx files to ensure that we're getting ucx from the wheel.
 rm -rf /usr/lib64/ucx
 rm -rf /usr/lib64/libuc*
@@ -51,7 +53,6 @@ rapids-pip-retry wheel \
 
 sccache --show-adv-stats
 
-mkdir -p final_dist
-python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
+python -m auditwheel repair -w "${wheel_dir}" "${EXCLUDE_ARGS[@]}" dist/*
 
-RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 "${package_type}" final_dist
+RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 "${package_type}" "${wheel_dir}"
