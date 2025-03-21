@@ -251,6 +251,8 @@ class BloomFilter {
     }
   }
 
+  void set_nrow(size_t nrow) { nrow_ = nrow; }
+
   bool check(size_t list_id, Index_t key)
   {
     bool is_present       = true;
@@ -1259,7 +1261,9 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   cudaStream_t stream = raft::resource::get_cuda_stream(res);
   nrow_               = nrow;
   graph_.nrow         = nrow;
-  graph_.h_graph      = (InternalID_t<Index_t>*)output_graph;
+  graph_.bloom_filter.set_nrow(nrow);
+  update_counter_ = 0;
+  graph_.h_graph  = (InternalID_t<Index_t>*)output_graph;
 
   cudaPointerAttributes data_ptr_attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&data_ptr_attr, data));

@@ -57,6 +57,10 @@ files:
       - docs
       - py_version
       - test_pylibraft
+      - depends_on_libraft
+      - depends_on_libraft_headers
+      - depends_on_pylibraft
+      - depends_on_raft_dask
   py_build_libraft:
     output: pyproject
     pyproject_dir: python/libraft
@@ -181,7 +185,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cmake_ver cmake>=3.26.4,!=3.30.0
+          - &cmake_ver cmake>=3.30.4
           - ninja
       - output_types: [conda]
         packages:
@@ -437,6 +441,7 @@ dependencies:
           - recommonmark
           - sphinx-copybutton
           - sphinx-markdown-tables
+          - sphinx<8.2.0
   py_version:
     specific:
       - output_types: conda

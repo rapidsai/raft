@@ -259,6 +259,7 @@ if(BUILD_TESTS)
     sparse/csr_transpose.cu
     sparse/degree.cu
     sparse/filter.cu
+    sparse/laplacian.cu
     sparse/masked_matmul.cu
     sparse/norm.cu
     sparse/normalize.cu
@@ -278,7 +279,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
-    neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    neighbors/epsilon_neighborhood.cu neighbors/ann_nn_descent.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
