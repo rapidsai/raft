@@ -191,7 +191,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libucxx==0.43.*,>=0.0.0a0
+          - libucxx==0.44.*,>=0.0.0a0
           - nccl>=2.19
     specific:
       - output_types: conda
@@ -470,12 +470,12 @@ dependencies:
     common:
       - output_types: [conda, pyproject, requirements]
         packages:
-          - dask-cuda==25.4.*,>=0.0.0a0
-          - rapids-dask-dependency==25.4.*,>=0.0.0a0
+          - dask-cuda==25.6.*,>=0.0.0a0
+          - rapids-dask-dependency==25.6.*,>=0.0.0a0
       - output_types: conda
         packages:
-          - &pylibraft_unsuffixed pylibraft==25.4.*,>=0.0.0a0
-          - &ucx_py_unsuffixed ucx-py==0.43.*,>=0.0.0a0
+          - &pylibraft_unsuffixed pylibraft==25.6.*,>=0.0.0a0
+          - &ucx_py_unsuffixed ucx-py==0.44.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -488,14 +488,14 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - &pylibraft_cu12 pylibraft-cu12==25.4.*,>=0.0.0a0
-              - &ucx_py_cu12 ucx-py-cu12==0.43.*,>=0.0.0a0
+              - &pylibraft_cu12 pylibraft-cu12==25.6.*,>=0.0.0a0
+              - &ucx_py_cu12 ucx-py-cu12==0.44.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - &pylibraft_cu11 pylibraft-cu11==25.4.*,>=0.0.0a0
-              - &ucx_py_cu11 ucx-py-cu11==0.43.*,>=0.0.0a0
+              - &pylibraft_cu11 pylibraft-cu11==25.6.*,>=0.0.0a0
+              - &ucx_py_cu11 ucx-py-cu11==0.44.*,>=0.0.0a0
           - {matrix: null, packages: [*pylibraft_unsuffixed, *ucx_py_unsuffixed]}
   test_python_common:
     common:
@@ -530,7 +530,7 @@ dependencies:
         packages:
           # UCXX is not currently a hard-dependency thus only installed during tests,
           # this will change in the future.
-          - &distributed_ucxx_unsuffixed distributed-ucxx==0.43.*,>=0.0.0a0
+          - &distributed_ucxx_unsuffixed distributed-ucxx==0.44.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -543,12 +543,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - distributed-ucxx-cu12==0.43.*,>=0.0.0a0
+              - distributed-ucxx-cu12==0.44.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - distributed-ucxx-cu11==0.43.*,>=0.0.0a0
+              - distributed-ucxx-cu11==0.44.*,>=0.0.0a0
           - {matrix: null, packages: [*distributed_ucxx_unsuffixed]}
   depends_on_libraft:
     common:
@@ -559,7 +559,7 @@ dependencies:
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
       - output_types: conda
         packages:
-          - libraft==25.4.*,>=0.0.0a0
+          - libraft==25.6.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -567,40 +567,40 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libraft-cu12==25.4.*,>=0.0.0a0
+              - libraft-cu12==25.6.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libraft-cu11==25.4.*,>=0.0.0a0
+              - libraft-cu11==25.6.*,>=0.0.0a0
           - matrix:
             packages:
-              - libraft==25.4.*,>=0.0.0a0
+              - libraft==25.6.*,>=0.0.0a0
   depends_on_libraft_headers:
     common:
       - output_types: conda
         packages:
-          - libraft-headers==25.4.*,>=0.0.0a0
+          - libraft-headers==25.6.*,>=0.0.0a0
   depends_on_pylibraft:
     common:
       - output_types: conda
         packages:
-          - pylibraft==25.4.*,>=0.0.0a0
+          - pylibraft==25.6.*,>=0.0.0a0
   depends_on_raft_dask:
     common:
       - output_types: conda
         packages:
-          - raft-dask==25.4.*,>=0.0.0a0
+          - raft-dask==25.6.*,>=0.0.0a0
   depends_on_libraft_tests:
     common:
       - output_types: conda
         packages:
-          - libraft-tests==25.4.*,>=0.0.0a0
+          - libraft-tests==25.6.*,>=0.0.0a0
   depends_on_librmm:
     common:
       - output_types: conda
         packages:
-          - &librmm_unsuffixed librmm==25.4.*,>=0.0.0a0
+          - &librmm_unsuffixed librmm==25.6.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -613,12 +613,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - librmm-cu12==25.4.*,>=0.0.0a0
+              - librmm-cu12==25.6.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - librmm-cu11==25.4.*,>=0.0.0a0
+              - librmm-cu11==25.6.*,>=0.0.0a0
           - matrix:
             packages:
               - *librmm_unsuffixed
@@ -626,7 +626,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &rmm_unsuffixed rmm==25.4.*,>=0.0.0a0
+          - &rmm_unsuffixed rmm==25.6.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -639,12 +639,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - rmm-cu12==25.4.*,>=0.0.0a0
+              - rmm-cu12==25.6.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - rmm-cu11==25.4.*,>=0.0.0a0
+              - rmm-cu11==25.6.*,>=0.0.0a0
           - matrix:
             packages:
               - *rmm_unsuffixed
