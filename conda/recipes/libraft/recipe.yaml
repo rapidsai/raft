@@ -29,7 +29,7 @@ cache:
         export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
         set +x
 
-        ./build.sh libraft tests --allgpuarch --compile-lib --compile-static-lib --build-metrics=compile_lib --incl-cache-stats --no-nvtx -n
+        ./build.sh libraft tests --allgpuarch --compile-lib --compile-static-lib --build-metrics=compile_lib --incl-cache-stats --no-nvtx
 
       secrets:
         - AWS_ACCESS_KEY_ID
@@ -322,11 +322,30 @@ outputs:
       #   overlinking_behavior: "error"
       script:
         content: |
+          # We are missing `generate_ctest_json` for some reason
+          # and that breaks the build
+
+          #./build.sh tests bench-prims --allgpuarch --no-nvtx --build-metrics=tests_bench_prims --incl-cache-stats
           cmake --install cpp/build --component testing
+        secrets:
+          - AWS_ACCESS_KEY_ID
+          - AWS_SECRET_ACCESS_KEY
+          - AWS_SESSION_TOKEN
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
+          CMAKE_CUDA_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CUDA_COMPILER_LAUNCHER") }}
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CXX_COMPILER_LAUNCHER") }}
+          CMAKE_GENERATOR: ${{ env.get("CMAKE_GENERATOR") }}
+          PARALLEL_LEVEL: ${{ env.get("PARALLEL_LEVEL") }}
     requirements:
       build:
-        - cmake ${{ cmake_version }}
         - ${{ compiler("c") }}
+        - ${{ compiler("cxx") }}
+        - ${{ compiler("cuda") }}
+        - cuda-version =${{ cuda_version }}
+        - cmake ${{ cmake_version }}
+        - ninja
+        - ${{ stdlib("c") }}
       host:
         - ${{ pin_subpackage('libraft', exact=True) }}
         - ${{ pin_subpackage('libraft-static', exact=True) }}
