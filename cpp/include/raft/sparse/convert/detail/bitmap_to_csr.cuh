@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
+#include <cuda/std/functional>
 #include <thrust/copy.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/discard_iterator.h>
@@ -102,7 +103,7 @@ RAFT_KERNEL __launch_bounds__(bitmap_to_csr_tpb) calc_nnz_by_rows_kernel(const b
     }
     l_sum += static_cast<nnz_t>(raft::detail::popc(l_bitmap));
   }
-  g_sum = BlockReduce(reduce_storage).Reduce(l_sum, cub::Sum());
+  g_sum = BlockReduce(reduce_storage).Reduce(l_sum, cuda::std::plus{});
   stg(g_sum, sub_col_nnz + sub_col + row * num_sub_cols, tid == 0);
 }
 

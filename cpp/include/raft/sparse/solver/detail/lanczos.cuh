@@ -1815,7 +1815,7 @@ auto lanczos_smallest(
   raft::copy(&res, output.data_handle(), 1, stream);
   resource::sync_stream(handle, stream);
 
-  auto uu  = raft::make_device_matrix<ValueTypeT>(handle, 0, nEigVecs);
+  auto uu  = raft::make_device_matrix<ValueTypeT>(handle, 1, nEigVecs);
   int iter = ncv;
   while (res > tol && iter < maxIter) {
     auto beta_view = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
@@ -1832,34 +1832,33 @@ auto lanczos_smallest(
     ValueTypeT one  = 1;
     ValueTypeT mone = -1;
 
-    // Using raft::linalg::gemv leads to Reason=7:CUBLAS_STATUS_INVALID_VALUE (issue raft#2484)
-    raft::linalg::detail::cublasgemv(cublas_h,
-                                     CUBLAS_OP_T,
-                                     nEigVecs,
-                                     n,
-                                     &one,
-                                     V.data_handle(),
-                                     nEigVecs,
-                                     u.data_handle(),
-                                     1,
-                                     &zero,
-                                     uu.data_handle(),
-                                     1,
-                                     stream);
+    raft::linalg::gemv(handle,
+                       CUBLAS_OP_T,
+                       n,
+                       nEigVecs,
+                       &one,
+                       V.data_handle(),
+                       n,
+                       u.data_handle(),
+                       1,
+                       &zero,
+                       uu.data_handle(),
+                       1,
+                       stream);
 
-    raft::linalg::detail::cublasgemv(cublas_h,
-                                     CUBLAS_OP_N,
-                                     nEigVecs,
-                                     n,
-                                     &mone,
-                                     V.data_handle(),
-                                     nEigVecs,
-                                     uu.data_handle(),
-                                     1,
-                                     &one,
-                                     u.data_handle(),
-                                     1,
-                                     stream);
+    raft::linalg::gemv(handle,
+                       CUBLAS_OP_N,
+                       n,
+                       nEigVecs,
+                       &mone,
+                       V.data_handle(),
+                       n,
+                       uu.data_handle(),
+                       1,
+                       &one,
+                       u.data_handle(),
+                       1,
+                       stream);
 
     auto V_0_view =
       raft::make_device_matrix_view<ValueTypeT>(V.data_handle() + (nEigVecs * n), 1, n);

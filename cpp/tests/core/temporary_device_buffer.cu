@@ -23,6 +23,8 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/fill.h>
+
 #include <gtest/gtest.h>
 
 namespace raft {
