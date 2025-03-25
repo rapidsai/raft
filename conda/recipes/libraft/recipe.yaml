@@ -126,7 +126,7 @@ outputs:
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
-      summary: ${{ load_from_file("python/libraft/pyproject.toml").project.description }}
+      summary: libraft-headers-only library
 
   - package:
       name: libraft-headers
@@ -179,7 +179,7 @@ outputs:
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
-      summary: ${{ load_from_file("python/libraft/pyproject.toml").project.description }}
+      summary: libraft-headers library
 
   - package:
       name: libraft
@@ -311,4 +311,71 @@ outputs:
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
-      summary: ${{ load_from_file("python/libraft/pyproject.toml").project.description }}
+      summary: libraft static library
+
+  - package:
+      name: libraft-tests
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      # dynamic_linking:
+      #   overlinking_behavior: "error"
+      script:
+        content: |
+          cmake --install cpp/build --component testing
+    requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ${{ compiler("c") }}
+      host:
+        - ${{ pin_subpackage('libraft', exact=True) }}
+        - ${{ pin_subpackage('libraft-static', exact=True) }}
+        - cuda-version =${{ cuda_version }}
+        - if: cuda_major == "11"
+          then:
+            - cudatoolkit
+            - cuda-profiler-api ${{ cuda11_cuda_profiler_api_host_version }}
+            - libcublas ${{ cuda11_libcublas_host_version }}
+            - libcublas-dev ${{ cuda11_libcublas_host_version }}
+            - libcurand ${{ cuda11_libcurand_host_version }}
+            - libcurand-dev ${{ cuda11_libcurand_host_version }}
+            - libcusolver ${{ cuda11_libcusolver_host_version }}
+            - libcusolver-dev ${{ cuda11_libcusolver_host_version }}
+            - libcusparse ${{ cuda11_libcusparse_host_version }}
+            - libcusparse-dev ${{ cuda11_libcusparse_host_version }}
+          else:
+            - cuda-cudart-dev
+            - cuda-profiler-api
+            - libcublas-dev
+            - libcurand-dev
+            - libcusolver-dev
+            - libcusparse-dev
+      run:
+        - ${{ pin_subpackage("libraft", exact=True) }}
+        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+        - if: cuda_major == "11"
+          then: cudatoolkit
+          else:
+            - cuda-cudart
+            - libcublas
+            - libcurand
+            - libcusolver
+            - libcusparse
+      ignore_run_exports:
+        by_name:
+          - cuda-version
+          - libmm
+          - cuda-cudart
+          - libcusparse
+          - libcublas
+          - libcurand
+          - libcusolver
+          - librmm
+          - if: cuda_major == "11"
+            then:
+              - cudatoolkit
+
+    about:
+      homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
+      summary: libraft tests
