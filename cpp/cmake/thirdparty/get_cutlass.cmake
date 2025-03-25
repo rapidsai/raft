@@ -43,7 +43,7 @@ function(find_and_configure_cutlass)
   rapids_cpm_package_details(cutlass version repository tag shallow exclude)
 
   include("${rapids-cmake-dir}/cpm/detail/generate_patch_command.cmake")
-  rapids_cpm_generate_patch_command(cutlass ${version} patch_command)
+  rapids_cpm_generate_patch_command(cutlass ${version} patch_command False)
 
   rapids_cpm_find(
     NvidiaCutlass ${version}
