@@ -29,7 +29,7 @@ cache:
         export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
         set +x
 
-        ./build.sh libraft tests bench-prims --allgpuarch --compile-lib --compile-static-lib --no-nvtx -n
+        ./build.sh libraft tests --allgpuarch --compile-lib --compile-static-lib --no-nvtx -n
 
       secrets:
         - AWS_ACCESS_KEY_ID
