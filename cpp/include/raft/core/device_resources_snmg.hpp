@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/common/nccl_macros.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/nccl_clique.hpp>
 
@@ -24,27 +25,6 @@
 #include <memory>
 #include <numeric>
 #include <vector>
-
-/**
- * @brief Error checking macro for NCCL runtime API functions.
- *
- * Invokes a NCCL runtime API function call, if the call does not return ncclSuccess, throws an
- * exception detailing the NCCL error that occurred
- */
-#define RAFT_NCCL_TRY(call)                        \
-  do {                                             \
-    ncclResult_t const status = (call);            \
-    if (ncclSuccess != status) {                   \
-      std::string msg{};                           \
-      SET_ERROR_MSG(msg,                           \
-                    "NCCL error encountered at: ", \
-                    "call='%s', Reason=%d:%s",     \
-                    #call,                         \
-                    status,                        \
-                    ncclGetErrorString(status));   \
-      throw raft::logic_error(msg);                \
-    }                                              \
-  } while (0);
 
 namespace raft {
 
@@ -71,7 +51,7 @@ class device_resources_snmg : public device_resources {
 
     // set root rank
     int root_rank = 0;
-    raft::resource::set_clique_root_rank(*this, root_rank);
+    raft::resource::set_nccl_clique_root_rank(*this, root_rank);
 
     // initialize the NCCL clique
     std::vector<raft::resources>& clique = raft::resource::get_nccl_clique(*this);
@@ -92,7 +72,7 @@ class device_resources_snmg : public device_resources {
 
     // set root rank
     int root_rank = 0;
-    raft::resource::set_clique_root_rank(*this, root_rank);
+    raft::resource::set_nccl_clique_root_rank(*this, root_rank);
 
     // initialize the NCCL clique
     std::vector<raft::resources>& clique = raft::resource::get_nccl_clique(*this);
@@ -131,41 +111,44 @@ class device_resources_snmg : public device_resources {
   /**
    * @brief Set root rank of NCCL clique
    */
-  inline void set_root_rank(int rank) { raft::resource::set_clique_root_rank(*this, rank); }
+  inline void set_nccl_root_rank(int rank)
+  {
+    raft::resource::set_nccl_clique_root_rank(*this, rank);
+  }
 
   /**
    * @brief Get root rank of NCCL clique
    */
-  inline int get_root_rank() const { return raft::resource::get_clique_root_rank(*this); }
+  inline int get_nccl_root_rank() const { return raft::resource::get_nccl_clique_root_rank(*this); }
 
   /**
    * @brief Get number of ranks in NCCL clique
    */
-  inline int get_num_ranks() const { return raft::resource::get_num_ranks(*this); }
+  inline int get_nccl_num_ranks() const { return raft::resource::get_nccl_num_ranks(*this); }
 
   /**
    * @brief Get device ID of rank in NCCL clique
    */
   inline int get_device_id_of_rank(int rank) const
   {
-    const raft::resources& dev_res = raft::resource::get_device_resources(*this, rank);
+    const raft::resources& dev_res = raft::resource::get_device_resources_for_rank(*this, rank);
     return raft::resource::get_device_id(dev_res);
   }
 
   /**
    * @brief Get NCCL comm object of rank in NCCL clique
    */
-  inline ncclComm_t& get_nccl_comm(int rank) const
+  inline ncclComm_t& get_nccl_comm_for_rank(int rank) const
   {
-    return raft::resource::get_nccl_comm(*this, rank);
+    return raft::resource::get_nccl_comm_for_rank(*this, rank);
   }
 
   /**
    * @brief Get raft::resources object of rank in NCCL clique
    */
-  inline const raft::resources& get_device_resources(int rank) const
+  inline const raft::resources& get_device_resources_for_rank(int rank) const
   {
-    return raft::resource::get_device_resources(*this, rank);
+    return raft::resource::get_device_resources_for_rank(*this, rank);
   }
 
   /**
@@ -189,7 +172,7 @@ class device_resources_snmg : public device_resources {
    */
   void set_memory_pool(int percent_of_free_memory) const
   {
-    for (int rank = 0; rank < get_num_ranks(); rank++) {
+    for (int rank = 0; rank < get_nccl_num_ranks(); rank++) {
       const raft::resources& dev_res = set_current_device_to_rank(rank);
       // check limit for each device
       size_t limit = rmm::percent_of_free_device_memory(percent_of_free_memory);

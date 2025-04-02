@@ -90,7 +90,7 @@ inline std::vector<raft::resources>& get_nccl_clique(resources const& res)
 /**
  * @brief Get number of ranks in clique
  */
-inline int get_num_ranks(resources const& res)
+inline int get_nccl_num_ranks(resources const& res)
 {
   return raft::resource::get_nccl_clique(res).size();
 }
@@ -98,7 +98,7 @@ inline int get_num_ranks(resources const& res)
 /**
  * @brief Get rank's raft::resources object
  */
-inline const raft::resources& get_device_resources(resources const& res, int rank)
+inline const raft::resources& get_device_resources_for_rank(resources const& res, int rank)
 {
   std::vector<raft::resources>& clique_device_resources = raft::resource::get_nccl_clique(res);
   return clique_device_resources[rank];
@@ -109,7 +109,7 @@ inline const raft::resources& get_device_resources(resources const& res, int ran
  */
 inline const raft::resources& set_current_device_to_rank(resources const& res, int rank)
 {
-  const raft::resources& dev_res = raft::resource::get_device_resources(res, rank);
+  const raft::resources& dev_res = raft::resource::get_device_resources_for_rank(res, rank);
   RAFT_CUDA_TRY(cudaSetDevice(raft::resource::get_device_id(dev_res)));
   return dev_res;
 }
@@ -120,7 +120,7 @@ inline const raft::resources& set_current_device_to_rank(resources const& res, i
 inline const raft::resources& set_current_device_to_root_rank(resources const& res)
 {
   int root_rank                  = _get_clique_root_rank(res);
-  const raft::resources& dev_res = raft::resource::get_device_resources(res, root_rank);
+  const raft::resources& dev_res = raft::resource::get_device_resources_for_rank(res, root_rank);
   RAFT_CUDA_TRY(cudaSetDevice(raft::resource::get_device_id(dev_res)));
   return dev_res;
 }
@@ -128,16 +128,16 @@ inline const raft::resources& set_current_device_to_root_rank(resources const& r
 /**
  * @brief Get rank's NCCL comm
  */
-inline ncclComm_t& get_nccl_comm(resources const& res, int rank)
+inline ncclComm_t& get_nccl_comm_for_rank(resources const& res, int rank)
 {
-  const raft::resources& dev_res = raft::resource::get_device_resources(res, rank);
+  const raft::resources& dev_res = raft::resource::get_device_resources_for_rank(res, rank);
   return raft::resource::get_nccl_comm(dev_res);
 }
 
 /**
  * @brief Set clique root rank
  */
-inline void set_clique_root_rank(resources const& res, int clique_root_rank)
+inline void set_nccl_clique_root_rank(resources const& res, int clique_root_rank)
 {
   int& clique_root_rank_ = _get_clique_root_rank(res);
   clique_root_rank_      = clique_root_rank;
@@ -146,7 +146,7 @@ inline void set_clique_root_rank(resources const& res, int clique_root_rank)
 /**
  * @brief Get clique root rank
  */
-inline int get_clique_root_rank(resources const& res) { return _get_clique_root_rank(res); };
+inline int get_nccl_clique_root_rank(resources const& res) { return _get_clique_root_rank(res); };
 
 /**
  * @}
