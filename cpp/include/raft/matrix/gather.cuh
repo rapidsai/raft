@@ -235,6 +235,52 @@ void gather(const raft::resources& handle,
 }
 
 /**
+ * @brief Copies rows from a source matrix into a destination matrix according to a transformed map.
+ *
+ * For each output row, read the index in the input matrix from the map, apply a transformation to
+ * this input index if specified, and copy the row.
+ *
+ * @tparam matrix_t    Matrix element type
+ * @tparam map_t       Integer type of map elements
+ * @tparam idx_t       Integer type used for indexing
+ * @tparam map_xform_t Unary lambda expression or operator type. MapTransformOp's result type must
+ *                     be convertible to idx_t.
+ * @param[in]  handle        raft handle for managing resources
+ * @param[in]  in            Input matrix, dim = [N, D] (row-major)
+ * @param[in]  map           Map of row indices to gather, dim = [map_length]
+ * @param[out] out           Output matrix, dim = [map_length, D] (row-major)
+ * @param[in]  transform_op  (optional) Transformation to apply to map values
+ */
+template <typename matrix_t,
+          typename map_t,
+          typename idx_t,
+          typename accessor,
+          typename map_xform_t = raft::identity_op>
+void gather(
+  const raft::resources& handle,
+  raft::mdspan<const matrix_t, raft::matrix_extent<idx_t>, raft::layout_stride, accessor> in,
+  raft::device_vector_view<const map_t, idx_t> map,
+  raft::device_matrix_view<matrix_t, idx_t, row_major> out,
+  map_xform_t transform_op = raft::identity_op())
+{
+  RAFT_EXPECTS(out.extent(0) == map.extent(0),
+               "Number of rows in output matrix must equal the size of the map vector");
+  RAFT_EXPECTS(out.extent(1) == in.extent(1),
+               "Number of columns in input and output matrices must be equal.");
+
+  detail::gather(
+    const_cast<matrix_t*>(in.data_handle()),  // TODO: There's a better way to handle this
+    in.stride(0),
+    in.extent(1),
+    in.extent(0),
+    map.data_handle(),
+    map.extent(0),
+    out.data_handle(),
+    transform_op,
+    resource::get_cuda_stream(handle));
+}
+
+/**
  * @brief Conditionally copies rows according to a transformed map.
  *
  * For each output row, read the index in the input matrix from the map, read a stencil value,

@@ -59,6 +59,7 @@ template <typename Policy,
           typename OutputIteratorT,
           typename IndexT>
 RAFT_KERNEL gather_kernel(const InputIteratorT in,
+                          IndexT ld,
                           IndexT D,
                           IndexT len,
                           const MapIteratorT map,
@@ -84,7 +85,7 @@ RAFT_KERNEL gather_kernel(const InputIteratorT in,
       bool predicate = pred_op(stencil_val);
       if (predicate) {
         IndexT i_src = transform_op(map_val);
-        out[tid]     = in[i_src * D + j];
+        out[tid]     = in[i_src * ld + j];
       }
     }
   }
@@ -128,6 +129,7 @@ template <typename InputIteratorT,
           typename OutputIteratorT,
           typename IndexT>
 void gatherImpl(const InputIteratorT in,
+                IndexT ld,
                 IndexT D,
                 IndexT N,
                 const MapIteratorT map,
@@ -156,19 +158,55 @@ void gatherImpl(const InputIteratorT in,
     using Policy    = gather_policy<TPB, 1>;
     IndexT n_blocks = raft::ceildiv(map_length * D, static_cast<IndexT>(Policy::stride));
     gather_kernel<Policy><<<n_blocks, Policy::n_threads, 0, stream>>>(
-      in, D, len, map, stencil, out, pred_op, transform_op);
+      in, ld, D, len, map, stencil, out, pred_op, transform_op);
   } else if (len < static_cast<IndexT>(32 * 4 * TPB * n_sm)) {
     using Policy    = gather_policy<TPB, 4>;
     IndexT n_blocks = raft::ceildiv(map_length * D, static_cast<IndexT>(Policy::stride));
     gather_kernel<Policy><<<n_blocks, Policy::n_threads, 0, stream>>>(
-      in, D, len, map, stencil, out, pred_op, transform_op);
+      in, ld, D, len, map, stencil, out, pred_op, transform_op);
   } else {
     using Policy    = gather_policy<TPB, 8>;
     IndexT n_blocks = raft::ceildiv(map_length * D, static_cast<IndexT>(Policy::stride));
     gather_kernel<Policy><<<n_blocks, Policy::n_threads, 0, stream>>>(
-      in, D, len, map, stencil, out, pred_op, transform_op);
+      in, ld, D, len, map, stencil, out, pred_op, transform_op);
   }
   RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/**
+ * @brief  gather copies rows from a source matrix into a destination matrix according to a map.
+ *
+ * @tparam InputIteratorT       Random-access iterator type, for reading input matrix (may be a
+ * simple pointer type).
+ * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
+ * pointer type).
+ * @tparam OutputIteratorT      Random-access iterator type, for writing output matrix (may be a
+ * simple pointer type).
+ * @tparam IndexT               Index type.
+ *
+ * @param  in           Pointer to the input matrix (assumed to be row-major)
+ * @param  ld           Leading dimension of the input matrix 'in'.
+ * @param  D            Dimension of the input matrix 'in', which in-case of row-major
+ * storage is the number of columns
+ * @param  N            Second dimension
+ * @param  map          Pointer to the input sequence of gather locations
+ * @param  map_length   The length of 'map' and 'stencil'
+ * @param  out          Pointer to the output matrix (assumed to be row-major)
+ * @param  stream       CUDA stream to launch kernels within
+ */
+template <typename InputIteratorT, typename MapIteratorT, typename OutputIteratorT, typename IndexT>
+void gather(const InputIteratorT in,
+            IndexT ld,
+            IndexT D,
+            IndexT N,
+            const MapIteratorT map,
+            IndexT map_length,
+            OutputIteratorT out,
+            cudaStream_t stream)
+{
+  typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
+  gatherImpl(
+    in, ld, D, N, map, map, map_length, out, raft::const_op(true), raft::identity_op(), stream);
 }
 
 /**
@@ -200,9 +238,51 @@ void gather(const InputIteratorT in,
             OutputIteratorT out,
             cudaStream_t stream)
 {
+  gather(in, D, D, N, map, map_length, out, stream);
+}
+
+/**
+ * @brief  gather copies rows from a source matrix into a destination matrix according to a
+ * transformed map.
+ *
+ * @tparam InputIteratorT       Random-access iterator type, for reading input matrix (may be a
+ * simple pointer type).
+ * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
+ * pointer type).
+ * @tparam MapTransformOp       Unary lambda expression or operator type, MapTransformOp's result
+ * type must be convertible to IndexT.
+ * @tparam OutputIteratorT      Random-access iterator type, for writing output matrix (may be a
+ * simple pointer type).
+ * @tparam IndexT               Index type.
+ *
+ * @param  in           Pointer to the input matrix (assumed to be row-major)
+ * @param  ld           Leading dimension of the input matrix 'in'.
+ * @param  D            Dimension of the input matrix 'in', which in-case of row-major
+ * storage is the number of columns
+ * @param  N            Second dimension
+ * @param  map          Pointer to the input sequence of gather locations
+ * @param  map_length   The length of 'map' and 'stencil'
+ * @param  out          Pointer to the output matrix (assumed to be row-major)
+ * @param  transform_op The transformation operation, transforms the map values to IndexT
+ * @param  stream       CUDA stream to launch kernels within
+ */
+template <typename InputIteratorT,
+          typename MapIteratorT,
+          typename MapTransformOp,
+          typename OutputIteratorT,
+          typename IndexT>
+void gather(const InputIteratorT in,
+            IndexT ld,
+            IndexT D,
+            IndexT N,
+            const MapIteratorT map,
+            IndexT map_length,
+            OutputIteratorT out,
+            MapTransformOp transform_op,
+            cudaStream_t stream)
+{
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
-  gatherImpl(
-    in, D, N, map, map, map_length, out, raft::const_op(true), raft::identity_op(), stream);
+  gatherImpl(in, ld, D, N, map, map, map_length, out, raft::const_op(true), transform_op, stream);
 }
 
 /**
@@ -243,8 +323,7 @@ void gather(const InputIteratorT in,
             MapTransformOp transform_op,
             cudaStream_t stream)
 {
-  typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
-  gatherImpl(in, D, N, map, map, map_length, out, raft::const_op(true), transform_op, stream);
+  gather(in, D, D, N, map, map_length, out, transform_op, stream);
 }
 
 /**
@@ -291,7 +370,7 @@ void gather_if(const InputIteratorT in,
                cudaStream_t stream)
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
-  gatherImpl(in, D, N, map, stencil, map_length, out, pred_op, raft::identity_op(), stream);
+  gatherImpl(in, D, D, N, map, stencil, map_length, out, pred_op, raft::identity_op(), stream);
 }
 
 /**
@@ -343,17 +422,18 @@ void gather_if(const InputIteratorT in,
                cudaStream_t stream)
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
-  gatherImpl(in, D, N, map, stencil, map_length, out, pred_op, transform_op, stream);
+  gatherImpl(in, D, D, N, map, stencil, map_length, out, pred_op, transform_op, stream);
 }
 
 /**
  * Helper function to gather a set of vectors from a (host) dataset.
  */
-template <typename T, typename IdxT, typename MatIdxT = int64_t>
-void gather_buff(host_matrix_view<const T, MatIdxT> dataset,
-                 host_vector_view<const IdxT, MatIdxT> indices,
-                 MatIdxT offset,
-                 pinned_matrix_view<T, MatIdxT> buff)
+template <typename T, typename IdxT, typename Accessor, typename MatIdxT = int64_t>
+void gather_buff(
+  raft::mdspan<const T, raft::matrix_extent<IdxT>, raft::layout_stride, Accessor> dataset,
+  host_vector_view<const IdxT, MatIdxT> indices,
+  MatIdxT offset,
+  pinned_matrix_view<T, MatIdxT> buff)
 {
   raft::common::nvtx::range<common::nvtx::domain::raft> fun_scope("gather_host_buff");
   IdxT batch_size = std::min<IdxT>(buff.extent(0), indices.extent(0) - offset);
@@ -367,9 +447,9 @@ void gather_buff(host_matrix_view<const T, MatIdxT> dataset,
   }
 }
 
-template <typename T, typename IdxT, typename MatIdxT = int64_t>
+template <typename T, typename IdxT, typename Accessor, typename MatIdxT = int64_t>
 void gather(raft::resources const& res,
-            host_matrix_view<const T, MatIdxT> dataset,
+            raft::mdspan<const T, raft::matrix_extent<IdxT>, raft::layout_stride, Accessor> dataset,
             device_vector_view<const IdxT, MatIdxT> indices,
             raft::device_matrix_view<T, MatIdxT> output)
 {
@@ -421,6 +501,19 @@ void gather(raft::resources const& res,
       std::swap(view1, view2);
     }
   }
+}
+
+template <typename T, typename IdxT, typename MatIdxT = int64_t>
+void gather(raft::resources const& res,
+            host_matrix_view<const T, MatIdxT> dataset,
+            device_vector_view<const IdxT, MatIdxT> indices,
+            raft::device_matrix_view<T, MatIdxT> output)
+{
+  gather(res,
+         raft::make_host_strided_matrix_view(
+           dataset.data_handle(), dataset.extent(0), dataset.extent(1), dataset.extent(1)),
+         indices,
+         output);
 }
 
 }  // namespace detail
