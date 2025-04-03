@@ -36,13 +36,15 @@ namespace matrix {
 struct inputs {
   int N;
   int dim;
+  int dim_padding;
   int n_samples;
   bool host;
 };
 
 ::std::ostream& operator<<(::std::ostream& os, const inputs p)
 {
-  os << p.N << "#" << p.dim << "#" << p.n_samples << (p.host ? "#host" : "#device");
+  os << p.N << "#" << p.dim << "#" << p.dim_padding << "#" << p.n_samples
+     << (p.host ? "#host" : "#device");
   return os;
 }
 
@@ -51,16 +53,17 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
  public:
   SampleRowsTest()
     : params(::testing::TestWithParam<inputs>::GetParam()),
+      ld(params.dim + params.dim_padding),
       stream(resource::get_cuda_stream(res)),
       state{137ULL},
-      in(make_device_matrix<T, int64_t>(res, params.N, params.dim)),
+      in(make_device_matrix<T, int64_t>(res, params.N, ld)),
       out(make_device_matrix<T, int64_t>(res, 0, 0)),
-      in_h(make_host_matrix<T, int64_t>(res, params.N, params.dim)),
+      in_h(make_host_matrix<T, int64_t>(res, params.N, ld)),
       out_h(make_host_matrix<T, int64_t>(res, params.n_samples, params.dim))
   {
     raft::random::uniform(res, state, in.data_handle(), in.size(), T(-1.0), T(1.0));
     for (int64_t i = 0; i < params.N; i++) {
-      for (int64_t k = 0; k < params.dim; k++)
+      for (int64_t k = 0; k < ld; k++)
         in_h(i, k) = i * 1000 + k;
     }
     raft::copy(in.data_handle(), in_h.data_handle(), in_h.size(), stream);
@@ -68,12 +71,27 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
 
   void check()
   {
-    if (params.host) {
-      out = raft::matrix::sample_rows<T, int64_t>(
-        res, state, make_const_mdspan(in_h.view()), (int64_t)params.n_samples);
+    if (params.dim_padding == 0) {
+      if (params.host) {
+        out = raft::matrix::sample_rows<T, int64_t>(
+          res, state, make_const_mdspan(in_h.view()), (int64_t)params.n_samples);
+      } else {
+        out = raft::matrix::sample_rows<T, int64_t>(
+          res, state, make_const_mdspan(in.view()), (int64_t)params.n_samples);
+      }
     } else {
-      out = raft::matrix::sample_rows<T, int64_t>(
-        res, state, make_const_mdspan(in.view()), (int64_t)params.n_samples);
+      // Test for strided matrix view input
+      if (params.host) {
+        auto in_strided_matrix_view = raft::make_host_strided_matrix_view<const T, int64_t>(
+          in_h.data_handle(), in_h.extent(0), params.dim, ld);
+        out = raft::matrix::sample_rows<T, int64_t>(
+          res, state, in_strided_matrix_view, (int64_t)params.n_samples);
+      } else {
+        auto in_strided_matrix_view = raft::make_device_strided_matrix_view<const T, int64_t>(
+          in.data_handle(), in.extent(0), params.dim, ld);
+        out = raft::matrix::sample_rows<T, int64_t>(
+          res, state, in_strided_matrix_view, (int64_t)params.n_samples);
+      }
     }
 
     raft::copy(out_h.data_handle(), out.data_handle(), out.size(), stream);
@@ -99,6 +117,7 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
 
  protected:
   inputs params;
+  int ld;
   raft::resources res;
   cudaStream_t stream;
   random::RngState state;
@@ -109,14 +128,14 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
 inline std::vector<inputs> generate_inputs()
 {
   std::vector<inputs> input1 =
-    raft::util::itertools::product<inputs>({10}, {1, 17, 96}, {1, 6, 9, 10}, {false});
+    raft::util::itertools::product<inputs>({10}, {1, 17, 96}, {0, 3, 190}, {1, 6, 9, 10}, {false});
 
-  std::vector<inputs> input2 =
-    raft::util::itertools::product<inputs>({137}, {1, 17, 128}, {1, 10, 100, 137}, {false});
+  std::vector<inputs> input2 = raft::util::itertools::product<inputs>(
+    {137}, {1, 17, 128}, {0, 3, 190}, {1, 10, 100, 137}, {false});
   input1.insert(input1.end(), input2.begin(), input2.end());
 
   input2 = raft::util::itertools::product<inputs>(
-    {100000}, {1, 42}, {1, 137, 1000, 10000, 50000, 62000, 100000}, {false});
+    {100000}, {1, 42}, {0, 1, 190}, {1, 137, 1000, 10000, 50000, 62000, 100000}, {false});
 
   input1.insert(input1.end(), input2.begin(), input2.end());
 
