@@ -115,22 +115,22 @@ class span {
 
   constexpr auto cend() const noexcept -> const_iterator { return data() + size(); }
 
-  _CCCL_HOST_DEVICE constexpr auto rbegin() const noexcept -> reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto rbegin() const noexcept -> reverse_iterator
   {
     return reverse_iterator{end()};
   }
 
-  _CCCL_HOST_DEVICE constexpr auto rend() const noexcept -> reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto rend() const noexcept -> reverse_iterator
   {
     return reverse_iterator{begin()};
   }
 
-  _CCCL_HOST_DEVICE constexpr auto crbegin() const noexcept -> const_reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto crbegin() const noexcept -> const_reverse_iterator
   {
     return const_reverse_iterator{cend()};
   }
 
-  _CCCL_HOST_DEVICE constexpr auto crend() const noexcept -> const_reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto crend() const noexcept -> const_reverse_iterator
   {
     return const_reverse_iterator{cbegin()};
   }
