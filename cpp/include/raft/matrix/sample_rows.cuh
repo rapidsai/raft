@@ -45,7 +45,8 @@ void sample_rows(raft::resources const& res,
                "dataset dims must match, but received %ld vs %ld",
                static_cast<long>(dataset.extent(1)),
                static_cast<long>(output.extent(1)));
-  detail::sample_rows<T, IdxT>(res, random_state, dataset.data_handle(), dataset.extent(0), output);
+  detail::sample_rows<T, IdxT>(
+    res, random_state, dataset.data_handle(), dataset.stride(0), dataset.extent(0), output);
 }
 
 /** @brief Select rows randomly from input and copy to output.
