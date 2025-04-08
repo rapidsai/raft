@@ -16,5 +16,10 @@ RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-f
 echo "libraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo /tmp/libraft_dist/libraft_*.whl)" > /tmp/constraints.txt
 export PIP_CONSTRAINT="/tmp/constraints.txt"
 
+RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
+if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
+  sed -i '/nccl/d' package_dir/pyproject.toml
+fi
+
 ci/build_wheel.sh raft-dask ${package_dir} python
 ci/validate_wheel.sh ${package_dir} final_dist
