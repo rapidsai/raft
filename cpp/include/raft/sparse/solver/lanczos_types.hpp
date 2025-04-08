@@ -20,6 +20,8 @@
 
 namespace raft::sparse::solver {
 
+enum LANCZOS_WHICH {LA, LM, SA, SM};
+
 template <typename ValueTypeT>
 struct lanczos_solver_config {
   /** The number of eigenvalues and eigenvectors to compute. Must be 1 <= k < n.*/
@@ -30,6 +32,8 @@ struct lanczos_solver_config {
   int ncv;
   /** Tolerance for residuals ``||Ax - wx||`` */
   ValueTypeT tolerance;
+  /** which=**/
+  LANCZOS_WHICH which;
   /** random seed */
   uint64_t seed;
 };

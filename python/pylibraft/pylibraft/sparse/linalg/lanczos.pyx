@@ -45,11 +45,18 @@ from pylibraft.random.cpp.rng_state cimport RngState
 cdef extern from "raft/sparse/solver/lanczos_types.hpp" \
         namespace "raft::sparse::solver" nogil:
 
+    enum LANCZOS_WHICH:
+        LA = 0,
+        LM = 1,
+        SA = 2,
+        SM = 3
+
     cdef cppclass lanczos_solver_config[ValueTypeT]:
         int n_components
         int max_iterations
         int ncv
         ValueTypeT tolerance
+        LANCZOS_WHICH which
         uint64_t seed
 
 cdef lanczos_solver_config[float] config_float
@@ -100,7 +107,7 @@ cdef extern from "raft_runtime/solver/lanczos.hpp" \
 
 
 @auto_sync_handle
-def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
+def eigsh(A, k=6, which="SA", v0=None, ncv=None, maxiter=None,
           tol=0, seed=None, handle=None):
     """
     Find ``k`` eigenvalues and eigenvectors of the real symmetric square
@@ -192,6 +199,15 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_float.ncv = ncv
         config_float.tolerance = tol
         config_float.seed = seed
+
+        if which.lower() == "sa":
+            config_float.which = LANCZOS_WHICH.SA
+        elif which.lower() == "sm":
+            config_float.which = LANCZOS_WHICH.SM
+        elif which.lower() == "la":
+            config_float.which = LANCZOS_WHICH.LA
+        elif which.lower() == "lm":
+            config_float.which = LANCZOS_WHICH.LM
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
@@ -213,6 +229,15 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_float.ncv = ncv
         config_float.tolerance = tol
         config_float.seed = seed
+
+        if which.lower() == "sa":
+            config_float.which = LANCZOS_WHICH.SA
+        elif which.lower() == "sm":
+            config_float.which = LANCZOS_WHICH.SM
+        elif which.lower() == "la":
+            config_float.which = LANCZOS_WHICH.LA
+        elif which.lower() == "lm":
+            config_float.which = LANCZOS_WHICH.LM
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
@@ -234,6 +259,15 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_double.ncv = ncv
         config_double.tolerance = tol
         config_double.seed = seed
+
+        if which.lower() == "sa":
+            config_double.which = LANCZOS_WHICH.SA
+        elif which.lower() == "sm":
+            config_double.which = LANCZOS_WHICH.SM
+        elif which.lower() == "la":
+            config_double.which = LANCZOS_WHICH.LA
+        elif which.lower() == "lm":
+            config_double.which = LANCZOS_WHICH.LM
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
@@ -255,6 +289,15 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_double.ncv = ncv
         config_double.tolerance = tol
         config_double.seed = seed
+
+        if which.lower() == "sa":
+            config_double.which = LANCZOS_WHICH.SA
+        elif which.lower() == "sm":
+            config_double.which = LANCZOS_WHICH.SM
+        elif which.lower() == "la":
+            config_double.which = LANCZOS_WHICH.LA
+        elif which.lower() == "lm":
+            config_double.which = LANCZOS_WHICH.LM
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data

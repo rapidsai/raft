@@ -67,7 +67,7 @@ TEST(Raft, EigenSolvers)
   std::uint64_t seed{100110021003};
 
   eigen_solver_config_t<index_type, value_type> cfg{
-    neigvs, maxiter, restart_iter, tol, reorthog, seed};
+    neigvs, maxiter, restart_iter, tol, raft::sparse::solver::LANCZOS_WHICH::SA, reorthog, seed};
 
   lanczos_solver_t<index_type, value_type, nnz_type> eig_solver{cfg};
 
@@ -104,7 +104,7 @@ TEST(Raft, SpectralSolvers)
   unsigned long long seed{100110021003};
 
   eigen_solver_config_t<index_type, value_type> eig_cfg{
-    neigvs, maxiter, restart_iter, tol, reorthog, seed};
+    neigvs, maxiter, restart_iter, tol, raft::sparse::solver::LANCZOS_WHICH::SA, reorthog, seed};
   lanczos_solver_t<index_type, value_type, nnz_type> eig_solver{eig_cfg};
 
   index_type k{5};
@@ -177,7 +177,7 @@ TEST(Raft, SpectralPartition)
                                                                               num_edges};
 
   auto eig_cfg = raft::spectral::eigen_solver_config_t<int, float>{
-    n_eig_vects, evs_max_iter, restartIter_lanczos, evs_tolerance, false, seed_eig_solver};
+    n_eig_vects, evs_max_iter, restartIter_lanczos, evs_tolerance, raft::sparse::solver::LANCZOS_WHICH::SA, false, seed_eig_solver};
   auto eigen_solver = raft::spectral::lanczos_solver_t<int, float>{eig_cfg};
 
   auto clust_cfg = raft::spectral::cluster_solver_config_t<int, float>{

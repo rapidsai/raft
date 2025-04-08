@@ -35,6 +35,8 @@ struct eigen_solver_config_t {
   size_type_t restartIter;
   value_type_t tol;
 
+  raft::sparse::solver::LANCZOS_WHICH which;
+
   bool reorthogonalize{false};
   unsigned long long seed{
     1234567};  // CAVEAT: this default value is now common to all instances of using seed in
@@ -80,7 +82,7 @@ struct lanczos_solver_t {
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
 
     auto lanczos_config = raft::sparse::solver::lanczos_solver_config<value_type_t>{
-      config_.n_eigVecs, config_.maxIter, config_.restartIter, config_.tol, config_.seed};
+      config_.n_eigVecs, config_.maxIter, config_.restartIter, config_.tol, config_.which, config_.seed};
     auto v0_opt = std::optional<raft::device_vector_view<value_type_t, uint32_t, raft::row_major>>{
       std::nullopt};
     auto input_structure = input.structure_view();

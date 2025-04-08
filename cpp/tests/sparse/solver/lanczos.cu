@@ -58,6 +58,7 @@ struct lanczos_inputs {
   int conv_n_iters;
   float conv_eps;
   float tol;
+  solver::LANCZOS_WHICH which;
   uint64_t seed;
   std::vector<IndexType> rows;  // indptr
   std::vector<IndexType> cols;  // indices
@@ -73,6 +74,7 @@ struct rmat_lanczos_inputs {
   int conv_n_iters;
   float conv_eps;
   float tol;
+  solver::LANCZOS_WHICH which;
   uint64_t seed;
   int r_scale;
   int c_scale;
@@ -200,7 +202,7 @@ class rmat_lanczos_tests
       symmetric_coo.n_rows,
       (uint64_t)symmetric_coo.nnz};
     raft::sparse::solver::lanczos_solver_config<ValueType> config{
-      n_components, params.maxiter, params.restartiter, params.tol, rng.seed};
+      n_components, params.maxiter, params.restartiter, params.tol, params.which, rng.seed};
 
     auto csr_structure =
       raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
@@ -294,7 +296,7 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
     std::tuple<IndexType, ValueType, IndexType> stats;
 
     raft::sparse::solver::lanczos_solver_config<ValueType> config{
-      params.n_components, params.maxiter, params.restartiter, params.tol, rng.seed};
+      params.n_components, params.maxiter, params.restartiter, params.tol, params.which, rng.seed};
     auto csr_structure =
       raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
         const_cast<IndexType*>(rows.data_handle()),
@@ -346,6 +348,7 @@ const std::vector<lanczos_inputs<int, float>> inputsf = {
    0,
    0,
    1e-15,
+   raft::sparse::solver::LANCZOS_WHICH::SA,
    42,
    {0,   0,   0,   0,   3,   5,   6,   8,   9,   11,  16,  16,  18,  20,  23,  24,  27,
     30,  31,  33,  37,  37,  39,  41,  43,  44,  46,  46,  47,  49,  50,  50,  51,  53,
@@ -396,6 +399,7 @@ const std::vector<lanczos_inputs<int, double>> inputsd = {
    0,
    0,
    1e-15,
+   raft::sparse::solver::LANCZOS_WHICH::SA,
    42,
    {0,   0,   0,   0,   3,   5,   6,   8,   9,   11,  16,  16,  18,  20,  23,  24,  27,
     30,  31,  33,  37,  37,  39,  41,  43,  44,  46,  46,  47,  49,  50,  50,  51,  53,
@@ -440,7 +444,7 @@ const std::vector<lanczos_inputs<int, double>> inputsd = {
    {-2.0369630, -1.7673520}}};
 
 const std::vector<rmat_lanczos_inputs<int, float>> rmat_inputsf = {
-  {50, 100, 10000, 0, 0, 1e-9, 42, 12, 12, 1, {-122.526794, -74.00686,  -59.698284,  -54.68617,
+  {50, 100, 10000, 0, 0, 1e-9, raft::sparse::solver::LANCZOS_WHICH::SA, 42, 12, 12, 1, {-122.526794, -74.00686,  -59.698284,  -54.68617,
                                                -49.686813,  -34.02644,  -32.130703,  -31.26906,
                                                -30.32097,   -22.946098, -20.497862,  -20.23817,
                                                -19.269697,  -18.42496,  -17.675667,  -17.013401,
