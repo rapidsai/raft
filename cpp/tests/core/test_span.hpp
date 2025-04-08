@@ -19,7 +19,7 @@
 namespace raft {
 
 template <typename Iter>
-__host__ __device__ void initialize_range(Iter _begin, Iter _end)
+_RAFT_HOST_DEVICE void initialize_range(Iter _begin, Iter _end)
 {
   float j = 0;
   for (Iter i = _begin; i != _end; ++i, ++j) {
@@ -37,8 +37,8 @@ struct test_test_status_t {
 
   explicit test_test_status_t(int* _status) : status(_status) {}
 
-  __host__ __device__ void operator()() { this->operator()(0); }
-  __host__ __device__ void operator()(int _idx) { SPAN_ASSERT_TRUE(false, status); }
+  _RAFT_HOST_DEVICE void operator()() { this->operator()(0); }
+  _RAFT_HOST_DEVICE void operator()(int _idx) { SPAN_ASSERT_TRUE(false, status); }
 };
 
 template <bool is_device>
@@ -47,8 +47,8 @@ struct test_assignment_t {
 
   explicit test_assignment_t(int* _status) : status(_status) {}
 
-  __host__ __device__ void operator()() { this->operator()(0); }
-  __host__ __device__ void operator()(int _idx)
+  _RAFT_HOST_DEVICE void operator()() { this->operator()(0); }
+  _RAFT_HOST_DEVICE void operator()(int _idx)
   {
     span<float, is_device> s1;
 
@@ -69,8 +69,8 @@ struct test_beginend_t {
 
   explicit test_beginend_t(int* _status) : status(_status) {}
 
-  __host__ __device__ void operator()() { this->operator()(0); }
-  __host__ __device__ void operator()(int _idx)
+  _RAFT_HOST_DEVICE void operator()() { this->operator()(0); }
+  _RAFT_HOST_DEVICE void operator()(int _idx)
   {
     float arr[16];
     initialize_range(arr, arr + 16);
@@ -91,8 +91,8 @@ struct test_rbeginrend_t {
 
   explicit test_rbeginrend_t(int* _status) : status(_status) {}
 
-  __host__ __device__ void operator()() { this->operator()(0); }
-  __host__ __device__ void operator()(int _idx)
+  _RAFT_HOST_DEVICE void operator()() { this->operator()(0); }
+  _RAFT_HOST_DEVICE void operator()(int _idx)
   {
     float arr[16];
     initialize_range(arr, arr + 16);
@@ -121,8 +121,8 @@ struct test_observers_t {
 
   explicit test_observers_t(int* _status) : status(_status) {}
 
-  __host__ __device__ void operator()() { this->operator()(0); }
-  __host__ __device__ void operator()(int _idx)
+  _RAFT_HOST_DEVICE void operator()() { this->operator()(0); }
+  _RAFT_HOST_DEVICE void operator()(int _idx)
   {
     // empty
     {
@@ -148,8 +148,8 @@ struct test_compare_t {
 
   explicit test_compare_t(int* _status) : status(_status) {}
 
-  __host__ __device__ void operator()() { this->operator()(0); }
-  __host__ __device__ void operator()(int _idx)
+  _RAFT_HOST_DEVICE void operator()() { this->operator()(0); }
+  _RAFT_HOST_DEVICE void operator()(int _idx)
   {
     float lhs_arr[16], rhs_arr[16];
     initialize_range(lhs_arr, lhs_arr + 16);
@@ -178,8 +178,8 @@ struct test_as_bytes_t {
 
   explicit test_as_bytes_t(int* _status) : status(_status) {}
 
-  __host__ __device__ void operator()() { this->operator()(0); }
-  __host__ __device__ void operator()(int _idx)
+  _RAFT_HOST_DEVICE void operator()() { this->operator()(0); }
+  _RAFT_HOST_DEVICE void operator()(int _idx)
   {
     float arr[16];
     initialize_range(arr, arr + 16);
@@ -211,8 +211,8 @@ struct test_as_writable_bytes_t {
 
   explicit test_as_writable_bytes_t(int* _status) : status(_status) {}
 
-  __host__ __device__ void operator()() { this->operator()(0); }
-  __host__ __device__ void operator()(int _idx)
+  _RAFT_HOST_DEVICE void operator()() { this->operator()(0); }
+  _RAFT_HOST_DEVICE void operator()(int _idx)
   {
     float arr[16];
     initialize_range(arr, arr + 16);

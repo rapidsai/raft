@@ -19,17 +19,12 @@
 #include <raft/core/detail/span.hpp>
 #include <raft/core/mdspan_types.hpp>
 
+#include <cuda/std/functional>
+#include <cuda/std/iterator>
+
 #include <cassert>
 #include <cinttypes>  // size_t
 #include <cstddef>    // std::byte
-
-// TODO (cjnolet): Remove thrust dependencies here so host_span can be used without CUDA Toolkit
-// being installed. Reference: https://github.com/rapidsai/raft/issues/812.
-#include <thrust/distance.h>
-#include <thrust/functional.h>
-#include <thrust/host_vector.h>  // _RAFT_HOST_DEVICE
-#include <thrust/iterator/reverse_iterator.h>
-
 #include <type_traits>
 
 namespace raft {
@@ -61,8 +56,8 @@ class span {
 
   using iterator               = pointer;
   using const_iterator         = const_pointer;
-  using reverse_iterator       = thrust::reverse_iterator<iterator>;
-  using const_reverse_iterator = thrust::reverse_iterator<const_iterator>;
+  using reverse_iterator       = cuda::std::reverse_iterator<iterator>;
+  using const_reverse_iterator = cuda::std::reverse_iterator<const_iterator>;
 
   /**
    * @brief Default constructor that constructs a span with size 0 and nullptr.
@@ -81,7 +76,7 @@ class span {
    * @brief Constructs a span that is a view over the range [first, last)
    */
   constexpr span(pointer first, pointer last) noexcept
-    : span{first, static_cast<size_type>(thrust::distance(first, last))}
+    : span{first, static_cast<size_type>(cuda::std::distance(first, last))}
   {
   }
   /**
@@ -235,7 +230,7 @@ constexpr auto operator<(span<T, is_device, X> l, span<U, is_device, Y> r)
   return detail::lexicographical_compare<
     typename span<T, is_device, X>::iterator,
     typename span<U, is_device, Y>::iterator,
-    thrust::less<typename span<T, is_device, X>::element_type>>(
+    cuda::std::less<typename span<T, is_device, X>::element_type>>(
     l.begin(), l.end(), r.begin(), r.end());
 }
 
@@ -251,7 +246,7 @@ constexpr auto operator>(span<T, is_device, X> l, span<U, is_device, Y> r)
   return detail::lexicographical_compare<
     typename span<T, is_device, X>::iterator,
     typename span<U, is_device, Y>::iterator,
-    thrust::greater<typename span<T, is_device, X>::element_type>>(
+    cuda::std::greater<typename span<T, is_device, X>::element_type>>(
     l.begin(), l.end(), r.begin(), r.end());
 }
 
