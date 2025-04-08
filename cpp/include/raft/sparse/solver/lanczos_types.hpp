@@ -20,7 +20,7 @@
 
 namespace raft::sparse::solver {
 
-enum LANCZOS_WHICH {LA, LM, SA, SM};
+enum LANCZOS_WHICH { LA, LM, SA, SM };
 
 template <typename ValueTypeT>
 struct lanczos_solver_config {

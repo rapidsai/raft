@@ -81,8 +81,13 @@ struct lanczos_solver_t {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
 
-    auto lanczos_config = raft::sparse::solver::lanczos_solver_config<value_type_t>{
-      config_.n_eigVecs, config_.maxIter, config_.restartIter, config_.tol, config_.which, config_.seed};
+    auto lanczos_config =
+      raft::sparse::solver::lanczos_solver_config<value_type_t>{config_.n_eigVecs,
+                                                                config_.maxIter,
+                                                                config_.restartIter,
+                                                                config_.tol,
+                                                                config_.which,
+                                                                config_.seed};
     auto v0_opt = std::optional<raft::device_vector_view<value_type_t, uint32_t, raft::row_major>>{
       std::nullopt};
     auto input_structure = input.structure_view();

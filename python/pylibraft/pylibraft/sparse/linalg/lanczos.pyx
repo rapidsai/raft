@@ -62,6 +62,7 @@ cdef extern from "raft/sparse/solver/lanczos_types.hpp" \
 cdef lanczos_solver_config[float] config_float
 cdef lanczos_solver_config[double] config_double
 
+
 cdef extern from "raft_runtime/solver/lanczos.hpp" \
         namespace "raft::runtime::solver" nogil:
 
@@ -122,6 +123,11 @@ def eigsh(A, k=6, which="SA", v0=None, ncv=None, maxiter=None,
             :class:`cupyx.scipy.sparse._csr.csr_matrix`
         k (int): The number of eigenvalues and eigenvectors to compute. Must be
             ``1 <= k < n``.
+        which (str): 'LM' or 'LA' or 'SA'.
+            'LM': finds ``k`` largest (in magnitude) eigenvalues.
+            'LA': finds ``k`` largest (algebraic) eigenvalues.
+            'SA': finds ``k`` smallest (algebraic) eigenvalues.
+            'SM': finds ``k`` smallest (in magnitude) eigenvalues.
         v0 (ndarray): Starting vector for iteration. If ``None``, a random
             unit vector is used.
         ncv (int): The number of Lanczos vectors generated. Must be

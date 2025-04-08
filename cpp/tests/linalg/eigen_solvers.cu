@@ -176,8 +176,14 @@ TEST(Raft, SpectralPartition)
                                                                               num_verts,
                                                                               num_edges};
 
-  auto eig_cfg = raft::spectral::eigen_solver_config_t<int, float>{
-    n_eig_vects, evs_max_iter, restartIter_lanczos, evs_tolerance, raft::sparse::solver::LANCZOS_WHICH::SA, false, seed_eig_solver};
+  auto eig_cfg =
+    raft::spectral::eigen_solver_config_t<int, float>{n_eig_vects,
+                                                      evs_max_iter,
+                                                      restartIter_lanczos,
+                                                      evs_tolerance,
+                                                      raft::sparse::solver::LANCZOS_WHICH::SA,
+                                                      false,
+                                                      seed_eig_solver};
   auto eigen_solver = raft::spectral::lanczos_solver_t<int, float>{eig_cfg};
 
   auto clust_cfg = raft::spectral::cluster_solver_config_t<int, float>{
