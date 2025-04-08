@@ -11,11 +11,6 @@ underscore_package_name=$(echo "${package_name}" | tr "-" "_")
 # Clear out system ucx files to ensure that we're getting ucx from the wheel.
 rm -rf /usr/lib64/ucx
 rm -rf /usr/lib64/libuc*
-# Clear out system NCCL files to ensure we're getting NCCL from wheel for CUDA 12
-RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
-if [[ ${RAPIDS_CUDA_MAJOR} == "12" ]]; then
-  rm -rf /usr/lib64/libnccl*
-fi
 
 source rapids-configure-sccache
 source rapids-date-string
@@ -41,6 +36,16 @@ if [[ ${package_name} != "libraft" ]]; then
     EXCLUDE_ARGS+=(
       --exclude "libraft.so"
     )
+fi
+
+RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
+if [[ ${package_name} == "raft-dask" && ${RAPIDS_CUDA_MAJOR} == "12" ]]; then
+    # Clear out system NCCL files to ensure we're getting NCCL from wheel for CUDA 12
+    rm -rf /usr/lib64/libnccl*
+    EXCLUDE_ARGS+=(
+      --exclude "libnccl.so.*"
+    )
+    export SKBUILD_CMAKE_ARGS="-DUSE_NCCL_RUNTIME_WHEEL=ON"
 fi
 
 sccache --zero-stats
