@@ -35,13 +35,13 @@ struct eigen_solver_config_t {
   size_type_t restartIter;
   value_type_t tol;
 
-  raft::sparse::solver::LANCZOS_WHICH which;
-
   bool reorthogonalize{false};
   unsigned long long seed{
     1234567};  // CAVEAT: this default value is now common to all instances of using seed in
                // Lanczos; was not the case before: there were places where a default seed = 123456
                // was used; this may trigger slightly different # solver iterations
+
+  raft::sparse::solver::LANCZOS_WHICH which{raft::sparse::solver::LANCZOS_WHICH::SA};
 };
 
 template <typename index_type_t, typename value_type_t, typename size_type_t = index_type_t>
