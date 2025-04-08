@@ -18,7 +18,7 @@ export PIP_CONSTRAINT="/tmp/constraints.txt"
 
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
 if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
-  sed -i '/nccl/d' ${package_dir}/pyproject.toml
+  sed -i '/nccl/d' dependencies.yaml
 fi
 
 ci/build_wheel.sh raft-dask ${package_dir} python
