@@ -16,11 +16,6 @@ rapids-dependency-file-generator \
   --matrix "${matrix_selectors}" \
 | tee /tmp/requirements-build.txt
 
-RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
-if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
-  sed -i '/nccl/d' /tmp/requirements-build.txt
-fi
-
 rapids-logger "Installing build requirements"
 rapids-pip-retry install \
     -v \
