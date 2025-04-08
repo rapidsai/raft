@@ -1818,30 +1818,21 @@ auto lanczos_smallest(
                  [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
                    return eigenvalues[a] < eigenvalues[b];
                  });
-    // Fix for the eigenvalues gather
     raft::matrix::gather(
       handle,
-      // Input eigenvalues as an Nx1 matrix (ncv rows, 1 column)
       raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
         eigenvalues.data_handle(), ncv, 1),
-      // Indices to gather
       raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(), nEigVecs),
-      // Output as a Kx1 matrix (nEigVecs rows, 1 column)
       raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
         sm_eigenvalues.data_handle(), nEigVecs, 1));
-    // If you also need to modify the eigenvectors gather call, use this:
     raft::matrix::gather(
       handle,
-      // Input eigenvectors matrix (ncv rows, ncv columns)
       raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
         eigenvectors.data_handle(), ncv, ncv),
-      // Indices to gather
       raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(), nEigVecs),
-      // Output eigenvectors matrix (nEigVecs rows, ncv columns)
       raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
         sm_eigenvectors.data_handle(), nEigVecs, ncv));
 
-    // Use the collected smallest magnitude values
     eigenvectors_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
       sm_eigenvectors.data_handle(), ncv, nEigVecs);
     eigenvalues_k =
@@ -1870,30 +1861,23 @@ auto lanczos_smallest(
                  [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
                    return eigenvalues[a] < eigenvalues[b];
                  });
-    // Fix for the eigenvalues gather
+
     raft::matrix::gather(
       handle,
-      // Input eigenvalues as an Nx1 matrix (ncv rows, 1 column)
       raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
         eigenvalues.data_handle(), ncv, 1),
-      // Indices to gather
       raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(), nEigVecs),
-      // Output as a Kx1 matrix (nEigVecs rows, 1 column)
       raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
         sm_eigenvalues.data_handle(), nEigVecs, 1));
-    // If you also need to modify the eigenvectors gather call, use this:
+
     raft::matrix::gather(
       handle,
-      // Input eigenvectors matrix (ncv rows, ncv columns)
       raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
         eigenvectors.data_handle(), ncv, ncv),
-      // Indices to gather
       raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(), nEigVecs),
-      // Output eigenvectors matrix (nEigVecs rows, ncv columns)
       raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
         sm_eigenvectors.data_handle(), nEigVecs, ncv));
 
-    // Use the collected smallest magnitude values
     eigenvectors_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
       sm_eigenvectors.data_handle(), ncv, nEigVecs);
     eigenvalues_k =
@@ -2160,7 +2144,6 @@ auto lanczos_smallest(
                      return fabsf(eigenvalues[a]) < fabsf(eigenvalues[b]);
                    });
       // Take the first nEigVecs indices (smallest magnitude)
-      // auto selected_indices = raft::make_device_vector<int>(handle, nEigVecs);
       raft::copy(selected_indices.data_handle(), indices.data_handle(), nEigVecs, stream);
 
       // Re-sort these indices by algebraic value to maintain algebraic ordering
@@ -2170,28 +2153,22 @@ auto lanczos_smallest(
                    [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
                      return eigenvalues[a] < eigenvalues[b];
                    });
-      // Fix for the eigenvalues gather
+
       raft::matrix::gather(
         handle,
-        // Input eigenvalues as an Nx1 matrix (ncv rows, 1 column)
         raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
           eigenvalues.data_handle(), ncv, 1),
-        // Indices to gather
         raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(),
                                                            nEigVecs),
-        // Output as a Kx1 matrix (nEigVecs rows, 1 column)
         raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
           sm_eigenvalues.data_handle(), nEigVecs, 1));
-      // If you also need to modify the eigenvectors gather call, use this:
+
       raft::matrix::gather(
         handle,
-        // Input eigenvectors matrix (ncv rows, ncv columns)
         raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
           eigenvectors.data_handle(), ncv, ncv),
-        // Indices to gather
         raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(),
                                                            nEigVecs),
-        // Output eigenvectors matrix (nEigVecs rows, ncv columns)
         raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
           sm_eigenvectors.data_handle(), nEigVecs, ncv));
     } else if (which == LANCZOS_WHICH::LM) {
@@ -2213,28 +2190,22 @@ auto lanczos_smallest(
                    [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
                      return eigenvalues[a] < eigenvalues[b];
                    });
-      // Fix for the eigenvalues gather
+
       raft::matrix::gather(
         handle,
-        // Input eigenvalues as an Nx1 matrix (ncv rows, 1 column)
         raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
           eigenvalues.data_handle(), ncv, 1),
-        // Indices to gather
         raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(),
                                                            nEigVecs),
-        // Output as a Kx1 matrix (nEigVecs rows, 1 column)
         raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
           sm_eigenvalues.data_handle(), nEigVecs, 1));
-      // If you also need to modify the eigenvectors gather call, use this:
+
       raft::matrix::gather(
         handle,
-        // Input eigenvectors matrix (ncv rows, ncv columns)
         raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
           eigenvectors.data_handle(), ncv, ncv),
-        // Indices to gather
         raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(),
                                                            nEigVecs),
-        // Output eigenvectors matrix (nEigVecs rows, ncv columns)
         raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
           sm_eigenvectors.data_handle(), nEigVecs, ncv));
     }
