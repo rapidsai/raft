@@ -20,27 +20,24 @@ import pytest
 from dask.distributed import Client, get_worker, wait
 from dask_cuda import LocalCUDACluster
 
-try:
-    from raft_dask.common import (
-        Comms,
-        local_handle,
-        perform_test_comm_split,
-        perform_test_comms_allgather,
-        perform_test_comms_allreduce,
-        perform_test_comms_bcast,
-        perform_test_comms_device_multicast_sendrecv,
-        perform_test_comms_device_send_or_recv,
-        perform_test_comms_device_sendrecv,
-        perform_test_comms_gather,
-        perform_test_comms_gatherv,
-        perform_test_comms_reduce,
-        perform_test_comms_reducescatter,
-        perform_test_comms_send_recv,
-    )
+from raft_dask.common import (
+    Comms,
+    local_handle,
+    perform_test_comm_split,
+    perform_test_comms_allgather,
+    perform_test_comms_allreduce,
+    perform_test_comms_bcast,
+    perform_test_comms_device_multicast_sendrecv,
+    perform_test_comms_device_send_or_recv,
+    perform_test_comms_device_sendrecv,
+    perform_test_comms_gather,
+    perform_test_comms_gatherv,
+    perform_test_comms_reduce,
+    perform_test_comms_reducescatter,
+    perform_test_comms_send_recv,
+)
 
-    pytestmark = pytest.mark.mg
-except ImportError:
-    pytestmark = pytest.mark.fail
+pytestmark = pytest.mark.mg
 
 
 def create_client(cluster):
@@ -169,7 +166,6 @@ def test_handles(cluster):
         client.close()
 
 
-# if pytestmark.markname != "skip":
 functions = [
     perform_test_comms_allgather,
     perform_test_comms_allreduce,
@@ -179,8 +175,6 @@ functions = [
     perform_test_comms_reduce,
     perform_test_comms_reducescatter,
 ]
-# else:
-# functions = [None]
 
 
 def _test_nccl_root_placement(client, root_location):
