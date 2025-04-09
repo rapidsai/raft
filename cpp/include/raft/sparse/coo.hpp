@@ -39,8 +39,8 @@ namespace sparse {
  * @tparam value_idx: the type of index array
  *
  */
-template <typename value_t, typename value_idx = int>
-using COO = detail::COO<value_t, value_idx>;
+template <typename value_t, typename value_idx = int, typename nnz_t = uint64_t>
+using COO = detail::COO<value_t, value_idx, nnz_t>;
 
 };  // namespace sparse
 };  // namespace raft

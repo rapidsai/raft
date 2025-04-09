@@ -84,18 +84,18 @@ void coo_to_csr(raft::resources const& handle,
  * @param m: number of rows in dense matrix
  * @param stream: cuda stream to use
  */
-template <typename T>
-void sorted_coo_to_csr(const T* rows, int nnz, T* row_ind, int m, cudaStream_t stream)
+template <typename T, typename nnz_t, typename outT>
+void sorted_coo_to_csr(const T* rows, nnz_t nnz, outT* row_ind, int m, cudaStream_t stream)
 {
-  rmm::device_uvector<T> row_counts(m, stream);
-
-  RAFT_CUDA_TRY(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
+  rmm::device_uvector<outT> row_counts(m, stream);
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(row_counts.data(), 0, static_cast<nnz_t>(m) * sizeof(outT), stream));
 
   linalg::coo_degree(rows, nnz, row_counts.data(), stream);
 
   // create csr compressed row index from row counts
-  thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts.data());
-  thrust::device_ptr<T> c_ind_d      = thrust::device_pointer_cast(row_ind);
+  thrust::device_ptr<outT> row_counts_d = thrust::device_pointer_cast(row_counts.data());
+  thrust::device_ptr<outT> c_ind_d      = thrust::device_pointer_cast(row_ind);
   exclusive_scan(rmm::exec_policy(stream), row_counts_d, row_counts_d + m, c_ind_d);
 }
 

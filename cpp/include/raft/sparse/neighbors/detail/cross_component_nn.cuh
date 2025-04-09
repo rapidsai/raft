@@ -448,10 +448,10 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  * is done
  * @param[in] metric distance metric
  */
-template <typename value_idx, typename value_t, typename red_op>
+template <typename value_idx, typename value_t, typename nnz_t, typename red_op>
 void cross_component_nn(
   raft::resources const& handle,
-  raft::sparse::COO<value_t, value_idx>& out,
+  raft::sparse::COO<value_t, value_idx, nnz_t>& out,
   const value_t* X,
   const value_idx* orig_colors,
   size_t n_rows,
@@ -534,8 +534,14 @@ void cross_component_nn(
   /**
    * Symmetrize resulting edge list
    */
-  raft::sparse::linalg::symmetrize(
-    handle, min_edges.rows(), min_edges.cols(), min_edges.vals(), n_rows, n_rows, size, out);
+  raft::sparse::linalg::symmetrize(handle,
+                                   min_edges.rows(),
+                                   min_edges.cols(),
+                                   min_edges.vals(),
+                                   (value_idx)n_rows,
+                                   (value_idx)n_rows,
+                                   (nnz_t)size,
+                                   out);
 }
 
 };  // end namespace raft::sparse::neighbors::detail

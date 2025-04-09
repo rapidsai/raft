@@ -21,6 +21,8 @@
 
 #include <nccl.h>
 
+#include <numeric>
+
 /**
  * @brief Error checking macro for NCCL runtime API functions.
  *

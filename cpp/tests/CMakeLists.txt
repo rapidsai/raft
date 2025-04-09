@@ -55,7 +55,6 @@ function(ConfigureTest)
             ${RAFT_CTK_MATH_DEPENDENCIES}
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
-            raft_test_logger
   )
   set_target_properties(
     ${TEST_NAME}
@@ -88,10 +87,6 @@ function(ConfigureTest)
   )
 endfunction()
 
-# Create an object library for the logger so that we don't have to recompile it.
-add_library(raft_test_logger OBJECT)
-target_link_libraries(raft_test_logger PRIVATE raft_logger_impl)
-
 # ##################################################################################################
 # test sources ##################################################################################
 # ##################################################################################################
@@ -104,7 +99,6 @@ if(BUILD_TESTS)
     core/bitset.cu
     core/device_resources_manager.cpp
     core/device_setter.cpp
-    core/logger.cpp
     core/math_device.cu
     core/math_host.cpp
     core/operators_device.cu
@@ -187,6 +181,10 @@ if(BUILD_TESTS)
     linalg/ternary_op.cu
     linalg/transpose.cu
     linalg/unary_op.cu
+    GPUS
+    1
+    PERCENT
+    100
   )
 
   ConfigureTest(
@@ -211,12 +209,20 @@ if(BUILD_TESTS)
     sparse/spectral_matrix.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
   )
 
-  ConfigureTest(NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY)
+  ConfigureTest(
+    NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT
+    100
+  )
 
   ConfigureTest(
-    NAME MATRIX_SELECT_LARGE_TEST PATH matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_SELECT_LARGE_TEST PATH matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS
+    1 PERCENT 100
   )
 
   ConfigureTest(
@@ -253,6 +259,7 @@ if(BUILD_TESTS)
     sparse/csr_transpose.cu
     sparse/degree.cu
     sparse/filter.cu
+    sparse/laplacian.cu
     sparse/masked_matmul.cu
     sparse/norm.cu
     sparse/normalize.cu
@@ -264,11 +271,15 @@ if(BUILD_TESTS)
     sparse/spgemmi.cu
     sparse/spmm.cu
     sparse/symmetrize.cu
+    GPUS
+    1
+    PERCENT
+    100
   )
 
   ConfigureTest(
     NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
-    neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    neighbors/epsilon_neighborhood.cu neighbors/ann_nn_descent.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(

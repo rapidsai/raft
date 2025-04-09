@@ -107,7 +107,7 @@ repos:
         hooks:
               - id: check-json
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.4.0
+        rev: v0.5.0
         hooks:
           - id: verify-copyright
             files: |
@@ -128,6 +128,12 @@ repos:
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
+      - repo: https://github.com/shellcheck-py/shellcheck-py
+        rev: v0.10.0.1
+        hooks:
+          - id: shellcheck
+            args: ["--severity=warning"]
+            files: ^ci/
 
 default_language_version:
       python: python3
