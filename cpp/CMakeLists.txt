@@ -60,6 +60,7 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
+option(RAFT_EXPORT_NCCL "Export NCCL" ON)
 
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
 if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
@@ -396,8 +397,10 @@ rapids_export_package(
   INSTALL ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx
                                                                               ucxx::python
 )
-rapids_export_package(BUILD NCCL raft-distributed-exports)
-rapids_export_package(INSTALL NCCL raft-distributed-exports)
+if(RAFT_EXPORT_NCCL)
+  rapids_export_package(BUILD NCCL raft-distributed-exports)
+  rapids_export_package(INSTALL NCCL raft-distributed-exports)
+endif()
 
 # ucx is a requirement for raft_distributed, but its config is not safe to be found multiple times,
 # so rather than exporting a package dependency on it above we rely on consumers to find it

@@ -42,6 +42,10 @@ set(BUILD_PRIMS_BENCH OFF)
 set(RAFT_COMPILE_DYNAMIC_ONLY ON)
 set(RAFT_COMPILE_LIBRARY ON)
 
+if(USE_NCCL_RUNTIME_WHEEL)
+  set(RAFT_EXPORT_NCCL OFF)
+endif()
+
 add_subdirectory(../../cpp raft-cpp)
 
 # assumes libraft.so is installed 2 levels deep, e.g. site-packages/libraft/lib64/libraft.so
@@ -53,4 +57,5 @@ set_property(
            "$ORIGIN/../../nvidia/cusolver/lib"
            "$ORIGIN/../../nvidia/cusparse/lib"
            "$ORIGIN/../../nvidia/nvjitlink/lib"
+           "$ORIGIN/../../nvidia/nccl/lib"
 )

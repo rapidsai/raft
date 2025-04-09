@@ -41,17 +41,16 @@ fi
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
 if [[ ${package_name} == "raft-dask" && ${RAPIDS_CUDA_MAJOR} == "12" ]]; then
     # Clear out system NCCL files to ensure we're getting NCCL from wheel for CUDA 12
-    rm -rf /usr/lib64/libnccl*
     EXCLUDE_ARGS+=(
       --exclude "libnccl.so.*"
     )
-    export SKBUILD_CMAKE_ARGS="-DUSE_NCCL_RUNTIME_WHEEL=ON"
 fi
 
 sccache --zero-stats
 
 rapids-logger "Building '${package_name}' wheel"
 
+export SKBUILD_CMAKE_ARGS="-DUSE_NCCL_RUNTIME_WHEEL=ON"
 rapids-pip-retry wheel \
     -w dist \
     -v \
