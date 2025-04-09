@@ -397,10 +397,8 @@ rapids_export_package(
   INSTALL ucxx raft-distributed-exports COMPONENTS ucxx python GLOBAL_TARGETS ucxx::ucxx
                                                                               ucxx::python
 )
-if(RAFT_EXPORT_NCCL)
-  rapids_export_package(BUILD NCCL raft-distributed-exports)
-  rapids_export_package(INSTALL NCCL raft-distributed-exports)
-endif()
+rapids_export_package(BUILD NCCL raft-distributed-exports)
+ rapids_export_package(INSTALL NCCL raft-distributed-exports)
 
 # ucx is a requirement for raft_distributed, but its config is not safe to be found multiple times,
 # so rather than exporting a package dependency on it above we rely on consumers to find it
