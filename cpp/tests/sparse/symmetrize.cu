@@ -131,19 +131,29 @@ class SparseSymmetrizeTest
 
 template <typename T>
 struct COOSymmetrizeInputs {
-  int m, n, nnz;
-  unsigned long long int seed;
+  int nnz;
+  int n_rows;
+  int n_cols;
+  std::vector<int> in_rows_h;
+  std::vector<int> in_cols_h;
+  std::vector<T> in_vals_h;
+  std::vector<int> exp_rows_h;
+  std::vector<int> exp_cols_h;
+  std::vector<float> exp_vals_h;
 };
 
 template <typename T>
 class COOSymmetrizeTest : public ::testing::TestWithParam<COOSymmetrizeInputs<T>> {
+ public:
+  COOSymmetrizeTest() : params(::testing::TestWithParam<COOSymmetrizeInputs<T>>::GetParam()) {}
+
  protected:
   void SetUp() override {}
 
   void TearDown() override {}
-};
 
-const std::vector<COOSymmetrizeInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
+  COOSymmetrizeInputs<T> params;
+};
 
 typedef COOSymmetrizeTest<float> COOSymmetrize;
 TEST_P(COOSymmetrize, Result)
@@ -151,21 +161,10 @@ TEST_P(COOSymmetrize, Result)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  int nnz = 8;
-
-  int* in_rows_h   = new int[nnz]{0, 0, 1, 1, 2, 2, 3, 3};
-  int* in_cols_h   = new int[nnz]{1, 3, 2, 3, 0, 1, 0, 2};
-  float* in_vals_h = new float[nnz]{0.5, 1.0, 0.5, 0.5, 0.5, 0.0, 0.5, 0.5};
-
-  int* exp_rows_h = new int[nnz * 2]{1, 0, 0, 0, 1, 3, 1, 0, 0, 2, 2, 0, 3, 2, 3, 0};
-  int* exp_cols_h = new int[nnz * 2]{0, 1, 3, 0, 2, 1, 3, 0, 2, 0, 1, 0, 0, 3, 2, 0};
-  float* exp_vals_h =
-    new float[nnz * 2]{0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5, 0, 0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0};
-
-  COO<float> in(stream, nnz, 4, 4);
-  raft::update_device(in.rows(), *&in_rows_h, nnz, stream);
-  raft::update_device(in.cols(), *&in_cols_h, nnz, stream);
-  raft::update_device(in.vals(), *&in_vals_h, nnz, stream);
+  COO<float> in(stream, params.nnz, params.n_rows, params.n_cols);
+  raft::update_device(in.rows(), params.in_rows_h.data(), params.nnz, stream);
+  raft::update_device(in.cols(), params.in_cols_h.data(), params.nnz, stream);
+  raft::update_device(in.vals(), params.in_vals_h.data(), params.nnz, stream);
 
   COO<float> out(stream);
 
@@ -178,21 +177,41 @@ TEST_P(COOSymmetrize, Result)
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   std::cout << out << std::endl;
 
-  ASSERT_TRUE(out.nnz == nnz * 2);
-  ASSERT_TRUE(raft::devArrMatch<int>(out.rows(), exp_rows_h, out.nnz, raft::Compare<int>()));
-  ASSERT_TRUE(raft::devArrMatch<int>(out.cols(), exp_cols_h, out.nnz, raft::Compare<int>()));
-  ASSERT_TRUE(raft::devArrMatch<float>(out.vals(), exp_vals_h, out.nnz, raft::Compare<float>()));
+  ASSERT_TRUE(out.nnz == params.nnz * 2);
+  ASSERT_TRUE(
+    raft::devArrMatch<int>(out.rows(), params.exp_rows_h.data(), out.nnz, raft::Compare<int>()));
+  ASSERT_TRUE(
+    raft::devArrMatch<int>(out.cols(), params.exp_cols_h.data(), out.nnz, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<float>(
+    out.vals(), params.exp_vals_h.data(), out.nnz, raft::Compare<float>()));
 
   cudaStreamDestroy(stream);
-
-  delete[] in_rows_h;
-  delete[] in_cols_h;
-  delete[] in_vals_h;
-
-  delete[] exp_rows_h;
-  delete[] exp_cols_h;
-  delete[] exp_vals_h;
 }
+
+const std::vector<COOSymmetrizeInputs<float>> inputsf = {
+  // first test fails without fix in #2582
+  {
+    2,             // nnz
+    2,             // n_rows
+    2,             // n_cols
+    {0, 1},        // in_rows
+    {0, 0},        // in_cols
+    {0.0, 1.0},    // in_vals
+    {0, 0, 0, 1},  // out_rows
+    {0, 0, 1, 0},  // out_cols
+    {0, 0, 1, 1}   // out_vals
+  },
+  {
+    8,                                                                          // nnz
+    4,                                                                          // n_rows
+    4,                                                                          // n_cols
+    {0, 0, 1, 1, 2, 2, 3, 3},                                                   // in_rows
+    {1, 3, 2, 3, 0, 1, 0, 2},                                                   // in_cols
+    {0.5, 1.0, 0.5, 0.5, 0.5, 0.0, 0.5, 0.5},                                   // in_vals
+    {1, 0, 0, 0, 1, 3, 1, 0, 0, 2, 2, 0, 3, 2, 3, 0},                           // out_rows
+    {0, 1, 3, 0, 2, 1, 3, 0, 2, 0, 1, 0, 0, 3, 2, 0},                           // out_cols
+    {0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5, 0, 0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0}  // out_vals
+  }};
 
 INSTANTIATE_TEST_CASE_P(COOSymmetrizeTest, COOSymmetrize, ::testing::ValuesIn(inputsf));
 
