@@ -89,6 +89,7 @@ files:
       - cuda_wheels
       - depends_on_librmm
       - depends_on_rapids_logger
+      - depends_on_nccl
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -157,6 +158,7 @@ files:
     includes:
       - depends_on_distributed_ucxx
       - depends_on_libraft
+      - depends_on_nccl
       - run_raft_dask
   py_test_raft_dask:
     output: pyproject
