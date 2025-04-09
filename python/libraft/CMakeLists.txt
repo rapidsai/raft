@@ -57,5 +57,12 @@ set_property(
            "$ORIGIN/../../nvidia/cusolver/lib"
            "$ORIGIN/../../nvidia/cusparse/lib"
            "$ORIGIN/../../nvidia/nvjitlink/lib"
+)
+
+if(USE_NCCL_RUNTIME_WHEEL)
+set_property(
+  TARGET raft_lib
+  PROPERTY INSTALL_RPATH
            "$ORIGIN/../../nvidia/nccl/lib"
 )
+endif()
