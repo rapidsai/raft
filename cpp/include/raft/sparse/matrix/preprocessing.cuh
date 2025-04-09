@@ -16,17 +16,219 @@
 
 #pragma once
 
+#include <raft/cluster/detail/kmeans_common.cuh>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/serialize.hpp>
+#include <raft/label/detail/classlabels.cuh>
 #include <raft/sparse/matrix/detail/preprocessing.cuh>
 
 #include <map>
 #include <optional>
 
 namespace raft::sparse::matrix {
+
+template <typename IndexType, typename ValueType>
+struct mapper {
+  mapper(IndexType* map) : map(map) {}
+
+  __host__ __device__ ValueType operator()(const IndexType& key, const ValueType& val)
+  {
+    map[key] = val;
+    return (ValueType(0));
+  }
+  IndexType* map;
+};
+
+template <typename IndexType, typename ValueType>
+struct tfidf {
+  tfidf(IndexType numRows, raft::device_vector_view<IndexType> featIdCount)
+    : num_rows(numRows), feat_id_count(featIdCount)
+  {
+  }
+
+  __host__ __device__ ValueType operator()(const IndexType& col, const ValueType& value)
+  {
+    ValueType tf  = (ValueType)raft::log<double>(value);
+    double idf_in = (double)num_rows / feat_id_count[col];
+    ValueType idf = (ValueType)raft::log<double>(idf_in + 1);
+    return (ValueType)tf * idf;
+  }
+
+  raft::device_vector_view<IndexType> feat_id_count;
+  IndexType num_rows;
+};
+
+template <typename IndexType, typename ValueType>
+struct bm25 {
+  bm25(IndexType numRows,
+       raft::device_vector_view<IndexType> featIdCount,
+       raft::device_vector_view<IndexType> rowFeatCnts,
+       ValueType avg_feat_len,
+       ValueType k_param,
+       ValueType b_param)
+  {
+    num_rows        = numRows;
+    feat_id_count   = featIdCount;
+    row_feat_cnts   = rowFeatCnts;
+    avg_feat_length = avg_feat_len;
+    k               = k_param;
+    b               = b_param;
+  }
+  __host__ __device__ ValueType operator()(const IndexType& row,
+                                           const IndexType& column,
+                                           const ValueType& value)
+  {
+    ValueType tf  = raft::log<ValueType>(value);
+    double idf_in = (double)num_rows / feat_id_count[column];
+    ValueType idf = (ValueType)raft::log<double>(idf_in + 1);
+    ValueType bm =
+      ((k + 1) * tf) / (k * ((1.0f - b) + b * (row_feat_cnts[row] / avg_feat_length)) + tf);
+
+    return (ValueType)idf * bm;
+  }
+  raft::device_vector_view<IndexType> row_feat_cnts;
+  raft::device_vector_view<IndexType> feat_id_count;
+  ValueType avg_feat_length;
+  IndexType num_rows;
+  ValueType k;
+  ValueType b;
+};
+
+/**
+ * @brief Get unique counts
+ * @param handle: raft resource handle
+ * @param sort_vector: Input COO array that contains the keys.
+ * @param secondary_vector: Input with secondary keys of COO, (columns or rows).
+ * @param data: Input COO values array.
+ * @param itr_vals: Input array used to calculate counts.
+ * @param keys_out: Output array with one entry for each key. (same size as counts_out)
+ * @param counts_out: Output array with cumulative sum for each key. (same size as keys_out)
+ */
+template <typename T1, typename T2, typename IdxT>
+void get_uniques_counts(raft::resources const& handle,
+                        raft::device_vector_view<T1, IdxT> sort_vector,
+                        raft::device_vector_view<T1, IdxT> secondary_vector,
+                        raft::device_vector_view<T2, IdxT> data,
+                        raft::device_vector_view<T2, IdxT> itr_vals,
+                        raft::device_vector_view<T1, IdxT> keys_out,
+                        raft::device_vector_view<T2, IdxT> counts_out)
+{
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+  raft::sparse::op::coo_sort(int(sort_vector.size()),
+                             int(secondary_vector.size()),
+                             int(data.size()),
+                             sort_vector.data_handle(),
+                             secondary_vector.data_handle(),
+                             data.data_handle(),
+                             stream);
+  // replace this call with raft version when available
+  // (https://github.com/rapidsai/raft/issues/2477)
+  thrust::reduce_by_key(raft::resource::get_thrust_policy(handle),
+                        sort_vector.data_handle(),
+                        sort_vector.data_handle() + sort_vector.size(),
+                        itr_vals.data_handle(),
+                        keys_out.data_handle(),
+                        counts_out.data_handle());
+}
+
+template <typename ValueType = float, typename IndexType = int>
+void _fit(raft::resources const& handle,
+          raft::device_vector_view<IndexType, int64_t> rows,
+          raft::device_vector_view<IndexType, int64_t> columns,
+          raft::device_vector_view<ValueType, int64_t> values,
+          int num_rows,
+          int num_cols,
+          raft::device_vector_view<IndexType, int64_t> idFeatCount,
+          int& fullFeatCount,
+          raft::device_vector_view<IndexType, int64_t> rowFeatCnts)
+{
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+  int uniq_cnt = raft::sparse::neighbors::get_n_components(rows.data_handle(), rows.size(), stream);
+  auto row_keys = raft::make_device_vector<IndexType>(handle, uniq_cnt);
+  auto row_cnts = raft::make_device_vector<ValueType>(handle, uniq_cnt);
+
+  get_uniques_counts<IndexType, ValueType, int64_t>(
+    handle, rows, columns, values, values, row_keys.view(), row_cnts.view());
+  auto dummy_vec = raft::make_device_vector<IndexType>(handle, uniq_cnt);
+  raft::linalg::map(handle,
+                    dummy_vec.view(),
+                    mapper<IndexType, ValueType>(rowFeatCnts.data_handle()),
+                    raft::make_const_mdspan(row_keys.view()),
+                    raft::make_const_mdspan(row_cnts.view()));
+
+  rmm::device_uvector<char> workspace(0, stream);
+  raft::cluster::detail::countLabels(handle,
+                                     columns.data_handle(),
+                                     idFeatCount.data_handle(),
+                                     int(columns.size()),
+                                     num_cols,
+                                     workspace);
+
+  // get total number of words
+  auto batchIdLen = raft::make_host_scalar<ValueType>(0);
+  auto values_mat = raft::make_device_scalar<ValueType>(handle, 0);
+  raft::linalg::mapReduce<ValueType>(values_mat.data_handle(),
+                                     values.size(),
+                                     0.0f,
+                                     raft::identity_op(),
+                                     raft::add_op(),
+                                     stream,
+                                     values.data_handle());
+  raft::copy(batchIdLen.data_handle(), values_mat.data_handle(), values_mat.size(), stream);
+  fullFeatCount += (int)batchIdLen(0);
+}
+
+template <typename IndexType, typename ValueType>
+void transform(raft::resources const& handle,
+               raft::device_vector_view<IndexType, int64_t> rows,
+               raft::device_vector_view<IndexType, int64_t> columns,
+               raft::device_vector_view<ValueType, int64_t> values,
+               raft::device_vector_view<IndexType, int64_t> featIdCount,
+               IndexType fullIdLen,
+               IndexType nnz,
+               int num_rows,
+               int num_feats,
+               raft::device_vector_view<ValueType, int64_t> results,
+               bool bm25_on,
+               float k_param,
+               float b_param,
+               raft::device_vector_view<IndexType, int64_t> rowFeatCnts)
+{
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+
+  float avgIdLen = (ValueType)fullIdLen / num_rows;
+  raft::sparse::op::coo_sort(IndexType(rows.size()),
+                             IndexType(columns.size()),
+                             IndexType(values.size()),
+                             rows.data_handle(),
+                             columns.data_handle(),
+                             values.data_handle(),
+                             stream);
+  if (bm25_on) {
+    // raft::linalg::map(handle,
+    //   results,
+    //   tfidf<IndexType, ValueType>(num_rows, featIdCount),
+    //   raft::make_const_mdspan(columns),
+    //   raft::make_const_mdspan(values)
+    // );
+    raft::linalg::map(
+      handle,
+      results,
+      bm25<IndexType, ValueType>(num_rows, featIdCount, rowFeatCnts, avgIdLen, k_param, b_param),
+      raft::make_const_mdspan(rows),
+      raft::make_const_mdspan(columns),
+      raft::make_const_mdspan(values));
+  } else {
+    raft::linalg::map(handle,
+                      results,
+                      tfidf<IndexType, ValueType>(num_rows, featIdCount),
+                      raft::make_const_mdspan(columns),
+                      raft::make_const_mdspan(values));
+  }
+}
 
 /**
  * The class facilitates the creation a tfidf and bm25 encoding values for sparse matrices
@@ -240,34 +442,34 @@ void SparseEncoder<ValueType, IndexType>::_fit(raft::resources const& handle,
                                                raft::device_vector_view<ValueType, int64_t> values,
                                                int num_rows)
 {
-  numRows += num_rows;
-  IndexType nnz       = values.size();
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto batchIdLen     = raft::make_host_scalar<ValueType>(0);
-  auto values_mat     = raft::make_device_scalar<ValueType>(handle, 0);
-  raft::linalg::mapReduce<ValueType>(values_mat.data_handle(),
-                                     nnz,
-                                     0.0f,
-                                     raft::identity_op(),
-                                     raft::add_op(),
-                                     stream,
-                                     values.data_handle());
-  raft::copy(batchIdLen.data_handle(), values_mat.data_handle(), values_mat.size(), stream);
-  fullIdLen += (int)batchIdLen(0);
-  auto d_rows = raft::make_device_vector<IndexType, int64_t>(handle, nnz);
-  auto d_cols = raft::make_device_vector<IndexType, int64_t>(handle, nnz);
-  auto d_vals = raft::make_device_vector<ValueType, int64_t>(handle, nnz);
-  raft::copy(d_rows.data_handle(), rows.data_handle(), nnz, stream);
-  raft::copy(d_cols.data_handle(), columns.data_handle(), nnz, stream);
-  raft::copy(d_vals.data_handle(), values.data_handle(), nnz, stream);
-  raft::sparse::op::coo_sort(
-    nnz, nnz, nnz, d_cols.data_handle(), d_rows.data_handle(), d_vals.data_handle(), stream);
-  IndexType* counts;
-  cudaMallocManaged(&counts, nnz * sizeof(IndexType));
-  cudaMemset(counts, 0, nnz * sizeof(IndexType));
-  _fit_feats(handle, d_cols.data_handle(), counts, nnz, featIdCount);
-  cudaFree(counts);
-  cudaDeviceSynchronize();
+  // numRows += num_rows;
+  // IndexType nnz       = values.size();
+  // cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+  // auto batchIdLen     = raft::make_host_scalar<ValueType>(0);
+  // auto values_mat     = raft::make_device_scalar<ValueType>(handle, 0);
+  // raft::linalg::mapReduce<ValueType>(values_mat.data_handle(),
+  //                                    nnz,
+  //                                    0.0f,
+  //                                    raft::identity_op(),
+  //                                    raft::add_op(),
+  //                                    stream,
+  //                                    values.data_handle());
+  // raft::copy(batchIdLen.data_handle(), values_mat.data_handle(), values_mat.size(), stream);
+  // fullIdLen += (int)batchIdLen(0);
+  // auto d_rows = raft::make_device_vector<IndexType, int64_t>(handle, nnz);
+  // auto d_cols = raft::make_device_vector<IndexType, int64_t>(handle, nnz);
+  // auto d_vals = raft::make_device_vector<ValueType, int64_t>(handle, nnz);
+  // raft::copy(d_rows.data_handle(), rows.data_handle(), nnz, stream);
+  // raft::copy(d_cols.data_handle(), columns.data_handle(), nnz, stream);
+  // raft::copy(d_vals.data_handle(), values.data_handle(), nnz, stream);
+  // raft::sparse::op::coo_sort(
+  //   nnz, nnz, nnz, d_cols.data_handle(), d_rows.data_handle(), d_vals.data_handle(), stream);
+  // IndexType* counts;
+  // cudaMallocManaged(&counts, nnz * sizeof(IndexType));
+  // cudaMemset(counts, 0, nnz * sizeof(IndexType));
+  // _fit_feats(handle, d_cols.data_handle(), counts, nnz, featIdCount);
+  // cudaFree(counts);
+  // cudaDeviceSynchronize();
 }
 
 /**

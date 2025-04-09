@@ -28,32 +28,6 @@
 
 namespace raft::util {
 
-template <typename T>
-void print_vals(raft::resources& handle, const raft::device_vector_view<T, size_t>& out)
-{
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto h_out          = raft::make_host_vector<T>(out.size());
-  raft::copy(h_out.data_handle(), out.data_handle(), out.size(), stream);
-  int limit = int(out.size());
-  for (int i = 0; i < limit; i++) {
-    std::cout << float(h_out(i)) << ", ";
-  }
-  std::cout << std::endl;
-}
-
-template <typename T>
-void print_vals(raft::resources& handle, T* out, int len)
-{
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto h_out          = raft::make_host_vector<T>(handle, len);
-  raft::copy(h_out.data_handle(), out, len, stream);
-  int limit = int(len);
-  for (int i = 0; i < limit; i++) {
-    std::cout << float(h_out(i)) << ", ";
-  }
-  std::cout << std::endl;
-}
-
 template <typename T1, typename T2>
 struct check_zeroes {
   float __device__ operator()(const T1& value, const T2& idx)
@@ -148,13 +122,12 @@ void preproc(raft::resources& handle,
   for (int row = 0; row < num_rows; row++) {
     for (int col = 0; col < num_cols; col++) {
       float val = host_matrix(row, col);
-      // std::cout << val << ", ";
       if (val == 0) {
         out_host_matrix(row, col) = 0.0f;
       } else {
-        float tf      = (float)val / h_output_rows_lengths(0, row);
+        float tf      = (float)raft::log<double>(val);
         double idf_in = (double)num_rows / h_output_cols_cnt(0, col);
-        float idf     = (float)raft::log<double>(idf_in);
+        float idf     = (float)raft::log<double>(idf_in + 1);
         if (tf_idf) {
           result = tf * idf;
         } else {

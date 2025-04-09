@@ -77,16 +77,41 @@ __global__ void _scan(int* rows, int nnz, int* counts)
  */
 __global__ void _fit_compute_occurs(int* cols, int nnz, int* counts, int* feats, int vocabSize)
 {
-  int index = blockIdx.x * blockDim.x + threadIdx.x;
-  if ((index < nnz) && (counts[index] == 1)) {
-    int targetVal = cols[index];
-    int vocab     = targetVal % vocabSize;
-    while (targetVal == cols[index]) {
-      feats[vocab] = feats[vocab] + 1;
-      index++;
-      if (index >= nnz) { return; }
-    }
-  }
+  //   int index = blockIdx.x * blockDim.x + threadIdx.x;
+  //   if ((index < nnz) && (counts[index] == 1)) {
+  //     int targetVal = cols[index];
+  //     int vocab     = targetVal % vocabSize;
+  //     while (targetVal == cols[index]) {
+  //       feats[vocab] = feats[vocab] + 1;
+  //       index++;
+  //       if (index >= nnz) { return; }
+  //     }  cudaMallocManaged(&counts, maxLimit * sizeof(IndexType));
+  //     cudaMemset(counts, 0, maxLimit * sizeof(IndexType));
+  //     raft::sparse::op::coo_sort(IndexType(rows.size()),
+  //                                IndexType(columns.size()),
+  //                                IndexType(values.size()),
+  //                                rows.data_handle(),
+  //                                columns.data_handle(),
+  //                                values.data_handle(),
+  //                                stream);
+  //     raft::sparse::matrix::detail::_scan<<<num_blocks, blockSize>>>(rows.data_handle(), nnz,
+  //     counts); raft::sparse::matrix::detail::_transform<<<num_blocks,
+  //     blockSize>>>(rows.data_handle(),
+  //                                                                         columns.data_handle(),
+  //                                                                         values.data_handle(),
+  //                                                                         featIdCount.data_handle(),
+  //                                                                         counts,
+  //                                                                         results,
+  //                                                                         num_rows,
+  //                                                                         avgIdLen,
+  //                                                                         k_param,
+  //                                                                         b_param,
+  //                                                                         nnz,
+  //                                                                         num_feats,
+  //                                                                         bm25_on);
+  //     cudaFree(counts);
+  //     cudaDeviceSynchronize();
+  //   }
 }
 
 /**
@@ -151,7 +176,7 @@ __global__ void _transform(int* rows,
       int vocab     = col % vocabSize;
       float tf      = (float)values[index] / row_length;
       double idf_in = (double)num_rows / feat_id_count[vocab];
-      float idf     = (float)raft::log<double>(idf_in);
+      float idf     = (float)raft::log<double>(idf_in + 1);
       result        = tf * idf;
       if (bm25) {
         float bm = ((k + 1) * tf) / (k * ((1.0f - b) + b * (row_length / avgRowLen)) + tf);
