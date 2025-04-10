@@ -42,61 +42,6 @@ struct mapper {
   IndexType* map;
 };
 
-template <typename IndexType, typename ValueType>
-struct tfidf {
-  tfidf(IndexType numRows, raft::device_vector_view<IndexType> featIdCount)
-    : num_rows(numRows), feat_id_count(featIdCount)
-  {
-  }
-
-  __host__ __device__ ValueType operator()(const IndexType& col, const ValueType& value)
-  {
-    ValueType tf  = (ValueType)raft::log<double>(value);
-    double idf_in = (double)num_rows / feat_id_count[col];
-    ValueType idf = (ValueType)raft::log<double>(idf_in + 1);
-    return (ValueType)tf * idf;
-  }
-
-  raft::device_vector_view<IndexType> feat_id_count;
-  IndexType num_rows;
-};
-
-template <typename IndexType, typename ValueType>
-struct bm25 {
-  bm25(IndexType numRows,
-       raft::device_vector_view<IndexType> featIdCount,
-       raft::device_vector_view<IndexType> rowFeatCnts,
-       ValueType avg_feat_len,
-       ValueType k_param,
-       ValueType b_param)
-  {
-    num_rows        = numRows;
-    feat_id_count   = featIdCount;
-    row_feat_cnts   = rowFeatCnts;
-    avg_feat_length = avg_feat_len;
-    k               = k_param;
-    b               = b_param;
-  }
-  __host__ __device__ ValueType operator()(const IndexType& row,
-                                           const IndexType& column,
-                                           const ValueType& value)
-  {
-    ValueType tf  = raft::log<ValueType>(value);
-    double idf_in = (double)num_rows / feat_id_count[column];
-    ValueType idf = (ValueType)raft::log<double>(idf_in + 1);
-    ValueType bm =
-      ((k + 1) * tf) / (k * ((1.0f - b) + b * (row_feat_cnts[row] / avg_feat_length)) + tf);
-
-    return (ValueType)idf * bm;
-  }
-  raft::device_vector_view<IndexType> row_feat_cnts;
-  raft::device_vector_view<IndexType> feat_id_count;
-  ValueType avg_feat_length;
-  IndexType num_rows;
-  ValueType k;
-  ValueType b;
-};
-
 /**
  * @brief Get unique counts
  * @param handle: raft resource handle
@@ -146,12 +91,13 @@ void _fit(raft::resources const& handle,
           raft::device_vector_view<IndexType, int64_t> rowFeatCnts)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+
   int uniq_cnt = raft::sparse::neighbors::get_n_components(rows.data_handle(), rows.size(), stream);
   auto row_keys = raft::make_device_vector<IndexType>(handle, uniq_cnt);
   auto row_cnts = raft::make_device_vector<ValueType>(handle, uniq_cnt);
-
   get_uniques_counts<IndexType, ValueType, int64_t>(
     handle, rows, columns, values, values, row_keys.view(), row_cnts.view());
+
   auto dummy_vec = raft::make_device_vector<IndexType>(handle, uniq_cnt);
   raft::linalg::map(handle,
                     dummy_vec.view(),
@@ -188,47 +134,36 @@ void transform(raft::resources const& handle,
                raft::device_vector_view<ValueType, int64_t> values,
                raft::device_vector_view<IndexType, int64_t> featIdCount,
                IndexType fullIdLen,
-               IndexType nnz,
                int num_rows,
-               int num_feats,
                raft::device_vector_view<ValueType, int64_t> results,
                bool bm25_on,
                float k_param,
                float b_param,
                raft::device_vector_view<IndexType, int64_t> rowFeatCnts)
 {
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-
   float avgIdLen = (ValueType)fullIdLen / num_rows;
-  raft::sparse::op::coo_sort(IndexType(rows.size()),
-                             IndexType(columns.size()),
-                             IndexType(values.size()),
-                             rows.data_handle(),
-                             columns.data_handle(),
-                             values.data_handle(),
-                             stream);
   if (bm25_on) {
-    // raft::linalg::map(handle,
-    //   results,
-    //   tfidf<IndexType, ValueType>(num_rows, featIdCount),
-    //   raft::make_const_mdspan(columns),
-    //   raft::make_const_mdspan(values)
-    // );
-    raft::linalg::map(
-      handle,
-      results,
-      bm25<IndexType, ValueType>(num_rows, featIdCount, rowFeatCnts, avgIdLen, k_param, b_param),
-      raft::make_const_mdspan(rows),
-      raft::make_const_mdspan(columns),
-      raft::make_const_mdspan(values));
+    raft::linalg::map_offset(handle, results, [=] __device__(IndexType idx) {
+      ValueType tf  = raft::log<ValueType>(values.data_handle()[idx]);
+      double idf_in = (double)num_rows / featIdCount[columns.data_handle()[idx]];
+      ValueType idf = (ValueType)raft::log<double>(idf_in + 1);
+      ValueType bm  = ((k_param + 1) * tf) /
+                     (k_param * ((1.0f - b_param) +
+                                 b_param * (rowFeatCnts[rows.data_handle()[idx]] / avgIdLen)) +
+                      tf);
+      return (ValueType)idf * bm;
+    });
   } else {
-    raft::linalg::map(handle,
-                      results,
-                      tfidf<IndexType, ValueType>(num_rows, featIdCount),
-                      raft::make_const_mdspan(columns),
-                      raft::make_const_mdspan(values));
+    raft::linalg::map_offset(handle, results, [=] __device__(IndexType idx) {
+      ValueType tf  = (ValueType)raft::log<double>(values.data_handle()[idx]);
+      double idf_in = (double)num_rows / featIdCount[columns.data_handle()[idx]];
+      ValueType idf = (ValueType)raft::log<double>(idf_in + 1);
+      return (ValueType)tf * idf;
+    });
   }
 }
+
+//  ----------------------------------------------------------------------------
 
 /**
  * The class facilitates the creation a tfidf and bm25 encoding values for sparse matrices
