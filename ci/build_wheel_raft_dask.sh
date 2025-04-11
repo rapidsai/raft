@@ -17,4 +17,4 @@ echo "libraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo /tmp/libraft_dist/libraft
 export PIP_CONSTRAINT="/tmp/constraints.txt"
 
 ci/build_wheel.sh raft-dask ${package_dir} python
-ci/validate_wheel.sh ${package_dir} final_dist
+ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
