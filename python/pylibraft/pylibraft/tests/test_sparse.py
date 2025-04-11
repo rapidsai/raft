@@ -78,7 +78,7 @@ class TestEigsh:
 
     def _test_eigsh(self, a, k, xp, sp):
         expected_ret = sp.linalg.eigsh(
-            a, k=k, return_eigenvectors=self.return_eigenvectors
+            a, k=k, return_eigenvectors=self.return_eigenvectors, which="SA"
         )
         actual_ret = eigsh(a, k=k)
         if self.return_eigenvectors:
@@ -93,7 +93,7 @@ class TestEigsh:
             w = actual_ret
             exp_w = expected_ret
         w = xp.sort(w)
-        cupy.allclose(w, exp_w, rtol=tol, atol=tol)
+        assert cupy.allclose(w, exp_w, rtol=tol, atol=tol)
 
     @pytest.mark.parametrize("format", ["csr"])  # , 'csc', 'coo'])
     @pytest.mark.parametrize("k", [3, 6, 12])
@@ -110,16 +110,16 @@ class TestEigsh:
         xp, sp = cupy, sparse
         a = xp.diag(xp.ones((self.n,), dtype="f"))
         with pytest.raises(ValueError):
-            sp.linalg.eigsh(xp.ones((2, 1), dtype="f"))
+            sp.linalg.eigsh(xp.ones((2, 1), dtype="f"), which="SA")
         with pytest.raises(ValueError):
-            sp.linalg.eigsh(a, k=0)
+            sp.linalg.eigsh(a, k=0, which="SA")
         a = xp.diag(xp.ones((self.n,), dtype="f"))
         with pytest.raises(ValueError):
-            sp.linalg.eigsh(xp.ones((1,), dtype="f"))
+            sp.linalg.eigsh(xp.ones((1,), dtype="f"), which="SA")
         with pytest.raises(TypeError):
-            sp.linalg.eigsh(xp.ones((2, 2), dtype="i"))
+            sp.linalg.eigsh(xp.ones((2, 2), dtype="i"), which="SA")
         with pytest.raises(ValueError):
-            sp.linalg.eigsh(a, k=self.n)
+            sp.linalg.eigsh(a, k=self.n, which="SA")
 
     def test_starting_vector(self):
         # Make symmetric matrix
