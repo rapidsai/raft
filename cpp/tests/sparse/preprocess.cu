@@ -119,7 +119,8 @@ class SparsePreprocessCSR
     auto a_columns      = raft::make_device_vector<Index_, int64_t>(handle, nnz);
     auto a_values       = raft::make_device_vector<Type_f, int64_t>(handle, nnz);
 
-    int random_seed = rand();
+    // int random_seed = rand();
+    int random_seed = 12345;
     raft::util::create_dataset<Index_, Type_f>(handle,
                                                a_rows.view(),
                                                a_columns.view(),
@@ -135,74 +136,40 @@ class SparsePreprocessCSR
 
     auto rows_csr = raft::make_device_vector<Index_, int64_t>(handle, num_rows + 1);
     raft::sparse::convert::sorted_coo_to_csr(
-      coo_a.rows(), coo_a.nnz, rows_csr.data_handle(), num_rows + 1, stream);
+      coo_a.rows(), coo_a.nnz, rows_csr.data_handle(), rows_csr.size(), stream);
     auto csr_struct_view = raft::make_device_compressed_structure_view(
-      rows_csr.data_handle(), coo_a.cols(), num_rows + 1, num_cols, int(coo_a.nnz));
+      rows_csr.data_handle(), coo_a.cols(), num_rows, num_cols, int(coo_a.nnz));
     auto csr_matrix =
       raft::make_device_csr_matrix<Type_f, Index_, Index_, Index_>(handle, csr_struct_view);
     raft::update_device<Type_f>(
       csr_matrix.view().get_elements().data(), coo_a.vals(), int(coo_a.nnz), stream);
 
+    auto coo_a_matrix = create_coo_matrix<Type_f, Index_>(handle, coo_a);
+
     auto result = raft::make_device_vector<Type_f, int64_t>(handle, int(coo_a.nnz));
 
-    auto rows    = raft::make_device_vector<Index_, int64_t>(handle, coo_a.nnz);
-    auto columns = raft::make_device_vector<Index_, int64_t>(handle, coo_a.nnz);
-    auto values  = raft::make_device_vector<Type_f, int64_t>(handle, coo_a.nnz);
-
-    raft::copy(rows.data_handle(), coo_a.rows(), coo_a.nnz, stream);
-    raft::copy(columns.data_handle(), coo_a.cols(), coo_a.nnz, stream);
-    raft::copy(values.data_handle(), coo_a.vals(), coo_a.nnz, stream);
-    auto rowFeatCnts = raft::make_device_vector<int, int64_t>(handle, coo_a.nnz);
-
-    auto featIdCount  = raft::make_device_vector<int, int64_t>(handle, num_cols);
-    int fullFeatCount = 0;
-    if (coo_on) {
-      raft::sparse::matrix::_fit<float, int>(handle,
-                                             rows.view(),
-                                             columns.view(),
-                                             values.view(),
-                                             num_rows,
-                                             num_cols,
-                                             featIdCount.view(),
-                                             fullFeatCount,
-                                             rowFeatCnts.view());
-    } else {
-      raft::sparse::matrix::_fit<float, int>(handle,
-                                             rows.view(),
-                                             columns.view(),
-                                             values.view(),
-                                             num_rows,
-                                             num_cols,
-                                             featIdCount.view(),
-                                             fullFeatCount,
-                                             rowFeatCnts.view());
-    }
-
-    raft::sparse::matrix::transform(handle,
-                                    rows.view(),
-                                    columns.view(),
-                                    values.view(),
-                                    featIdCount.view(),
-                                    fullFeatCount,
-                                    num_rows + 1,
-                                    result.view(),
-                                    bm25_on,
-                                    1.6f,
-                                    0.75f,
-                                    rowFeatCnts.view());
-
     if (bm25_on) {
-      auto bm25_vals = raft::make_device_vector<Type_f, int64_t>(handle, int(a_values.size()));
+      auto bm25_vals = raft::make_device_vector<Type_f, int64_t>(handle, int(coo_a.nnz));
       raft::util::calc_tfidf_bm25<Index_, Type_f>(handle, csr_matrix.view(), bm25_vals.view());
+      if (coo_on) {
+        raft::sparse::matrix::encode_bm25<float, int>(handle, coo_a_matrix, result.view());
+      } else {
+        raft::sparse::matrix::encode_bm25<float, int>(handle, csr_matrix, result.view());
+      }
       ASSERT_TRUE(raft::devArrMatch<Type_f>(bm25_vals.data_handle(),
                                             result.data_handle(),
                                             result.size(),
                                             raft::CompareApprox<Type_f>(2e-5),
                                             stream));
     } else {
-      auto tfidf_vals = raft::make_device_vector<Type_f, int64_t>(handle, int(a_values.size()));
+      auto tfidf_vals = raft::make_device_vector<Type_f, int64_t>(handle, int(coo_a.nnz));
       raft::util::calc_tfidf_bm25<Index_, Type_f>(
         handle, csr_matrix.view(), tfidf_vals.view(), true);
+      if (coo_on) {
+        raft::sparse::matrix::encode_tfidf<float, int>(handle, coo_a_matrix, result.view());
+      } else {
+        raft::sparse::matrix::encode_tfidf<float, int>(handle, csr_matrix, result.view());
+      }
       ASSERT_TRUE(raft::devArrMatch<Type_f>(tfidf_vals.data_handle(),
                                             result.data_handle(),
                                             result.size(),

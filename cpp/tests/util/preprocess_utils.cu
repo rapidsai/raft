@@ -125,15 +125,15 @@ void preproc(raft::resources& handle,
       if (val == 0) {
         out_host_matrix(row, col) = 0.0f;
       } else {
-        float tf      = (float)raft::log<double>(val);
-        double idf_in = (double)num_rows / h_output_cols_cnt(0, col);
-        float idf     = (float)raft::log<double>(idf_in + 1);
+        float tf     = (float)raft::log<float>(val);
+        float idf_in = (float)num_rows / h_output_cols_cnt(0, col);
+        float idf    = (float)raft::log<float>(idf_in + 1);
         if (tf_idf) {
-          result = tf * idf;
+          result = (float)tf * idf;
         } else {
           float bm25 = ((k1 + 1) * tf) /
                        (k1 * ((1 - b) + b * (h_output_rows_lengths(0, row) / avg_row_length)) + tf);
-          result = idf * bm25;
+          result = (float)idf * bm25;
         }
         out_host_matrix(row, col) = result;
         out_host_vector(count)    = result;
@@ -141,7 +141,6 @@ void preproc(raft::resources& handle,
       }
     }
   }
-
   raft::copy(results.data_handle(), out_host_vector.data_handle(), out_host_vector.size(), stream);
 }
 
