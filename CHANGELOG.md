@@ -1,3 +1,50 @@
+# raft 25.04.00 (9 Apr 2025)
+
+## 🚨 Breaking Changes
+
+- Account for cugraph API breakage ([#2581](https://github.com/rapidsai/raft/pull/2581)) [@divyegala](https://github.com/divyegala)
+- Use new rapids-logger library ([#2566](https://github.com/rapidsai/raft/pull/2566)) [@vyasr](https://github.com/vyasr)
+
+## 🐛 Bug Fixes
+
+- Backport build patch fix ([#2620](https://github.com/rapidsai/raft/pull/2620)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Revert &quot;Temporarily increase `max_days_without_success` ([#2602)&quot; (#2613](https://github.com/rapidsai/raft/pull/2602)&quot; (#2613)) [@divyegala](https://github.com/divyegala)
+- Relax max duplicates in batched NN Descent ([#2610](https://github.com/rapidsai/raft/pull/2610)) [@jinsolp](https://github.com/jinsolp)
+- [Fix] Lanczos solver gemv fix ([#2607](https://github.com/rapidsai/raft/pull/2607)) [@aamijar](https://github.com/aamijar)
+- [Fix] `select-k-csr` failure on CUDA11.x + H100 ([#2604](https://github.com/rapidsai/raft/pull/2604)) [@rhdong](https://github.com/rhdong)
+- Temporarily increase `max_days_without_success` ([#2602](https://github.com/rapidsai/raft/pull/2602)) [@divyegala](https://github.com/divyegala)
+- Swap `blocks` and `threads_per_block` in `compute_graph_laplacian` ([#2597](https://github.com/rapidsai/raft/pull/2597)) [@jcrist](https://github.com/jcrist)
+- [BUG] Fix illegal memory access in linalg::reduction ([#2592](https://github.com/rapidsai/raft/pull/2592)) [@enp1s0](https://github.com/enp1s0)
+- Require sphinx&lt;8.2.0 ([#2590](https://github.com/rapidsai/raft/pull/2590)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Account for cugraph API breakage ([#2581](https://github.com/rapidsai/raft/pull/2581)) [@divyegala](https://github.com/divyegala)
+- `#include &lt;numeric&gt;` for `std::iota` ([#2578](https://github.com/rapidsai/raft/pull/2578)) [@benfred](https://github.com/benfred)
+- Fix Laplacian calculation in spectral partitioning ([#2568](https://github.com/rapidsai/raft/pull/2568)) [@wphicks](https://github.com/wphicks)
+- Take argument by `const&amp;` as the input range is const ([#2558](https://github.com/rapidsai/raft/pull/2558)) [@miscco](https://github.com/miscco)
+- Allow some of the sparse utility functions to handle larger matrices ([#2541](https://github.com/rapidsai/raft/pull/2541)) [@viclafargue](https://github.com/viclafargue)
+
+## 🛠️ Improvements
+
+- ci: pre-filter 11.4 jobs before they are enabled in shared workflows ([#2608](https://github.com/rapidsai/raft/pull/2608)) [@gforsyth](https://github.com/gforsyth)
+- Use conda-build instead of conda-mambabuild ([#2595](https://github.com/rapidsai/raft/pull/2595)) [@bdice](https://github.com/bdice)
+- Replace `cub::Sum` and `cub::Max` with `cuda::std::plus` and `cuda::maximum` ([#2594](https://github.com/rapidsai/raft/pull/2594)) [@miscco](https://github.com/miscco)
+- Update all `conda_build_config.yaml`s RAPIDS UCX version ([#2589](https://github.com/rapidsai/raft/pull/2589)) [@jakirkham](https://github.com/jakirkham)
+- Drop `cub::TransformInputIterator` in favor of `thrust::transform_iterator` ([#2588](https://github.com/rapidsai/raft/pull/2588)) [@miscco](https://github.com/miscco)
+- Consolidate more Conda solves in CI ([#2587](https://github.com/rapidsai/raft/pull/2587)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Fix duplicate indices in batch NN Descent ([#2586](https://github.com/rapidsai/raft/pull/2586)) [@jinsolp](https://github.com/jinsolp)
+- Require CMake 3.30.4 ([#2584](https://github.com/rapidsai/raft/pull/2584)) [@robertmaynard](https://github.com/robertmaynard)
+- Create Conda CI test env in one step ([#2580](https://github.com/rapidsai/raft/pull/2580)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Use shared-workflows branch-25.04 ([#2576](https://github.com/rapidsai/raft/pull/2576)) [@bdice](https://github.com/bdice)
+- Add `shellcheck` to pre-commit and fix warnings ([#2575](https://github.com/rapidsai/raft/pull/2575)) [@gforsyth](https://github.com/gforsyth)
+- Add build_type input field for `test.yaml` ([#2573](https://github.com/rapidsai/raft/pull/2573)) [@gforsyth](https://github.com/gforsyth)
+- Use `rapids-pip-retry` in CI jobs that might need retries ([#2571](https://github.com/rapidsai/raft/pull/2571)) [@gforsyth](https://github.com/gforsyth)
+- Avoid limited memory adaptor issue in balanced KMeans ([#2570](https://github.com/rapidsai/raft/pull/2570)) [@csadorf](https://github.com/csadorf)
+- update telemetry and retarget 25.04 ([#2569](https://github.com/rapidsai/raft/pull/2569)) [@msarahan](https://github.com/msarahan)
+- Use new rapids-logger library ([#2566](https://github.com/rapidsai/raft/pull/2566)) [@vyasr](https://github.com/vyasr)
+- disallow fallback to Make in Python builds ([#2563](https://github.com/rapidsai/raft/pull/2563)) [@jameslamb](https://github.com/jameslamb)
+- Forward-merge branch-25.02 into branch-25.04 ([#2561](https://github.com/rapidsai/raft/pull/2561)) [@bdice](https://github.com/bdice)
+- Migrate to NVKS for amd64 CI runners ([#2559](https://github.com/rapidsai/raft/pull/2559)) [@bdice](https://github.com/bdice)
+- Add `verify-codeowners` hook ([#2557](https://github.com/rapidsai/raft/pull/2557)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+
 # raft 25.02.00 (13 Feb 2025)
 
 ## 🚨 Breaking Changes
