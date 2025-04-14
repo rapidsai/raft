@@ -28,6 +28,10 @@
 
 namespace raft::sparse::matrix::detail {
 
+/**
+ * @brief Set the values of a vector(map) given the index and corresponding value.
+ * @param map: the array to set values in.
+ */
 template <typename IndexType, typename ValueType>
 struct mapper {
   mapper(IndexType* map) : map(map) {}
@@ -43,10 +47,10 @@ struct mapper {
 /**
  * @brief Get unique counts
  * @param handle: raft resource handle
- * @param sort_vector: Input COO array that contains the keys.
- * @param secondary_vector: Input with secondary keys of COO, (columns or rows).
- * @param data: Input COO values array.
- * @param itr_vals: Input array used to calculate counts.
+ * @param rows: Input COO array rows, of size nnz.
+ * @param columns: Input COO columns, of size nnz.
+ * @param values: Input COO values array, of size nnz.
+ * @param nnz: Size of the COO input arrays.
  * @param keys_out: Output array with one entry for each key. (same size as counts_out)
  * @param counts_out: Output array with cumulative sum for each key. (same size as keys_out)
  */
@@ -59,21 +63,7 @@ void get_uniques_counts(raft::resources const& handle,
                         raft::device_vector_view<IndexType, int64_t> keys_out,
                         raft::device_vector_view<ValueType, int64_t> counts_out)
 {
-  // auto rows           = coo_in.structure_view().get_rows();
-  // auto columns           = coo_in.structure_view().get_cols();
-  // auto values           = coo_in.view().get_elements();
-  // auto nnz            = coo_in.structure_view().get_nnz();
-
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  // raft::sparse::op::coo_sort(nnz,
-  //                            nnz,
-  //                            nnz,
-  //                            rows,
-  //                            columns,
-  //                            values,
-  //                            stream);
-  // replace this call with raft version when available
-  // (https://github.com/rapidsai/raft/issues/2477)
   thrust::reduce_by_key(raft::resource::get_thrust_policy(handle),
                         rows,
                         rows + nnz,
@@ -82,6 +72,18 @@ void get_uniques_counts(raft::resources const& handle,
                         counts_out.data_handle());
 }
 
+/**
+ * @brief This function counts the number of occurrences per feature(column) and records the total
+ * number of features
+ * @param handle: raft resource handle
+ * @param columns: Input COO columns, of size nnz.
+ * @param values: Input COO values array, of size nnz.
+ * @param num_cols: total number of columns in the matrix.
+ * @param nnz: Size of the COO input arrays.
+ * @param idFeatCount: Output array holding the occurrences per feature for matrix, size of
+ * num_cols.
+ * @param fullFeatCount: Output value corresponding to total number of features in matrix.
+ */
 template <typename ValueType = float, typename IndexType = int>
 void fit_tfidf(raft::resources const& handle,
                IndexType* columns,
@@ -106,6 +108,22 @@ void fit_tfidf(raft::resources const& handle,
   fullFeatCount += (int)batchIdLen(0);
 }
 
+/**
+ * @brief This function counts the number of occurrences per feature(column) and records the total
+ * number of features and calculates the per row feature occurrences.
+ * @param handle: raft resource handle
+ * @param rows: Input COO rows, of size nnz.
+ * @param columns: Input COO columns, of size nnz.
+ * @param values: Input COO values array, of size nnz.
+ * @param num_rows: total number of rows in the matrix.
+ * @param num_cols: total number of columns in the matrix.
+ * @param nnz: Size of the COO input arrays.
+ * @param idFeatCount: Output array holding the occurrences per feature for matrix, size of
+ * num_cols.
+ * @param fullFeatCount: Output value corresponding to total number of features in matrix.
+ * @param rowFeatCnts Output array holding the feature occurrences per row for matrix, size of
+ * num_rows.
+ */
 template <typename ValueType = float, typename IndexType = int>
 void fit_bm25(raft::resources const& handle,
               IndexType* rows,
@@ -136,6 +154,20 @@ void fit_bm25(raft::resources const& handle,
   fit_tfidf(handle, columns, values, num_cols, nnz, idFeatCount, fullFeatCount);
 }
 
+/**
+ * @brief This function calculate the BM25 value for the COO records of the matrix.
+ * @param handle: raft resource handle
+ * @param rows: Input COO rows, of size nnz.
+ * @param columns: Input COO columns, of size nnz.
+ * @param values: Input COO values array, of size nnz.
+ * @param num_rows: total number of rows in the matrix.
+ * @param idFeatCount: array holding the occurrences per feature for matrix, size of num_cols.
+ * @param fullFeatCount: value corresponding to total number of features in matrix.
+ * @param rowFeatCnts array holding the feature occurrences per row for matrix, size of num_rows.
+ * @param k_param bm25 okapi optimization parameter k1.
+ * @param b_param bm25 okapi optimization parameter b.
+ * @param results Output array with values of the bm25 transform for each coo entry.
+ */
 template <typename ValueType = float, typename IndexType = int>
 void transform_bm25(raft::resources const& handle,
                     IndexType* rows,
@@ -162,6 +194,17 @@ void transform_bm25(raft::resources const& handle,
   });
 }
 
+/**
+ * @brief This function calculate the tf-idf value for the COO records of the matrix.
+ * @param handle: raft resource handle
+ * @param rows: Input COO rows, of size nnz.
+ * @param columns: Input COO columns, of size nnz.
+ * @param values: Input COO values array, of size nnz.
+ * @param num_rows: total number of rows in the matrix.
+ * @param idFeatCount: array holding the occurrences per feature for matrix, size of num_cols.
+ * @param fullFeatCount: value corresponding to total number of features in matrix.
+ * @param results Output array with values of the bm25 transform for each coo entry.
+ */
 template <typename ValueType = float, typename IndexType = int>
 void transform_tfidf(raft::resources const& handle,
                      IndexType* columns,
