@@ -40,7 +40,7 @@ try:
 
     pytestmark = pytest.mark.mg
 except ImportError:
-    pytestmark = pytest.mark.fail
+    pytestmark = pytest.mark.skip
 
 
 def create_client(cluster):
@@ -169,18 +169,18 @@ def test_handles(cluster):
         client.close()
 
 
-# if pytestmark.markname != "skip":
-functions = [
-    perform_test_comms_allgather,
-    perform_test_comms_allreduce,
-    perform_test_comms_bcast,
-    perform_test_comms_gather,
-    perform_test_comms_gatherv,
-    perform_test_comms_reduce,
-    perform_test_comms_reducescatter,
-]
-# else:
-# functions = [None]
+if pytestmark.markname != "skip":
+    functions = [
+        perform_test_comms_allgather,
+        perform_test_comms_allreduce,
+        perform_test_comms_bcast,
+        perform_test_comms_gather,
+        perform_test_comms_gatherv,
+        perform_test_comms_reduce,
+        perform_test_comms_reducescatter,
+    ]
+else:
+    functions = [None]
 
 
 def _test_nccl_root_placement(client, root_location):
