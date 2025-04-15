@@ -59,6 +59,7 @@ set_property(
            "$ORIGIN/../../nvidia/nvjitlink/lib"
 )
 
+message(STATUS "${USE_NCCL_RUNTIME_WHEEL}")
 if(USE_NCCL_RUNTIME_WHEEL)
   set_property(TARGET raft_lib PROPERTY INSTALL_RPATH "$ORIGIN/../../nvidia/nccl/lib")
 endif()
