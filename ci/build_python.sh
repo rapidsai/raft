@@ -19,7 +19,7 @@ version=$(rapids-generate-version)
 export RAPIDS_PACKAGE_VERSION=${version}
 echo "${version}" > VERSION
 
-# populates `RATTLER_CHANNELS` array
+# populates `RATTLER_CHANNELS` array and `RATTLER_ARGS` array
 source rapids-rattler-channel-string
 
 rapids-logger "Prepending channel ${CPP_CHANNEL} to RATTLER_CHANNELS"
@@ -34,10 +34,7 @@ rapids-logger "Building pylibraft"
 # more info is available at
 # https://rattler.build/latest/tips_and_tricks/#using-sccache-or-ccache-with-rattler-build
 rattler-build build --recipe conda/recipes/pylibraft \
-                    --experimental \
-                    --no-build-id \
-                    --channel-priority disabled \
-                    --output-dir "$RAPIDS_CONDA_BLD_OUTPUT_DIR" \
+                    "${RATTLER_ARGS[@]}" \
                     "${RATTLER_CHANNELS[@]}"
 
 sccache --show-adv-stats
@@ -46,10 +43,7 @@ sccache --zero-stats
 rapids-logger "Building raft-dask"
 
 rattler-build build --recipe conda/recipes/raft-dask\
-                    --experimental \
-                    --no-build-id \
-                    --channel-priority disabled \
-                    --output-dir "$RAPIDS_CONDA_BLD_OUTPUT_DIR" \
+                    "${RATTLER_ARGS[@]}" \
                     "${RATTLER_CHANNELS[@]}"
 
 sccache --show-adv-stats
