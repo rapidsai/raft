@@ -36,7 +36,7 @@ void col_right_shift(raft::resources const& handle,
                      math_t val,
                      size_t k)
 {
-  RAFT_EXPECTS(in_out.extent(1) > k,
+  RAFT_EXPECTS(static_cast<size_t>(in_out.extent(1)) > k,
                "Shift size k should be smaller than the number of columns in matrix.");
   detail::col_right_shift(handle, in_out, val, k);
 }
@@ -72,7 +72,7 @@ void col_right_shift_self(raft::resources const& handle,
                           raft::device_matrix_view<math_t, matrix_idx_t, row_major> in_out,
                           size_t k)
 {
-  RAFT_EXPECTS(in_out.extent(1) > k,
+  RAFT_EXPECTS(static_cast<size_t>(in_out.extent(1)) > k,
                "Shift size k should be smaller than the number of columns in matrix.");
   detail::col_right_shift_self(handle, in_out, k);
 }
