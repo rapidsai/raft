@@ -27,11 +27,13 @@ RAFT_KERNEL col_right_shift(T* in_out, size_t n_rows, size_t n_cols, size_t k, T
 {
   size_t row = blockIdx.x * blockDim.x + threadIdx.x;
   if (row < n_rows) {
-    for (size_t i = 0; i < k; i++) {
-      in_out[row * n_cols + (n_cols - i)] = in_out[row * n_cols + (k - i)];
+    size_t base_idx      = row * n_cols;
+    size_t cols_to_shift = n_cols - k;
+    for (size_t i = 1; i <= cols_to_shift; i++) {
+      in_out[base_idx + (n_cols - i)] = in_out[base_idx + (n_cols - k - i)];
     }
     for (size_t i = 0; i < k; i++) {
-      in_out[row * n_cols + i] = val;
+      in_out[base_idx + i] = val;
     }
   }
 }
@@ -52,12 +54,14 @@ void col_right_shift(raft::resources const& handle,
 }
 
 template <typename T>
-RAFT_KERNEL col_right_shift(T* in_out, size_t n_rows, size_t n_cols, size_t k, T* values)
+RAFT_KERNEL col_right_shift(T* in_out, size_t n_rows, size_t n_cols, size_t k, const T* values)
 {
   size_t row = blockIdx.x * blockDim.x + threadIdx.x;
   if (row < n_rows) {
-    for (size_t i = 0; i < k; i++) {
-      in_out[row * n_cols + (n_cols - i)] = in_out[row * n_cols + (k - i)];
+    size_t base_idx      = row * n_cols;
+    size_t cols_to_shift = n_cols - k;
+    for (size_t i = 1; i <= cols_to_shift; i++) {
+      in_out[base_idx + (n_cols - i)] = in_out[base_idx + (n_cols - k - i)];
     }
     for (size_t i = 0; i < k; i++) {
       in_out[row * n_cols + i] = values[row * k + i];
@@ -75,8 +79,41 @@ void col_right_shift(raft::resources const& handle,
   size_t TPB        = 256;
   size_t num_blocks = static_cast<size_t>((n_rows + TPB) / TPB);
 
+  size_t k = values.extent(1);
+
   col_right_shift<math_t><<<num_blocks, TPB, 0, raft::resource::get_cuda_stream(handle)>>>(
-    in_out.data_handle(), n_rows, n_cols, values.extent(1), values);
+    in_out.data_handle(), n_rows, n_cols, k, values.data_handle());
+  return;
+}
+
+template <typename T>
+RAFT_KERNEL col_right_shift_self(T* in_out, size_t n_rows, size_t n_cols, size_t k)
+{
+  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < n_rows) {
+    size_t base_idx      = row * n_cols;
+    size_t cols_to_shift = n_cols - k;
+    for (size_t i = 1; i <= cols_to_shift; i++) {
+      in_out[base_idx + (n_cols - i)] = in_out[base_idx + (n_cols - k - i)];
+    }
+    for (size_t i = 0; i < k; i++) {
+      in_out[row * n_cols + i] = row;
+    }
+  }
+}
+
+template <typename math_t, typename matrix_idx_t>
+void col_right_shift_self(raft::resources const& handle,
+                          raft::device_matrix_view<math_t, matrix_idx_t, row_major> in_out,
+                          size_t k)
+{
+  size_t n_rows     = in_out.extent(0);
+  size_t n_cols     = in_out.extent(1);
+  size_t TPB        = 256;
+  size_t num_blocks = static_cast<size_t>((n_rows + TPB) / TPB);
+
+  col_right_shift_self<math_t><<<num_blocks, TPB, 0, raft::resource::get_cuda_stream(handle)>>>(
+    in_out.data_handle(), n_rows, n_cols, k);
   return;
 }
 
