@@ -27,7 +27,7 @@ namespace raft::matrix {
  * columns in with "val"
  * @param[in] handle: raft handle
  * @param[in out] in_out: input matrix of size (n_rows, n_cols)
- * @param[in] val: value to fill in the first column (same for all rows)
+ * @param[in] val: value to fill in the first k columns (same for all rows)
  * @param[in] k: shift size
  */
 template <typename math_t, typename matrix_idx_t>
@@ -43,10 +43,10 @@ void col_right_shift(raft::resources const& handle,
 
 /**
  * @brief col_shift: in-place shifts all columns by k columns to the right and replaces the first
- * n_rows x k part of the in_out matrix with "values" matrix
+ * n_rows x k part of the in_out matrix with the "values" matrix
  * @param[in] handle: raft handle
  * @param[in out] in_out: input matrix of size (n_rows, n_cols)
- * @param[in] values: value matrix to fill in the first
+ * @param[in] values: value matrix of size (n_rows x k) to fill in the first k columns
  */
 template <typename math_t, typename matrix_idx_t>
 void col_right_shift(raft::resources const& handle,
