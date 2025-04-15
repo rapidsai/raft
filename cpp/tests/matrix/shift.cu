@@ -67,7 +67,8 @@ class ShiftTest : public ::testing::TestWithParam<ShiftInputs<T>> {
                         params.output_matrix.data(),
                         params.output_matrix.size(),
                         resource::get_cuda_stream(handle));
-
+    raft::print_device_vector(
+      "inout before starting", in_out.data_handle(), params.n_cols * params.n_rows, std::cout);
     switch (params.mode) {
       case VAL: {
         raft::matrix::col_right_shift(handle, in_out.view(), params.val, params.k);
@@ -82,14 +83,16 @@ class ShiftTest : public ::testing::TestWithParam<ShiftInputs<T>> {
                             params.n_rows * values_cols,
                             resource::get_cuda_stream(handle));
         raft::matrix::col_right_shift(
-          handle, in_out.view(), raft::make_const_mdspan(values.view()));  // Hypothetical API
+          handle, in_out.view(), raft::make_const_mdspan(values.view()));
         break;
       }
       case SELF: {
-        raft::matrix::col_right_shift_self(handle, in_out.view(), params.k);  // Hypothetical API
+        raft::matrix::col_right_shift_self(handle, in_out.view(), params.k);
         break;
       }
     }
+    raft::print_device_vector(
+      "inout", in_out.data_handle(), params.n_cols * params.n_rows, std::cout);
 
     resource::sync_stream(handle);
   }
@@ -161,8 +164,8 @@ const std::vector<ShiftInputs<float>> inputs_self = {
   },
   {
     SELF,
-    {0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f},        // input
-    {0.0f, 0.0f, 0.1f, 1.0f, 1.0f, 0.4f, 2.0f, 2.0f, 0.2f, 0.1f, 3.0f, 3.0f, 0.3f},  // output
+    {0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f},  // input
+    {0.0f, 0.0f, 0.1f, 1.0f, 1.0f, 0.4f, 2.0f, 2.0f, 0.2f, 3.0f, 3.0f, 0.3f},  // output
     {0.0f},  // values (not used here)
     0.0f,    // val (not used here)
     2lu,     // k

@@ -64,7 +64,7 @@ RAFT_KERNEL col_right_shift(T* in_out, size_t n_rows, size_t n_cols, size_t k, c
       in_out[base_idx + (n_cols - i)] = in_out[base_idx + (n_cols - k - i)];
     }
     for (size_t i = 0; i < k; i++) {
-      in_out[row * n_cols + i] = values[row * k + i];
+      in_out[base_idx + i] = values[row * k + i];
     }
   }
 }
@@ -97,7 +97,7 @@ RAFT_KERNEL col_right_shift_self(T* in_out, size_t n_rows, size_t n_cols, size_t
       in_out[base_idx + (n_cols - i)] = in_out[base_idx + (n_cols - k - i)];
     }
     for (size_t i = 0; i < k; i++) {
-      in_out[row * n_cols + i] = row;
+      in_out[base_idx + i] = row;
     }
   }
 }
