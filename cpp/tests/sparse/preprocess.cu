@@ -17,11 +17,7 @@
 #include "../test_utils.cuh"
 #include "../util/preprocess_utils.cu"
 
-#include <raft/core/device_coo_matrix.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resources.hpp>
 #include <raft/sparse/matrix/preprocessing.cuh>
-#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 

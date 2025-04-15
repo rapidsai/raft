@@ -16,14 +16,9 @@
 
 #pragma once
 
-#include <raft/cluster/detail/kmeans_common.cuh>
-#include <raft/core/device_csr_matrix.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resources.hpp>
-#include <raft/label/detail/classlabels.cuh>
+#include <raft/core/device_coo_matrix.hpp>
+#include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/matrix/detail/preprocessing.cuh>
-
-#include <map>
 
 namespace raft::sparse::matrix {
 /**
@@ -34,7 +29,7 @@ namespace raft::sparse::matrix {
  *   Container for managing reusable resources.
  * @param[in] coo_in
  *   Raft container housing a coordinate format matrix representation.
- * @param[in] results
+ * @param[out] results
  *    vector that will contain the resulting encoded values, size of nnz.
  */
 template <typename ValueType = float, typename IndexType = int>
@@ -69,7 +64,7 @@ void encode_tfidf(raft::resources const& handle,
  *   Container for managing reusable resources.
  * @param[in] csr_in
  *   Raft container housing a compressed sparse row matrix representation.
- * @param[in] results
+ * @param[out] results
  *    vector that will contain the resulting encoded values, size of nnz.
  */
 template <typename ValueType = float, typename IndexType = int>
@@ -103,7 +98,7 @@ void encode_tfidf(raft::resources const& handle,
  *   Container for managing reusable resources.
  * @param[in] csr_in
  *   Raft container housing a compressed sparse row matrix representation.
- * @param[in] results
+ * @param[out] results
  *    vector that will contain the resulting encoded values, size of nnz.
  * @param[in] k_param
  *    bm25 okapi optimization parameter k1
@@ -169,7 +164,7 @@ void encode_bm25(raft::resources const& handle,
  *   Container for managing reusable resources.
  * @param[in] coo_in
  *   Raft container housing a coordinate format matrix representation.
- * @param[in] results
+ * @param[out] results
  *    vector that will contain the resulting encoded values, size of nnz.
  * @param[in] k_param
  *    bm25 okapi optimization parameter k1

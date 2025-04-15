@@ -6,23 +6,19 @@
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
- *
+minio *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <raft/core/device_coo_matrix.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
-#include <raft/linalg/map_reduce.cuh>
+
+#include <raft/matrix/init.cuh>
 #include <raft/random/rmat_rectangular_generator.cuh>
 #include <raft/random/rng.cuh>
-#include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/convert/dense.cuh>
 #include <raft/sparse/matrix/preprocessing.cuh>
-#include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/sparse/op/sort.cuh>
 
