@@ -21,7 +21,7 @@ rapids_cython_create_modules(
 )
 
 if(USE_NCCL_RUNTIME_WHEEL)
-  set(rpaths "$ORIGIN/../../nvidia/nccl")
+  set(rpaths "$ORIGIN/../../nvidia/nccl/lib")
   foreach(tgt IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
     set_property(
       TARGET ${tgt}
