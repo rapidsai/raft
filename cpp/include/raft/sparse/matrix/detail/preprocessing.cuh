@@ -23,22 +23,6 @@
 namespace raft::sparse::matrix::detail {
 
 /**
- * @brief Set the values of a vector(map) given the index and corresponding value.
- * @param map[out]: the array to set values in.
- */
-template <typename IndexType, typename ValueType>
-struct mapper {
-  mapper(IndexType* map) : map(map) {}
-
-  __host__ __device__ ValueType operator()(const IndexType& key, const ValueType& val)
-  {
-    map[key] = val;
-    return (ValueType(0));
-  }
-  IndexType* map;
-};
-
-/**
  * @brief Get unique counts
  * @param handle[in] raft resource handle
  * @param rows[in] Input COO array rows, of size nnz.
@@ -139,11 +123,15 @@ void fit_bm25(raft::resources const& handle,
     handle, rows, columns, values, nnz, row_keys.view(), row_cnts.view());
 
   auto dummy_vec = raft::make_device_vector<IndexType>(handle, uniq_cnt);
-  raft::linalg::map(handle,
-                    dummy_vec.view(),
-                    mapper<IndexType, ValueType>(rowFeatCnts.data_handle()),
-                    raft::make_const_mdspan(row_keys.view()),
-                    raft::make_const_mdspan(row_cnts.view()));
+  raft::linalg::map(
+    handle,
+    dummy_vec.view(),
+    [=] __device__(const IndexType& key, const ValueType& val) {
+      rowFeatCnts.data_handle()[key] = val;
+      return 0;
+    },
+    raft::make_const_mdspan(row_keys.view()),
+    raft::make_const_mdspan(row_cnts.view()));
 
   fit_tfidf(handle, columns, values, num_cols, nnz, idFeatCount, fullFeatCount);
 }
