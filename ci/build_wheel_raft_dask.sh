@@ -19,15 +19,10 @@ export PIP_CONSTRAINT="/tmp/constraints.txt"
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
 # raft-dask CUDA 11 package still vendors libnccl.so, which is why the size is larger
 if [[ "${RAPIDS_CUDA_MAJOR}" == "11" ]]; then
-    PYDISTCHECK_ARGS=(
-        --max-allowed-size-compressed '300M'
-    )
+    export PYDISTCHECK_MAX_SIZE="300M"
 else
-    PYDISTCHECK_ARGS=(
-        --max-allowed-size-compressed '2M'
-    )
+    export PYDISTCHECK_MAX_SIZE="2M"
 fi
-export PYDISTCHECK_ARGS
 
 ci/build_wheel.sh raft-dask ${package_dir} python
 ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
