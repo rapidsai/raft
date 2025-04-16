@@ -47,6 +47,8 @@ enum resource_type {
   CUSTOM,                    // runtime-shared default-constructible resource
   LARGE_WORKSPACE_RESOURCE,  // rmm device memory resource for somewhat large temporary allocations
   NCCL_CLIQUE,               // nccl clique
+  NCCL_COMM,                 // nccl comm
+  CLIQUE_ROOT_RANK,          // clique root rank
 
   LAST_KEY  // reserved for the last key
 };
