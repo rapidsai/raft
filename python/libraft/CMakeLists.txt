@@ -61,5 +61,5 @@ set_property(
 
 message(STATUS "NCCL RUNTIME ${USE_NCCL_RUNTIME_WHEEL}")
 if(USE_NCCL_RUNTIME_WHEEL)
-  set_property(TARGET raft_lib PROPERTY INSTALL_RPATH "$ORIGIN/../../nvidia/nccl/lib")
+  set_property(TARGET raft_lib APPEND PROPERTY INSTALL_RPATH "$ORIGIN/../../nvidia/nccl/lib")
 endif()
