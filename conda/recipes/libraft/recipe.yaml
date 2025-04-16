@@ -78,6 +78,8 @@ cache:
           - libcusolver-dev
           - libcusparse-dev
       - librmm =${{ minor_version }}
+      - nccl ${{ nccl_version }}
+      - ucxx ${{ ucxx_version }}
       - rapids-logger =0.1
 
 outputs:
@@ -102,6 +104,8 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - librmm =${{ minor_version }}
+        - nccl ${{ nccl_version }}
+        - ucxx ${{ ucxx_version }}
         - rapids-logger =0.1
         - if: cuda_major == "11"
           then: cudatoolkit
@@ -122,6 +126,8 @@ outputs:
           - libcusolver
           - libcusparse
           - librmm
+          - nccl
+          - ucxx
           - if: cuda_major == "11"
             then:
               - cudatoolkit
@@ -140,11 +146,15 @@ outputs:
     requirements:
       host:
         - librmm =${{ minor_version }}
+        - nccl ${{ nccl_version }}
+        - ucxx ${{ ucxx_version }}
         - cuda-version =${{ cuda_version }}
       run:
         - ${{ pin_subpackage("libraft-headers-only", exact=True) }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - librmm =${{ minor_version }}
+        - nccl ${{ nccl_version }}
+        - ucxx ${{ ucxx_version }}
         - if: cuda_major == "11"
           then:
             - cudatoolkit
@@ -174,6 +184,8 @@ outputs:
           - libcurand
           - libcusolver
           - librmm
+          - nccl
+          - ucxx
           - if: cuda_major == "11"
             then:
               - cudatoolkit
