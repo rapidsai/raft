@@ -115,8 +115,7 @@ class SparsePreprocessCSR
     auto a_columns      = raft::make_device_vector<Index_, int64_t>(handle, nnz);
     auto a_values       = raft::make_device_vector<Type_f, int64_t>(handle, nnz);
 
-    // int random_seed = rand();
-    int random_seed = 12345;
+    int random_seed = rand();
     raft::util::create_dataset<Index_, Type_f>(handle,
                                                a_rows.view(),
                                                a_columns.view(),
