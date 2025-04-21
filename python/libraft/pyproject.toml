@@ -117,4 +117,4 @@ select = [
 ]
 
 # PyPI limit is 100 MiB, fail CI before we get too close to that
-max_allowed_size_compressed = '75M'
+max_allowed_size_compressed = '25M'
