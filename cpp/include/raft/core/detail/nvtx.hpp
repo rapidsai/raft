@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -164,10 +164,13 @@ inline void push_range(const char* format, Args... args)
 {
   if constexpr (sizeof...(args) > 0) {
     int length = std::snprintf(nullptr, 0, format, args...);
-    assert(length >= 0);
-    std::vector<char> buf(length + 1);
-    std::snprintf(buf.data(), length + 1, format, args...);
-    push_range_name<Domain>(buf.data());
+    if (length > 0) {
+      std::vector<char> buf(length + 1);
+      std::snprintf(buf.data(), length + 1, format, args...);
+      push_range_name<Domain>(buf.data());
+    } else {
+      push_range_name<Domain>(format);
+    }
   } else {
     push_range_name<Domain>(format);
   }
