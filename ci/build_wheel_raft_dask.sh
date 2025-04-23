@@ -16,5 +16,13 @@ RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-f
 echo "libraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo /tmp/libraft_dist/libraft_*.whl)" > /tmp/constraints.txt
 export PIP_CONSTRAINT="/tmp/constraints.txt"
 
+RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
+# raft-dask CUDA 11 package still vendors libnccl.so, which is why the size is larger
+if [[ "${RAPIDS_CUDA_MAJOR}" == "11" ]]; then
+    export PYDISTCHECK_MAX_SIZE="300M"
+else
+    export PYDISTCHECK_MAX_SIZE="2M"
+fi
+
 ci/build_wheel.sh raft-dask ${package_dir} python
 ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"

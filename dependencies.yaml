@@ -16,6 +16,7 @@ files:
       - depends_on_distributed_ucxx
       - depends_on_rmm
       - depends_on_rapids_logger
+      - depends_on_nccl
       - develop
       - docs
       - rapids_build_skbuild
@@ -78,6 +79,7 @@ files:
       - build_common
       - depends_on_librmm
       - depends_on_rapids_logger
+      - depends_on_nccl
   py_run_libraft:
     output: pyproject
     pyproject_dir: python/libraft
@@ -87,6 +89,7 @@ files:
       - cuda_wheels
       - depends_on_librmm
       - depends_on_rapids_logger
+      - depends_on_nccl
   py_build_pylibraft:
     output: pyproject
     pyproject_dir: python/pylibraft
@@ -146,6 +149,7 @@ files:
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_ucx_build
+      - depends_on_nccl
   py_run_raft_dask:
     output: pyproject
     pyproject_dir: python/raft-dask
@@ -154,6 +158,7 @@ files:
     includes:
       - depends_on_distributed_ucxx
       - depends_on_libraft
+      - depends_on_nccl
       - run_raft_dask
   py_test_raft_dask:
     output: pyproject
@@ -192,7 +197,6 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - libucxx==0.44.*,>=0.0.0a0
-          - nccl>=2.19
     specific:
       - output_types: conda
         matrices:
@@ -700,3 +704,18 @@ dependencies:
           - matrix: null
             packages:
               - libucx>=1.15.0
+  depends_on_nccl:
+    common:
+      - output_types: conda
+        packages:
+          - &nccl_unsuffixed nccl>=2.19
+    specific:
+      - output_types: [pyproject, requirements]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - nvidia-nccl-cu12>=2.19
+          - matrix:
+            packages:

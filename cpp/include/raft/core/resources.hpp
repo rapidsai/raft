@@ -72,6 +72,7 @@ class resources {
   resources(const resources& res) : factories_(res.factories_), resources_(res.resources_) {}
   resources(resources&&)            = delete;
   resources& operator=(resources&&) = delete;
+  virtual ~resources() {}
 
   /**
    * @brief Returns true if a resource_factory has been registered for the
@@ -79,7 +80,7 @@ class resources {
    * @param resource_type resource type to check
    * @return true if resource_factory is registered for the given resource_type
    */
-  bool has_resource_factory(resource::resource_type resource_type) const
+  virtual bool has_resource_factory(resource::resource_type resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
     return factories_.at(resource_type).first != resource::resource_type::LAST_KEY;
