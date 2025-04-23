@@ -51,7 +51,7 @@ class nccl_comm_resource_factory : public resource_factory {
  * @param res raft res object for managing resources
  * @return NCCL comm
  */
-inline ncclComm_t& get_nccl_comm(const resources const& res)
+inline ncclComm_t& get_nccl_comm(const resources& res)
 {
   if (!res.has_resource_factory(resource_type::NCCL_COMM)) {
     res.add_resource_factory(std::make_shared<nccl_comm_resource_factory>());
