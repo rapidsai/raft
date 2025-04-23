@@ -103,7 +103,7 @@ class device_resources_snmg : public device_resources {
     ncclGroupStart();
     for (int rank = 0; rank < num_ranks; rank++) {
       ncclComm_t& nccl_comm = raft::resource::get_nccl_comm(clique[rank]);
-      RAFT_NCCL_TRY(ncclCommDestroy(nccl_comm));
+      RAFT_NCCL_TRY_NO_THROW(ncclCommDestroy(nccl_comm));
     }
     ncclGroupEnd();
   }
@@ -208,7 +208,7 @@ class device_resources_snmg : public device_resources {
 
   inline void _init_clique(std::vector<raft::resources>& clique, const std::vector<int>& device_ids)
   {
-    for (int rank = 0; rank < device_ids.size(); rank++) {
+    for (size_t rank = 0; rank < device_ids.size(); rank++) {
       RAFT_CUDA_TRY(cudaSetDevice(device_ids[rank]));
       clique.emplace_back();
 
