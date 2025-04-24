@@ -1,16 +1,9 @@
 {
   "packages" : {
     "cutlass" : {
-      "version": "3.5.1",
+      "version": "4.1.0",
       "git_url": "https://github.com/NVIDIA/cutlass.git",
-      "git_tag": "v${version}",
-      "patches" : [
-        {
-          "file" : "${current_json_dir}/cutlass/build-export.patch",
-          "issue" : "Fix build directory export",
-          "fixed_in" : ""
-        }
-      ]
+      "git_tag": "v${version}"
     }
   }
 }

@@ -39,19 +39,14 @@ function(find_and_configure_cutlass)
   include("${rapids-cmake-dir}/cpm/package_override.cmake")
   rapids_cpm_package_override("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../patches/cutlass_override.json")
 
-  include("${rapids-cmake-dir}/cpm/detail/package_details.cmake")
-  rapids_cpm_package_details(cutlass version repository tag shallow exclude)
-
-  include("${rapids-cmake-dir}/cpm/detail/generate_patch_command.cmake")
-  rapids_cpm_generate_patch_command(cutlass ${version} patch_command build_patch_only)
+  include("${rapids-cmake-dir}/cpm/detail/package_info.cmake")
+  rapids_cpm_package_info(cutlass VERSION_VAR version FIND_VAR find_args CPM_VAR cpm_find_info
+                          TO_INSTALL_VAR to_install)
 
   rapids_cpm_find(
-    NvidiaCutlass ${version} ${build_patch_only}
+    NvidiaCutlass ${version} ${find_args}
     GLOBAL_TARGETS nvidia::cutlass::cutlass
-    CPM_ARGS
-    GIT_REPOSITORY ${repository}
-    GIT_TAG ${tag}
-    GIT_SHALLOW ${shallow} ${patch_command}
+    CPM_ARGS ${cpm_find_info}
     OPTIONS "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
   )
 
@@ -67,7 +62,6 @@ function(find_and_configure_cutlass)
       NAMESPACE nvidia::cutlass::
     )
   endif()
-  # endif()
 
   # We generate the cutlass-config files when we built cutlass locally, so always do
   # `find_dependency`
