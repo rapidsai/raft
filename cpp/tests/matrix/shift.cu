@@ -31,7 +31,7 @@
 namespace raft {
 namespace matrix {
 
-enum MODE { VAL, VALUES, SELF };
+enum MODE { SINGLE_VAL, VALUES, SELF };
 template <typename T>
 struct ShiftInputs {
   MODE mode;
@@ -42,11 +42,20 @@ struct ShiftInputs {
   size_t k;
   size_t n_rows;
   size_t n_cols;
+  ShiftDirection shift_direction;
+  ShiftType shift_type;
 };
 
 template <typename T, typename IdxT>
-::std::ostream& operator<<(::std::ostream& os, const ShiftInputs<T>& dims)
+::std::ostream& operator<<(::std::ostream& os, const ShiftInputs<T>& inputs)
 {
+  os << "dataset shape=" << inputs.n_rows << "x" << inputs.dim << ", shift_direction="
+     << (inputs.shift_direction == ShiftDirection::TOWARDS_END ? "towards_end" : "towards_zero")
+     << ", shift_type=" << (inputs.shift_type == ShiftType::COL ? "col" : "row") << ", mode="
+     << (inputs.shift_direction == MODE::SINGLE_VAL
+           ? "single_value"
+           : (inputs.shift_direction == MODE::VALUES ? "values matrix" : "self"))
+     << std::endl;
   return os;
 }
 
@@ -67,33 +76,39 @@ class ShiftTest : public ::testing::TestWithParam<ShiftInputs<T>> {
                         params.output_matrix.data(),
                         params.output_matrix.size(),
                         resource::get_cuda_stream(handle));
-    raft::print_device_vector(
-      "inout before starting", in_out.data_handle(), params.n_cols * params.n_rows, std::cout);
     switch (params.mode) {
-      case VAL: {
-        raft::matrix::col_right_shift(handle, in_out.view(), params.val, params.k);
+      case SINGLE_VAL: {
+        raft::matrix::shift(
+          handle, in_out.view(), params.val, params.k, params.shift_direction, params.shift_type);
         break;
       }
       case VALUES: {
-        size_t values_cols = params.values.size() / params.n_rows;
-        auto values =
-          raft::make_device_matrix<T, std::uint32_t>(handle, params.n_rows, values_cols);
+        size_t values_cols, values_rows;
+        if (params.shift_type == ShiftType::COL) {
+          values_rows = params.n_rows;
+          values_cols = params.values.size() / params.n_rows;
+        } else {
+          values_rows = params.values.size() / params.n_cols;
+          values_cols = params.n_cols;
+        }
+        auto values = raft::make_device_matrix<T, std::uint32_t>(handle, values_rows, values_cols);
         raft::update_device(values.data_handle(),
                             params.values.data(),
-                            params.n_rows * values_cols,
+                            values_rows * values_cols,
                             resource::get_cuda_stream(handle));
-        raft::matrix::col_right_shift(
-          handle, in_out.view(), raft::make_const_mdspan(values.view()));
+        raft::matrix::shift(handle,
+                            in_out.view(),
+                            raft::make_const_mdspan(values.view()),
+                            params.shift_direction,
+                            params.shift_type);
         break;
       }
       case SELF: {
-        raft::matrix::col_right_shift_self(handle, in_out.view(), params.k);
+        raft::matrix::shift_self(
+          handle, in_out.view(), params.k, params.shift_direction, params.shift_type);
         break;
       }
     }
-    raft::print_device_vector(
-      "inout", in_out.data_handle(), params.n_cols * params.n_rows, std::cout);
-
     resource::sync_stream(handle);
   }
 
@@ -105,73 +120,147 @@ class ShiftTest : public ::testing::TestWithParam<ShiftInputs<T>> {
   raft::device_matrix<T, std::uint32_t> expected;
 };
 
+std::vector<float> input_matrix = {
+  0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f};
+
 const std::vector<ShiftInputs<float>> inputs_val = {
-  {
-    VAL,
-    {0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f},              // input
-    {100.0f, 100.0f, 0.1f, 0.2f, 100.0f, 100.0f, 0.4f, 0.3f, 100.0f, 100.0f, 0.2f, 0.3f},  // output
-    {0.0f},  // values (not used here)
-    100.0f,  // val
-    2lu,     // k
-    3lu,     // n_rows
-    4lu      // n_cols
-  },
-  {
-    VAL,
-    {0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f},          // input
-    {200.0f, 0.1f, 0.2f, 200.0f, 0.4f, 0.4f, 200.0f, 0.2f, 0.1f, 200.0f, 0.3f, 0.5f},  // output
-    {0.0f},  // values (not used here)
-    200.0f,  // val
-    1lu,     // k
-    4lu,     // n_rows
-    3lu      // n_cols
-  },
+  {SINGLE_VAL,
+   input_matrix,                                                                          // input
+   {100.0f, 100.0f, 0.1f, 0.2f, 100.0f, 100.0f, 0.4f, 0.3f, 100.0f, 100.0f, 0.2f, 0.3f},  // output
+   {0.0f},  // values (not used here)
+   100.0f,  // val
+   2lu,     // k
+   3lu,     // n_rows
+   4lu,     // n_cols
+   ShiftDirection::TOWARDS_END,
+   ShiftType::COL},
+  {SINGLE_VAL,
+   input_matrix,                                                                    // input
+   {0.2f, 0.3f, 0.4f, 100.0f, 0.3f, 0.2f, 0.1f, 100.0f, 0.3f, 0.5f, 0.0f, 100.0f},  // output
+   {0.0f},  // values (not used here)
+   100.0f,  // val
+   1lu,     // k
+   3lu,     // n_rows
+   4lu,     // n_cols
+   ShiftDirection::TOWARDS_ZERO,
+   ShiftType::COL},
+  {SINGLE_VAL,
+   input_matrix,                                                                      // input
+   {100.0f, 100.0f, 100.0f, 100.0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f},  // output
+   {0.0f},  // values (not used here)
+   100.0f,  // val
+   1lu,     // k
+   3lu,     // n_rows
+   4lu,     // n_cols
+   ShiftDirection::TOWARDS_END,
+   ShiftType::ROW},
+  {SINGLE_VAL,
+   input_matrix,  // input
+   {0.2f,
+    0.3f,
+    0.5f,
+    0.0f,
+    100.0f,
+    100.0f,
+    100.0f,
+    100.0f,
+    100.0f,
+    100.0f,
+    100.0f,
+    100.0f},  // output
+   {0.0f},    // values (not used here)
+   100.0f,    // val
+   2lu,       // k
+   3lu,       // n_rows
+   4lu,       // n_cols
+   ShiftDirection::TOWARDS_ZERO,
+   ShiftType::ROW},
 };
 
 const std::vector<ShiftInputs<float>> inputs_values = {
-  {
-    VALUES,
-    {0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f},              // input
-    {100.0f, 200.0f, 0.1f, 0.2f, 300.0f, 400.0f, 0.4f, 0.3f, 500.0f, 600.0f, 0.2f, 0.3f},  // output
-    {100.0f, 200.0f, 300.0f, 400.0f, 500.0f, 600.0f},                                      // values
-    0.0f,  // val (not used here)
-    0lu,   // k (not used here)
-    3lu,   // n_rows
-    4lu    // n_cols
-  },
-  {
-    VALUES,
-    {0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f},          // input
-    {100.0f, 0.1f, 0.2f, 200.0f, 0.4f, 0.4f, 300.0f, 0.2f, 0.1f, 400.0f, 0.3f, 0.5f},  // output
-    {100.0f, 200.0f, 300.0f, 400.0f},                                                  // values
-    0.0f,  // val (not used here)
-    0lu,   // k (not used here)
-    4lu,   // n_rows
-    3lu    // n_cols
-  },
+  {VALUES,
+   input_matrix,                                                              // input
+   {9.1f, 9.2f, 0.1f, 0.2f, 9.3f, 9.4f, 0.4f, 0.3f, 9.5f, 9.6f, 0.2f, 0.3f},  // output
+   {9.1f, 9.2f, 9.3f, 9.4f, 9.5f, 9.6f},                                      // values
+   0.0f,  // val  (not used here)
+   2lu,   // k
+   3lu,   // n_rows
+   4lu,   // n_cols
+   ShiftDirection::TOWARDS_END,
+   ShiftType::COL},
+  {VALUES,
+   input_matrix,                                                              // input
+   {0.2f, 0.3f, 0.4f, 8.1f, 0.3f, 0.2f, 0.1f, 8.2f, 0.3f, 0.5f, 0.0f, 8.3f},  // output
+   {8.1f, 8.2f, 8.3f},                                                        // values
+   0.0f,  // val  (not used here)
+   1lu,   // k
+   3lu,   // n_rows
+   4lu,   // n_cols
+   ShiftDirection::TOWARDS_ZERO,
+   ShiftType::COL},
+  {VALUES,
+   input_matrix,                                                              // input
+   {7.1f, 7.2f, 7.3f, 7.4f, 0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f},  // output
+   {7.1f, 7.2f, 7.3f, 7.4f},                                                  // values
+   0.0f,  // val  (not used here)
+   1lu,   // k
+   3lu,   // n_rows
+   4lu,   // n_cols
+   ShiftDirection::TOWARDS_END,
+   ShiftType::ROW},
+  {VALUES,
+   input_matrix,                                                              // input
+   {0.2f, 0.3f, 0.5f, 0.0f, 6.1f, 6.2f, 6.3f, 6.4f, 6.5f, 6.6f, 6.7f, 6.8f},  // output
+   {6.1f, 6.2f, 6.3f, 6.4f, 6.5f, 6.6f, 6.7f, 6.8f},                          // values
+   0.0f,  // val  (not used here)
+   2lu,   // k
+   3lu,   // n_rows
+   4lu,   // n_cols
+   ShiftDirection::TOWARDS_ZERO,
+   ShiftType::ROW},
 };
 
 const std::vector<ShiftInputs<float>> inputs_self = {
-  {
-    SELF,
-    {0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f},  // input
-    {0.0f, 0.1f, 0.2f, 0.3f, 1.0f, 0.4f, 0.3f, 0.2f, 2.0f, 0.2f, 0.3f, 0.5f},  // output
-    {0.0f},  // values (not used here)
-    0.0f,    // val (not used here)
-    1lu,     // k
-    3lu,     // n_rows
-    4lu      // n_cols
-  },
-  {
-    SELF,
-    {0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f},  // input
-    {0.0f, 0.0f, 0.1f, 1.0f, 1.0f, 0.4f, 2.0f, 2.0f, 0.2f, 3.0f, 3.0f, 0.3f},  // output
-    {0.0f},  // values (not used here)
-    0.0f,    // val (not used here)
-    2lu,     // k
-    4lu,     // n_rows
-    3lu      // n_cols
-  }};
+  {SELF,
+   input_matrix,                                                              // input
+   {0.0f, 0.0f, 0.1f, 0.2f, 1.0f, 1.0f, 0.4f, 0.3f, 2.0f, 2.0f, 0.2f, 0.3f},  // output
+   {},    // values (not used here)
+   0.0f,  // val  (not used here)
+   2lu,   // k
+   3lu,   // n_rows
+   4lu,   // n_cols
+   ShiftDirection::TOWARDS_END,
+   ShiftType::COL},
+  {SELF,
+   input_matrix,                                                              // input
+   {0.2f, 0.3f, 0.4f, 0.0f, 0.3f, 0.2f, 0.1f, 1.0f, 0.3f, 0.5f, 0.0f, 2.0f},  // output
+   {},    // values (not used here)
+   0.0f,  // val  (not used here)
+   1lu,   // k
+   3lu,   // n_rows
+   4lu,   // n_cols
+   ShiftDirection::TOWARDS_ZERO,
+   ShiftType::COL},
+  {SELF,
+   input_matrix,                                                              // input
+   {0.0f, 1.0f, 2.0f, 3.0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f},  // output
+   {},    // values (not used here)
+   0.0f,  // val  (not used here)
+   1lu,   // k
+   3lu,   // n_rows
+   4lu,   // n_cols
+   ShiftDirection::TOWARDS_END,
+   ShiftType::ROW},
+  {SELF,
+   input_matrix,                                                              // input
+   {0.2f, 0.3f, 0.5f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 0.0f, 1.0f, 2.0f, 3.0f},  // output
+   {},    // values (not used here)
+   0.0f,  // val  (not used here)
+   2lu,   // k
+   3lu,   // n_rows
+   4lu,   // n_cols
+   ShiftDirection::TOWARDS_ZERO,
+   ShiftType::ROW}};
 
 typedef ShiftTest<float> ShiftTestF;
 TEST_P(ShiftTestF, Result)
@@ -183,7 +272,7 @@ TEST_P(ShiftTestF, Result)
                           resource::get_cuda_stream(handle)));
 }
 
-INSTANTIATE_TEST_SUITE_P(ShiftTestVal, ShiftTestF, ::testing::ValuesIn(inputs_val));
+INSTANTIATE_TEST_SUITE_P(ShiftTestSingleVal, ShiftTestF, ::testing::ValuesIn(inputs_val));
 INSTANTIATE_TEST_SUITE_P(ShiftTestValues, ShiftTestF, ::testing::ValuesIn(inputs_values));
 INSTANTIATE_TEST_SUITE_P(ShiftTestSelf, ShiftTestF, ::testing::ValuesIn(inputs_self));
 
