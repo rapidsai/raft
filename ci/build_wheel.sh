@@ -38,6 +38,14 @@ if [[ ${package_name} != "libraft" ]]; then
     )
 fi
 
+RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
+if [[ ${RAPIDS_CUDA_MAJOR} == "12" ]]; then
+    EXCLUDE_ARGS+=(
+      --exclude "libnccl.so.*"
+    )
+    export SKBUILD_CMAKE_ARGS="-DUSE_NCCL_RUNTIME_WHEEL=ON"
+fi
+
 sccache --zero-stats
 
 rapids-logger "Building '${package_name}' wheel"
