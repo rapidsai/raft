@@ -11,7 +11,7 @@ PYLIBRAFT_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}"
 
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install \
-    "${LIBRAFT_WHEELHOUSE}/libraft*.whl" \
+    "${LIBRAFT_WHEELHOUSE}"/libraft*.whl \
     "$(echo "${PYLIBRAFT_WHEELHOUSE}"/pylibraft*.whl)[test]"
 
 python -m pytest ./python/pylibraft/pylibraft/tests
