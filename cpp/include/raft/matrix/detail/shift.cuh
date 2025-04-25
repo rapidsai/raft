@@ -207,6 +207,7 @@ void shift_self(raft::resources const& handle,
                 ShiftDirection shift_direction = ShiftDirection::TOWARDS_END,
                 ShiftType shift_type           = ShiftType::COL)
 {
+  // using 0 here as a placeholder.
   shift_dispatch<ValueT, IdxT, ValueT, SELF>(
     handle, in_out, static_cast<ValueT>(0), k, shift_direction, shift_type);
 }
