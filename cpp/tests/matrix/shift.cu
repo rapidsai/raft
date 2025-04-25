@@ -50,7 +50,8 @@ template <typename T, typename IdxT>
 ::std::ostream& operator<<(::std::ostream& os, const ShiftInputs<T>& inputs)
 {
   os << "dataset shape=" << inputs.n_rows << "x" << inputs.dim << ", shift_direction="
-     << (inputs.shift_direction == ShiftDirection::TOWARDS_END ? "towards_end" : "towards_zero")
+     << (inputs.shift_direction == ShiftDirection::TOWARDS_END ? "towards_end"
+                                                               : "TOWARDS_BEGINNING")
      << ", shift_type=" << (inputs.shift_type == ShiftType::COL ? "col" : "row") << ", mode="
      << (inputs.shift_direction == MODE::SINGLE_VAL
            ? "single_value"
@@ -142,7 +143,7 @@ const std::vector<ShiftInputs<float>> inputs_val = {
    1lu,     // k
    3lu,     // n_rows
    4lu,     // n_cols
-   ShiftDirection::TOWARDS_ZERO,
+   ShiftDirection::TOWARDS_BEGINNING,
    ShiftType::COL},
   {SINGLE_VAL,
    input_matrix,                                                                      // input
@@ -173,7 +174,7 @@ const std::vector<ShiftInputs<float>> inputs_val = {
    2lu,       // k
    3lu,       // n_rows
    4lu,       // n_cols
-   ShiftDirection::TOWARDS_ZERO,
+   ShiftDirection::TOWARDS_BEGINNING,
    ShiftType::ROW},
 };
 
@@ -196,7 +197,7 @@ const std::vector<ShiftInputs<float>> inputs_values = {
    1lu,   // k
    3lu,   // n_rows
    4lu,   // n_cols
-   ShiftDirection::TOWARDS_ZERO,
+   ShiftDirection::TOWARDS_BEGINNING,
    ShiftType::COL},
   {VALUES,
    input_matrix,                                                              // input
@@ -216,7 +217,7 @@ const std::vector<ShiftInputs<float>> inputs_values = {
    2lu,   // k
    3lu,   // n_rows
    4lu,   // n_cols
-   ShiftDirection::TOWARDS_ZERO,
+   ShiftDirection::TOWARDS_BEGINNING,
    ShiftType::ROW},
 };
 
@@ -239,7 +240,7 @@ const std::vector<ShiftInputs<float>> inputs_self = {
    1lu,   // k
    3lu,   // n_rows
    4lu,   // n_cols
-   ShiftDirection::TOWARDS_ZERO,
+   ShiftDirection::TOWARDS_BEGINNING,
    ShiftType::COL},
   {SELF,
    input_matrix,                                                              // input
@@ -259,7 +260,7 @@ const std::vector<ShiftInputs<float>> inputs_self = {
    2lu,   // k
    3lu,   // n_rows
    4lu,   // n_cols
-   ShiftDirection::TOWARDS_ZERO,
+   ShiftDirection::TOWARDS_BEGINNING,
    ShiftType::ROW}};
 
 typedef ShiftTest<float> ShiftTestF;

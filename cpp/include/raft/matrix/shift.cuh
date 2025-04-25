@@ -30,14 +30,14 @@ namespace raft::matrix {
  * [9,10,11,12]], val=100, k=2, shift_direction = ShiftDirection::TOWARDS_END and shift_type =
  * ShiftType::COL, then we end up with [[100,100,1,2], [100,100,5,6], [100,100,9,10]].
  * Example 2) if we have a row-major 3x4 matrix in_out = [[1,2,3,4], [5,6,7,8], [9,10,11,12]],
- * val=100, k=1, shift_direction = ShiftDirection::TOWARDS_ZERO and shift_type = ShiftType::ROW,
- * then we end up with [[5,6,7,8], [9,10,11,12], [100,100,100,100]]
+ * val=100, k=1, shift_direction = ShiftDirection::TOWARDS_BEGINNING and shift_type =
+ * ShiftType::ROW, then we end up with [[5,6,7,8], [9,10,11,12], [100,100,100,100]]
  *
  * @param[in] handle: raft handle
  * @param[in out] in_out: input matrix of size (n_rows, n_cols)
  * @param[in] val: value to fill in the first k columns (same for all rows)
  * @param[in] k: shift size
- * @param[in] shift_direction: ShiftDirection::TOWARDS_ZERO shifts towards the 0th row/col
+ * @param[in] shift_direction: ShiftDirection::TOWARDS_BEGINNING shifts towards the 0th row/col
  * direction, and ShiftDirection::TOWARDS_END shifts towards the (nrow-1)th row/col direction
  * @param[in] shift_type: ShiftType::ROW shifts rows and ShiftType::COL shift columns
  */
@@ -71,14 +71,14 @@ void shift(raft::resources const& handle,
  * [300,400,5,6], [500,600,9,10]].
  * Example 2) if we have a row-major 3x4 matrix in_out = [[1,2,3,4],
  * [5,6,7,8], [9,10,11,12]], values=[[100,200,300,400]], shift_direction =
- * ShiftDirection::TOWARDS_ZERO and shift_type = ShiftType::ROW, then we end up with [[5,6,7,8],
- * [9,10,11,12], [100,200,300,400]]
+ * ShiftDirection::TOWARDS_BEGINNING and shift_type = ShiftType::ROW, then we end up with
+ * [[5,6,7,8], [9,10,11,12], [100,200,300,400]]
  *
  * @param[in] handle: raft handle
  * @param[in out] in_out: input matrix of size (n_rows, n_cols)
  * @param[in] values: value matrix of size (n_rows x k) for shift_type=ShiftType::COL or (k x
  * n_cols) for shift_type=ShiftType::ROW to fill in empty space of in_out after shifting.
- * @param[in] shift_direction: ShiftDirection::TOWARDS_ZERO shifts towards the 0th row/col
+ * @param[in] shift_direction: ShiftDirection::TOWARDS_BEGINNING shifts towards the 0th row/col
  * direction, and ShiftDirection::TOWARDS_END shifts towards the (nrow-1)th row/col direction
  * @param[in] shift_type: ShiftType::ROW shifts rows and ShiftType::COL shift columns
  */
@@ -116,13 +116,13 @@ void shift(raft::resources const& handle,
  * [9,10,11,12]], k=2, shift_direction = ShiftDirection::TOWARDS_END and shift_type =
  * ShiftType::COL, then we end up with [[0,0,1,2], [1,1,5,6], [2,2,9,10]].
  * Example 2) if we have a row-major 3x4 matrix in_out = [[1,2,3,4], [5,6,7,8], [9,10,11,12]], k=2,
- * shift_direction = ShiftDirection::TOWARDS_ZERO and shift_type = ShiftType::ROW, then we end up
- * with [[9,10,11,12], [0,1,2,3], [0,1,2,3]]
+ * shift_direction = ShiftDirection::TOWARDS_BEGINNING and shift_type = ShiftType::ROW, then we end
+ * up with [[9,10,11,12], [0,1,2,3], [0,1,2,3]]
  *
  * @param[in] handle: raft handle
  * @param[in out] in_out: input matrix of size (n_rows, n_cols)
  * @param[in] k: shift size
- * @param[in] shift_direction: ShiftDirection::TOWARDS_ZERO shifts towards the 0th row/col
+ * @param[in] shift_direction: ShiftDirection::TOWARDS_BEGINNING shifts towards the 0th row/col
  * direction, and ShiftDirection::TOWARDS_END shifts towards the (nrow-1)th row/col direction
  * @param[in] shift_type: ShiftType::ROW shifts rows and ShiftType::COL shift columns
  */

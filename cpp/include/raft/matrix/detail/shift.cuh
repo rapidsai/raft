@@ -21,7 +21,7 @@
 #include <raft/core/resources.hpp>
 
 namespace raft::matrix {
-enum ShiftDirection { TOWARDS_ZERO, TOWARDS_END };
+enum ShiftDirection { TOWARDS_BEGINNING, TOWARDS_END };
 enum ShiftType { ROW, COL };
 }  // namespace raft::matrix
 
@@ -57,7 +57,7 @@ RAFT_KERNEL col_shift_towards_end(
 }
 
 template <typename T, typename fill_value, FillType fill_type>
-RAFT_KERNEL col_shift_towards_zero(
+RAFT_KERNEL col_shift_towards_beginning(
   T* in_out, size_t n_rows, size_t n_cols, size_t k, fill_value value)
 {
   size_t row = blockIdx.x * blockDim.x + threadIdx.x;
@@ -114,7 +114,7 @@ RAFT_KERNEL row_shift_towards_end(
 }
 
 template <typename T, typename fill_value, FillType fill_type>
-RAFT_KERNEL row_shift_towards_zero(
+RAFT_KERNEL row_shift_towards_beginning(
   T* in_out, size_t n_rows, size_t n_cols, size_t k, fill_value value)
 {
   size_t col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -156,8 +156,8 @@ void shift_dispatch(raft::resources const& handle,
 
   if (shift_type == ShiftType::COL) {
     size_t num_blocks = static_cast<size_t>((n_rows + TPB) / TPB);
-    if (shift_direction == ShiftDirection::TOWARDS_ZERO) {
-      col_shift_towards_zero<ValueT, fill_value, fill_type>
+    if (shift_direction == ShiftDirection::TOWARDS_BEGINNING) {
+      col_shift_towards_beginning<ValueT, fill_value, fill_type>
         <<<num_blocks, TPB, 0, stream>>>(in_out.data_handle(), n_rows, n_cols, k, value);
     } else {  // ShiftDirection::TOWARDS_END
       col_shift_towards_end<ValueT, fill_value, fill_type>
@@ -165,8 +165,8 @@ void shift_dispatch(raft::resources const& handle,
     }
   } else {  // ShiftType::ROW
     size_t num_blocks = static_cast<size_t>((n_cols + TPB) / TPB);
-    if (shift_direction == ShiftDirection::TOWARDS_ZERO) {
-      row_shift_towards_zero<ValueT, fill_value, fill_type>
+    if (shift_direction == ShiftDirection::TOWARDS_BEGINNING) {
+      row_shift_towards_beginning<ValueT, fill_value, fill_type>
         <<<num_blocks, TPB, 0, stream>>>(in_out.data_handle(), n_rows, n_cols, k, value);
     } else {  // ShiftDirection::TOWARDS_END
       row_shift_towards_end<ValueT, fill_value, fill_type>
