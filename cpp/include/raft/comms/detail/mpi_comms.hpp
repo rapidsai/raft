@@ -126,7 +126,31 @@ class mpi_comms : public comms_iface {
     RAFT_MPI_TRY(MPI_Bcast((void*)&id, sizeof(id), MPI_BYTE, 0, mpi_comm_));
 
     // initializing NCCL
-    RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm_, size_, id, rank_));
+    ncclConfig_t nccl_config = NCCL_CONFIG_INITIALIZER;
+    nccl_config.splitShare   = 1;
+    RAFT_NCCL_TRY(ncclCommInitRankConfig(&nccl_comm_, size_, id, rank_, &nccl_config));
+
+    initialize();
+  }
+
+  mpi_comms(MPI_Comm mpi_comm,
+            bool owns_mpi_comm,
+            ncclComm_t nccl_comm,
+            rmm::cuda_stream_view stream)
+    : owns_mpi_comm_(owns_mpi_comm),
+      mpi_comm_(mpi_comm),
+      nccl_comm_(nccl_comm),
+      size_(0),
+      rank_(1),
+      status_(stream),
+      next_request_id_(0),
+      stream_(stream)
+  {
+    int mpi_is_initialized = 0;
+    RAFT_MPI_TRY(MPI_Initialized(&mpi_is_initialized));
+    RAFT_EXPECTS(mpi_is_initialized, "ERROR: MPI is not initialized!");
+    RAFT_MPI_TRY(MPI_Comm_size(mpi_comm_, &size_));
+    RAFT_MPI_TRY(MPI_Comm_rank(mpi_comm_, &rank_));
 
     initialize();
   }
@@ -150,9 +174,11 @@ class mpi_comms : public comms_iface {
 
   std::unique_ptr<comms_iface> comm_split(int color, int key) const
   {
-    MPI_Comm new_comm;
-    RAFT_MPI_TRY(MPI_Comm_split(mpi_comm_, color, key, &new_comm));
-    return std::unique_ptr<comms_iface>(new mpi_comms(new_comm, true, stream_));
+    MPI_Comm new_mpi_comm;
+    RAFT_MPI_TRY(MPI_Comm_split(mpi_comm_, color, key, &new_mpi_comm));
+    ncclComm_t new_nccl_comm{};
+    RAFT_NCCL_TRY(ncclCommSplit(nccl_comm_, color, key, &new_nccl_comm, nullptr));
+    return std::unique_ptr<comms_iface>(new mpi_comms(new_mpi_comm, true, new_nccl_comm, stream_));
   }
 
   void barrier() const
