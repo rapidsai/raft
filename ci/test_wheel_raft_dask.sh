@@ -3,17 +3,23 @@
 
 set -euo pipefail
 
+# Delete system libnccl.so to ensure the wheel is used
+RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
+if [[ ${RAPIDS_CUDA_MAJOR} == "12" ]]; then
+  rm -rf /usr/lib64/libnccl*
+fi
+
 mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
-RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp ./local-libraft-dep
-RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./local-pylibraft-dep
-RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./dist
+LIBRAFT_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
+PYLIBRAFT_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github python)
+RAFT_DASK_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github python)
 
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install -v \
-    ./local-libraft-dep/libraft*.whl \
-    ./local-pylibraft-dep/pylibraft*.whl \
-    "$(echo ./dist/raft_dask_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
+    "${LIBRAFT_WHEELHOUSE}/libraft*.whl" \
+    "${PYLIBRAFT_WHEELHOUSE}/pylibraft*.whl" \
+    "$(echo "${RAFT_DASK_WHEELHOUSE}"/raft_dask_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
 
 test_dir="python/raft-dask/raft_dask/tests"
 
