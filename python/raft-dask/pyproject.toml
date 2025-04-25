@@ -133,5 +133,5 @@ select = [
     "distro-too-large-compressed",
 ]
 
-# detect when package size grows significantly
-max_allowed_size_compressed = '300M'
+# PyPI limit is 100 MiB, fail CI before we get too close to that
+max_allowed_size_compressed = '2M'

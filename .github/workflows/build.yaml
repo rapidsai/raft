@@ -77,6 +77,8 @@ jobs:
       script: ci/build_wheel_libraft.sh
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      package-name: libraft
+      package-type: cpp
   wheel-publish-libraft:
     needs: wheel-build-libraft
     secrets: inherit
@@ -98,6 +100,8 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       script: ci/build_wheel_pylibraft.sh
+      package-name: pylibraft
+      package-type: python
   wheel-publish-pylibraft:
     needs: wheel-build-pylibraft
     secrets: inherit
@@ -119,6 +123,8 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       script: ci/build_wheel_raft_dask.sh
+      package-name: raft_dask
+      package-type: python
   wheel-publish-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
