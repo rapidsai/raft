@@ -27,11 +27,12 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <optional>
 
 namespace raft {
 namespace matrix {
 
-enum MODE { SINGLE_VAL, VALUES, SELF };
+enum MODE { CONSTANT, MATRIX, SELF_ID };
 template <typename T>
 struct ShiftInputs {
   MODE mode;
@@ -53,9 +54,9 @@ template <typename T, typename IdxT>
      << (inputs.shift_direction == ShiftDirection::TOWARDS_END ? "towards_end"
                                                                : "TOWARDS_BEGINNING")
      << ", shift_type=" << (inputs.shift_type == ShiftType::COL ? "col" : "row") << ", mode="
-     << (inputs.shift_direction == MODE::SINGLE_VAL
-           ? "single_value"
-           : (inputs.shift_direction == MODE::VALUES ? "values matrix" : "self"))
+     << (inputs.shift_direction == MODE::CONSTANT
+           ? "constant"
+           : (inputs.shift_direction == MODE::MATRIX ? "values matrix" : "self_id"))
      << std::endl;
   return os;
 }
@@ -78,12 +79,16 @@ class ShiftTest : public ::testing::TestWithParam<ShiftInputs<T>> {
                         params.output_matrix.size(),
                         resource::get_cuda_stream(handle));
     switch (params.mode) {
-      case SINGLE_VAL: {
-        raft::matrix::shift(
-          handle, in_out.view(), params.val, params.k, params.shift_direction, params.shift_type);
+      case CONSTANT: {
+        raft::matrix::shift<T, std::uint32_t>(handle,
+                                              in_out.view(),
+                                              params.k,
+                                              std::make_optional(params.val),
+                                              params.shift_direction,
+                                              params.shift_type);
         break;
       }
-      case VALUES: {
+      case MATRIX: {
         size_t values_cols, values_rows;
         if (params.shift_type == ShiftType::COL) {
           values_rows = params.n_rows;
@@ -97,16 +102,16 @@ class ShiftTest : public ::testing::TestWithParam<ShiftInputs<T>> {
                             params.values.data(),
                             values_rows * values_cols,
                             resource::get_cuda_stream(handle));
-        raft::matrix::shift(handle,
-                            in_out.view(),
-                            raft::make_const_mdspan(values.view()),
-                            params.shift_direction,
-                            params.shift_type);
+        raft::matrix::shift<T, std::uint32_t>(handle,
+                                              in_out.view(),
+                                              raft::make_const_mdspan(values.view()),
+                                              params.shift_direction,
+                                              params.shift_type);
         break;
       }
-      case SELF: {
-        raft::matrix::shift_self(
-          handle, in_out.view(), params.k, params.shift_direction, params.shift_type);
+      case SELF_ID: {
+        raft::matrix::shift<T, std::uint32_t>(
+          handle, in_out.view(), params.k, std::nullopt, params.shift_direction, params.shift_type);
         break;
       }
     }
@@ -124,8 +129,8 @@ class ShiftTest : public ::testing::TestWithParam<ShiftInputs<T>> {
 std::vector<float> input_matrix = {
   0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f, 0.2f, 0.3f, 0.5f, 0.0f};
 
-const std::vector<ShiftInputs<float>> inputs_val = {
-  {SINGLE_VAL,
+const std::vector<ShiftInputs<float>> inputs_constant = {
+  {CONSTANT,
    input_matrix,                                                                          // input
    {100.0f, 100.0f, 0.1f, 0.2f, 100.0f, 100.0f, 0.4f, 0.3f, 100.0f, 100.0f, 0.2f, 0.3f},  // output
    {0.0f},  // values (not used here)
@@ -135,7 +140,7 @@ const std::vector<ShiftInputs<float>> inputs_val = {
    4lu,     // n_cols
    ShiftDirection::TOWARDS_END,
    ShiftType::COL},
-  {SINGLE_VAL,
+  {CONSTANT,
    input_matrix,                                                                    // input
    {0.2f, 0.3f, 0.4f, 100.0f, 0.3f, 0.2f, 0.1f, 100.0f, 0.3f, 0.5f, 0.0f, 100.0f},  // output
    {0.0f},  // values (not used here)
@@ -145,7 +150,7 @@ const std::vector<ShiftInputs<float>> inputs_val = {
    4lu,     // n_cols
    ShiftDirection::TOWARDS_BEGINNING,
    ShiftType::COL},
-  {SINGLE_VAL,
+  {CONSTANT,
    input_matrix,                                                                      // input
    {100.0f, 100.0f, 100.0f, 100.0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f},  // output
    {0.0f},  // values (not used here)
@@ -155,7 +160,7 @@ const std::vector<ShiftInputs<float>> inputs_val = {
    4lu,     // n_cols
    ShiftDirection::TOWARDS_END,
    ShiftType::ROW},
-  {SINGLE_VAL,
+  {CONSTANT,
    input_matrix,  // input
    {0.2f,
     0.3f,
@@ -178,8 +183,8 @@ const std::vector<ShiftInputs<float>> inputs_val = {
    ShiftType::ROW},
 };
 
-const std::vector<ShiftInputs<float>> inputs_values = {
-  {VALUES,
+const std::vector<ShiftInputs<float>> inputs_matrix = {
+  {MATRIX,
    input_matrix,                                                              // input
    {9.1f, 9.2f, 0.1f, 0.2f, 9.3f, 9.4f, 0.4f, 0.3f, 9.5f, 9.6f, 0.2f, 0.3f},  // output
    {9.1f, 9.2f, 9.3f, 9.4f, 9.5f, 9.6f},                                      // values
@@ -189,7 +194,7 @@ const std::vector<ShiftInputs<float>> inputs_values = {
    4lu,   // n_cols
    ShiftDirection::TOWARDS_END,
    ShiftType::COL},
-  {VALUES,
+  {MATRIX,
    input_matrix,                                                              // input
    {0.2f, 0.3f, 0.4f, 8.1f, 0.3f, 0.2f, 0.1f, 8.2f, 0.3f, 0.5f, 0.0f, 8.3f},  // output
    {8.1f, 8.2f, 8.3f},                                                        // values
@@ -199,7 +204,7 @@ const std::vector<ShiftInputs<float>> inputs_values = {
    4lu,   // n_cols
    ShiftDirection::TOWARDS_BEGINNING,
    ShiftType::COL},
-  {VALUES,
+  {MATRIX,
    input_matrix,                                                              // input
    {7.1f, 7.2f, 7.3f, 7.4f, 0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f},  // output
    {7.1f, 7.2f, 7.3f, 7.4f},                                                  // values
@@ -209,7 +214,7 @@ const std::vector<ShiftInputs<float>> inputs_values = {
    4lu,   // n_cols
    ShiftDirection::TOWARDS_END,
    ShiftType::ROW},
-  {VALUES,
+  {MATRIX,
    input_matrix,                                                              // input
    {0.2f, 0.3f, 0.5f, 0.0f, 6.1f, 6.2f, 6.3f, 6.4f, 6.5f, 6.6f, 6.7f, 6.8f},  // output
    {6.1f, 6.2f, 6.3f, 6.4f, 6.5f, 6.6f, 6.7f, 6.8f},                          // values
@@ -222,7 +227,7 @@ const std::vector<ShiftInputs<float>> inputs_values = {
 };
 
 const std::vector<ShiftInputs<float>> inputs_self = {
-  {SELF,
+  {SELF_ID,
    input_matrix,                                                              // input
    {0.0f, 0.0f, 0.1f, 0.2f, 1.0f, 1.0f, 0.4f, 0.3f, 2.0f, 2.0f, 0.2f, 0.3f},  // output
    {},    // values (not used here)
@@ -232,7 +237,7 @@ const std::vector<ShiftInputs<float>> inputs_self = {
    4lu,   // n_cols
    ShiftDirection::TOWARDS_END,
    ShiftType::COL},
-  {SELF,
+  {SELF_ID,
    input_matrix,                                                              // input
    {0.2f, 0.3f, 0.4f, 0.0f, 0.3f, 0.2f, 0.1f, 1.0f, 0.3f, 0.5f, 0.0f, 2.0f},  // output
    {},    // values (not used here)
@@ -242,7 +247,7 @@ const std::vector<ShiftInputs<float>> inputs_self = {
    4lu,   // n_cols
    ShiftDirection::TOWARDS_BEGINNING,
    ShiftType::COL},
-  {SELF,
+  {SELF_ID,
    input_matrix,                                                              // input
    {0.0f, 1.0f, 2.0f, 3.0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.4f, 0.3f, 0.2f, 0.1f},  // output
    {},    // values (not used here)
@@ -252,7 +257,7 @@ const std::vector<ShiftInputs<float>> inputs_self = {
    4lu,   // n_cols
    ShiftDirection::TOWARDS_END,
    ShiftType::ROW},
-  {SELF,
+  {SELF_ID,
    input_matrix,                                                              // input
    {0.2f, 0.3f, 0.5f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 0.0f, 1.0f, 2.0f, 3.0f},  // output
    {},    // values (not used here)
@@ -273,9 +278,9 @@ TEST_P(ShiftTestF, Result)
                           resource::get_cuda_stream(handle)));
 }
 
-INSTANTIATE_TEST_SUITE_P(ShiftTestSingleVal, ShiftTestF, ::testing::ValuesIn(inputs_val));
-INSTANTIATE_TEST_SUITE_P(ShiftTestValues, ShiftTestF, ::testing::ValuesIn(inputs_values));
-INSTANTIATE_TEST_SUITE_P(ShiftTestSelf, ShiftTestF, ::testing::ValuesIn(inputs_self));
+INSTANTIATE_TEST_SUITE_P(ShiftTestConstant, ShiftTestF, ::testing::ValuesIn(inputs_constant));
+INSTANTIATE_TEST_SUITE_P(ShiftTestMatix, ShiftTestF, ::testing::ValuesIn(inputs_matrix));
+INSTANTIATE_TEST_SUITE_P(ShiftTestSelfId, ShiftTestF, ::testing::ValuesIn(inputs_self));
 
 }  // namespace matrix
 }  // namespace raft

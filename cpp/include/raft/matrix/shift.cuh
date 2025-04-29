@@ -19,12 +19,14 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/shift.cuh>
+#include <raft/matrix/shift.hpp>
 
 namespace raft::matrix {
 
 /**
  * @brief In-place operation. Shifts rows or columns to shift_direction by k, and fills the empty
- * values with "val".
+ * values with "val". If val is std::nullopt, then fills the first k row or columns with its column
+ * id or row id, respectively.
  *
  * Example 1) if we have a row-major 3x4 matrix in_out = [[1,2,3,4], [5,6,7,8],
  * [9,10,11,12]], val=100, k=2, shift_direction = ShiftDirection::TOWARDS_END and shift_type =
@@ -32,11 +34,18 @@ namespace raft::matrix {
  * Example 2) if we have a row-major 3x4 matrix in_out = [[1,2,3,4], [5,6,7,8], [9,10,11,12]],
  * val=100, k=1, shift_direction = ShiftDirection::TOWARDS_BEGINNING and shift_type =
  * ShiftType::ROW, then we end up with [[5,6,7,8], [9,10,11,12], [100,100,100,100]]
+ * Example 3) if we have a row-major 3x4 matrix in_out = [[1,2,3,4], [5,6,7,8],
+ * [9,10,11,12]], k=2, val=std::nullopt, shift_direction = ShiftDirection::TOWARDS_END and
+ * shift_type = ShiftType::COL, then we end up with [[0,0,1,2], [1,1,5,6], [2,2,9,10]].
+ * Example 4) if we have a row-major 3x4 matrix in_out = [[1,2,3,4], [5,6,7,8], [9,10,11,12]], k=2,
+ * val=std::nullopt, shift_direction = ShiftDirection::TOWARDS_BEGINNING and shift_type =
+ * ShiftType::ROW, then we end up with [[9,10,11,12], [0,1,2,3], [0,1,2,3]]
  *
  * @param[in] handle: raft handle
- * @param[in out] in_out: input matrix of size (n_rows, n_cols)
- * @param[in] val: value to fill in the first k columns (same for all rows)
+ * @param[in out] in_out: input matrix of size (n_rows x n_cols)
  * @param[in] k: shift size
+ * @param[in] val: optional value to fill in the first k rows or columns after shifting. If nullopt,
+ * then the row id or column id is used to fill.
  * @param[in] shift_direction: ShiftDirection::TOWARDS_BEGINNING shifts towards the 0th row/col
  * direction, and ShiftDirection::TOWARDS_END shifts towards the (nrow-1)th row/col direction
  * @param[in] shift_type: ShiftType::ROW shifts rows and ShiftType::COL shift columns
@@ -44,8 +53,8 @@ namespace raft::matrix {
 template <typename ValueT, typename IdxT>
 void shift(raft::resources const& handle,
            raft::device_matrix_view<ValueT, IdxT, row_major> in_out,
-           ValueT val,
            size_t k,
+           std::optional<ValueT> val      = std::nullopt,
            ShiftDirection shift_direction = ShiftDirection::TOWARDS_END,
            ShiftType shift_type           = ShiftType::COL)
 {
@@ -56,14 +65,16 @@ void shift(raft::resources const& handle,
     RAFT_EXPECTS(static_cast<size_t>(in_out.extent(0)) > k,
                  "Shift size k should be smaller than the number of rows in matrix.");
   }
-  detail::shift(handle, in_out, val, k, shift_direction, shift_type);
+
+  detail::shift(handle, in_out, k, val, shift_direction, shift_type);
 }
 
 /**
- * @brief In-place operation. Shifts all rows or columns to shift_direction by k, and fills the
- * empty space of the in_out matrix with the "values" matrix. If using shift_type=ShiftType::ROW,
- * then "values" should be k x n_cols size. If using shift_type=ShiftType::COL, then "values" should
- * be n_rows x k size.
+ * @brief In-place operation. Shifts all rows or columns to shift_direction based on shape of
+ * "values", and fills the empty space of the in_out matrix with the "values" matrix. If using
+ * shift_type=ShiftType::ROW, then "values" should be (k x n_cols) size, which will shift rows to
+ * shift_direction by k. If using shift_type=ShiftType::COL, then "values" should be (n_rows x k)
+ * size, which will shift columns to shift_direction by k.
  *
  * Example 1) if we have a row-major 3x4 matrix in_out = [[1,2,3,4], [5,6,7,8],
  * [9,10,11,12]], values=[[100,200], [300,400], [500,600]], shift_direction =
@@ -107,40 +118,4 @@ void shift(raft::resources const& handle,
 
   detail::shift(handle, in_out, values, shift_direction, shift_type);
 }
-
-/**
- * @brief In-place operation. Shifts all rows or columns to shift_direction by k, and fills the
- * first k row or columns with its column id or row id, respectively.
- *
- * Example 1) if we have a row-major 3x4 matrix in_out = [[1,2,3,4], [5,6,7,8],
- * [9,10,11,12]], k=2, shift_direction = ShiftDirection::TOWARDS_END and shift_type =
- * ShiftType::COL, then we end up with [[0,0,1,2], [1,1,5,6], [2,2,9,10]].
- * Example 2) if we have a row-major 3x4 matrix in_out = [[1,2,3,4], [5,6,7,8], [9,10,11,12]], k=2,
- * shift_direction = ShiftDirection::TOWARDS_BEGINNING and shift_type = ShiftType::ROW, then we end
- * up with [[9,10,11,12], [0,1,2,3], [0,1,2,3]]
- *
- * @param[in] handle: raft handle
- * @param[in out] in_out: input matrix of size (n_rows, n_cols)
- * @param[in] k: shift size
- * @param[in] shift_direction: ShiftDirection::TOWARDS_BEGINNING shifts towards the 0th row/col
- * direction, and ShiftDirection::TOWARDS_END shifts towards the (nrow-1)th row/col direction
- * @param[in] shift_type: ShiftType::ROW shifts rows and ShiftType::COL shift columns
- */
-template <typename math_t, typename matrix_idx_t>
-void shift_self(raft::resources const& handle,
-                raft::device_matrix_view<math_t, matrix_idx_t, row_major> in_out,
-                size_t k,
-                ShiftDirection shift_direction = ShiftDirection::TOWARDS_END,
-                ShiftType shift_type           = ShiftType::COL)
-{
-  if (shift_type == ShiftType::COL) {
-    RAFT_EXPECTS(static_cast<size_t>(in_out.extent(1)) > k,
-                 "Shift size k should be smaller than the number of columns in matrix.");
-  } else {
-    RAFT_EXPECTS(static_cast<size_t>(in_out.extent(0)) > k,
-                 "Shift size k should be smaller than the number of rows in matrix.");
-  }
-  detail::shift_self(handle, in_out, k, shift_direction, shift_type);
-}
-
 }  // namespace raft::matrix

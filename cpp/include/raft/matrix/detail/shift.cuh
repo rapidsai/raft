@@ -19,14 +19,10 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
-
-namespace raft::matrix {
-enum ShiftDirection { TOWARDS_BEGINNING, TOWARDS_END };
-enum ShiftType { ROW, COL };
-}  // namespace raft::matrix
+#include <raft/matrix/shift.hpp>
 
 namespace raft::matrix::detail {
-enum FillType { SINGLE_VAL, VALUES, SELF };
+enum FillType { CONSTANT, MATRIX, SELF_ID };
 
 template <typename T, typename fill_value, FillType fill_type>
 RAFT_KERNEL col_shift_towards_end(
@@ -38,17 +34,17 @@ RAFT_KERNEL col_shift_towards_end(
     for (size_t target_col = n_cols - 1; target_col >= k; target_col--) {
       in_out[base_idx + target_col] = in_out[base_idx + (target_col - k)];
     }
-    if constexpr (fill_type == FillType::SINGLE_VAL) {
+    if constexpr (fill_type == FillType::CONSTANT) {
       T val = static_cast<T>(value);
       for (size_t i = 0; i < k; i++) {
         in_out[base_idx + i] = val;
       }
-    } else if constexpr (fill_type == FillType::VALUES) {
+    } else if constexpr (fill_type == FillType::MATRIX) {
       const T* values = static_cast<const T*>(value);
       for (size_t i = 0; i < k; i++) {
         in_out[base_idx + i] = values[row * k + i];
       }
-    } else {  // FillType::SELF
+    } else {  // FillType::SELF_ID
       for (size_t i = 0; i < k; i++) {
         in_out[base_idx + i] = static_cast<T>(row);
       }
@@ -67,17 +63,17 @@ RAFT_KERNEL col_shift_towards_beginning(
       in_out[base_idx + target_col] = in_out[base_idx + (target_col + k)];
     }
     size_t base_col = n_cols - k;
-    if constexpr (fill_type == FillType::SINGLE_VAL) {
+    if constexpr (fill_type == FillType::CONSTANT) {
       T val = static_cast<T>(value);
       for (size_t i = 0; i < k; i++) {
         in_out[base_idx + base_col + i] = val;
       }
-    } else if constexpr (fill_type == FillType::VALUES) {
+    } else if constexpr (fill_type == FillType::MATRIX) {
       const T* values = static_cast<const T*>(value);
       for (size_t i = 0; i < k; i++) {
         in_out[base_idx + base_col + i] = values[row * k + i];
       }
-    } else {  // FillType::SELF
+    } else {  // FillType::SELF_ID
       for (size_t i = 0; i < k; i++) {
         in_out[base_idx + base_col + i] = static_cast<T>(row);
       }
@@ -95,17 +91,17 @@ RAFT_KERNEL row_shift_towards_end(
       in_out[target_row * n_cols + col] = in_out[(target_row - k) * n_cols + col];
     }
 
-    if constexpr (fill_type == FillType::SINGLE_VAL) {
+    if constexpr (fill_type == FillType::CONSTANT) {
       T val = static_cast<T>(value);
       for (size_t i = 0; i < k; i++) {
         in_out[i * n_cols + col] = val;
       }
-    } else if constexpr (fill_type == FillType::VALUES) {
+    } else if constexpr (fill_type == FillType::MATRIX) {
       const T* values = static_cast<const T*>(value);
       for (size_t i = 0; i < k; i++) {
         in_out[i * n_cols + col] = values[i * n_cols + col];
       }
-    } else {  // FillType::SELF
+    } else {  // FillType::SELF_ID
       for (size_t i = 0; i < k; i++) {
         in_out[i * n_cols + col] = static_cast<T>(col);
       }
@@ -123,17 +119,17 @@ RAFT_KERNEL row_shift_towards_beginning(
       in_out[target_row * n_cols + col] = in_out[(target_row + k) * n_cols + col];
     }
     size_t base_row = n_rows - k;
-    if constexpr (fill_type == FillType::SINGLE_VAL) {
+    if constexpr (fill_type == FillType::CONSTANT) {
       T val = static_cast<T>(value);
       for (size_t i = 0; i < k; i++) {
         in_out[(base_row + i) * n_cols + col] = val;
       }
-    } else if constexpr (fill_type == FillType::VALUES) {
+    } else if constexpr (fill_type == FillType::MATRIX) {
       const T* values = static_cast<const T*>(value);
       for (size_t i = 0; i < k; i++) {
         in_out[(base_row + i) * n_cols + col] = values[i * n_cols + col];
       }
-    } else {  // FillType::SELF
+    } else {  // FillType::SELF_ID
       for (size_t i = 0; i < k; i++) {
         in_out[(base_row + i) * n_cols + col] = static_cast<T>(col);
       }
@@ -179,13 +175,19 @@ void shift_dispatch(raft::resources const& handle,
 template <typename ValueT, typename IdxT>
 void shift(raft::resources const& handle,
            raft::device_matrix_view<ValueT, IdxT, row_major> in_out,
-           ValueT val,
            size_t k,
+           std::optional<ValueT> val      = std::nullopt,
            ShiftDirection shift_direction = ShiftDirection::TOWARDS_END,
            ShiftType shift_type           = ShiftType::COL)
 {
-  shift_dispatch<ValueT, IdxT, ValueT, SINGLE_VAL>(
-    handle, in_out, val, k, shift_direction, shift_type);
+  if (val.has_value()) {
+    shift_dispatch<ValueT, IdxT, ValueT, CONSTANT>(
+      handle, in_out, val.value(), k, shift_direction, shift_type);
+  } else {
+    // using 0 here as a placeholder
+    shift_dispatch<ValueT, IdxT, ValueT, SELF_ID>(
+      handle, in_out, static_cast<ValueT>(0), k, shift_direction, shift_type);
+  }
 }
 
 template <typename ValueT, typename IdxT>
@@ -196,20 +198,7 @@ void shift(raft::resources const& handle,
            ShiftType shift_type           = ShiftType::COL)
 {
   size_t k = shift_type == ShiftType::COL ? values.extent(1) : values.extent(0);
-  shift_dispatch<ValueT, IdxT, const ValueT*, VALUES>(
+  shift_dispatch<ValueT, IdxT, const ValueT*, MATRIX>(
     handle, in_out, values.data_handle(), k, shift_direction, shift_type);
 }
-
-template <typename ValueT, typename IdxT>
-void shift_self(raft::resources const& handle,
-                raft::device_matrix_view<ValueT, IdxT, row_major> in_out,
-                size_t k,
-                ShiftDirection shift_direction = ShiftDirection::TOWARDS_END,
-                ShiftType shift_type           = ShiftType::COL)
-{
-  // using 0 here as a placeholder.
-  shift_dispatch<ValueT, IdxT, ValueT, SELF>(
-    handle, in_out, static_cast<ValueT>(0), k, shift_direction, shift_type);
-}
-
 }  // namespace raft::matrix::detail
