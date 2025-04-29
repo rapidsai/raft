@@ -108,7 +108,7 @@ cdef extern from "raft_runtime/solver/lanczos.hpp" \
 
 
 @auto_sync_handle
-def eigsh(A, k=6, which="SA", v0=None, ncv=None, maxiter=None,
+def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
           tol=0, seed=None, handle=None):
     """
     Find ``k`` eigenvalues and eigenvectors of the real symmetric square

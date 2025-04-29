@@ -20,6 +20,10 @@
 
 namespace raft::sparse::solver {
 
+// LA: Largest (algebraic) eigenvalues
+// LM: Largest (in magnitude) eigenvalues
+// SA: Smallest (algebraic) eigenvalues
+// SM: Smallest (in magnitude) eigenvalues
 enum LANCZOS_WHICH { LA, LM, SA, SM };
 
 template <typename ValueTypeT>
