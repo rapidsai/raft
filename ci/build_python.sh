@@ -13,7 +13,7 @@ rapids-print-env
 
 rapids-logger "Begin py build"
 
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 
 version=$(rapids-generate-version)
 export RAPIDS_PACKAGE_VERSION=${version}
