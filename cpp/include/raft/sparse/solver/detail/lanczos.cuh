@@ -1508,10 +1508,15 @@ void lanczos_solve_ritz(
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::row_major> beta,
   std::optional<raft::device_vector_view<ValueTypeT, uint32_t>> beta_k,
   IndexTypeT k,
-  int which,
+  LANCZOS_WHICH which,
   int ncv,
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors,
-  raft::device_vector_view<ValueTypeT> eigenvalues)
+  raft::device_vector_view<ValueTypeT> eigenvalues,
+  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major>& eigenvectors_k,
+  raft::device_vector_view<ValueTypeT, uint32_t>& eigenvalues_k,
+  raft::device_matrix_view<ValueTypeT, IndexTypeT, raft::col_major>& eigenvectors_k_slice,
+  raft::device_vector_view<ValueTypeT> sm_eigenvalues,
+  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> sm_eigenvectors)
 {
   auto stream = resource::get_cuda_stream(handle);
 
@@ -1544,6 +1549,75 @@ void lanczos_solve_ritz(
       triangular_matrix.data_handle(), ncv, ncv);
 
   raft::linalg::eig_dc(handle, triangular_matrix_view, eigenvectors, eigenvalues);
+
+  IndexTypeT nEigVecs = k;
+
+  auto indices          = raft::make_device_vector<int>(handle, ncv);
+  auto selected_indices = raft::make_device_vector<int>(handle, nEigVecs);
+
+  if (which == LANCZOS_WHICH::SA) {
+    eigenvectors_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
+      eigenvectors.data_handle(), ncv, nEigVecs);
+    eigenvalues_k =
+      raft::make_device_vector_view<ValueTypeT, uint32_t>(eigenvalues.data_handle(), nEigVecs);
+    eigenvectors_k_slice = raft::make_device_matrix_view<ValueTypeT, IndexTypeT, raft::col_major>(
+      eigenvectors.data_handle(), ncv, nEigVecs);
+  } else if (which == LANCZOS_WHICH::LA) {
+    eigenvectors_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
+      eigenvectors.data_handle() + (ncv - nEigVecs) * ncv, ncv, nEigVecs);
+    eigenvalues_k = raft::make_device_vector_view<ValueTypeT, uint32_t>(
+      eigenvalues.data_handle() + (ncv - nEigVecs), nEigVecs);
+    eigenvectors_k_slice = raft::make_device_matrix_view<ValueTypeT, IndexTypeT, raft::col_major>(
+      eigenvectors.data_handle() + (ncv - nEigVecs) * ncv, ncv, nEigVecs);
+  } else if (which == LANCZOS_WHICH::SM || which == LANCZOS_WHICH::LM) {
+    thrust::sequence(thrust::device, indices.data_handle(), indices.data_handle() + ncv, 0);
+
+    // Sort indices by absolute eigenvalues (magnitude) using a custom comparator
+    thrust::sort(thrust::device,
+                 indices.data_handle(),
+                 indices.data_handle() + ncv,
+                 [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
+                   return fabsf(eigenvalues[a]) < fabsf(eigenvalues[b]);
+                 });
+
+    if (which == LANCZOS_WHICH::SM) {
+      // Take the first nEigVecs indices (smallest magnitude)
+      raft::copy(selected_indices.data_handle(), indices.data_handle(), nEigVecs, stream);
+    } else if (which == LANCZOS_WHICH::LM) {
+      // Take the last nEigVecs indices (largest magnitude)
+      raft::copy(
+        selected_indices.data_handle(), indices.data_handle() + (ncv - nEigVecs), nEigVecs, stream);
+    }
+
+    // Re-sort these indices by algebraic value to maintain algebraic ordering
+    thrust::sort(thrust::device,
+                 selected_indices.data_handle(),
+                 selected_indices.data_handle() + nEigVecs,
+                 [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
+                   return eigenvalues[a] < eigenvalues[b];
+                 });
+    raft::matrix::gather(
+      handle,
+      raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
+        eigenvalues.data_handle(), ncv, 1),
+      raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(), nEigVecs),
+      raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
+        sm_eigenvalues.data_handle(), nEigVecs, 1));
+    raft::matrix::gather(
+      handle,
+      raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
+        eigenvectors.data_handle(), ncv, ncv),
+      raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(), nEigVecs),
+      raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
+        sm_eigenvectors.data_handle(), nEigVecs, ncv));
+
+    eigenvectors_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
+      sm_eigenvectors.data_handle(), ncv, nEigVecs);
+    eigenvalues_k =
+      raft::make_device_vector_view<ValueTypeT, uint32_t>(sm_eigenvalues.data_handle(), nEigVecs);
+    eigenvectors_k_slice = raft::make_device_matrix_view<ValueTypeT, IndexTypeT, raft::col_major>(
+      sm_eigenvectors.data_handle(), ncv, nEigVecs);
+  }
 }
 
 template <typename IndexTypeT, typename ValueTypeT>
@@ -1762,90 +1836,29 @@ auto lanczos_smallest(
     raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(handle, ncv, ncv);
   auto eigenvalues = raft::make_device_vector<ValueTypeT, uint32_t>(handle, ncv);
 
-  lanczos_solve_ritz<IndexTypeT, ValueTypeT>(handle,
-                                             alpha.view(),
-                                             beta.view(),
-                                             std::nullopt,
-                                             nEigVecs,
-                                             0,
-                                             ncv,
-                                             eigenvectors.view(),
-                                             eigenvalues.view());
 
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors_k;
   raft::device_vector_view<ValueTypeT, uint32_t> eigenvalues_k;
   raft::device_matrix_view<ValueTypeT, IndexTypeT, raft::col_major> eigenvectors_k_slice;
 
-  auto indices          = raft::make_device_vector<int>(handle, ncv);
-  auto selected_indices = raft::make_device_vector<int>(handle, nEigVecs);
-
   auto sm_eigenvalues = raft::make_device_vector<ValueTypeT>(handle, nEigVecs);
   auto sm_eigenvectors =
     raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(handle, ncv, nEigVecs);
 
-  if (which == LANCZOS_WHICH::SA) {
-    eigenvectors_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
-      eigenvectors.data_handle(), ncv, nEigVecs);
-    eigenvalues_k =
-      raft::make_device_vector_view<ValueTypeT, uint32_t>(eigenvalues.data_handle(), nEigVecs);
-    eigenvectors_k_slice = raft::make_device_matrix_view<ValueTypeT, IndexTypeT, raft::col_major>(
-      eigenvectors.data_handle(), ncv, nEigVecs);
-  } else if (which == LANCZOS_WHICH::LA) {
-    eigenvectors_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
-      eigenvectors.data_handle() + (ncv - nEigVecs) * ncv, ncv, nEigVecs);
-    eigenvalues_k = raft::make_device_vector_view<ValueTypeT, uint32_t>(
-      eigenvalues.data_handle() + (ncv - nEigVecs), nEigVecs);
-    eigenvectors_k_slice = raft::make_device_matrix_view<ValueTypeT, IndexTypeT, raft::col_major>(
-      eigenvectors.data_handle() + (ncv - nEigVecs) * ncv, ncv, nEigVecs);
-  } else if (which == LANCZOS_WHICH::SM || which == LANCZOS_WHICH::LM) {
-    thrust::sequence(thrust::device, indices.data_handle(), indices.data_handle() + ncv, 0);
-
-    // Sort indices by absolute eigenvalues (magnitude) using a custom comparator
-    thrust::sort(thrust::device,
-                 indices.data_handle(),
-                 indices.data_handle() + ncv,
-                 [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
-                   return fabsf(eigenvalues[a]) < fabsf(eigenvalues[b]);
-                 });
-
-    if (which == LANCZOS_WHICH::SM) {
-      // Take the first nEigVecs indices (smallest magnitude)
-      raft::copy(selected_indices.data_handle(), indices.data_handle(), nEigVecs, stream);
-    } else if (which == LANCZOS_WHICH::LM) {
-      // Take the last nEigVecs indices (largest magnitude)
-      raft::copy(
-        selected_indices.data_handle(), indices.data_handle() + (ncv - nEigVecs), nEigVecs, stream);
-    }
-
-    // Re-sort these indices by algebraic value to maintain algebraic ordering
-    thrust::sort(thrust::device,
-                 selected_indices.data_handle(),
-                 selected_indices.data_handle() + nEigVecs,
-                 [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
-                   return eigenvalues[a] < eigenvalues[b];
-                 });
-    raft::matrix::gather(
-      handle,
-      raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
-        eigenvalues.data_handle(), ncv, 1),
-      raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(), nEigVecs),
-      raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
-        sm_eigenvalues.data_handle(), nEigVecs, 1));
-    raft::matrix::gather(
-      handle,
-      raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
-        eigenvectors.data_handle(), ncv, ncv),
-      raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(), nEigVecs),
-      raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
-        sm_eigenvectors.data_handle(), nEigVecs, ncv));
-
-    eigenvectors_k = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
-      sm_eigenvectors.data_handle(), ncv, nEigVecs);
-    eigenvalues_k =
-      raft::make_device_vector_view<ValueTypeT, uint32_t>(sm_eigenvalues.data_handle(), nEigVecs);
-    eigenvectors_k_slice = raft::make_device_matrix_view<ValueTypeT, IndexTypeT, raft::col_major>(
-      sm_eigenvectors.data_handle(), ncv, nEigVecs);
-  }
+  lanczos_solve_ritz<IndexTypeT, ValueTypeT>(handle,
+                                             alpha.view(),
+                                             beta.view(),
+                                             std::nullopt,
+                                             nEigVecs,
+                                             which,
+                                             ncv,
+                                             eigenvectors.view(),
+                                             eigenvalues.view(),
+                                             eigenvectors_k,
+                                             eigenvalues_k,
+                                             eigenvectors_k_slice,
+                                             sm_eigenvalues.view(),
+                                             sm_eigenvectors.view());
 
   auto ritz_eigenvectors =
     raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(eigVecs_dev, n, nEigVecs);
@@ -2091,57 +2104,15 @@ auto lanczos_smallest(
                                                beta.view(),
                                                beta_k.view(),
                                                nEigVecs,
-                                               0,
+                                               which,
                                                ncv,
                                                eigenvectors.view(),
-                                               eigenvalues.view());
-
-    if (which == LANCZOS_WHICH::SM || which == LANCZOS_WHICH::LM) {
-      // Sort indices by absolute eigenvalues (magnitude) using a custom comparator
-      thrust::sort(thrust::device,
-                   indices.data_handle(),
-                   indices.data_handle() + ncv,
-                   [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
-                     return fabsf(eigenvalues[a]) < fabsf(eigenvalues[b]);
-                   });
-
-      if (which == LANCZOS_WHICH::SM) {
-        // Take the first nEigVecs indices (smallest magnitude)
-        raft::copy(selected_indices.data_handle(), indices.data_handle(), nEigVecs, stream);
-      } else if (which == LANCZOS_WHICH::LM) {
-        // Take the last nEigVecs indices (largest magnitude)
-        raft::copy(selected_indices.data_handle(),
-                   indices.data_handle() + (ncv - nEigVecs),
-                   nEigVecs,
-                   stream);
-      }
-
-      // Re-sort these indices by algebraic value to maintain algebraic ordering
-      thrust::sort(thrust::device,
-                   selected_indices.data_handle(),
-                   selected_indices.data_handle() + nEigVecs,
-                   [eigenvalues = eigenvalues.data_handle()] __device__(int a, int b) {
-                     return eigenvalues[a] < eigenvalues[b];
-                   });
-
-      raft::matrix::gather(
-        handle,
-        raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
-          eigenvalues.data_handle(), ncv, 1),
-        raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(),
-                                                           nEigVecs),
-        raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
-          sm_eigenvalues.data_handle(), nEigVecs, 1));
-
-      raft::matrix::gather(
-        handle,
-        raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::row_major>(
-          eigenvectors.data_handle(), ncv, ncv),
-        raft::make_device_vector_view<const int, uint32_t>(selected_indices.data_handle(),
-                                                           nEigVecs),
-        raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::row_major>(
-          sm_eigenvectors.data_handle(), nEigVecs, ncv));
-    }
+                                               eigenvalues.view(),
+                                               eigenvectors_k,
+                                               eigenvalues_k,
+                                               eigenvectors_k_slice,
+                                               sm_eigenvalues.view(),
+                                               sm_eigenvectors.view());
 
     auto ritz_eigenvectors = raft::make_device_matrix_view<ValueTypeT, uint32_t, raft::col_major>(
       eigVecs_dev, n, nEigVecs);
