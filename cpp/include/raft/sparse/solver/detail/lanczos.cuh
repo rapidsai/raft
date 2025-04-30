@@ -1836,7 +1836,6 @@ auto lanczos_smallest(
     raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(handle, ncv, ncv);
   auto eigenvalues = raft::make_device_vector<ValueTypeT, uint32_t>(handle, ncv);
 
-
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors_k;
   raft::device_vector_view<ValueTypeT, uint32_t> eigenvalues_k;
   raft::device_matrix_view<ValueTypeT, IndexTypeT, raft::col_major> eigenvectors_k_slice;
