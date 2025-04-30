@@ -199,6 +199,16 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
     handle = handle if handle is not None else Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
+    def set_config_which(which):
+        if which.lower() == "sa":
+            return LANCZOS_WHICH.SA
+        elif which.lower() == "sm":
+            return LANCZOS_WHICH.SM
+        elif which.lower() == "la":
+            return LANCZOS_WHICH.LA
+        elif which.lower() == "lm":
+            return LANCZOS_WHICH.LM
+
     if IndexType == np.int32 and ValueType == np.float32:
         config_float.n_components = k
         config_float.max_iterations = maxiter
@@ -206,14 +216,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_float.tolerance = tol
         config_float.seed = seed
 
-        if which.lower() == "sa":
-            config_float.which = LANCZOS_WHICH.SA
-        elif which.lower() == "sm":
-            config_float.which = LANCZOS_WHICH.SM
-        elif which.lower() == "la":
-            config_float.which = LANCZOS_WHICH.LA
-        elif which.lower() == "lm":
-            config_float.which = LANCZOS_WHICH.LM
+        config_float.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
@@ -236,14 +239,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_float.tolerance = tol
         config_float.seed = seed
 
-        if which.lower() == "sa":
-            config_float.which = LANCZOS_WHICH.SA
-        elif which.lower() == "sm":
-            config_float.which = LANCZOS_WHICH.SM
-        elif which.lower() == "la":
-            config_float.which = LANCZOS_WHICH.LA
-        elif which.lower() == "lm":
-            config_float.which = LANCZOS_WHICH.LM
+        config_float.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
@@ -266,14 +262,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_double.tolerance = tol
         config_double.seed = seed
 
-        if which.lower() == "sa":
-            config_double.which = LANCZOS_WHICH.SA
-        elif which.lower() == "sm":
-            config_double.which = LANCZOS_WHICH.SM
-        elif which.lower() == "la":
-            config_double.which = LANCZOS_WHICH.LA
-        elif which.lower() == "lm":
-            config_double.which = LANCZOS_WHICH.LM
+        config_double.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
@@ -296,14 +285,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_double.tolerance = tol
         config_double.seed = seed
 
-        if which.lower() == "sa":
-            config_double.which = LANCZOS_WHICH.SA
-        elif which.lower() == "sm":
-            config_double.which = LANCZOS_WHICH.SM
-        elif which.lower() == "la":
-            config_double.which = LANCZOS_WHICH.LA
-        elif which.lower() == "lm":
-            config_double.which = LANCZOS_WHICH.LM
+        config_double.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
