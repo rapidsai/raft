@@ -17,8 +17,8 @@ RAFT_DASK_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}"
 
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install -v \
-    "${LIBRAFT_WHEELHOUSE}/libraft*.whl" \
-    "${PYLIBRAFT_WHEELHOUSE}/pylibraft*.whl" \
+    "${LIBRAFT_WHEELHOUSE}"/libraft*.whl \
+    "${PYLIBRAFT_WHEELHOUSE}"/pylibraft*.whl \
     "$(echo "${RAFT_DASK_WHEELHOUSE}"/raft_dask_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
 
 test_dir="python/raft-dask/raft_dask/tests"
