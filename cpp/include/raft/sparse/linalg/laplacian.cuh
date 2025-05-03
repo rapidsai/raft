@@ -20,9 +20,8 @@
 #include <raft/sparse/linalg/detail/laplacian.cuh>
 #include <raft/sparse/matrix/diagonal.cuh>
 
-#include <thrust/transform.h>
 #include <thrust/execution_policy.h>
-
+#include <thrust/transform.h>
 
 namespace raft {
 namespace sparse {
@@ -42,9 +41,7 @@ auto compute_graph_laplacian(
 
 template <typename ElementType>
 struct SqrtFunctor {
-  __device__ ElementType operator()(ElementType x) {
-    return std::sqrt(x);
-  }
+  __device__ ElementType operator()(ElementType x) { return std::sqrt(x); }
 };
 
 /** Given a CSR adjacency matrix, return the normalized graph Laplacian
@@ -59,10 +56,11 @@ auto compute_graph_laplacian_normalized(
   device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType> input,
   device_vector_view<ElementType, IndptrType> diagonal_out)
 {
-  auto laplacian = detail::compute_graph_laplacian(res, input);
+  auto laplacian           = detail::compute_graph_laplacian(res, input);
   auto laplacian_structure = laplacian.structure_view();
 
-  auto diagonal = raft::make_device_vector<ElementType, IndptrType>(res, laplacian_structure.get_n_rows());
+  auto diagonal =
+    raft::make_device_vector<ElementType, IndptrType>(res, laplacian_structure.get_n_rows());
   raft::sparse::matrix::get_diagonal_vector_from_csr(laplacian.view(), diagonal.view(), res);
 
   thrust::transform(thrust::device,

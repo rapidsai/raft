@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/util/input_validation.hpp>
-#include <raft/core/device_csr_matrix.hpp>
 
 namespace raft::sparse::matrix {
 
@@ -30,7 +30,7 @@ namespace raft::sparse::matrix {
  *
  * This function extracts the diagonal elements from a CSR matrix and stores them in a vector.
  * The diagonal elements are the elements where the row index and column index are the same.
-**/
+ **/
 template <typename T, typename IndexType>
 void get_diagonal_vector_from_csr(
   raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
@@ -66,7 +66,7 @@ void get_diagonal_vector_from_csr(
  *
  * This function scales each element of the CSR matrix by the corresponding diagonal element.
  * The diagonal elements are assumed to be stored in the diagonal vector.
-**/
+ **/
 template <typename T, typename IndexType>
 void scale_csr_by_diagonal_symmetric(
   raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix,
@@ -106,7 +106,7 @@ void scale_csr_by_diagonal_symmetric(
  *
  * This function sets the diagonal elements of a CSR matrix to ones.
  * The diagonal elements are the elements where the row index and column index are the same.
-**/
+ **/
 // TODO: allow any scalar value to be set
 template <typename T, typename IndexType>
 void set_csr_diagonal_to_ones_thrust(
