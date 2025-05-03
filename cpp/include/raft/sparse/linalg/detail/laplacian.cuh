@@ -16,7 +16,12 @@
 #pragma once
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_csr_matrix.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/sparse/matrix/diagonal.cuh>
+
+#include <thrust/execution_policy.h>
+#include <thrust/transform.h>
 
 #include <type_traits>
 
@@ -110,6 +115,39 @@ auto compute_graph_laplacian(
     input_structure.get_indices().data(),
     input_structure.get_indptr().data());
   return result;
+}
+
+template <typename ElementType>
+struct SqrtFunctor {
+  __device__ ElementType operator()(ElementType x) { return std::sqrt(x); }
+};
+
+template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
+auto compute_graph_laplacian_normalized(
+  raft::resources const& res,
+  device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType> input,
+  device_vector_view<ElementType, IndptrType> diagonal_out)
+{
+  auto laplacian           = detail::compute_graph_laplacian(res, input);
+  auto laplacian_structure = laplacian.structure_view();
+
+  auto diagonal =
+    raft::make_device_vector<ElementType, IndptrType>(res, laplacian_structure.get_n_rows());
+  raft::sparse::matrix::get_diagonal_vector_from_csr(laplacian.view(), diagonal.view(), res);
+
+  thrust::transform(thrust::device,
+                    diagonal.data_handle(),
+                    diagonal.data_handle() + diagonal.size(),
+                    diagonal.data_handle(),  // in-place
+                    SqrtFunctor<ElementType>());
+
+  raft::sparse::matrix::scale_csr_by_diagonal_symmetric(laplacian.view(), diagonal.view(), res);
+  raft::sparse::matrix::set_csr_diagonal_to_ones_thrust(laplacian.view(), res);
+
+  auto stream = resource::get_cuda_stream(res);
+
+  raft::copy(diagonal_out.data_handle(), diagonal.data_handle(), diagonal.size(), stream);
+  return laplacian;
 }
 
 }  // namespace detail
