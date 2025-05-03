@@ -258,6 +258,7 @@ if(BUILD_TESTS)
     sparse/csr_to_dense.cu
     sparse/csr_transpose.cu
     sparse/degree.cu
+    sparse/diagonal.cu
     sparse/filter.cu
     sparse/laplacian.cu
     sparse/masked_matmul.cu
