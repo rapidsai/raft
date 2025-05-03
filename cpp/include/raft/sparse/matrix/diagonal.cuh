@@ -21,6 +21,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/matrix/init.cuh>
+#include <raft/sparse/matrix/detail/diagonal.cuh>
 #include <raft/util/input_validation.hpp>
 
 namespace raft::sparse::matrix {
@@ -37,28 +38,7 @@ void get_diagonal_vector_from_csr(
   raft::device_vector_view<T, IndexType> diagonal,
   raft::resources const& res)
 {
-  auto structure = csr_matrix_view.structure_view();
-  auto n_rows    = structure.get_n_rows();
-
-  auto values      = csr_matrix_view.get_elements().data();
-  auto col_indices = structure.get_indices().data();
-  auto row_offsets = structure.get_indptr().data();
-  auto diag_ptr    = diagonal.data_handle();
-
-  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(res));
-
-  thrust::for_each(policy,
-                   thrust::counting_iterator<IndexType>(0),
-                   thrust::counting_iterator<IndexType>(n_rows),
-                   [values, col_indices, row_offsets, diag_ptr] __device__(IndexType row) {
-                     // For each row, find diagonal element (if it exists)
-                     for (auto j = row_offsets[row]; j < row_offsets[row + 1]; j++) {
-                       if (col_indices[j] == row) {
-                         diag_ptr[row] = values[j];
-                         break;
-                       }
-                     }
-                   });
+  detail::get_diagonal_vector_from_csr(csr_matrix_view, diagonal, res);
 }
 
 /**
@@ -73,32 +53,7 @@ void scale_csr_by_diagonal_symmetric(
   const raft::device_vector_view<T, IndexType> diagonal,  // Vector of scaling factors
   raft::resources const& res)
 {
-  auto structure = csr_matrix.structure_view();
-  auto nnz       = structure.get_nnz();
-
-  auto values      = csr_matrix.get_elements().data();
-  auto col_indices = structure.get_indices().data();
-  auto row_offsets = structure.get_indptr().data();
-  auto diag_ptr    = diagonal.data_handle();
-
-  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(res));
-
-  // For each row
-  thrust::for_each(policy,
-                   thrust::counting_iterator<IndexType>(0),
-                   thrust::counting_iterator<IndexType>(structure.get_n_rows()),
-                   [values, col_indices, row_offsets, diag_ptr] __device__(IndexType row) {
-                     T row_scale = 1.0f / diag_ptr[row];  // Scale factor for this row
-
-                     // For each element in this row
-                     for (auto j = row_offsets[row]; j < row_offsets[row + 1]; j++) {
-                       IndexType col = col_indices[j];
-                       T col_scale   = 1.0f / diag_ptr[col];  // Scale factor for the column
-
-                       // Scale by both row and column diagonal elements
-                       values[j] = row_scale * values[j] * col_scale;
-                     }
-                   });
+  detail::scale_csr_by_diagonal_symmetric(csr_matrix, diagonal, res);
 }
 
 /**
@@ -113,27 +68,7 @@ void set_csr_diagonal_to_ones_thrust(
   raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix,
   raft::resources const& res)
 {
-  auto structure = csr_matrix.structure_view();
-  auto n_rows    = structure.get_n_rows();
-
-  auto values      = csr_matrix.get_elements().data();
-  auto col_indices = structure.get_indices().data();
-  auto row_offsets = structure.get_indptr().data();
-
-  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(res));
-
-  thrust::for_each(policy,
-                   thrust::counting_iterator<IndexType>(0),
-                   thrust::counting_iterator<IndexType>(n_rows),
-                   [values, col_indices, row_offsets] __device__(IndexType row) {
-                     // For each row, find diagonal element (if it exists)
-                     for (auto j = row_offsets[row]; j < row_offsets[row + 1]; j++) {
-                       if (col_indices[j] == row) {
-                         values[j] = static_cast<T>(1.0);
-                         break;
-                       }
-                     }
-                   });
+  detail::set_csr_diagonal_to_ones_thrust(csr_matrix, res);
 }
 
 }  // namespace raft::sparse::matrix
