@@ -1,0 +1,139 @@
+/*
+ * Copyright (c) 2025, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/init.cuh>
+#include <raft/util/input_validation.hpp>
+#include <raft/core/device_csr_matrix.hpp>
+
+namespace raft::sparse::matrix {
+
+/**
+ * @brief Get the diagonal vector from a CSR matrix
+ *
+ * This function extracts the diagonal elements from a CSR matrix and stores them in a vector.
+ * The diagonal elements are the elements where the row index and column index are the same.
+**/
+template <typename T, typename IndexType>
+void get_diagonal_vector_from_csr(
+  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
+  raft::device_vector_view<T, IndexType> diagonal,
+  raft::resources const& res)
+{
+  auto structure = csr_matrix_view.structure_view();
+  auto n_rows    = structure.get_n_rows();
+
+  auto values      = csr_matrix_view.get_elements().data();
+  auto col_indices = structure.get_indices().data();
+  auto row_offsets = structure.get_indptr().data();
+  auto diag_ptr    = diagonal.data_handle();
+
+  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(res));
+
+  thrust::for_each(policy,
+                   thrust::counting_iterator<IndexType>(0),
+                   thrust::counting_iterator<IndexType>(n_rows),
+                   [values, col_indices, row_offsets, diag_ptr] __device__(IndexType row) {
+                     // For each row, find diagonal element (if it exists)
+                     for (auto j = row_offsets[row]; j < row_offsets[row + 1]; j++) {
+                       if (col_indices[j] == row) {
+                         diag_ptr[row] = values[j];
+                         break;
+                       }
+                     }
+                   });
+}
+
+/**
+ * @brief Scale a CSR matrix by its diagonal elements
+ *
+ * This function scales each element of the CSR matrix by the corresponding diagonal element.
+ * The diagonal elements are assumed to be stored in the diagonal vector.
+**/
+template <typename T, typename IndexType>
+void scale_csr_by_diagonal_symmetric(
+  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix,
+  const raft::device_vector_view<T, IndexType> diagonal,  // Vector of scaling factors
+  raft::resources const& res)
+{
+  auto structure = csr_matrix.structure_view();
+  auto nnz       = structure.get_nnz();
+
+  auto values      = csr_matrix.get_elements().data();
+  auto col_indices = structure.get_indices().data();
+  auto row_offsets = structure.get_indptr().data();
+  auto diag_ptr    = diagonal.data_handle();
+
+  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(res));
+
+  // For each row
+  thrust::for_each(policy,
+                   thrust::counting_iterator<IndexType>(0),
+                   thrust::counting_iterator<IndexType>(structure.get_n_rows()),
+                   [values, col_indices, row_offsets, diag_ptr] __device__(IndexType row) {
+                     T row_scale = 1.0f / diag_ptr[row];  // Scale factor for this row
+
+                     // For each element in this row
+                     for (auto j = row_offsets[row]; j < row_offsets[row + 1]; j++) {
+                       IndexType col = col_indices[j];
+                       T col_scale   = 1.0f / diag_ptr[col];  // Scale factor for the column
+
+                       // Scale by both row and column diagonal elements
+                       values[j] = row_scale * values[j] * col_scale;
+                     }
+                   });
+}
+
+/**
+ * @brief Set the diagonal elements of a CSR matrix to ones
+ *
+ * This function sets the diagonal elements of a CSR matrix to ones.
+ * The diagonal elements are the elements where the row index and column index are the same.
+**/
+// TODO: allow any scalar value to be set
+template <typename T, typename IndexType>
+void set_csr_diagonal_to_ones_thrust(
+  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix,
+  raft::resources const& res)
+{
+  auto structure = csr_matrix.structure_view();
+  auto n_rows    = structure.get_n_rows();
+
+  auto values      = csr_matrix.get_elements().data();
+  auto col_indices = structure.get_indices().data();
+  auto row_offsets = structure.get_indptr().data();
+
+  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(res));
+
+  thrust::for_each(policy,
+                   thrust::counting_iterator<IndexType>(0),
+                   thrust::counting_iterator<IndexType>(n_rows),
+                   [values, col_indices, row_offsets] __device__(IndexType row) {
+                     // For each row, find diagonal element (if it exists)
+                     for (auto j = row_offsets[row]; j < row_offsets[row + 1]; j++) {
+                       if (col_indices[j] == row) {
+                         values[j] = static_cast<T>(1.0);
+                         break;
+                       }
+                     }
+                   });
+}
+
+}  // namespace raft::sparse::matrix
