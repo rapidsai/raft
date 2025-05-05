@@ -46,7 +46,7 @@ namespace raft {
 class device_resources_snmg_nccl : public device_resources_snmg {
  public:
   /**
-   * @brief Construct a SNMG resources instance with all available GPUs
+   * @brief Construct a SNMG resources instance with all available GPUs. Initializes NCCL comm.
    */
   device_resources_snmg_nccl() : device_resources_snmg()
   {
@@ -58,7 +58,8 @@ class device_resources_snmg_nccl : public device_resources_snmg {
   }
 
   /**
-   * @brief Construct a SNMG resources instance with a subset of available GPUs
+   * @brief Construct a SNMG resources instance with a subset of available GPUs. Initializes NCCL
+   * comm.
    *
    * @param[in] device_ids List of device IDs to be used by the NCCL clique
    */

@@ -37,7 +37,7 @@ namespace raft {
 class device_resources_snmg : public device_resources {
  public:
   /**
-   * @brief Construct a SNMG base resources instance with all available GPUs
+   * @brief Construct a SNMG resources instance with all available GPUs
    */
   device_resources_snmg() : device_resources()
   {
@@ -53,7 +53,7 @@ class device_resources_snmg : public device_resources {
   }
 
   /**
-   * @brief Construct a SNMG base resources instance with a subset of available GPUs
+   * @brief Construct a SNMG resources instance with a subset of available GPUs
    *
    * @param[in] device_ids List of device IDs to be used
    */
