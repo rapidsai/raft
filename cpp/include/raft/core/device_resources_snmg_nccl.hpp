@@ -173,6 +173,6 @@ class device_resources_snmg_nccl : public device_resources_snmg {
     ncclGroupEnd();
   }
 
-};  // class device_resources_snmg
+};  // class device_resources_snmg_nccl
 
 }  // namespace raft
