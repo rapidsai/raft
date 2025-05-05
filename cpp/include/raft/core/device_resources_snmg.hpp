@@ -81,6 +81,31 @@ class device_resources_snmg : public device_resources {
 
   ~device_resources_snmg(){};
 
+  /**
+   * @brief Set a memory pool on all GPUs of the clique
+   */
+  void set_memory_pool(int percent_of_free_memory) const
+  {
+    int num_ranks = raft::resource::get_num_ranks(*this);
+    for (int rank = 0; rank < num_ranks; rank++) {
+      const raft::resources& dev_res = raft::resource::set_current_device_to_rank(*this, rank);
+      // check limit for each device
+      size_t limit = rmm::percent_of_free_device_memory(percent_of_free_memory);
+      raft::resource::set_workspace_to_pool_resource(dev_res, limit);
+    }
+    cudaSetDevice(this->main_gpu_id_);
+  }
+
+  bool has_resource_factory(resource::resource_type resource_type) const override
+  {
+    if (resource_type != raft::resource::MULTI_GPU && resource_type != raft::resource::NCCL_COMM &&
+        resource_type != raft::resource::CLIQUE_ROOT_RANK) {
+      // for resources unrelated to SNMG switch current GPU to main GPU ID
+      cudaSetDevice(this->main_gpu_id_);
+    }
+    return raft::resources::has_resource_factory(resource_type);
+  }
+
   int main_gpu_id_;
 
  private:

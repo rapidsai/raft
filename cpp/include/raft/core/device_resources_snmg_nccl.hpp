@@ -62,7 +62,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
    *
    * @param[in] device_ids List of device IDs to be used by the NCCL clique
    */
-  device_resources_snmg_nccl(const std::vector<int>& device_ids) : device_resources_snmg()
+  device_resources_snmg_nccl(const std::vector<int>& device_ids) : device_resources_snmg(device_ids)
   {
     // initialize the NCCL clique
     std::vector<raft::resources>& clique = raft::resource::get_multi_gpu_resource(*this);
@@ -152,29 +152,6 @@ class device_resources_snmg_nccl : public device_resources_snmg {
   inline const raft::resources& set_current_device_to_root_rank() const
   {
     return raft::resource::set_current_device_to_root_rank(*this);
-  }
-
-  /**
-   * @brief Set a memory pool on all GPUs of the clique
-   */
-  void set_memory_pool(int percent_of_free_memory) const
-  {
-    for (int rank = 0; rank < get_nccl_num_ranks(); rank++) {
-      const raft::resources& dev_res = set_current_device_to_rank(rank);
-      // check limit for each device
-      size_t limit = rmm::percent_of_free_device_memory(percent_of_free_memory);
-      raft::resource::set_workspace_to_pool_resource(dev_res, limit);
-    }
-    cudaSetDevice(this->main_gpu_id_);
-  }
-
-  bool has_resource_factory(resource::resource_type resource_type) const override
-  {
-    if (resource_type != raft::resource::MULTI_GPU && resource_type != raft::resource::NCCL_COMM &&
-        resource_type != raft::resource::CLIQUE_ROOT_RANK)
-      // for resources unrelated to SNMG switch current GPU to main GPU ID
-      cudaSetDevice(this->main_gpu_id_);
-    return raft::resources::has_resource_factory(resource_type);
   }
 
  private:
