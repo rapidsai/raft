@@ -64,6 +64,7 @@ class device_resources_snmg : public device_resources {
     // initialize resources for the given device ids
     std::vector<raft::resources>& clique = raft::resource::get_multi_gpu_resource(*this);
     _init_world(clique, device_ids);
+    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
 
   /**

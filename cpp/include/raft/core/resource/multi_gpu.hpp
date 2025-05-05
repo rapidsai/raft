@@ -81,6 +81,14 @@ inline std::vector<raft::resources>& get_multi_gpu_resource(resources const& res
 };
 
 /**
+ * @brief Returns true if we have a multi GPU resource type
+ */
+inline bool is_multi_gpu(resources const& res)
+{
+  return res.has_resource_factory(resource_type::MULTI_GPU);
+};
+
+/**
  * @brief Get number of ranks
  */
 inline int get_num_ranks(resources const& res)
