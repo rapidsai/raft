@@ -18,6 +18,7 @@
 
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/multi_gpu.hpp>
+#include <raft/core/resource/resource_types.hpp>
 
 #include <vector>
 
@@ -40,14 +41,15 @@ class device_resources_snmg : public device_resources {
    */
   device_resources_snmg() : device_resources()
   {
-    RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id_));
-    int root_rank = 0;
-    raft::resource::set_root_rank(*this, root_rank);
+    // main device at the point of class construction becomes main device for multi-gpu world
+    int main_gpu_id;
+    RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id));
+    raft::resource::set_main_gpu_id(*this, main_gpu_id);
 
     // initialize all resources
     std::vector<raft::resources>& world_resources = raft::resource::get_multi_gpu_resource(*this);
     _init_world(world_resources);
-    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
+    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id));
   }
 
   /**
@@ -57,14 +59,15 @@ class device_resources_snmg : public device_resources {
    */
   device_resources_snmg(const std::vector<int>& device_ids) : device_resources()
   {
-    RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id_));
-    int root_rank = 0;
-    raft::resource::set_root_rank(*this, root_rank);
+    // main device at the point of class construction becomes main device for multi-gpu world
+    int main_gpu_id;
+    RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id));
+    raft::resource::set_main_gpu_id(*this, main_gpu_id);
 
     // initialize resources for the given device ids
-    std::vector<raft::resources>& clique = raft::resource::get_multi_gpu_resource(*this);
-    _init_world(clique, device_ids);
-    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
+    std::vector<raft::resources>& world_resources = raft::resource::get_multi_gpu_resource(*this);
+    _init_world(world_resources, device_ids);
+    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id));
   }
 
   /**
@@ -72,10 +75,7 @@ class device_resources_snmg : public device_resources {
    *
    * @param[in] world A SNMG resources instance
    */
-  device_resources_snmg(const device_resources_snmg& world)
-    : device_resources(world), main_gpu_id_(world.main_gpu_id_)
-  {
-  }
+  device_resources_snmg(const device_resources_snmg& world) : device_resources(world) {}
 
   device_resources_snmg(device_resources_snmg&&)            = delete;
   device_resources_snmg& operator=(device_resources_snmg&&) = delete;
@@ -83,39 +83,37 @@ class device_resources_snmg : public device_resources {
   ~device_resources_snmg(){};
 
   /**
-   * @brief Set a memory pool on all GPUs of the clique
+   * @brief Set a memory pool on all GPUs of the multi-gpu world
    */
   void set_memory_pool(int percent_of_free_memory) const
   {
-    int num_ranks = raft::resource::get_num_ranks(*this);
-    for (int rank = 0; rank < num_ranks; rank++) {
-      const raft::resources& dev_res = raft::resource::set_current_device_to_rank(*this, rank);
+    int world_size = raft::resource::get_world_size(*this);
+    for (int gpu_id = 0; gpu_id < world_size; gpu_id++) {
+      const raft::resources& dev_res = raft::resource::set_current_device_to_gpu_id(*this, gpu_id);
       // check limit for each device
       size_t limit = rmm::percent_of_free_device_memory(percent_of_free_memory);
       raft::resource::set_workspace_to_pool_resource(dev_res, limit);
     }
-    cudaSetDevice(this->main_gpu_id_);
+    cudaSetDevice(raft::resource::get_main_gpu_id(*this));
   }
 
   bool has_resource_factory(resource::resource_type resource_type) const override
   {
     if (resource_type != raft::resource::MULTI_GPU && resource_type != raft::resource::NCCL_COMM &&
-        resource_type != raft::resource::CLIQUE_ROOT_RANK) {
+        resource_type != raft::resource::MAIN_GPU_ID) {
       // for resources unrelated to SNMG switch current GPU to main GPU ID
-      cudaSetDevice(this->main_gpu_id_);
+      cudaSetDevice(raft::resource::get_main_gpu_id(*this));
     }
     return raft::resources::has_resource_factory(resource_type);
   }
 
-  int main_gpu_id_;
-
  private:
   inline void _init_world(std::vector<raft::resources>& world_resources)
   {
-    int num_ranks;
-    RAFT_CUDA_TRY(cudaGetDeviceCount(&num_ranks));
+    int world_size;
+    RAFT_CUDA_TRY(cudaGetDeviceCount(&world_size));
 
-    for (int rank = 0; rank < num_ranks; rank++) {
+    for (int rank = 0; rank < world_size; rank++) {
       RAFT_CUDA_TRY(cudaSetDevice(rank));
       world_resources.emplace_back();
 
