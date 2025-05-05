@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ inline int& get_main_gpu_id(resources const& res)
 };
 
 /**
- * Retrieves a multi gpu resource from raft res if it exists, otherwise initializes it and return
+ * Retrieves a multi gpu resource from raft res if it exists, otherwise initializes it and returns
  * it.
  *
  * @param[in] res the raft resources object
@@ -101,7 +101,7 @@ inline const raft::resources& get_device_resources_for_gpu_id(resources const& r
 }
 
 /**
- * @brief Set current device ID to a specifit GPU id and return its raft::resources object
+ * @brief Switch device to given gpu_id and return its raft::resources object
  */
 inline const raft::resources& set_current_device_to_gpu_id(resources const& res, int gpu_id)
 {
@@ -111,7 +111,7 @@ inline const raft::resources& set_current_device_to_gpu_id(resources const& res,
 }
 
 /**
- * @brief Set current device ID to main GPU id and return its raft::resources object
+ * @brief Switch to main GPU and return its raft::resources object
  */
 inline const raft::resources& set_current_device_to_main_gpu(resources const& res)
 {
@@ -123,7 +123,7 @@ inline const raft::resources& set_current_device_to_main_gpu(resources const& re
 }
 
 /**
- * @brief Set the main gpu id
+ * @brief Set the main gpu id to given main_gpu_id
  */
 inline void set_main_gpu_id(resources const& res, int main_gpu_id)
 {

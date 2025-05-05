@@ -45,7 +45,8 @@ namespace raft {
 class device_resources_snmg_nccl : public device_resources_snmg {
  public:
   /**
-   * @brief Construct a SNMG resources instance with all available GPUs. Initializes NCCL comm.
+   * @brief Construct a SNMG resources instance with all available GPUs. Initializes NCCL
+   * communication.
    */
   device_resources_snmg_nccl() : device_resources_snmg()
   {
@@ -58,7 +59,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
 
   /**
    * @brief Construct a SNMG resources instance with a subset of available GPUs. Initializes NCCL
-   * comm.
+   * communication.
    *
    * @param[in] device_ids List of device IDs to be used by the NCCL clique
    */
@@ -139,7 +140,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
   }
 
   /**
-   * @brief Set current device ID to rank and return its raft::resources object
+   * @brief Switch device to given rank and return its raft::resources object
    */
   inline const raft::resources& set_current_device_to_rank(int rank) const
   {
@@ -147,7 +148,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
   }
 
   /**
-   * @brief Set current device ID to root rank and return its raft::resources object
+   * @brief Switch device to root rank and return its raft::resources object
    */
   inline const raft::resources& set_current_device_to_root_rank() const
   {
