@@ -19,7 +19,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/shift.cuh>
-#include <raft/matrix/shift.hpp>
+#include <raft/matrix/shift_types.hpp>
 
 namespace raft::matrix {
 

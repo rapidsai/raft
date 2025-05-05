@@ -19,7 +19,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/matrix/shift.hpp>
+#include <raft/matrix/shift_types.hpp>
 
 namespace raft::matrix::detail {
 enum FillType { CONSTANT, MATRIX, SELF_ID };
