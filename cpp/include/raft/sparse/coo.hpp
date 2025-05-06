@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/sparse/detail/coo.cuh>
+#include <raft/sparse/detail/host_coo.cuh>
 
 namespace raft {
 namespace sparse {
@@ -41,6 +42,9 @@ namespace sparse {
  */
 template <typename value_t, typename value_idx = int, typename nnz_t = uint64_t>
 using COO = detail::COO<value_t, value_idx, nnz_t>;
+
+template <typename value_t, typename value_idx = int, typename nnz_t = uint64_t>
+using host_COO = detail::host_COO<value_t, value_idx, nnz_t>;
 
 };  // namespace sparse
 };  // namespace raft

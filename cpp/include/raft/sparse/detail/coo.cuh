@@ -245,6 +245,16 @@ class COO {
 
     if (init) init_arrays(stream);
   }
+
+  void release()
+  {
+    this->rows_arr.release();
+    this->cols_arr.release();
+    this->vals_arr.release();
+    this->nnz    = 0;
+    this->n_rows = 0;
+    this->n_cols = 0;
+  }
 };
 
 };  // namespace detail
