@@ -24,7 +24,7 @@ namespace raft::sparse::solver {
  * @enum LANCZOS_WHICH
  * @brief Enumeration specifying which eigenvalues to compute in the Lanczos algorithm
  */
-enum class LANCZOS_WHICH {
+enum LANCZOS_WHICH {
   /** @brief LA: Largest (algebraic) eigenvalues */
   LA,
   /** @brief LM: Largest (in magnitude) eigenvalues */
