@@ -264,6 +264,7 @@ if(BUILD_TESTS)
     sparse/masked_matmul.cu
     sparse/norm.cu
     sparse/normalize.cu
+    sparse/preprocess.cu
     sparse/reduce.cu
     sparse/row_op.cu
     sparse/sddmm.cu
