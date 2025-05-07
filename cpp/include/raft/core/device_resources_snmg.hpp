@@ -75,7 +75,10 @@ class device_resources_snmg : public device_resources {
    *
    * @param[in] world A SNMG resources instance
    */
-  device_resources_snmg(const device_resources_snmg& world) : device_resources(world) {}
+  device_resources_snmg(const device_resources_snmg& world)
+    : device_resources(world), main_gpu_id_(world.main_gpu_id_)
+  {
+  }
 
   device_resources_snmg(device_resources_snmg&&)            = delete;
   device_resources_snmg& operator=(device_resources_snmg&&) = delete;
