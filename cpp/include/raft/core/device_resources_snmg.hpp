@@ -42,8 +42,6 @@ class device_resources_snmg : public device_resources {
   device_resources_snmg() : device_resources()
   {
     RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id_));
-
-    // set root rank
     raft::resource::set_root_rank(*this, 0);
 
     // initialize all resources
@@ -60,8 +58,6 @@ class device_resources_snmg : public device_resources {
   device_resources_snmg(const std::vector<int>& device_ids) : device_resources()
   {
     RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id_));
-
-    // set root rank
     raft::resource::set_root_rank(*this, 0);
 
     // initialize resources for the given device ids
