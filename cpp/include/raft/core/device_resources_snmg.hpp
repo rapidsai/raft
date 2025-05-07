@@ -41,15 +41,15 @@ class device_resources_snmg : public device_resources {
    */
   device_resources_snmg() : device_resources()
   {
-    // main device at the point of class construction becomes main device for multi-gpu world
-    int main_gpu_id;
-    RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id));
-    raft::resource::set_main_gpu_id(*this, main_gpu_id);
+    RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id_));
+
+    // set root rank
+    raft::resource::set_root_rank(*this, 0);
 
     // initialize all resources
     std::vector<raft::resources>& world_resources = raft::resource::get_multi_gpu_resource(*this);
     _init_world(world_resources);
-    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id));
+    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
 
   /**
@@ -59,15 +59,15 @@ class device_resources_snmg : public device_resources {
    */
   device_resources_snmg(const std::vector<int>& device_ids) : device_resources()
   {
-    // main device at the point of class construction becomes main device for multi-gpu world
-    int main_gpu_id;
-    RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id));
-    raft::resource::set_main_gpu_id(*this, main_gpu_id);
+    RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id_));
+
+    // set root rank
+    raft::resource::set_root_rank(*this, 0);
 
     // initialize resources for the given device ids
     std::vector<raft::resources>& world_resources = raft::resource::get_multi_gpu_resource(*this);
     _init_world(world_resources, device_ids);
-    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id));
+    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
 
   /**
@@ -87,25 +87,28 @@ class device_resources_snmg : public device_resources {
    */
   void set_memory_pool(int percent_of_free_memory) const
   {
-    int world_size = raft::resource::get_world_size(*this);
+    int world_size = raft::resource::get_num_ranks(*this);
     for (int gpu_id = 0; gpu_id < world_size; gpu_id++) {
-      const raft::resources& dev_res = raft::resource::set_current_device_to_gpu_id(*this, gpu_id);
+      const raft::resources& dev_res = raft::resource::set_current_device_to_rank(*this, gpu_id);
       // check limit for each device
       size_t limit = rmm::percent_of_free_device_memory(percent_of_free_memory);
       raft::resource::set_workspace_to_pool_resource(dev_res, limit);
     }
-    cudaSetDevice(raft::resource::get_main_gpu_id(*this));
+    RAFT_CUDA_TRY(cudaSetDevice(this->main_gpu_id_));
   }
 
   bool has_resource_factory(resource::resource_type resource_type) const override
   {
     if (resource_type != raft::resource::MULTI_GPU && resource_type != raft::resource::NCCL_COMM &&
-        resource_type != raft::resource::MAIN_GPU_ID) {
+        resource_type != raft::resource::ROOT_RANK) {
       // for resources unrelated to SNMG switch current GPU to main GPU ID
-      cudaSetDevice(raft::resource::get_main_gpu_id(*this));
+      RAFT_CUDA_TRY(cudaSetDevice(this->main_gpu_id_));
     }
     return raft::resources::has_resource_factory(resource_type);
   }
+
+ protected:
+  int main_gpu_id_;
 
  private:
   inline void _init_world(std::vector<raft::resources>& world_resources)
@@ -133,6 +136,7 @@ class device_resources_snmg : public device_resources {
       raft::resource::get_device_id(world_resources.back());
     }
   }
+
 };  // class device_resources_snmg
 
 }  // namespace raft

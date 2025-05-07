@@ -40,24 +40,29 @@ class multi_gpu_resource_factory : public resource_factory {
   resource* make_resource() override { return new multi_gpu_resource(); }
 };
 
-class main_gpu_resource : public device_id_resource {
+class root_rank_resource : public resource {
  public:
-  main_gpu_resource() : device_id_resource() {}
-  ~main_gpu_resource() override {}
+  root_rank_resource() : root_rank_(0) {}
+  void* get_resource() override { return &root_rank_; }
+
+  ~root_rank_resource() override {}
+
+ private:
+  int root_rank_;
 };
 
-class main_gpu_resource_factory : public resource_factory {
+class root_rank_resource_factory : public resource_factory {
  public:
-  resource_type get_resource_type() override { return resource_type::MAIN_GPU_ID; }
-  resource* make_resource() override { return new main_gpu_resource(); }
+  resource_type get_resource_type() override { return resource_type::ROOT_RANK; }
+  resource* make_resource() override { return new root_rank_resource(); }
 };
 
-inline int& get_main_gpu_id(resources const& res)
+inline int& get_root_rank(resources const& res)
 {
-  if (!res.has_resource_factory(resource_type::MAIN_GPU_ID)) {
-    res.add_resource_factory(std::make_shared<main_gpu_resource_factory>());
+  if (!res.has_resource_factory(resource_type::ROOT_RANK)) {
+    res.add_resource_factory(std::make_shared<root_rank_resource_factory>());
   }
-  return *res.get_resource<int>(resource_type::MAIN_GPU_ID);
+  return *res.get_resource<int>(resource_type::ROOT_RANK);
 };
 
 /**
@@ -86,49 +91,48 @@ inline bool is_multi_gpu(resources const& res)
 /**
  * @brief Get number of gpus in multi-gpu world
  */
-inline int get_world_size(resources const& res)
+inline int get_num_ranks(resources const& res)
 {
   return raft::resource::get_multi_gpu_resource(res).size();
 }
 
 /**
- * @brief Get specific GPU's raft::resources object
+ * @brief Get specific rank's raft::resources object
  */
-inline const raft::resources& get_device_resources_for_gpu_id(resources const& res, int gpu_id)
+inline const raft::resources& get_device_resources_for_rank(resources const& res, int rank)
 {
   std::vector<raft::resources>& world_resources = raft::resource::get_multi_gpu_resource(res);
-  return world_resources[gpu_id];
+  return world_resources[rank];
 }
 
 /**
- * @brief Switch device to given gpu_id and return its raft::resources object
+ * @brief Switch device to rank and return its raft::resources object
  */
-inline const raft::resources& set_current_device_to_gpu_id(resources const& res, int gpu_id)
+inline const raft::resources& set_current_device_to_rank(resources const& res, int rank)
 {
-  const raft::resources& dev_res = raft::resource::get_device_resources_for_gpu_id(res, gpu_id);
+  const raft::resources& dev_res = raft::resource::get_device_resources_for_rank(res, rank);
   RAFT_CUDA_TRY(cudaSetDevice(raft::resource::get_device_id(dev_res)));
   return dev_res;
 }
 
 /**
- * @brief Switch to main GPU and return its raft::resources object
+ * @brief Switch to root rank and return its raft::resources object
  */
-inline const raft::resources& set_current_device_to_main_gpu(resources const& res)
+inline const raft::resources& set_current_device_to_root_rank(resources const& res)
 {
-  int main_gpu_id = get_main_gpu_id(res);
-  const raft::resources& dev_res =
-    raft::resource::get_device_resources_for_gpu_id(res, main_gpu_id);
+  int root_rank                  = get_root_rank(res);
+  const raft::resources& dev_res = raft::resource::get_device_resources_for_rank(res, root_rank);
   RAFT_CUDA_TRY(cudaSetDevice(raft::resource::get_device_id(dev_res)));
   return dev_res;
 }
 
 /**
- * @brief Set the main gpu id to given main_gpu_id
+ * @brief Set the root rank to given rank
  */
-inline void set_main_gpu_id(resources const& res, int main_gpu_id)
+inline void set_root_rank(resources const& res, int root_rank)
 {
-  int& main_gpu_id_ = get_main_gpu_id(res);
-  main_gpu_id_      = main_gpu_id;
+  int& root_rank_ = get_root_rank(res);
+  root_rank_      = root_rank;
 };
 
 }  // namespace raft::resource

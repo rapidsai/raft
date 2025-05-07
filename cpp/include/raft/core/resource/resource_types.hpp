@@ -47,7 +47,7 @@ enum resource_type {
   CUSTOM,                    // runtime-shared default-constructible resource
   LARGE_WORKSPACE_RESOURCE,  // rmm device memory resource for somewhat large temporary allocations
   NCCL_COMM,                 // nccl comm
-  MAIN_GPU_ID,               // main GPU id in multi-gpu world
+  ROOT_RANK,                 // root rank in multi-gpu world
   MULTI_GPU,                 // resource that tracks resource of each device in multi-gpu world
 
   LAST_KEY  // reserved for the last key

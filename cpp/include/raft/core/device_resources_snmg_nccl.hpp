@@ -54,7 +54,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
     std::vector<raft::resources>& clique = raft::resource::get_multi_gpu_resource(*this);
     _init_nccl_comms(clique);
 
-    RAFT_CUDA_TRY(cudaSetDevice(raft::resource::get_main_gpu_id(*this)));
+    RAFT_CUDA_TRY(cudaSetDevice(this->main_gpu_id_););
   }
 
   /**
@@ -69,7 +69,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
     std::vector<raft::resources>& clique = raft::resource::get_multi_gpu_resource(*this);
     _init_nccl_comms(clique);
 
-    RAFT_CUDA_TRY(cudaSetDevice(raft::resource::get_main_gpu_id(*this)));
+    RAFT_CUDA_TRY(cudaSetDevice(this->main_gpu_id_););
   }
 
   /**
@@ -101,24 +101,24 @@ class device_resources_snmg_nccl : public device_resources_snmg {
   /**
    * @brief Set root rank of NCCL clique
    */
-  inline void set_nccl_root_rank(int rank) { raft::resource::set_main_gpu_id(*this, rank); }
+  inline void set_nccl_root_rank(int rank) { raft::resource::set_root_rank(*this, rank); }
 
   /**
    * @brief Get root rank of NCCL clique
    */
-  inline int get_nccl_root_rank() const { return raft::resource::get_main_gpu_id(*this); }
+  inline int get_nccl_root_rank() const { return raft::resource::get_root_rank(*this); }
 
   /**
    * @brief Get number of ranks in NCCL clique
    */
-  inline int get_nccl_num_ranks() const { return raft::resource::get_main_gpu_id(*this); }
+  inline int get_nccl_num_ranks() const { return raft::resource::get_num_ranks(*this); }
 
   /**
    * @brief Get device ID of rank in NCCL clique
    */
   inline int get_device_id_of_rank(int rank) const
   {
-    const raft::resources& dev_res = raft::resource::get_device_resources_for_gpu_id(*this, rank);
+    const raft::resources& dev_res = raft::resource::get_device_resources_for_rank(*this, rank);
     return raft::resource::get_device_id(dev_res);
   }
 
@@ -127,7 +127,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
    */
   inline ncclComm_t& get_nccl_comm_for_rank(int rank) const
   {
-    const raft::resources& dev_res = raft::resource::get_device_resources_for_gpu_id(*this, rank);
+    const raft::resources& dev_res = raft::resource::get_device_resources_for_rank(*this, rank);
     return raft::resource::get_nccl_comm(dev_res);
   }
 
@@ -136,7 +136,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
    */
   inline const raft::resources& get_device_resources_for_rank(int rank) const
   {
-    return raft::resource::get_device_resources_for_gpu_id(*this, rank);
+    return raft::resource::get_device_resources_for_rank(*this, rank);
   }
 
   /**
@@ -144,7 +144,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
    */
   inline const raft::resources& set_current_device_to_rank(int rank) const
   {
-    return raft::resource::set_current_device_to_gpu_id(*this, rank);
+    return raft::resource::set_current_device_to_rank(*this, rank);
   }
 
   /**
@@ -152,7 +152,7 @@ class device_resources_snmg_nccl : public device_resources_snmg {
    */
   inline const raft::resources& set_current_device_to_root_rank() const
   {
-    return raft::resource::set_current_device_to_main_gpu(*this);
+    return raft::resource::set_current_device_to_root_rank(*this);
   }
 
  private:
