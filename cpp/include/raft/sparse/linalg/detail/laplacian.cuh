@@ -20,9 +20,6 @@
 #include <raft/core/resources.hpp>
 #include <raft/sparse/matrix/diagonal.cuh>
 
-#include <thrust/execution_policy.h>
-#include <thrust/transform.h>
-
 #include <type_traits>
 
 namespace raft {
@@ -117,11 +114,6 @@ auto compute_graph_laplacian(
   return result;
 }
 
-template <typename ElementType>
-struct SqrtFunctor {
-  __device__ ElementType operator()(ElementType x) { return std::sqrt(x); }
-};
-
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
 auto compute_graph_laplacian_normalized(
   raft::resources const& res,
@@ -135,11 +127,8 @@ auto compute_graph_laplacian_normalized(
     raft::make_device_vector<ElementType, IndptrType>(res, laplacian_structure.get_n_rows());
   raft::sparse::matrix::get_diagonal_vector_from_csr(laplacian.view(), diagonal.view(), res);
 
-  thrust::transform(thrust::device,
-                    diagonal.data_handle(),
-                    diagonal.data_handle() + diagonal.size(),
-                    diagonal.data_handle(),  // in-place
-                    SqrtFunctor<ElementType>());
+  raft::linalg::unary_op(
+    res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), raft::sqrt_op());
 
   raft::sparse::matrix::scale_csr_by_diagonal_symmetric(laplacian.view(), diagonal.view(), res);
   raft::sparse::matrix::set_csr_diagonal_to_ones_thrust(laplacian.view(), res);
