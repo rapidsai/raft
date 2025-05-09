@@ -49,6 +49,7 @@ enum resource_type {
   NCCL_COMM,                 // nccl comm
   ROOT_RANK,                 // root rank in multi-gpu world
   MULTI_GPU,                 // resource that tracks resource of each device in multi-gpu world
+  MAIN_GPU,                  // main gpu id that may live outside of multi-gpu world
 
   LAST_KEY  // reserved for the last key
 };
