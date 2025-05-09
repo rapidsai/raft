@@ -15,17 +15,11 @@
  */
 #pragma once
 #include <raft/core/device_csr_matrix.hpp>
-#include <raft/core/device_mdarray.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/linalg/detail/laplacian.cuh>
 #include <raft/sparse/matrix/diagonal.cuh>
 
-#include <thrust/execution_policy.h>
-#include <thrust/transform.h>
-
-namespace raft {
-namespace sparse {
-namespace linalg {
+namespace raft::sparse::linalg {
 
 /** Given a CSR adjacency matrix, return the graph Laplacian
  *
@@ -54,6 +48,4 @@ auto compute_graph_laplacian_normalized(
   return detail::compute_graph_laplacian_normalized(res, input, diagonal_out);
 }
 
-}  // namespace linalg
-}  // namespace sparse
-}  // namespace raft
+}  // namespace raft::sparse::linalg

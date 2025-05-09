@@ -22,10 +22,7 @@
 
 #include <type_traits>
 
-namespace raft {
-namespace sparse {
-namespace linalg {
-namespace detail {
+namespace raft::sparse::linalg::detail {
 
 /* Compute the graph Laplacian of an adjacency matrix
  *
@@ -139,7 +136,4 @@ auto compute_graph_laplacian_normalized(
   return laplacian;
 }
 
-}  // namespace detail
-}  // namespace linalg
-}  // namespace sparse
-}  // namespace raft
+}  // namespace raft::sparse::linalg::detail

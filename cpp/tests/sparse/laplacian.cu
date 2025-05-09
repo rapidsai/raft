@@ -24,9 +24,7 @@
 
 #include <vector>
 
-namespace raft {
-namespace sparse {
-namespace linalg {
+namespace raft::sparse::linalg {
 
 TEST(Raft, ComputeGraphLaplacian)
 {
@@ -192,6 +190,4 @@ TEST(Raft, ComputeGraphLaplacianNormalized)
   EXPECT_EQ(expected_indptr, normalized_laplacian_indptr);
 }
 
-}  // namespace linalg
-}  // namespace sparse
-}  // namespace raft
+}  // namespace raft::sparse::linalg
