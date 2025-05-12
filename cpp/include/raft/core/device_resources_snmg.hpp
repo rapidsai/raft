@@ -63,6 +63,7 @@ class device_resources_snmg : public device_resources {
   {
     int main_gpu_id;
     RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id));
+    raft::resource::set_main_gpu_id(*this, main_gpu_id);
     raft::resource::set_root_rank(*this, 0);
 
     // initialize resources for the given device ids
