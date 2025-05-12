@@ -53,8 +53,10 @@ class nccl_comm_resource_factory : public resource_factory {
 
 inline void _init_nccl_comms(const resources& res)
 {
-  int num_ranks = raft::resource::get_num_ranks(res);
+  int curr_gpu_id;
+  RAFT_CUDA_TRY(cudaGetDevice(&curr_gpu_id));
 
+  int num_ranks   = raft::resource::get_num_ranks(res);
   auto nccl_comms = *res.get_resource<std::vector<ncclComm_t>>(resource_type::NCCL_COMM);
   nccl_comms.resize(num_ranks);
 
@@ -67,8 +69,7 @@ inline void _init_nccl_comms(const resources& res)
     RAFT_NCCL_TRY(ncclCommInitRank(&(nccl_comms[rank]), num_ranks, id, rank));
   }
   ncclGroupEnd();
-
-  RAFT_CUDA_TRY(cudaSetDevice(raft::resource::get_main_gpu_id(res)););
+  RAFT_CUDA_TRY(cudaSetDevice(curr_gpu_id));
 }
 
 /**
@@ -98,11 +99,8 @@ inline std::vector<ncclComm_t>& get_nccl_comms(const resources& res)
  */
 inline ncclComm_t& get_nccl_comm_for_rank(const resources& res, int rank)
 {
-  if (!res.has_resource_factory(resource_type::NCCL_COMM)) {
-    res.add_resource_factory(std::make_shared<nccl_comm_resource_factory>());
-    _init_nccl_comms(res);
-  }
-  return (*res.get_resource<std::vector<ncclComm_t>>(resource_type::NCCL_COMM))[rank];
+  auto nccl_comms = raft::resource::get_nccl_comms(res);
+  return nccl_comms[rank];
 };
 
 /**

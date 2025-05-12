@@ -65,37 +65,6 @@ inline int& get_root_rank(resources const& res)
   return *res.get_resource<int>(resource_type::ROOT_RANK);
 };
 
-class main_gpu_resource : public resource {
- public:
-  main_gpu_resource() : main_gpu_id_(0) {}
-  void* get_resource() override { return &main_gpu_id_; }
-
-  ~main_gpu_resource() override {}
-
- private:
-  int main_gpu_id_;
-};
-
-class main_gpu_resource_factory : public resource_factory {
- public:
-  resource_type get_resource_type() override { return resource_type::MAIN_GPU; }
-  resource* make_resource() override { return new main_gpu_resource(); }
-};
-
-inline int& get_main_gpu_id(resources const& res)
-{
-  if (!res.has_resource_factory(resource_type::MAIN_GPU)) {
-    res.add_resource_factory(std::make_shared<main_gpu_resource_factory>());
-  }
-  return *res.get_resource<int>(resource_type::MAIN_GPU);
-};
-
-void set_main_gpu_id(resources const& res, int main_gpu_id)
-{
-  int& main_gpu_id_ = get_main_gpu_id(res);
-  main_gpu_id_      = main_gpu_id;
-};
-
 /**
  * Retrieves a multi gpu resource from raft res if it exists, otherwise initializes it and returns
  * it.
