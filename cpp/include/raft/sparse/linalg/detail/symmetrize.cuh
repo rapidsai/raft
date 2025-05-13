@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
@@ -148,6 +149,17 @@ void coo_symmetrize(COO<T, IdxT, nnz_t>* in,
 
   out->allocate(in->nnz * 2, in->n_rows, in->n_cols, true, stream);
 
+  std::cout << "in->n_rows: " << in->n_rows << std::endl;
+  std::cout << "in->nnz: " << in->nnz << std::endl;
+
+  // raft::print_device_vector("in->rows", in->rows(), in->nnz, std::cout);
+  // raft::print_device_vector("in->cols", in->cols(), in->nnz, std::cout);
+  // raft::print_device_vector("in->vals", in->vals(), in->nnz, std::cout);
+
+  // raft::print_device_vector("out->rows", out->rows(), out->nnz, std::cout);
+  // raft::print_device_vector("out->cols", out->cols(), out->nnz, std::cout);
+  // raft::print_device_vector("out->vals", out->vals(), out->nnz, std::cout);
+
   coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(in_row_ind.data(),
                                                             in->rows(),
                                                             in->cols(),
@@ -158,6 +170,81 @@ void coo_symmetrize(COO<T, IdxT, nnz_t>* in,
                                                             in->n_rows,
                                                             in->nnz,
                                                             reduction_op);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/**
+ * @brief takes a COO matrix which may not be symmetric and symmetrizes
+ * it, running a custom reduction function against the each value
+ * and its transposed value.
+ *
+ * @param in: Input COO matrix
+ * @param out: Output symmetrized COO matrix
+ * @param reduction_op: a custom reduction function
+ * @param stream: cuda stream to use
+ */
+template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
+void coo_symmetrize_mytest(raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> in,
+                           raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> out,
+                           Lambda reduction_op,  // two-argument reducer
+                           cudaStream_t stream)
+{
+  auto in_structure  = in.structure_view();
+  auto out_structure = out.structure_view();
+
+  auto in_n_rows = in_structure.get_n_rows();
+  auto in_n_cols = in_structure.get_n_cols();
+  auto in_nnz    = in_structure.get_nnz();
+
+  auto out_n_rows = out_structure.get_n_rows();
+  auto out_n_cols = out_structure.get_n_cols();
+  auto out_nnz    = out_structure.get_nnz();
+
+  auto in_rows = in_structure.get_rows().data();
+  auto in_cols = in_structure.get_cols().data();
+  auto in_vals = in.get_elements().data();
+
+  auto out_rows = out_structure.get_rows().data();
+  auto out_cols = out_structure.get_cols().data();
+  auto out_vals = out.get_elements().data();
+
+  dim3 grid(raft::ceildiv(in_n_rows, TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  // ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
+
+  rmm::device_uvector<nnz_t> in_row_ind(in_n_rows, stream);
+
+  convert::sorted_coo_to_csr(in_rows, in_nnz, in_row_ind.data(), in_n_rows, stream);
+
+  // raft::print_device_vector("in_row_ind", in_row_ind.data(), in_n_rows, std::cout);
+
+  // out->allocate(in->nnz * 2, in->n_rows, in->n_cols, true, stream);
+
+  std::cout << "in_n_rows: " << in_n_rows << std::endl;
+  std::cout << "in_nnz: " << in_nnz << std::endl;
+
+  // raft::print_device_vector("in_rows", in_rows, in_nnz, std::cout);
+  // raft::print_device_vector("in_cols", in_cols, in_nnz, std::cout);
+  // raft::print_device_vector("in_vals", in_vals, in_nnz, std::cout);
+
+  // raft::print_device_vector("out_rows", out_rows, out_nnz, std::cout);
+  // raft::print_device_vector("out_cols", out_cols, out_nnz, std::cout);
+  // raft::print_device_vector("out_vals", out_vals, out_nnz, std::cout);
+
+  coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(in_row_ind.data(),
+                                                            in_rows,
+                                                            in_cols,
+                                                            in_vals,
+                                                            out_rows,
+                                                            out_cols,
+                                                            out_vals,
+                                                            in_n_rows,
+                                                            in_nnz,
+                                                            reduction_op);
+
+  std::cout << "in_nnz: " << in_nnz << std::endl;
+
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
