@@ -60,5 +60,5 @@ cdef extern from "raft/core/device_resources_snmg.hpp" namespace "raft":
         device_resources_snmg(const device_resources_snmg&) except +
 
 cdef class DeviceResourcesSNMG:
-    cdef unique_ptr[device_resources] c_obj
+    cdef unique_ptr[device_resources_snmg] c_obj
     cdef object device_ids
