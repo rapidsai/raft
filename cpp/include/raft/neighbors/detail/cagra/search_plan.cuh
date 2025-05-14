@@ -131,7 +131,7 @@ struct search_plan_impl : public search_plan_impl_base {
                           const INDEX_T* dev_seed_ptr,                   // [num_queries, num_seeds]
                           std::uint32_t* const num_executed_iterations,  // [num_queries]
                           uint32_t topk,
-                          SAMPLE_FILTER_T sample_filter){};
+                          SAMPLE_FILTER_T sample_filter) {};
 
   void adjust_search_params()
   {

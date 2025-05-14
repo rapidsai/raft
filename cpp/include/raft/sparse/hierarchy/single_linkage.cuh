@@ -21,9 +21,9 @@
 #pragma once
 
 #ifndef RAFT_HIDE_DEPRECATION_WARNINGS
-#pragma message(__FILE__                                                    \
-                  " is deprecated and will be removed in a future release." \
-                  " Please use the raft/cluster version instead.")
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the raft/cluster version instead.")
 #endif
 
 #include <raft/cluster/single_linkage.cuh>

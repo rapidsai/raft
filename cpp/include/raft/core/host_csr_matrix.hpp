@@ -106,8 +106,7 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T>
-          typename ContainerPolicy,
+          template <typename T> typename ContainerPolicy,
           SparsityType sparsity_type>
 struct is_host_csr_matrix<
   host_csr_matrix<ElementType, IndptrType, IndicesType, NZType, ContainerPolicy, sparsity_type>>
