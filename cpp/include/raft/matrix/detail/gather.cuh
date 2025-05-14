@@ -343,6 +343,55 @@ void gather(const InputIteratorT in,
  * @tparam IndexT               Index type.
  *
  * @param  in           Pointer to the input matrix (assumed to be row-major)
+ * @param  ld           Leading dimension of the input matrix 'in', which in-case of row-major
+ * @param  D            Dimension of the input matrix 'in'
+ * storage is the number of columns
+ * @param  N            Second dimension
+ * @param  map          Pointer to the input sequence of gather locations
+ * @param  stencil      Pointer to the input sequence of stencil or predicate values
+ * @param  map_length   The length of 'map' and 'stencil'
+ * @param  out          Pointer to the output matrix (assumed to be row-major)
+ * @param  pred_op      Predicate to apply to the stencil values
+ * @param  stream       CUDA stream to launch kernels within
+ */
+template <typename InputIteratorT,
+          typename MapIteratorT,
+          typename StencilIteratorT,
+          typename UnaryPredicateOp,
+          typename OutputIteratorT,
+          typename IndexT>
+void gather_if(const InputIteratorT in,
+               IndexT ld,
+               IndexT D,
+               IndexT N,
+               const MapIteratorT map,
+               StencilIteratorT stencil,
+               IndexT map_length,
+               OutputIteratorT out,
+               UnaryPredicateOp pred_op,
+               cudaStream_t stream)
+{
+  typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
+  gatherImpl(in, ld, D, N, map, stencil, map_length, out, pred_op, raft::identity_op(), stream);
+}
+
+/**
+ * @brief  gather_if conditionally copies rows from a source matrix into a destination matrix
+ * according to a map.
+ *
+ * @tparam InputIteratorT       Random-access iterator type, for reading input matrix (may be a
+ * simple pointer type).
+ * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
+ * pointer type).
+ * @tparam StencilIteratorT     Random-access iterator type, for reading input stencil (may be a
+ * simple pointer type).
+ * @tparam UnaryPredicateOp     Unary lambda expression or operator type, UnaryPredicateOp's result
+ * type must be convertible to bool type.
+ * @tparam OutputIteratorT      Random-access iterator type, for writing output matrix (may be a
+ * simple pointer type).
+ * @tparam IndexT               Index type.
+ *
+ * @param  in           Pointer to the input matrix (assumed to be row-major)
  * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major
  * storage is the number of columns
  * @param  N            Second dimension
@@ -371,6 +420,60 @@ void gather_if(const InputIteratorT in,
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
   gatherImpl(in, D, D, N, map, stencil, map_length, out, pred_op, raft::identity_op(), stream);
+}
+
+/**
+ * @brief  gather_if conditionally copies rows from a source matrix into a destination matrix
+ * according to a transformed map.
+ *
+ * @tparam InputIteratorT       Random-access iterator type, for reading input matrix (may be a
+ * simple pointer type).
+ * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
+ * pointer type).
+ * @tparam StencilIteratorT     Random-access iterator type, for reading input stencil (may be a
+ * simple pointer type).
+ * @tparam UnaryPredicateOp     Unary lambda expression or operator type, UnaryPredicateOp's result
+ * type must be convertible to bool type.
+ * @tparam MapTransformOp       Unary lambda expression or operator type, MapTransformOp's result
+ * type must be convertible to IndexT type.
+ * @tparam OutputIteratorT      Random-access iterator type, for writing output matrix (may be a
+ * simple pointer type).
+ * @tparam IndexT               Index type.
+ *
+ * @param  in           Pointer to the input matrix (assumed to be row-major)
+ * @param  ld           Leading dimension of the input matrix 'in'
+ * @param  D            Dimension of the input matrix 'in', which in-case of row-major
+ * storage is the number of columns
+ * @param  N            Second dimension
+ * @param  map          Pointer to the input sequence of gather locations
+ * @param  stencil      Pointer to the input sequence of stencil or predicate values
+ * @param  map_length   The length of 'map' and 'stencil'
+ * @param  out          Pointer to the output matrix (assumed to be row-major)
+ * @param  pred_op      Predicate to apply to the stencil values
+ * @param  transform_op The transformation operation, transforms the map values to IndexT
+ * @param  stream       CUDA stream to launch kernels within
+ */
+template <typename InputIteratorT,
+          typename MapIteratorT,
+          typename StencilIteratorT,
+          typename UnaryPredicateOp,
+          typename MapTransformOp,
+          typename OutputIteratorT,
+          typename IndexT>
+void gather_if(const InputIteratorT in,
+               IndexT ld,
+               IndexT D,
+               IndexT N,
+               const MapIteratorT map,
+               StencilIteratorT stencil,
+               IndexT map_length,
+               OutputIteratorT out,
+               UnaryPredicateOp pred_op,
+               MapTransformOp transform_op,
+               cudaStream_t stream)
+{
+  typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
+  gatherImpl(in, ld, D, N, map, stencil, map_length, out, pred_op, transform_op, stream);
 }
 
 /**

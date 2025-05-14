@@ -310,6 +310,63 @@ template <typename matrix_t,
           typename idx_t,
           typename map_xform_t = raft::identity_op>
 void gather_if(const raft::resources& handle,
+               raft::device_matrix_view<const matrix_t, idx_t, layout_stride> in,
+               raft::device_matrix_view<matrix_t, idx_t, row_major> out,
+               raft::device_vector_view<const map_t, idx_t> map,
+               raft::device_vector_view<const stencil_t, idx_t> stencil,
+               unary_pred_t pred_op,
+               map_xform_t transform_op = raft::identity_op())
+{
+  RAFT_EXPECTS(out.extent(0) == map.extent(0),
+               "Number of rows in output matrix must equal the size of the map vector");
+  RAFT_EXPECTS(out.extent(1) == in.extent(1),
+               "Number of columns in input and output matrices must be equal.");
+  RAFT_EXPECTS(map.extent(0) == stencil.extent(0),
+               "Number of elements in stencil must equal number of elements in map");
+
+  detail::gather_if(const_cast<matrix_t*>(in.data_handle()),
+                    in.stride(0),
+                    in.extent(1),
+                    in.extent(0),
+                    map.data_handle(),
+                    stencil.data_handle(),
+                    map.extent(0),
+                    out.data_handle(),
+                    pred_op,
+                    transform_op,
+                    resource::get_cuda_stream(handle));
+}
+
+/**
+ * @brief Conditionally copies rows according to a transformed map.
+ *
+ * For each output row, read the index in the input matrix from the map, read a stencil value,
+ * apply a predicate to the stencil value, and if true, apply a transformation if specified to the
+ * input index, and copy the row.
+ *
+ * @tparam matrix_t     Matrix element type
+ * @tparam map_t        Integer type of map elements
+ * @tparam stencil_t    Value type for stencil (input type for the pred_op)
+ * @tparam unary_pred_t Unary lambda expression or operator type. unary_pred_t's result
+ *                      type must be convertible to bool type.
+ * @tparam map_xform_t  Unary lambda expression or operator type. MapTransformOp's result type must
+ *                      be convertible to idx_t.
+ * @tparam idx_t        Integer type used for indexing
+ * @param[in]  handle        raft handle for managing resources
+ * @param[in]  in            Input matrix, dim = [N, D] (row-major)
+ * @param[in]  map           Map of row indices to gather, dim = [map_length]
+ * @param[in]  stencil       Vector of stencil values, dim = [map_length]
+ * @param[out] out           Output matrix, dim = [map_length, D] (row-major)
+ * @param[in]  pred_op       Predicate to apply to the stencil values
+ * @param[in]  transform_op  (optional) Transformation to apply to map values
+ */
+template <typename matrix_t,
+          typename map_t,
+          typename stencil_t,
+          typename unary_pred_t,
+          typename idx_t,
+          typename map_xform_t = raft::identity_op>
+void gather_if(const raft::resources& handle,
                raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
                raft::device_matrix_view<matrix_t, idx_t, row_major> out,
                raft::device_vector_view<const map_t, idx_t> map,

@@ -188,14 +188,10 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
       auto inout_view = raft::make_device_strided_matrix_view<MatrixT, IdxT, row_major>(
         d_in.data(), params.nrows, params.ncols, ld_in);
       if (Conditional && MapTransform) {
-        // Not supported yet
-        GTEST_SKIP();
-        // raft::matrix::gather_if(
-        //     handle, in_view, out_view, map_view, stencil_view, pred_op, transform_op);
+        raft::matrix::gather_if(
+          handle, in_view, out_view, map_view, stencil_view, pred_op, transform_op);
       } else if (Conditional) {
-        // Not supported yet
-        GTEST_SKIP();
-        // raft::matrix::gather_if(handle, in_view, out_view, map_view, stencil_view, pred_op);
+        raft::matrix::gather_if(handle, in_view, out_view, map_view, stencil_view, pred_op);
       } else if (MapTransform && Inplace) {
         raft::matrix::gather(handle, inout_view, map_view, params.col_batch_size, transform_op);
       } else if (MapTransform) {
