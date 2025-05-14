@@ -36,14 +36,14 @@ namespace matrix {
 struct inputs {
   int N;
   int dim;
-  int dim_padding;
+  int dim_margin;
   int n_samples;
   bool host;
 };
 
 ::std::ostream& operator<<(::std::ostream& os, const inputs p)
 {
-  os << p.N << "#" << p.dim << "#" << p.dim_padding << "#" << p.n_samples
+  os << p.N << "#" << p.dim << "#" << p.dim_margin << "#" << p.n_samples
      << (p.host ? "#host" : "#device");
   return os;
 }
@@ -53,7 +53,7 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
  public:
   SampleRowsTest()
     : params(::testing::TestWithParam<inputs>::GetParam()),
-      ld(params.dim + params.dim_padding),
+      ld(params.dim + params.dim_margin),
       stream(resource::get_cuda_stream(res)),
       state{137ULL},
       in(make_device_matrix<T, int64_t>(res, params.N, ld)),
@@ -71,7 +71,7 @@ class SampleRowsTest : public ::testing::TestWithParam<inputs> {
 
   void check()
   {
-    if (params.dim_padding == 0) {
+    if (params.dim_margin == 0) {
       if (params.host) {
         out = raft::matrix::sample_rows<T, int64_t>(
           res, state, make_const_mdspan(in_h.view()), (int64_t)params.n_samples);
