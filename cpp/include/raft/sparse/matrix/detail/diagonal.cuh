@@ -19,7 +19,6 @@
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/matrix/detail/matrix.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/util/input_validation.hpp>
 
