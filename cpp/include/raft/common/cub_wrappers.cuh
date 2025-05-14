@@ -25,9 +25,9 @@
 #pragma once
 
 #ifndef RAFT_HIDE_DEPRECATION_WARNINGS
-#pragma message(__FILE__                                                    \
-                  " is deprecated and will be removed in a future release." \
-                  " Please note that there is no equivalent in RAFT's public API"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please note that there is no equivalent in RAFT's public API"
                 " so this file will eventually be removed altogether.")
 #endif
 

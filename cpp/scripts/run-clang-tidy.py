@@ -28,7 +28,7 @@ import shutil
 import subprocess
 
 
-EXPECTED_VERSIONS = ("16.0.6",)
+EXPECTED_VERSIONS = ("20.1.4",)
 VERSION_REGEX = re.compile(r"clang version ([0-9.]+)")
 CMAKE_COMPILER_REGEX = re.compile(
     r"^\s*CMAKE_CXX_COMPILER:FILEPATH=(.+)\s*$", re.MULTILINE)
