@@ -133,7 +133,7 @@ auto compute_graph_laplacian(
  * @return A CSR matrix containing the normalized graph Laplacian
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-auto compute_graph_laplacian_normalized(
+auto laplacian_normalized(
   raft::resources const& res,
   device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType> input,
   device_vector_view<ElementType, IndptrType> diagonal_out)
@@ -143,13 +143,13 @@ auto compute_graph_laplacian_normalized(
 
   auto diagonal =
     raft::make_device_vector<ElementType, IndptrType>(res, laplacian_structure.get_n_rows());
-  raft::sparse::matrix::get_diagonal_vector_from_csr(res, laplacian.view(), diagonal.view());
+  raft::sparse::matrix::diagonal(res, laplacian.view(), diagonal.view());
 
   raft::linalg::unary_op(
     res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), raft::sqrt_op());
 
-  raft::sparse::matrix::scale_csr_by_diagonal_symmetric(res, laplacian.view(), diagonal.view());
-  raft::sparse::matrix::set_csr_diagonal_scalar(res, laplacian.view(), 1.0f);
+  raft::sparse::matrix::scale_by_diagonal_symmetric(res, diagonal.view(), laplacian.view());
+  raft::sparse::matrix::set_diagonal(res, laplacian.view(), 1.0f);
 
   auto stream = resource::get_cuda_stream(res);
 

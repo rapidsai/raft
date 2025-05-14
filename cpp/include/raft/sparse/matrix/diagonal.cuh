@@ -41,12 +41,11 @@ namespace raft::sparse::matrix {
  *
  */
 template <typename T, typename IndexType>
-void get_diagonal_vector_from_csr(
-  raft::resources const& res,
-  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
-  raft::device_vector_view<T, IndexType> diagonal)
+void diagonal(raft::resources const& res,
+              raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
+              raft::device_vector_view<T, IndexType> diagonal)
 {
-  detail::get_diagonal_vector_from_csr(res, csr_matrix_view, diagonal);
+  detail::diagonal(res, csr_matrix_view, diagonal);
 }
 
 /**
@@ -66,12 +65,12 @@ void get_diagonal_vector_from_csr(
  *
  */
 template <typename T, typename IndexType>
-void scale_csr_by_diagonal_symmetric(
+void scale_by_diagonal_symmetric(
   raft::resources const& res,
-  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
-  const raft::device_vector_view<T, IndexType> diagonal)
+  const raft::device_vector_view<T, IndexType> diagonal,
+  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view)
 {
-  detail::scale_csr_by_diagonal_symmetric(res, csr_matrix_view, diagonal);
+  detail::scale_by_diagonal_symmetric(res, diagonal, csr_matrix_view);
 }
 
 /**
@@ -90,12 +89,11 @@ void scale_csr_by_diagonal_symmetric(
  *
  */
 template <typename T, typename IndexType>
-void set_csr_diagonal_scalar(
-  raft::resources const& res,
-  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
-  T scalar)
+void set_diagonal(raft::resources const& res,
+                  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
+                  T scalar)
 {
-  detail::set_csr_diagonal_scalar(res, csr_matrix_view, scalar);
+  detail::set_diagonal(res, csr_matrix_view, scalar);
 }
 
 }  // namespace raft::sparse::matrix

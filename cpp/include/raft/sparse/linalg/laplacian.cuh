@@ -55,12 +55,12 @@ auto compute_graph_laplacian(
  * @return A CSR matrix containing the normalized graph Laplacian
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-auto compute_graph_laplacian_normalized(
+auto laplacian_normalized(
   raft::resources const& res,
   device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType> input,
   device_vector_view<ElementType, IndptrType> diagonal_out)
 {
-  return detail::compute_graph_laplacian_normalized(res, input, diagonal_out);
+  return detail::laplacian_normalized(res, input, diagonal_out);
 }
 
 }  // namespace raft::sparse::linalg

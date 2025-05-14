@@ -116,7 +116,7 @@ TEST(Raft, ComputeGraphLaplacianNormalized)
 
   // Compute normalized Laplacian
   auto normalized_laplacian =
-    compute_graph_laplacian_normalized(res, adjacency_matrix.view(), diagonal_out.view());
+    laplacian_normalized(res, adjacency_matrix.view(), diagonal_out.view());
   auto normalized_laplacian_structure = normalized_laplacian.structure_view();
 
   // Copy results back to host
