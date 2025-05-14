@@ -60,8 +60,7 @@ template <typename ListT, class T = void>
 struct enable_if_valid_list {};
 
 template <class T,
-          template <typename, typename...>
-          typename SpecT,
+          template <typename, typename...> typename SpecT,
           typename SizeT,
           typename... SpecExtraArgs>
 struct enable_if_valid_list<list<SpecT, SizeT, SpecExtraArgs...>, T> {

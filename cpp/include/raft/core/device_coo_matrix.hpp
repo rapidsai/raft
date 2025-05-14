@@ -100,8 +100,7 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T>
-          typename ContainerPolicy,
+          template <typename T> typename ContainerPolicy,
           SparsityType sparsity_type>
 struct is_device_coo_matrix<
   device_coo_matrix<ElementType, RowType, ColType, NZType, ContainerPolicy, sparsity_type>>
