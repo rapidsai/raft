@@ -236,3 +236,71 @@ def auto_sync_handle(f):
         handle_docstring=_HANDLE_PARAM_DOCSTRING
     )
     return wrapper
+
+
+cdef class DeviceResourcesSNMG:
+    """
+    DeviceResourcesSNMG manages multi-GPU resources
+    in a single-node setup using RAFT's device_resources_snmg. Refer to
+    the header file raft/core/device_resources_snmg.hpp for interface level
+    details of this struct
+    Parameters
+    ----------
+    device_ids : Optional list to specify which devices will be used
+    Examples
+    --------
+    Basic usage:
+    >>> from pylibraft.common import DeviceResourcesSNMG
+    >>>
+    >>> # to use GPU IDs 0,1,2,3 on machine
+    >>> handle = DeviceResourcesSNMG([0,1,2,3])
+    >>>
+    >>> # to use all GPUs on machine
+    >>> handle = DeviceResourcesSNMG()
+    """
+
+    def __cinit__(self, device_ids=None):
+        self.device_ids = device_ids
+
+        cdef device_resources_snmg* snmg_ptr
+        cdef vector[int] ids
+
+        if self.device_ids is None:
+            snmg_ptr = new device_resources_snmg()
+        else:
+            for id in self.device_ids:
+                ids.push_back(id)
+            snmg_ptr = new device_resources_snmg(ids)
+
+        self.c_obj.reset(snmg_ptr)
+
+    def sync(self):
+        """
+        Issues a sync on the stream set for this instance.
+        """
+        self.c_obj.get()[0].sync_stream()
+
+    def getHandle(self):
+        """
+        Return the pointer to the underlying raft::device_resources_snmg
+        instance as a size_t
+        """
+        return <size_t> self.c_obj.get()
+
+    def __getstate__(self):
+        return self.device_ids
+
+    def __setstate__(self, state):
+        self.device_ids = state
+
+        cdef device_resources_snmg* snmg_ptr
+        cdef vector[int] ids
+
+        if self.device_ids is None:
+            snmg_ptr = new device_resources_snmg()
+        else:
+            for id in self.device_ids:
+                ids.push_back(id)
+            snmg_ptr = new device_resources_snmg(ids)
+
+        self.c_obj.reset(snmg_ptr)
