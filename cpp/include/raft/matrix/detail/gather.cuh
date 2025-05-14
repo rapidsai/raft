@@ -550,9 +550,13 @@ void gather_buff(
   }
 }
 
-template <typename T, typename IdxT, typename Accessor, typename MatIdxT = int64_t>
+template <typename T, typename IdxT, typename MatIdxT = int64_t>
 void gather(raft::resources const& res,
-            raft::mdspan<const T, raft::matrix_extent<IdxT>, raft::layout_stride, Accessor> dataset,
+            raft::mdspan<const T,
+                         raft::matrix_extent<IdxT>,
+                         raft::layout_stride,
+                         raft::host_device_accessor<std::experimental::default_accessor<const T>,
+                                                    raft::memory_type::host>> dataset,
             device_vector_view<const IdxT, MatIdxT> indices,
             raft::device_matrix_view<T, MatIdxT> output)
 {
@@ -612,11 +616,15 @@ void gather(raft::resources const& res,
             device_vector_view<const IdxT, MatIdxT> indices,
             raft::device_matrix_view<T, MatIdxT> output)
 {
-  gather(res,
-         raft::make_host_strided_matrix_view(
-           dataset.data_handle(), dataset.extent(0), dataset.extent(1), dataset.extent(1)),
-         indices,
-         output);
+  raft::mdspan<const T,
+               raft::matrix_extent<IdxT>,
+               raft::layout_stride,
+               raft::host_device_accessor<std::experimental::default_accessor<const T>,
+                                          raft::memory_type::host>>
+    dataset_ = raft::make_host_strided_matrix_view<const T, MatIdxT>(
+      dataset.data_handle(), dataset.extent(0), dataset.extent(1), dataset.extent(1));
+
+  gather(res, dataset_, indices, output);
 }
 
 }  // namespace detail
