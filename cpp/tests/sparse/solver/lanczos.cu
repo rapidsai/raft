@@ -48,7 +48,7 @@
 #include <cstdint>
 #include <iostream>
 
-namespace raft::sparse {
+namespace raft::sparse::solver {
 
 template <typename IndexType, typename ValueType>
 struct lanczos_inputs {
@@ -928,4 +928,4 @@ INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF_LA, ::testing::ValuesIn(input
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF_LM, ::testing::ValuesIn(inputsf_LM));
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF_SA, ::testing::ValuesIn(inputsf_SA));
 
-}  // namespace raft::sparse
+}  // namespace raft::sparse::solver
