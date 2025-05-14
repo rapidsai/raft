@@ -41,6 +41,7 @@ template <bool Conditional,
           typename OutputIteratorT,
           typename IdxT>
 void naiveGather(InputIteratorT in,
+                 IdxT ld,
                  IdxT D,
                  IdxT N,
                  MapIteratorT map,
@@ -62,7 +63,7 @@ void naiveGather(InputIteratorT in,
     } else {
       transformed_val = map_val;
     }
-    IdxT inRowStart  = transformed_val * D;
+    IdxT inRowStart  = transformed_val * ld;
     IdxT outRowStart = outRow * D;
     for (IdxT i = 0; i < D; ++i) {
       out[outRowStart + i] = in[inRowStart + i];
@@ -74,6 +75,7 @@ template <typename IdxT>
 struct GatherInputs {
   IdxT nrows;
   IdxT ncols;
+  IdxT ncols_mergin;  // For strided_view test
   IdxT map_length;
   IdxT col_batch_size;
   unsigned long long int seed;
@@ -109,8 +111,9 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
     if (map_length > params.nrows) map_length = params.nrows;
 
     // input matrix setup
-    d_in.resize(params.nrows * params.ncols, stream);
-    h_in.resize(params.nrows * params.ncols);
+    const auto ld_in = params.ncols + params.ncols_mergin;
+    d_in.resize(params.nrows * ld_in, stream);
+    h_in.resize(params.nrows * ld_in);
     raft::random::uniform(handle, r, d_in.data(), len, MatrixT(-1.0), MatrixT(1.0));
     raft::update_host(h_in.data(), d_in.data(), len, stream);
 
@@ -142,6 +145,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
 
     // launch gather on the host and copy the results to device
     naiveGather<Conditional, MapTransform>(h_in.data(),
+                                           ld_in,
                                            params.ncols,
                                            params.nrows,
                                            h_map.data(),
@@ -152,36 +156,66 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
                                            transform_op);
     raft::update_device(d_out_exp.data(), h_out.data(), map_length * params.ncols, stream);
 
-    auto in_view = raft::make_device_matrix_view<const MatrixT, IdxT, row_major>(
-      d_in.data(), params.nrows, params.ncols);
-    auto inout_view = raft::make_device_matrix_view<MatrixT, IdxT, row_major>(
-      d_in.data(), params.nrows, params.ncols);
     auto out_view = raft::make_device_matrix_view<MatrixT, IdxT, row_major>(
       d_out_act.data(), map_length, params.ncols);
     auto map_view = raft::make_device_vector_view<const MapT, IdxT>(d_map.data(), map_length);
     auto stencil_view =
       raft::make_device_vector_view<const MatrixT, IdxT>(d_stencil.data(), map_length);
 
-    if (Conditional && MapTransform) {
-      raft::matrix::gather_if(
-        handle, in_view, out_view, map_view, stencil_view, pred_op, transform_op);
-    } else if (Conditional) {
-      raft::matrix::gather_if(handle, in_view, out_view, map_view, stencil_view, pred_op);
-    } else if (MapTransform && Inplace) {
-      raft::matrix::gather(handle, inout_view, map_view, params.col_batch_size, transform_op);
-    } else if (MapTransform) {
-      raft::matrix::gather(handle, in_view, map_view, out_view, transform_op);
-    } else if (Inplace) {
-      raft::matrix::gather(handle, inout_view, map_view, params.col_batch_size);
+    if (params.ncols_mergin == 0) {
+      auto in_view = raft::make_device_matrix_view<const MatrixT, IdxT, row_major>(
+        d_in.data(), params.nrows, params.ncols);
+      auto inout_view = raft::make_device_matrix_view<MatrixT, IdxT, row_major>(
+        d_in.data(), params.nrows, params.ncols);
+      if (Conditional && MapTransform) {
+        raft::matrix::gather_if(
+          handle, in_view, out_view, map_view, stencil_view, pred_op, transform_op);
+      } else if (Conditional) {
+        raft::matrix::gather_if(handle, in_view, out_view, map_view, stencil_view, pred_op);
+      } else if (MapTransform && Inplace) {
+        raft::matrix::gather(handle, inout_view, map_view, params.col_batch_size, transform_op);
+      } else if (MapTransform) {
+        raft::matrix::gather(handle, in_view, map_view, out_view, transform_op);
+      } else if (Inplace) {
+        raft::matrix::gather(handle, inout_view, map_view, params.col_batch_size);
+      } else {
+        raft::matrix::gather(handle, in_view, map_view, out_view);
+      }
     } else {
-      raft::matrix::gather(handle, in_view, map_view, out_view);
+      // Test for a view with specifying the leading dimension
+      auto in_view = raft::make_device_strided_matrix_view<const MatrixT, IdxT, row_major>(
+        d_in.data(), params.nrows, params.ncols, ld_in);
+      auto inout_view = raft::make_device_strided_matrix_view<MatrixT, IdxT, row_major>(
+        d_in.data(), params.nrows, params.ncols, ld_in);
+      if (Conditional && MapTransform) {
+        // Not supported yet
+        GTEST_SKIP();
+        // raft::matrix::gather_if(
+        //     handle, in_view, out_view, map_view, stencil_view, pred_op, transform_op);
+      } else if (Conditional) {
+        // Not supported yet
+        GTEST_SKIP();
+        // raft::matrix::gather_if(handle, in_view, out_view, map_view, stencil_view, pred_op);
+      } else if (MapTransform && Inplace) {
+        raft::matrix::gather(handle, inout_view, map_view, params.col_batch_size, transform_op);
+      } else if (MapTransform) {
+        raft::matrix::gather(handle, in_view, map_view, out_view, transform_op);
+      } else if (Inplace) {
+        raft::matrix::gather(handle, inout_view, map_view, params.col_batch_size);
+      } else {
+        raft::matrix::gather(handle, in_view, map_view, out_view);
+      }
     }
 
     if (Inplace) {
-      raft::copy_async(d_out_act.data(),
-                       d_in.data(),
-                       map_length * params.ncols,
-                       raft::resource::get_cuda_stream(handle));
+      RAFT_CUDA_TRY(cudaMemcpy2DAsync(d_out_act.data(),
+                                      params.ncols * sizeof(MatrixT),
+                                      d_in.data(),
+                                      ld_in * sizeof(MatrixT),
+                                      params.ncols * sizeof(MatrixT),
+                                      map_length,
+                                      cudaMemcpyDefault,
+                                      raft::resource::get_cuda_stream(handle)));
     }
 
     resource::sync_stream(handle, stream);
@@ -207,16 +241,16 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
   INSTANTIATE_TEST_CASE_P(GatherTests, test_name, ::testing::ValuesIn(test_inputs))
 
 const std::vector<GatherInputs<int>> inputs_i32 = raft::util::itertools::product<GatherInputs<int>>(
-  {25, 2000}, {6, 31, 129}, {11, 999}, {2, 3, 6}, {1234ULL});
+  {25, 2000}, {6, 31, 129}, {0, 1, 11}, {11, 999}, {2, 3, 6}, {1234ULL});
 const std::vector<GatherInputs<int64_t>> inputs_i64 =
   raft::util::itertools::product<GatherInputs<int64_t>>(
-    {25, 2000}, {6, 31, 129}, {11, 999}, {2, 3, 6}, {1234ULL});
+    {25, 2000}, {6, 31, 129}, {0, 1, 11}, {11, 999}, {2, 3, 6}, {1234ULL});
 const std::vector<GatherInputs<int>> inplace_inputs_i32 =
   raft::util::itertools::product<GatherInputs<int>>(
-    {25, 2000}, {6, 31, 129}, {11, 999}, {0, 1, 2, 3, 6, 100}, {1234ULL});
+    {25, 2000}, {6, 31, 129}, {0, 1, 11}, {11, 999}, {0, 1, 2, 3, 6, 100}, {1234ULL});
 const std::vector<GatherInputs<int64_t>> inplace_inputs_i64 =
   raft::util::itertools::product<GatherInputs<int64_t>>(
-    {25, 2000}, {6, 31, 129}, {11, 999}, {0, 1, 2, 3, 6, 100}, {1234ULL});
+    {25, 2000}, {6, 31, 129}, {0, 1, 11}, {11, 999}, {0, 1, 2, 3, 6, 100}, {1234ULL});
 
 GATHER_TEST((GatherTest<false, false, false, float, uint32_t, int>), GatherTestFU32I32, inputs_i32);
 GATHER_TEST((GatherTest<false, true, false, float, uint32_t, int>),
