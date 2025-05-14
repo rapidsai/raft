@@ -143,8 +143,8 @@ struct FusedDistanceNNPersistent {
   struct temp_problem_visitor {
     int problem_count;
 
-    CUTLASS_HOST_DEVICE temp_problem_visitor() : problem_count(0){};
-    CUTLASS_HOST_DEVICE temp_problem_visitor(int problem_count_) : problem_count(problem_count_){};
+    CUTLASS_HOST_DEVICE temp_problem_visitor() : problem_count(0) {};
+    CUTLASS_HOST_DEVICE temp_problem_visitor(int problem_count_) : problem_count(problem_count_) {};
   };
 
   /// Argument structure

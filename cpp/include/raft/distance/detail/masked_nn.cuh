@@ -290,13 +290,13 @@ void masked_l2_nn_impl(raft::resources const& handle,
   auto fin_op      = raft::identity_op{};
 
   auto kernel               = masked_l2_nn_kernel<DataT,
-                                    OutT,
-                                    IdxT,
-                                    P,
-                                    ReduceOpT,
-                                    KVPReduceOpT,
-                                    decltype(core_lambda),
-                                    decltype(fin_op)>;
+                                                  OutT,
+                                                  IdxT,
+                                                  P,
+                                                  ReduceOpT,
+                                                  KVPReduceOpT,
+                                                  decltype(core_lambda),
+                                                  decltype(fin_op)>;
   constexpr size_t smemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
   dim3 block(P::Nthreads);
   dim3 grid = launchConfigGenerator<P>(m, n, smemSize, kernel);
