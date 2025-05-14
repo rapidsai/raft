@@ -33,9 +33,9 @@ namespace raft::sparse::matrix::detail {
  **/
 template <typename T, typename IndexType>
 void get_diagonal_vector_from_csr(
+  raft::resources const& res,
   raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
-  raft::device_vector_view<T, IndexType> diagonal,
-  raft::resources const& res)
+  raft::device_vector_view<T, IndexType> diagonal)
 {
   auto structure = csr_matrix_view.structure_view();
   auto n_rows    = structure.get_n_rows();
@@ -69,9 +69,9 @@ void get_diagonal_vector_from_csr(
  **/
 template <typename T, typename IndexType>
 void scale_csr_by_diagonal_symmetric(
+  raft::resources const& res,
   raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix,
-  const raft::device_vector_view<T, IndexType> diagonal,  // Vector of scaling factors
-  raft::resources const& res)
+  const raft::device_vector_view<T, IndexType> diagonal)
 {
   auto structure = csr_matrix.structure_view();
   auto nnz       = structure.get_nnz();
@@ -110,8 +110,8 @@ void scale_csr_by_diagonal_symmetric(
 // TODO: allow any scalar value to be set
 template <typename T, typename IndexType>
 void set_csr_diagonal_to_ones_thrust(
-  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix,
-  raft::resources const& res)
+  raft::resources const& res,
+  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix)
 {
   auto structure = csr_matrix.structure_view();
   auto n_rows    = structure.get_n_rows();

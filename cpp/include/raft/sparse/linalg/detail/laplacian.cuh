@@ -122,13 +122,13 @@ auto compute_graph_laplacian_normalized(
 
   auto diagonal =
     raft::make_device_vector<ElementType, IndptrType>(res, laplacian_structure.get_n_rows());
-  raft::sparse::matrix::get_diagonal_vector_from_csr(laplacian.view(), diagonal.view(), res);
+  raft::sparse::matrix::get_diagonal_vector_from_csr(res, laplacian.view(), diagonal.view());
 
   raft::linalg::unary_op(
     res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), raft::sqrt_op());
 
-  raft::sparse::matrix::scale_csr_by_diagonal_symmetric(laplacian.view(), diagonal.view(), res);
-  raft::sparse::matrix::set_csr_diagonal_to_ones_thrust(laplacian.view(), res);
+  raft::sparse::matrix::scale_csr_by_diagonal_symmetric(res, laplacian.view(), diagonal.view());
+  raft::sparse::matrix::set_csr_diagonal_to_ones_thrust(res, laplacian.view());
 
   auto stream = resource::get_cuda_stream(res);
 

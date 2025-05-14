@@ -73,7 +73,7 @@ TEST(SparseMatrixDiagonal, GetDiagonalVectorFromCSR)
     diagonal.data_handle(), &(zeros[0]), zeros.size(), raft::resource::get_cuda_stream(res));
 
   // Get diagonal
-  get_diagonal_vector_from_csr(matrix.view(), diagonal.view(), res);
+  get_diagonal_vector_from_csr(res, matrix.view(), diagonal.view());
 
   // Copy result back to host
   auto diagonal_host = std::vector<float>(4);
@@ -102,7 +102,7 @@ TEST(SparseMatrixDiagonal, ScaleCSRByDiagonalSymmetric)
              raft::resource::get_cuda_stream(res));
 
   // Scale matrix by diagonal
-  scale_csr_by_diagonal_symmetric(matrix.view(), diagonal.view(), res);
+  scale_csr_by_diagonal_symmetric(res, matrix.view(), diagonal.view());
 
   // Copy result back to host
   auto matrix_structure = matrix.structure_view();
@@ -142,7 +142,7 @@ TEST(SparseMatrixDiagonal, SetCSRDiagonalToOnes)
   auto matrix = create_test_csr_matrix(res);
 
   // Set diagonal to ones
-  set_csr_diagonal_to_ones_thrust(matrix.view(), res);
+  set_csr_diagonal_to_ones_thrust(res, matrix.view());
 
   // Copy result back to host
   auto matrix_structure = matrix.structure_view();
@@ -171,13 +171,13 @@ TEST(SparseMatrixDiagonal, CompleteWorkflow)
 
   // 1. Get diagonal
   auto diagonal = raft::make_device_vector<float, int>(res, 4);
-  get_diagonal_vector_from_csr(matrix.view(), diagonal.view(), res);
+  get_diagonal_vector_from_csr(res, matrix.view(), diagonal.view());
 
   // 2. Scale matrix by diagonal
-  scale_csr_by_diagonal_symmetric(matrix.view(), diagonal.view(), res);
+  scale_csr_by_diagonal_symmetric(res, matrix.view(), diagonal.view());
 
   // 3. Set diagonal to ones
-  set_csr_diagonal_to_ones_thrust(matrix.view(), res);
+  set_csr_diagonal_to_ones_thrust(res, matrix.view());
 
   // Copy results back to host
   auto matrix_structure = matrix.structure_view();
