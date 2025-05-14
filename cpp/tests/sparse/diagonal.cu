@@ -25,9 +25,7 @@
 
 #include <vector>
 
-namespace raft {
-namespace sparse {
-namespace matrix {
+namespace raft::sparse::matrix {
 
 // Helper function to create a test CSR matrix
 auto create_test_csr_matrix(raft::resources& res)
@@ -142,7 +140,7 @@ TEST(SparseMatrixDiagonal, SetCSRDiagonalToOnes)
   auto matrix = create_test_csr_matrix(res);
 
   // Set diagonal to ones
-  set_csr_diagonal_to_ones_thrust(res, matrix.view());
+  set_csr_diagonal_scalar(res, matrix.view(), 1.0f);
 
   // Copy result back to host
   auto matrix_structure = matrix.structure_view();
@@ -177,7 +175,7 @@ TEST(SparseMatrixDiagonal, CompleteWorkflow)
   scale_csr_by_diagonal_symmetric(res, matrix.view(), diagonal.view());
 
   // 3. Set diagonal to ones
-  set_csr_diagonal_to_ones_thrust(res, matrix.view());
+  set_csr_diagonal_scalar(res, matrix.view(), 1.0f);
 
   // Copy results back to host
   auto matrix_structure = matrix.structure_view();
@@ -221,6 +219,4 @@ TEST(SparseMatrixDiagonal, CompleteWorkflow)
   }
 }
 
-}  // namespace matrix
-}  // namespace sparse
-}  // namespace raft
+}  // namespace raft::sparse::matrix

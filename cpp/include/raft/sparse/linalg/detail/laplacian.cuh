@@ -111,6 +111,27 @@ auto compute_graph_laplacian(
   return result;
 }
 
+/**
+ * @brief Given a CSR adjacency matrix, return the normalized graph Laplacian
+ *
+ * Return the normalized Laplacian matrix, which is defined as D^(-1/2) * L * D^(-1/2),
+ * where D is the diagonal degree matrix and L is the graph Laplacian.
+ * Also returns the scaled diagonal degree matrix.
+ *
+ *
+ * @tparam ElementType The data type of the matrix elements
+ * @tparam IndptrType The data type of the row pointers
+ * @tparam IndicesType The data type of the column indices
+ * @tparam NZType The data type for representing nonzero counts
+ *
+ * @param[in] res RAFT resources for managing device memory and streams
+ * @param[in] input View of the input CSR adjacency matrix
+ * @param[out] diagonal_out View of the output vector where the scaled diagonal degree
+ *                           matrix D^(-1/2) will be stored (must be pre-allocated with
+ *                           size at least n_rows)
+ *
+ * @return A CSR matrix containing the normalized graph Laplacian
+ */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
 auto compute_graph_laplacian_normalized(
   raft::resources const& res,
@@ -128,7 +149,7 @@ auto compute_graph_laplacian_normalized(
     res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), raft::sqrt_op());
 
   raft::sparse::matrix::scale_csr_by_diagonal_symmetric(res, laplacian.view(), diagonal.view());
-  raft::sparse::matrix::set_csr_diagonal_to_ones_thrust(res, laplacian.view());
+  raft::sparse::matrix::set_csr_diagonal_scalar(res, laplacian.view(), 1.0f);
 
   auto stream = resource::get_cuda_stream(res);
 

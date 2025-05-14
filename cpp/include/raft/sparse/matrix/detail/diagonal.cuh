@@ -30,7 +30,16 @@ namespace raft::sparse::matrix::detail {
  *
  * This function extracts the diagonal elements from a CSR matrix and stores them in a vector.
  * The diagonal elements are the elements where the row index and column index are the same.
- **/
+ *
+ *
+ * @tparam T The data type of the matrix elements
+ * @tparam IndexType The data type of the indices
+ *
+ * @param[in]  res             RAFT resources for managing device memory and streams
+ * @param[in]  csr_matrix_view View of the input CSR matrix from which to extract the diagonal
+ * @param[out] diagonal        View of the output vector where diagonal elements will be stored
+ *
+ */
 template <typename T, typename IndexType>
 void get_diagonal_vector_from_csr(
   raft::resources const& res,
@@ -66,7 +75,17 @@ void get_diagonal_vector_from_csr(
  *
  * This function scales each element of the CSR matrix by the corresponding diagonal element.
  * The diagonal elements are assumed to be stored in the diagonal vector.
- **/
+ *
+ *
+ * @tparam T The data type of the matrix elements
+ * @tparam IndexType The data type of the indices
+ *
+ * @param[in]  res             RAFT resources for managing device memory and streams
+ * @param[in]  csr_matrix_view View of the input CSR matrix to scale
+ * @param[in]  diagonal        View of the input vector containing diagonal elements
+ *
+ *
+ */
 template <typename T, typename IndexType>
 void scale_csr_by_diagonal_symmetric(
   raft::resources const& res,
@@ -102,16 +121,25 @@ void scale_csr_by_diagonal_symmetric(
 }
 
 /**
- * @brief Set the diagonal elements of a CSR matrix to ones
+ * @brief Set the diagonal elements of a CSR matrix to a scalar value
  *
- * This function sets the diagonal elements of a CSR matrix to ones.
+ * This function sets the diagonal elements of a CSR matrix to a scalar value.
  * The diagonal elements are the elements where the row index and column index are the same.
- **/
-// TODO: allow any scalar value to be set
+ *
+ *
+ * @tparam T The data type of the matrix elements
+ * @tparam IndexType The data type of the indices
+ *
+ * @param[in]  res             RAFT resources for managing device memory and streams
+ * @param[in]  csr_matrix_view View of the input CSR matrix to modify
+ * @param[in]  scalar          The scalar value to set the diagonal elements to
+ *
+ */
 template <typename T, typename IndexType>
-void set_csr_diagonal_to_ones_thrust(
+void set_csr_diagonal_scalar(
   raft::resources const& res,
-  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix)
+  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix,
+  T scalar)
 {
   auto structure = csr_matrix.structure_view();
   auto n_rows    = structure.get_n_rows();
@@ -125,11 +153,11 @@ void set_csr_diagonal_to_ones_thrust(
   thrust::for_each(policy,
                    thrust::counting_iterator<IndexType>(0),
                    thrust::counting_iterator<IndexType>(n_rows),
-                   [values, col_indices, row_offsets] __device__(IndexType row) {
+                   [values, col_indices, row_offsets, scalar] __device__(IndexType row) {
                      // For each row, find diagonal element (if it exists)
                      for (auto j = row_offsets[row]; j < row_offsets[row + 1]; j++) {
                        if (col_indices[j] == row) {
-                         values[j] = static_cast<T>(1.0);
+                         values[j] = scalar;
                          break;
                        }
                      }
