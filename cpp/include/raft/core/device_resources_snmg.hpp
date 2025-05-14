@@ -79,8 +79,7 @@ class device_resources_snmg : public device_resources {
 
   device_resources_snmg(device_resources_snmg&&)            = delete;
   device_resources_snmg& operator=(device_resources_snmg&&) = delete;
-
-  ~device_resources_snmg(){};
+  ~device_resources_snmg() {};
 
   /**
    * @brief Set a memory pool on all GPUs of the multi-gpu world
