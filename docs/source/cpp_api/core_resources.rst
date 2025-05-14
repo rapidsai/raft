@@ -58,22 +58,17 @@ namespace *raft::core*
 SNMG Device Resources
 ---------------------
 
-The `raft::device_resources_snmg` and `raft::device_resources_snmg_nccl` provide a convenient way to configure
+The `raft::device_resources_snmg` provides a convenient way to configure
 a SNMG (single-node multi-GPU) clique for MG algorithms. It initiates
-device-related resources for a set of devices. For `raft::device_resources_snmg_nccl`, this includes
-NCCL communications. GPUs can be addressed and exchanges be made over
-multiple threads for performance.
+device-related resources for a set of devices. Calling nccl-related functions
+in `raft/core/resource/nccl_comm.hpp` will initialize nccl comm on each device resource.
+GPUs can be addressed and exchanges be made over multiple threads for performance.
 
 ``#include <raft/core/device_resources_snmg.hpp>``
-``#include <raft/core/device_resources_snmg_nccl.hpp>``
 
 namespace *raft::core*
 
 .. doxygenclass:: raft::device_resources_snmg
-    :project: RAFT
-    :members:
-
-.. doxygenclass:: raft::device_resources_snmg_nccl
     :project: RAFT
     :members:
 
