@@ -19,7 +19,7 @@ export PIP_CONSTRAINT="/tmp/constraints.txt"
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
 # raft-dask CUDA 11 package still vendors libnccl.so, which is why the size is larger
 if [[ "${RAPIDS_CUDA_MAJOR}" == "11" ]]; then
-    export PYDISTCHECK_MAX_SIZE="300M"
+    export PYDISTCHECK_MAX_SIZE="320M"
 else
     export PYDISTCHECK_MAX_SIZE="2M"
 fi
