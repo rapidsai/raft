@@ -19,6 +19,7 @@
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/matrix/init.cuh>
 #include <raft/util/input_validation.hpp>
 
@@ -44,7 +45,7 @@ void get_diagonal_vector_from_csr(
   auto row_offsets = structure.get_indptr().data();
   auto diag_ptr    = diagonal.data_handle();
 
-  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(res));
+  auto policy = raft::resource::get_thrust_policy(res);
 
   thrust::for_each(policy,
                    thrust::counting_iterator<IndexType>(0),
@@ -80,7 +81,7 @@ void scale_csr_by_diagonal_symmetric(
   auto row_offsets = structure.get_indptr().data();
   auto diag_ptr    = diagonal.data_handle();
 
-  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(res));
+  auto policy = raft::resource::get_thrust_policy(res);
 
   // For each row
   thrust::for_each(policy,
@@ -119,7 +120,7 @@ void set_csr_diagonal_to_ones_thrust(
   auto col_indices = structure.get_indices().data();
   auto row_offsets = structure.get_indptr().data();
 
-  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(res));
+  auto policy = raft::resource::get_thrust_policy(res);
 
   thrust::for_each(policy,
                    thrust::counting_iterator<IndexType>(0),
