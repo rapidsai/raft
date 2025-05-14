@@ -48,7 +48,7 @@ namespace detail {
 enum Filler : unsigned char {
   LOWER,  // = 0
   UPPER   // = 1
-};        // used in memseting upper/lower matrix
+};  // used in memseting upper/lower matrix
 
 /**
  * @brief Reset values within the epsilon absolute range to zero

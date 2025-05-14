@@ -414,8 +414,8 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
     // Copy to intermediate source on device, then perform necessary
     // changes in layout on device, directly into final destination
     using mdarray_t   = device_mdarray<typename config::src_value_type,
-                                     typename config::src_extents_type,
-                                     typename config::src_layout_type>;
+                                       typename config::src_extents_type,
+                                       typename config::src_layout_type>;
     auto intermediate = mdarray_t(res,
                                   typename mdarray_t::mapping_type{src.extents()},
                                   typename mdarray_t::container_policy_type{});
@@ -431,8 +431,8 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
     // Perform necessary changes in layout on device, then copy to final
     // destination on host
     using mdarray_t   = device_mdarray<typename config::dst_value_type,
-                                     typename config::dst_extents_type,
-                                     typename config::dst_layout_type>;
+                                       typename config::dst_extents_type,
+                                       typename config::dst_layout_type>;
     auto intermediate = mdarray_t(res,
                                   typename mdarray_t::mapping_type{dst.extents()},
                                   typename mdarray_t::container_policy_type{});
@@ -450,8 +450,9 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
 #endif
   } else if constexpr (config::can_use_cublas) {
 #ifndef RAFT_DISABLE_CUDA
-    if constexpr (!((std::is_same_v<typename std::remove_reference_t<DstType>::value_type, half>)&&(
-                    std::is_same_v<typename std::remove_reference_t<SrcType>::value_type, half>))) {
+    if constexpr (!((std::is_same_v<typename std::remove_reference_t<DstType>::value_type, half>) &&
+                    (std::is_same_v<typename std::remove_reference_t<SrcType>::value_type,
+                                    half>))) {
       auto constexpr const alpha = typename std::remove_reference_t<DstType>::value_type{1};
       auto constexpr const beta  = typename std::remove_reference_t<DstType>::value_type{0};
       if constexpr (std::is_same_v<typename config::dst_layout_type, layout_c_contiguous>) {

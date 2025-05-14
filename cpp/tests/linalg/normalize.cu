@@ -135,7 +135,7 @@ const std::vector<RowNormalizeInputs<double, uint32_t>> inputsd_u32 =
   {                                                                        \
     ASSERT_TRUE(raft::devArrMatch(out_exp.data(),                          \
                                   out_act.data(),                          \
-                                  params.rows* params.cols,                \
+                                  params.rows * params.cols,               \
                                   raft::CompareApprox(params.tolerance))); \
   }                                                                        \
   INSTANTIATE_TEST_CASE_P(RowNormalizeTests, test_name, ::testing::ValuesIn(test_inputs))
