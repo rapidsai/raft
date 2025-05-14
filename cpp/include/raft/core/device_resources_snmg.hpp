@@ -20,9 +20,13 @@
 #include <raft/core/resource/multi_gpu.hpp>
 #include <raft/core/resource/resource_types.hpp>
 
+#include <unordered_set>
 #include <vector>
 
 namespace raft {
+
+const std::unordered_set<resource::resource_type> snmg_related_resources = {
+  raft::resource::MULTI_GPU, raft::resource::NCCL_COMM, raft::resource::ROOT_RANK};
 
 /**
  * @brief SNMG (single-node multi-GPU) resource container object that tracks resources for each GPU.
@@ -98,8 +102,7 @@ class device_resources_snmg : public device_resources {
 
   bool has_resource_factory(resource::resource_type resource_type) const override
   {
-    if (resource_type != raft::resource::MULTI_GPU && resource_type != raft::resource::NCCL_COMM &&
-        resource_type != raft::resource::ROOT_RANK) {
+    if (snmg_related_resources.find(resource_type) == snmg_related_resources.end()) {
       // for resources unrelated to SNMG switch current GPU to main GPU ID
       RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
     }
