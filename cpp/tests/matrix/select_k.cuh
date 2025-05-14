@@ -282,10 +282,10 @@ template <typename KeyT, typename IdxT>
 struct params_simple {
   using io_t     = io_simple<KeyT, IdxT>;
   using input_t  = std::tuple<select::params,
-                             std::vector<KeyT>,
-                             std::optional<std::vector<IdxT>>,
-                             std::vector<KeyT>,
-                             std::vector<IdxT>>;
+                              std::vector<KeyT>,
+                              std::optional<std::vector<IdxT>>,
+                              std::vector<KeyT>,
+                              std::vector<IdxT>>;
   using params_t = std::tuple<input_t, SelectAlgo>;
 
   static auto read(params_t ps) -> Params<io_t>
