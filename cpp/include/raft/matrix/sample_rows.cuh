@@ -35,17 +35,20 @@ namespace raft::matrix {
  * @param dataset input dataset
  * @param output subsampled dataset
  */
-template <typename T, typename IdxT = int64_t, typename accessor>
+template <typename T, typename IdxT, typename accessor, typename layout>
 void sample_rows(raft::resources const& res,
                  random::RngState random_state,
-                 mdspan<const T, matrix_extent<IdxT>, row_major, accessor> dataset,
+                 mdspan<const T, matrix_extent<IdxT>, layout, accessor> dataset,
                  raft::device_matrix_view<T, IdxT> output)
 {
+  static_assert(std::is_same_v<layout, raft::row_major> ||
+                std::is_same_v<layout, raft::layout_stride>);
   RAFT_EXPECTS(dataset.extent(1) == output.extent(1),
                "dataset dims must match, but received %ld vs %ld",
                static_cast<long>(dataset.extent(1)),
                static_cast<long>(output.extent(1)));
-  detail::sample_rows<T, IdxT>(res, random_state, dataset.data_handle(), dataset.extent(0), output);
+  detail::sample_rows<T, IdxT>(
+    res, random_state, dataset.data_handle(), dataset.stride(0), dataset.extent(0), output);
 }
 
 /** @brief Select rows randomly from input and copy to output.
@@ -60,13 +63,15 @@ void sample_rows(raft::resources const& res,
  *
  * @return subsampled dataset
  * */
-template <typename T, typename IdxT = int64_t, typename accessor>
+template <typename T, typename IdxT, typename accessor, typename layout>
 raft::device_matrix<T, IdxT> sample_rows(
   raft::resources const& res,
   random::RngState random_state,
-  mdspan<const T, matrix_extent<IdxT>, row_major, accessor> dataset,
+  mdspan<const T, matrix_extent<IdxT>, layout, accessor> dataset,
   IdxT n_samples)
 {
+  static_assert(std::is_same_v<layout, raft::row_major> ||
+                std::is_same_v<layout, raft::layout_stride>);
   auto output = raft::make_device_matrix<T, IdxT>(res, n_samples, dataset.extent(1));
   sample_rows(res, random_state, dataset, output.view());
   return output;
