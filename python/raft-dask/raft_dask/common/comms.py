@@ -182,7 +182,7 @@ class Comms:
 
         self.worker_addresses = list(
             OrderedDict.fromkeys(
-                self.client.scheduler_info()["workers"].keys()
+                self.client.scheduler_info(n_workers=-1)["workers"].keys()
                 if workers is None
                 else workers
             )
