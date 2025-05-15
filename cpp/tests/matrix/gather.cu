@@ -75,7 +75,7 @@ template <typename IdxT>
 struct GatherInputs {
   IdxT nrows;
   IdxT ncols;
-  IdxT ncols_mergin;  // For strided_view test
+  IdxT ncols_margin;  // For strided_view test
   IdxT map_length;
   IdxT col_batch_size;
   unsigned long long int seed;
@@ -111,7 +111,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
     if (map_length > params.nrows) map_length = params.nrows;
 
     // input matrix setup
-    const auto ld_in = params.ncols + params.ncols_mergin;
+    const auto ld_in = params.ncols + params.ncols_margin;
     d_in.resize(params.nrows * ld_in, stream);
     h_in.resize(params.nrows * ld_in);
     raft::random::uniform(handle, r, d_in.data(), len, MatrixT(-1.0), MatrixT(1.0));
@@ -162,7 +162,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
     auto stencil_view =
       raft::make_device_vector_view<const MatrixT, IdxT>(d_stencil.data(), map_length);
 
-    if (params.ncols_mergin == 0) {
+    if (params.ncols_margin == 0) {
       auto in_view = raft::make_device_matrix_view<const MatrixT, IdxT, row_major>(
         d_in.data(), params.nrows, params.ncols);
       auto inout_view = raft::make_device_matrix_view<MatrixT, IdxT, row_major>(
