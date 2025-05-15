@@ -193,7 +193,9 @@ def _test_nccl_root_placement(client, root_location):
         cb.init()
 
         worker_addresses = list(
-            OrderedDict.fromkeys(client.scheduler_info(n_workers=-1)["workers"].keys())
+            OrderedDict.fromkeys(
+                client.scheduler_info(n_workers=-1)["workers"].keys()
+            )
         )
 
         if root_location in ("worker",):
