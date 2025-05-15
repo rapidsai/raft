@@ -29,13 +29,13 @@ namespace raft::runtime::neighbors::ivf_flat {
   auto build(raft::resources const& handle,                                          \
              const raft::neighbors::ivf_flat::index_params& params,                  \
              raft::device_matrix_view<const T, IdxT, row_major> dataset)             \
-    ->raft::neighbors::ivf_flat::index<T, IdxT>;                                     \
+    -> raft::neighbors::ivf_flat::index<T, IdxT>;                                    \
                                                                                      \
   auto extend(raft::resources const& handle,                                         \
               raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
               std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
               const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index)           \
-    ->raft::neighbors::ivf_flat::index<T, IdxT>;                                     \
+    -> raft::neighbors::ivf_flat::index<T, IdxT>;                                    \
                                                                                      \
   void build(raft::resources const& handle,                                          \
              const raft::neighbors::ivf_flat::index_params& params,                  \

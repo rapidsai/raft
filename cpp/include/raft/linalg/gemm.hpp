@@ -58,8 +58,8 @@ template <typename ValueType,
           typename ScalarIdxType  = std::uint32_t,
           typename ScalarViewType = raft::host_scalar_view<ValueType, ScalarIdxType>,
           typename                = std::enable_if_t<std::disjunction_v<
-            std::is_same<ScalarViewType, raft::host_scalar_view<ValueType, ScalarIdxType>>,
-            std::is_same<ScalarViewType, raft::device_scalar_view<ValueType, ScalarIdxType>>>>>
+                           std::is_same<ScalarViewType, raft::host_scalar_view<ValueType, ScalarIdxType>>,
+                           std::is_same<ScalarViewType, raft::device_scalar_view<ValueType, ScalarIdxType>>>>>
 void gemm(raft::resources const& res,
           raft::device_matrix_view<ValueType, IndexType, LayoutPolicyX> x,
           raft::device_matrix_view<ValueType, IndexType, LayoutPolicyY> y,
