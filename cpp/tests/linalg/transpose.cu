@@ -31,11 +31,6 @@
 
 #include <type_traits>
 
-namespace std {
-template <>
-struct is_floating_point<half> : std::true_type {};
-}  // namespace std
-
 namespace raft {
 namespace linalg {
 
@@ -241,7 +236,7 @@ namespace transpose_extra_test {
 template <typename T, typename IndexType, typename LayoutPolicy>
 [[nodiscard]] auto transpose(raft::resources const& handle,
                              device_matrix_view<T, IndexType, LayoutPolicy> in)
-  -> std::enable_if_t<std::is_floating_point_v<T> &&
+  -> std::enable_if_t<(std::is_floating_point_v<T> || std::is_same_v<T, half>) &&
                         (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
                          std::is_same_v<LayoutPolicy, layout_f_contiguous>),
                       device_matrix<T, IndexType, LayoutPolicy>>
@@ -266,7 +261,8 @@ template <typename T, typename IndexType, typename LayoutPolicy>
 template <typename T, typename IndexType>
 [[nodiscard]] auto transpose(raft::resources const& handle,
                              device_matrix_view<T, IndexType, layout_stride> in)
-  -> std::enable_if_t<std::is_floating_point_v<T>, device_matrix<T, IndexType, layout_stride>>
+  -> std::enable_if_t<std::is_floating_point_v<T> || std::is_same_v<T, half>,
+                      device_matrix<T, IndexType, layout_stride>>
 {
   matrix_extent<size_t> exts{in.extent(1), in.extent(0)};
   using policy_type =
