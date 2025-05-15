@@ -32,6 +32,7 @@ template <typename T, typename IdxT = int64_t>
 void sample_rows(raft::resources const& res,
                  random::RngState random_state,
                  const T* input,
+                 IdxT ld,
                  IdxT n_rows_input,
                  raft::device_matrix_view<T, IdxT> output)
 {
@@ -45,13 +46,26 @@ void sample_rows(raft::resources const& res,
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, input));
   T* ptr = reinterpret_cast<T*>(attr.devicePointer);
   if (ptr != nullptr) {
-    raft::matrix::gather(res,
-                         raft::make_device_matrix_view<const T, IdxT>(ptr, n_rows_input, n_dim),
-                         raft::make_const_mdspan(train_indices.view()),
-                         output);
+    raft::matrix::gather(
+      res,
+      raft::make_device_strided_matrix_view<const T, IdxT>(ptr, n_rows_input, n_dim, ld),
+      raft::make_const_mdspan(train_indices.view()),
+      output);
   } else {
-    auto dataset = raft::make_host_matrix_view<const T, IdxT>(input, n_rows_input, n_dim);
+    auto dataset =
+      raft::make_host_strided_matrix_view<const T, IdxT>(input, n_rows_input, n_dim, ld);
     raft::matrix::detail::gather(res, dataset, make_const_mdspan(train_indices.view()), output);
   }
+}
+
+template <typename T, typename IdxT = int64_t>
+void sample_rows(raft::resources const& res,
+                 random::RngState random_state,
+                 const T* input,
+                 IdxT n_rows_input,
+                 raft::device_matrix_view<T, IdxT> output)
+{
+  IdxT n_dim = output.extent(1);
+  sample_rows<T, IdxT>(res, random_state, input, n_dim, n_rows_input, output);
 }
 }  // namespace raft::matrix::detail
