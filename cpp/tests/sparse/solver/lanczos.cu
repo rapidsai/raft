@@ -958,7 +958,7 @@ const std::vector<lanczos_inputs<int, double>> inputsd = {
 const std::vector<lanczos_inputs<int, double>> inputsd_SM = {
   {2,
    20,
-   10000,
+   100000,
    0,
    0,
    1e-15,
@@ -1014,7 +1014,7 @@ const std::vector<lanczos_inputs<int, double>> inputsd_SA = {
 const std::vector<lanczos_inputs<int, float>> inputsf_SM = {
   {2,
    20,
-   10000,
+   100000,
    0,
    0,
    1e-15,
