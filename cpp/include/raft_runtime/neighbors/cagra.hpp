@@ -31,12 +31,12 @@ namespace raft::runtime::neighbors::cagra {
   auto build(raft::resources const& handle,                                            \
              const raft::neighbors::cagra::index_params& params,                       \
              raft::device_matrix_view<const T, int64_t, row_major> dataset)            \
-    ->raft::neighbors::cagra::index<T, IdxT>;                                          \
+    -> raft::neighbors::cagra::index<T, IdxT>;                                         \
                                                                                        \
   auto build(raft::resources const& handle,                                            \
              const raft::neighbors::cagra::index_params& params,                       \
              raft::host_matrix_view<const T, int64_t, row_major> dataset)              \
-    ->raft::neighbors::cagra::index<T, IdxT>;                                          \
+    -> raft::neighbors::cagra::index<T, IdxT>;                                         \
                                                                                        \
   void build_device(raft::resources const& handle,                                     \
                     const raft::neighbors::cagra::index_params& params,                \
