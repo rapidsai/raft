@@ -253,7 +253,7 @@ cdef class DeviceResourcesSNMG:
     >>> from pylibraft.common import DeviceResourcesSNMG
     >>>
     >>> # to use GPU IDs 0,1,2,3 on machine
-    >>> handle = DeviceResourcesSNMG([0,1,2,3])
+    >>> # handle = DeviceResourcesSNMG([0,1,2,3])
     >>>
     >>> # to use all GPUs on machine
     >>> handle = DeviceResourcesSNMG()
