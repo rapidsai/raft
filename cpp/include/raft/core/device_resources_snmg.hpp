@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,29 +16,27 @@
 
 #pragma once
 
-#include <raft/common/nccl_macros.hpp>
 #include <raft/core/device_resources.hpp>
-#include <raft/core/resource/nccl_clique.hpp>
+#include <raft/core/resource/multi_gpu.hpp>
+#include <raft/core/resource/resource_types.hpp>
 
-#include <nccl.h>
-
-#include <memory>
-#include <numeric>
+#include <unordered_set>
 #include <vector>
 
 namespace raft {
 
+const std::unordered_set<resource::resource_type> snmg_related_resources = {
+  raft::resource::MULTI_GPU, raft::resource::NCCL_COMM, raft::resource::ROOT_RANK};
+
 /**
- * @brief SNMG (single-node multi-GPU) resource container object that stores a NCCL clique and all
- * necessary resources used for calling device functions, cuda kernels, libraries and/or NCCL
- * communications on each GPU. Note the `device_resources_snmg` object can also be used as a classic
+ * @brief SNMG (single-node multi-GPU) resource container object that tracks resources for each GPU.
+ * Note the `device_resources_snmg` object can also be used as a classic
  * `device_resources` object. The associated resources will be the ones of the GPU used during
  * object instantiation and a GPU switch operation will be ordered during the retrieval of said
  * resources.
  *
  * The `device_resources_snmg` class is intended to be used in a single process to manage several
- * GPUs. Please note that NCCL communications are the responsibility of the user. Blocking NCCL
- * calls will sometimes require the use of several threads to avoid hangs.
+ * GPUs.
  */
 class device_resources_snmg : public device_resources {
  public:
@@ -48,15 +46,11 @@ class device_resources_snmg : public device_resources {
   device_resources_snmg() : device_resources()
   {
     RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id_));
+    raft::resource::set_root_rank(*this, 0);
 
-    // set root rank
-    int root_rank = 0;
-    raft::resource::set_nccl_clique_root_rank(*this, root_rank);
-
-    // initialize the NCCL clique
-    std::vector<raft::resources>& clique = raft::resource::get_nccl_clique(*this);
-    _init_clique(clique);
-    _init_nccl_comms(clique);
+    // initialize all resources
+    std::vector<raft::resources>& world_resources = raft::resource::get_multi_gpu_resource(*this);
+    _init_world(world_resources);
 
     RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
@@ -64,177 +58,83 @@ class device_resources_snmg : public device_resources {
   /**
    * @brief Construct a SNMG resources instance with a subset of available GPUs
    *
-   * @param[in] device_ids List of device IDs to be used by the NCCL clique
+   * @param[in] device_ids List of device IDs to be used
    */
   device_resources_snmg(const std::vector<int>& device_ids) : device_resources()
   {
     RAFT_CUDA_TRY(cudaGetDevice(&main_gpu_id_));
+    raft::resource::set_root_rank(*this, 0);
 
-    // set root rank
-    int root_rank = 0;
-    raft::resource::set_nccl_clique_root_rank(*this, root_rank);
-
-    // initialize the NCCL clique
-    std::vector<raft::resources>& clique = raft::resource::get_nccl_clique(*this);
-    _init_clique(clique, device_ids);
-    _init_nccl_comms(clique);
-
+    // initialize resources for the given device ids
+    std::vector<raft::resources>& world_resources = raft::resource::get_multi_gpu_resource(*this);
+    _init_world(world_resources, device_ids);
     RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
 
   /**
    * @brief SNMG resources instance copy constructor
    *
-   * @param[in] clique A SNMG resources instance
+   * @param[in] world A SNMG resources instance
    */
-  device_resources_snmg(const device_resources_snmg& clique)
-    : device_resources(clique), main_gpu_id_(clique.main_gpu_id_)
+  device_resources_snmg(const device_resources_snmg& world)
+    : device_resources(world), main_gpu_id_(world.main_gpu_id_)
   {
   }
 
   device_resources_snmg(device_resources_snmg&&)            = delete;
   device_resources_snmg& operator=(device_resources_snmg&&) = delete;
-
-  ~device_resources_snmg()
-  {
-    std::vector<raft::resources>& clique = raft::resource::get_nccl_clique(*this);
-    int num_ranks                        = clique.size();
-
-    ncclGroupStart();
-    for (int rank = 0; rank < num_ranks; rank++) {
-      ncclComm_t& nccl_comm = raft::resource::get_nccl_comm(clique[rank]);
-      RAFT_NCCL_TRY_NO_THROW(ncclCommDestroy(nccl_comm));
-    }
-    ncclGroupEnd();
-  }
+  ~device_resources_snmg() {};
 
   /**
-   * @brief Set root rank of NCCL clique
-   */
-  inline void set_nccl_root_rank(int rank)
-  {
-    raft::resource::set_nccl_clique_root_rank(*this, rank);
-  }
-
-  /**
-   * @brief Get root rank of NCCL clique
-   */
-  inline int get_nccl_root_rank() const { return raft::resource::get_nccl_clique_root_rank(*this); }
-
-  /**
-   * @brief Get number of ranks in NCCL clique
-   */
-  inline int get_nccl_num_ranks() const { return raft::resource::get_nccl_num_ranks(*this); }
-
-  /**
-   * @brief Get device ID of rank in NCCL clique
-   */
-  inline int get_device_id_of_rank(int rank) const
-  {
-    const raft::resources& dev_res = raft::resource::get_device_resources_for_rank(*this, rank);
-    return raft::resource::get_device_id(dev_res);
-  }
-
-  /**
-   * @brief Get NCCL comm object of rank in NCCL clique
-   */
-  inline ncclComm_t& get_nccl_comm_for_rank(int rank) const
-  {
-    return raft::resource::get_nccl_comm_for_rank(*this, rank);
-  }
-
-  /**
-   * @brief Get raft::resources object of rank in NCCL clique
-   */
-  inline const raft::resources& get_device_resources_for_rank(int rank) const
-  {
-    return raft::resource::get_device_resources_for_rank(*this, rank);
-  }
-
-  /**
-   * @brief Set current device ID to rank and return its raft::resources object
-   */
-  inline const raft::resources& set_current_device_to_rank(int rank) const
-  {
-    return raft::resource::set_current_device_to_rank(*this, rank);
-  }
-
-  /**
-   * @brief Set current device ID to root rank and return its raft::resources object
-   */
-  inline const raft::resources& set_current_device_to_root_rank() const
-  {
-    return raft::resource::set_current_device_to_root_rank(*this);
-  }
-
-  /**
-   * @brief Set a memory pool on all GPUs of the clique
+   * @brief Set a memory pool on all GPUs of the multi-gpu world
    */
   void set_memory_pool(int percent_of_free_memory) const
   {
-    for (int rank = 0; rank < get_nccl_num_ranks(); rank++) {
-      const raft::resources& dev_res = set_current_device_to_rank(rank);
+    int world_size = raft::resource::get_num_ranks(*this);
+    for (int gpu_id = 0; gpu_id < world_size; gpu_id++) {
+      const raft::resources& dev_res = raft::resource::set_current_device_to_rank(*this, gpu_id);
       // check limit for each device
       size_t limit = rmm::percent_of_free_device_memory(percent_of_free_memory);
       raft::resource::set_workspace_to_pool_resource(dev_res, limit);
     }
-    cudaSetDevice(this->main_gpu_id_);
+    RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
 
   bool has_resource_factory(resource::resource_type resource_type) const override
   {
-    if (resource_type != raft::resource::NCCL_CLIQUE &&
-        resource_type != raft::resource::NCCL_COMM &&
-        resource_type != raft::resource::CLIQUE_ROOT_RANK)
+    if (snmg_related_resources.find(resource_type) == snmg_related_resources.end()) {
       // for resources unrelated to SNMG switch current GPU to main GPU ID
-      cudaSetDevice(this->main_gpu_id_);
+      RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
+    }
     return raft::resources::has_resource_factory(resource_type);
   }
 
  private:
-  inline void _init_clique(std::vector<raft::resources>& clique)
+  inline void _init_world(std::vector<raft::resources>& world_resources)
   {
-    int num_ranks;
-    RAFT_CUDA_TRY(cudaGetDeviceCount(&num_ranks));
+    int world_size;
+    RAFT_CUDA_TRY(cudaGetDeviceCount(&world_size));
 
-    for (int rank = 0; rank < num_ranks; rank++) {
+    for (int rank = 0; rank < world_size; rank++) {
       RAFT_CUDA_TRY(cudaSetDevice(rank));
-      clique.emplace_back();
+      world_resources.emplace_back();
 
       // initialize the device ID
-      raft::resource::get_device_id(clique.back());
+      raft::resource::get_device_id(world_resources.back());
     }
   }
 
-  inline void _init_clique(std::vector<raft::resources>& clique, const std::vector<int>& device_ids)
+  inline void _init_world(std::vector<raft::resources>& world_resources,
+                          const std::vector<int>& device_ids)
   {
     for (size_t rank = 0; rank < device_ids.size(); rank++) {
       RAFT_CUDA_TRY(cudaSetDevice(device_ids[rank]));
-      clique.emplace_back();
+      world_resources.emplace_back();
 
       // initialize the device ID
-      raft::resource::get_device_id(clique.back());
+      raft::resource::get_device_id(world_resources.back());
     }
   }
-
-  inline void _init_nccl_comms(std::vector<raft::resources>& clique)
-  {
-    ncclUniqueId id;
-    ncclGetUniqueId(&id);
-
-    int num_ranks = clique.size();
-
-    ncclGroupStart();
-    for (int rank = 0; rank < num_ranks; rank++) {
-      const raft::resources& dev_res = clique[rank];
-      int device_id                  = raft::resource::get_device_id(dev_res);
-      RAFT_CUDA_TRY(cudaSetDevice(device_id));
-      ncclComm_t& nccl_comm = raft::resource::get_nccl_comm(dev_res);
-      RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm, num_ranks, id, rank));
-    }
-    ncclGroupEnd();
-  }
-
   int main_gpu_id_;
 };  // class device_resources_snmg
 
