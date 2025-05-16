@@ -193,7 +193,9 @@ def _test_nccl_root_placement(client, root_location):
         cb.init()
 
         worker_addresses = list(
-            OrderedDict.fromkeys(client.scheduler_info()["workers"].keys())
+            OrderedDict.fromkeys(
+                client.scheduler_info(n_workers=-1)["workers"].keys()
+            )
         )
 
         if root_location in ("worker",):
@@ -500,6 +502,6 @@ def test_comm_init_worker_subset(client, subset):
     # Basic test that initializing a subset of workers is fine
     cb = Comms(comms_p2p=True, verbose=True)
 
-    workers = list(client.scheduler_info()["workers"].keys())
+    workers = list(client.scheduler_info(n_workers=-1)["workers"].keys())
     workers = workers[subset]
     cb.init(workers=workers)
