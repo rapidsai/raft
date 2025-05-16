@@ -44,18 +44,23 @@ void sample_rows(raft::resources const& res,
 
   cudaPointerAttributes attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, input));
-  T* ptr = reinterpret_cast<T*>(attr.hostPointer);
   // We can have both valid host and device pointers (systems with HMM or ATS).
-  // In that case the dataset can be larger than GPU memory, and gathering on host is preferred.
-  if (ptr != nullptr) {
+  // In that case the dataset can be larger than GPU memory and gathering on host is preferred.
+  if (attr.hostPointer != nullptr) {
+    T* ptr       = reinterpret_cast<T*>(attr.hostPointer);
     auto dataset = raft::make_host_strided_matrix_view<const T, IdxT>(ptr, n_rows_input, n_dim, ld);
     raft::matrix::detail::gather(res, dataset, make_const_mdspan(train_indices.view()), output);
+  } else if (attr.devicePointer != nullptr) {
+    T* ptr = reinterpret_cast<T*>(attr.devicePointer);
+    auto dataset =
+      raft::make_device_strided_matrix_view<const T, IdxT>(ptr, n_rows_input, n_dim, ld);
+    raft::matrix::gather(res, dataset, raft::make_const_mdspan(train_indices.view()), output);
   } else {
-    raft::matrix::gather(res,
-                         raft::make_device_strided_matrix_view<const T, IdxT>(
-                           reinterpret_cast<T*>(attr.devicePointer), n_rows_input, n_dim, ld),
-                         raft::make_const_mdspan(train_indices.view()),
-                         output);
+    // For older driver versions it can happen that both device and host pointers in `attr` are
+    // invalid. We use the original host pointer in this case.
+    auto dataset =
+      raft::make_host_strided_matrix_view<const T, IdxT>(input, n_rows_input, n_dim, ld);
+    raft::matrix::detail::gather(res, dataset, make_const_mdspan(train_indices.view()), output);
   }
 }
 
