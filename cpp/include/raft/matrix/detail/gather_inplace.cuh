@@ -28,7 +28,7 @@ namespace detail {
 
 template <typename MatrixT, typename MapT, typename MapTransformOp, typename IndexT>
 void gatherInplaceImpl(raft::resources const& handle,
-                       raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
+                       raft::device_matrix_view<MatrixT, IndexT, raft::layout_stride> inout,
                        raft::device_vector_view<const MapT, IndexT, raft::layout_c_contiguous> map,
                        MapTransformOp transform_op,
                        IndexT batch_size)
@@ -36,6 +36,7 @@ void gatherInplaceImpl(raft::resources const& handle,
   IndexT m          = inout.extent(0);
   IndexT n          = inout.extent(1);
   IndexT map_length = map.extent(0);
+  IndexT ld         = inout.stride(0);
 
   // skip in case of 0 length input
   if (map_length <= 0 || m <= 0 || n <= 0 || batch_size < 0) return;
@@ -63,13 +64,14 @@ void gatherInplaceImpl(raft::resources const& handle,
                       batch_offset,
                       map_length,
                       cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
-                      n] __device__(auto idx) {
+                      n,
+                      ld] __device__(auto idx) {
       IndexT row   = idx / cols_per_batch;
       IndexT col   = idx % cols_per_batch;
       MapT map_val = map[row];
 
       IndexT i_src = transform_op(map_val);
-      return inout[i_src * n + batch_offset + col];
+      return inout[i_src * ld + batch_offset + col];
     };
     raft::linalg::map_offset(
       handle,
@@ -82,10 +84,11 @@ void gatherInplaceImpl(raft::resources const& handle,
                     batch_offset,
                     map_length,
                     cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
-                    n] __device__(auto idx) {
-      IndexT row                          = idx / cols_per_batch;
-      IndexT col                          = idx % cols_per_batch;
-      inout[row * n + batch_offset + col] = scratch_space[idx];
+                    n,
+                    ld] __device__(auto idx) {
+      IndexT row                           = idx / cols_per_batch;
+      IndexT col                           = idx % cols_per_batch;
+      inout[row * ld + batch_offset + col] = scratch_space[idx];
       return;
     };
     auto counting = thrust::make_counting_iterator<IndexT>(0);
@@ -95,12 +98,33 @@ void gatherInplaceImpl(raft::resources const& handle,
 
 template <typename MatrixT, typename MapT, typename MapTransformOp, typename IndexT>
 void gather(raft::resources const& handle,
-            raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
+            raft::device_matrix_view<MatrixT, IndexT, raft::layout_stride> inout,
             raft::device_vector_view<const MapT, IndexT, raft::layout_c_contiguous> map,
             MapTransformOp transform_op,
             IndexT batch_size)
 {
   gatherInplaceImpl(handle, inout, map, transform_op, batch_size);
+}
+
+template <typename MatrixT, typename MapT, typename MapTransformOp, typename IndexT>
+void gather(raft::resources const& handle,
+            raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
+            raft::device_vector_view<const MapT, IndexT, raft::layout_c_contiguous> map,
+            MapTransformOp transform_op,
+            IndexT batch_size)
+{
+  auto inout_ = raft::make_device_strided_matrix_view<MatrixT, IndexT>(
+    inout.data_handle(), inout.extent(0), inout.extent(1), inout.extent(1));
+  gatherInplaceImpl(handle, inout_, map, transform_op, batch_size);
+}
+
+template <typename MatrixT, typename MapT, typename IndexT>
+void gather(raft::resources const& handle,
+            raft::device_matrix_view<MatrixT, IndexT, raft::layout_stride> inout,
+            raft::device_vector_view<const MapT, IndexT, raft::layout_c_contiguous> map,
+            IndexT batch_size)
+{
+  gatherInplaceImpl(handle, inout, map, raft::identity_op(), batch_size);
 }
 
 template <typename MatrixT, typename MapT, typename IndexT>
@@ -109,7 +133,9 @@ void gather(raft::resources const& handle,
             raft::device_vector_view<const MapT, IndexT, raft::layout_c_contiguous> map,
             IndexT batch_size)
 {
-  gatherInplaceImpl(handle, inout, map, raft::identity_op(), batch_size);
+  auto inout_ = raft::make_device_strided_matrix_view<MatrixT, IndexT>(
+    inout.data_handle(), inout.extent(0), inout.extent(1), inout.extent(1));
+  gatherInplaceImpl(handle, inout_, map, raft::identity_op(), batch_size);
 }
 
 }  // namespace detail
