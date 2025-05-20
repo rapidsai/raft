@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+source rapids-init-pip
+
 package_name=$1
 package_dir=$2
 package_type=$3
