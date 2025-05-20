@@ -235,7 +235,7 @@ struct standard_dataset_descriptor_t
   }
 
   static const std::uint32_t smem_buffer_size_in_byte = 0;
-  __device__ void set_smem_ptr(void* const){};
+  __device__ void set_smem_ptr(void* const) {};
 
   template <uint32_t DATASET_BLOCK_DIM>
   __device__ void copy_query(const DATA_T* const dmem_query_ptr,

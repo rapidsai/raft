@@ -18,6 +18,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/cuda_stream_pool.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <gtest/gtest.h>
@@ -97,6 +98,53 @@ TEST(Raft, GetDeviceForAddress)
 
   rmm::device_uvector<int> d(1, resource::get_cuda_stream(handle));
   ASSERT_EQ(0, raft::get_device_for_address(d.data()));
+}
+
+TEST(Raft, Copy2DAsync)
+{
+  using DType = float;
+
+  constexpr size_t rows      = 4;
+  constexpr size_t cols      = 5;
+  constexpr size_t pitch     = 8;
+  constexpr size_t elem_size = sizeof(DType);
+  constexpr size_t width     = cols;
+  constexpr size_t height    = rows;
+
+  rmm::cuda_stream_pool pool{1};
+  auto stream = pool.get_stream();
+
+  rmm::device_uvector<DType> d_src(pitch * elem_size * rows, stream);
+  rmm::device_uvector<DType> d_dst(pitch * elem_size * rows, stream);
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
+  std::vector<DType> h_src(rows * pitch, -1.0f);
+  std::vector<DType> h_dst(rows * pitch, 0.0f);
+  std::vector<DType> h_dst_baseline(rows * pitch, 0.0f);
+
+  for (size_t r = 0; r < rows; ++r) {
+    for (size_t c = 0; c < pitch; ++c) {
+      h_src[r * pitch + c] = static_cast<DType>(r * pitch + c);
+      if (r < height && c < cols) {
+        h_dst_baseline[r * pitch + c] = static_cast<DType>(r * pitch + c);
+      }
+    }
+  }
+  RAFT_CUDA_TRY(
+    cudaMemcpy(d_src.data(), h_src.data(), pitch * elem_size * rows, cudaMemcpyHostToDevice));
+  RAFT_CUDA_TRY(
+    cudaMemcpy(d_dst.data(), h_dst.data(), pitch * elem_size * rows, cudaMemcpyHostToDevice));
+
+  raft::copy_matrix(d_dst.data(), pitch, d_src.data(), pitch, width, height, stream);
+  RAFT_CUDA_TRY(
+    cudaMemcpy(h_dst.data(), d_dst.data(), pitch * elem_size * rows, cudaMemcpyDeviceToHost));
+
+  for (size_t r = 0; r < rows; ++r) {
+    for (size_t c = 0; c < pitch; ++c) {
+      ASSERT_EQ(h_dst[r * pitch + c], h_dst_baseline[r * pitch + c])
+        << "Mismatch at row " << r << " col " << c;
+    }
+  }
 }
 
 }  // namespace raft

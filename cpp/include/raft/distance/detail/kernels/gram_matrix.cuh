@@ -55,11 +55,11 @@ class GramMatrixBase {
   bool legacy_interface;
 
  public:
-  GramMatrixBase() : legacy_interface(false){};
+  GramMatrixBase() : legacy_interface(false) {};
   [[deprecated]] GramMatrixBase(cublasHandle_t cublas_handle)
-    : cublas_handle(cublas_handle), legacy_interface(true){};
+    : cublas_handle(cublas_handle), legacy_interface(true) {};
 
-  virtual ~GramMatrixBase(){};
+  virtual ~GramMatrixBase() {};
 
   /** Convenience function to evaluate the Gram matrix for two vector sets.
    *  Vector sets are provided in Matrix format

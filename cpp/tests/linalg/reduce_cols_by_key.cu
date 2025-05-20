@@ -110,7 +110,7 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T, IdxT>
   {                                                                        \
     ASSERT_TRUE(raft::devArrMatch(out_ref.data(),                          \
                                   out.data(),                              \
-                                  params.rows* params.nkeys,               \
+                                  params.rows * params.nkeys,              \
                                   raft::CompareApprox(params.tolerance))); \
   }                                                                        \
   INSTANTIATE_TEST_CASE_P(ReduceColsTests, test_name, ::testing::ValuesIn(test_inputs))

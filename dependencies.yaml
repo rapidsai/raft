@@ -258,8 +258,8 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - clang==16.0.6
-          - clang-tools=16.0.6
+          - clang==20.1.4
+          - clang-tools=20.1.4
   cuda_version:
     specific:
       - output_types: conda
@@ -296,6 +296,10 @@ dependencies:
               cuda: "12.8"
             packages:
               - cuda-version=12.8
+          - matrix:
+              cuda: "12.9"
+            packages:
+              - cuda-version=12.9
   cuda:
     specific:
       - output_types: conda
@@ -463,8 +467,12 @@ dependencies:
             packages:
               - python=3.12
           - matrix:
+              py: "3.13"
             packages:
-              - python>=3.10,<3.13
+              - python=3.13
+          - matrix:
+            packages:
+              - python>=3.10,<3.14
   run_pylibraft:
     common:
       - output_types: [conda, pyproject, requirements]

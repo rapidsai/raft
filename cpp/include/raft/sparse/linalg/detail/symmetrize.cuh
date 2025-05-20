@@ -104,7 +104,7 @@ RAFT_KERNEL coo_symmetrize_kernel(nnz_t* row_ind,
       // Note that if we did find a match, we don't need to
       // compute `res` on it here because it will be computed
       // in a different thread.
-      if (!found_match && vals[idx] != 0.0) {
+      if (!found_match && cur_val != 0.0) {
         orows[out_start_idx + row_nnz] = cur_col;
         ocols[out_start_idx + row_nnz] = cur_row;
         ovals[out_start_idx + row_nnz] = res;

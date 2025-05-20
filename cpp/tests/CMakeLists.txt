@@ -197,6 +197,7 @@ if(BUILD_TESTS)
     matrix/diagonal.cu
     matrix/gather.cu
     matrix/scatter.cu
+    matrix/shift.cu
     matrix/eye.cu
     matrix/linewise_op.cu
     matrix/math.cu
@@ -258,11 +259,13 @@ if(BUILD_TESTS)
     sparse/csr_to_dense.cu
     sparse/csr_transpose.cu
     sparse/degree.cu
+    sparse/diagonal.cu
     sparse/filter.cu
     sparse/laplacian.cu
     sparse/masked_matmul.cu
     sparse/norm.cu
     sparse/normalize.cu
+    sparse/preprocess.cu
     sparse/reduce.cu
     sparse/row_op.cu
     sparse/sddmm.cu

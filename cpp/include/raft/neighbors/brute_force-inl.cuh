@@ -346,7 +346,7 @@ index<T> build(raft::resources const& res,
   auto dataset_storage = std::optional<device_matrix<T, int64_t>>{};
   auto dataset_view    = [&res, &dataset_storage, dataset]() {
     if constexpr (std::is_same_v<decltype(dataset),
-                                 raft::device_matrix_view<const T, int64_t, row_major>>) {
+                                    raft::device_matrix_view<const T, int64_t, row_major>>) {
       return dataset;
     } else {
       dataset_storage = make_device_matrix<T, int64_t>(res, dataset.extent(0), dataset.extent(1));
