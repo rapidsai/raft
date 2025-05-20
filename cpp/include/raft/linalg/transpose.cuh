@@ -22,6 +22,7 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/core/type_traits.hpp>
 
 namespace raft {
 namespace linalg {
@@ -82,7 +83,7 @@ template <typename T, typename IndexType, typename LayoutPolicy, typename Access
 auto transpose(raft::resources const& handle,
                raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
                raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
-  -> std::enable_if_t<std::is_floating_point_v<T> || std::is_same_v<T, half>, void>
+  -> std::enable_if_t<raft::is_floating_point_v<T>, void>
 {
   RAFT_EXPECTS(out.extent(0) == in.extent(1), "Invalid shape for transpose.");
   RAFT_EXPECTS(out.extent(1) == in.extent(0), "Invalid shape for transpose.");

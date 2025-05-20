@@ -236,7 +236,7 @@ namespace transpose_extra_test {
 template <typename T, typename IndexType, typename LayoutPolicy>
 [[nodiscard]] auto transpose(raft::resources const& handle,
                              device_matrix_view<T, IndexType, LayoutPolicy> in)
-  -> std::enable_if_t<(std::is_floating_point_v<T> || std::is_same_v<T, half>) &&
+  -> std::enable_if_t<(raft::is_floating_point_v<T>) &&
                         (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
                          std::is_same_v<LayoutPolicy, layout_f_contiguous>),
                       device_matrix<T, IndexType, LayoutPolicy>>
