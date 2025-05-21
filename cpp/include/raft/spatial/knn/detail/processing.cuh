@@ -54,15 +54,23 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
 
   void preprocess(math_t* data)
   {
-    raft::linalg::rowNorm(colsums_.data(),
-                          data,
-                          n_cols_,
-                          n_rows_,
-                          raft::linalg::NormType::L2Norm,
-                          row_major_,
-                          stream_,
-                          raft::sqrt_op{});
-
+    if (row_major_) {
+      raft::linalg::rowNorm<true>(colsums_.data(),
+                                  data,
+                                  n_cols_,
+                                  n_rows_,
+                                  raft::linalg::NormType::L2Norm,
+                                  stream_,
+                                  raft::sqrt_op{});
+    } else {
+      raft::linalg::rowNorm<false>(colsums_.data(),
+                                   data,
+                                   n_cols_,
+                                   n_rows_,
+                                   raft::linalg::NormType::L2Norm,
+                                   stream_,
+                                   raft::sqrt_op{});
+    }
     raft::linalg::matrixVectorOp(
       data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false, raft::div_op{}, stream_);
   }
@@ -99,15 +107,13 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
   {
     math_t normalizer_const = 1.0 / (math_t)cosine::n_cols_;
 
-    raft::linalg::reduce(means_.data(),
-                         data,
-                         cosine::n_cols_,
-                         cosine::n_rows_,
-                         (math_t)0.0,
-                         cosine::row_major_,
-                         true,
-                         cosine::stream_);
-
+    if (cosine::row_major_) {
+      raft::linalg::reduce<true, true>(
+        means_.data(), data, cosine::n_cols_, cosine::n_rows_, (math_t)0.0, cosine::stream_);
+    } else {
+      raft::linalg::reduce<false, true>(
+        means_.data(), data, cosine::n_cols_, cosine::n_rows_, (math_t)0.0, cosine::stream_);
+    }
     raft::linalg::unaryOp(means_.data(),
                           means_.data(),
                           cosine::n_rows_,

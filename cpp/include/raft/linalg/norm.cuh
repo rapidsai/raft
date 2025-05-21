@@ -25,6 +25,7 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/types.hpp>
 #include <raft/linalg/norm_types.hpp>
 #include <raft/util/input_validation.hpp>
 
@@ -38,6 +39,7 @@ namespace linalg {
  * example.
  * This is used in many clustering algos like knn, kmeans, dbscan, etc...
  *
+ * @tparam rowMajor whether the input is row-major or not
  * @tparam Type the data type
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
@@ -47,11 +49,11 @@ namespace linalg {
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
- * @param rowMajor whether the input is row-major or not
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type,
+template <bool rowMajor,
+          typename Type,
           typename IdxType = int,
           typename Lambda  = raft::identity_op,
           typename OutType = Type>
@@ -60,15 +62,15 @@ void rowNorm(OutType* dots,
              IdxType D,
              IdxType N,
              NormType type,
-             bool rowMajor,
              cudaStream_t stream,
              Lambda fin_op = raft::identity_op())
 {
-  detail::rowNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
+  detail::rowNormCaller<rowMajor>(dots, data, D, N, type, stream, fin_op);
 }
 
 /**
  * @brief Compute column-wise norm of the input matrix and perform fin_op
+ * @tparam rowMajor whether the input is row-major or not
  * @tparam Type the data type
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
@@ -78,11 +80,11 @@ void rowNorm(OutType* dots,
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
- * @param rowMajor whether the input is row-major or not
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type,
+template <bool rowMajor,
+          typename Type,
           typename IdxType = int,
           typename Lambda  = raft::identity_op,
           typename OutType = Type>
@@ -91,11 +93,10 @@ void colNorm(OutType* dots,
              IdxType D,
              IdxType N,
              NormType type,
-             bool rowMajor,
              cudaStream_t stream,
              Lambda fin_op = raft::identity_op())
 {
-  detail::colNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
+  detail::colNormCaller<rowMajor>(dots, data, D, N, type, stream, fin_op);
 }
 
 /**
@@ -105,6 +106,8 @@ void colNorm(OutType* dots,
 
 /**
  * @brief Compute norm of the input matrix and perform fin_op
+ * @tparam Apply Whether to apply the norm along rows (raft::Apply::ALONG_ROWS)
+ *              or along columns (raft::Apply::ALONG_COLUMNS)
  * @tparam ElementType Input data type
  * @tparam OutType output data type
  * @tparam LayoutPolicy the layout of input (raft::row_major or raft::col_major)
@@ -114,11 +117,10 @@ void colNorm(OutType* dots,
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_vector_view
  * @param[in] type the type of norm to be applied
- * @param[in] apply Whether to apply the norm along rows (raft::linalg::Apply::ALONG_ROWS)
-                    or along columns (raft::linalg::Apply::ALONG_COLUMNS)
  * @param[in] fin_op the final lambda op
  */
-template <typename ElementType,
+template <raft::Apply apply,
+          typename ElementType,
           typename OutputType,
           typename LayoutPolicy,
           typename IndexType,
@@ -127,36 +129,33 @@ void norm(raft::resources const& handle,
           raft::device_matrix_view<const ElementType, IndexType, LayoutPolicy> in,
           raft::device_vector_view<OutputType, IndexType> out,
           NormType type,
-          Apply apply,
           Lambda fin_op = raft::identity_op())
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
 
-  auto constexpr row_major = std::is_same_v<LayoutPolicy, raft::row_major>;
-  auto along_rows          = apply == Apply::ALONG_ROWS;
+  auto constexpr row_major  = std::is_same_v<LayoutPolicy, raft::row_major>;
+  auto constexpr along_rows = apply == raft::Apply::ALONG_ROWS;
 
-  if (along_rows) {
+  if constexpr (along_rows) {
     RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(0),
                  "Output should be equal to number of rows in Input");
-    rowNorm(out.data_handle(),
-            in.data_handle(),
-            in.extent(1),
-            in.extent(0),
-            type,
-            row_major,
-            resource::get_cuda_stream(handle),
-            fin_op);
+    rowNorm<row_major>(out.data_handle(),
+                       in.data_handle(),
+                       in.extent(1),
+                       in.extent(0),
+                       type,
+                       resource::get_cuda_stream(handle),
+                       fin_op);
   } else {
     RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(1),
                  "Output should be equal to number of columns in Input");
-    colNorm(out.data_handle(),
-            in.data_handle(),
-            in.extent(1),
-            in.extent(0),
-            type,
-            row_major,
-            resource::get_cuda_stream(handle),
-            fin_op);
+    colNorm<row_major>(out.data_handle(),
+                       in.data_handle(),
+                       in.extent(1),
+                       in.extent(0),
+                       type,
+                       resource::get_cuda_stream(handle),
+                       fin_op);
   }
 }
 
