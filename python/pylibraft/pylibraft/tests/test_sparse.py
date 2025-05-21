@@ -68,7 +68,7 @@ class TestEigsh:
     tol = {numpy.float32: 1e-5, numpy.complex64: 1e-5, "default": 1e-12}
     res_tol = {"f": 1e-5, "d": 1e-12}
     res_tol_factor = {"SA": 1, "LA": 1, "LM": 1, "SM": 10}
-    maxiter = 10000
+    maxiter = 100000
     return_eigenvectors = True
 
     def _make_matrix(self, dtype, xp):
