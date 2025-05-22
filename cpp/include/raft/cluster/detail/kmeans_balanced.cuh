@@ -110,8 +110,8 @@ inline std::enable_if_t<std::is_floating_point_v<MathT>> predict_core(
 
       auto centroidsNorm =
         raft::make_device_mdarray<MathT, IdxT>(handle, mr, make_extents<IdxT>(n_clusters));
-      raft::linalg::rowNorm<MathT, IdxT>(
-        centroidsNorm.data_handle(), centers, dim, n_clusters, raft::linalg::L2Norm, true, stream);
+      raft::linalg::rowNorm<true, MathT, IdxT>(
+        centroidsNorm.data_handle(), centers, dim, n_clusters, raft::linalg::L2Norm, stream);
 
       raft::distance::fusedL2NNMinReduce<MathT, raft::KeyValuePair<IdxT, MathT>, IdxT>(
         minClusterAndDistance.data_handle(),
@@ -341,8 +341,8 @@ void compute_norm(const raft::resources& handle,
     dataset_ptr = static_cast<const MathT*>(mapped_dataset.data());
   }
 
-  raft::linalg::rowNorm<MathT, IdxT>(
-    dataset_norm, dataset_ptr, dim, n_rows, raft::linalg::L2Norm, true, stream);
+  raft::linalg::rowNorm<true, MathT, IdxT>(
+    dataset_norm, dataset_ptr, dim, n_rows, raft::linalg::L2Norm, stream);
 }
 
 /**

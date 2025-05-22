@@ -141,50 +141,37 @@ void distance_impl(raft::resources const& handle,
   // perhaps the use of stridedSummationKernel could be causing this,
   // need to investigate and fix.
   if (x == y && is_row_major) {
-    raft::linalg::reduce(x_norm,
-                         x,
-                         k,
-                         std::max(m, n),
-                         (AccT)0,
-                         is_row_major,
-                         true,
-                         stream,
-                         false,
-                         raft::identity_op(),
-                         raft::add_op());
+    raft::linalg::reduce<true, true>(
+      x_norm, x, k, std::max(m, n), (AccT)0, stream, false, raft::identity_op(), raft::add_op());
     sq_x_norm += std::max(m, n);
     sq_y_norm = sq_x_norm;
-    raft::linalg::rowNorm(
-      sq_x_norm, x, k, std::max(m, n), raft::linalg::L2Norm, is_row_major, stream);
+    raft::linalg::rowNorm<true>(sq_x_norm, x, k, std::max(m, n), raft::linalg::L2Norm, stream);
   } else {
     y_norm += m;
-    raft::linalg::reduce(x_norm,
-                         x,
-                         k,
-                         m,
-                         (AccT)0,
-                         is_row_major,
-                         true,
-                         stream,
-                         false,
-                         raft::identity_op(),
-                         raft::add_op());
-    raft::linalg::reduce(y_norm,
-                         y,
-                         k,
-                         n,
-                         (AccT)0,
-                         is_row_major,
-                         true,
-                         stream,
-                         false,
-                         raft::identity_op(),
-                         raft::add_op());
+    if (is_row_major) {
+      raft::linalg::reduce<true, true>(
+        x_norm, x, k, m, (AccT)0, stream, false, raft::identity_op(), raft::add_op());
+    } else {
+      raft::linalg::reduce<true, false>(
+        x_norm, x, k, m, (AccT)0, stream, false, raft::identity_op(), raft::add_op());
+    }
+    if (is_row_major) {
+      raft::linalg::reduce<true, true>(
+        y_norm, y, k, n, (AccT)0, stream, false, raft::identity_op(), raft::add_op());
+    } else {
+      raft::linalg::reduce<true, false>(
+        y_norm, y, k, n, (AccT)0, stream, false, raft::identity_op(), raft::add_op());
+    }
+  }
 
-    sq_x_norm += (m + n);
-    sq_y_norm = sq_x_norm + m;
-    raft::linalg::rowNorm(sq_x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream);
-    raft::linalg::rowNorm(sq_y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream);
+  sq_x_norm += (m + n);
+  sq_y_norm = sq_x_norm + m;
+  if (is_row_major) {
+    raft::linalg::rowNorm<true>(sq_x_norm, x, k, m, raft::linalg::L2Norm, stream);
+    raft::linalg::rowNorm<true>(sq_y_norm, y, k, n, raft::linalg::L2Norm, stream);
+  } else {
+    raft::linalg::rowNorm<false>(sq_x_norm, x, k, m, raft::linalg::L2Norm, stream);
+    raft::linalg::rowNorm<false>(sq_y_norm, y, k, n, raft::linalg::L2Norm, stream);
   }
 
   using OpT = ops::correlation_distance_op<DataT, AccT, IdxT>;
@@ -224,14 +211,20 @@ void distance_impl(raft::resources const& handle,
   // perhaps the use of stridedSummationKernel could be causing this,
   // need to investigate and fix.
   if (x == y && is_row_major) {
-    raft::linalg::rowNorm(
-      x_norm, x, k, std::max(m, n), raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
+    raft::linalg::rowNorm<true>(
+      x_norm, x, k, std::max(m, n), raft::linalg::L2Norm, stream, raft::sqrt_op{});
   } else {
     y_norm += m;
-    raft::linalg::rowNorm(
-      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
-    raft::linalg::rowNorm(
-      y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
+    if (is_row_major) {
+      raft::linalg::rowNorm<true>(x_norm, x, k, m, raft::linalg::L2Norm, stream, raft::sqrt_op{});
+    } else {
+      raft::linalg::rowNorm<false>(x_norm, x, k, m, raft::linalg::L2Norm, stream, raft::sqrt_op{});
+    }
+    if (is_row_major) {
+      raft::linalg::rowNorm<true>(y_norm, y, k, n, raft::linalg::L2Norm, stream, raft::sqrt_op{});
+    } else {
+      raft::linalg::rowNorm<false>(y_norm, y, k, n, raft::linalg::L2Norm, stream, raft::sqrt_op{});
+    }
   }
 
   ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
@@ -270,23 +263,25 @@ void distance_impl(raft::resources const& handle,
   // perhaps the use of stridedSummationKernel could be causing this,
   // need to investigate and fix.
   if (x == y && is_row_major) {
-    raft::linalg::reduce(x_norm,
-                         x,
-                         k,
-                         std::max(m, n),
-                         (AccT)0,
-                         is_row_major,
-                         true,
-                         stream,
-                         false,
-                         raft::nz_op(),
-                         raft::add_op());
+    raft::linalg::reduce<true, true>(
+      x_norm, x, k, std::max(m, n), (AccT)0, stream, false, raft::nz_op(), raft::add_op());
   } else {
     y_norm += m;
-    raft::linalg::reduce(
-      x_norm, x, k, m, (AccT)0, is_row_major, true, stream, false, raft::nz_op(), raft::add_op());
-    raft::linalg::reduce(
-      y_norm, y, k, n, (AccT)0, is_row_major, true, stream, false, raft::nz_op(), raft::add_op());
+    if (is_row_major) {
+      raft::linalg::reduce<true, true>(
+        x_norm, x, k, m, (AccT)0, stream, false, raft::nz_op(), raft::add_op());
+    } else {
+      raft::linalg::reduce<true, false>(
+        x_norm, x, k, m, (AccT)0, stream, false, raft::nz_op(), raft::add_op());
+    }
+
+    if (is_row_major) {
+      raft::linalg::reduce<true, true>(
+        y_norm, y, k, n, (AccT)0, stream, false, raft::nz_op(), raft::add_op());
+    } else {
+      raft::linalg::reduce<false, true>(
+        y_norm, y, k, n, (AccT)0, stream, false, raft::nz_op(), raft::add_op());
+    }
   }
 
   ops::dice_distance_op<DataT, AccT, IdxT> distance_op{};
@@ -522,20 +517,24 @@ void distance_impl_l2_expanded(  // NOTE: different name
   // perhaps the use of stridedSummationKernel could be causing this,
   // need to investigate and fix.
   if ((x == y) && is_row_major) {
-    raft::linalg::rowNorm(x_norm,
-                          x,
-                          k,
-                          std::max(m, n),
-                          raft::linalg::L2Norm,
-                          is_row_major,
-                          stream,
-                          raft::identity_op{});
+    raft::linalg::rowNorm<true>(
+      x_norm, x, k, std::max(m, n), raft::linalg::L2Norm, stream, raft::identity_op{});
   } else {
     y_norm += m;
-    raft::linalg::rowNorm(
-      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
-    raft::linalg::rowNorm(
-      y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
+    if (is_row_major) {
+      raft::linalg::rowNorm<true>(
+        x_norm, x, k, m, raft::linalg::L2Norm, stream, raft::identity_op{});
+    } else {
+      raft::linalg::rowNorm<false>(
+        x_norm, x, k, m, raft::linalg::L2Norm, stream, raft::identity_op{});
+    }
+    if (is_row_major) {
+      raft::linalg::rowNorm<true>(
+        y_norm, y, k, n, raft::linalg::L2Norm, stream, raft::identity_op{});
+    } else {
+      raft::linalg::rowNorm<false>(
+        y_norm, y, k, n, raft::linalg::L2Norm, stream, raft::identity_op{});
+    }
   }
 
   ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{perform_sqrt};

@@ -153,7 +153,7 @@ void row_weighted_mean(raft::resources const& handle,
                        raft::device_vector_view<const value_t, idx_t> weights,
                        raft::device_vector_view<value_t, idx_t> mu)
 {
-  weighted_mean(handle, data, weights, mu, true);
+  weighted_mean<raft::Apply::ALONG_ROWS>(handle, data, weights, mu);
 }
 
 /**
@@ -174,7 +174,7 @@ void col_weighted_mean(raft::resources const& handle,
                        raft::device_vector_view<const value_t, idx_t> weights,
                        raft::device_vector_view<value_t, idx_t> mu)
 {
-  weighted_mean(handle, data, weights, mu, false);
+  weighted_mean<raft::Apply::ALONG_COLUMNS>(handle, data, weights, mu);
 }
 
 /** @} */  // end group stats_weighted_mean

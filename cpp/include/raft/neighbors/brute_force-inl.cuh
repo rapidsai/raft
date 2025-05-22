@@ -360,18 +360,11 @@ index<T> build(raft::resources const& res,
     norms = make_device_vector<T, int64_t>(res, dataset.extent(0));
     // cosine needs the l2norm, where as l2 distances needs the squared norm
     if (metric == raft::distance::DistanceType::CosineExpanded) {
-      raft::linalg::norm(res,
-                         dataset_view,
-                         norms->view(),
-                         raft::linalg::NormType::L2Norm,
-                         raft::linalg::Apply::ALONG_ROWS,
-                         raft::sqrt_op{});
+      raft::linalg::norm<raft::Apply::ALONG_ROWS>(
+        res, dataset_view, norms->view(), raft::linalg::NormType::L2Norm, raft::sqrt_op{});
     } else {
-      raft::linalg::norm(res,
-                         dataset_view,
-                         norms->view(),
-                         raft::linalg::NormType::L2Norm,
-                         raft::linalg::Apply::ALONG_ROWS);
+      raft::linalg::norm<raft::Apply::ALONG_ROWS>(
+        res, dataset_view, norms->view(), raft::linalg::NormType::L2Norm);
     }
   }
 

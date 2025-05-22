@@ -53,10 +53,10 @@ void rowNormalizeRef(
 {
   rmm::device_uvector<T> norm(rows, stream);
   if (norm_type == raft::linalg::L2Norm) {
-    raft::linalg::rowNorm(norm.data(), in, cols, rows, norm_type, true, stream, raft::sqrt_op());
+    raft::linalg::rowNorm<true>(norm.data(), in, cols, rows, norm_type, stream, raft::sqrt_op());
   } else {
-    raft::linalg::rowNorm(
-      norm.data(), in, cols, rows, norm_type, true, stream, raft::identity_op());
+    raft::linalg::rowNorm<true>(
+      norm.data(), in, cols, rows, norm_type, stream, raft::identity_op());
   }
   raft::linalg::matrixVectorOp(
     out, in, norm.data(), cols, rows, true, false, raft::div_op{}, stream);

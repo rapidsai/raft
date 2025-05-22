@@ -112,15 +112,15 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<OutT, IdxT>> {
       data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
       if (params.rowMajor) {
-        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS, raft::sqrt_op{});
+        norm<Apply::ALONG_ROWS>(handle, input_row_major, output_view, params.type, raft::sqrt_op{});
       } else {
-        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS, raft::sqrt_op{});
+        norm<Apply::ALONG_ROWS>(handle, input_col_major, output_view, params.type, raft::sqrt_op{});
       }
     } else {
       if (params.rowMajor) {
-        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS);
+        norm<Apply::ALONG_ROWS>(handle, input_row_major, output_view, params.type);
       } else {
-        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS);
+        norm<Apply::ALONG_ROWS>(handle, input_col_major, output_view, params.type);
       }
     }
     resource::sync_stream(handle, stream);
@@ -189,17 +189,17 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<OutT, IdxT>> {
       data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
       if (params.rowMajor) {
-        norm(
-          handle, input_row_major, output_view, params.type, Apply::ALONG_COLUMNS, raft::sqrt_op{});
+        norm<Apply::ALONG_COLUMNS>(
+          handle, input_row_major, output_view, params.type, raft::sqrt_op{});
       } else {
-        norm(
-          handle, input_col_major, output_view, params.type, Apply::ALONG_COLUMNS, raft::sqrt_op{});
+        norm<Apply::ALONG_COLUMNS>(
+          handle, input_col_major, output_view, params.type, raft::sqrt_op{});
       }
     } else {
       if (params.rowMajor) {
-        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_COLUMNS);
+        norm<Apply::ALONG_COLUMNS>(handle, input_row_major, output_view, params.type);
       } else {
-        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_COLUMNS);
+        norm<Apply::ALONG_COLUMNS>(handle, input_col_major, output_view, params.type);
       }
     }
     resource::sync_stream(handle, stream);
