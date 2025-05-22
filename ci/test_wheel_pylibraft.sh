@@ -3,11 +3,11 @@
 
 set -euo pipefail
 
-mkdir -p ./dist
+source rapids-init-pip
+
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 LIBRAFT_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
 PYLIBRAFT_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github python)
-
 
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install \
