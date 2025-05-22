@@ -57,8 +57,8 @@ struct rowNorm : public fixture {
         in.data(), params.rows, params.cols);
       auto output_view =
         raft::make_device_vector_view<T, IdxT, raft::row_major>(dots.data(), params.rows);
-      raft::linalg::norm<raft::Apply::ALONG_ROWS>(
-        handle, input_view, output_view, raft::linalg::L2Norm, raft::sqrt_op());
+      raft::linalg::norm<raft::linalg::L2Norm, raft::Apply::ALONG_ROWS>(
+        handle, input_view, output_view, raft::sqrt_op());
     });
   }
 

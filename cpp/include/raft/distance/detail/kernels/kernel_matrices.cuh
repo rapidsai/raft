@@ -540,19 +540,17 @@ class RBFKernel : public GramMatrixBase<math_t> {
     int ld            = is_row_major ? matrix.stride(0) : matrix.stride(1);
     ASSERT(ld == minor, "RBF Kernel lazy rowNorm compute does not support ld parameter");
     if (is_row_major) {
-      raft::linalg::rowNorm<true>(target,
-                                  matrix.data_handle(),
-                                  matrix.extent(1),
-                                  matrix.extent(0),
-                                  raft::linalg::NormType::L2Norm,
-                                  resource::get_cuda_stream(handle));
+      raft::linalg::rowNorm<raft::linalg::L2Norm, true>(target,
+                                                        matrix.data_handle(),
+                                                        matrix.extent(1),
+                                                        matrix.extent(0),
+                                                        resource::get_cuda_stream(handle));
     } else {
-      raft::linalg::rowNorm<false>(target,
-                                   matrix.data_handle(),
-                                   matrix.extent(1),
-                                   matrix.extent(0),
-                                   raft::linalg::NormType::L2Norm,
-                                   resource::get_cuda_stream(handle));
+      raft::linalg::rowNorm<raft::linalg::L2Norm, false>(target,
+                                                         matrix.data_handle(),
+                                                         matrix.extent(1),
+                                                         matrix.extent(0),
+                                                         resource::get_cuda_stream(handle));
     }
   }
 

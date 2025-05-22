@@ -106,26 +106,20 @@ void tiled_brute_force_knn(const raft::resources& handle,
     // cosine needs the l2norm, where as l2 distances needs the squared norm
     if (metric == raft::distance::DistanceType::CosineExpanded) {
       if (!precomputed_search_norms) {
-        raft::linalg::rowNorm<true>(search_norms.data(),
-                                    search,
-                                    d,
-                                    m,
-                                    raft::linalg::NormType::L2Norm,
-                                    stream,
-                                    raft::sqrt_op{});
+        raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+          search_norms.data(), search, d, m, stream, raft::sqrt_op{});
       }
       if (!precomputed_index_norms) {
-        raft::linalg::rowNorm<true>(
-          index_norms.data(), index, d, n, raft::linalg::NormType::L2Norm, stream, raft::sqrt_op{});
+        raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+          index_norms.data(), index, d, n, stream, raft::sqrt_op{});
       }
     } else {
       if (!precomputed_search_norms) {
-        raft::linalg::rowNorm<true>(
-          search_norms.data(), search, d, m, raft::linalg::NormType::L2Norm, stream);
+        raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+          search_norms.data(), search, d, m, stream);
       }
       if (!precomputed_index_norms) {
-        raft::linalg::rowNorm<true>(
-          index_norms.data(), index, d, n, raft::linalg::NormType::L2Norm, stream);
+        raft::linalg::rowNorm<raft::linalg::L2Norm, true>(index_norms.data(), index, d, n, stream);
       }
     }
     pairwise_metric = raft::distance::DistanceType::InnerProduct;

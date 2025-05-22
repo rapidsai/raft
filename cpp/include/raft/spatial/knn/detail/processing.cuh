@@ -55,21 +55,11 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
   void preprocess(math_t* data)
   {
     if (row_major_) {
-      raft::linalg::rowNorm<true>(colsums_.data(),
-                                  data,
-                                  n_cols_,
-                                  n_rows_,
-                                  raft::linalg::NormType::L2Norm,
-                                  stream_,
-                                  raft::sqrt_op{});
+      raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+        colsums_.data(), data, n_cols_, n_rows_, stream_, raft::sqrt_op{});
     } else {
-      raft::linalg::rowNorm<false>(colsums_.data(),
-                                   data,
-                                   n_cols_,
-                                   n_rows_,
-                                   raft::linalg::NormType::L2Norm,
-                                   stream_,
-                                   raft::sqrt_op{});
+      raft::linalg::rowNorm<raft::linalg::L2Norm, false>(
+        colsums_.data(), data, n_cols_, n_rows_, stream_, raft::sqrt_op{});
     }
     raft::linalg::matrixVectorOp(
       data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false, raft::div_op{}, stream_);
