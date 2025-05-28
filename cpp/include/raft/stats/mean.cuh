@@ -39,7 +39,6 @@ namespace stats {
  * @param data: the input matrix
  * @param D: number of columns of data
  * @param N: number of rows of data
- * @param rowMajor: whether the input data is row or col major
  * @param stream: cuda stream
  */
 template <bool rowMajor, typename Type, typename IdxType = int>
@@ -64,7 +63,6 @@ void mean(Type* mu, const Type* data, IdxType D, IdxType N, cudaStream_t stream)
  * @param sample: whether to evaluate sample mean or not. In other words,
  * whether
  *  to normalize the output using N-1 or N, for true or false, respectively
- * @param rowMajor: whether the input data is row or col major
  * @param stream: cuda stream
  */
 template <bool rowMajor, typename Type, typename IdxType = int>
