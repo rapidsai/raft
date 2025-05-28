@@ -115,13 +115,13 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<OutT, IdxT>> {
         if (params.type == L2Norm) {
           norm<L2Norm, Apply::ALONG_ROWS>(handle, input_row_major, output_view, raft::sqrt_op{});
         } else {
-          norm<L1Norm, Apply::ALONG_ROWS>(handle, input_row_major, output_view);
+          norm<L1Norm, Apply::ALONG_ROWS>(handle, input_row_major, output_view, raft::sqrt_op{});
         }
       } else {
         if (params.type == L2Norm) {
           norm<L2Norm, Apply::ALONG_ROWS>(handle, input_col_major, output_view, raft::sqrt_op{});
         } else {
-          norm<L1Norm, Apply::ALONG_ROWS>(handle, input_col_major, output_view);
+          norm<L1Norm, Apply::ALONG_ROWS>(handle, input_col_major, output_view, raft::sqrt_op{});
         }
       }
     } else {
@@ -208,13 +208,13 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<OutT, IdxT>> {
         if (params.type == L2Norm) {
           norm<L2Norm, Apply::ALONG_COLUMNS>(handle, input_row_major, output_view, raft::sqrt_op{});
         } else {
-          norm<L1Norm, Apply::ALONG_COLUMNS>(handle, input_row_major, output_view);
+          norm<L1Norm, Apply::ALONG_COLUMNS>(handle, input_row_major, output_view, raft::sqrt_op{});
         }
       } else {
         if (params.type == L2Norm) {
           norm<L2Norm, Apply::ALONG_COLUMNS>(handle, input_col_major, output_view, raft::sqrt_op{});
         } else {
-          norm<L1Norm, Apply::ALONG_COLUMNS>(handle, input_col_major, output_view);
+          norm<L1Norm, Apply::ALONG_COLUMNS>(handle, input_col_major, output_view, raft::sqrt_op{});
         }
       }
     } else {
