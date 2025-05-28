@@ -32,7 +32,7 @@ namespace stats {
  *
  * Mean operation is assumed to be performed on a given column.
  *
- * @tparam row_major: whether the input data is row or col major
+ * @tparam rowMajor: whether the input data is row or col major
  * @tparam Type: the data type
  * @tparam IdxType Integer type used to for addressing
  * @param mu: the output mean vector
