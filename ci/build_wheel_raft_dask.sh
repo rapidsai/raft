@@ -25,5 +25,5 @@ else
     export PYDISTCHECK_MAX_SIZE="2M"
 fi
 
-ci/build_wheel.sh raft-dask ${package_dir} python
+ci/build_wheel.sh raft-dask ${package_dir}
 ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
