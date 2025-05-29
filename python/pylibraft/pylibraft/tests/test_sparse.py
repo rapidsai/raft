@@ -68,7 +68,7 @@ class TestEigsh:
     tol = {numpy.float32: 1e-5, numpy.complex64: 1e-5, "default": 1e-12}
     res_tol = {"f": 1e-5, "d": 1e-12}
     res_tol_factor = {"SA": 1, "LA": 1, "LM": 1, "SM": 10}
-    maxiter = 100000
+    maxiter = 10000000
     return_eigenvectors = True
 
     def _make_matrix(self, dtype, xp):
@@ -91,9 +91,13 @@ class TestEigsh:
             maxiter=self.maxiter,
         )
         actual_ret = eigsh(a, k=k, which=which, maxiter=self.maxiter)
+        cupy_actual_ret = sparse.linalg.eigsh(
+            a, k=k, which=which, maxiter=self.maxiter
+        )
         if self.return_eigenvectors:
             w, x = actual_ret
             exp_w, _ = expected_ret
+            cupy_exp_w, _ = cupy_actual_ret
             # Check the residuals to see if eigenvectors are correct.
             ax_xw = a @ x - xp.multiply(x, w.reshape(1, k))
             res = xp.linalg.norm(ax_xw) / xp.linalg.norm(w)
@@ -106,6 +110,9 @@ class TestEigsh:
             w = actual_ret
             exp_w = expected_ret
         w = xp.sort(w)
+        print(w, "raft")
+        print(exp_w, "scipy")
+        print(cupy_exp_w, "cupy")
         assert cupy.allclose(w, exp_w, rtol=tol, atol=tol)
 
     @pytest.mark.parametrize("format", ["csr"])  # , 'csc', 'coo'])
