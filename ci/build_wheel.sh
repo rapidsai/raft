@@ -3,10 +3,10 @@
 
 set -euo pipefail
 
+source rapids-init-pip
+
 package_name=$1
 package_dir=$2
-package_type=$3
-underscore_package_name=$(echo "${package_name}" | tr "-" "_")
 
 # Clear out system ucx files to ensure that we're getting ucx from the wheel.
 rm -rf /usr/lib64/ucx
@@ -14,8 +14,6 @@ rm -rf /usr/lib64/libuc*
 
 source rapids-configure-sccache
 source rapids-date-string
-
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 rapids-generate-version > ./VERSION
 
@@ -62,5 +60,3 @@ sccache --show-adv-stats
 
 # repair wheels and write to the location that artifact-uploading code expects to find them
 python -m auditwheel repair -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" "${EXCLUDE_ARGS[@]}" dist/*
-
-RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 "${package_type}" "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
