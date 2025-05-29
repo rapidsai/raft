@@ -91,13 +91,13 @@ class TestEigsh:
             maxiter=self.maxiter,
         )
         actual_ret = eigsh(a, k=k, which=which, maxiter=self.maxiter)
-        cupy_actual_ret = sparse.linalg.eigsh(
-            a, k=k, which=which, maxiter=self.maxiter
-        )
+        # cupy_actual_ret = sparse.linalg.eigsh(
+        #     a, k=k, which=which, maxiter=self.maxiter
+        # )
         if self.return_eigenvectors:
             w, x = actual_ret
             exp_w, _ = expected_ret
-            cupy_exp_w, _ = cupy_actual_ret
+            # cupy_exp_w, _ = cupy_actual_ret
             # Check the residuals to see if eigenvectors are correct.
             ax_xw = a @ x - xp.multiply(x, w.reshape(1, k))
             res = xp.linalg.norm(ax_xw) / xp.linalg.norm(w)
@@ -112,7 +112,7 @@ class TestEigsh:
         w = xp.sort(w)
         print(w, "raft")
         print(exp_w, "scipy")
-        print(cupy_exp_w, "cupy")
+        # print(cupy_exp_w, "cupy")
         assert cupy.allclose(w, exp_w, rtol=tol, atol=tol)
 
     @pytest.mark.parametrize("format", ["csr"])  # , 'csc', 'coo'])
