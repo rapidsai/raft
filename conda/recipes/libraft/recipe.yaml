@@ -59,24 +59,12 @@ cache:
       - ${{ stdlib("c") }}
     host:
       - cuda-version =${{ cuda_version }}
-      - if: cuda_major == "11"
-        then:
-          - cuda-profiler-api ${{ cuda11_cuda_profiler_api_host_version }}
-          - libcublas ${{ cuda11_libcublas_host_version }}
-          - libcublas-dev ${{ cuda11_libcublas_host_version }}
-          - libcurand ${{ cuda11_libcurand_host_version }}
-          - libcurand-dev ${{ cuda11_libcurand_host_version }}
-          - libcusolver ${{ cuda11_libcusolver_host_version }}
-          - libcusolver-dev ${{ cuda11_libcusolver_host_version }}
-          - libcusparse ${{ cuda11_libcusparse_host_version }}
-          - libcusparse-dev ${{ cuda11_libcusparse_host_version }}
-        else:
-          - cuda-cudart-dev
-          - cuda-profiler-api
-          - libcublas-dev
-          - libcurand-dev
-          - libcusolver-dev
-          - libcusparse-dev
+      - cuda-cudart-dev
+      - cuda-profiler-api
+      - libcublas-dev
+      - libcurand-dev
+      - libcusolver-dev
+      - libcusparse-dev
       - librmm =${{ minor_version }}
       - nccl ${{ nccl_version }}
       - rapids-logger =0.1
@@ -107,17 +95,18 @@ outputs:
         - nccl ${{ nccl_version }}
         - rapids-logger =0.1
         - ucxx ${{ ucxx_version }}
-        - if: cuda_major == "11"
-          then: cudatoolkit
-          else: cuda-cudart-dev
+        - cuda-cudart-dev
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - if: cuda_major == "11"
-          then: cudatoolkit
-          else: cuda-cudart
+        - cuda-cudart
         - librmm =${{ minor_version }}
         - rapids-logger =0.1
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -128,9 +117,6 @@ outputs:
           - librmm
           - nccl
           - ucxx
-          - if: cuda_major == "11"
-            then:
-              - cudatoolkit
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
@@ -155,26 +141,18 @@ outputs:
         - librmm =${{ minor_version }}
         - nccl ${{ nccl_version }}
         - ucxx ${{ ucxx_version }}
-        - if: cuda_major == "11"
-          then:
-            - cudatoolkit
-            - cuda-profiler-api ${{ cuda11_cuda_profiler_api_run_version }}
-            - libcublas ${{ cuda11_libcublas_run_version }}
-            - libcublas-dev ${{ cuda11_libcublas_run_version }}
-            - libcurand ${{ cuda11_libcurand_run_version }}
-            - libcurand-dev ${{ cuda11_libcurand_run_version }}
-            - libcusolver ${{ cuda11_libcusolver_run_version }}
-            - libcusolver-dev ${{ cuda11_libcusolver_run_version }}
-            - libcusparse ${{ cuda11_libcusparse_run_version }}
-            - libcusparse-dev ${{ cuda11_libcusparse_run_version }}
-          else:
-            - cuda-cudart-dev
-            - cuda-profiler-api
-            - libcublas-dev
-            - libcurand-dev
-            - libcusolver-dev
-            - libcusparse-dev
+        - cuda-cudart-dev
+        - cuda-profiler-api
+        - libcublas-dev
+        - libcurand-dev
+        - libcusolver-dev
+        - libcusparse-dev
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-version
           - libmm
@@ -186,9 +164,6 @@ outputs:
           - librmm
           - nccl
           - ucxx
-          - if: cuda_major == "11"
-            then:
-              - cudatoolkit
 
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
@@ -212,37 +187,27 @@ outputs:
       host:
         - ${{ pin_subpackage("libraft-headers", exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - if: cuda_major == "11"
-          then:
-            - cudatoolkit
-            - cuda-profiler-api ${{ cuda11_cuda_profiler_api_host_version }}
-            - libcublas ${{ cuda11_libcublas_host_version }}
-            - libcublas-dev ${{ cuda11_libcublas_host_version }}
-            - libcurand ${{ cuda11_libcurand_host_version }}
-            - libcurand-dev ${{ cuda11_libcurand_host_version }}
-            - libcusolver ${{ cuda11_libcusolver_host_version }}
-            - libcusolver-dev ${{ cuda11_libcusolver_host_version }}
-            - libcusparse ${{ cuda11_libcusparse_host_version }}
-            - libcusparse-dev ${{ cuda11_libcusparse_host_version }}
-          else:
-            - cuda-cudart-dev
-            - cuda-profiler-api
-            - libcublas-dev
-            - libcurand-dev
-            - libcusolver-dev
-            - libcusparse-dev
+        - cuda-cudart-dev
+        - cuda-profiler-api
+        - libcublas-dev
+        - libcurand-dev
+        - libcusolver-dev
+        - libcusparse-dev
       run:
         - ${{ pin_subpackage("libraft-headers", exact=True) }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - if: cuda_major != "11"
-          then:
-            - cuda-cudart
-            - cuda-profiler-api
-            - libcublas
-            - libcurand
-            - libcusolver
-            - libcusparse
+        - cuda-cudart
+        - cuda-profiler-api
+        - libcublas
+        - libcurand
+        - libcusolver
+        - libcusparse
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-version
           - libmm
@@ -254,10 +219,6 @@ outputs:
           - librmm
           - nccl
           - ucxx
-          - if: cuda_major == "11"
-            then:
-              - cudatoolkit
-
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
@@ -280,37 +241,27 @@ outputs:
       host:
         - ${{ pin_subpackage("libraft-headers", exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - if: cuda_major == "11"
-          then:
-            - cudatoolkit
-            - cuda-profiler-api ${{ cuda11_cuda_profiler_api_host_version }}
-            - libcublas ${{ cuda11_libcublas_host_version }}
-            - libcublas-dev ${{ cuda11_libcublas_host_version }}
-            - libcurand ${{ cuda11_libcurand_host_version }}
-            - libcurand-dev ${{ cuda11_libcurand_host_version }}
-            - libcusolver ${{ cuda11_libcusolver_host_version }}
-            - libcusolver-dev ${{ cuda11_libcusolver_host_version }}
-            - libcusparse ${{ cuda11_libcusparse_host_version }}
-            - libcusparse-dev ${{ cuda11_libcusparse_host_version }}
-          else:
-            - cuda-cudart-dev
-            - cuda-profiler-api
-            - libcublas-dev
-            - libcurand-dev
-            - libcusolver-dev
-            - libcusparse-dev
+        - cuda-cudart-dev
+        - cuda-profiler-api
+        - libcublas-dev
+        - libcurand-dev
+        - libcusolver-dev
+        - libcusparse-dev
       run:
         - ${{ pin_subpackage("libraft-headers", exact=True) }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - if: cuda_major != "11"
-          then:
-            - cuda-cudart
-            - cuda-profiler-api
-            - libcublas
-            - libcurand
-            - libcusolver
-            - libcusparse
+        - cuda-cudart
+        - cuda-profiler-api
+        - libcublas
+        - libcurand
+        - libcusolver
+        - libcusparse
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-version
           - libmm
@@ -322,10 +273,6 @@ outputs:
           - librmm
           - nccl
           - ucxx
-          - if: cuda_major == "11"
-            then:
-              - cudatoolkit
-
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
@@ -349,37 +296,26 @@ outputs:
         - ${{ pin_subpackage('libraft', exact=True) }}
         - ${{ pin_subpackage('libraft-static', exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - if: cuda_major == "11"
-          then:
-            - cudatoolkit
-            - cuda-profiler-api ${{ cuda11_cuda_profiler_api_host_version }}
-            - libcublas ${{ cuda11_libcublas_host_version }}
-            - libcublas-dev ${{ cuda11_libcublas_host_version }}
-            - libcurand ${{ cuda11_libcurand_host_version }}
-            - libcurand-dev ${{ cuda11_libcurand_host_version }}
-            - libcusolver ${{ cuda11_libcusolver_host_version }}
-            - libcusolver-dev ${{ cuda11_libcusolver_host_version }}
-            - libcusparse ${{ cuda11_libcusparse_host_version }}
-            - libcusparse-dev ${{ cuda11_libcusparse_host_version }}
-          else:
-            - cuda-cudart-dev
-            - cuda-profiler-api
-            - libcublas-dev
-            - libcurand-dev
-            - libcusolver-dev
-            - libcusparse-dev
+        - cuda-cudart-dev
+        - cuda-profiler-api
+        - libcublas-dev
+        - libcurand-dev
+        - libcusolver-dev
+        - libcusparse-dev
       run:
         - ${{ pin_subpackage("libraft", exact=True) }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - if: cuda_major == "11"
-          then: cudatoolkit
-          else:
-            - cuda-cudart
-            - libcublas
-            - libcurand
-            - libcusolver
-            - libcusparse
+        - cuda-cudart
+        - libcublas
+        - libcurand
+        - libcusolver
+        - libcusparse
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-version
           - libmm
@@ -391,10 +327,6 @@ outputs:
           - librmm
           - nccl
           - ucxx
-          - if: cuda_major == "11"
-            then:
-              - cudatoolkit
-
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}

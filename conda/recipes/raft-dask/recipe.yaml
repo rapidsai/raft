@@ -62,13 +62,8 @@ requirements:
     - scikit-build-core >=0.10.0
     - ucx-py ${{ ucx_py_version }}
     - ucxx ${{ ucxx_version }}
-    - if: cuda_major == "11"
-      then:
-        - cudatoolkit
-        - cuda-python >=11.8.5,<12.0a0
-      else:
-        - cuda-cudart-dev
-        - cuda-python >=12.6.2,<13.0a0
+    - cuda-cudart-dev
+    - cuda-python >=12.6.2,<13.0a0
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - dask-cuda =${{ minor_version }}
@@ -79,20 +74,18 @@ requirements:
     - rapids-dask-dependency =${{ minor_version }}
     - rmm =${{ minor_version }}
     - ucx-py ${{ ucx_py_version }}
-    - if: cuda_major == "11"
-      then:
-        - cudatoolkit
-        - cuda-python >=11.8.5,<12.0a0
-      else:
-        - cuda-cudart
-        - cuda-python >=12.6.2,<13.0a0
+    - cuda-cudart
+    - cuda-python >=12.6.2,<13.0a0
   ignore_run_exports:
+    from_package:
+      - ${{ compiler("c") }}
+      - ${{ compiler("cxx") }}
+      - ${{ compiler("cuda") }}
+      - ${{ stdlib("c") }}
     by_name:
       - cuda-cudart
       - cuda-version
       - nccl
-      - if: cuda_major == "11"
-        then: cudatoolkit
 
 tests:
   - python:
