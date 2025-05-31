@@ -95,7 +95,7 @@ class TestEigsh:
             k=k,
             which=which,
             maxiter=self.maxiter,
-            v0=xp.ones((self.n,), dtype=a.dtype),
+            # v0=xp.ones((self.n,), dtype=a.dtype),
         )
         # cupy_actual_ret = sparse.linalg.eigsh(
         #     a, k=k, which=which, maxiter=self.maxiter
