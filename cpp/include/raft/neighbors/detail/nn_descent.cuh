@@ -713,8 +713,8 @@ template <typename Index_t,
 RAFT_KERNEL
 #ifdef __CUDA_ARCH__
 // Use minBlocksPerMultiprocessor = 4 on specific arches
-#if (__CUDA_ARCH__) == 700 || (__CUDA_ARCH__) == \
-  800 || (__CUDA_ARCH__) == 900 || (__CUDA_ARCH__) == 1000
+#if (__CUDA_ARCH__) == 700 || (__CUDA_ARCH__) == 800 || (__CUDA_ARCH__) == 900 || \
+  (__CUDA_ARCH__) == 1000
 __launch_bounds__(BLOCK_SIZE, 4)
 #else
 __launch_bounds__(BLOCK_SIZE)
