@@ -56,8 +56,8 @@ inline void _init_nccl_comms(const resources& res)
   int curr_gpu_id;
   RAFT_CUDA_TRY(cudaGetDevice(&curr_gpu_id));
 
-  int num_ranks   = raft::resource::get_num_ranks(res);
-  auto nccl_comms = *res.get_resource<std::vector<ncclComm_t>>(resource_type::NCCL_COMM);
+  int num_ranks    = raft::resource::get_num_ranks(res);
+  auto& nccl_comms = *res.get_resource<std::vector<ncclComm_t>>(resource_type::NCCL_COMM);
   nccl_comms.resize(num_ranks);
 
   ncclUniqueId id;
@@ -99,7 +99,7 @@ inline std::vector<ncclComm_t>& get_nccl_comms(const resources& res)
  */
 inline ncclComm_t& get_nccl_comm_for_rank(const resources& res, int rank)
 {
-  auto nccl_comms = raft::resource::get_nccl_comms(res);
+  auto& nccl_comms = raft::resource::get_nccl_comms(res);
   return nccl_comms[rank];
 };
 
