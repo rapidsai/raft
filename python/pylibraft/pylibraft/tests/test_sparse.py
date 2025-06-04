@@ -67,7 +67,6 @@ class TestEigsh:
     density = 0.33
     tol = {numpy.float32: 1e-5, numpy.complex64: 1e-5, "default": 1e-12}
     res_tol = {"f": 1e-5, "d": 1e-12}
-    maxiter = 10000000
     return_eigenvectors = True
 
     def _make_matrix(self, dtype, xp):
@@ -87,14 +86,12 @@ class TestEigsh:
             k=k,
             return_eigenvectors=self.return_eigenvectors,
             which=which,
-            maxiter=self.maxiter,
         )
 
         actual_ret = eigsh(
             a,
             k=k,
             which=which,
-            maxiter=self.maxiter,
         )
         if self.return_eigenvectors:
             w, x = actual_ret
