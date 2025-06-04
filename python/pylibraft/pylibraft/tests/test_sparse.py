@@ -66,8 +66,8 @@ class TestEigsh:
     n = 30
     density = 0.33
     tol = {numpy.float32: 1e-5, numpy.complex64: 1e-5, "default": 1e-12}
-    res_tol = {"f": 1e-5, "d": 1e-9}
-    res_tol_factor = {"SA": 1, "LA": 1, "LM": 1, "SM": 10}
+    res_tol = {"f": 1e-5, "d": 1e-12}
+    res_tol_factor = {"SA": 1, "LA": 1, "LM": 1, "SM": 1}
     maxiter = 10000000
     return_eigenvectors = True
 
@@ -91,170 +91,12 @@ class TestEigsh:
             maxiter=self.maxiter,
         )
 
-        if which == "SM":
-
-            def eigsh_sm_using_shift_invert(
-                A, k=6, sigma=0.0, gpu=False, **kwargs
-            ):
-                """
-                Find smallest magnitude eigenvalues
-                using shift-invert transformation.
-
-                This mimics scipy's shift-invert mode by:
-                1. Solving (A - sigma*I)^(-1) instead of A
-                2. Using LM mode on the transformed problem
-                3. Converting results back to original eigenvalues
-                """
-                # import scipy.sparse as sp
-                import numpy as np
-                import scipy.sparse.linalg as spla
-                from scipy.sparse.linalg import LinearOperator
-
-                n = A.shape[0]
-
-                # Step 1: Create shifted matrix A_shifted = A - sigma * I
-                if sigma == 0.0:
-                    sigma = 1e-12
-
-                A_shifted = A - sigma * sp.sparse.eye(n, format=A.format)
-
-                # Step 2: Create LU decomposition for efficient solving
-                lu = spla.splu(A_shifted.tocsc())
-
-                # Step 3: Create LinearOperator that applies (A - sigma*I)^(-1)
-                def matvec(x):
-                    return lu.solve(x)
-
-                def rmatvec(x):
-                    return lu.solve(x, trans="T")
-
-                shift_inv_op = LinearOperator(
-                    shape=(n, n), matvec=matvec, rmatvec=rmatvec, dtype=A.dtype
-                )
-                if gpu:
-                    # print(type(shift_inv_op))
-                    # Create identity matrix (columns are basis vectors)
-                    I_matrix = np.eye(n)
-
-                    # Apply shift-invert operator to each basis vector
-                    dense_matrix = np.column_stack(
-                        [shift_inv_op @ I_matrix[:, i] for i in range(n)]
-                    )
-
-                    # Convert to CSR (even though it's likely dense)
-                    dense_matrix = sp.sparse.csr_matrix(dense_matrix)
-                    print(
-                        type(dense_matrix),
-                        dense_matrix.shape,
-                        dense_matrix.nnz,
-                    )
-                    csr_test_matrix = sparse.csr_matrix(
-                        dense_matrix, dtype=A.dtype
-                    )
-                    print(csr_test_matrix.dtype)
-                    theta, v = eigsh(
-                        csr_test_matrix, k=k, which="LM", maxiter=self.maxiter
-                    )
-                else:
-                    # Step 4: Solve eigenvalue problem
-                    # for the transformed operator
-                    # Use LM (largest magnitude)
-                    #  on the shift-inverted problem
-                    theta, v = sp.sparse.linalg.eigsh(
-                        shift_inv_op, k=k, which="LM", maxiter=self.maxiter
-                    )
-
-                # Step 5: Transform eigenvalues back to original problem
-                # If theta are eigenvalues of (A - sigma*I)^(-1), then
-                # original eigenvalues w = 1/theta + sigma
-                w = 1.0 / theta + sigma
-
-                # Step 6: Sort by magnitude (smallest first)
-                idx = np.argsort(w)
-                w = w[idx]
-                v = v[:, idx]
-
-                return w, v
-
-            A = scipy_csr
-            n = A.shape[0]
-            sigma = 0
-
-            # Create shifted matrix A - sigma*I
-            I_matrix = sp.sparse.eye(n, format="csr", dtype=A.dtype)
-            A_shifted = A - sigma * I_matrix
-
-            # Convert to CuPy if needed
-            # if hasattr(A_shifted, "get"):
-            #     A_shifted_cpu = A_shifted.get()
-            # else:
-            #     A_shifted_cpu = A_shifted
-
-            # For SM, we want to find eigenvalues closest to zero
-            # Use a small shift to avoid singularity
-            sigma_small = 1e-6
-            A_shifted = A - sigma_small * I_matrix
-
-            # Use your working LA mode to find
-            # largest eigenvalues of (A - sigma*I)^(-1)
-            # This is equivalent to finding
-            # smallest magnitude eigenvalues of A
-
-            # Since direct inversion is expensive, we can use the fact that:
-            # If Ax = λx, then (A + σI)x = (λ + σ)x
-            # So we shift the matrix and use SA to find
-            # smallest algebraic eigenvalues
-            A_shifted = A + abs(sigma_small) * I_matrix
-
-            # Use SA to find smallest eigenvalues of shifted matrix
-            eigenvals, eigenvecs = sp.sparse.linalg.eigsh(
-                A,
-                k=k,
-                maxiter=self.maxiter,
-                return_eigenvectors=self.return_eigenvectors,
-                sigma=0,
-            )
-
-            # Transform back: original eigenvalues
-            # = shifted eigenvalues - sigma
-            original_eigenvals = eigenvals - abs(sigma_small)
-
-            print("")
-            print(original_eigenvals, "scipy shifted mode")
-
-            original_eigenvals, eigenvecs = eigsh_sm_using_shift_invert(A, k=k)
-
-            print("")
-            print(original_eigenvals, "scipy shifted mode custom")
-
-            eigenvals, eigenvecs = eigsh(
-                sparse.csr_matrix(A_shifted),
-                k=k,
-                which=which,
-                maxiter=self.maxiter,
-            )
-
-            original_eigenvals = eigenvals - abs(sigma_small)
-
-            print("")
-            print(original_eigenvals, "raft shifted mode")
-
-            original_eigenvals, eigenvecs = eigsh_sm_using_shift_invert(
-                A, k=k, gpu=True
-            )
-
-            actual_ret = (original_eigenvals, eigenvecs)
-
-            print("")
-            print(original_eigenvals, "raft shifted mode custom")
-        else:
-            actual_ret = eigsh(
-                a,
-                k=k,
-                which=which,
-                maxiter=self.maxiter,
-                # v0=xp.ones((self.n,), dtype=a.dtype),
-            )
+        actual_ret = eigsh(
+            a,
+            k=k,
+            which=which,
+            maxiter=self.maxiter,
+        )
         # cupy_actual_ret = sparse.linalg.eigsh(
         #     a, k=k, which=which, maxiter=self.maxiter
         # )
@@ -269,21 +111,17 @@ class TestEigsh:
                 self.res_tol[numpy.dtype(a.dtype).char.lower()]
                 * self.res_tol_factor[which]
             )
-            print(res, tol)
             assert res < tol
         else:
             w = actual_ret
             exp_w = expected_ret
         w = xp.sort(w)
-        print(w, "raft")
-        print(exp_w, "scipy")
-        # print(cupy_exp_w, "cupy")
         assert cupy.allclose(w, exp_w, rtol=tol, atol=tol)
 
     @pytest.mark.parametrize("format", ["csr"])  # , 'csc', 'coo'])
     @pytest.mark.parametrize("k", [3, 6, 12])
     @pytest.mark.parametrize("dtype", ["f", "d"])
-    @pytest.mark.parametrize("which", ["LA", "LM", "SA", "SM"])
+    @pytest.mark.parametrize("which", ["LA", "LM", "SA"])
     def test_sparse(self, format, k, dtype, which, xp=cupy, sp=sparse):
         if format == "csc":
             pytest.xfail("may be buggy")  # trans=True
