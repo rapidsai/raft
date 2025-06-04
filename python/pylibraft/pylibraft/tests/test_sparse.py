@@ -67,7 +67,6 @@ class TestEigsh:
     density = 0.33
     tol = {numpy.float32: 1e-5, numpy.complex64: 1e-5, "default": 1e-12}
     res_tol = {"f": 1e-5, "d": 1e-12}
-    res_tol_factor = {"SA": 1, "LA": 1, "LM": 1, "SM": 1}
     maxiter = 10000000
     return_eigenvectors = True
 
@@ -97,20 +96,13 @@ class TestEigsh:
             which=which,
             maxiter=self.maxiter,
         )
-        # cupy_actual_ret = sparse.linalg.eigsh(
-        #     a, k=k, which=which, maxiter=self.maxiter
-        # )
         if self.return_eigenvectors:
             w, x = actual_ret
             exp_w, _ = expected_ret
-            # cupy_exp_w, _ = cupy_actual_ret
             # Check the residuals to see if eigenvectors are correct.
             ax_xw = a @ x - xp.multiply(x, w.reshape(1, k))
             res = xp.linalg.norm(ax_xw) / xp.linalg.norm(w)
-            tol = (
-                self.res_tol[numpy.dtype(a.dtype).char.lower()]
-                * self.res_tol_factor[which]
-            )
+            tol = self.res_tol[numpy.dtype(a.dtype).char.lower()]
             assert res < tol
         else:
             w = actual_ret
