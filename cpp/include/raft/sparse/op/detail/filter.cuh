@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/detail/utils.h>
@@ -151,6 +152,7 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
                        T scalar,
                        cudaStream_t stream)
 {
+  std::cout << "original remove scalar-1" << std::endl;
   rmm::device_uvector<nnz_t> row_count_nz(in->n_rows, stream);
   rmm::device_uvector<nnz_t> row_count(in->n_rows, stream);
 
@@ -166,9 +168,19 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
     in->rows(), in->vals(), in->nnz, scalar, (unsigned long long int*)row_count_nz.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
+  std::cout << "original remove scalar" << std::endl;
+  std::cout << "in->n_rows: " << in->n_rows << std::endl;
+
+  // raft::print_device_vector("original row_count_nz", row_count_nz.data(), in->n_rows, std::cout);
+
   thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
   nnz_t out_nnz =
     thrust::reduce(rmm::exec_policy(stream), d_row_count_nz, d_row_count_nz + in->n_rows);
+
+  // std::cout << "original out_nnz: " << out_nnz << std::endl;
+
+  // raft::print_device_vector("row_count_nz", row_count_nz.data(), in->n_rows, std::cout);
+  // raft::print_device_vector("row_count", row_count.data(), in->n_rows, std::cout);
 
   out->allocate(out_nnz, in->n_rows, in->n_cols, false, stream);
 
@@ -183,6 +195,89 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
                                             row_count.data(),
                                             scalar,
                                             in->n_rows,
+                                            stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/**
+ * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
+ *
+ * @param in: input COO matrix
+ * @param out: output COO matrix
+ * @param scalar: scalar to remove from arrays
+ * @param stream: cuda stream to use
+ */
+template <int TPB_X, typename T, typename idx_t, typename nnz_t>
+void coo_remove_scalar_mytest(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
+                              raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out,
+                              T scalar,
+                              cudaStream_t stream)
+{
+  auto in_structure = in.structure_view();
+
+  auto in_n_rows = in_structure.get_n_rows();
+  auto in_n_cols = in_structure.get_n_cols();
+  auto in_nnz    = in_structure.get_nnz();
+
+  auto in_rows = in_structure.get_rows().data();
+  auto in_cols = in_structure.get_cols().data();
+  auto in_vals = in.get_elements().data();
+
+  // std::cout << "in.n_rows: " << in.n_rows << std::endl;
+
+  rmm::device_uvector<nnz_t> row_count_nz(in_n_rows, stream);
+  rmm::device_uvector<nnz_t> row_count(in_n_rows, stream);
+
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(row_count_nz.data(), 0, static_cast<nnz_t>(in_n_rows) * sizeof(nnz_t), stream));
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(row_count.data(), 0, static_cast<nnz_t>(in_n_rows) * sizeof(nnz_t), stream));
+
+  linalg::coo_degree(in_rows, in_nnz, row_count.data(), stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  linalg::coo_degree_scalar(in_rows, in_vals, in_nnz, scalar, (nnz_t*)row_count_nz.data(), stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  std::cout << "mytest remove scalar" << std::endl;
+  std::cout << "in_n_rows: " << in_n_rows << std::endl;
+
+  // raft::print_device_vector("row_count_nz", row_count_nz.data(), in_n_rows, std::cout);
+
+  thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
+  auto out_nnz =
+    thrust::reduce(rmm::exec_policy(stream), d_row_count_nz, d_row_count_nz + in_n_rows);
+
+  // std::cout << "mytest out_nnz: " << out_nnz << std::endl;
+
+  // raft::print_device_vector("row_count_nz", row_count_nz.data(), in_n_rows, std::cout);
+  // raft::print_device_vector("row_count", row_count.data(), in_n_rows, std::cout);
+
+  out.initialize_sparsity(out_nnz);
+
+  auto out_structure = out.structure_view();
+
+  auto out_n_rows = out_structure.get_n_rows();
+  auto out_n_cols = out_structure.get_n_cols();
+  out_nnz         = out_structure.get_nnz();
+
+  auto out_rows = out_structure.get_rows().data();
+  auto out_cols = out_structure.get_cols().data();
+  auto out_vals = out.get_elements().data();
+
+  // out->allocate(out_nnz, in->n_rows, in->n_cols, false, stream);
+
+  coo_remove_scalar<TPB_X, T, idx_t, nnz_t>(in_rows,
+                                            in_cols,
+                                            in_vals,
+                                            in_nnz,
+                                            out_rows,
+                                            out_cols,
+                                            out_vals,
+                                            row_count_nz.data(),
+                                            row_count.data(),
+                                            scalar,
+                                            in_n_rows,
                                             stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
