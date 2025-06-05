@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+source rapids-init-pip
+
 package_name=$1
 package_dir=$2
 package_type=$3
@@ -29,6 +31,7 @@ EXCLUDE_ARGS=(
   --exclude "libcusparse.so.*"
   --exclude "libnvJitLink.so.*"
   --exclude "librapids_logger.so"
+  --exclude "librmm.so"
   --exclude "libucp.so.*"
 )
 
@@ -36,6 +39,14 @@ if [[ ${package_name} != "libraft" ]]; then
     EXCLUDE_ARGS+=(
       --exclude "libraft.so"
     )
+fi
+
+RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
+if [[ ${RAPIDS_CUDA_MAJOR} == "12" ]]; then
+    EXCLUDE_ARGS+=(
+      --exclude "libnccl.so.*"
+    )
+    export SKBUILD_CMAKE_ARGS="-DUSE_NCCL_RUNTIME_WHEEL=ON"
 fi
 
 sccache --zero-stats
@@ -51,7 +62,7 @@ rapids-pip-retry wheel \
 
 sccache --show-adv-stats
 
-mkdir -p final_dist
-python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
+# repair wheels and write to the location that artifact-uploading code expects to find them
+python -m auditwheel repair -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" "${EXCLUDE_ARGS[@]}" dist/*
 
-RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 "${package_type}" final_dist
+RAPIDS_PY_WHEEL_NAME="${underscore_package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 "${package_type}" "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"

@@ -15,10 +15,9 @@
  */
 
 #ifndef RAFT_HIDE_DEPRECATION_WARNINGS
-#pragma message(                                              \
-    __FILE__                                                  \
-    " is deprecated and will be removed in a future release." \
-    " Please use the other approximate KNN implementations defined in spatial/knn/*.")
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the other approximate KNN implementations defined in spatial/knn/*.")
 #endif
 
 #pragma once

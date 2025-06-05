@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+source rapids-init-pip
+
 package_name="libraft"
 package_dir="python/libraft"
 
@@ -27,4 +29,4 @@ rapids-pip-retry install \
 export PIP_NO_BUILD_ISOLATION=0
 
 ci/build_wheel.sh libraft ${package_dir} cpp
-ci/validate_wheel.sh ${package_dir} final_dist
+ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
