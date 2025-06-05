@@ -69,7 +69,6 @@ void reduceLaunch(OutType* dots,
                   ReduceLambda reduce_op,
                   FinalLambda final_op)
 {
-  Apply apply         = alongRows ? Apply::ALONG_ROWS : Apply::ALONG_COLUMNS;
   IdxType output_size = alongRows ? cols : rows;
 
   auto output_view          = raft::make_device_vector_view(dots, output_size);
@@ -80,26 +79,20 @@ void reduceLaunch(OutType* dots,
   raft::resources handle;
   resource::set_cuda_stream(handle, stream);
 
-  if (rowMajor) {
-    reduce(handle,
-           input_view_row_major,
-           output_view,
-           init,
-           apply,
-           inplace,
-           main_op,
-           reduce_op,
-           final_op);
+  if (rowMajor and alongRows) {
+    reduce<Apply::ALONG_ROWS>(
+      handle, input_view_row_major, output_view, init, inplace, main_op, reduce_op, final_op);
+  } else if (rowMajor and !alongRows) {
+    reduce<Apply::ALONG_COLUMNS>(
+      handle, input_view_row_major, output_view, init, inplace, main_op, reduce_op, final_op);
+  } else if (!rowMajor and alongRows) {
+    reduce<Apply::ALONG_ROWS>(
+      handle, input_view_col_major, output_view, init, inplace, main_op, reduce_op, final_op);
+  } else if (!rowMajor and !alongRows) {
+    reduce<Apply::ALONG_COLUMNS>(
+      handle, input_view_col_major, output_view, init, inplace, main_op, reduce_op, final_op);
   } else {
-    reduce(handle,
-           input_view_col_major,
-           output_view,
-           init,
-           apply,
-           inplace,
-           main_op,
-           reduce_op,
-           final_op);
+    RAFT_FAIL("Invalid combination of rowMajor and alongRows");
   }
 }
 

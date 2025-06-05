@@ -59,14 +59,12 @@ void preproc(raft::resources& handle,
 
   // get sum reduce for each row (length of the document)
   auto output_rows_lengths = raft::make_device_matrix<T2, int64_t>(handle, 1, num_rows);
-  raft::linalg::reduce(output_rows_lengths.data_handle(),
-                       device_matrix.data_handle(),
-                       num_cols,
-                       num_rows,
-                       0.0f,
-                       true,
-                       true,
-                       stream);
+  raft::linalg::reduce<true, true>(output_rows_lengths.data_handle(),
+                                   device_matrix.data_handle(),
+                                   num_cols,
+                                   num_rows,
+                                   0.0f,
+                                   stream);
   auto h_output_rows_lengths = raft::make_host_matrix<T2, int64_t>(handle, 1, num_rows);
   raft::copy(h_output_rows_lengths.data_handle(),
              output_rows_lengths.data_handle(),
@@ -91,16 +89,14 @@ void preproc(raft::resources& handle,
 
   // find the number of docs(row) each vocab(col) word is in
   auto output_cols_cnt = raft::make_device_matrix<T2, int64_t>(handle, 1, num_cols);
-  raft::linalg::reduce(output_cols_cnt.data_handle(),
-                       device_matrix.data_handle(),
-                       num_cols,
-                       num_rows,
-                       0.0f,
-                       true,
-                       false,
-                       stream,
-                       false,
-                       check_zeroes<T2, T2>());
+  raft::linalg::reduce<true, false>(output_cols_cnt.data_handle(),
+                                    device_matrix.data_handle(),
+                                    num_cols,
+                                    num_rows,
+                                    0.0f,
+                                    stream,
+                                    false,
+                                    check_zeroes<T2, T2>());
   auto h_output_cols_cnt = raft::make_host_matrix<T2, int64_t>(handle, 1, num_cols);
   raft::copy(
     h_output_cols_cnt.data_handle(), output_cols_cnt.data_handle(), output_cols_cnt.size(), stream);

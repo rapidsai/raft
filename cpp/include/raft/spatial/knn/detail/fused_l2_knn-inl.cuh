@@ -796,8 +796,13 @@ void fusedL2ExpKnnImpl(const DataT* x,
     if (!xn) {
       DataT* xn_ = (DataT*)workspace;
       workspace  = xn_ + m;
-      raft::linalg::rowNorm(
-        xn_, x, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
+      if (isRowMajor) {
+        raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+          xn_, x, k, m, stream, raft::identity_op{});
+      } else {
+        raft::linalg::rowNorm<raft::linalg::L2Norm, false>(
+          xn_, x, k, m, stream, raft::identity_op{});
+      }
       xn = xn_;
     }
     if (!yn) {
@@ -805,8 +810,13 @@ void fusedL2ExpKnnImpl(const DataT* x,
         yn = xn;
       } else {
         DataT* yn_ = (DataT*)(workspace);
-        raft::linalg::rowNorm(
-          yn_, y, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
+        if (isRowMajor) {
+          raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+            yn_, y, k, n, stream, raft::identity_op{});
+        } else {
+          raft::linalg::rowNorm<raft::linalg::L2Norm, false>(
+            yn_, y, k, n, stream, raft::identity_op{});
+        }
         yn = yn_;
       }
     }

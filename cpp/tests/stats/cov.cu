@@ -72,9 +72,9 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     cov_act.resize(cols * cols, stream);
 
     normal(handle, r, data.data(), len, params.mean, var);
-    raft::stats::mean(mean_act.data(), data.data(), cols, rows, params.rowMajor, stream);
     if (params.rowMajor) {
       using layout = raft::row_major;
+      raft::stats::mean<true>(mean_act.data(), data.data(), cols, rows, stream);
       cov(handle,
           raft::make_device_matrix_view<T, std::uint32_t, layout>(data.data(), rows, cols),
           raft::make_device_vector_view<const T, std::uint32_t>(mean_act.data(), cols),
@@ -83,6 +83,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
           params.stable);
     } else {
       using layout = raft::col_major;
+      raft::stats::mean<false>(mean_act.data(), data.data(), cols, rows, stream);
       cov(handle,
           raft::make_device_matrix_view<T, std::uint32_t, layout>(data.data(), rows, cols),
           raft::make_device_vector_view<const T, std::uint32_t>(mean_act.data(), cols),
@@ -102,7 +103,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     raft::update_device(data_cm.data(), data_h, 6, stream);
     raft::update_device(cov_cm_ref.data(), cov_cm_ref_h, 4, stream);
 
-    raft::stats::mean(mean_cm.data(), data_cm.data(), 2, 3, false, stream);
+    raft::stats::mean<false>(mean_cm.data(), data_cm.data(), 2, 3, stream);
     cov(handle, cov_cm.data(), data_cm.data(), mean_cm.data(), 2, 3, true, false, true, stream);
   }
 

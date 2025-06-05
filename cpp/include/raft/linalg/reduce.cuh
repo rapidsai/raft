@@ -24,6 +24,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/types.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -35,6 +36,8 @@ namespace linalg {
  *        in order to reduce numerical error. Note that the compensation will not
  *        be equivalent to a sequential compensation to preserve parallel efficiency.
  *
+ * @tparam bool rowMajor input matrix is row-major or not
+ * @tparam bool alongRows whether to reduce along rows or columns
  * @tparam InType the data type of the input
  * @tparam OutType the data type of the output (as well as the data type for
  *  which reduction is performed)
@@ -53,15 +56,15 @@ namespace linalg {
  * @param D number of columns
  * @param N number of rows
  * @param init initial value to use for the reduction
- * @param rowMajor input matrix is row-major or not
- * @param alongRows whether to reduce along rows or columns
  * @param stream cuda stream where to launch work
  * @param inplace reduction result added inplace or overwrites old values?
  * @param main_op elementwise operation to apply before reduction
  * @param reduce_op binary reduction operation
  * @param final_op elementwise operation to apply before storing results
  */
-template <typename InType,
+template <bool rowMajor,
+          bool alongRows,
+          typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
           typename MainLambda   = raft::identity_op,
@@ -72,16 +75,14 @@ void reduce(OutType* dots,
             IdxType D,
             IdxType N,
             OutType init,
-            bool rowMajor,
-            bool alongRows,
             cudaStream_t stream,
             bool inplace           = false,
             MainLambda main_op     = raft::identity_op(),
             ReduceLambda reduce_op = raft::add_op(),
             FinalLambda final_op   = raft::identity_op())
 {
-  detail::reduce<InType, OutType, IdxType>(
-    dots, data, D, N, init, rowMajor, alongRows, stream, inplace, main_op, reduce_op, final_op);
+  detail::reduce<rowMajor, alongRows, InType, OutType, IdxType>(
+    dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
 }
 
 /**
@@ -98,6 +99,7 @@ void reduce(OutType* dots,
  *        In case of an add-reduction, a compensated summation will be performed
  *        in order to reduce numerical error. Note that the compensation will not
  *        be equivalent to a sequential compensation to preserve parallel efficiency.
+ * @tparam Apply whether to reduce along rows or along columns (using raft::linalg::Apply)
  * @tparam InElementType the input data-type of underlying raft::matrix_view
  * @tparam LayoutPolicy The layout of Input/Output (row or col major)
  * @tparam OutElementType the output data-type of underlying raft::matrix_view and reduction
@@ -115,13 +117,13 @@ void reduce(OutType* dots,
  * @param[in] data Input of type raft::device_matrix_view
  * @param[out] dots Output of type raft::device_matrix_view
  * @param[in] init initial value to use for the reduction
- * @param[in] apply whether to reduce along rows or along columns (using raft::linalg::Apply)
  * @param[in] main_op fused elementwise operation to apply before reduction
  * @param[in] reduce_op fused binary reduction operation
  * @param[in] final_op fused elementwise operation to apply before storing results
  * @param[in] inplace reduction result added inplace or overwrites old values?
  */
-template <typename InElementType,
+template <Apply apply,
+          typename InElementType,
           typename LayoutPolicy,
           typename OutElementType = InElementType,
           typename IdxType        = std::uint32_t,
@@ -132,7 +134,6 @@ void reduce(raft::resources const& handle,
             raft::device_matrix_view<const InElementType, IdxType, LayoutPolicy> data,
             raft::device_vector_view<OutElementType, IdxType> dots,
             OutElementType init,
-            Apply apply,
             bool inplace           = false,
             MainLambda main_op     = raft::identity_op(),
             ReduceLambda reduce_op = raft::add_op(),
@@ -140,10 +141,10 @@ void reduce(raft::resources const& handle,
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(data), "Input must be contiguous");
 
-  auto constexpr row_major = std::is_same_v<typename decltype(data)::layout_type, raft::row_major>;
-  bool along_rows          = apply == Apply::ALONG_ROWS;
+  auto constexpr row_major  = std::is_same_v<typename decltype(data)::layout_type, raft::row_major>;
+  bool constexpr along_rows = apply == Apply::ALONG_ROWS;
 
-  if (along_rows) {
+  if constexpr (along_rows) {
     RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(1),
                  "Output should be equal to number of columns in Input");
   } else {
@@ -151,18 +152,16 @@ void reduce(raft::resources const& handle,
                  "Output should be equal to number of rows in Input");
   }
 
-  reduce(dots.data_handle(),
-         data.data_handle(),
-         data.extent(1),
-         data.extent(0),
-         init,
-         row_major,
-         along_rows,
-         resource::get_cuda_stream(handle),
-         inplace,
-         main_op,
-         reduce_op,
-         final_op);
+  reduce<row_major, along_rows>(dots.data_handle(),
+                                data.data_handle(),
+                                data.extent(1),
+                                data.extent(0),
+                                init,
+                                resource::get_cuda_stream(handle),
+                                inplace,
+                                main_op,
+                                reduce_op,
+                                final_op);
 }
 
 /** @} */  // end of group reduction

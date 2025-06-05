@@ -141,13 +141,8 @@ void kmeansPlusPlus(raft::resources const& handle,
 
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded) {
-    raft::linalg::rowNorm(L2NormX.data_handle(),
-                          X.data_handle(),
-                          X.extent(1),
-                          X.extent(0),
-                          raft::linalg::L2Norm,
-                          true,
-                          stream);
+    raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+      L2NormX.data_handle(), X.data_handle(), X.extent(1), X.extent(0), stream);
   }
 
   raft::random::RngState rng(params.rng_state.seed, params.rng_state.type);
@@ -214,14 +209,12 @@ void kmeansPlusPlus(raft::resources const& handle,
 
     // Calculate costPerCandidate[n_trials] where costPerCandidate[i] is the cluster cost when using
     // centroid candidate-i
-    raft::linalg::reduce(costPerCandidate.data_handle(),
-                         minDistBuf.data_handle(),
-                         minDistBuf.extent(1),
-                         minDistBuf.extent(0),
-                         static_cast<DataT>(0),
-                         true,
-                         true,
-                         stream);
+    raft::linalg::reduce<true, true>(costPerCandidate.data_handle(),
+                                     minDistBuf.data_handle(),
+                                     minDistBuf.extent(1),
+                                     minDistBuf.extent(0),
+                                     static_cast<DataT>(0),
+                                     stream);
 
     // Greedy Choice - Choose the candidate that has minimum cluster cost
     // ArgMin operation below identifies the index of minimum cost in costPerCandidate
@@ -404,13 +397,8 @@ void kmeans_fit_main(raft::resources const& handle,
 
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded) {
-    raft::linalg::rowNorm(L2NormX.data_handle(),
-                          X.data_handle(),
-                          X.extent(1),
-                          X.extent(0),
-                          raft::linalg::L2Norm,
-                          true,
-                          stream);
+    raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+      L2NormX.data_handle(), X.data_handle(), X.extent(1), X.extent(0), stream);
   }
 
   RAFT_LOG_DEBUG(
@@ -627,13 +615,8 @@ void initScalableKMeansPlusPlus(raft::resources const& handle,
   auto L2NormX = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded) {
-    raft::linalg::rowNorm(L2NormX.data_handle(),
-                          X.data_handle(),
-                          X.extent(1),
-                          X.extent(0),
-                          raft::linalg::L2Norm,
-                          true,
-                          stream);
+    raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+      L2NormX.data_handle(), X.data_handle(), X.extent(1), X.extent(0), stream);
   }
 
   auto minClusterDistanceVec = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
@@ -1036,13 +1019,8 @@ void kmeans_predict(raft::resources const& handle,
   auto L2NormX = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded) {
-    raft::linalg::rowNorm(L2NormX.data_handle(),
-                          X.data_handle(),
-                          X.extent(1),
-                          X.extent(0),
-                          raft::linalg::L2Norm,
-                          true,
-                          stream);
+    raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+      L2NormX.data_handle(), X.data_handle(), X.extent(1), X.extent(0), stream);
   }
 
   // computes minClusterAndDistance[0:n_samples) where  minClusterAndDistance[i]

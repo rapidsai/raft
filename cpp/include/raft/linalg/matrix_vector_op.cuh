@@ -24,6 +24,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/core/types.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {

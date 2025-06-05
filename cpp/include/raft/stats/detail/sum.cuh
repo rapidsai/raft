@@ -26,10 +26,10 @@ namespace raft {
 namespace stats {
 namespace detail {
 
-template <typename Type, typename IdxType = int>
-void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, cudaStream_t stream)
+template <bool rowMajor, typename Type, typename IdxType = int>
+void sum(Type* output, const Type* input, IdxType D, IdxType N, cudaStream_t stream)
 {
-  raft::linalg::reduce(output, input, D, N, Type(0), rowMajor, false, stream);
+  raft::linalg::reduce<rowMajor, false>(output, input, D, N, Type(0), stream);
 }
 
 }  // namespace detail

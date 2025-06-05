@@ -31,6 +31,7 @@ namespace stats {
  *
  * Stddev operation is assumed to be performed on a given column.
  *
+ * @tparam rowMajor: whether the input data is row or col major
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
  * @param std the output stddev vector
@@ -41,20 +42,18 @@ namespace stats {
  * @param sample whether to evaluate sample stddev or not. In other words,
  * whether
  *  to normalize the output using N-1 or N, for true or false, respectively
- * @param rowMajor whether the input data is row or col major
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename IdxType = int>
+template <bool rowMajor, typename Type, typename IdxType = int>
 void stddev(Type* std,
             const Type* data,
             const Type* mu,
             IdxType D,
             IdxType N,
             bool sample,
-            bool rowMajor,
             cudaStream_t stream)
 {
-  detail::stddev(std, data, mu, D, N, sample, rowMajor, stream);
+  detail::stddev<rowMajor>(std, data, mu, D, N, sample, stream);
 }
 
 /**
@@ -62,6 +61,7 @@ void stddev(Type* std,
  *
  * Variance operation is assumed to be performed on a given column.
  *
+ * @tparam rowMajor: whether the input data is row or col major
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
  * @param var the output stddev vector
@@ -72,20 +72,18 @@ void stddev(Type* std,
  * @param sample whether to evaluate sample stddev or not. In other words,
  * whether
  *  to normalize the output using N-1 or N, for true or false, respectively
- * @param rowMajor whether the input data is row or col major
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename IdxType = int>
+template <bool rowMajor, typename Type, typename IdxType = int>
 void vars(Type* var,
           const Type* data,
           const Type* mu,
           IdxType D,
           IdxType N,
           bool sample,
-          bool rowMajor,
           cudaStream_t stream)
 {
-  detail::vars(var, data, mu, D, N, sample, rowMajor, stream);
+  detail::vars<rowMajor>(var, data, mu, D, N, sample, stream);
 }
 
 /**
@@ -123,14 +121,13 @@ void stddev(raft::resources const& handle,
                 "raft::row_major or raft::col_major (or one of their aliases)");
   RAFT_EXPECTS(mu.size() == std.size(), "Size mismatch between mu and std");
   RAFT_EXPECTS(mu.extent(0) == data.extent(1), "Size mismatch between data and mu");
-  detail::stddev(std.data_handle(),
-                 data.data_handle(),
-                 mu.data_handle(),
-                 data.extent(1),
-                 data.extent(0),
-                 sample,
-                 is_row_major,
-                 resource::get_cuda_stream(handle));
+  detail::stddev<is_row_major>(std.data_handle(),
+                               data.data_handle(),
+                               mu.data_handle(),
+                               data.extent(1),
+                               data.extent(0),
+                               sample,
+                               resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_stddev
@@ -170,14 +167,13 @@ void vars(raft::resources const& handle,
                 "raft::row_major or raft::col_major (or one of their aliases)");
   RAFT_EXPECTS(mu.size() == var.size(), "Size mismatch between mu and std");
   RAFT_EXPECTS(mu.extent(0) == data.extent(1), "Size mismatch between data and mu");
-  detail::vars(var.data_handle(),
-               data.data_handle(),
-               mu.data_handle(),
-               data.extent(1),
-               data.extent(0),
-               sample,
-               is_row_major,
-               resource::get_cuda_stream(handle));
+  detail::vars<is_row_major>(var.data_handle(),
+                             data.data_handle(),
+                             mu.data_handle(),
+                             data.extent(1),
+                             data.extent(0),
+                             sample,
+                             resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_variance

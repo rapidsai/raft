@@ -146,18 +146,12 @@ double mutual_info_score(const T* firstClusterArray,
   RAFT_CUDA_TRY(cudaMemsetAsync(d_MI.data(), 0, sizeof(double), stream));
 
   // calculating the row-wise sums
-  raft::linalg::reduce<int, int, int>(
-    a.data(), dContingencyMatrix.data(), numUniqueClasses, numUniqueClasses, 0, true, true, stream);
+  raft::linalg::reduce<true, true, int, int, int>(
+    a.data(), dContingencyMatrix.data(), numUniqueClasses, numUniqueClasses, 0, stream);
 
   // calculating the column-wise sums
-  raft::linalg::reduce<int, int, int>(b.data(),
-                                      dContingencyMatrix.data(),
-                                      numUniqueClasses,
-                                      numUniqueClasses,
-                                      0,
-                                      true,
-                                      false,
-                                      stream);
+  raft::linalg::reduce<true, false, int, int, int>(
+    b.data(), dContingencyMatrix.data(), numUniqueClasses, numUniqueClasses, 0, stream);
 
   // kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;

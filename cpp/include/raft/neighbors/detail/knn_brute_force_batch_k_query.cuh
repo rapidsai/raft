@@ -41,18 +41,11 @@ class gpu_batch_k_query : public batch_k_query<T, IdxT> {
       query_norms = make_device_vector<T, int64_t>(res, query.extent(0));
 
       if (metric == raft::distance::DistanceType::CosineExpanded) {
-        raft::linalg::norm(res,
-                           query,
-                           query_norms->view(),
-                           raft::linalg::NormType::L2Norm,
-                           raft::linalg::Apply::ALONG_ROWS,
-                           raft::sqrt_op{});
+        raft::linalg::norm<raft::linalg::L2Norm, raft::Apply::ALONG_ROWS>(
+          res, query, query_norms->view(), raft::sqrt_op{});
       } else {
-        raft::linalg::norm(res,
-                           query,
-                           query_norms->view(),
-                           raft::linalg::NormType::L2Norm,
-                           raft::linalg::Apply::ALONG_ROWS);
+        raft::linalg::norm<raft::linalg::L2Norm, raft::Apply::ALONG_ROWS>(
+          res, query, query_norms->view());
       }
     }
   }

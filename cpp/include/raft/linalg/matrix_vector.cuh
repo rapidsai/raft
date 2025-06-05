@@ -18,7 +18,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/linalg/linalg_types.hpp>
+#include <raft/core/types.hpp>
 #include <raft/matrix/detail/math.cuh>
 #include <raft/util/input_validation.hpp>
 
@@ -41,7 +41,7 @@ template <typename math_t, typename idx_t, typename layout_t>
 void binary_mult_skip_zero(raft::resources const& handle,
                            raft::device_matrix_view<math_t, idx_t, layout_t> data,
                            raft::device_vector_view<const math_t, idx_t> vec,
-                           Apply apply)
+                           raft::Apply apply)
 {
   bool row_major        = raft::is_row_major(data);
   auto bcast_along_rows = apply == Apply::ALONG_ROWS;

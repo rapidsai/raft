@@ -32,6 +32,7 @@ namespace detail {
  *
  * Stddev operation is assumed to be performed on a given column.
  *
+ * @tparam rowMajor whether the input data is row or col major
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
  * @param std the output stddev vector
@@ -45,20 +46,17 @@ namespace detail {
  * @param rowMajor whether the input data is row or col major
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename IdxType = int>
+template <bool rowMajor, typename Type, typename IdxType = int>
 void stddev(Type* std,
             const Type* data,
             const Type* mu,
             IdxType D,
             IdxType N,
             bool sample,
-            bool rowMajor,
             cudaStream_t stream)
 {
-  raft::linalg::reduce(
-    std, data, D, N, Type(0), rowMajor, false, stream, false, [mu] __device__(Type a, IdxType i) {
-      return a * a;
-    });
+  raft::linalg::reduce<rowMajor, false>(
+    std, data, D, N, Type(0), stream, false, [mu] __device__(Type a, IdxType i) { return a * a; });
   Type ratio      = Type(1) / ((sample) ? Type(N - 1) : Type(N));
   Type ratio_mean = sample ? ratio * Type(N) : Type(1);
   raft::linalg::binaryOp(std,
@@ -78,6 +76,7 @@ void stddev(Type* std,
  *
  * Variance operation is assumed to be performed on a given column.
  *
+ * @tparam rowMajor whether the input data is row or col major
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
  * @param var the output stddev vector
@@ -88,23 +87,19 @@ void stddev(Type* std,
  * @param sample whether to evaluate sample stddev or not. In other words,
  * whether
  *  to normalize the output using N-1 or N, for true or false, respectively
- * @param rowMajor whether the input data is row or col major
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename IdxType = int>
+template <bool rowMajor, typename Type, typename IdxType = int>
 void vars(Type* var,
           const Type* data,
           const Type* mu,
           IdxType D,
           IdxType N,
           bool sample,
-          bool rowMajor,
           cudaStream_t stream)
 {
-  raft::linalg::reduce(
-    var, data, D, N, Type(0), rowMajor, false, stream, false, [mu] __device__(Type a, IdxType i) {
-      return a * a;
-    });
+  raft::linalg::reduce<rowMajor, false>(
+    var, data, D, N, Type(0), stream, false, [mu] __device__(Type a, IdxType i) { return a * a; });
   Type ratio      = Type(1) / ((sample) ? Type(N - 1) : Type(N));
   Type ratio_mean = sample ? ratio * Type(N) : Type(1);
   raft::linalg::binaryOp(var,
