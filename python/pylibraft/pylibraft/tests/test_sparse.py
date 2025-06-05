@@ -17,6 +17,7 @@ import cupy
 import cupyx.scipy.sparse.linalg  # NOQA
 import numpy
 import pytest
+import scipy
 from cupyx.scipy import sparse
 
 from pylibraft.sparse.linalg import eigsh
@@ -76,11 +77,22 @@ class TestEigsh:
         a = a * a.conj().T
         return a
 
-    def _test_eigsh(self, a, k, xp, sp):
-        expected_ret = sp.linalg.eigsh(
-            a, k=k, return_eigenvectors=self.return_eigenvectors, which="SA"
+    def _test_eigsh(self, a, k, xp, sp, which):
+        scipy_csr = sp.sparse.csr_matrix(
+            (a.data.get(), a.indices.get(), a.indptr.get()), shape=a.shape
         )
-        actual_ret = eigsh(a, k=k)
+        expected_ret = sp.sparse.linalg.eigsh(
+            scipy_csr,
+            k=k,
+            return_eigenvectors=self.return_eigenvectors,
+            which=which,
+        )
+
+        actual_ret = eigsh(
+            a,
+            k=k,
+            which=which,
+        )
         if self.return_eigenvectors:
             w, x = actual_ret
             exp_w, _ = expected_ret
@@ -98,13 +110,14 @@ class TestEigsh:
     @pytest.mark.parametrize("format", ["csr"])  # , 'csc', 'coo'])
     @pytest.mark.parametrize("k", [3, 6, 12])
     @pytest.mark.parametrize("dtype", ["f", "d"])
-    def test_sparse(self, format, k, dtype, xp=cupy, sp=sparse):
+    @pytest.mark.parametrize("which", ["LA", "LM", "SA"])
+    def test_sparse(self, format, k, dtype, which, xp=cupy, sp=sparse):
         if format == "csc":
             pytest.xfail("may be buggy")  # trans=True
 
         a = self._make_matrix(dtype, xp)
         a = sp.coo_matrix(a).asformat(format)
-        return self._test_eigsh(a, k, xp, sp)
+        return self._test_eigsh(a, k, xp, scipy, which)
 
     def test_invalid(self):
         xp, sp = cupy, sparse
