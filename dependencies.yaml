@@ -393,7 +393,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - pytest==7.*
+          - pytest
           - pytest-cov
   test_pylibraft:
     common:
