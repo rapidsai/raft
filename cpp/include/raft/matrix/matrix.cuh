@@ -301,8 +301,8 @@ void linewiseOp(m_t* out,
                                                             sizeof...(Vecs),
                                                             size_t(lineLen),
                                                             size_t(nLines));
-  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
-    out, in, lineLen, nLines, alongLines, op, stream, vecs...);
+  detail::MatrixLinewiseOp<16, 256>::run<alongLines, m_t, idx_t, Lambda, Vecs...>(
+    out, in, lineLen, nLines, op, stream, vecs...);
 }
 
 };  // end namespace matrix

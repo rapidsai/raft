@@ -82,14 +82,13 @@ void linewise_op(raft::resources const& handle,
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");
 
-  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t>(out.data_handle(),
-                                                     in.data_handle(),
-                                                     lineLen,
-                                                     nLines,
-                                                     alongLines,
-                                                     op,
-                                                     resource::get_cuda_stream(handle),
-                                                     vecs.data_handle()...);
+  detail::MatrixLinewiseOp<16, 256>::run<alongLines, m_t, idx_t>(out.data_handle(),
+                                                                 in.data_handle(),
+                                                                 lineLen,
+                                                                 nLines,
+                                                                 op,
+                                                                 resource::get_cuda_stream(handle),
+                                                                 vecs.data_handle()...);
 }
 
 template <typename m_t,
@@ -117,14 +116,8 @@ void linewise_op(raft::resources const& handle,
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");
 
-  detail::MatrixLinewiseOp<16, 256>::runPadded<m_t, idx_t>(out,
-                                                           in,
-                                                           lineLen,
-                                                           nLines,
-                                                           alongLines,
-                                                           op,
-                                                           resource::get_cuda_stream(handle),
-                                                           vecs.data_handle()...);
+  detail::MatrixLinewiseOp<16, 256>::runPadded<alongLines, m_t, idx_t>(
+    out, in, lineLen, nLines, op, resource::get_cuda_stream(handle), vecs.data_handle()...);
 }
 
 /** @} */  // end of group linewise_op
