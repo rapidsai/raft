@@ -149,6 +149,42 @@ void copy(Type* dst, const Type* src, size_t len, rmm::cuda_stream_view stream)
 }
 
 /**
+ * @brief Generic matrix copy method with pitch support
+ *
+ * Performs an asynchronous 2D memory copy from source to destination, where each row
+ * may include padding (i.e., the pitch is larger than the row width). This is useful
+ * when working with pitched memory allocations or copying submatrices.
+ *
+ * @tparam Type       Data type of the elements
+ * @param dst         Destination pointer
+ * @param dst_pitch   Pitch (number of elements) between consecutive rows in the destination
+ * @param src         Source pointer
+ * @param src_pitch   Pitch (number of elements) between consecutive rows in the source
+ * @param width       Number of elements to copy per row
+ * @param height      Number of rows to copy
+ * @param stream      CUDA stream used to perform the asynchronous copy
+ */
+template <typename Type>
+void copy_matrix(Type* dst,
+                 size_t dst_pitch,
+                 const Type* src,
+                 size_t src_pitch,
+                 size_t width,
+                 size_t height,
+                 rmm::cuda_stream_view stream)
+{
+  constexpr size_t elem_size = sizeof(Type);
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(dst,
+                                  dst_pitch * elem_size,
+                                  src,
+                                  src_pitch * elem_size,
+                                  width * elem_size,
+                                  height,
+                                  cudaMemcpyDefault,
+                                  stream));
+}
+
+/**
  * @defgroup Copy Copy methods
  * These are here along with the generic 'copy' method in order to improve
  * code readability using explicitly specified function names

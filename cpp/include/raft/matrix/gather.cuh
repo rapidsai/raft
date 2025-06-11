@@ -235,6 +235,109 @@ void gather(const raft::resources& handle,
 }
 
 /**
+ * @brief Copies rows from a source matrix into a destination matrix according to a transformed map.
+ *
+ * For each output row, read the index in the input matrix from the map, apply a transformation to
+ * this input index if specified, and copy the row.
+ *
+ * @tparam matrix_t    Matrix element type
+ * @tparam map_t       Integer type of map elements
+ * @tparam idx_t       Integer type used for indexing
+ * @tparam map_xform_t Unary lambda expression or operator type. MapTransformOp's result type must
+ *                     be convertible to idx_t.
+ * @param[in]  handle        raft handle for managing resources
+ * @param[in]  in            Input matrix, dim = [N, D] (row-major)
+ * @param[in]  map           Map of row indices to gather, dim = [map_length]
+ * @param[out] out           Output matrix, dim = [map_length, D] (row-major)
+ * @param[in]  transform_op  (optional) Transformation to apply to map values
+ */
+template <typename matrix_t,
+          typename map_t,
+          typename idx_t,
+          typename accessor,
+          typename map_xform_t = raft::identity_op>
+void gather(
+  const raft::resources& handle,
+  raft::mdspan<const matrix_t, raft::matrix_extent<idx_t>, raft::layout_stride, accessor> in,
+  raft::device_vector_view<const map_t, idx_t> map,
+  raft::device_matrix_view<matrix_t, idx_t, row_major> out,
+  map_xform_t transform_op = raft::identity_op())
+{
+  RAFT_EXPECTS(out.extent(0) == map.extent(0),
+               "Number of rows in output matrix must equal the size of the map vector");
+  RAFT_EXPECTS(out.extent(1) == in.extent(1),
+               "Number of columns in input and output matrices must be equal.");
+
+  detail::gather(
+    const_cast<matrix_t*>(in.data_handle()),  // TODO: There's a better way to handle this
+    in.stride(0),
+    in.extent(1),
+    in.extent(0),
+    map.data_handle(),
+    map.extent(0),
+    out.data_handle(),
+    transform_op,
+    resource::get_cuda_stream(handle));
+}
+
+/**
+ * @brief Conditionally copies rows according to a transformed map.
+ *
+ * For each output row, read the index in the input matrix from the map, read a stencil value,
+ * apply a predicate to the stencil value, and if true, apply a transformation if specified to the
+ * input index, and copy the row.
+ *
+ * @tparam matrix_t     Matrix element type
+ * @tparam map_t        Integer type of map elements
+ * @tparam stencil_t    Value type for stencil (input type for the pred_op)
+ * @tparam unary_pred_t Unary lambda expression or operator type. unary_pred_t's result
+ *                      type must be convertible to bool type.
+ * @tparam map_xform_t  Unary lambda expression or operator type. MapTransformOp's result type must
+ *                      be convertible to idx_t.
+ * @tparam idx_t        Integer type used for indexing
+ * @param[in]  handle        raft handle for managing resources
+ * @param[in]  in            Input matrix, dim = [N, D] (row-major)
+ * @param[in]  map           Map of row indices to gather, dim = [map_length]
+ * @param[in]  stencil       Vector of stencil values, dim = [map_length]
+ * @param[out] out           Output matrix, dim = [map_length, D] (row-major)
+ * @param[in]  pred_op       Predicate to apply to the stencil values
+ * @param[in]  transform_op  (optional) Transformation to apply to map values
+ */
+template <typename matrix_t,
+          typename map_t,
+          typename stencil_t,
+          typename unary_pred_t,
+          typename idx_t,
+          typename map_xform_t = raft::identity_op>
+void gather_if(const raft::resources& handle,
+               raft::device_matrix_view<const matrix_t, idx_t, layout_stride> in,
+               raft::device_matrix_view<matrix_t, idx_t, row_major> out,
+               raft::device_vector_view<const map_t, idx_t> map,
+               raft::device_vector_view<const stencil_t, idx_t> stencil,
+               unary_pred_t pred_op,
+               map_xform_t transform_op = raft::identity_op())
+{
+  RAFT_EXPECTS(out.extent(0) == map.extent(0),
+               "Number of rows in output matrix must equal the size of the map vector");
+  RAFT_EXPECTS(out.extent(1) == in.extent(1),
+               "Number of columns in input and output matrices must be equal.");
+  RAFT_EXPECTS(map.extent(0) == stencil.extent(0),
+               "Number of elements in stencil must equal number of elements in map");
+
+  detail::gather_if(const_cast<matrix_t*>(in.data_handle()),
+                    in.stride(0),
+                    in.extent(1),
+                    in.extent(0),
+                    map.data_handle(),
+                    stencil.data_handle(),
+                    map.extent(0),
+                    out.data_handle(),
+                    pred_op,
+                    transform_op,
+                    resource::get_cuda_stream(handle));
+}
+
+/**
  * @brief Conditionally copies rows according to a transformed map.
  *
  * For each output row, read the index in the input matrix from the map, read a stencil value,
@@ -323,6 +426,46 @@ template <typename matrix_t,
           typename map_xform_t = raft::identity_op>
 void gather(raft::resources const& handle,
             raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> inout,
+            raft::device_vector_view<const map_t, idx_t, raft::layout_c_contiguous> map,
+            idx_t col_batch_size     = 0,
+            map_xform_t transform_op = raft::identity_op())
+{
+  detail::gather(handle, inout, map, transform_op, col_batch_size);
+}
+
+/**
+ * @brief In-place gather elements in a row-major matrix according to a
+ * map. The map specifies the new order in which rows of the input matrix are
+ * rearranged, i.e. for each output row, read the index in the input matrix
+ * from the map, apply a transformation to this input index if specified, and copy the row.
+ * map[i]. For example, the matrix [[1, 2, 3], [4, 5, 6], [7, 8, 9]] with the
+ * map [2, 0, 1] will be transformed to [[7, 8, 9], [1, 2, 3], [4, 5, 6]].
+ * Batching is done on columns and an additional scratch space of
+ * shape n_rows * cols_batch_size is created. For each batch, chunks
+ * of columns from each row are copied into the appropriate location
+ * in the scratch space and copied back to the corresponding locations
+ * in the input matrix.
+ *
+ * @tparam matrix_t     Matrix element type
+ * @tparam map_t        Integer type of map elements
+ * @tparam map_xform_t  Unary lambda expression or operator type. MapTransformOp's result type must
+ *                      be convertible to idx_t.
+ * @tparam idx_t        Integer type used for indexing
+ *
+ * @param[in] handle raft handle
+ * @param[inout] inout input matrix (n_rows * n_cols)
+ * @param[in] map Pointer to the input sequence of gather locations
+ * @param[in] col_batch_size (optional) column batch size. Determines the shape of the scratch space
+ * (map_length, col_batch_size). When set to zero (default), no batching is done and an additional
+ * scratch space of shape (map_lengthm, n_cols) is created.
+ * @param[in]  transform_op  (optional) Transformation to apply to map values
+ */
+template <typename matrix_t,
+          typename map_t,
+          typename idx_t,
+          typename map_xform_t = raft::identity_op>
+void gather(raft::resources const& handle,
+            raft::device_matrix_view<matrix_t, idx_t, raft::layout_stride> inout,
             raft::device_vector_view<const map_t, idx_t, raft::layout_c_contiguous> map,
             idx_t col_batch_size     = 0,
             map_xform_t transform_op = raft::identity_op())

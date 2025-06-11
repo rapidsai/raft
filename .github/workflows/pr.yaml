@@ -45,10 +45,7 @@ jobs:
         if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
         uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   check-nightly-ci:
-    # Switch to ubuntu-latest once it defaults to a version of Ubuntu that
-    # provides at least Python 3.11 (see
-    # https://docs.python.org/3/library/datetime.html#datetime.date.fromisoformat)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     env:
       RAPIDS_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -68,6 +65,7 @@ jobs:
           - '!.pre-commit-config.yaml'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!ci/release/update-version.sh'
           - '!docs/**'
           - '!img/**'
           - '!python/**'
@@ -78,6 +76,7 @@ jobs:
           - '!.pre-commit-config.yaml'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!ci/release/update-version.sh'
           - '!docs/**'
           - '!img/**'
           - '!thirdparty/LICENSES/**'
@@ -94,6 +93,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-25.08
     with:
       build_type: pull-request
+      script: ci/build_cpp.sh
       node_type: cpu16
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
@@ -102,6 +102,7 @@ jobs:
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
     with:
       build_type: pull-request
+      script: ci/test_cpp.sh
   conda-cpp-checks:
     needs: conda-cpp-build
     secrets: inherit
@@ -115,6 +116,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@branch-25.08
     with:
       build_type: pull-request
+      script: ci/build_python.sh
   conda-python-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -122,6 +124,7 @@ jobs:
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
+      script: ci/test_python.sh
   docs-build:
     needs: conda-python-build
     secrets: inherit
@@ -131,7 +134,7 @@ jobs:
       node_type: "gpu-l4-latest-1"
       arch: "amd64"
       container_image: "rapidsai/ci-conda:latest"
-      run_script: "ci/build_docs.sh"
+      script: "ci/build_docs.sh"
   wheel-build-libraft:
     needs: checks
     secrets: inherit
@@ -186,7 +189,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.08
     with:
       arch: '["amd64"]'
-      cuda: '["12.9"]'
+      cuda: '["12.8"]'
       build_command: |
         sccache -z;
         build-all -DBUILD_PRIMS_BENCH=ON --verbose;
