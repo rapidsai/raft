@@ -763,7 +763,6 @@ struct MatrixLinewiseOp {
         return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type)), BlockSize>::run(
           out, in, lineLen, nLines, op, stream, vecs...);
     }
-
     if constexpr (alongLines)
       return matrixLinewiseVecRows<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>(
         out, in, lineLen, nLines, op, stream, vecs...);
