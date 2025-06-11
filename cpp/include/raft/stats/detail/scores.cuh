@@ -59,7 +59,7 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
 {
   rmm::device_scalar<math_t> y_bar(stream);
 
-  raft::stats::mean(y_bar.data(), y, 1, n, false, stream);
+  raft::stats::mean<false>(y_bar.data(), y, 1, n, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   rmm::device_uvector<math_t> sse_arr(n, stream);

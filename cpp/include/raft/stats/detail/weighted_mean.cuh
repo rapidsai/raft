@@ -29,6 +29,8 @@ namespace detail {
  * @brief Compute the row-wise weighted mean of the input matrix with a
  * vector of weights
  *
+ * @tparam row_major data input matrix is row-major or not
+ * @tparam along_rows whether to reduce along rows or columns
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
  * @param mu the output mean vector
@@ -36,34 +38,24 @@ namespace detail {
  * @param weights weight of size D if along_row is true, else of size N
  * @param D number of columns of data
  * @param N number of rows of data
- * @param row_major data input matrix is row-major or not
- * @param along_rows whether to reduce along rows or columns
  * @param stream cuda stream to launch work on
  */
-template <typename Type, typename IdxType = int>
-void weightedMean(Type* mu,
-                  const Type* data,
-                  const Type* weights,
-                  IdxType D,
-                  IdxType N,
-                  bool row_major,
-                  bool along_rows,
-                  cudaStream_t stream)
+template <bool row_major, bool along_rows, typename Type, typename IdxType = int>
+void weightedMean(
+  Type* mu, const Type* data, const Type* weights, IdxType D, IdxType N, cudaStream_t stream)
 {
   // sum the weights & copy back to CPU
   auto weight_size = along_rows ? D : N;
   Type WS          = 0;
-  raft::stats::sum(mu, weights, (IdxType)1, weight_size, false, stream);
+  raft::stats::sum<false>(mu, weights, (IdxType)1, weight_size, stream);
   raft::update_host(&WS, mu, 1, stream);
 
-  raft::linalg::reduce(
+  raft::linalg::reduce<row_major, along_rows>(
     mu,
     data,
     D,
     N,
     (Type)0,
-    row_major,
-    along_rows,
     stream,
     false,
     [weights] __device__(Type v, IdxType i) { return v * weights[i]; },

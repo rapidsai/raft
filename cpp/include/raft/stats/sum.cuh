@@ -32,19 +32,19 @@ namespace stats {
  *
  * Sum operation is assumed to be performed on a given column.
  *
+ * @tparam rowMajor: whether the input data is row or col major
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
  * @param output the output mean vector
  * @param input the input matrix
  * @param D number of columns of data
  * @param N number of rows of data
- * @param rowMajor whether the input data is row or col major
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename IdxType = int>
-void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, cudaStream_t stream)
+template <bool rowMajor, typename Type, typename IdxType = int>
+void sum(Type* output, const Type* input, IdxType D, IdxType N, cudaStream_t stream)
 {
-  detail::sum(output, input, D, N, rowMajor, stream);
+  detail::sum<rowMajor>(output, input, D, N, stream);
 }
 
 /**
@@ -75,12 +75,11 @@ void sum(raft::resources const& handle,
                 "sum: Layout must be either "
                 "raft::row_major or raft::col_major (or one of their aliases)");
   RAFT_EXPECTS(input.extent(1) == output.extent(0), "Size mismatch between input and output");
-  detail::sum(output.data_handle(),
-              input.data_handle(),
-              input.extent(1),
-              input.extent(0),
-              is_row_major,
-              resource::get_cuda_stream(handle));
+  detail::sum<is_row_major>(output.data_handle(),
+                            input.data_handle(),
+                            input.extent(1),
+                            input.extent(0),
+                            resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_sum

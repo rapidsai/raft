@@ -287,7 +287,6 @@ set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 if(RAFT_COMPILE_LIBRARY)
   add_library(
     raft_objs OBJECT
-    src/linalg/detail/coalesced_reduction.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
