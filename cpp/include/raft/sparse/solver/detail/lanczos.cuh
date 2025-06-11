@@ -2149,8 +2149,6 @@ auto lanczos_smallest(
     RAFT_LOG_TRACE("Iteration %f: residual (tolerance) %d", iter, res);
   }
 
-  std::cout << "iter " << iter << " maxiter " << maxIter << " res " << res << std::endl;
-
   raft::copy(eigVals_dev, eigenvalues_k.data_handle(), nEigVecs, stream);
   raft::copy(eigVecs_dev, ritz_eigenvectors.data_handle(), n * nEigVecs, stream);
 

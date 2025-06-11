@@ -227,7 +227,7 @@ class rmat_lanczos_tests
     ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues.data_handle(),
                                              expected_eigenvalues.data_handle(),
                                              n_components,
-                                             raft::CompareApprox<ValueType>(1e-4),
+                                             raft::CompareApprox<ValueType>(1e-5),
                                              stream));
   }
 
