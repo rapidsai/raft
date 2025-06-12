@@ -344,7 +344,7 @@ template <typename... Types>
 constexpr size_t maxSizeOf()
 {
   size_t maxSize = 0;
-  ((maxSize = std::max(maxSize, sizeof(Types))), ...);
+  ((maxSize = maxSize > sizeof(Types) ? maxSize : sizeof(Types)), ...);
   return maxSize;
 }
 
@@ -549,7 +549,8 @@ void matrixLinewiseVecCols(Type* out,
   }
   if (alignedLen < totalLen) {
     // should be not smaller than the warp size for better branching
-    constexpr std::size_t MaxOffset = std::max(std::size_t(raft::WarpSize), VecBytes);
+    constexpr std::size_t MaxOffset =
+      std::size_t(raft::WarpSize) > VecBytes ? std::size_t(raft::WarpSize) : VecBytes;
     matrixLinewiseVecColsTailKernel<Type, IdxType, MaxOffset, Lambda, Vecs...>
       <<<dim3(2, 1, 1), dim3(MaxOffset, 1, 1), 0, stream>>>(
         out, in, alignedOff, alignedEnd, rowLen, totalLen, op, vecs...);
@@ -666,7 +667,8 @@ void matrixLinewiseVecRows(Type* out,
   }
   if (alignedLen < totalLen) {
     // should be not smaller than the warp size for better branching
-    constexpr std::size_t MaxOffset = std::max(std::size_t(raft::WarpSize), VecBytes);
+    constexpr std::size_t MaxOffset =
+      std::size_t(raft::WarpSize) > VecBytes ? std::size_t(raft::WarpSize) : VecBytes;
     matrixLinewiseVecRowsTailKernel<Type, IdxType, MaxOffset, Lambda, Vecs...>
       <<<dim3(2, 1, 1), dim3(MaxOffset, 1, 1), 0, stream>>>(
         out, in, alignedOff, alignedEnd, rowLen, totalLen, op, vecs...);
@@ -759,9 +761,12 @@ struct MatrixLinewiseOp {
                   const Vecs*... vecs)
   {
     if constexpr (VecBytes > sizeof(Type)) {
-      if (!raft::Pow2<VecBytes>::areSameAlignOffsets(in, out))
-        return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type)), BlockSize>::run(
+      if (!raft::Pow2<VecBytes>::areSameAlignOffsets(in, out)) {
+        constexpr std::size_t NextVecBytes =
+          (VecBytes >> 1) > sizeof(Type) ? (VecBytes >> 1) : sizeof(Type);
+        return MatrixLinewiseOp<NextVecBytes, BlockSize>::template run<alongLines>(
           out, in, lineLen, nLines, op, stream, vecs...);
+      }
     }
     if constexpr (alongLines)
       return matrixLinewiseVecRows<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>(

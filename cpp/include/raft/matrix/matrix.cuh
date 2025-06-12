@@ -270,13 +270,13 @@ m_t getL2Norm(raft::resources const& handle, m_t* in, idx_t size, cudaStream_t s
  * What matters is if the vectors are applied along lines (indices of vectors correspond to
  * indices within lines), or across lines (indices of vectors correspond to line numbers).
  *
+ * @tparam alongLines whether vectors are indices along or across lines.
  * @param [out] out result of the operation; can be same as `in`; should be aligned the same
  *        as `in` to allow faster vectorized memory transfers.
  * @param [in] in input matrix consisting of `nLines` lines, each `lineLen`-long.
  * @param [in] lineLen length of matrix line in elements (`=nCols` in row-major or `=nRows` in
  * col-major)
  * @param [in] nLines number of matrix lines (`=nRows` in row-major or `=nCols` in col-major)
- * @param [in] alongLines whether vectors are indices along or across lines.
  * @param [in] op the operation applied on each line:
  *    for i in [0..lineLen) and j in [0..nLines):
  *      out[i, j] = op(in[i, j], vec1[i], vec2[i], ... veck[i])   if alongLines = true
@@ -286,12 +286,11 @@ m_t getL2Norm(raft::resources const& handle, m_t* in, idx_t size, cudaStream_t s
  * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
-template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
+template <bool alongLines, typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
 void linewiseOp(m_t* out,
                 const m_t* in,
                 const idx_t lineLen,
                 const idx_t nLines,
-                const bool alongLines,
                 Lambda op,
                 cudaStream_t stream,
                 const Vecs*... vecs)

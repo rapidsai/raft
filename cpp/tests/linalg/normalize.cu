@@ -58,8 +58,8 @@ void rowNormalizeRef(
     raft::linalg::rowNorm(
       norm.data(), in, cols, rows, norm_type, true, stream, raft::identity_op());
   }
-  raft::linalg::matrixVectorOp(
-    out, in, norm.data(), cols, rows, true, false, raft::div_op{}, stream);
+  raft::linalg::matrixVectorOp<true, false>(
+    out, in, norm.data(), cols, rows, raft::div_op{}, stream);
 }
 
 template <typename T, typename IdxT>

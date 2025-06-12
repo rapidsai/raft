@@ -52,18 +52,21 @@ namespace linalg {
  * @param op the mathematical operation
  * @param stream cuda stream where to launch work
  */
-template <typename MatT, typename Lambda, typename VecT, typename IdxType = int>
+template <bool rowMajor,
+          bool bcastAlongRows,
+          typename MatT,
+          typename Lambda,
+          typename VecT,
+          typename IdxType = int>
 void matrixVectorOp(MatT* out,
                     const MatT* matrix,
                     const VecT* vec,
                     IdxType D,
                     IdxType N,
-                    bool rowMajor,
-                    bool bcastAlongRows,
                     Lambda op,
                     cudaStream_t stream)
 {
-  detail::matrixVectorOp(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+  detail::matrixVectorOp<rowMajor, bcastAlongRows>(out, matrix, vec, D, N, op, stream);
 }
 
 /**
@@ -91,19 +94,23 @@ void matrixVectorOp(MatT* out,
  * @param op the mathematical operation
  * @param stream cuda stream where to launch work
  */
-template <typename MatT, typename Lambda, typename Vec1T, typename Vec2T, typename IdxType = int>
+template <bool rowMajor,
+          bool bcastAlongRows,
+          typename MatT,
+          typename Lambda,
+          typename Vec1T,
+          typename Vec2T,
+          typename IdxType = int>
 void matrixVectorOp(MatT* out,
                     const MatT* matrix,
                     const Vec1T* vec1,
                     const Vec2T* vec2,
                     IdxType D,
                     IdxType N,
-                    bool rowMajor,
-                    bool bcastAlongRows,
                     Lambda op,
                     cudaStream_t stream)
 {
-  detail::matrixVectorOp(out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+  detail::matrixVectorOp<rowMajor, bcastAlongRows>(out, matrix, vec1, vec2, D, N, op, stream);
 }
 
 /**
@@ -132,7 +139,8 @@ void matrixVectorOp(MatT* out,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param[in] op the mathematical operation
  */
-template <typename MatValueType,
+template <Apply apply,
+          typename MatValueType,
           typename VecValueType,
           typename LayoutPolicy,
           typename Lambda,
@@ -141,7 +149,6 @@ void matrix_vector_op(raft::resources const& handle,
                       raft::device_matrix_view<const MatValueType, IndexType, LayoutPolicy> matrix,
                       raft::device_vector_view<const VecValueType, IndexType> vec,
                       raft::device_matrix_view<MatValueType, IndexType, LayoutPolicy> out,
-                      Apply apply,
                       Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(matrix), "Output must be contiguous");
@@ -149,7 +156,7 @@ void matrix_vector_op(raft::resources const& handle,
   RAFT_EXPECTS(out.size() == matrix.size(), "Size mismatch between Output and Input");
 
   auto constexpr rowMajor = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
-  auto bcastAlongRows     = apply == Apply::ALONG_ROWS;
+  auto constexpr bcastAlongRows = apply == Apply::ALONG_ROWS;
 
   if (bcastAlongRows) {
     RAFT_EXPECTS(out.extent(1) == static_cast<IndexType>(vec.size()),
@@ -159,15 +166,13 @@ void matrix_vector_op(raft::resources const& handle,
                  "Size mismatch between matrix and vector");
   }
 
-  matrixVectorOp(out.data_handle(),
-                 matrix.data_handle(),
-                 vec.data_handle(),
-                 out.extent(1),
-                 out.extent(0),
-                 rowMajor,
-                 bcastAlongRows,
-                 op,
-                 resource::get_cuda_stream(handle));
+  matrixVectorOp<rowMajor, bcastAlongRows>(out.data_handle(),
+                                           matrix.data_handle(),
+                                           vec.data_handle(),
+                                           out.extent(1),
+                                           out.extent(0),
+                                           op,
+                                           resource::get_cuda_stream(handle));
 }
 
 /**
@@ -193,7 +198,8 @@ void matrix_vector_op(raft::resources const& handle,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param op the mathematical operation
  */
-template <typename MatValueType,
+template <Apply apply,
+          typename MatValueType,
           typename Vec1ValueType,
           typename Vec2ValueType,
           typename LayoutPolicy,
@@ -204,7 +210,6 @@ void matrix_vector_op(raft::resources const& handle,
                       raft::device_vector_view<const Vec1ValueType, IndexType> vec1,
                       raft::device_vector_view<const Vec2ValueType, IndexType> vec2,
                       raft::device_matrix_view<MatValueType, IndexType, LayoutPolicy> out,
-                      Apply apply,
                       Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
@@ -212,7 +217,7 @@ void matrix_vector_op(raft::resources const& handle,
   RAFT_EXPECTS(out.size() == matrix.size(), "Size mismatch between Output and Input");
 
   auto constexpr rowMajor = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
-  auto bcastAlongRows     = apply == Apply::ALONG_ROWS;
+  auto constexpr bcastAlongRows = apply == Apply::ALONG_ROWS;
 
   if (bcastAlongRows) {
     RAFT_EXPECTS(out.extent(1) == static_cast<IndexType>(vec1.size()),
@@ -226,16 +231,14 @@ void matrix_vector_op(raft::resources const& handle,
                  "Size mismatch between matrix and vector");
   }
 
-  matrixVectorOp(out.data_handle(),
-                 matrix.data_handle(),
-                 vec1.data_handle(),
-                 vec2.data_handle(),
-                 out.extent(1),
-                 out.extent(0),
-                 rowMajor,
-                 bcastAlongRows,
-                 op,
-                 resource::get_cuda_stream(handle));
+  matrixVectorOp<rowMajor, bcastAlongRows>(out.data_handle(),
+                                           matrix.data_handle(),
+                                           vec1.data_handle(),
+                                           vec2.data_handle(),
+                                           out.extent(1),
+                                           out.extent(0),
+                                           op,
+                                           resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group matrix_vector_op
