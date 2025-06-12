@@ -451,7 +451,7 @@ if (( NUMARGS == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg
       MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
       MSG="${MSG}<br/>parallel build time: $compile_total seconds"
       if [[ -f "${LIBRAFT_BUILD_DIR}/libraft.so" ]]; then
-          LIBRAFT_FS=$(find "${LIBRAFT_BUILD_DIR}" -name libraft.so -printf '%s')
+          LIBRAFT_FS=$(find "${LIBRAFT_BUILD_DIR}" -name libraft.so -printf '%s' | awk '{printf "%.2f MB", $1/1024/1024}')
           MSG="${MSG}<br/>libraft.so size: $LIBRAFT_FS"
       fi
       BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBRAFT_BUILD_DIR}"}
