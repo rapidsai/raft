@@ -38,6 +38,9 @@ namespace linalg {
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
+ * @tparam rowMajor whether input is row or col major
+ * @tparam bcastAlongRows whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns
  * @tparam MatT the matrix type
  * @tparam Lambda a device function which represents a binary operator
  * @tparam VecT the input vector type
@@ -47,9 +50,6 @@ namespace linalg {
  * @param vec the vector
  * @param D number of columns of matrix
  * @param N number of rows of matrix
- * @param rowMajor whether input is row or col major
- * @param bcastAlongRows whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns
  * @param op the mathematical operation
  * @param stream cuda stream where to launch work
  */
@@ -78,6 +78,9 @@ void matrixVectorOp(MatT* out,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
+ * @tparam rowMajor whether input is row or col major
+ * @tparam bcastAlongRows whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns
  * @tparam MatT the matrix type
  * @tparam Lambda a device function which represents a binary operator
  * @tparam Vec1T the first input vector type
@@ -89,9 +92,6 @@ void matrixVectorOp(MatT* out,
  * @param vec2 the second vector
  * @param D number of columns of matrix
  * @param N number of rows of matrix
- * @param rowMajor whether input is row or col major
- * @param bcastAlongRows whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns
  * @param op the mathematical operation
  * @param stream cuda stream where to launch work
  */
@@ -127,6 +127,8 @@ void matrixVectorOp(MatT* out,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
+ * @tparam apply whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @tparam MatValueType the data-type of the input matrix
  * @tparam VecValueType the data-type of the input vector
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
@@ -136,8 +138,6 @@ void matrixVectorOp(MatT* out,
  * @param[in] matrix input raft::matrix_view
  * @param[in] vec vector raft::vector_view
  * @param[out] out output raft::matrix_view
- * @param[in] apply whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param[in] op the mathematical operation
  */
 template <Apply apply,
@@ -184,6 +184,8 @@ void matrix_vector_op(raft::resources const& handle,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
+ * @tparam apply whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @tparam MatValueType the data-type of the input and output matrices
  * @tparam Vec1ValueType the data-type of the first input vector
  * @tparam Vec2ValueType the data-type of the second input vector
@@ -195,8 +197,6 @@ void matrix_vector_op(raft::resources const& handle,
  * @param vec1 the first vector raft::vector_view
  * @param vec2 the second vector raft::vector_view
  * @param out output raft::matrix_view
- * @param apply whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param op the mathematical operation
  */
 template <Apply apply,

@@ -28,6 +28,8 @@ namespace stats {
 
 /**
  * @brief Center the input matrix wrt its mean
+ * @tparam rowMajor whether input is row or col major
+ * @tparam bcastAlongRows whether to broadcast vector along rows or columns
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
  * @tparam TPB threads per block of the cuda kernel launched
@@ -36,8 +38,6 @@ namespace stats {
  * @param mu the mean vector
  * @param D number of columns of data
  * @param N number of rows of data
- * @param rowMajor whether input is row or col major
- * @param bcastAlongRows whether to broadcast vector along rows or columns
  * @param stream cuda stream where to launch work
  */
 template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
@@ -49,6 +49,8 @@ void meanCenter(
 
 /**
  * @brief Add the input matrix wrt its mean
+ * @tparam rowMajor whether input is row or col major
+ * @tparam bcastAlongRows whether to broadcast vector along rows or columns
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
  * @tparam TPB threads per block of the cuda kernel launched
@@ -57,8 +59,6 @@ void meanCenter(
  * @param mu the mean vector
  * @param D number of columns of data
  * @param N number of rows of data
- * @param rowMajor whether input is row or col major
- * @param bcastAlongRows whether to broadcast vector along rows or columns
  * @param stream cuda stream where to launch work
  */
 template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
@@ -74,6 +74,7 @@ void meanAdd(Type* out, const Type* data, const Type* mu, IdxType D, IdxType N, 
 
 /**
  * @brief Center the input matrix wrt its mean
+ * @tparam bcast_along_rows whether to broadcast vector along rows or columns
  * @tparam value_t the data type
  * @tparam idx_t index type
  * @tparam layout_t Layout type of the input matrix.
@@ -81,7 +82,6 @@ void meanAdd(Type* out, const Type* data, const Type* mu, IdxType D, IdxType N, 
  * @param[in]  data input matrix of size nrows * ncols
  * @param[in]  mu the mean vector of size ncols if bcast_along_rows else nrows
  * @param[out] out the output mean-centered matrix
- * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
  */
 template <bool bcast_along_rows, typename value_t, typename idx_t, typename layout_t>
 void mean_center(raft::resources const& handle,
@@ -108,6 +108,7 @@ void mean_center(raft::resources const& handle,
 
 /**
  * @brief Add the input matrix wrt its mean
+ * @tparam bcast_along_rows whether to broadcast vector along rows or columns
  * @tparam Type the data type
  * @tparam idx_t index type
  * @tparam layout_t Layout type of the input matrix.
@@ -116,7 +117,6 @@ void mean_center(raft::resources const& handle,
  * @param[in]  data input matrix of size nrows * ncols
  * @param[in]  mu the mean vector of size ncols if bcast_along_rows else nrows
  * @param[out] out the output mean-centered matrix
- * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
  */
 template <bool bcast_along_rows, typename value_t, typename idx_t, typename layout_t>
 void mean_add(raft::resources const& handle,
