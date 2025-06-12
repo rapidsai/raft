@@ -237,12 +237,20 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
       auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::row_major>(
         din.data().get(), rows, cols);
       // compute result
-      weighted_mean(handle, input, weights, output, params.along_rows);
+      if (params.along_rows) {
+        weighted_mean<Apply::ALONG_ROWS>(handle, input, weights, output);
+      } else {
+        weighted_mean<Apply::ALONG_COLUMNS>(handle, input, weights, output);
+      }
     } else {
       auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
         din.data().get(), rows, cols);
       // compute result
-      weighted_mean(handle, input, weights, output, params.along_rows);
+      if (params.along_rows) {
+        weighted_mean<Apply::ALONG_ROWS>(handle, input, weights, output);
+      } else {
+        weighted_mean<Apply::ALONG_COLUMNS>(handle, input, weights, output);
+      }
     }
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
