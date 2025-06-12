@@ -89,12 +89,12 @@ void matrixVectorOpLaunch(const raft::resources& handle,
           handle, in_row_major, vec1_view, vec2_view, out_row_major, OpT{});
       } else {
         matrix_vector_op<Apply::ALONG_COLUMNS>(
-          handle, in_col_major, vec1_view, vec2_view, out_col_major, OpT{});
+          handle, in_row_major, vec1_view, vec2_view, out_row_major, OpT{});
       }
     } else {
       if (apply == Apply::ALONG_ROWS) {
         matrix_vector_op<Apply::ALONG_ROWS>(
-          handle, in_row_major, vec1_view, vec2_view, out_row_major, OpT{});
+          handle, in_col_major, vec1_view, vec2_view, out_col_major, OpT{});
       } else {
         matrix_vector_op<Apply::ALONG_COLUMNS>(
           handle, in_col_major, vec1_view, vec2_view, out_col_major, OpT{});
@@ -106,11 +106,11 @@ void matrixVectorOpLaunch(const raft::resources& handle,
         matrix_vector_op<Apply::ALONG_ROWS>(handle, in_row_major, vec1_view, out_row_major, OpT{});
       } else {
         matrix_vector_op<Apply::ALONG_COLUMNS>(
-          handle, in_col_major, vec1_view, out_col_major, OpT{});
+          handle, in_row_major, vec1_view, out_row_major, OpT{});
       }
     } else {
       if (apply == Apply::ALONG_ROWS) {
-        matrix_vector_op<Apply::ALONG_ROWS>(handle, in_row_major, vec1_view, out_row_major, OpT{});
+        matrix_vector_op<Apply::ALONG_ROWS>(handle, in_col_major, vec1_view, out_col_major, OpT{});
       } else {
         matrix_vector_op<Apply::ALONG_COLUMNS>(
           handle, in_col_major, vec1_view, out_col_major, OpT{});

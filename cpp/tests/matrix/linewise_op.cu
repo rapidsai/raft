@@ -120,7 +120,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                             const T* vec)
   {
     auto vec_view = raft::make_device_vector_view<const T, I>(vec, alongLines ? lineLen : nLines);
-    if (raft::is_row_major(in)) {
+    if (alongLines) {
       matrix::linewise_op<true>(handle, in, out, raft::add_op{}, vec_view);
     } else {
       matrix::linewise_op<false>(handle, in, out, raft::add_op{}, vec_view);
