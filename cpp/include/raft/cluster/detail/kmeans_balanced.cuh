@@ -268,8 +268,8 @@ void calc_centers_and_sizes(const raft::resources& handle,
   auto stream = resource::get_cuda_stream(handle);
 
   if (!reset_counters) {
-    raft::linalg::matrixVectorOp(
-      centers, centers, cluster_sizes, dim, n_clusters, true, false, raft::mul_op(), stream);
+    raft::linalg::matrixVectorOp<true, false>(
+      centers, centers, cluster_sizes, dim, n_clusters, raft::mul_op(), stream);
   }
 
   rmm::device_uvector<char> workspace(0, stream, mr);
@@ -303,15 +303,8 @@ void calc_centers_and_sizes(const raft::resources& handle,
     raft::linalg::add(cluster_sizes, cluster_sizes, temp_sizes, n_clusters, stream);
   }
 
-  raft::linalg::matrixVectorOp(centers,
-                               centers,
-                               cluster_sizes,
-                               dim,
-                               n_clusters,
-                               true,
-                               false,
-                               raft::div_checkzero_op(),
-                               stream);
+  raft::linalg::matrixVectorOp<true, false>(
+    centers, centers, cluster_sizes, dim, n_clusters, raft::div_checkzero_op(), stream);
 }
 
 /** Computes the L2 norm of the dataset, converting to MathT if necessary */

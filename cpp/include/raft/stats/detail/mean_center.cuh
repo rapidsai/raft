@@ -38,18 +38,12 @@ namespace detail {
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename IdxType = int, int TPB = 256>
-void meanCenter(Type* out,
-                const Type* data,
-                const Type* mu,
-                IdxType D,
-                IdxType N,
-                bool rowMajor,
-                bool bcastAlongRows,
-                cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void meanCenter(
+  Type* out, const Type* data, const Type* mu, IdxType D, IdxType N, cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
-    out, data, mu, D, N, rowMajor, bcastAlongRows, raft::sub_op{}, stream);
+  raft::linalg::matrixVectorOp<rowMajor, bcastAlongRows>(
+    out, data, mu, D, N, raft::sub_op{}, stream);
 }
 
 /**
@@ -66,18 +60,11 @@ void meanCenter(Type* out,
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename IdxType = int, int TPB = 256>
-void meanAdd(Type* out,
-             const Type* data,
-             const Type* mu,
-             IdxType D,
-             IdxType N,
-             bool rowMajor,
-             bool bcastAlongRows,
-             cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void meanAdd(Type* out, const Type* data, const Type* mu, IdxType D, IdxType N, cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
-    out, data, mu, D, N, rowMajor, bcastAlongRows, raft::add_op{}, stream);
+  raft::linalg::matrixVectorOp<rowMajor, bcastAlongRows>(
+    out, data, mu, D, N, raft::add_op{}, stream);
 }
 
 };  // end namespace detail

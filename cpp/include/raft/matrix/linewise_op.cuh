@@ -35,6 +35,7 @@ namespace raft::matrix {
  * depending on the matrix layout.
  * What matters is if the vectors are applied along lines (indices of vectors correspond to
  * indices within lines), or across lines (indices of vectors correspond to line numbers).
+ * @tparam alongLines whether vectors are indices along or across lines.
  * @tparam m_t matrix elements type
  * @tparam idx_t integer type used for indexing
  * @tparam layout layout of the matrix data (must be row or col major)
@@ -45,7 +46,6 @@ namespace raft::matrix {
  * @param [out] out result of the operation; can be same as `in`; should be aligned the same
  *        as `in` to allow faster vectorized memory transfers.
  * @param [in] in input matrix consisting of `nLines` lines, each `lineLen`-long.
- * @param [in] alongLines whether vectors are indices along or across lines.
  * @param [in] op the operation applied on each line:
  *    for i in [0..lineLen) and j in [0..nLines):
  *      out[j, i] = op(in[j, i], vec1[i], vec2[i], ... veck[i])   if alongLines = true
@@ -57,7 +57,8 @@ namespace raft::matrix {
  * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
-template <typename m_t,
+template <bool alongLines,
+          typename m_t,
           typename idx_t,
           typename layout,
           typename Lambda,
@@ -66,7 +67,6 @@ template <typename m_t,
 void linewise_op(raft::resources const& handle,
                  raft::device_matrix_view<const m_t, idx_t, layout> in,
                  raft::device_matrix_view<m_t, idx_t, layout> out,
-                 const bool alongLines,
                  Lambda op,
                  vec_t... vecs)
 {
@@ -82,17 +82,17 @@ void linewise_op(raft::resources const& handle,
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");
 
-  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t>(out.data_handle(),
-                                                     in.data_handle(),
-                                                     lineLen,
-                                                     nLines,
-                                                     alongLines,
-                                                     op,
-                                                     resource::get_cuda_stream(handle),
-                                                     vecs.data_handle()...);
+  detail::MatrixLinewiseOp<16, 256>::run<alongLines, m_t, idx_t>(out.data_handle(),
+                                                                 in.data_handle(),
+                                                                 lineLen,
+                                                                 nLines,
+                                                                 op,
+                                                                 resource::get_cuda_stream(handle),
+                                                                 vecs.data_handle()...);
 }
 
-template <typename m_t,
+template <bool alongLines,
+          typename m_t,
           typename idx_t,
           typename layout,
           typename Lambda,
@@ -101,7 +101,6 @@ template <typename m_t,
 void linewise_op(raft::resources const& handle,
                  raft::device_aligned_matrix_view<const m_t, idx_t, layout> in,
                  raft::device_aligned_matrix_view<m_t, idx_t, layout> out,
-                 const bool alongLines,
                  Lambda op,
                  vec_t... vecs)
 {
@@ -117,14 +116,8 @@ void linewise_op(raft::resources const& handle,
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");
 
-  detail::MatrixLinewiseOp<16, 256>::runPadded<m_t, idx_t>(out,
-                                                           in,
-                                                           lineLen,
-                                                           nLines,
-                                                           alongLines,
-                                                           op,
-                                                           resource::get_cuda_stream(handle),
-                                                           vecs.data_handle()...);
+  detail::MatrixLinewiseOp<16, 256>::runPadded<alongLines, m_t, idx_t>(
+    out, in, lineLen, nLines, op, resource::get_cuda_stream(handle), vecs.data_handle()...);
 }
 
 /** @} */  // end of group linewise_op

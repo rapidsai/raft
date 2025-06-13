@@ -197,15 +197,13 @@ void kmeansPlusPlus(raft::resources const& handle,
     // Outputs minDistanceBuf[n_trials x n_samples] where minDistance[i, :] contains updated
     // minClusterDistance that includes candidate-i
     auto minDistBuf = distBuffer.view();
-    raft::linalg::matrixVectorOp(minDistBuf.data_handle(),
-                                 pwd.data_handle(),
-                                 minClusterDistance.data_handle(),
-                                 pwd.extent(1),
-                                 pwd.extent(0),
-                                 true,
-                                 true,
-                                 raft::min_op{},
-                                 stream);
+    raft::linalg::matrixVectorOp<true, true>(minDistBuf.data_handle(),
+                                             pwd.data_handle(),
+                                             minClusterDistance.data_handle(),
+                                             pwd.extent(1),
+                                             pwd.extent(0),
+                                             raft::min_op{},
+                                             stream);
 
     // Calculate costPerCandidate[n_trials] where costPerCandidate[i] is the cluster cost when using
     // centroid candidate-i
@@ -323,15 +321,13 @@ void update_centroids(raft::resources const& handle,
   //   weight_per_cluster[n_clusters] - 1D array, weight_per_cluster[i] contains sum of weights in
   //   cluster-i.
   // Note - when weight_per_cluster[i] is 0, new_centroids[i] is reset to 0
-  raft::linalg::matrixVectorOp(new_centroids.data_handle(),
-                               new_centroids.data_handle(),
-                               weight_per_cluster.data_handle(),
-                               new_centroids.extent(1),
-                               new_centroids.extent(0),
-                               true,
-                               false,
-                               raft::div_checkzero_op{},
-                               resource::get_cuda_stream(handle));
+  raft::linalg::matrixVectorOp<true, false>(new_centroids.data_handle(),
+                                            new_centroids.data_handle(),
+                                            weight_per_cluster.data_handle(),
+                                            new_centroids.extent(1),
+                                            new_centroids.extent(0),
+                                            raft::div_checkzero_op{},
+                                            resource::get_cuda_stream(handle));
 
   // copy centroids[i] to new_centroids[i] when weight_per_cluster[i] is 0
   cub::ArgIndexInputIterator<DataT*> itr_wt(weight_per_cluster.data_handle());

@@ -57,18 +57,25 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
     if (row_major_) {
       raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
         colsums_.data(), data, n_cols_, n_rows_, stream_, raft::sqrt_op{});
+      raft::linalg::matrixVectorOp<true, false>(
+        data, data, colsums_.data(), n_cols_, n_rows_, raft::div_op{}, stream_);
     } else {
       raft::linalg::rowNorm<raft::linalg::L2Norm, false>(
         colsums_.data(), data, n_cols_, n_rows_, stream_, raft::sqrt_op{});
+      raft::linalg::matrixVectorOp<false, false>(
+        data, data, colsums_.data(), n_cols_, n_rows_, raft::div_op{}, stream_);
     }
-    raft::linalg::matrixVectorOp(
-      data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false, raft::div_op{}, stream_);
   }
 
   void revert(math_t* data)
   {
-    raft::linalg::matrixVectorOp(
-      data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false, raft::mul_op{}, stream_);
+    if (row_major_) {
+      raft::linalg::matrixVectorOp<true, false>(
+        data, data, colsums_.data(), n_cols_, n_rows_, raft::mul_op{}, stream_);
+    } else {
+      raft::linalg::matrixVectorOp<false, false>(
+        data, data, colsums_.data(), n_cols_, n_rows_, raft::mul_op{}, stream_);
+    }
   }
 
   void postprocess(math_t* data)
@@ -110,14 +117,13 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
                           raft::mul_const_op<math_t>(normalizer_const),
                           cosine::stream_);
 
-    raft::stats::meanCenter(data,
-                            data,
-                            means_.data(),
-                            cosine::n_cols_,
-                            cosine::n_rows_,
-                            cosine::row_major_,
-                            false,
-                            cosine::stream_);
+    if (cosine::row_major_) {
+      raft::stats::meanCenter<true, false>(
+        data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
+    } else {
+      raft::stats::meanCenter<false, false>(
+        data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
+    }
 
     CosineMetricProcessor<math_t>::preprocess(data);
   }
@@ -126,14 +132,13 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
   {
     CosineMetricProcessor<math_t>::revert(data);
 
-    raft::stats::meanAdd(data,
-                         data,
-                         means_.data(),
-                         cosine::n_cols_,
-                         cosine::n_rows_,
-                         cosine::row_major_,
-                         false,
-                         cosine::stream_);
+    if (cosine::row_major_) {
+      raft::stats::meanAdd<true, false>(
+        data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
+    } else {
+      raft::stats::meanAdd<false, false>(
+        data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
+    }
   }
 
   void postprocess(math_t* data) { CosineMetricProcessor<math_t>::postprocess(data); }

@@ -59,7 +59,11 @@ void cov(raft::resources const& handle,
   if (stable) {
     // since mean operation is assumed to be along a given column, broadcast
     // must be along rows!
-    raft::stats::meanCenter(data, data, mu, D, N, rowMajor, true, stream);
+    if (rowMajor) {
+      raft::stats::meanCenter<true, true>(data, data, mu, D, N, stream);
+    } else {
+      raft::stats::meanCenter<false, true>(data, data, mu, D, N, stream);
+    }
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta  = Type(0);
     auto ldd   = rowMajor ? D : N;
