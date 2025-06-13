@@ -119,7 +119,7 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
    * @param col Col index of the bit to set
    * @param new_value Value to set the bit to (true or false)
    */
-  inline _RAFT_HOST_DEVICE void set(const index_t row, const index_t col, bool new_value) const;
+  inline _RAFT_DEVICE void set(const index_t row, const index_t col, bool new_value) const;
 
   /**
    * @brief Get the total number of rows
