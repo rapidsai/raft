@@ -74,7 +74,8 @@ void meanAdd(Type* out, const Type* data, const Type* mu, IdxType D, IdxType N, 
 
 /**
  * @brief Center the input matrix wrt its mean
- * @tparam bcast_along_rows whether to broadcast vector along rows or columns
+ * @tparam apply whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns using enum class raft::Apply
  * @tparam value_t the data type
  * @tparam idx_t index type
  * @tparam layout_t Layout type of the input matrix.
@@ -110,7 +111,8 @@ void mean_center(raft::resources const& handle,
 
 /**
  * @brief Add the input matrix wrt its mean
- * @tparam bcast_along_rows whether to broadcast vector along rows or columns
+ * @tparam apply whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns using enum class raft::Apply
  * @tparam Type the data type
  * @tparam idx_t index type
  * @tparam layout_t Layout type of the input matrix.

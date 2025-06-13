@@ -128,7 +128,7 @@ void matrixVectorOp(MatT* out,
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
  * @tparam apply whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns using enum class raft::linalg::Apply
+ * the rows of the matrix or columns using enum class raft::Apply
  * @tparam MatValueType the data-type of the input matrix
  * @tparam VecValueType the data-type of the input vector
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
@@ -185,7 +185,7 @@ void matrix_vector_op(raft::resources const& handle,
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
  * @tparam apply whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns using enum class raft::linalg::Apply
+ * the rows of the matrix or columns using enum class raft::Apply
  * @tparam MatValueType the data-type of the input and output matrices
  * @tparam Vec1ValueType the data-type of the first input vector
  * @tparam Vec2ValueType the data-type of the second input vector
