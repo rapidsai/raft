@@ -133,8 +133,6 @@ repos:
         rev: v0.10.0.1
         hooks:
           - id: shellcheck
-            args: ["--severity=warning"]
-            files: ^ci/
 
 default_language_version:
       python: python3
