@@ -83,7 +83,7 @@ void meanAdd(Type* out, const Type* data, const Type* mu, IdxType D, IdxType N, 
  * @param[in]  mu the mean vector of size ncols if bcast_along_rows else nrows
  * @param[out] out the output mean-centered matrix
  */
-template <bool bcast_along_rows, typename value_t, typename idx_t, typename layout_t>
+template <Apply apply, typename value_t, typename idx_t, typename layout_t>
 void mean_center(raft::resources const& handle,
                  raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                  raft::device_vector_view<const value_t, idx_t> mu,
@@ -92,18 +92,20 @@ void mean_center(raft::resources const& handle,
   static_assert(
     std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
-  auto mean_vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
+  auto mean_vec_size = apply == Apply::ALONG_ROWS ? data.extent(1) : data.extent(0);
   RAFT_EXPECTS(out.extents() == data.extents(), "Size mismatch");
   RAFT_EXPECTS(mean_vec_size == mu.extent(0), "Size mismatch between data and mu");
   RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
-  detail::meanCenter<std::is_same_v<layout_t, raft::row_major>, bcast_along_rows, value_t, idx_t>(
-    out.data_handle(),
-    data.data_handle(),
-    mu.data_handle(),
-    data.extent(1),
-    data.extent(0),
-    resource::get_cuda_stream(handle));
+  detail::meanCenter<std::is_same_v<layout_t, raft::row_major>,
+                     apply == Apply::ALONG_ROWS,
+                     value_t,
+                     idx_t>(out.data_handle(),
+                            data.data_handle(),
+                            mu.data_handle(),
+                            data.extent(1),
+                            data.extent(0),
+                            resource::get_cuda_stream(handle));
 }
 
 /**
@@ -118,7 +120,7 @@ void mean_center(raft::resources const& handle,
  * @param[in]  mu the mean vector of size ncols if bcast_along_rows else nrows
  * @param[out] out the output mean-centered matrix
  */
-template <bool bcast_along_rows, typename value_t, typename idx_t, typename layout_t>
+template <Apply apply, typename value_t, typename idx_t, typename layout_t>
 void mean_add(raft::resources const& handle,
               raft::device_matrix_view<const value_t, idx_t, layout_t> data,
               raft::device_vector_view<const value_t, idx_t> mu,
@@ -127,18 +129,19 @@ void mean_add(raft::resources const& handle,
   static_assert(
     std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
-  auto mean_vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
+  auto mean_vec_size = apply == Apply::ALONG_ROWS ? data.extent(1) : data.extent(0);
   RAFT_EXPECTS(out.extents() == data.extents(), "Size mismatch");
   RAFT_EXPECTS(mean_vec_size == mu.extent(0), "Size mismatch between data and mu");
   RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
-  detail::meanAdd<std::is_same_v<layout_t, raft::row_major>, bcast_along_rows, value_t, idx_t>(
-    out.data_handle(),
-    data.data_handle(),
-    mu.data_handle(),
-    data.extent(1),
-    data.extent(0),
-    resource::get_cuda_stream(handle));
+  detail::
+    meanAdd<std::is_same_v<layout_t, raft::row_major>, apply == Apply::ALONG_ROWS, value_t, idx_t>(
+      out.data_handle(),
+      data.data_handle(),
+      mu.data_handle(),
+      data.extent(1),
+      data.extent(0),
+      resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_mean_center
