@@ -107,8 +107,8 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   // notice that at this point the matrix has already been transposed, so we are scaling
   // columns
   auto dataset_view = raft::make_device_matrix_view(eigVecs, nEigVecs, n);
-  raft::linalg::row_normalize(
-    handle, raft::make_const_mdspan(dataset_view), dataset_view, raft::linalg::L2Norm);
+  raft::linalg::row_normalize<raft::linalg::L2Norm>(
+    handle, raft::make_const_mdspan(dataset_view), dataset_view);
 
   // Find partition clustering
   auto pair_cluster = cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);
