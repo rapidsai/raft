@@ -24,118 +24,50 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
-template <typename Type, typename IdxType, typename Lambda, typename OutType = Type>
-void rowNormCaller(OutType* dots,
-                   const Type* data,
-                   IdxType D,
-                   IdxType N,
-                   NormType type,
-                   bool rowMajor,
-                   cudaStream_t stream,
-                   Lambda fin_op)
+template <NormType norm_type,
+          bool rowMajor,
+          typename Type,
+          typename IdxType,
+          typename Lambda,
+          typename OutType = Type>
+void rowNormCaller(
+  OutType* dots, const Type* data, IdxType D, IdxType N, cudaStream_t stream, Lambda fin_op)
 {
-  switch (type) {
-    case L1Norm:
-      raft::linalg::reduce<Type, OutType, IdxType>(dots,
-                                                   data,
-                                                   D,
-                                                   N,
-                                                   (OutType)0,
-                                                   rowMajor,
-                                                   true,
-                                                   stream,
-                                                   false,
-                                                   raft::abs_op(),
-                                                   raft::add_op(),
-                                                   fin_op);
-      break;
-    case L2Norm:
-      raft::linalg::reduce<Type, OutType, IdxType>(dots,
-                                                   data,
-                                                   D,
-                                                   N,
-                                                   (OutType)0,
-                                                   rowMajor,
-                                                   true,
-                                                   stream,
-                                                   false,
-                                                   raft::sq_op(),
-                                                   raft::add_op(),
-                                                   fin_op);
-      break;
-    case LinfNorm:
-      raft::linalg::reduce<Type, OutType, IdxType>(dots,
-                                                   data,
-                                                   D,
-                                                   N,
-                                                   (OutType)0,
-                                                   rowMajor,
-                                                   true,
-                                                   stream,
-                                                   false,
-                                                   raft::abs_op(),
-                                                   raft::max_op(),
-                                                   fin_op);
-      break;
-    default: THROW("Unsupported norm type: %d", type);
-  };
+  if constexpr (norm_type == L1Norm) {
+    raft::linalg::reduce<rowMajor, true, Type, OutType, IdxType>(
+      dots, data, D, N, (OutType)0, stream, false, raft::abs_op(), raft::add_op(), fin_op);
+  } else if constexpr (norm_type == L2Norm) {
+    raft::linalg::reduce<rowMajor, true, Type, OutType, IdxType>(
+      dots, data, D, N, (OutType)0, stream, false, raft::sq_op(), raft::add_op(), fin_op);
+  } else if constexpr (norm_type == LinfNorm) {
+    raft::linalg::reduce<rowMajor, true, Type, OutType, IdxType>(
+      dots, data, D, N, (OutType)0, stream, false, raft::abs_op(), raft::max_op(), fin_op);
+  } else {
+    THROW("Unsupported norm type: %d", norm_type);
+  }
 }
 
-template <typename Type, typename IdxType, typename Lambda, typename OutType = Type>
-void colNormCaller(OutType* dots,
-                   const Type* data,
-                   IdxType D,
-                   IdxType N,
-                   NormType type,
-                   bool rowMajor,
-                   cudaStream_t stream,
-                   Lambda fin_op)
+template <NormType norm_type,
+          bool rowMajor,
+          typename Type,
+          typename IdxType,
+          typename Lambda,
+          typename OutType = Type>
+void colNormCaller(
+  OutType* dots, const Type* data, IdxType D, IdxType N, cudaStream_t stream, Lambda fin_op)
 {
-  switch (type) {
-    case L1Norm:
-      raft::linalg::reduce<Type, OutType, IdxType>(dots,
-                                                   data,
-                                                   D,
-                                                   N,
-                                                   (OutType)0,
-                                                   rowMajor,
-                                                   false,
-                                                   stream,
-                                                   false,
-                                                   raft::abs_op(),
-                                                   raft::add_op(),
-                                                   fin_op);
-      break;
-    case L2Norm:
-      raft::linalg::reduce<Type, OutType, IdxType>(dots,
-                                                   data,
-                                                   D,
-                                                   N,
-                                                   (OutType)0,
-                                                   rowMajor,
-                                                   false,
-                                                   stream,
-                                                   false,
-                                                   raft::sq_op(),
-                                                   raft::add_op(),
-                                                   fin_op);
-      break;
-    case LinfNorm:
-      raft::linalg::reduce<Type, OutType, IdxType>(dots,
-                                                   data,
-                                                   D,
-                                                   N,
-                                                   (OutType)0,
-                                                   rowMajor,
-                                                   false,
-                                                   stream,
-                                                   false,
-                                                   raft::abs_op(),
-                                                   raft::max_op(),
-                                                   fin_op);
-      break;
-    default: THROW("Unsupported norm type: %d", type);
-  };
+  if constexpr (norm_type == L1Norm) {
+    raft::linalg::reduce<rowMajor, false, Type, OutType, IdxType>(
+      dots, data, D, N, (OutType)0, stream, false, raft::abs_op(), raft::add_op(), fin_op);
+  } else if constexpr (norm_type == L2Norm) {
+    raft::linalg::reduce<rowMajor, false, Type, OutType, IdxType>(
+      dots, data, D, N, (OutType)0, stream, false, raft::sq_op(), raft::add_op(), fin_op);
+  } else if constexpr (norm_type == LinfNorm) {
+    raft::linalg::reduce<rowMajor, false, Type, OutType, IdxType>(
+      dots, data, D, N, (OutType)0, stream, false, raft::abs_op(), raft::max_op(), fin_op);
+  } else {
+    THROW("Unsupported norm type: %d", norm_type);
+  }
 }
 
 };  // end namespace detail

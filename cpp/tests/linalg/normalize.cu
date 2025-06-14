@@ -53,10 +53,16 @@ void rowNormalizeRef(
 {
   rmm::device_uvector<T> norm(rows, stream);
   if (norm_type == raft::linalg::L2Norm) {
-    raft::linalg::rowNorm(norm.data(), in, cols, rows, norm_type, true, stream, raft::sqrt_op());
+    raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+      norm.data(), in, cols, rows, stream, raft::sqrt_op());
+  } else if (norm_type == raft::linalg::L1Norm) {
+    raft::linalg::rowNorm<raft::linalg::L1Norm, true>(
+      norm.data(), in, cols, rows, stream, raft::identity_op());
+  } else if (norm_type == raft::linalg::LinfNorm) {
+    raft::linalg::rowNorm<raft::linalg::LinfNorm, true>(
+      norm.data(), in, cols, rows, stream, raft::identity_op());
   } else {
-    raft::linalg::rowNorm(
-      norm.data(), in, cols, rows, norm_type, true, stream, raft::identity_op());
+    RAFT_FAIL("Unsupported norm type");
   }
   raft::linalg::matrixVectorOp(
     out, in, norm.data(), cols, rows, true, false, raft::div_op{}, stream);
@@ -87,7 +93,13 @@ class RowNormalizeTest : public ::testing::TestWithParam<RowNormalizeInputs<T, I
       data.data(), params.rows, params.cols);
     auto output_view = raft::make_device_matrix_view<T, IdxT, raft::row_major>(
       out_act.data(), params.rows, params.cols);
-    raft::linalg::row_normalize(handle, input_view, output_view, params.norm_type);
+    if (params.norm_type == raft::linalg::L1Norm) {
+      raft::linalg::row_normalize<raft::linalg::L1Norm>(handle, input_view, output_view);
+    } else if (params.norm_type == raft::linalg::L2Norm) {
+      raft::linalg::row_normalize<raft::linalg::L2Norm>(handle, input_view, output_view);
+    } else if (params.norm_type == raft::linalg::LinfNorm) {
+      raft::linalg::row_normalize<raft::linalg::LinfNorm>(handle, input_view, output_view);
+    }
 
     resource::sync_stream(handle, stream);
   }

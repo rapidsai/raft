@@ -1,3 +1,58 @@
+# raft 25.06.00 (5 Jun 2025)
+
+## 🚨 Breaking Changes
+
+- Decoupling multi gpu resources from nccl usage ([#2647](https://github.com/rapidsai/raft/pull/2647)) [@jinsolp](https://github.com/jinsolp)
+
+## 🐛 Bug Fixes
+
+- NCCL comm resource fix ([#2692](https://github.com/rapidsai/raft/pull/2692)) [@viclafargue](https://github.com/viclafargue)
+- Fix the launch bounds for nn-descent kernel for 1210 and remove nn-descent tests ([#2691](https://github.com/rapidsai/raft/pull/2691)) [@viclafargue](https://github.com/viclafargue)
+- Prefer host gather when dataset is available both on host and device ([#2671](https://github.com/rapidsai/raft/pull/2671)) [@tfeher](https://github.com/tfeher)
+- Fix warnings treated as errors downstream in cuVS ([#2644](https://github.com/rapidsai/raft/pull/2644)) [@achirkin](https://github.com/achirkin)
+- Fix nccl_comm.hpp warning: #83-D: type qualifier specified more than once ([#2643](https://github.com/rapidsai/raft/pull/2643)) [@achirkin](https://github.com/achirkin)
+- NVTX: null destination pointer warning-treated-as-error ([#2639](https://github.com/rapidsai/raft/pull/2639)) [@achirkin](https://github.com/achirkin)
+- Add UCXX and NCCL to `libraft` conda recipe ([#2636](https://github.com/rapidsai/raft/pull/2636)) [@divyegala](https://github.com/divyegala)
+- Fix building cutlass ([#2619](https://github.com/rapidsai/raft/pull/2619)) [@miscco](https://github.com/miscco)
+- Fix COO symmetrization ([#2582](https://github.com/rapidsai/raft/pull/2582)) [@viclafargue](https://github.com/viclafargue)
+
+## 🚀 New Features
+
+- [Feat] add `cudaMemcpy2DAsync` wrapper ([#2674](https://github.com/rapidsai/raft/pull/2674)) [@rhdong](https://github.com/rhdong)
+- Python wrapper for `device_resources_snmg` ([#2666](https://github.com/rapidsai/raft/pull/2666)) [@jinsolp](https://github.com/jinsolp)
+- Laplacian normalization primitives ([#2648](https://github.com/rapidsai/raft/pull/2648)) [@aamijar](https://github.com/aamijar)
+- [FEA] Matrix shift rows and columns ([#2634](https://github.com/rapidsai/raft/pull/2634)) [@jinsolp](https://github.com/jinsolp)
+- Use NCCL wheels from PyPI for CUDA 12 builds ([#2629](https://github.com/rapidsai/raft/pull/2629)) [@divyegala](https://github.com/divyegala)
+- Support strided matrix view as an input to matrix::samples_rows ([#2626](https://github.com/rapidsai/raft/pull/2626)) [@enp1s0](https://github.com/enp1s0)
+- [Feat] add support for bm25 and tfidf ([#2567](https://github.com/rapidsai/raft/pull/2567)) [@jperez999](https://github.com/jperez999)
+
+## 🛠️ Improvements
+
+- use &#39;rapids-init-pip&#39; in wheel CI, other CI changes ([#2677](https://github.com/rapidsai/raft/pull/2677)) [@jameslamb](https://github.com/jameslamb)
+- Dask 2025.4.1 compatibility ([#2673](https://github.com/rapidsai/raft/pull/2673)) [@TomAugspurger](https://github.com/TomAugspurger)
+- Finish CUDA 12.9 migration and use branch-25.06 workflows ([#2669](https://github.com/rapidsai/raft/pull/2669)) [@bdice](https://github.com/bdice)
+- Update to clang 20 ([#2665](https://github.com/rapidsai/raft/pull/2665)) [@bdice](https://github.com/bdice)
+- Quote head_rev in conda recipes ([#2660](https://github.com/rapidsai/raft/pull/2660)) [@bdice](https://github.com/bdice)
+- CUDA 12.9 use updated compression flags ([#2657](https://github.com/rapidsai/raft/pull/2657)) [@robertmaynard](https://github.com/robertmaynard)
+- Build and test with CUDA 12.9.0 ([#2655](https://github.com/rapidsai/raft/pull/2655)) [@bdice](https://github.com/bdice)
+- Exclude librmm.so from auditwheel ([#2654](https://github.com/rapidsai/raft/pull/2654)) [@bdice](https://github.com/bdice)
+- Fix cub include in normalize.cuh ([#2652](https://github.com/rapidsai/raft/pull/2652)) [@lowener](https://github.com/lowener)
+- Add support for Python 3.13 ([#2649](https://github.com/rapidsai/raft/pull/2649)) [@gforsyth](https://github.com/gforsyth)
+- Decoupling multi gpu resources from nccl usage ([#2647](https://github.com/rapidsai/raft/pull/2647)) [@jinsolp](https://github.com/jinsolp)
+- [BUGFIX] Fixed quoting in wheel paths in pylibraft and raft_dask wheel tests ([#2645](https://github.com/rapidsai/raft/pull/2645)) [@VenkateshJaya](https://github.com/VenkateshJaya)
+- Download build artifacts from Github for CI ([#2640](https://github.com/rapidsai/raft/pull/2640)) [@VenkateshJaya](https://github.com/VenkateshJaya)
+- Limit allowed wheel sizes ([#2638](https://github.com/rapidsai/raft/pull/2638)) [@divyegala](https://github.com/divyegala)
+- Remove CUDA whole compilation ODR violations ([#2633](https://github.com/rapidsai/raft/pull/2633)) [@divyegala](https://github.com/divyegala)
+- refactor(rattler): enable strict channel priority for builds ([#2632](https://github.com/rapidsai/raft/pull/2632)) [@gforsyth](https://github.com/gforsyth)
+- Vendor RAPIDS.cmake ([#2631](https://github.com/rapidsai/raft/pull/2631)) [@bdice](https://github.com/bdice)
+- Replace `Thrust` iterator facilities and replace them with `libcu++` ones ([#2627](https://github.com/rapidsai/raft/pull/2627)) [@miscco](https://github.com/miscco)
+- Port all conda recipes to `rattler-build` ([#2623](https://github.com/rapidsai/raft/pull/2623)) [@gforsyth](https://github.com/gforsyth)
+- Add missing thrust include ([#2618](https://github.com/rapidsai/raft/pull/2618)) [@miscco](https://github.com/miscco)
+- Moving wheel builds to specified location and uploading build artifacts to Github ([#2617](https://github.com/rapidsai/raft/pull/2617)) [@VenkateshJaya](https://github.com/VenkateshJaya)
+- Fixed pytest marker warnings by removing unused pytest.ini ([#2591](https://github.com/rapidsai/raft/pull/2591)) [@TomAugspurger](https://github.com/TomAugspurger)
+- Introduction of the `raft::device_resources_snmg` type ([#2549](https://github.com/rapidsai/raft/pull/2549)) [@viclafargue](https://github.com/viclafargue)
+- Create a NCCL sub-communicator using ncclCommSplit ([#2495](https://github.com/rapidsai/raft/pull/2495)) [@seunghwak](https://github.com/seunghwak)
+
 # raft 25.04.00 (9 Apr 2025)
 
 ## 🚨 Breaking Changes

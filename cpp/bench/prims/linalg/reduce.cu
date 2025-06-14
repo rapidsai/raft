@@ -37,8 +37,13 @@ struct reduce : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     loop_on_state(state, [this]() {
-      raft::linalg::reduce(
-        out.data(), in.data(), input_size.cols, input_size.rows, T(0.f), true, along_rows, stream);
+      if (along_rows) {
+        raft::linalg::reduce<true, true>(
+          out.data(), in.data(), input_size.cols, input_size.rows, T(0.f), stream);
+      } else {
+        raft::linalg::reduce<true, false>(
+          out.data(), in.data(), input_size.cols, input_size.rows, T(0.f), stream);
+      }
     });
   }
 
