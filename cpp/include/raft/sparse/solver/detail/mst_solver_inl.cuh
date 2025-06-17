@@ -212,7 +212,7 @@ alteration_t MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration_ma
     policy, begin, end, alteration_functor<weight_t>(), init, thrust::minimum<weight_t>());
   // Enforce distinct weights if initial edge weights are identical by returning
   // a value of 1
-  return max > 0 ? max / static_cast<alteration_t>(2) : 1
+  return max > 0 ? max / static_cast<alteration_t>(2) : 1;
 }
 
 // Compute the alteration to make all undirected edge weight unique
