@@ -210,7 +210,8 @@ alteration_t MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration_ma
   auto init  = tmp.element(1, stream) - tmp.element(0, stream);
   auto max   = thrust::transform_reduce(
     policy, begin, end, alteration_functor<weight_t>(), init, thrust::minimum<weight_t>());
-  // Enforce distinct weights if edge weights are identical by returning a value of 1
+  // Enforce distinct weights if initial edge weights are identical by returning
+  // a value of 1
   return max > 0 ? max / static_cast<alteration_t>(2) : 1
 }
 
