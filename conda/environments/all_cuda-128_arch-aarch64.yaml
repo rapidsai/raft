@@ -24,7 +24,7 @@ dependencies:
 - dask-cuda==25.8.*,>=0.0.0a0
 - distributed-ucxx==0.45.*,>=0.0.0a0
 - doxygen>=1.8.20
-- gcc_linux-aarch64=13.*
+- gcc_linux-aarch64=14.*
 - graphviz
 - ipython
 - libcublas-dev
