@@ -208,10 +208,10 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T, typename idx_t, typename nnz_t>
-void coo_remove_scalar_mytest(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
-                              raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out,
-                              T scalar,
-                              cudaStream_t stream)
+void coo_remove_scalar(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
+                       raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out,
+                       T scalar,
+                       cudaStream_t stream)
 {
   auto in_structure = in.structure_view();
 

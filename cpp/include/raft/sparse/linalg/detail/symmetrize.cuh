@@ -185,11 +185,11 @@ void coo_symmetrize(COO<T, IdxT, nnz_t>* in,
  * @param stream: cuda stream to use
  */
 template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
-void coo_symmetrize_mytest(raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> in,
-                           raft::device_coo_matrix<T, IdxT, IdxT, nnz_t>& out,
-                           Lambda reduction_op,  // two-argument reducer
-                           cudaStream_t stream,
-                           raft::resources const& handle)
+void coo_symmetrize(raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> in,
+                    raft::device_coo_matrix<T, IdxT, IdxT, nnz_t>& out,
+                    Lambda reduction_op,  // two-argument reducer
+                    cudaStream_t stream,
+                    raft::resources const& handle)
 {
   auto in_structure = in.structure_view();
 
