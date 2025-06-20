@@ -18,6 +18,7 @@
 
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/matrix/init.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
@@ -185,28 +186,20 @@ void coo_symmetrize(COO<T, IdxT, nnz_t>* in,
  */
 template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
 void coo_symmetrize_mytest(raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> in,
-                           raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> out,
+                           raft::device_coo_matrix<T, IdxT, IdxT, nnz_t>& out,
                            Lambda reduction_op,  // two-argument reducer
-                           cudaStream_t stream)
+                           cudaStream_t stream,
+                           raft::resources const& handle)
 {
-  auto in_structure  = in.structure_view();
-  auto out_structure = out.structure_view();
+  auto in_structure = in.structure_view();
 
   auto in_n_rows = in_structure.get_n_rows();
   auto in_n_cols = in_structure.get_n_cols();
   auto in_nnz    = in_structure.get_nnz();
 
-  auto out_n_rows = out_structure.get_n_rows();
-  auto out_n_cols = out_structure.get_n_cols();
-  auto out_nnz    = out_structure.get_nnz();
-
   auto in_rows = in_structure.get_rows().data();
   auto in_cols = in_structure.get_cols().data();
   auto in_vals = in.get_elements().data();
-
-  auto out_rows = out_structure.get_rows().data();
-  auto out_cols = out_structure.get_cols().data();
-  auto out_vals = out.get_elements().data();
 
   dim3 grid(raft::ceildiv(in_n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -221,8 +214,24 @@ void coo_symmetrize_mytest(raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> in
 
   // out->allocate(in->nnz * 2, in->n_rows, in->n_cols, true, stream);
 
+  out.initialize_sparsity(in_nnz * 2);
+
   std::cout << "in_n_rows: " << in_n_rows << std::endl;
   std::cout << "in_nnz: " << in_nnz << std::endl;
+
+  auto out_structure = out.structure_view();
+
+  auto out_n_rows = out_structure.get_n_rows();
+  auto out_n_cols = out_structure.get_n_cols();
+  auto out_nnz    = out_structure.get_nnz();
+
+  auto out_rows = out_structure.get_rows().data();
+  auto out_cols = out_structure.get_cols().data();
+  auto out_vals = out.get_elements().data();
+
+  raft::matrix::fill(handle, raft::make_device_vector_view(out_rows, out_nnz), 0);
+  raft::matrix::fill(handle, raft::make_device_vector_view(out_cols, out_nnz), 0);
+  raft::matrix::fill(handle, raft::make_device_vector_view(out_vals, out_nnz), 0.0F);
 
   // raft::print_device_vector("in_rows", in_rows, in_nnz, std::cout);
   // raft::print_device_vector("in_cols", in_cols, in_nnz, std::cout);
