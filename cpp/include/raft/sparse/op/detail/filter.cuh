@@ -152,7 +152,6 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
                        T scalar,
                        cudaStream_t stream)
 {
-  std::cout << "original remove scalar-1" << std::endl;
   rmm::device_uvector<nnz_t> row_count_nz(in->n_rows, stream);
   rmm::device_uvector<nnz_t> row_count(in->n_rows, stream);
 
@@ -168,19 +167,9 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
     in->rows(), in->vals(), in->nnz, scalar, (unsigned long long int*)row_count_nz.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  std::cout << "original remove scalar" << std::endl;
-  std::cout << "in->n_rows: " << in->n_rows << std::endl;
-
-  // raft::print_device_vector("original row_count_nz", row_count_nz.data(), in->n_rows, std::cout);
-
   thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
   nnz_t out_nnz =
     thrust::reduce(rmm::exec_policy(stream), d_row_count_nz, d_row_count_nz + in->n_rows);
-
-  // std::cout << "original out_nnz: " << out_nnz << std::endl;
-
-  // raft::print_device_vector("row_count_nz", row_count_nz.data(), in->n_rows, std::cout);
-  // raft::print_device_vector("row_count", row_count.data(), in->n_rows, std::cout);
 
   out->allocate(out_nnz, in->n_rows, in->n_cols, false, stream);
 
@@ -223,8 +212,6 @@ void coo_remove_scalar(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
   auto in_cols = in_structure.get_cols().data();
   auto in_vals = in.get_elements().data();
 
-  // std::cout << "in.n_rows: " << in.n_rows << std::endl;
-
   rmm::device_uvector<nnz_t> row_count_nz(in_n_rows, stream);
   rmm::device_uvector<nnz_t> row_count(in_n_rows, stream);
 
@@ -239,19 +226,9 @@ void coo_remove_scalar(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
   linalg::coo_degree_scalar(in_rows, in_vals, in_nnz, scalar, (nnz_t*)row_count_nz.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  std::cout << "mytest remove scalar" << std::endl;
-  std::cout << "in_n_rows: " << in_n_rows << std::endl;
-
-  // raft::print_device_vector("row_count_nz", row_count_nz.data(), in_n_rows, std::cout);
-
   thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
   auto out_nnz =
     thrust::reduce(rmm::exec_policy(stream), d_row_count_nz, d_row_count_nz + in_n_rows);
-
-  // std::cout << "mytest out_nnz: " << out_nnz << std::endl;
-
-  // raft::print_device_vector("row_count_nz", row_count_nz.data(), in_n_rows, std::cout);
-  // raft::print_device_vector("row_count", row_count.data(), in_n_rows, std::cout);
 
   out.initialize_sparsity(out_nnz);
 
@@ -264,8 +241,6 @@ void coo_remove_scalar(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
   auto out_rows = out_structure.get_rows().data();
   auto out_cols = out_structure.get_cols().data();
   auto out_vals = out.get_elements().data();
-
-  // out->allocate(out_nnz, in->n_rows, in->n_cols, false, stream);
 
   coo_remove_scalar<TPB_X, T, idx_t, nnz_t>(in_rows,
                                             in_cols,

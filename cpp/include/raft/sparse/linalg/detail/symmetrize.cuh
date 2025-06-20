@@ -150,17 +150,6 @@ void coo_symmetrize(COO<T, IdxT, nnz_t>* in,
 
   out->allocate(in->nnz * 2, in->n_rows, in->n_cols, true, stream);
 
-  std::cout << "in->n_rows: " << in->n_rows << std::endl;
-  std::cout << "in->nnz: " << in->nnz << std::endl;
-
-  // raft::print_device_vector("in->rows", in->rows(), in->nnz, std::cout);
-  // raft::print_device_vector("in->cols", in->cols(), in->nnz, std::cout);
-  // raft::print_device_vector("in->vals", in->vals(), in->nnz, std::cout);
-
-  // raft::print_device_vector("out->rows", out->rows(), out->nnz, std::cout);
-  // raft::print_device_vector("out->cols", out->cols(), out->nnz, std::cout);
-  // raft::print_device_vector("out->vals", out->vals(), out->nnz, std::cout);
-
   coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(in_row_ind.data(),
                                                             in->rows(),
                                                             in->cols(),
@@ -204,20 +193,11 @@ void coo_symmetrize(raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> in,
   dim3 grid(raft::ceildiv(in_n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  // ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
-
   rmm::device_uvector<nnz_t> in_row_ind(in_n_rows, stream);
 
   convert::sorted_coo_to_csr(in_rows, in_nnz, in_row_ind.data(), in_n_rows, stream);
 
-  // raft::print_device_vector("in_row_ind", in_row_ind.data(), in_n_rows, std::cout);
-
-  // out->allocate(in->nnz * 2, in->n_rows, in->n_cols, true, stream);
-
   out.initialize_sparsity(in_nnz * 2);
-
-  std::cout << "in_n_rows: " << in_n_rows << std::endl;
-  std::cout << "in_nnz: " << in_nnz << std::endl;
 
   auto out_structure = out.structure_view();
 
@@ -233,14 +213,6 @@ void coo_symmetrize(raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> in,
   raft::matrix::fill(handle, raft::make_device_vector_view(out_cols, out_nnz), 0);
   raft::matrix::fill(handle, raft::make_device_vector_view(out_vals, out_nnz), 0.0F);
 
-  // raft::print_device_vector("in_rows", in_rows, in_nnz, std::cout);
-  // raft::print_device_vector("in_cols", in_cols, in_nnz, std::cout);
-  // raft::print_device_vector("in_vals", in_vals, in_nnz, std::cout);
-
-  // raft::print_device_vector("out_rows", out_rows, out_nnz, std::cout);
-  // raft::print_device_vector("out_cols", out_cols, out_nnz, std::cout);
-  // raft::print_device_vector("out_vals", out_vals, out_nnz, std::cout);
-
   coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(in_row_ind.data(),
                                                             in_rows,
                                                             in_cols,
@@ -251,8 +223,6 @@ void coo_symmetrize(raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> in,
                                                             in_n_rows,
                                                             in_nnz,
                                                             reduction_op);
-
-  std::cout << "in_nnz: " << in_nnz << std::endl;
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
