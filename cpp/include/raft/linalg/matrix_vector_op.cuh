@@ -159,7 +159,7 @@ void matrix_vector_op(raft::resources const& handle,
   auto constexpr rowMajor = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
   auto constexpr bcastAlongRows = apply == Apply::ALONG_ROWS;
 
-  if (bcastAlongRows) {
+  if constexpr (bcastAlongRows) {
     RAFT_EXPECTS(out.extent(1) == static_cast<IndexType>(vec.size()),
                  "Size mismatch between matrix and vector");
   } else {
@@ -220,7 +220,7 @@ void matrix_vector_op(raft::resources const& handle,
   auto constexpr rowMajor = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
   auto constexpr bcastAlongRows = apply == Apply::ALONG_ROWS;
 
-  if (bcastAlongRows) {
+  if constexpr (bcastAlongRows) {
     RAFT_EXPECTS(out.extent(1) == static_cast<IndexType>(vec1.size()),
                  "Size mismatch between matrix and vector");
     RAFT_EXPECTS(out.extent(1) == static_cast<IndexType>(vec2.size()),

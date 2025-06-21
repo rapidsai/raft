@@ -41,7 +41,7 @@ void matrixVectorOp(MatT* out,
   raft::resources handle;
   resource::set_cuda_stream(handle, stream);
   constexpr bool along_lines = rowMajor == bcastAlongRows;
-  if (rowMajor) {
+  if constexpr (rowMajor) {
     matrix::linewise_op<along_lines, MatT, IdxType, row_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, row_major>(matrix, N, D),
@@ -78,7 +78,7 @@ void matrixVectorOp(MatT* out,
   raft::resources handle;
   resource::set_cuda_stream(handle, stream);
   constexpr bool along_lines = rowMajor == bcastAlongRows;
-  if (rowMajor) {
+  if constexpr (rowMajor) {
     matrix::linewise_op<along_lines, MatT, IdxType, row_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, row_major>(matrix, N, D),
