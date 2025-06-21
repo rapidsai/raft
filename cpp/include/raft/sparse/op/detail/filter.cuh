@@ -163,7 +163,7 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   linalg::coo_degree_scalar(
-    in->rows(), in->vals(), in->nnz, scalar, (unsigned long long int*)row_count_nz.data(), stream);
+    in->rows(), in->vals(), in->nnz, scalar, (nnz_t*)row_count_nz.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
