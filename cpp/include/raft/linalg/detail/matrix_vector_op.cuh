@@ -40,16 +40,17 @@ void matrixVectorOp(MatT* out,
 {
   raft::resources handle;
   resource::set_cuda_stream(handle, stream);
-  constexpr bool along_lines = rowMajor == bcastAlongRows;
+  constexpr raft::Apply apply =
+    rowMajor == bcastAlongRows ? raft::Apply::ALONG_ROWS : raft::Apply::ALONG_COLUMNS;
   if constexpr (rowMajor) {
-    matrix::linewise_op<along_lines, MatT, IdxType, row_major, Lambda>(
+    matrix::linewise_op<apply, MatT, IdxType, row_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, row_major>(matrix, N, D),
       make_device_matrix_view<MatT, IdxType, row_major>(out, N, D),
       op,
       make_device_vector_view<const VecT, IdxType>(vec, bcastAlongRows ? N : D));
   } else {
-    matrix::linewise_op<along_lines, MatT, IdxType, col_major, Lambda>(
+    matrix::linewise_op<apply, MatT, IdxType, col_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, col_major>(matrix, N, D),
       make_device_matrix_view<MatT, IdxType, col_major>(out, N, D),
@@ -77,9 +78,10 @@ void matrixVectorOp(MatT* out,
 {
   raft::resources handle;
   resource::set_cuda_stream(handle, stream);
-  constexpr bool along_lines = rowMajor == bcastAlongRows;
+  constexpr raft::Apply apply =
+    rowMajor == bcastAlongRows ? raft::Apply::ALONG_ROWS : raft::Apply::ALONG_COLUMNS;
   if constexpr (rowMajor) {
-    matrix::linewise_op<along_lines, MatT, IdxType, row_major, Lambda>(
+    matrix::linewise_op<apply, MatT, IdxType, row_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, row_major>(matrix, N, D),
       make_device_matrix_view<MatT, IdxType, row_major>(out, N, D),
@@ -87,7 +89,7 @@ void matrixVectorOp(MatT* out,
       make_device_vector_view<const Vec1T, IdxType>(vec1, bcastAlongRows ? N : D),
       make_device_vector_view<const Vec2T, IdxType>(vec2, bcastAlongRows ? N : D));
   } else {
-    matrix::linewise_op<along_lines, MatT, IdxType, col_major, Lambda>(
+    matrix::linewise_op<apply, MatT, IdxType, col_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, col_major>(matrix, N, D),
       make_device_matrix_view<MatT, IdxType, col_major>(out, N, D),

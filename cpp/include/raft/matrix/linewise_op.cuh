@@ -19,6 +19,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/core/types.hpp>
 #include <raft/matrix/detail/linewise_op.cuh>
 
 namespace raft::matrix {
@@ -57,7 +58,7 @@ namespace raft::matrix {
  * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
-template <bool alongLines,
+template <raft::Apply apply,
           typename m_t,
           typename idx_t,
           typename layout,
@@ -82,16 +83,17 @@ void linewise_op(raft::resources const& handle,
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");
 
-  detail::MatrixLinewiseOp<16, 256>::run<alongLines, m_t, idx_t>(out.data_handle(),
-                                                                 in.data_handle(),
-                                                                 lineLen,
-                                                                 nLines,
-                                                                 op,
-                                                                 resource::get_cuda_stream(handle),
-                                                                 vecs.data_handle()...);
+  detail::MatrixLinewiseOp<16, 256>::run<apply == raft::Apply::ALONG_ROWS, m_t, idx_t>(
+    out.data_handle(),
+    in.data_handle(),
+    lineLen,
+    nLines,
+    op,
+    resource::get_cuda_stream(handle),
+    vecs.data_handle()...);
 }
 
-template <bool alongLines,
+template <raft::Apply apply,
           typename m_t,
           typename idx_t,
           typename layout,
@@ -116,7 +118,7 @@ void linewise_op(raft::resources const& handle,
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");
 
-  detail::MatrixLinewiseOp<16, 256>::runPadded<alongLines, m_t, idx_t>(
+  detail::MatrixLinewiseOp<16, 256>::runPadded<apply == raft::Apply::ALONG_ROWS, m_t, idx_t>(
     out, in, lineLen, nLines, op, resource::get_cuda_stream(handle), vecs.data_handle()...);
 }
 

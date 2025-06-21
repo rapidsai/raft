@@ -74,9 +74,11 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
 
     auto vec_view = raft::make_device_vector_view<const T>(vec, lineLen);
     if (raft::is_row_major(in_view)) {
-      matrix::linewise_op<true>(handle, in_view, out_view, raft::add_op{}, vec_view);
+      matrix::linewise_op<raft::Apply::ALONG_ROWS>(
+        handle, in_view, out_view, raft::add_op{}, vec_view);
     } else {
-      matrix::linewise_op<false>(handle, in_view, out_view, raft::add_op{}, vec_view);
+      matrix::linewise_op<raft::Apply::ALONG_COLUMNS>(
+        handle, in_view, out_view, raft::add_op{}, vec_view);
     }
   }
 
@@ -96,9 +98,11 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     auto vec2_view = raft::make_device_vector_view<const T, I>(vec2, lineLen);
 
     if (raft::is_row_major(in_view)) {
-      matrix::linewise_op<true>(handle, in_view, out_view, f, vec1_view, vec2_view);
+      matrix::linewise_op<raft::Apply::ALONG_ROWS>(
+        handle, in_view, out_view, f, vec1_view, vec2_view);
     } else {
-      matrix::linewise_op<false>(handle, in_view, out_view, f, vec1_view, vec2_view);
+      matrix::linewise_op<raft::Apply::ALONG_COLUMNS>(
+        handle, in_view, out_view, f, vec1_view, vec2_view);
     }
   }
 
@@ -121,9 +125,9 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   {
     auto vec_view = raft::make_device_vector_view<const T, I>(vec, alongLines ? lineLen : nLines);
     if (alongLines) {
-      matrix::linewise_op<true>(handle, in, out, raft::add_op{}, vec_view);
+      matrix::linewise_op<raft::Apply::ALONG_ROWS>(handle, in, out, raft::add_op{}, vec_view);
     } else {
-      matrix::linewise_op<false>(handle, in, out, raft::add_op{}, vec_view);
+      matrix::linewise_op<raft::Apply::ALONG_COLUMNS>(handle, in, out, raft::add_op{}, vec_view);
     }
   }
 
