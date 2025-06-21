@@ -162,8 +162,16 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
   linalg::coo_degree(in->rows(), in->nnz, row_count.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  linalg::coo_degree_scalar(
-    in->rows(), in->vals(), in->nnz, scalar, (nnz_t*)row_count_nz.data(), stream);
+  if constexpr (std::is_same_v<nnz_t, uint64_t>) {
+    linalg::coo_degree_scalar(in->rows(),
+                              in->vals(),
+                              in->nnz,
+                              scalar,
+                              reinterpret_cast<unsigned long long*>(row_count_nz.data()),
+                              stream);
+  } else {
+    linalg::coo_degree_scalar(in->rows(), in->vals(), in->nnz, scalar, row_count_nz.data(), stream);
+  }
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
