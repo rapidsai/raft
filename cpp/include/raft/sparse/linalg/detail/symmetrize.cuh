@@ -172,6 +172,7 @@ void coo_symmetrize(COO<T, IdxT, nnz_t>* in,
  * @param out: Output symmetrized COO matrix
  * @param reduction_op: a custom reduction function
  * @param stream: cuda stream to use
+ * @param handle: raft resources handle
  */
 template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
 void coo_symmetrize(raft::device_coo_matrix_view<T, IdxT, IdxT, nnz_t> in,
