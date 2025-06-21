@@ -45,7 +45,7 @@ namespace stats {
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */
-template <typename Type>
+template <bool rowMajor, typename Type>
 void cov(raft::resources const& handle,
          Type* covar,
          Type* data,
@@ -53,11 +53,10 @@ void cov(raft::resources const& handle,
          std::size_t D,
          std::size_t N,
          bool sample,
-         bool rowMajor,
          bool stable,
          cudaStream_t stream)
 {
-  detail::cov(handle, covar, data, mu, D, N, sample, rowMajor, stable, stream);
+  detail::cov<rowMajor>(handle, covar, data, mu, D, N, sample, stable, stream);
 }
 
 /**
@@ -102,16 +101,15 @@ void cov(raft::resources const& handle,
   RAFT_EXPECTS(covar.is_exhaustive(), "covar must be contiguous");
   RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
 
-  detail::cov(handle,
-              covar.data_handle(),
-              data.data_handle(),
-              mu.data_handle(),
-              data.extent(1),
-              data.extent(0),
-              std::is_same_v<layout_t, raft::row_major>,
-              sample,
-              stable,
-              resource::get_cuda_stream(handle));
+  detail::cov<std::is_same_v<layout_t, raft::row_major>>(handle,
+                                                         covar.data_handle(),
+                                                         data.data_handle(),
+                                                         mu.data_handle(),
+                                                         data.extent(1),
+                                                         data.extent(0),
+                                                         sample,
+                                                         stable,
+                                                         resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_cov

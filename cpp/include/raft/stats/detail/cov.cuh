@@ -44,7 +44,7 @@ namespace detail {
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */
-template <typename Type>
+template <bool rowMajor, typename Type>
 void cov(raft::resources const& handle,
          Type* covar,
          Type* data,
@@ -52,18 +52,13 @@ void cov(raft::resources const& handle,
          std::size_t D,
          std::size_t N,
          bool sample,
-         bool rowMajor,
          bool stable,
          cudaStream_t stream)
 {
   if (stable) {
     // since mean operation is assumed to be along a given column, broadcast
     // must be along rows!
-    if (rowMajor) {
-      raft::stats::meanCenter<true, true>(data, data, mu, D, N, stream);
-    } else {
-      raft::stats::meanCenter<false, true>(data, data, mu, D, N, stream);
-    }
+    raft::stats::meanCenter<rowMajor, true>(data, data, mu, D, N, stream);
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta  = Type(0);
     auto ldd   = rowMajor ? D : N;
