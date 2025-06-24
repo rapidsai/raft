@@ -134,13 +134,14 @@ struct cos_test_op_device {
 #if (__CUDA_ARCH__ < 530)
     if constexpr (std::is_same_v<Type, __half>) {
       return __float2half(raft::cos(__half2float(in)));
-    }
-#elif (__CUDA_ARCH__ < 800)
-    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+    } else
+#endif
+#if (__CUDA_ARCH__ < 800)
+      if constexpr (std::is_same_v<Type, nv_bfloat16>) {
       return __float2bfloat16(raft::cos(__bfloat162float(in)));
     } else  // else is there to make sure raft::cos(in) is not compiled with __half / nv_bfloat16
 #endif
-    return raft::cos(in);
+      return raft::cos(in);
   }
 };
 
@@ -174,13 +175,14 @@ struct exp_test_op_device {
 #if (__CUDA_ARCH__ < 530)
     if constexpr (std::is_same_v<Type, __half>) {
       return __float2half(raft::exp(__half2float(in)));
-    }
-#elif (__CUDA_ARCH__ < 800)
-    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+    } else
+#endif
+#if (__CUDA_ARCH__ < 800)
+      if constexpr (std::is_same_v<Type, nv_bfloat16>) {
       return __float2bfloat16(raft::exp(__bfloat162float(in)));
     } else  // else is there to make sure raft::exp(in) is not compiled with __half / nv_bfloat16
 #endif
-    return raft::exp(in);
+      return raft::exp(in);
   }
 };
 
@@ -205,13 +207,14 @@ struct log_test_op_device {
 #if (__CUDA_ARCH__ < 530)
     if constexpr (std::is_same_v<Type, __half>) {
       return __float2half(raft::log(__half2float(in)));
-    }
-#elif (__CUDA_ARCH__ < 800)
-    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+    } else
+#endif
+#if (__CUDA_ARCH__ < 800)
+      if constexpr (std::is_same_v<Type, nv_bfloat16>) {
       return __float2bfloat16(raft::log(__bfloat162float(in)));
     } else  // else is there to make sure raft::log(in) is not compiled with __half / nv_bfloat16
 #endif
-    return raft::log(in);
+      return raft::log(in);
   }
 };
 
@@ -364,13 +367,14 @@ struct sin_test_op_device {
 #if (__CUDA_ARCH__ < 530)
     if constexpr (std::is_same_v<Type, __half>) {
       return __float2half(raft::sin(__half2float(in)));
-    }
-#elif (__CUDA_ARCH__ < 800)
-    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+    } else
+#endif
+#if (__CUDA_ARCH__ < 800)
+      if constexpr (std::is_same_v<Type, nv_bfloat16>) {
       return __float2bfloat16(raft::sin(__bfloat162float(in)));
     } else  // else is there to make sure raft::sin(in) is not compiled with __half / nv_bfloat16
 #endif
-    return raft::sin(in);
+      return raft::sin(in);
   }
 };
 
@@ -430,13 +434,14 @@ struct sqrt_test_op_device {
 #if (__CUDA_ARCH__ < 530)
     if constexpr (std::is_same_v<Type, __half>) {
       return __float2half(raft::sqrt(__half2float(in)));
-    }
-#elif (__CUDA_ARCH__ < 800)
-    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+    } else
+#endif
+#if (__CUDA_ARCH__ < 800)
+      if constexpr (std::is_same_v<Type, nv_bfloat16>) {
       return __float2bfloat16(raft::sqrt(__bfloat162float(in)));
     } else  // else is there to make sure raft::sqrt(in) is not compiled with __half / nv_bfloat16
 #endif
-    return raft::sqrt(in);
+      return raft::sqrt(in);
   }
 };
 
