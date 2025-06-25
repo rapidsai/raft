@@ -26,61 +26,115 @@
 
 namespace raft::sparse::linalg {
 
-TEST(Raft, ComputeGraphLaplacian)
+// Test case structure for Laplacian tests
+struct LaplacianTestCase {
+  std::string name;
+  std::vector<float> data;
+  std::vector<int> indices;
+  std::vector<int> indptr;
+  std::vector<float> expected_data;
+  std::vector<int> expected_indices;
+  std::vector<int> expected_indptr;
+};
+
+class ComputeGraphLaplacianTest : public ::testing::TestWithParam<LaplacianTestCase> {};
+
+TEST_P(ComputeGraphLaplacianTest, ComputeLaplacian)
 {
-  // The following adjacency matrix will be used to allow for manual
-  // verification of results:
-  // [[0 1 1 1]
-  //  [1 0 0 1]
-  //  [1 0 0 0]
-  //  [1 1 0 0]]
+  const auto& test_case = GetParam();
 
-  auto data    = std::vector<float>{1, 1, 1, 1, 1, 1, 1, 1};
-  auto indices = std::vector<int>{1, 2, 3, 0, 3, 0, 0, 1};
-  auto indptr  = std::vector<int>{0, 3, 5, 6, 8};
-
-  auto res = raft::resources{};
-  auto adjacency_matrix =
-    make_device_csr_matrix<float>(res, int(indptr.size() - 1), int(indptr.size() - 1), data.size());
+  auto res              = raft::resources{};
+  auto adjacency_matrix = make_device_csr_matrix<float>(
+    res, int(test_case.indptr.size() - 1), int(test_case.indptr.size() - 1), test_case.data.size());
   auto adjacency_structure = adjacency_matrix.structure_view();
+
   raft::copy(adjacency_matrix.get_elements().data(),
-             &(data[0]),
-             data.size(),
+             test_case.data.data(),
+             test_case.data.size(),
              raft::resource::get_cuda_stream(res));
   raft::copy(adjacency_structure.get_indices().data(),
-             &(indices[0]),
-             indices.size(),
+             test_case.indices.data(),
+             test_case.indices.size(),
              raft::resource::get_cuda_stream(res));
   raft::copy(adjacency_structure.get_indptr().data(),
-             &(indptr[0]),
-             indptr.size(),
+             test_case.indptr.data(),
+             test_case.indptr.size(),
              raft::resource::get_cuda_stream(res));
+
   auto laplacian           = compute_graph_laplacian(res, adjacency_matrix.view());
   auto laplacian_structure = laplacian.structure_view();
   auto laplacian_data      = std::vector<float>(laplacian_structure.get_nnz());
   auto laplacian_indices   = std::vector<int>(laplacian_structure.get_nnz());
   auto laplacian_indptr    = std::vector<int>(laplacian_structure.get_n_rows() + 1);
-  raft::copy(&(laplacian_data[0]),
+
+  raft::copy(laplacian_data.data(),
              laplacian.get_elements().data(),
              laplacian_structure.get_nnz(),
              raft::resource::get_cuda_stream(res));
-  raft::copy(&(laplacian_indices[0]),
+  raft::copy(laplacian_indices.data(),
              laplacian_structure.get_indices().data(),
              laplacian_structure.get_nnz(),
              raft::resource::get_cuda_stream(res));
-  raft::copy(&(laplacian_indptr[0]),
+  raft::copy(laplacian_indptr.data(),
              laplacian_structure.get_indptr().data(),
              laplacian_structure.get_n_rows() + 1,
              raft::resource::get_cuda_stream(res));
-  auto expected_data    = std::vector<float>{3, -1, -1, -1, -1, 2, -1, -1, 1, -1, -1, 2};
-  auto expected_indices = std::vector<int>{0, 1, 2, 3, 0, 1, 3, 0, 2, 0, 1, 3};
-  auto expected_indptr  = std::vector<int>{0, 4, 7, 9, 12};
   raft::resource::sync_stream(res);
 
-  EXPECT_EQ(expected_data, laplacian_data);
-  EXPECT_EQ(expected_indices, laplacian_indices);
-  EXPECT_EQ(expected_indptr, laplacian_indptr);
+  EXPECT_EQ(test_case.expected_data, laplacian_data) << "Failed for test case: " << test_case.name;
+  EXPECT_EQ(test_case.expected_indices, laplacian_indices)
+    << "Failed for test case: " << test_case.name;
+  EXPECT_EQ(test_case.expected_indptr, laplacian_indptr)
+    << "Failed for test case: " << test_case.name;
 }
+
+// Define test cases
+const std::vector<LaplacianTestCase> laplacian_test_cases = {
+  {
+    "GraphWithoutSelfLoop",
+    // Adjacency matrix:
+    // [[0 1 1 1]
+    //  [1 0 0 1]
+    //  [1 0 0 0]
+    //  [1 1 0 0]]
+    {1, 1, 1, 1, 1, 1, 1, 1},  // data
+    {1, 2, 3, 0, 3, 0, 0, 1},  // indices
+    {0, 3, 5, 6, 8},           // indptr
+    // Expected Laplacian L = D - A:
+    // [[ 3 -1 -1 -1]
+    //  [-1  2  0 -1]
+    //  [-1  0  1  0]
+    //  [-1 -1  0  2]]
+    {3, -1, -1, -1, -1, 2, -1, -1, 1, -1, -1, 2},  // expected_data
+    {0, 1, 2, 3, 0, 1, 3, 0, 2, 0, 1, 3},          // expected_indices
+    {0, 4, 7, 9, 12},                              // expected_indptr
+  },
+  {
+    "GraphWithSelfLoop",
+    // Adjacency matrix:
+    // [[1 1 1 1]   (node 0 has a self-loop)
+    //  [1 0 0 1]
+    //  [1 0 0 0]
+    //  [1 1 0 0]]
+    {1, 1, 1, 1, 1, 1, 1, 1, 1},  // data
+    {0, 1, 2, 3, 0, 3, 0, 0, 1},  // indices
+    {0, 4, 6, 7, 9},              // indptr
+    // Expected Laplacian L = D - A:
+    // [[ 3 -1 -1 -1]   (4 - 1 = 3 on diagonal due to self-loop)
+    //  [-1  2  0 -1]
+    //  [-1  0  1  0]
+    //  [-1 -1  0  2]]
+    {3, -0, -1, -1, -1, -1, 2, -1, -1, 1, -1, -1, 2},  // expected_data
+    {0, 0, 1, 2, 3, 0, 1, 3, 0, 2, 0, 1, 3},           // expected_indices
+    {0, 5, 8, 10, 13},                                 // expected_indptr
+  }};
+
+INSTANTIATE_TEST_SUITE_P(LaplacianTests,
+                         ComputeGraphLaplacianTest,
+                         ::testing::ValuesIn(laplacian_test_cases),
+                         [](const ::testing::TestParamInfo<LaplacianTestCase>& info) {
+                           return info.param.name;
+                         });
 
 TEST(Raft, ComputeGraphLaplacianNormalized)
 {
