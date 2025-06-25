@@ -356,16 +356,11 @@ void signFlip(math_t* inout, int n_rows, int n_cols, cudaStream_t stream)
  * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
  * @param stream cuda stream
  */
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinaryMult(Type* data,
-                            const Type* vec,
-                            IdxType n_row,
-                            IdxType n_col,
-                            bool rowMajor,
-                            bool bcastAlongRows,
-                            cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinaryMult(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  detail::matrixVectorBinaryMult<Type, IdxType, TPB>(
+  detail::matrixVectorBinaryMult<rowMajor, bcastAlongRows, Type, IdxType, TPB>(
     data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
 
@@ -379,16 +374,11 @@ void matrixVectorBinaryMult(Type* data,
  * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
  * @param stream cuda stream
  */
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinaryMultSkipZero(Type* data,
-                                    const Type* vec,
-                                    IdxType n_row,
-                                    IdxType n_col,
-                                    bool rowMajor,
-                                    bool bcastAlongRows,
-                                    cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinaryMultSkipZero(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  detail::matrixVectorBinaryMultSkipZero<Type, IdxType, TPB>(
+  detail::matrixVectorBinaryMultSkipZero<rowMajor, bcastAlongRows, Type, IdxType, TPB>(
     data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
 
@@ -402,16 +392,11 @@ void matrixVectorBinaryMultSkipZero(Type* data,
  * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
  * @param stream cuda stream
  */
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinaryDiv(Type* data,
-                           const Type* vec,
-                           IdxType n_row,
-                           IdxType n_col,
-                           bool rowMajor,
-                           bool bcastAlongRows,
-                           cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinaryDiv(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  detail::matrixVectorBinaryDiv<Type, IdxType, TPB>(
+  detail::matrixVectorBinaryDiv<rowMajor, bcastAlongRows, Type, IdxType, TPB>(
     data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
 
@@ -427,18 +412,16 @@ void matrixVectorBinaryDiv(Type* data,
  * @param return_zero result is zero if true and vector value is below threshold, original value if
  * false
  */
-template <typename Type, typename IdxType = int, int TPB = 256>
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryDivSkipZero(Type* data,
                                    const Type* vec,
                                    IdxType n_row,
                                    IdxType n_col,
-                                   bool rowMajor,
-                                   bool bcastAlongRows,
                                    cudaStream_t stream,
                                    bool return_zero = false)
 {
-  detail::matrixVectorBinaryDivSkipZero<Type, IdxType, TPB>(
-    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream, return_zero);
+  detail::matrixVectorBinaryDivSkipZero<rowMajor, bcastAlongRows, Type, IdxType, TPB>(
+    data, vec, n_row, n_col, stream, return_zero);
 }
 
 /**
@@ -451,17 +434,12 @@ void matrixVectorBinaryDivSkipZero(Type* data,
  * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
  * @param stream cuda stream
  */
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinaryAdd(Type* data,
-                           const Type* vec,
-                           IdxType n_row,
-                           IdxType n_col,
-                           bool rowMajor,
-                           bool bcastAlongRows,
-                           cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinaryAdd(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  detail::matrixVectorBinaryAdd<Type, IdxType, TPB>(
-    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
+  detail::matrixVectorBinaryAdd<rowMajor, bcastAlongRows, Type, IdxType, TPB>(
+    data, vec, n_row, n_col, stream);
 }
 
 /**
@@ -474,17 +452,12 @@ void matrixVectorBinaryAdd(Type* data,
  * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
  * @param stream cuda stream
  */
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinarySub(Type* data,
-                           const Type* vec,
-                           IdxType n_row,
-                           IdxType n_col,
-                           bool rowMajor,
-                           bool bcastAlongRows,
-                           cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinarySub(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  detail::matrixVectorBinarySub<Type, IdxType, TPB>(
-    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
+  detail::matrixVectorBinarySub<rowMajor, bcastAlongRows, Type, IdxType, TPB>(
+    data, vec, n_row, n_col, stream);
 }
 
 };  // end namespace matrix

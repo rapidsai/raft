@@ -207,325 +207,94 @@ void ratio(
     d_dest, d_src, len, [=] __device__(math_t a) { return a / (*d_sum_ptr); }, stream);
 }
 
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinaryMult(Type* data,
-                            const Type* vec,
-                            IdxType n_row,
-                            IdxType n_col,
-                            bool rowMajor,
-                            bool bcastAlongRows,
-                            cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinaryMult(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  if (rowMajor) {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<true, true>(
-        data, data, vec, n_col, n_row, raft::mul_op(), stream);
-    } else {
-      raft::linalg::matrixVectorOp<true, false>(
-        data, data, vec, n_col, n_row, raft::mul_op(), stream);
-    }
-  } else {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<false, true>(
-        data, data, vec, n_col, n_row, raft::mul_op(), stream);
-    } else {
-      raft::linalg::matrixVectorOp<false, false>(
-        data, data, vec, n_col, n_row, raft::mul_op(), stream);
-    }
-  }
+  raft::linalg::matrixVectorOp<rowMajor, bcastAlongRows>(
+    data, data, vec, n_col, n_row, raft::mul_op(), stream);
 }
 
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinaryMultSkipZero(Type* data,
-                                    const Type* vec,
-                                    IdxType n_row,
-                                    IdxType n_col,
-                                    bool rowMajor,
-                                    bool bcastAlongRows,
-                                    cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinaryMultSkipZero(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  if (rowMajor) {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<true, true>(
-        data,
-        data,
-        vec,
-        n_col,
-        n_row,
-        [] __device__(Type a, Type b) {
-          if (b == Type(0))
-            return a;
-          else
-            return a * b;
-        },
-        stream);
-    } else {
-      raft::linalg::matrixVectorOp<true, false>(
-        data,
-        data,
-        vec,
-        n_col,
-        n_row,
-        [] __device__(Type a, Type b) {
-          if (b == Type(0))
-            return a;
-          else
-            return a * b;
-        },
-        stream);
-    }
-  } else {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<false, true>(
-        data,
-        data,
-        vec,
-        n_col,
-        n_row,
-        [] __device__(Type a, Type b) {
-          if (b == Type(0))
-            return a;
-          else
-            return a * b;
-        },
-        stream);
-    } else {
-      raft::linalg::matrixVectorOp<false, false>(
-        data,
-        data,
-        vec,
-        n_col,
-        n_row,
-        [] __device__(Type a, Type b) {
-          if (b == Type(0))
-            return a;
-          else
-            return a * b;
-        },
-        stream);
-    }
-  }
+  raft::linalg::matrixVectorOp<rowMajor, bcastAlongRows>(
+    data,
+    data,
+    vec,
+    n_col,
+    n_row,
+    [] __device__(Type a, Type b) {
+      if (b == Type(0))
+        return a;
+      else
+        return a * b;
+    },
+    stream);
 }
 
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinaryDiv(Type* data,
-                           const Type* vec,
-                           IdxType n_row,
-                           IdxType n_col,
-                           bool rowMajor,
-                           bool bcastAlongRows,
-                           cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinaryDiv(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  if (rowMajor) {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<true, true>(
-        data, data, vec, n_col, n_row, raft::div_op(), stream);
-    } else {
-      raft::linalg::matrixVectorOp<true, false>(
-        data, data, vec, n_col, n_row, raft::div_op(), stream);
-    }
-  } else {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<false, true>(
-        data, data, vec, n_col, n_row, raft::div_op(), stream);
-    } else {
-      raft::linalg::matrixVectorOp<false, false>(
-        data, data, vec, n_col, n_row, raft::div_op(), stream);
-    }
-  }
+  raft::linalg::matrixVectorOp<rowMajor, bcastAlongRows>(
+    data, data, vec, n_col, n_row, raft::div_op(), stream);
 }
 
-template <typename Type, typename IdxType = int, int TPB = 256>
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryDivSkipZero(Type* data,
                                    const Type* vec,
                                    IdxType n_row,
                                    IdxType n_col,
-                                   bool rowMajor,
-                                   bool bcastAlongRows,
                                    cudaStream_t stream,
                                    bool return_zero = false)
 {
   if (return_zero) {
-    if (rowMajor) {
-      if (bcastAlongRows) {
-        raft::linalg::matrixVectorOp<true, true>(
-          data,
-          data,
-          vec,
-          n_col,
-          n_row,
-          [] __device__(Type a, Type b) {
-            if (raft::abs(b) < Type(1e-10))
-              return Type(0);
-            else
-              return a / b;
-          },
-          stream);
-      } else {
-        raft::linalg::matrixVectorOp<true, false>(
-          data,
-          data,
-          vec,
-          n_col,
-          n_row,
-          [] __device__(Type a, Type b) {
-            if (raft::abs(b) < Type(1e-10))
-              return Type(0);
-            else
-              return a / b;
-          },
-          stream);
-      }
-    } else {
-      if (bcastAlongRows) {
-        raft::linalg::matrixVectorOp<false, true>(
-          data,
-          data,
-          vec,
-          n_col,
-          n_row,
-          [] __device__(Type a, Type b) {
-            if (raft::abs(b) < Type(1e-10))
-              return Type(0);
-            else
-              return a / b;
-          },
-          stream);
-      } else {
-        raft::linalg::matrixVectorOp<false, false>(
-          data,
-          data,
-          vec,
-          n_col,
-          n_row,
-          [] __device__(Type a, Type b) {
-            if (raft::abs(b) < Type(1e-10))
-              return Type(0);
-            else
-              return a / b;
-          },
-          stream);
-      }
-    }
+    raft::linalg::matrixVectorOp<rowMajor, bcastAlongRows>(
+      data,
+      data,
+      vec,
+      n_col,
+      n_row,
+      [] __device__(Type a, Type b) {
+        if (raft::abs(b) < Type(1e-10))
+          return Type(0);
+        else
+          return a / b;
+      },
+      stream);
   } else {
-    if (rowMajor) {
-      if (bcastAlongRows) {
-        raft::linalg::matrixVectorOp<true, true>(
-          data,
-          data,
-          vec,
-          n_col,
-          n_row,
-          [] __device__(Type a, Type b) {
-            if (raft::abs(b) < Type(1e-10))
-              return a;
-            else
-              return a / b;
-          },
-          stream);
-      } else {
-        raft::linalg::matrixVectorOp<true, false>(
-          data,
-          data,
-          vec,
-          n_col,
-          n_row,
-          [] __device__(Type a, Type b) {
-            if (raft::abs(b) < Type(1e-10))
-              return a;
-            else
-              return a / b;
-          },
-          stream);
-      }
-    } else {
-      if (bcastAlongRows) {
-        raft::linalg::matrixVectorOp<false, true>(
-          data,
-          data,
-          vec,
-          n_col,
-          n_row,
-          [] __device__(Type a, Type b) {
-            if (raft::abs(b) < Type(1e-10))
-              return a;
-            else
-              return a / b;
-          },
-          stream);
-      } else {
-        raft::linalg::matrixVectorOp<false, false>(
-          data,
-          data,
-          vec,
-          n_col,
-          n_row,
-          [] __device__(Type a, Type b) {
-            if (raft::abs(b) < Type(1e-10))
-              return a;
-            else
-              return a / b;
-          },
-          stream);
-      }
-    }
+    raft::linalg::matrixVectorOp<rowMajor, bcastAlongRows>(
+      data,
+      data,
+      vec,
+      n_col,
+      n_row,
+      [] __device__(Type a, Type b) {
+        if (raft::abs(b) < Type(1e-10))
+          return a;
+        else
+          return a / b;
+      },
+      stream);
   }
 }
 
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinaryAdd(Type* data,
-                           const Type* vec,
-                           IdxType n_row,
-                           IdxType n_col,
-                           bool rowMajor,
-                           bool bcastAlongRows,
-                           cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinaryAdd(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  if (rowMajor) {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<true, true>(
-        data, data, vec, n_col, n_row, raft::add_op(), stream);
-    } else {
-      raft::linalg::matrixVectorOp<true, false>(
-        data, data, vec, n_col, n_row, raft::add_op(), stream);
-    }
-  } else {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<false, true>(
-        data, data, vec, n_col, n_row, raft::add_op(), stream);
-    } else {
-      raft::linalg::matrixVectorOp<false, false>(
-        data, data, vec, n_col, n_row, raft::add_op(), stream);
-    }
-  }
+  raft::linalg::matrixVectorOp<rowMajor, bcastAlongRows>(
+    data, data, vec, n_col, n_row, raft::add_op(), stream);
 }
 
-template <typename Type, typename IdxType = int, int TPB = 256>
-void matrixVectorBinarySub(Type* data,
-                           const Type* vec,
-                           IdxType n_row,
-                           IdxType n_col,
-                           bool rowMajor,
-                           bool bcastAlongRows,
-                           cudaStream_t stream)
+template <bool rowMajor, bool bcastAlongRows, typename Type, typename IdxType = int, int TPB = 256>
+void matrixVectorBinarySub(
+  Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
-  if (rowMajor) {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<true, true>(
-        data, data, vec, n_col, n_row, raft::sub_op(), stream);
-    } else {
-      raft::linalg::matrixVectorOp<true, false>(
-        data, data, vec, n_col, n_row, raft::sub_op(), stream);
-    }
-  } else {
-    if (bcastAlongRows) {
-      raft::linalg::matrixVectorOp<false, true>(
-        data, data, vec, n_col, n_row, raft::sub_op(), stream);
-    } else {
-      raft::linalg::matrixVectorOp<false, false>(
-        data, data, vec, n_col, n_row, raft::sub_op(), stream);
-    }
-  }
+  raft::linalg::matrixVectorOp<rowMajor, bcastAlongRows>(
+    data, data, vec, n_col, n_row, raft::sub_op(), stream);
 }
 
 // Computes an argmin/argmax column-wise in a DxN matrix

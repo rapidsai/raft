@@ -67,33 +67,73 @@ void matrix_vector_op_launch(const raft::resources& handle,
 
   if (operation_type == 0) {
     if (row_major) {
-      binary_mult_skip_zero(handle, in_row_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_mult_skip_zero<Apply::ALONG_ROWS, true>(handle, in_row_major, vec1_view);
+      } else {
+        binary_mult_skip_zero<Apply::ALONG_COLUMNS, true>(handle, in_row_major, vec1_view);
+      }
     } else {
-      binary_mult_skip_zero(handle, in_col_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_mult_skip_zero<Apply::ALONG_ROWS, false>(handle, in_col_major, vec1_view);
+      } else {
+        binary_mult_skip_zero<Apply::ALONG_COLUMNS, false>(handle, in_col_major, vec1_view);
+      }
     }
   } else if (operation_type == 1) {
     if (row_major) {
-      binary_div(handle, in_row_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_div<Apply::ALONG_ROWS, true>(handle, in_row_major, vec1_view);
+      } else {
+        binary_div<Apply::ALONG_COLUMNS, true>(handle, in_row_major, vec1_view);
+      }
     } else {
-      binary_div(handle, in_col_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_div<Apply::ALONG_ROWS, false>(handle, in_col_major, vec1_view);
+      } else {
+        binary_div<Apply::ALONG_COLUMNS, false>(handle, in_col_major, vec1_view);
+      }
     }
   } else if (operation_type == 2) {
     if (row_major) {
-      binary_div_skip_zero(handle, in_row_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_div_skip_zero<Apply::ALONG_ROWS, true>(handle, in_row_major, vec1_view, false);
+      } else {
+        binary_div_skip_zero<Apply::ALONG_COLUMNS, true>(handle, in_row_major, vec1_view, false);
+      }
     } else {
-      binary_div_skip_zero(handle, in_col_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_div_skip_zero<Apply::ALONG_ROWS, false>(handle, in_col_major, vec1_view, false);
+      } else {
+        binary_div_skip_zero<Apply::ALONG_COLUMNS, false>(handle, in_col_major, vec1_view, false);
+      }
     }
   } else if (operation_type == 3) {
     if (row_major) {
-      binary_add(handle, in_row_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_add<Apply::ALONG_ROWS, true>(handle, in_row_major, vec1_view);
+      } else {
+        binary_add<Apply::ALONG_COLUMNS, true>(handle, in_row_major, vec1_view);
+      }
     } else {
-      binary_add(handle, in_col_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_add<Apply::ALONG_ROWS, false>(handle, in_col_major, vec1_view);
+      } else {
+        binary_add<Apply::ALONG_COLUMNS, false>(handle, in_col_major, vec1_view);
+      }
     }
   } else if (operation_type == 4) {
     if (row_major) {
-      binary_sub(handle, in_row_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_sub<Apply::ALONG_ROWS, true>(handle, in_row_major, vec1_view);
+      } else {
+        binary_sub<Apply::ALONG_COLUMNS, true>(handle, in_row_major, vec1_view);
+      }
     } else {
-      binary_sub(handle, in_col_major, vec1_view, apply);
+      if (apply == Apply::ALONG_ROWS) {
+        binary_sub<Apply::ALONG_ROWS, false>(handle, in_col_major, vec1_view);
+      } else {
+        binary_sub<Apply::ALONG_COLUMNS, false>(handle, in_col_major, vec1_view);
+      }
     }
   } else {
     THROW("Unknown operation type '%d'!", (int)operation_type);
