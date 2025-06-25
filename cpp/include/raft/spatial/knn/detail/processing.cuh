@@ -85,26 +85,16 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<row_major, math_
   {
     math_t normalizer_const = 1.0 / (math_t)cosine::n_cols_;
 
-    if (row_major) {
-      raft::linalg::reduce<true, true>(
-        means_.data(), data, cosine::n_cols_, cosine::n_rows_, (math_t)0.0, cosine::stream_);
-    } else {
-      raft::linalg::reduce<false, true>(
-        means_.data(), data, cosine::n_cols_, cosine::n_rows_, (math_t)0.0, cosine::stream_);
-    }
+    raft::linalg::reduce<row_major, true>(
+      means_.data(), data, cosine::n_cols_, cosine::n_rows_, (math_t)0.0, cosine::stream_);
     raft::linalg::unaryOp(means_.data(),
                           means_.data(),
                           cosine::n_rows_,
                           raft::mul_const_op<math_t>(normalizer_const),
                           cosine::stream_);
 
-    if (row_major) {
-      raft::stats::meanCenter<true, false>(
-        data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
-    } else {
-      raft::stats::meanCenter<false, false>(
-        data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
-    }
+    raft::stats::meanCenter<row_major, false>(
+      data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
 
     CosineMetricProcessor<row_major, math_t>::preprocess(data);
   }
@@ -113,13 +103,8 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<row_major, math_
   {
     CosineMetricProcessor<row_major, math_t>::revert(data);
 
-    if (row_major) {
-      raft::stats::meanAdd<true, false>(
-        data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
-    } else {
-      raft::stats::meanAdd<false, false>(
-        data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
-    }
+    raft::stats::meanAdd<row_major, false>(
+      data, data, means_.data(), cosine::n_cols_, cosine::n_rows_, cosine::stream_);
   }
 
   void postprocess(math_t* data) { CosineMetricProcessor<row_major, math_t>::postprocess(data); }
@@ -163,8 +148,6 @@ inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
 
 // Currently only being used by floats
 template class MetricProcessor<float>;
-template class CosineMetricProcessor<false, float>;
-template class CorrelationMetricProcessor<false, float>;
 template class DefaultMetricProcessor<float>;
 
 }  // namespace knn
