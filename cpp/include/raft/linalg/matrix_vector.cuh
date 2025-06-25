@@ -34,8 +34,6 @@ namespace raft::linalg {
  * @param [in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] apply whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <Apply apply, bool row_major, typename math_t, typename idx_t, typename layout_t>
 void binary_mult_skip_zero(raft::resources const& handle,
@@ -64,8 +62,6 @@ void binary_mult_skip_zero(raft::resources const& handle,
  * @param[in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] apply whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <Apply apply, bool row_major, typename math_t, typename idx_t, typename layout_t>
 void binary_div(raft::resources const& handle,
@@ -94,8 +90,6 @@ void binary_div(raft::resources const& handle,
  * @param[in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] apply whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param[in] return_zero: result is zero if true and vector value is below threshold, original
  * value if false
  */
@@ -128,8 +122,6 @@ void binary_div_skip_zero(raft::resources const& handle,
  * @param[in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] apply whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <Apply apply, bool row_major, typename math_t, typename idx_t, typename layout_t>
 void binary_add(raft::resources const& handle,
@@ -158,8 +150,6 @@ void binary_add(raft::resources const& handle,
  * @param[in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] apply whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <Apply apply, bool row_major, typename math_t, typename idx_t, typename layout_t>
 void binary_sub(raft::resources const& handle,

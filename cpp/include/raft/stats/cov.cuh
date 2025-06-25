@@ -38,7 +38,6 @@ namespace stats {
  * @param sample whether to evaluate sample covariance or not. In other words,
  * whether to normalize the output using N-1 or N, for true or false,
  * respectively
- * @param rowMajor whether the input data is row or col major
  * @param stable whether to run the slower-but-numerically-stable version or not
  * @param handle cublas handle
  * @param stream cuda stream
