@@ -120,7 +120,7 @@ const std::vector<LaplacianTestCase> laplacian_test_cases = {
     {0, 1, 2, 3, 0, 3, 0, 0, 1},  // indices
     {0, 4, 6, 7, 9},              // indptr
     // Expected Laplacian L = D - A:
-    // [[ 3 -1 -1 -1]   (4 - 1 = 3 on diagonal due to self-loop)
+    // [[ 3 -1 -1 -1]   (4 - 1 = 3 on diagonal despite self-loop)
     //  [-1  2  0 -1]
     //  [-1  0  1  0]
     //  [-1 -1  0  2]]
