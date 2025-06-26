@@ -361,7 +361,7 @@ void matrixVectorBinaryMult(
   Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
   detail::matrixVectorBinaryMult<rowMajor, bcastAlongRows, Type, IdxType, TPB>(
-    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
+    data, vec, n_row, n_col, stream);
 }
 
 /**
@@ -379,7 +379,7 @@ void matrixVectorBinaryMultSkipZero(
   Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
   detail::matrixVectorBinaryMultSkipZero<rowMajor, bcastAlongRows, Type, IdxType, TPB>(
-    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
+    data, vec, n_row, n_col, stream);
 }
 
 /**
@@ -397,7 +397,7 @@ void matrixVectorBinaryDiv(
   Type* data, const Type* vec, IdxType n_row, IdxType n_col, cudaStream_t stream)
 {
   detail::matrixVectorBinaryDiv<rowMajor, bcastAlongRows, Type, IdxType, TPB>(
-    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
+    data, vec, n_row, n_col, stream);
 }
 
 /**
