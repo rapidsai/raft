@@ -61,7 +61,7 @@ RAFT_KERNEL compute_graph_laplacian_kernel(ElementType* output_values,
       auto col_index         = adj_indices[value_index];
       auto is_lower_diagonal = col_index < row;
       auto output_index      = value_index + row + !is_lower_diagonal;
-      auto input_value       = adj_values[value_index];
+      auto input_value       = col_index == row ? 0 : adj_values[value_index];
       degree_value += input_value;
       output_values[output_index]  = ElementType{-1} * input_value;
       output_indices[output_index] = col_index;
