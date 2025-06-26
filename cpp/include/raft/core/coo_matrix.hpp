@@ -130,8 +130,8 @@ class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZT
     : coordinate_structure_t<RowType, ColType, NZType, is_device>(n_rows, n_cols, nnz),
       cp_rows_{},
       cp_cols_{},
-      c_rows_{cp_rows_.create(handle, 0)},
-      c_cols_{cp_cols_.create(handle, 0)} {};
+      c_rows_{cp_rows_.create(handle, nnz)},
+      c_cols_{cp_cols_.create(handle, nnz)} {};
 
   coordinate_structure(coordinate_structure const&) noexcept(
     std::is_nothrow_copy_constructible_v<row_container_type>) = default;
