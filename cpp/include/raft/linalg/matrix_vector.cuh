@@ -35,11 +35,12 @@ namespace raft::linalg {
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
  */
-template <Apply apply, bool row_major, typename math_t, typename idx_t, typename layout_t>
+template <Apply apply, typename math_t, typename idx_t, typename layout_t>
 void binary_mult_skip_zero(raft::resources const& handle,
                            raft::device_matrix_view<math_t, idx_t, layout_t> data,
                            raft::device_vector_view<const math_t, idx_t> vec)
 {
+  constexpr auto row_major        = std::is_same_v<layout_t, raft::row_major>;
   constexpr auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
   idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
@@ -63,11 +64,12 @@ void binary_mult_skip_zero(raft::resources const& handle,
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
  */
-template <Apply apply, bool row_major, typename math_t, typename idx_t, typename layout_t>
+template <Apply apply, typename math_t, typename idx_t, typename layout_t>
 void binary_div(raft::resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout_t> data,
                 raft::device_vector_view<const math_t, idx_t> vec)
 {
+  constexpr auto row_major        = std::is_same_v<layout_t, raft::row_major>;
   constexpr auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
   idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
@@ -93,12 +95,13 @@ void binary_div(raft::resources const& handle,
  * @param[in] return_zero: result is zero if true and vector value is below threshold, original
  * value if false
  */
-template <Apply apply, bool row_major, typename math_t, typename idx_t, typename layout_t>
+template <Apply apply, typename math_t, typename idx_t, typename layout_t>
 void binary_div_skip_zero(raft::resources const& handle,
                           raft::device_matrix_view<math_t, idx_t, layout_t> data,
                           raft::device_vector_view<const math_t, idx_t> vec,
                           bool return_zero = false)
 {
+  constexpr auto row_major        = std::is_same_v<layout_t, raft::row_major>;
   constexpr auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
   idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
@@ -123,11 +126,12 @@ void binary_div_skip_zero(raft::resources const& handle,
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
  */
-template <Apply apply, bool row_major, typename math_t, typename idx_t, typename layout_t>
+template <Apply apply, typename math_t, typename idx_t, typename layout_t>
 void binary_add(raft::resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout_t> data,
                 raft::device_vector_view<const math_t, idx_t> vec)
 {
+  constexpr auto row_major        = std::is_same_v<layout_t, raft::row_major>;
   constexpr auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
   idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
@@ -151,11 +155,12 @@ void binary_add(raft::resources const& handle,
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
  */
-template <Apply apply, bool row_major, typename math_t, typename idx_t, typename layout_t>
+template <Apply apply, typename math_t, typename idx_t, typename layout_t>
 void binary_sub(raft::resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout_t> data,
                 raft::device_vector_view<const math_t, idx_t> vec)
 {
+  constexpr auto row_major        = std::is_same_v<layout_t, raft::row_major>;
   constexpr auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
   idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
