@@ -38,7 +38,6 @@ namespace raft::sparse::solver {
  *  @param v0 Optional Initial lanczos vector
  *  @param eigenvalues output eigenvalues
  *  @param eigenvectors output eigenvectors
- *  @todo Add largest eigenvalues computation (issue #2483)
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename IndexTypeT, typename ValueTypeT>
@@ -66,7 +65,6 @@ auto lanczos_compute_smallest_eigenvectors(
  *  @param v0 Optional Initial lanczos vector
  *  @param eigenvalues output eigenvalues
  *  @param eigenvectors output eigenvectors
- *  @todo Add largest eigenvalues computation (issue #2483)
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename IndexTypeT, typename ValueTypeT>
