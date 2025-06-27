@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/device_coo_matrix.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/detail/utils.h>
@@ -199,7 +200,7 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
 template <int TPB_X, typename T, typename idx_t, typename nnz_t>
 void coo_remove_scalar(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
                        raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out,
-                       T scalar,
+                       raft::host_scalar_view<T> scalar,
                        cudaStream_t stream)
 {
   auto in_structure = in.structure_view();
@@ -223,7 +224,8 @@ void coo_remove_scalar(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
   linalg::coo_degree(in_rows, in_nnz, row_count.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  linalg::coo_degree_scalar(in_rows, in_vals, in_nnz, scalar, (nnz_t*)row_count_nz.data(), stream);
+  linalg::coo_degree_scalar(
+    in_rows, in_vals, in_nnz, scalar(0), (nnz_t*)row_count_nz.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
@@ -251,7 +253,7 @@ void coo_remove_scalar(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
                                             out_vals,
                                             row_count_nz.data(),
                                             row_count.data(),
-                                            scalar,
+                                            scalar(0),
                                             in_n_rows,
                                             stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());

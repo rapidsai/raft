@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/detail/filter.cuh>
@@ -88,7 +89,7 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
 template <int TPB_X, typename T, typename idx_t, typename nnz_t>
 void coo_remove_scalar(raft::device_coo_matrix_view<T, idx_t, idx_t, nnz_t> in,
                        raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out,
-                       T scalar,
+                       raft::host_scalar_view<T> scalar,
                        cudaStream_t stream)
 {
   detail::coo_remove_scalar<TPB_X, T, idx_t, nnz_t>(in, out, scalar, stream);
