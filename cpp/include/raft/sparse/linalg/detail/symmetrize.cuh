@@ -50,10 +50,10 @@ namespace detail {
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
 template <int TPB_X = 128, typename T, typename Lambda, typename nnz_t>
-RAFT_KERNEL coo_symmetrize_kernel(nnz_t* row_ind,
-                                  int* rows,
-                                  int* cols,
-                                  T* vals,
+RAFT_KERNEL coo_symmetrize_kernel(const nnz_t* row_ind,
+                                  const int* rows,
+                                  const int* cols,
+                                  const T* vals,
                                   int* orows,
                                   int* ocols,
                                   T* ovals,
@@ -178,9 +178,10 @@ template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename L
 void coo_symmetrize(raft::device_coo_matrix_view<const T, IdxT, IdxT, nnz_t> in,
                     raft::device_coo_matrix<T, IdxT, IdxT, nnz_t>& out,
                     Lambda reduction_op,  // two-argument reducer
-                    cudaStream_t stream,
                     raft::resources const& handle)
 {
+  auto stream = raft::resource::get_cuda_stream(handle);
+
   auto in_structure = in.structure_view();
 
   auto in_n_rows = in_structure.get_n_rows();
