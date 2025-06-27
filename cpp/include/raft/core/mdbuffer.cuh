@@ -528,7 +528,8 @@ struct mdbuffer {
   auto static constexpr is_copyable_from()
   {
     return is_copyable_from<FromT>(
-      true, std::make_index_sequence<sd::variant_size_v<decltype(std::declval<FromT>().view())>>());
+      true,
+      std::make_index_sequence<std::variant_size_v<decltype(std::declval<FromT>().view())>>());
   }
 
   template <typename FromT>
