@@ -56,12 +56,12 @@ void coo_symmetrize(COO<T>* in,
  * @param handle: raft resources handle
  */
 template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
-void coo_symmetrize(raft::device_coo_matrix_view<const T, IdxT, IdxT, nnz_t> in,
+void coo_symmetrize(raft::resources const& handle,
+                    raft::device_coo_matrix_view<const T, IdxT, IdxT, nnz_t> in,
                     raft::device_coo_matrix<T, IdxT, IdxT, nnz_t>& out,
-                    Lambda reduction_op,  // two-argument reducer
-                    raft::resources const& handle)
+                    Lambda reduction_op)  // two-argument reducer
 {
-  detail::coo_symmetrize<TPB_X, T, IdxT, nnz_t, Lambda>(in, out, reduction_op, handle);
+  detail::coo_symmetrize<TPB_X, T, IdxT, nnz_t, Lambda>(handle, in, out, reduction_op);
 }
 
 /**
