@@ -143,6 +143,21 @@ void test_device_csr_matrix()
   test_device_csr_sparsity_preserving_ref(sparsity_preserving, d_preserving);
 }
 
+TEST(DeviceCoordinateStructure, Initialization)
+{
+  raft::resources handle;
+
+  auto uninitialized = raft::make_device_coordinate_structure(handle, 5, 5, 0);
+  // Note: the behaviour of calling `view` on an uninitialized structure is
+  // undefined, this is testing an implementation detail.
+  EXPECT_EQ(uninitialized.view().get_rows().size(), 0);
+  EXPECT_EQ(uninitialized.view().get_rows().data(), nullptr);
+
+  auto initialized = raft::make_device_coordinate_structure(handle, 5, 5, 5);
+  EXPECT_EQ(initialized.view().get_rows().size(), 5);
+  EXPECT_NE(initialized.view().get_rows().data(), nullptr);
+}
+
 TEST(DeviceSparseCOOMatrix, Basic) { test_device_coo_matrix(); }
 
 TEST(DeviceSparseCSRMatrix, Basic) { test_device_csr_matrix(); }
