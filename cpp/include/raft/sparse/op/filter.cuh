@@ -81,9 +81,9 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
 /**
  * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
  *
+ * @param scalar: scalar to remove from arrays
  * @param in: input COO matrix
  * @param out: output COO matrix
- * @param scalar: scalar to remove from arrays
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T, typename idx_t, typename nnz_t>

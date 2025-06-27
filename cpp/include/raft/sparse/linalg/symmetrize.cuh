@@ -49,11 +49,10 @@ void coo_symmetrize(COO<T>* in,
  * it, running a custom reduction function against the each value
  * and its transposed value.
  *
+ * @param handle: raft resources handle
  * @param in: Input COO matrix
  * @param out: Output symmetrized COO matrix
  * @param reduction_op: a custom reduction function
- * @param stream: cuda stream to use
- * @param handle: raft resources handle
  */
 template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
 void coo_symmetrize(raft::resources const& handle,
