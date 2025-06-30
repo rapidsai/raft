@@ -41,6 +41,7 @@ mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-vers
 ```
 
 ```bash
+# for CUDA 12
 mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.9
 ```
 
