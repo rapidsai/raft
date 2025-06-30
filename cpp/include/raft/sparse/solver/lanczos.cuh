@@ -29,7 +29,7 @@ namespace raft::sparse::solver {
 // =========================================================
 
 /**
- *  @brief Find the smallest eigenpairs using lanczos solver
+ *  @brief Find the eigenpairs using lanczos solver
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @param handle the raft handle.
@@ -54,7 +54,7 @@ auto lanczos_compute_smallest_eigenvectors(
 }
 
 /**
- *  @brief Find the smallest eigenpairs using lanczos solver
+ *  @brief Find the eigenpairs using lanczos solver
  *  @tparam index_type_t the type of data used for indexing.
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @param handle the raft handle.
