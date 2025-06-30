@@ -149,7 +149,7 @@ auto laplacian_normalized(
     res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), raft::sqrt_op());
 
   raft::sparse::matrix::scale_by_diagonal_symmetric(res, diagonal.view(), laplacian.view());
-  raft::sparse::matrix::set_diagonal(res, laplacian.view(), static_cast<ElementType>(1.0));
+  raft::sparse::matrix::set_diagonal(res, laplacian.view(), 1.0f);
 
   auto stream = resource::get_cuda_stream(res);
 
