@@ -212,7 +212,7 @@ void coo_symmetrize(raft::resources const& handle,
 
   raft::matrix::fill(handle, raft::make_device_vector_view(out_rows, out_nnz), 0);
   raft::matrix::fill(handle, raft::make_device_vector_view(out_cols, out_nnz), 0);
-  raft::matrix::fill(handle, raft::make_device_vector_view(out_vals, out_nnz), 0.0F);
+  raft::matrix::fill(handle, raft::make_device_vector_view(out_vals, out_nnz), static_cast<T>(0.0));
 
   coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(in_row_ind.data(),
                                                             in_rows,
