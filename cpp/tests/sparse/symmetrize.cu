@@ -205,7 +205,7 @@ TEST_P(COOSymmetrizeView, ResultView)
   raft::update_device(in_vals.data(), params.in_vals_h.data(), params.nnz, stream);
 
   auto coo_structure_in = raft::make_device_coordinate_structure_view(
-    in_rows.data(), in_cols.data(), params.nnz, params.n_rows, params.n_cols);
+    in_rows.data(), in_cols.data(), params.n_rows, params.n_cols, params.nnz);
 
   auto in_view = raft::make_device_coo_matrix_view((const float*)in_vals.data(), coo_structure_in);
 
