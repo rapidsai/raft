@@ -31,8 +31,6 @@
 
 #include <gtest/gtest.h>
 
-#include <iostream>
-
 namespace raft {
 namespace sparse {
 
@@ -119,7 +117,6 @@ TEST_P(COORemoveZeros, Result)
 
 INSTANTIATE_TEST_CASE_P(SparseFilterTests, COORemoveZeros, ::testing::ValuesIn(inputsf));
 
-// Test for new device_coo_matrix_view API
 typedef SparseFilterTests<float> COORemoveScalarView;
 TEST_P(COORemoveScalarView, ResultView)
 {
@@ -127,16 +124,13 @@ TEST_P(COORemoveScalarView, ResultView)
   auto stream = resource::get_cuda_stream(h);
   params      = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
 
-  // Create device arrays directly
   rmm::device_uvector<int> in_rows(params.nnz, stream);
   rmm::device_uvector<int> in_cols(params.nnz, stream);
   rmm::device_uvector<float> in_vals(params.nnz, stream);
 
-  // Generate random values
   raft::random::RngState r(params.seed);
   uniform(h, r, in_vals.data(), params.nnz, float(-1.0), float(1.0));
 
-  // Prepare host data
   float* in_h_vals = new float[params.nnz];
   raft::update_host(in_h_vals, in_vals.data(), params.nnz, stream);
 
@@ -152,35 +146,27 @@ TEST_P(COORemoveScalarView, ResultView)
     in_h_cols[i] = i;
   }
 
-  // Update device arrays
   raft::update_device(in_rows.data(), in_h_rows, params.nnz, stream);
   raft::update_device(in_cols.data(), in_h_cols, params.nnz, stream);
   raft::update_device(in_vals.data(), in_h_vals, params.nnz, stream);
 
-  // Sort the COO data
   op::coo_sort<float>(5, 5, params.nnz, in_rows.data(), in_cols.data(), in_vals.data(), stream);
 
-  // Create COO structure view
   auto coo_structure =
     raft::make_device_coordinate_structure_view(in_rows.data(), in_cols.data(), params.nnz, 5, 5);
 
-  // Create COO matrix view
   auto in_view = raft::make_device_coo_matrix_view(in_vals.data(), coo_structure);
 
-  // Create output matrix - the new API expects an OWNING matrix
   auto out_matrix = raft::make_device_coo_matrix<float, int, int, int>(h, 5, 5);
 
-  // Test with scalar value 0
   auto scalar = raft::make_host_scalar<float>(0.0f);
 
   op::coo_remove_scalar<128, float, int, int>(scalar.view(), in_view, out_matrix, stream);
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
-  // Verify results - we expect 2 non-zero values after removing zeros
   auto out_nnz = out_matrix.structure_view().get_nnz();
   ASSERT_EQ(out_nnz, 2);
 
-  // Check the row and column indices
   int out_rows_h[2];
   int out_cols_h[2];
   float out_vals_h[2];
@@ -191,7 +177,6 @@ TEST_P(COORemoveScalarView, ResultView)
 
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
-  // Expected values after sorting and removing zeros
   ASSERT_EQ(out_rows_h[0], 0);
   ASSERT_EQ(out_cols_h[0], 4);
   ASSERT_EQ(out_rows_h[1], 3);
