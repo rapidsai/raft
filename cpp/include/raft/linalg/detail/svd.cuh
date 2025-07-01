@@ -166,7 +166,7 @@ void svdEig(raft::resources const& handle,
                        alpha,
                        beta,
                        stream);
-    raft::matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(U, S, n_rows, n_cols, stream);
   }
 }
 
