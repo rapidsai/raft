@@ -157,39 +157,6 @@ class COOSymmetrizeTest : public ::testing::TestWithParam<COOSymmetrizeInputs<T>
   COOSymmetrizeInputs<T> params;
 };
 
-typedef COOSymmetrizeTest<float> COOSymmetrize;
-TEST_P(COOSymmetrize, Result)
-{
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
-  COO<float> in(stream, params.nnz, params.n_rows, params.n_cols);
-  raft::update_device(in.rows(), params.in_rows_h.data(), params.nnz, stream);
-  raft::update_device(in.cols(), params.in_cols_h.data(), params.nnz, stream);
-  raft::update_device(in.vals(), params.in_vals_h.data(), params.nnz, stream);
-
-  COO<float> out(stream);
-
-  linalg::coo_symmetrize<float>(
-    &in,
-    &out,
-    [] __device__(int row, int col, float val, float trans) { return val + trans; },
-    stream);
-
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-  std::cout << out << std::endl;
-
-  ASSERT_TRUE(out.nnz == params.nnz * 2);
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(out.rows(), params.exp_rows_h.data(), out.nnz, raft::Compare<int>()));
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(out.cols(), params.exp_cols_h.data(), out.nnz, raft::Compare<int>()));
-  ASSERT_TRUE(raft::devArrMatch<float>(
-    out.vals(), params.exp_vals_h.data(), out.nnz, raft::Compare<float>()));
-
-  cudaStreamDestroy(stream);
-}
-
 typedef COOSymmetrizeTest<float> COOSymmetrizeView;
 TEST_P(COOSymmetrizeView, ResultView)
 {
@@ -273,7 +240,6 @@ const std::vector<COOSymmetrizeInputs<float>> inputsf = {
     {0.5, 0.5, 1.5, 0, 0.5, 0.5, 0.5, 0, 0.5, 0.5, 0.5, 0, 1.5, 0.5, 0.5, 0.0}  // out_vals
   }};
 
-INSTANTIATE_TEST_CASE_P(COOSymmetrizeTest, COOSymmetrize, ::testing::ValuesIn(inputsf));
 INSTANTIATE_TEST_CASE_P(COOSymmetrizeTest, COOSymmetrizeView, ::testing::ValuesIn(inputsf));
 
 const std::vector<SparseSymmetrizeInputs<int, float>> symm_inputs_fint = {
