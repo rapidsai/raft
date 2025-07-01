@@ -155,13 +155,14 @@ TEST_P(COORemoveScalarView, ResultView)
   auto coo_structure =
     raft::make_device_coordinate_structure_view(in_rows.data(), in_cols.data(), params.nnz, 5, 5);
 
-  auto in_view = raft::make_device_coo_matrix_view(in_vals.data(), coo_structure);
+  auto in_view =
+    raft::make_device_coo_matrix_view<const float, int, int, int>(in_vals.data(), coo_structure);
 
   auto out_matrix = raft::make_device_coo_matrix<float, int, int, int>(h, 5, 5);
 
   auto scalar = raft::make_host_scalar<float>(0.0f);
 
-  op::coo_remove_scalar<128, float, int, int>(scalar.view(), in_view, out_matrix, stream);
+  op::coo_remove_scalar<128, float, int, int>(stream, in_view, scalar.view(), out_matrix);
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   auto out_nnz = out_matrix.structure_view().get_nnz();

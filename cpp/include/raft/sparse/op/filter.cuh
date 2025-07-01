@@ -87,12 +87,12 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T, typename idx_t, typename nnz_t>
-void coo_remove_scalar(const raft::device_resources res,
+void coo_remove_scalar(const rmm::cuda_stream_view stream,
                        raft::device_coo_matrix_view<const T, idx_t, idx_t, nnz_t> in,
                        raft::host_scalar_view<const T> scalar,
                        raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out)
 {
-  detail::coo_remove_scalar<TPB_X, T, idx_t, nnz_t>(scalar, in, out, stream);
+  detail::coo_remove_scalar<TPB_X, T, idx_t, nnz_t>(stream, in, scalar, out);
 }
 
 /**
