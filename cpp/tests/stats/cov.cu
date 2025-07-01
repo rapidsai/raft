@@ -104,7 +104,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     raft::update_device(cov_cm_ref.data(), cov_cm_ref_h, 4, stream);
 
     raft::stats::mean<false>(mean_cm.data(), data_cm.data(), 2, 3, stream);
-    cov(handle, cov_cm.data(), data_cm.data(), mean_cm.data(), 2, 3, true, false, true, stream);
+    cov<false>(handle, cov_cm.data(), data_cm.data(), mean_cm.data(), 2, 3, true, true, stream);
   }
 
  protected:
