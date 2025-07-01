@@ -29,6 +29,19 @@
 
 namespace raft {
 
+// Clang is pretty aggressive when instantiating templates, so we need host
+// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
+// called.
+#define DEFINE_DUMMY_HOST_FUNCTION(func, ...)                                                 \
+  template <typename T>                                                                       \
+  __host__                                                                                    \
+    typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T> \
+    func(__VA_ARGS__)                                                                         \
+  {                                                                                           \
+    assert(false && "never called");                                                          \
+    return T{};                                                                               \
+  }
+
 /**
  * @defgroup math_functions Mathematical Functions
  * @{
@@ -83,16 +96,7 @@ abs(T x)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-abs(T x)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(abs, T);
 #endif  // _RAFT_HAS_CUDA
 /** @} */
 
@@ -169,16 +173,7 @@ cos(T x)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-cos(T x)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(cos, T);
 #endif  // _RAFT_HAS_CUDA
 
 /** Sine */
@@ -215,16 +210,7 @@ sin(T x)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-sin(T x)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(sin, T);
 #endif  // _RAFT_HAS_CUDA
 
 /** Sine and cosine */
@@ -285,16 +271,7 @@ exp(T x)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-exp(T x)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(exp, T);
 #endif  // _RAFT_HAS_CUDA
 
 /** Natural logarithm */
@@ -331,16 +308,7 @@ log(T x)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-log(T x)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(log, T);
 #endif  // _RAFT_HAS_CUDA
 
 /**
@@ -419,16 +387,7 @@ max(T x, T y)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-max(T x, T y)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(max, T, T);
 #endif  // _RAFT_HAS_CUDA
 
 /** Many-argument overload to avoid verbose nested calls or use with variadic arguments */
@@ -465,16 +424,7 @@ max(T x)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-max(T x)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(max, T);
 #endif  // _RAFT_HAS_CUDA
 
 /**
@@ -549,16 +499,7 @@ min(T x, T y)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-min(T x, T y)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(min, T, T);
 #endif  // _RAFT_HAS_CUDA
 
 /** Many-argument overload to avoid verbose nested calls or use with variadic arguments */
@@ -595,16 +536,7 @@ min(T x)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-min(T x)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(min, T);
 #endif  // _RAFT_HAS_CUDA
 
 /** Power */
@@ -652,16 +584,7 @@ sqrt(T x)
 #endif
 #endif  // __CUDA_ARCH__
 
-// Clang is pretty aggressive when instantiating templates, so we need host
-// functions for `__half` and `nv_bfloat16`, which are instantiated, but never
-// called.
-template <typename T>
-__host__ typename std::enable_if_t<std::is_same_v<T, __half> || std::is_same_v<T, nv_bfloat16>, T>
-sqrt(T x)
-{
-  assert(false && "never called");
-  return T{};
-}
+DEFINE_DUMMY_HOST_FUNCTION(sqrt, T);
 #endif  // _RAFT_HAS_CUDA
 
 /** Sign */
@@ -672,5 +595,7 @@ RAFT_INLINE_FUNCTION auto sgn(T val) -> int
 }
 
 /** @} */
+
+#undef DEFINE_DUMMY_HOST_FUNCTION
 
 }  // namespace raft
