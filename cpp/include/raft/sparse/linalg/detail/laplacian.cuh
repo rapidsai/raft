@@ -16,14 +16,13 @@
 #pragma once
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_csr_matrix.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/sparse/matrix/diagonal.cuh>
 
 #include <type_traits>
 
-namespace raft {
-namespace sparse {
-namespace linalg {
-namespace detail {
+namespace raft::sparse::linalg::detail {
 
 /* Compute the graph Laplacian of an adjacency matrix
  *
@@ -62,7 +61,7 @@ RAFT_KERNEL compute_graph_laplacian_kernel(ElementType* output_values,
       auto col_index         = adj_indices[value_index];
       auto is_lower_diagonal = col_index < row;
       auto output_index      = value_index + row + !is_lower_diagonal;
-      auto input_value       = adj_values[value_index];
+      auto input_value       = col_index == row ? 0 : adj_values[value_index];
       degree_value += input_value;
       output_values[output_index]  = ElementType{-1} * input_value;
       output_indices[output_index] = col_index;
@@ -112,7 +111,50 @@ auto compute_graph_laplacian(
   return result;
 }
 
-}  // namespace detail
-}  // namespace linalg
-}  // namespace sparse
-}  // namespace raft
+/**
+ * @brief Given a CSR adjacency matrix, return the normalized graph Laplacian
+ *
+ * Return the normalized Laplacian matrix, which is defined as D^(-1/2) * L * D^(-1/2),
+ * where D is the diagonal degree matrix and L is the graph Laplacian.
+ * Also returns the scaled diagonal degree matrix.
+ *
+ *
+ * @tparam ElementType The data type of the matrix elements
+ * @tparam IndptrType The data type of the row pointers
+ * @tparam IndicesType The data type of the column indices
+ * @tparam NZType The data type for representing nonzero counts
+ *
+ * @param[in] res RAFT resources for managing device memory and streams
+ * @param[in] input View of the input CSR adjacency matrix
+ * @param[out] diagonal_out View of the output vector where the scaled diagonal degree
+ *                           matrix D^(-1/2) will be stored (must be pre-allocated with
+ *                           size at least n_rows)
+ *
+ * @return A CSR matrix containing the normalized graph Laplacian
+ */
+template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
+auto laplacian_normalized(
+  raft::resources const& res,
+  device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType> input,
+  device_vector_view<ElementType, IndptrType> diagonal_out)
+{
+  auto laplacian           = detail::compute_graph_laplacian(res, input);
+  auto laplacian_structure = laplacian.structure_view();
+
+  auto diagonal =
+    raft::make_device_vector<ElementType, IndptrType>(res, laplacian_structure.get_n_rows());
+  raft::sparse::matrix::diagonal(res, laplacian.view(), diagonal.view());
+
+  raft::linalg::unary_op(
+    res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), raft::sqrt_op());
+
+  raft::sparse::matrix::scale_by_diagonal_symmetric(res, diagonal.view(), laplacian.view());
+  raft::sparse::matrix::set_diagonal(res, laplacian.view(), 1.0f);
+
+  auto stream = resource::get_cuda_stream(res);
+
+  raft::copy(diagonal_out.data_handle(), diagonal.data_handle(), diagonal.size(), stream);
+  return laplacian;
+}
+
+}  // namespace raft::sparse::linalg::detail

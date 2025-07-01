@@ -23,13 +23,6 @@ namespace raft::linalg {
  *        a matrix's rows or columns
  *
  */
-enum class Apply { ALONG_ROWS, ALONG_COLUMNS };
-
-/**
- * @brief Enum for reduction/broadcast where an operation is to be performed along
- *        a matrix's rows or columns
- *
- */
 enum class FillMode { UPPER, LOWER };
 
 /**

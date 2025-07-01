@@ -36,7 +36,7 @@ struct dummy_block_sort_t {
   using queue_t =
     matrix::detail::select::warpsort::warp_sort_distributed<WarpSize, Ascending, T, IdxT>;
   template <typename... Args>
-  __device__ dummy_block_sort_t(int k, Args...){};
+  __device__ dummy_block_sort_t(int k, Args...) {};
 };
 
 /**

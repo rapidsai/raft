@@ -186,6 +186,40 @@ auto constexpr make_host_matrix_view(ElementType* ptr, IndexType n_rows, IndexTy
 }
 
 /**
+ * @brief Create a 2-dim mdspan instance for host pointer with a strided layout
+ *        that is restricted to stride 1 in the trailing dimension. It's
+ *        expected that the given layout policy match the layout of the underlying
+ *        pointer.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] ptr on host to wrap
+ * @param[in] n_rows number of rows in pointer
+ * @param[in] n_cols number of columns in pointer
+ * @param[in] stride leading dimension / stride of data
+ */
+template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
+auto constexpr make_host_strided_matrix_view(ElementType* ptr,
+                                             IndexType n_rows,
+                                             IndexType n_cols,
+                                             IndexType stride)
+{
+  constexpr auto is_row_major = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
+  constexpr auto is_col_major = std::is_same_v<LayoutPolicy, layout_f_contiguous>;
+
+  static_assert(is_row_major || is_col_major, "Unsupported layout policy for strided matrix view");
+
+  IndexType stride0 = is_row_major ? (stride > 0 ? stride : n_cols) : 1;
+  IndexType stride1 = is_row_major ? 1 : (stride > 0 ? stride : n_rows);
+
+  assert(is_row_major ? stride0 >= n_cols : stride1 >= n_rows);
+  matrix_extent<IndexType> extents{n_rows, n_cols};
+
+  auto layout = make_strided_layout(extents, std::array<IndexType, 2>{stride0, stride1});
+  return host_matrix_view<ElementType, IndexType, layout_stride>{ptr, layout};
+}
+
+/**
  * @brief Create a 1-dim mdspan instance for host pointer.
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents

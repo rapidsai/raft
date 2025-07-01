@@ -376,13 +376,11 @@ void minClusterAndDistanceCompute(
 
   if (is_fused) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
-    raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(),
-                          centroids.data_handle(),
-                          centroids.extent(1),
-                          centroids.extent(0),
-                          raft::linalg::L2Norm,
-                          true,
-                          stream);
+    raft::linalg::rowNorm<raft::linalg::L2Norm, true>(L2NormBuf_OR_DistBuf.data(),
+                                                      centroids.data_handle(),
+                                                      centroids.extent(1),
+                                                      centroids.extent(0),
+                                                      stream);
   } else {
     // TODO: Unless pool allocator is used, passing in a workspace for this
     // isn't really increasing performance because this needs to do a re-allocation
@@ -509,13 +507,11 @@ void minClusterDistanceCompute(raft::resources const& handle,
 
   if (is_fused) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
-    raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(),
-                          centroids.data_handle(),
-                          centroids.extent(1),
-                          centroids.extent(0),
-                          raft::linalg::L2Norm,
-                          true,
-                          stream);
+    raft::linalg::rowNorm<raft::linalg::L2Norm, true>(L2NormBuf_OR_DistBuf.data(),
+                                                      centroids.data_handle(),
+                                                      centroids.extent(1),
+                                                      centroids.extent(0),
+                                                      stream);
   } else {
     L2NormBuf_OR_DistBuf.resize(dataBatchSize * centroidsBatchSize, stream);
   }

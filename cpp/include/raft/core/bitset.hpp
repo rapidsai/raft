@@ -96,7 +96,7 @@ struct bitset_view {
    * @param sample_index index to set
    * @param set_value Value to set the bit to (true or false)
    */
-  inline _RAFT_HOST_DEVICE void set(const index_t sample_index, bool set_value) const;
+  inline _RAFT_DEVICE void set(const index_t sample_index, bool set_value) const;
 
   /**
    * @brief Get the device pointer to the bitset.

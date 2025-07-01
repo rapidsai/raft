@@ -66,7 +66,7 @@ struct FixConnectivitiesRedOp {
   // default constructor for cutlass
   DI FixConnectivitiesRedOp() : m(0) {}
 
-  FixConnectivitiesRedOp(value_idx m_) : m(m_){};
+  FixConnectivitiesRedOp(value_idx m_) : m(m_) {};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other) const
@@ -248,8 +248,8 @@ void perform_1nn(raft::resources const& handle,
     colors_group_idxs.data_handle() + 1, n_components);
 
   auto x_norm = raft::make_device_vector<value_t, value_idx>(handle, (value_idx)n_rows);
-  raft::linalg::rowNorm(
-    x_norm.data_handle(), X, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
+  raft::linalg::rowNorm<raft::linalg::L2Norm, true>(
+    x_norm.data_handle(), X, n_cols, n_rows, stream);
 
   auto adj     = raft::make_device_matrix<bool, value_idx>(handle, row_batch_size, n_components);
   using OutT   = raft::KeyValuePair<value_idx, value_t>;

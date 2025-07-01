@@ -9,7 +9,7 @@ context:
   date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
   py_version: ${{ env.get("RAPIDS_PY_VERSION") }}
   py_buildstring: ${{ py_version | version_to_buildstring }}
-  head_rev: ${{ git.head_rev(".")[:8] }}
+  head_rev: '${{ git.head_rev(".")[:8] }}'
 
 package:
   name: pylibraft
@@ -52,7 +52,7 @@ requirements:
     - ${{ stdlib("c") }}
   host:
     - cuda-version =${{ cuda_version }}
-    - cython >=3.0.0,<3.1.0a0
+    - cython >=3.0.0
     - libraft =${{ version }}
     - libraft-headers =${{ version }}
     - pip
@@ -60,13 +60,8 @@ requirements:
     - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - rmm =${{ minor_version }}
     - scikit-build-core >=0.10.0
-    - if: cuda_major == "11"
-      then:
-        - cudatoolkit
-        - cuda-python >=11.8.5,<12.0a0
-      else:
-        - cuda-cudart-dev
-        - cuda-python >=12.6.2,<13.0a0
+    - cuda-cudart-dev
+    - cuda-python >=12.6.2,<13.0a0
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - libraft =${{ version }}
@@ -74,19 +69,17 @@ requirements:
     - python
     - numpy >=1.23,<3.0a0
     - rmm =${{ minor_version }}
-    - if: cuda_major == "11"
-      then:
-        - cudatoolkit
-        - cuda-python >=11.8.5,<12.0a0
-      else:
-        - cuda-cudart
-        - cuda-python >=12.6.2,<13.0a0
+    - cuda-cudart
+    - cuda-python >=12.6.2,<13.0a0
   ignore_run_exports:
+    from_package:
+      - ${{ compiler("c") }}
+      - ${{ compiler("cxx") }}
+      - ${{ compiler("cuda") }}
+      - ${{ stdlib("c") }}
     by_name:
       - cuda-cudart
       - cuda-version
-      - if: cuda_major == "11"
-        then: cudatoolkit
 
 tests:
   - python:

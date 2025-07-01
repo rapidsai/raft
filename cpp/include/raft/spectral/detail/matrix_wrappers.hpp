@@ -86,12 +86,12 @@ struct vector_view_t {
 
   vector_view_t(value_type* buffer, size_type sz) : buffer_(buffer), size_(sz) {}
 
-  vector_view_t(vector_view_t&& other) : buffer_(other.raw()), size_(other.size()) {}
+  vector_view_t(vector_view_t&& other) : buffer_(other.buffer_), size_(other.size_) {}
 
   vector_view_t& operator=(vector_view_t&& other)
   {
-    buffer_ = other.raw();
-    size_   = other.size();
+    buffer_ = other.buffer_;
+    size_   = other.size_;
   }
 };
 

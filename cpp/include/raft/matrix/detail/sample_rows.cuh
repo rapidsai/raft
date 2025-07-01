@@ -32,6 +32,7 @@ template <typename T, typename IdxT = int64_t>
 void sample_rows(raft::resources const& res,
                  random::RngState random_state,
                  const T* input,
+                 IdxT ld,
                  IdxT n_rows_input,
                  raft::device_matrix_view<T, IdxT> output)
 {
@@ -43,15 +44,34 @@ void sample_rows(raft::resources const& res,
 
   cudaPointerAttributes attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, input));
-  T* ptr = reinterpret_cast<T*>(attr.devicePointer);
-  if (ptr != nullptr) {
-    raft::matrix::gather(res,
-                         raft::make_device_matrix_view<const T, IdxT>(ptr, n_rows_input, n_dim),
-                         raft::make_const_mdspan(train_indices.view()),
-                         output);
+  // We can have both valid host and device pointers (systems with HMM or ATS).
+  // In that case the dataset can be larger than GPU memory and gathering on host is preferred.
+  if (attr.hostPointer != nullptr) {
+    T* ptr       = reinterpret_cast<T*>(attr.hostPointer);
+    auto dataset = raft::make_host_strided_matrix_view<const T, IdxT>(ptr, n_rows_input, n_dim, ld);
+    raft::matrix::detail::gather(res, dataset, make_const_mdspan(train_indices.view()), output);
+  } else if (attr.devicePointer != nullptr) {
+    T* ptr = reinterpret_cast<T*>(attr.devicePointer);
+    auto dataset =
+      raft::make_device_strided_matrix_view<const T, IdxT>(ptr, n_rows_input, n_dim, ld);
+    raft::matrix::gather(res, dataset, raft::make_const_mdspan(train_indices.view()), output);
   } else {
-    auto dataset = raft::make_host_matrix_view<const T, IdxT>(input, n_rows_input, n_dim);
+    // For older driver versions it can happen that both device and host pointers in `attr` are
+    // invalid. We use the original host pointer in this case.
+    auto dataset =
+      raft::make_host_strided_matrix_view<const T, IdxT>(input, n_rows_input, n_dim, ld);
     raft::matrix::detail::gather(res, dataset, make_const_mdspan(train_indices.view()), output);
   }
+}
+
+template <typename T, typename IdxT = int64_t>
+void sample_rows(raft::resources const& res,
+                 random::RngState random_state,
+                 const T* input,
+                 IdxT n_rows_input,
+                 raft::device_matrix_view<T, IdxT> output)
+{
+  IdxT n_dim = output.extent(1);
+  sample_rows<T, IdxT>(res, random_state, input, n_dim, n_rows_input, output);
 }
 }  // namespace raft::matrix::detail

@@ -45,15 +45,23 @@ from pylibraft.random.cpp.rng_state cimport RngState
 cdef extern from "raft/sparse/solver/lanczos_types.hpp" \
         namespace "raft::sparse::solver" nogil:
 
+    enum LANCZOS_WHICH:
+        LA = 0,
+        LM = 1,
+        SA = 2,
+        SM = 3
+
     cdef cppclass lanczos_solver_config[ValueTypeT]:
         int n_components
         int max_iterations
         int ncv
         ValueTypeT tolerance
+        LANCZOS_WHICH which
         uint64_t seed
 
 cdef lanczos_solver_config[float] config_float
 cdef lanczos_solver_config[double] config_double
+
 
 cdef extern from "raft_runtime/solver/lanczos.hpp" \
         namespace "raft::runtime::solver" nogil:
@@ -100,7 +108,7 @@ cdef extern from "raft_runtime/solver/lanczos.hpp" \
 
 
 @auto_sync_handle
-def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
+def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
           tol=0, seed=None, handle=None):
     """
     Find ``k`` eigenvalues and eigenvectors of the real symmetric square
@@ -115,6 +123,11 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
             :class:`cupyx.scipy.sparse._csr.csr_matrix`
         k (int): The number of eigenvalues and eigenvectors to compute. Must be
             ``1 <= k < n``.
+        which (str): 'LM' or 'LA' or 'SA'.
+            'LM': finds ``k`` largest (in magnitude) eigenvalues.
+            'LA': finds ``k`` largest (algebraic) eigenvalues.
+            'SA': finds ``k`` smallest (algebraic) eigenvalues.
+            'SM': finds ``k`` smallest (in magnitude) eigenvalues.
         v0 (ndarray): Starting vector for iteration. If ``None``, a random
             unit vector is used.
         ncv (int): The number of Lanczos vectors generated. Must be
@@ -186,12 +199,24 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
     handle = handle if handle is not None else Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
+    def set_config_which(which):
+        if which.lower() == "sa":
+            return LANCZOS_WHICH.SA
+        elif which.lower() == "sm":
+            return LANCZOS_WHICH.SM
+        elif which.lower() == "la":
+            return LANCZOS_WHICH.LA
+        elif which.lower() == "lm":
+            return LANCZOS_WHICH.LM
+
     if IndexType == np.int32 and ValueType == np.float32:
         config_float.n_components = k
         config_float.max_iterations = maxiter
         config_float.ncv = ncv
         config_float.tolerance = tol
         config_float.seed = seed
+
+        config_float.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
@@ -213,6 +238,8 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_float.ncv = ncv
         config_float.tolerance = tol
         config_float.seed = seed
+
+        config_float.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
@@ -234,6 +261,8 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_double.ncv = ncv
         config_double.tolerance = tol
         config_double.seed = seed
+
+        config_double.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data
@@ -255,6 +284,8 @@ def eigsh(A, k=6, v0=None, ncv=None, maxiter=None,
         config_double.ncv = ncv
         config_double.tolerance = tol
         config_double.seed = seed
+
+        config_double.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
             v0_ptr = <uintptr_t>v0.data

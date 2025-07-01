@@ -105,9 +105,9 @@ class ResultItem<int> {
 
  public:
   __host__ __device__ ResultItem()
-    : id_(std::numeric_limits<Index_t>::max()), dist_(std::numeric_limits<DistData_t>::max()){};
+    : id_(std::numeric_limits<Index_t>::max()), dist_(std::numeric_limits<DistData_t>::max()) {};
   __host__ __device__ ResultItem(const Index_t id_with_flag, const DistData_t dist)
-    : id_(id_with_flag), dist_(dist){};
+    : id_(id_with_flag), dist_(dist) {};
   __host__ __device__ bool is_new() const { return id_ >= 0; }
   __host__ __device__ Index_t& id_with_flag() { return id_; }
   __host__ __device__ Index_t id() const
@@ -712,11 +712,12 @@ template <typename Index_t,
           typename epilogue_op = DistEpilogue<Index_t, DistData_t>>
 RAFT_KERNEL
 #ifdef __CUDA_ARCH__
-#if (__CUDA_ARCH__) == 750 || ((__CUDA_ARCH__) >= 860 && (__CUDA_ARCH__) <= 890) || \
-  (__CUDA_ARCH__) == 1200
-__launch_bounds__(BLOCK_SIZE)
-#else
+// Use minBlocksPerMultiprocessor = 4 on specific arches
+#if (__CUDA_ARCH__) == 700 || (__CUDA_ARCH__) == 800 || (__CUDA_ARCH__) == 900 || \
+  (__CUDA_ARCH__) == 1000
 __launch_bounds__(BLOCK_SIZE, 4)
+#else
+__launch_bounds__(BLOCK_SIZE)
 #endif
 #endif
   local_join_kernel(const Index_t* graph_new,

@@ -50,7 +50,7 @@ class sparse_structure {
    * @param nnz sparsity of matrix
    */
   sparse_structure(row_type n_rows, col_type n_cols, nnz_type nnz)
-    : n_rows_(n_rows), n_cols_(n_cols), nnz_(nnz){};
+    : n_rows_(n_rows), n_cols_(n_cols), nnz_(nnz) {};
 
   /**
    * Constructor when sparsity is not yet known
@@ -148,8 +148,7 @@ template <typename ElementType,
           typename StructureType,
           typename ViewType,
           bool is_device,
-          template <typename T>
-          typename ContainerPolicy>
+          template <typename T> typename ContainerPolicy>
 class sparse_matrix {
  public:
   using view_type      = ViewType;
