@@ -16,6 +16,8 @@
 
 #include "../test_utils.cuh"
 
+#include <raft/core/device_coo_matrix.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/coo.hpp>
@@ -188,6 +190,73 @@ TEST_P(COOSymmetrize, Result)
   cudaStreamDestroy(stream);
 }
 
+// Test for new device_coo_matrix_view API
+typedef COOSymmetrizeTest<float> COOSymmetrizeView;
+TEST_P(COOSymmetrizeView, ResultView)
+{
+  raft::resources handle;
+  auto stream = resource::get_cuda_stream(handle);
+
+  // Create device arrays directly
+  rmm::device_uvector<int> in_rows(params.nnz, stream);
+  rmm::device_uvector<int> in_cols(params.nnz, stream);
+  rmm::device_uvector<float> in_vals(params.nnz, stream);
+
+  // Copy input data to device
+  raft::update_device(in_rows.data(), params.in_rows_h.data(), params.nnz, stream);
+  raft::update_device(in_cols.data(), params.in_cols_h.data(), params.nnz, stream);
+  raft::update_device(in_vals.data(), params.in_vals_h.data(), params.nnz, stream);
+
+  // Create views from the device data
+  auto coo_structure_in = raft::make_device_coordinate_structure_view(
+    in_rows.data(), in_cols.data(), params.nnz, params.n_rows, params.n_cols);
+
+  auto in_view = raft::make_device_coo_matrix_view((const float*)in_vals.data(), coo_structure_in);
+
+  // Create output matrix - the new API expects an OWNING matrix
+  auto out_matrix =
+    raft::make_device_coo_matrix<float, int, int, int>(handle, params.n_rows, params.n_cols);
+
+  // Perform symmetrization
+  linalg::coo_symmetrize(
+    handle, in_view, out_matrix, [] __device__(int row, int col, float val, float trans) {
+      return val + trans;
+    });
+
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
+  // Verify results
+  auto out_nnz = out_matrix.structure_view().get_nnz();
+  ASSERT_EQ(out_nnz, params.nnz * 2);
+
+  // Copy results to host for verification
+  std::vector<int> out_rows_h(out_nnz);
+  std::vector<int> out_cols_h(out_nnz);
+  std::vector<float> out_vals_h(out_nnz);
+
+  raft::update_host(
+    out_rows_h.data(), out_matrix.structure_view().get_rows().data(), out_nnz, stream);
+  raft::update_host(
+    out_cols_h.data(), out_matrix.structure_view().get_cols().data(), out_nnz, stream);
+  raft::update_host(out_vals_h.data(), out_matrix.view().get_elements().data(), out_nnz, stream);
+
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
+  // Verify against expected values
+  ASSERT_TRUE(raft::devArrMatch<int>(out_matrix.structure_view().get_rows().data(),
+                                     params.exp_rows_h.data(),
+                                     out_nnz,
+                                     raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<int>(out_matrix.structure_view().get_cols().data(),
+                                     params.exp_cols_h.data(),
+                                     out_nnz,
+                                     raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch<float>(out_matrix.view().get_elements().data(),
+                                       params.exp_vals_h.data(),
+                                       out_nnz,
+                                       raft::Compare<float>()));
+}
+
 const std::vector<COOSymmetrizeInputs<float>> inputsf = {
   // first test fails without fix in #2582
   {
@@ -214,6 +283,7 @@ const std::vector<COOSymmetrizeInputs<float>> inputsf = {
   }};
 
 INSTANTIATE_TEST_CASE_P(COOSymmetrizeTest, COOSymmetrize, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(COOSymmetrizeTest, COOSymmetrizeView, ::testing::ValuesIn(inputsf));
 
 const std::vector<SparseSymmetrizeInputs<int, float>> symm_inputs_fint = {
   // Test n_clusters == n_points
