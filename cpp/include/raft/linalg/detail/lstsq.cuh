@@ -316,8 +316,8 @@ void lstsqEig(raft::resources const& handle,
   raft::common::nvtx::pop_range();
 
   // QS  <- Q invS
-  raft::linalg::matrixVectorOp(
-    QS, Q, S, n_cols, n_cols, false, true, DivideByNonZero<math_t>(), mainStream);
+  raft::linalg::matrixVectorOp<false, true>(
+    QS, Q, S, n_cols, n_cols, DivideByNonZero<math_t>(), mainStream);
   // covA <- QS Q* == Q invS Q* == inv(A* A)
   raft::linalg::gemm(handle,
                      QS,
