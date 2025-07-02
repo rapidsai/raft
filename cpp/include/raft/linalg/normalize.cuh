@@ -86,35 +86,31 @@ void row_normalize(raft::resources const& handle,
 /**
  * @brief Divide rows by their norm.
  *
+ * @tparam norm_type the type of norm to be applied
  * @tparam ElementType Input/Output data type
  * @tparam IndexType Integer type used to for addressing
  * @param[in] handle raft::resources
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_matrix_view
- * @param[in] norm_type the type of norm to be applied
  * @param[in] eps If the norm is below eps, the row is considered zero and no division is applied
  */
-template <typename ElementType, typename IndexType>
+template <NormType norm_type, typename ElementType, typename IndexType>
 void row_normalize(raft::resources const& handle,
                    raft::device_matrix_view<const ElementType, IndexType, row_major> in,
                    raft::device_matrix_view<ElementType, IndexType, row_major> out,
-                   NormType norm_type,
                    ElementType eps = ElementType(1e-8))
 {
-  switch (norm_type) {
-    case L1Norm:
-      row_normalize(
-        handle, in, out, ElementType(0), raft::abs_op(), raft::add_op(), raft::identity_op(), eps);
-      break;
-    case L2Norm:
-      row_normalize(
-        handle, in, out, ElementType(0), raft::sq_op(), raft::add_op(), raft::sqrt_op(), eps);
-      break;
-    case LinfNorm:
-      row_normalize(
-        handle, in, out, ElementType(0), raft::abs_op(), raft::max_op(), raft::identity_op(), eps);
-      break;
-    default: THROW("Unsupported norm type: %d", norm_type);
+  if constexpr (norm_type == L1Norm) {
+    row_normalize(
+      handle, in, out, ElementType(0), raft::abs_op(), raft::add_op(), raft::identity_op(), eps);
+  } else if constexpr (norm_type == L2Norm) {
+    row_normalize(
+      handle, in, out, ElementType(0), raft::sq_op(), raft::add_op(), raft::sqrt_op(), eps);
+  } else if constexpr (norm_type == LinfNorm) {
+    row_normalize(
+      handle, in, out, ElementType(0), raft::abs_op(), raft::max_op(), raft::identity_op(), eps);
+  } else {
+    RAFT_FAIL("Unsupported norm type: %d", norm_type);
   }
 }
 

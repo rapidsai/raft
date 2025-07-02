@@ -45,10 +45,7 @@ jobs:
         if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
         uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   check-nightly-ci:
-    # Switch to ubuntu-latest once it defaults to a version of Ubuntu that
-    # provides at least Python 3.11 (see
-    # https://docs.python.org/3/library/datetime.html#datetime.date.fromisoformat)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     env:
       RAPIDS_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -66,6 +63,7 @@ jobs:
           - '**'
           - '!.devcontainer/**'
           - '!.pre-commit-config.yaml'
+          - '!.shellcheckrc'
           - '!CONTRIBUTING.md'
           - '!README.md'
           - '!ci/release/update-version.sh'
@@ -77,6 +75,7 @@ jobs:
           - '**'
           - '!.devcontainer/**'
           - '!.pre-commit-config.yaml'
+          - '!.shellcheckrc'
           - '!CONTRIBUTING.md'
           - '!README.md'
           - '!ci/release/update-version.sh'
@@ -112,7 +111,6 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@branch-25.08
     with:
       build_type: pull-request
-      enable_check_symbols: true
   conda-python-build:
     needs: conda-cpp-build
     secrets: inherit
@@ -192,7 +190,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.08
     with:
       arch: '["amd64"]'
-      cuda: '["12.8"]'
+      cuda: '["12.9"]'
       build_command: |
         sccache -z;
         build-all -DBUILD_PRIMS_BENCH=ON --verbose;
