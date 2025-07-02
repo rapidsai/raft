@@ -120,7 +120,7 @@ INSTANTIATE_TEST_CASE_P(SparseFilterTests, COORemoveZeros, ::testing::ValuesIn(i
 typedef SparseFilterTests<float> COORemoveScalarView;
 TEST_P(COORemoveScalarView, ResultView)
 {
-  raft::resources h;
+  raft::device_resources h;
   auto stream = resource::get_cuda_stream(h);
   params      = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
 
@@ -162,7 +162,7 @@ TEST_P(COORemoveScalarView, ResultView)
 
   auto scalar = raft::make_host_scalar<float>(0.0f);
 
-  op::coo_remove_scalar<128, float, int, int>(stream, in_view, scalar.view(), out_matrix);
+  op::coo_remove_scalar<128, float, int, int>(h, in_view, scalar.view(), out_matrix);
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   auto out_nnz = out_matrix.structure_view().get_nnz();

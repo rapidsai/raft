@@ -160,7 +160,7 @@ class COOSymmetrizeTest : public ::testing::TestWithParam<COOSymmetrizeInputs<T>
 typedef COOSymmetrizeTest<float> COOSymmetrizeView;
 TEST_P(COOSymmetrizeView, ResultView)
 {
-  raft::resources handle;
+  raft::device_resources handle;
   auto stream = resource::get_cuda_stream(handle);
 
   rmm::device_uvector<int> in_rows(params.nnz, stream);

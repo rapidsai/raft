@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/device_coo_matrix.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
@@ -198,11 +199,13 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T, typename idx_t, typename nnz_t>
-void coo_remove_scalar(const rmm::cuda_stream_view stream,
+void coo_remove_scalar(raft::device_resources const& handle,
                        raft::device_coo_matrix_view<const T, idx_t, idx_t, nnz_t> in,
                        raft::host_scalar_view<const T> scalar,
                        raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out)
 {
+  auto stream = resource::get_cuda_stream(handle);
+
   auto in_structure = in.structure_view();
 
   auto in_n_rows = in_structure.get_n_rows();
