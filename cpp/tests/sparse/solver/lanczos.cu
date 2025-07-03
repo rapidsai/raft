@@ -341,16 +341,21 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
 };
 
 template <typename IndexType>
-std::vector<IndexType> rows = {
+std::vector<IndexType> rows()
+{
+  return {
   0,   19,  33,   44,   63,   75,   89,   101,  115,  122,  134,  146,  156,  169,  182,  192, 205,
   216, 231, 237,  244,  256,  269,  280,  291,  296,  303,  315,  325,  336,  349,  368,  382, 390,
   405, 418, 429,  432,  442,  455,  466,  481,  491,  505,  517,  523,  534,  546,  562,  570, 590,
   603, 614, 626,  638,  648,  662,  670,  678,  689,  701,  714,  723,  736,  745,  756,  769, 782,
   791, 805, 812,  826,  835,  851,  863,  876,  889,  901,  911,  922,  931,  940,  957,  967, 981,
   991, 999, 1006, 1019, 1034, 1042, 1058, 1068, 1077, 1088, 1103, 1112, 1121, 1129, 1140, 1152};
+}
 
 template <typename IndexType>
-std::vector<IndexType> cols = {
+std::vector<IndexType> cols()
+{
+  return {
   {0,  3,  5,  14, 29, 31, 33, 34, 35, 39, 51, 61, 76, 80, 85, 88, 91, 92, 96, 1,  6,  7,  8,  19,
    35, 44, 65, 72, 76, 78, 80, 90, 97, 28, 42, 43, 51, 52, 59, 63, 68, 90, 91, 92, 0,  3,  4,  11,
    21, 30, 33, 40, 46, 49, 54, 57, 59, 60, 66, 67, 72, 84, 88, 3,  16, 23, 32, 34, 39, 45, 50, 60,
@@ -399,9 +404,12 @@ std::vector<IndexType> cols = {
    33, 35, 49, 62, 70, 80, 93, 98, 7,  11, 12, 14, 17, 20, 28, 41, 45, 57, 75, 85, 86, 87, 88, 7,
    17, 30, 35, 46, 57, 65, 76, 88, 0,  43, 44, 51, 55, 64, 73, 96, 98, 1,  15, 31, 33, 35, 53, 68,
    83, 14, 24, 28, 38, 43, 51, 59, 60, 71, 93, 96, 7,  9,  19, 20, 30, 33, 39, 65, 66, 72, 73, 86}};
+};
 
 template <typename IndexType>
-std::vector<IndexType> vals = {
+std::vector<IndexType> vals()
+{
+  return {
   0.8385492, 0.0887047, 0.4178915, 0.4469863, 0.3129920, 0.1031984, 0.2898832, 0.3742032,
   0.0522814, 0.4283062, 0.0722899, 0.2825163, 0.3556329, 0.4577443, 0.1463357, 0.3288944,
   0.4404407, 0.3466910, 0.1813836, 0.4619252, 0.2565850, 0.3349850, 0.4806673, 0.2509201,
@@ -546,6 +554,7 @@ std::vector<IndexType> vals = {
   0.2486204, 0.4209127, 0.4439365, 0.3121863, 0.0742416, 0.0563368, 0.3876660, 0.4610244,
   0.2641133, 0.1591760, 0.1906150, 0.1628898, 0.3853460, 0.4039690, 0.4618716, 0.0398270,
   0.4915100, 0.4278218, 0.1974726, 0.1358538, 0.0068666, 0.4003320, 0.4238202, 0.3394504};
+}
 
 // TODO: Find a way to generate and validate test data without hardcoding them (issue #2485)
 const std::vector<lanczos_inputs<int, float>> inputsf = {
@@ -659,9 +668,9 @@ const std::vector<lanczos_inputs<int, double>> inputsd_SM = {
    1e-15,
    raft::sparse::solver::LANCZOS_WHICH::SM,
    42,
-   rows<int>,
-   cols<int>,
-   vals<double>,
+   rows<int>(),
+   cols<int>(),
+   vals<double>(),
    {-0.03944135, 0.01367824}}};
 
 const std::vector<lanczos_inputs<int, double>> inputsd_LM = {
@@ -673,9 +682,9 @@ const std::vector<lanczos_inputs<int, double>> inputsd_LM = {
    1e-15,
    raft::sparse::solver::LANCZOS_WHICH::LM,
    42,
-   rows<int>,
-   cols<int>,
-   vals<double>,
+   rows<int>(),
+   cols<int>(),
+   vals<double>(),
    {-2.00968758, 3.45939575}}};
 
 const std::vector<lanczos_inputs<int, double>> inputsd_LA = {
@@ -687,9 +696,9 @@ const std::vector<lanczos_inputs<int, double>> inputsd_LA = {
    1e-15,
    raft::sparse::solver::LANCZOS_WHICH::LA,
    42,
-   rows<int>,
-   cols<int>,
-   vals<double>,
+   rows<int>(),
+   cols<int>(),
+   vals<double>(),
    {1.99482678, 3.45939575}}};
 
 const std::vector<lanczos_inputs<int, double>> inputsd_SA = {
@@ -701,9 +710,9 @@ const std::vector<lanczos_inputs<int, double>> inputsd_SA = {
    1e-15,
    raft::sparse::solver::LANCZOS_WHICH::SA,
    42,
-   rows<int>,
-   cols<int>,
-   vals<double>,
+   rows<int>(),
+   cols<int>(),
+   vals<double>(),
    {-2.00968758, -1.83487935}}};
 
 const std::vector<lanczos_inputs<int, float>> inputsf_SM = {
@@ -715,9 +724,9 @@ const std::vector<lanczos_inputs<int, float>> inputsf_SM = {
    1e-15,
    raft::sparse::solver::LANCZOS_WHICH::SM,
    42,
-   rows<int>,
-   cols<int>,
-   vals<float>,
+   rows<int>(),
+   cols<int>(),
+   vals<float>(),
    {-0.03944135, 0.01367824}}};
 
 const std::vector<lanczos_inputs<int, float>> inputsf_LM = {
@@ -729,9 +738,9 @@ const std::vector<lanczos_inputs<int, float>> inputsf_LM = {
    1e-15,
    raft::sparse::solver::LANCZOS_WHICH::LM,
    42,
-   rows<int>,
-   cols<int>,
-   vals<float>,
+   rows<int>(),
+   cols<int>(),
+   vals<float>(),
    {-2.00968758, 3.45939575}}};
 
 const std::vector<lanczos_inputs<int, float>> inputsf_LA = {
@@ -743,9 +752,9 @@ const std::vector<lanczos_inputs<int, float>> inputsf_LA = {
    1e-15,
    raft::sparse::solver::LANCZOS_WHICH::LA,
    42,
-   rows<int>,
-   cols<int>,
-   vals<float>,
+   rows<int>(),
+   cols<int>(),
+   vals<float>(),
    {1.99482678, 3.45939575}}};
 
 const std::vector<lanczos_inputs<int, float>> inputsf_SA = {
@@ -757,9 +766,9 @@ const std::vector<lanczos_inputs<int, float>> inputsf_SA = {
    1e-15,
    raft::sparse::solver::LANCZOS_WHICH::SA,
    42,
-   rows<int>,
-   cols<int>,
-   vals<float>,
+   rows<int>(),
+   cols<int>(),
+   vals<float>(),
    {-2.00968758, -1.83487935}}};
 
 const std::vector<rmat_lanczos_inputs<int, float>> rmat_inputsf = {
