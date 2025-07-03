@@ -38,14 +38,13 @@ namespace stats {
  * @param sample whether to evaluate sample covariance or not. In other words,
  * whether to normalize the output using N-1 or N, for true or false,
  * respectively
- * @param rowMajor whether the input data is row or col major
  * @param stable whether to run the slower-but-numerically-stable version or not
  * @param handle cublas handle
  * @param stream cuda stream
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */
-template <typename Type>
+template <bool rowMajor, typename Type>
 void cov(raft::resources const& handle,
          Type* covar,
          Type* data,
@@ -53,11 +52,10 @@ void cov(raft::resources const& handle,
          std::size_t D,
          std::size_t N,
          bool sample,
-         bool rowMajor,
          bool stable,
          cudaStream_t stream)
 {
-  detail::cov(handle, covar, data, mu, D, N, sample, rowMajor, stable, stream);
+  detail::cov<rowMajor>(handle, covar, data, mu, D, N, sample, stable, stream);
 }
 
 /**
@@ -102,16 +100,15 @@ void cov(raft::resources const& handle,
   RAFT_EXPECTS(covar.is_exhaustive(), "covar must be contiguous");
   RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
 
-  detail::cov(handle,
-              covar.data_handle(),
-              data.data_handle(),
-              mu.data_handle(),
-              data.extent(1),
-              data.extent(0),
-              std::is_same_v<layout_t, raft::row_major>,
-              sample,
-              stable,
-              resource::get_cuda_stream(handle));
+  detail::cov<std::is_same_v<layout_t, raft::row_major>>(handle,
+                                                         covar.data_handle(),
+                                                         data.data_handle(),
+                                                         mu.data_handle(),
+                                                         data.extent(1),
+                                                         data.extent(0),
+                                                         sample,
+                                                         stable,
+                                                         resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_cov
