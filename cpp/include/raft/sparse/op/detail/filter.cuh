@@ -204,7 +204,7 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
  * @param out: output COO matrix
  */
 template <int TPB_X, typename T, typename idx_t, typename nnz_t>
-void coo_remove_scalar(raft::device_resources const& handle,
+void coo_remove_scalar(raft::resources const& handle,
                        raft::device_coo_matrix_view<const T, idx_t, idx_t, nnz_t> in,
                        raft::host_scalar_view<const T> scalar,
                        raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out)

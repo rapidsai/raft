@@ -120,7 +120,7 @@ INSTANTIATE_TEST_CASE_P(SparseFilterTests, COORemoveZeros, ::testing::ValuesIn(i
 typedef SparseFilterTests<float> COORemoveScalarView;
 TEST_P(COORemoveScalarView, ResultView)
 {
-  raft::device_resources h;
+  raft::resources h;
   auto stream = resource::get_cuda_stream(h);
   params      = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
 
