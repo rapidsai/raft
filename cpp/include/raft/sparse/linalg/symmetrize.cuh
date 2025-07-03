@@ -49,7 +49,7 @@ void coo_symmetrize(COO<T>* in,
  * it, running a custom reduction function against the each value
  * and its transposed value.
  *
- * @param handle: raft resources handle
+ * @param handle: device resources
  * @param in: Input COO matrix
  * @param out: Output symmetrized COO matrix
  * @param reduction_op: a custom reduction function
