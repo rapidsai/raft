@@ -64,8 +64,8 @@ void rowNormalizeRef(
   } else {
     RAFT_FAIL("Unsupported norm type");
   }
-  raft::linalg::matrixVectorOp(
-    out, in, norm.data(), cols, rows, true, false, raft::div_op{}, stream);
+  raft::linalg::matrixVectorOp<true, false>(
+    out, in, norm.data(), cols, rows, raft::div_op{}, stream);
 }
 
 template <typename T, typename IdxT>

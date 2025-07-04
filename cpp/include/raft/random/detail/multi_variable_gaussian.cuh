@@ -84,14 +84,12 @@ template <typename T>
 void matVecAdd(
   T* out, const T* in_m, const T* in_v, T scalar, int rows, int cols, cudaStream_t stream)
 {
-  raft::linalg::matrixVectorOp(
+  raft::linalg::matrixVectorOp<true, true>(
     out,
     in_m,
     in_v,
     cols,
     rows,
-    true,
-    true,
     [=] __device__(T mat, T vec) { return mat + scalar * vec; },
     stream);
 }
