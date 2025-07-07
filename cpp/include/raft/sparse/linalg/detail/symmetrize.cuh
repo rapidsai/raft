@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include <raft/core/device_coo_matrix.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/matrix/init.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
@@ -48,10 +51,10 @@ namespace detail {
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
 template <int TPB_X = 128, typename T, typename Lambda, typename nnz_t>
-RAFT_KERNEL coo_symmetrize_kernel(nnz_t* row_ind,
-                                  int* rows,
-                                  int* cols,
-                                  T* vals,
+RAFT_KERNEL coo_symmetrize_kernel(const nnz_t* row_ind,
+                                  const int* rows,
+                                  const int* cols,
+                                  const T* vals,
                                   int* orows,
                                   int* ocols,
                                   T* ovals,
@@ -158,6 +161,71 @@ void coo_symmetrize(COO<T, IdxT, nnz_t>* in,
                                                             in->n_rows,
                                                             in->nnz,
                                                             reduction_op);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/**
+ * @brief takes a COO matrix which may not be symmetric and symmetrizes
+ * it, running a custom reduction function against the each value
+ * and its transposed value.
+ *
+ * @param handle: raft resources handle
+ * @param in: Input COO matrix
+ * @param out: Output symmetrized COO matrix
+ * @param reduction_op: a custom reduction function
+ */
+template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
+void coo_symmetrize(raft::resources const& handle,
+                    raft::device_coo_matrix_view<const T, IdxT, IdxT, nnz_t> in,
+                    raft::device_coo_matrix<T, IdxT, IdxT, nnz_t>& out,
+                    Lambda reduction_op)  // two-argument reducer
+{
+  auto stream = raft::resource::get_cuda_stream(handle);
+
+  auto in_structure = in.structure_view();
+
+  auto in_n_rows = in_structure.get_n_rows();
+  auto in_n_cols = in_structure.get_n_cols();
+  auto in_nnz    = in_structure.get_nnz();
+
+  auto in_rows = in_structure.get_rows().data();
+  auto in_cols = in_structure.get_cols().data();
+  auto in_vals = in.get_elements().data();
+
+  dim3 grid(raft::ceildiv(in_n_rows, TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  rmm::device_uvector<nnz_t> in_row_ind(in_n_rows, stream);
+
+  convert::sorted_coo_to_csr(in_rows, in_nnz, in_row_ind.data(), in_n_rows, stream);
+
+  out.initialize_sparsity(in_nnz * 2);
+
+  auto out_structure = out.structure_view();
+
+  auto out_n_rows = out_structure.get_n_rows();
+  auto out_n_cols = out_structure.get_n_cols();
+  auto out_nnz    = out_structure.get_nnz();
+
+  auto out_rows = out_structure.get_rows().data();
+  auto out_cols = out_structure.get_cols().data();
+  auto out_vals = out.get_elements().data();
+
+  raft::matrix::fill(handle, raft::make_device_vector_view(out_rows, out_nnz), 0);
+  raft::matrix::fill(handle, raft::make_device_vector_view(out_cols, out_nnz), 0);
+  raft::matrix::fill(handle, raft::make_device_vector_view(out_vals, out_nnz), static_cast<T>(0.0));
+
+  coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(in_row_ind.data(),
+                                                            in_rows,
+                                                            in_cols,
+                                                            in_vals,
+                                                            out_rows,
+                                                            out_cols,
+                                                            out_vals,
+                                                            in_n_rows,
+                                                            in_nnz,
+                                                            reduction_op);
+
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <raft/core/device_resources.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/detail/filter.cuh>
@@ -75,6 +77,23 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
                        cudaStream_t stream)
 {
   detail::coo_remove_scalar<128, T, idx_t, nnz_t>(in, out, scalar, stream);
+}
+
+/**
+ * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
+ *
+ * @param handle: device resources
+ * @param in: input COO matrix
+ * @param scalar: scalar to remove from arrays
+ * @param out: output COO matrix
+ */
+template <int TPB_X, typename T, typename idx_t, typename nnz_t>
+void coo_remove_scalar(raft::resources const& handle,
+                       raft::device_coo_matrix_view<const T, idx_t, idx_t, nnz_t> in,
+                       raft::host_scalar_view<const T> scalar,
+                       raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out)
+{
+  detail::coo_remove_scalar<TPB_X, T, idx_t, nnz_t>(handle, in, scalar, out);
 }
 
 /**
