@@ -749,22 +749,24 @@ void matrixLinewiseVecRowsSpan(
  */
 template <std::size_t VecBytes = 16, int BlockSize = 256>
 struct MatrixLinewiseOp {
-  template <typename Type, typename IdxType, typename Lambda, typename... Vecs>
+  template <bool alongLines, typename Type, typename IdxType, typename Lambda, typename... Vecs>
   static void run(Type* out,
                   const Type* in,
                   const IdxType lineLen,
                   const IdxType nLines,
-                  const bool alongLines,
                   Lambda op,
                   cudaStream_t stream,
                   const Vecs*... vecs)
   {
     if constexpr (VecBytes > sizeof(Type)) {
-      if (!raft::Pow2<VecBytes>::areSameAlignOffsets(in, out))
-        return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type)), BlockSize>::run(
-          out, in, lineLen, nLines, alongLines, op, stream, vecs...);
+      if (!raft::Pow2<VecBytes>::areSameAlignOffsets(in, out)) {
+        constexpr std::size_t NextVecBytes =
+          (VecBytes >> 1) > sizeof(Type) ? (VecBytes >> 1) : sizeof(Type);
+        return MatrixLinewiseOp<NextVecBytes, BlockSize>::template run<alongLines>(
+          out, in, lineLen, nLines, op, stream, vecs...);
+      }
     }
-    if (alongLines)
+    if constexpr (alongLines)
       return matrixLinewiseVecRows<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>(
         out, in, lineLen, nLines, op, stream, vecs...);
     else
@@ -772,7 +774,8 @@ struct MatrixLinewiseOp {
         out, in, lineLen, nLines, op, stream, vecs...);
   }
 
-  template <typename Type,
+  template <bool alongLines,
+            typename Type,
             typename IdxType,
             typename LayoutPolicy,
             typename Lambda,
@@ -781,7 +784,6 @@ struct MatrixLinewiseOp {
                         raft::device_aligned_matrix_view<const Type, IdxType, LayoutPolicy> in,
                         const IdxType lineLen,
                         const IdxType nLines,
-                        const bool alongLines,
                         Lambda op,
                         cudaStream_t stream,
                         const Vecs*... vecs)
@@ -796,7 +798,7 @@ struct MatrixLinewiseOp {
     RAFT_EXPECTS(raft::Pow2<VecBytes>::areSameAlignOffsets(in.data_handle(), out.data_handle()),
                  "The matrix views in and out does not have correct alignment");
 
-    if (alongLines)
+    if constexpr (alongLines)
       return matrixLinewiseVecRowsSpan<Type,
                                        IdxType,
                                        LayoutPolicy,

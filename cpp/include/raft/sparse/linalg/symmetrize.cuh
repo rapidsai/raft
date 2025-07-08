@@ -45,6 +45,25 @@ void coo_symmetrize(COO<T>* in,
 }
 
 /**
+ * @brief takes a COO matrix which may not be symmetric and symmetrizes
+ * it, running a custom reduction function against the each value
+ * and its transposed value.
+ *
+ * @param handle: device resources
+ * @param in: Input COO matrix
+ * @param out: Output symmetrized COO matrix
+ * @param reduction_op: a custom reduction function
+ */
+template <int TPB_X = 128, typename T, typename IdxT, typename nnz_t, typename Lambda>
+void coo_symmetrize(raft::resources const& handle,
+                    raft::device_coo_matrix_view<const T, IdxT, IdxT, nnz_t> in,
+                    raft::device_coo_matrix<T, IdxT, IdxT, nnz_t>& out,
+                    Lambda reduction_op)  // two-argument reducer
+{
+  detail::coo_symmetrize<TPB_X, T, IdxT, nnz_t, Lambda>(handle, in, out, reduction_op);
+}
+
+/**
  * @brief Find how much space needed in each row.
  * We look through all datapoints and increment the count for each row.
  *
