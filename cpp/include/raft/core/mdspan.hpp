@@ -33,6 +33,12 @@ using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, Acc
 
 namespace detail {
 
+template <typename IntType>
+constexpr IntType alignTo(IntType a, IntType b)
+{
+  return ((a + b - 1) / b) * b;
+}
+
 // keeping ByteAlignment as optional to allow testing
 template <class ValueType, size_t ByteAlignment = 128>
 struct padding {

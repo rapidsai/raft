@@ -19,6 +19,7 @@
 #include <raft/core/detail/macros.hpp>
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <type_traits>
 
