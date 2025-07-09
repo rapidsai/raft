@@ -127,7 +127,7 @@ Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t, alt
   // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
   // For each edge, add noise that is less than theta. That is, generate a random number in the
   // range [0.0, theta) and add it to each edge weight.
-  alteration();
+  if (e > 1) alteration();
 
   auto max_mst_edges = symmetrize_output ? 2 * v - 2 : v - 1;
 
