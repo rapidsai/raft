@@ -79,6 +79,7 @@ jobs:
           - '!CONTRIBUTING.md'
           - '!README.md'
           - '!ci/release/update-version.sh'
+          - '!cpp/.clang-format'
           - '!docs/**'
           - '!img/**'
           - '!thirdparty/LICENSES/**'
