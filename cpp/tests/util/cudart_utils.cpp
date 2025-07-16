@@ -111,12 +111,11 @@ TEST(Raft, Copy2DAsync)
   constexpr size_t width     = cols;
   constexpr size_t height    = rows;
 
-  rmm::cuda_stream_pool pool{1};
-  auto stream = pool.get_stream();
+  raft::resources handle;
+  auto stream = raft::resource::get_cuda_stream(handle);
 
   rmm::device_uvector<DType> d_src(pitch * elem_size * rows, stream);
   rmm::device_uvector<DType> d_dst(pitch * elem_size * rows, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   std::vector<DType> h_src(rows * pitch, -1.0f);
   std::vector<DType> h_dst(rows * pitch, 0.0f);
@@ -139,6 +138,7 @@ TEST(Raft, Copy2DAsync)
   RAFT_CUDA_TRY(
     cudaMemcpy(h_dst.data(), d_dst.data(), pitch * elem_size * rows, cudaMemcpyDeviceToHost));
 
+  raft::resource::sync_stream(handle);
   for (size_t r = 0; r < rows; ++r) {
     for (size_t c = 0; c < pitch; ++c) {
       ASSERT_EQ(h_dst[r * pitch + c], h_dst_baseline[r * pitch + c])
