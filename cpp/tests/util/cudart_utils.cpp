@@ -18,7 +18,6 @@
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#include <rmm/cuda_stream_pool.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <gtest/gtest.h>
