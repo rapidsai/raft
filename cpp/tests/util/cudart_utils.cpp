@@ -128,14 +128,13 @@ TEST(Raft, Copy2DAsync)
       }
     }
   }
-  RAFT_CUDA_TRY(
-    cudaMemcpyAsync(d_src.data(), h_src.data(), pitch * elem_size * rows, cudaMemcpyHostToDevice, stream));
-  RAFT_CUDA_TRY(
-    cudaMemsetAsync(d_dst.data(), 0, pitch * elem_size * rows, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    d_src.data(), h_src.data(), pitch * elem_size * rows, cudaMemcpyHostToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_dst.data(), 0, pitch * elem_size * rows, stream));
 
   raft::copy_matrix(d_dst.data(), pitch, d_src.data(), pitch, width, height, stream);
-  RAFT_CUDA_TRY(
-    cudaMemcpyAsync(h_dst.data(), d_dst.data(), pitch * elem_size * rows, cudaMemcpyDeviceToHost, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    h_dst.data(), d_dst.data(), pitch * elem_size * rows, cudaMemcpyDeviceToHost, stream));
 
   raft::resource::sync_stream(handle);
   for (size_t r = 0; r < rows; ++r) {
