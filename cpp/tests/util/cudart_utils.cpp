@@ -113,8 +113,8 @@ TEST(Raft, Copy2DAsync)
   raft::resources handle;
   auto stream = raft::resource::get_cuda_stream(handle);
 
-  rmm::device_uvector<DType> d_src(pitch * elem_size * rows, stream);
-  rmm::device_uvector<DType> d_dst(pitch * elem_size * rows, stream);
+  rmm::device_uvector<DType> d_src(pitch * rows, stream);
+  rmm::device_uvector<DType> d_dst(pitch * rows, stream);
 
   std::vector<DType> h_src(rows * pitch, -1.0f);
   std::vector<DType> h_dst(rows * pitch, 0.0f);
@@ -129,13 +129,13 @@ TEST(Raft, Copy2DAsync)
     }
   }
   RAFT_CUDA_TRY(
-    cudaMemcpy(d_src.data(), h_src.data(), pitch * elem_size * rows, cudaMemcpyHostToDevice));
+    cudaMemcpyAsync(d_src.data(), h_src.data(), pitch * elem_size * rows, cudaMemcpyHostToDevice, stream));
   RAFT_CUDA_TRY(
-    cudaMemcpy(d_dst.data(), h_dst.data(), pitch * elem_size * rows, cudaMemcpyHostToDevice));
+    cudaMemsetAsync(d_dst.data(), 0, pitch * elem_size * rows, stream));
 
   raft::copy_matrix(d_dst.data(), pitch, d_src.data(), pitch, width, height, stream);
   RAFT_CUDA_TRY(
-    cudaMemcpy(h_dst.data(), d_dst.data(), pitch * elem_size * rows, cudaMemcpyDeviceToHost));
+    cudaMemcpyAsync(h_dst.data(), d_dst.data(), pitch * elem_size * rows, cudaMemcpyDeviceToHost, stream));
 
   raft::resource::sync_stream(handle);
   for (size_t r = 0; r < rows; ++r) {
