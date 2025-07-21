@@ -60,7 +60,6 @@ requirements:
     - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - rmm =${{ minor_version }}
     - scikit-build-core >=0.10.0
-    - ucx-py ${{ ucx_py_version }}
     - ucxx ${{ ucxx_version }}
     - cuda-cudart-dev
     - cuda-python >=12.6.2,<13.0a0
@@ -73,7 +72,6 @@ requirements:
     - python
     - rapids-dask-dependency =${{ minor_version }}
     - rmm =${{ minor_version }}
-    - ucx-py ${{ ucx_py_version }}
     - cuda-cudart
     - cuda-python >=12.6.2,<13.0a0
   ignore_run_exports:

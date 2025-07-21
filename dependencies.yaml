@@ -369,7 +369,6 @@ dependencies:
       - output_types: conda
         packages:
           - &pylibraft_unsuffixed pylibraft==25.10.*,>=0.0.0a0
-          - &ucx_py_unsuffixed ucx-py==0.46.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -383,8 +382,7 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - &pylibraft_cu12 pylibraft-cu12==25.10.*,>=0.0.0a0
-              - &ucx_py_cu12 ucx-py-cu12==0.46.*,>=0.0.0a0
-          - {matrix: null, packages: [*pylibraft_unsuffixed, *ucx_py_unsuffixed]}
+          - {matrix: null, packages: [*pylibraft_unsuffixed]}
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
