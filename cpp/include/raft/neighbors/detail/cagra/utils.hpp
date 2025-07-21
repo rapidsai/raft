@@ -65,7 +65,7 @@ inline cudaDataType_t get_cuda_data_type<uint64_t>()
 }
 
 template <class T>
-constexpr unsigned size_of();
+_RAFT_HOST_DEVICE constexpr unsigned size_of();
 template <>
 _RAFT_HOST_DEVICE constexpr unsigned size_of<std::int8_t>()
 {

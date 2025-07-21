@@ -127,13 +127,13 @@ class rmat_lanczos_tests
     uint64_t n_nodes   = 1 << std::max(r_scale, c_scale);
     uint64_t theta_len = std::max(r_scale, c_scale) * 4;
 
-    auto theta = raft::make_device_vector<ValueType, uint32_t, raft::row_major>(handle, theta_len);
+    auto theta = raft::make_device_vector<ValueType, IndexType, raft::row_major>(handle, theta_len);
     raft::random::uniform<ValueType>(handle, rng, theta.view(), 0, 1);
 
-    auto out =
-      raft::make_device_matrix<IndexType, uint32_t, raft::row_major>(handle, n_edges * 2, 2);
-    auto out_src = raft::make_device_vector<IndexType, uint32_t, raft::row_major>(handle, n_edges);
-    auto out_dst = raft::make_device_vector<IndexType, uint32_t, raft::row_major>(handle, n_edges);
+    auto out = raft::make_device_mdarray<IndexType, IndexType, raft::row_major>(
+      handle, raft::extents<IndexType, raft::dynamic_extent, 2>(n_edges * 2, 2));
+    auto out_src = raft::make_device_vector<IndexType, IndexType, raft::row_major>(handle, n_edges);
+    auto out_dst = raft::make_device_vector<IndexType, IndexType, raft::row_major>(handle, n_edges);
 
     raft::random::RngState rng1{params.seed};
 
