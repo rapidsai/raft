@@ -42,8 +42,8 @@ template <typename DataT, typename AccT>
 struct l2_exp_cutlass_op {
   bool sqrt;
 
-  __device__ l2_exp_cutlass_op() noexcept : sqrt(false) {}
-  __device__ l2_exp_cutlass_op(bool isSqrt) noexcept : sqrt(isSqrt) {}
+  _RAFT_HOST_DEVICE l2_exp_cutlass_op() noexcept : sqrt(false) {}
+  _RAFT_HOST_DEVICE l2_exp_cutlass_op(bool isSqrt) noexcept : sqrt(isSqrt) {}
   inline __device__ AccT operator()(DataT aNorm, DataT bNorm, DataT accVal) const noexcept
   {
     AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
