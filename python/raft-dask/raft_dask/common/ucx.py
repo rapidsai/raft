@@ -37,9 +37,7 @@ class UCX:
 
             self.ucx_api = ucxx
         else:
-            import ucp
-
-            self.ucx_api = ucp
+            raise ValueError("ucxx is the only supported protocol")
 
         self._create_listener()
         self._endpoints = {}
@@ -62,7 +60,7 @@ class UCX:
         if self._protocol == "ucxx":
             return self.ucx_api.get_ucxx_worker()
         else:
-            return self.ucx_api.get_ucp_worker()
+            raise ValueError("ucxx is the only supported protocol")
 
     def _create_listener(self):
         self._listener = self.ucx_api.create_listener(self.listener_callback)
