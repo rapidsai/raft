@@ -21,6 +21,7 @@
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/managed_mdspan.hpp>
+#include <raft/core/mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
