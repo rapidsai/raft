@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#if CUDART_VERSION >= 10010
 
 #include "../test_utils.cuh"
 
@@ -167,5 +166,3 @@ INSTANTIATE_TEST_SUITE_P(EigSelTest, EigSelTestVecD, ::testing::ValuesIn(inputsd
 
 }  // end namespace linalg
 }  // end namespace raft
-
-#endif
