@@ -1113,7 +1113,6 @@ inline cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(matA));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(matB));
 
-
   return result;
 }
 

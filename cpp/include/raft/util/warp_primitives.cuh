@@ -69,10 +69,7 @@ DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
 }
 
 /** For every thread in the warp, set the corresponding bit to the thread's flag value.  */
-DI uint32_t ballot(bool inFlag, uint32_t mask = 0xffffffffu)
-{
-  return __ballot_sync(mask, inFlag);
-}
+DI uint32_t ballot(bool inFlag, uint32_t mask = 0xffffffffu) { return __ballot_sync(mask, inFlag); }
 
 template <typename T>
 struct is_shuffleable {

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "../test_utils.cuh"
 
 #include <raft/core/resource/cuda_stream.hpp>
