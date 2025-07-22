@@ -200,13 +200,8 @@ struct sparse_matrix_t {
   virtual ~sparse_matrix_t(void) =
     default;  // virtual because used as base for following matrix types
 
-  // y = alpha*A*x + beta*y
-  //(Note: removed const-ness of x, because CUDA 11 SpMV
-  // descriptor creation works with non-const, and const-casting
-  // down is dangerous)
-  //
   virtual void mv(value_type alpha,
-                  value_type* __restrict__ x,
+                  const value_type* __restrict__ x,
                   value_type beta,
                   value_type* __restrict__ y,
                   sparse_mv_alg_t alg = sparse_mv_alg_t::SPARSE_MV_ALG1,
