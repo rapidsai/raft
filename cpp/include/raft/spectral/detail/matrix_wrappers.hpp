@@ -200,8 +200,13 @@ struct sparse_matrix_t {
   virtual ~sparse_matrix_t(void) =
     default;  // virtual because used as base for following matrix types
 
+  // y = alpha*A*x + beta*y
+  //(Note: removed const-ness of x, because CUDA 11 SpMV
+  // descriptor creation works with non-const, and const-casting
+  // down is dangerous)
+  //
   virtual void mv(value_type alpha,
-                  const value_type* __restrict__ x,
+                  value_type* __restrict__ x,
                   value_type beta,
                   value_type* __restrict__ y,
                   sparse_mv_alg_t alg = sparse_mv_alg_t::SPARSE_MV_ALG1,
@@ -219,6 +224,7 @@ struct sparse_matrix_t {
     cusparseOperation_t trans = transpose ? CUSPARSE_OPERATION_TRANSPOSE :  // transpose
                                   CUSPARSE_OPERATION_NON_TRANSPOSE;         // non-transpose
 
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
     auto size_x = transpose ? nrows_ : ncols_;
     auto size_y = transpose ? ncols_ : nrows_;
 
@@ -270,10 +276,38 @@ struct sparse_matrix_t {
     RAFT_CUSPARSE_TRY(cusparseDestroyDnVec(vecY));
     RAFT_CUSPARSE_TRY(cusparseDestroyDnVec(vecX));
     RAFT_CUSPARSE_TRY(cusparseDestroySpMat(matA));
+#else
+    RAFT_CUSPARSE_TRY(
+      raft::sparse::detail::cusparsesetpointermode(cusparse_h, CUSPARSE_POINTER_MODE_HOST, stream));
+    cusparseMatDescr_t descr = 0;
+    RAFT_CUSPARSE_TRY(cusparseCreateMatDescr(&descr));
+    if (symmetric) {
+      RAFT_CUSPARSE_TRY(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_SYMMETRIC));
+    } else {
+      RAFT_CUSPARSE_TRY(cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL));
+    }
+    RAFT_CUSPARSE_TRY(cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO));
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecsrmv(cusparse_h,
+                                                          trans,
+                                                          nrows_,
+                                                          ncols_,
+                                                          nnz_,
+                                                          &alpha,
+                                                          descr,
+                                                          values_,
+                                                          row_offsets_,
+                                                          col_indices_,
+                                                          x,
+                                                          &beta,
+                                                          y,
+                                                          stream));
+    RAFT_CUSPARSE_TRY(cusparseDestroyMatDescr(descr));
+#endif
   }
 
   resources const& get_handle(void) const { return handle_; }
 
+#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
   cusparseSpMVAlg_t translate_algorithm(sparse_mv_alg_t alg) const
   {
     switch (alg) {
@@ -282,6 +316,7 @@ struct sparse_matrix_t {
       default: return CUSPARSE_SPMV_ALG_DEFAULT;
     }
   }
+#endif
 
   // private: // maybe not, keep this ASAPBNS ("as simple as possible, but not simpler"); hence,
   // aggregate
