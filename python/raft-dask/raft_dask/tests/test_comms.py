@@ -227,15 +227,6 @@ def test_nccl_root_placement(root_location, request):
 
 @pytest.mark.parametrize("root_location", ["client", "worker", "scheduler"])
 @pytest.mark.nccl
-@pytest.mark.ucx
-def test_nccl_root_placement_ucx(root_location, request):
-    _test_nccl_root_placement(
-        _get_client("ucx_client", request), root_location
-    )
-
-
-@pytest.mark.parametrize("root_location", ["client", "worker", "scheduler"])
-@pytest.mark.nccl
 @pytest.mark.ucxx
 def test_nccl_root_placement_ucxx(root_location, request):
     _test_nccl_root_placement(
@@ -282,14 +273,6 @@ def test_collectives(func, root_location, request):
 @pytest.mark.parametrize("func", functions)
 @pytest.mark.parametrize("root_location", ["client", "worker", "scheduler"])
 @pytest.mark.nccl
-@pytest.mark.ucx
-def test_collectives_ucx(func, root_location, request):
-    _test_collectives(_get_client("ucx_client", request), func, root_location)
-
-
-@pytest.mark.parametrize("func", functions)
-@pytest.mark.parametrize("root_location", ["client", "worker", "scheduler"])
-@pytest.mark.nccl
 @pytest.mark.ucxx
 def test_collectives_ucxx(func, root_location, request):
     _test_collectives(_get_client("ucxx_client", request), func, root_location)
@@ -315,12 +298,6 @@ def _test_comm_split(client):
 @pytest.mark.nccl
 def test_comm_split(request):
     _test_comm_split(_get_client("client", request))
-
-
-@pytest.mark.nccl
-@pytest.mark.ucx
-def test_comm_split_ucx(request):
-    _test_comm_split(_get_client("ucx_client", request))
 
 
 @pytest.mark.nccl
@@ -356,12 +333,6 @@ def test_send_recv_protocol(n_trials, request):
 
 
 @pytest.mark.parametrize("n_trials", [1, 5])
-@pytest.mark.ucx
-def test_send_recv_protocol_ucx(n_trials, request):
-    _test_send_recv_protocol(n_trials, _get_client("ucx_client", request))
-
-
-@pytest.mark.parametrize("n_trials", [1, 5])
 @pytest.mark.ucxx
 def test_send_recv_protocol_ucxx(n_trials, request):
     _test_send_recv_protocol(n_trials, _get_client("ucxx_client", request))
@@ -392,13 +363,6 @@ def _test_device_send_or_recv(n_trials, client):
 @pytest.mark.nccl
 def test_device_send_or_recv(n_trials, request):
     _test_device_send_or_recv(n_trials, _get_client("client", request))
-
-
-@pytest.mark.parametrize("n_trials", [1, 5])
-@pytest.mark.nccl
-@pytest.mark.ucx
-def test_device_send_or_recv_ucx(n_trials, request):
-    _test_device_send_or_recv(n_trials, _get_client("ucx_client", request))
 
 
 @pytest.mark.parametrize("n_trials", [1, 5])
@@ -437,13 +401,6 @@ def test_device_sendrecv(n_trials, request):
 
 @pytest.mark.parametrize("n_trials", [1, 5])
 @pytest.mark.nccl
-@pytest.mark.ucx
-def test_device_sendrecv_ucx(n_trials, request):
-    _test_device_sendrecv(n_trials, _get_client("ucx_client", request))
-
-
-@pytest.mark.parametrize("n_trials", [1, 5])
-@pytest.mark.nccl
 @pytest.mark.ucxx
 def test_device_sendrecv_ucxx(n_trials, request):
     _test_device_sendrecv(n_trials, _get_client("ucxx_client", request))
@@ -474,15 +431,6 @@ def _test_device_multicast_sendrecv(n_trials, client):
 @pytest.mark.nccl
 def test_device_multicast_sendrecv(n_trials, request):
     _test_device_multicast_sendrecv(n_trials, _get_client("client", request))
-
-
-@pytest.mark.parametrize("n_trials", [1, 5])
-@pytest.mark.nccl
-@pytest.mark.ucx
-def test_device_multicast_sendrecv_ucx(n_trials, request):
-    _test_device_multicast_sendrecv(
-        n_trials, _get_client("ucx_client", request)
-    )
 
 
 @pytest.mark.parametrize("n_trials", [1, 5])

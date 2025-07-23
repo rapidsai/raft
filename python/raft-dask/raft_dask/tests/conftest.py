@@ -22,19 +22,6 @@ def cluster():
 
 
 @pytest.fixture(scope="session")
-def ucx_cluster():
-    scheduler_file = os.environ.get("SCHEDULER_FILE")
-    if scheduler_file:
-        yield scheduler_file
-    else:
-        cluster = LocalCUDACluster(
-            protocol="ucx-old",
-        )
-        yield cluster
-        cluster.close()
-
-
-@pytest.fixture(scope="session")
 def ucxx_cluster():
     pytest.importorskip("distributed_ucxx")
 
@@ -52,13 +39,6 @@ def ucxx_cluster():
 @pytest.fixture(scope="session")
 def client(cluster):
     client = create_client(cluster)
-    yield client
-    client.close()
-
-
-@pytest.fixture()
-def ucx_client(ucx_cluster):
-    client = create_client(ucx_cluster)
     yield client
     client.close()
 
