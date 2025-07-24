@@ -24,7 +24,7 @@
   case err: return #err;
 
 // Notes:
-//(1.) CUDA_VER_12_4_UP aggregates all the CUDA version selection logic;
+//(1.) CUDA_VER_10_1_UP aggregates all the CUDA version selection logic;
 //(2.) to enforce a lower version,
 //
 //`#define CUDA_ENFORCE_LOWER
@@ -32,6 +32,7 @@
 //
 // (i.e., before including this header)
 //
+#define CUDA_VER_10_1_UP (CUDART_VERSION >= 10010)
 #define CUDA_VER_12_4_UP (CUDART_VERSION >= 12040)
 
 namespace raft {
