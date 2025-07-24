@@ -63,7 +63,7 @@ pip install raft-dask-cu12 --extra-index-url=https://pypi.nvidia.com
 ### CUDA/GPU Requirements
 - cmake 3.26.4+
 - GCC 9.3+ (9.5.0+ recommended)
-- CUDA Toolkit 2.4+
+- CUDA Toolkit 12.0+
 - NVIDIA driver 450.80.02+
 - Ampere architecture or better (compute capability >= 8.0)
 
