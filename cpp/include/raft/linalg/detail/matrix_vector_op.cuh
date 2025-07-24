@@ -23,40 +23,45 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
-template <typename MatT, typename Lambda, typename VecT, typename IdxType = int, int TPB = 256>
+template <bool rowMajor,
+          bool bcastAlongRows,
+          typename MatT,
+          typename Lambda,
+          typename VecT,
+          typename IdxType = int,
+          int TPB          = 256>
 void matrixVectorOp(MatT* out,
                     const MatT* matrix,
                     const VecT* vec,
                     IdxType D,
                     IdxType N,
-                    bool rowMajor,
-                    bool bcastAlongRows,
                     Lambda op,
                     cudaStream_t stream)
 {
   raft::resources handle;
   resource::set_cuda_stream(handle, stream);
-  bool along_lines = rowMajor == bcastAlongRows;
-  if (rowMajor) {
-    matrix::linewise_op<MatT, IdxType, row_major, Lambda>(
+  constexpr raft::Apply apply =
+    rowMajor == bcastAlongRows ? raft::Apply::ALONG_ROWS : raft::Apply::ALONG_COLUMNS;
+  if constexpr (rowMajor) {
+    matrix::linewise_op<apply, MatT, IdxType, row_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, row_major>(matrix, N, D),
       make_device_matrix_view<MatT, IdxType, row_major>(out, N, D),
-      along_lines,
       op,
       make_device_vector_view<const VecT, IdxType>(vec, bcastAlongRows ? N : D));
   } else {
-    matrix::linewise_op<MatT, IdxType, col_major, Lambda>(
+    matrix::linewise_op<apply, MatT, IdxType, col_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, col_major>(matrix, N, D),
       make_device_matrix_view<MatT, IdxType, col_major>(out, N, D),
-      along_lines,
       op,
       make_device_vector_view<const VecT, IdxType>(vec, bcastAlongRows ? N : D));
   }
 }
 
-template <typename MatT,
+template <bool rowMajor,
+          bool bcastAlongRows,
+          typename MatT,
           typename Lambda,
           typename Vec1T,
           typename Vec2T,
@@ -68,29 +73,26 @@ void matrixVectorOp(MatT* out,
                     const Vec2T* vec2,
                     IdxType D,
                     IdxType N,
-                    bool rowMajor,
-                    bool bcastAlongRows,
                     Lambda op,
                     cudaStream_t stream)
 {
   raft::resources handle;
   resource::set_cuda_stream(handle, stream);
-  bool along_lines = rowMajor == bcastAlongRows;
-  if (rowMajor) {
-    matrix::linewise_op<MatT, IdxType, row_major, Lambda>(
+  constexpr raft::Apply apply =
+    rowMajor == bcastAlongRows ? raft::Apply::ALONG_ROWS : raft::Apply::ALONG_COLUMNS;
+  if constexpr (rowMajor) {
+    matrix::linewise_op<apply, MatT, IdxType, row_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, row_major>(matrix, N, D),
       make_device_matrix_view<MatT, IdxType, row_major>(out, N, D),
-      along_lines,
       op,
       make_device_vector_view<const Vec1T, IdxType>(vec1, bcastAlongRows ? N : D),
       make_device_vector_view<const Vec2T, IdxType>(vec2, bcastAlongRows ? N : D));
   } else {
-    matrix::linewise_op<MatT, IdxType, col_major, Lambda>(
+    matrix::linewise_op<apply, MatT, IdxType, col_major, Lambda>(
       handle,
       make_device_matrix_view<const MatT, IdxType, col_major>(matrix, N, D),
       make_device_matrix_view<MatT, IdxType, col_major>(out, N, D),
-      along_lines,
       op,
       make_device_vector_view<const Vec1T, IdxType>(vec1, bcastAlongRows ? N : D),
       make_device_vector_view<const Vec2T, IdxType>(vec2, bcastAlongRows ? N : D));

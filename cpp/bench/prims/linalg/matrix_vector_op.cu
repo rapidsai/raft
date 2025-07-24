@@ -56,26 +56,85 @@ struct mat_vec_op : public fixture {
 
     loop_on_state(state, [this]() {
       if constexpr (OpT::useTwoVectors) {
-        raft::linalg::matrixVectorOp(out.data() + params.outAlignOffset,
-                                     in.data() + params.inAlignOffset,
-                                     vec1.data(),
-                                     vec2.data(),
-                                     params.cols,
-                                     params.rows,
-                                     params.rowMajor,
-                                     params.bcastAlongRows,
-                                     OpT{},
-                                     stream);
+        if (params.rowMajor) {
+          if (params.bcastAlongRows) {
+            raft::linalg::matrixVectorOp<true, true>(out.data() + params.outAlignOffset,
+                                                     in.data() + params.inAlignOffset,
+                                                     vec1.data(),
+                                                     vec2.data(),
+                                                     params.cols,
+                                                     params.rows,
+                                                     OpT{},
+                                                     stream);
+          } else {
+            raft::linalg::matrixVectorOp<true, false>(out.data() + params.outAlignOffset,
+                                                      in.data() + params.inAlignOffset,
+                                                      vec1.data(),
+                                                      vec2.data(),
+                                                      params.cols,
+                                                      params.rows,
+                                                      OpT{},
+                                                      stream);
+          }
+        } else {
+          if (params.bcastAlongRows) {
+            raft::linalg::matrixVectorOp<false, true>(out.data() + params.outAlignOffset,
+                                                      in.data() + params.inAlignOffset,
+                                                      vec1.data(),
+                                                      vec2.data(),
+                                                      params.cols,
+                                                      params.rows,
+                                                      OpT{},
+                                                      stream);
+          } else {
+            raft::linalg::matrixVectorOp<false, false>(out.data() + params.outAlignOffset,
+                                                       in.data() + params.inAlignOffset,
+                                                       vec1.data(),
+                                                       vec2.data(),
+                                                       params.cols,
+                                                       params.rows,
+                                                       OpT{},
+                                                       stream);
+          }
+        }
       } else {
-        raft::linalg::matrixVectorOp(out.data() + params.outAlignOffset,
-                                     in.data() + params.inAlignOffset,
-                                     vec1.data(),
-                                     params.cols,
-                                     params.rows,
-                                     params.rowMajor,
-                                     params.bcastAlongRows,
-                                     OpT{},
-                                     stream);
+        if (params.rowMajor) {
+          if (params.bcastAlongRows) {
+            raft::linalg::matrixVectorOp<true, true>(out.data() + params.outAlignOffset,
+                                                     in.data() + params.inAlignOffset,
+                                                     vec1.data(),
+                                                     params.cols,
+                                                     params.rows,
+                                                     OpT{},
+                                                     stream);
+          } else {
+            raft::linalg::matrixVectorOp<true, false>(out.data() + params.outAlignOffset,
+                                                      in.data() + params.inAlignOffset,
+                                                      vec1.data(),
+                                                      params.cols,
+                                                      params.rows,
+                                                      OpT{},
+                                                      stream);
+          }
+        } else {
+          if (params.bcastAlongRows) {
+            raft::linalg::matrixVectorOp<false, true>(out.data() + params.outAlignOffset,
+                                                      in.data() + params.inAlignOffset,
+                                                      vec1.data(),
+                                                      params.cols,
+                                                      params.rows,
+                                                      OpT{},
+                                                      stream);
+          } else {
+            raft::linalg::matrixVectorOp<false, false>(out.data() + params.outAlignOffset,
+                                                       in.data() + params.inAlignOffset,
+                                                       vec1.data(),
+                                                       params.cols,
+                                                       params.rows,
+                                                       OpT{},
+                                                       stream);
+          }
+        }
       }
     });
   }

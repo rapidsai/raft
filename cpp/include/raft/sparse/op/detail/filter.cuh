@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <raft/core/device_coo_matrix.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/detail/utils.h>
@@ -162,8 +165,13 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
   linalg::coo_degree(in->rows(), in->nnz, row_count.data(), stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  linalg::coo_degree_scalar(
-    in->rows(), in->vals(), in->nnz, scalar, (unsigned long long int*)row_count_nz.data(), stream);
+  using nnz_cast_t = std::conditional_t<std::is_same_v<nnz_t, uint64_t>, unsigned long long, nnz_t>;
+  linalg::coo_degree_scalar(in->rows(),
+                            in->vals(),
+                            in->nnz,
+                            scalar,
+                            reinterpret_cast<nnz_cast_t*>(row_count_nz.data()),
+                            stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
@@ -183,6 +191,78 @@ void coo_remove_scalar(COO<T, idx_t, nnz_t>* in,
                                             row_count.data(),
                                             scalar,
                                             in->n_rows,
+                                            stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/**
+ * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
+ *
+ * @param handle: device resources
+ * @param in: input COO matrix
+ * @param scalar: scalar to remove from arrays
+ * @param out: output COO matrix
+ */
+template <int TPB_X, typename T, typename idx_t, typename nnz_t>
+void coo_remove_scalar(raft::resources const& handle,
+                       raft::device_coo_matrix_view<const T, idx_t, idx_t, nnz_t> in,
+                       raft::host_scalar_view<const T> scalar,
+                       raft::device_coo_matrix<T, idx_t, idx_t, nnz_t>& out)
+{
+  auto stream = resource::get_cuda_stream(handle);
+
+  auto in_structure = in.structure_view();
+
+  auto in_n_rows = in_structure.get_n_rows();
+  auto in_n_cols = in_structure.get_n_cols();
+  auto in_nnz    = in_structure.get_nnz();
+
+  auto in_rows = in_structure.get_rows().data();
+  auto in_cols = in_structure.get_cols().data();
+  auto in_vals = in.get_elements().data();
+
+  rmm::device_uvector<nnz_t> row_count_nz(in_n_rows, stream);
+  rmm::device_uvector<nnz_t> row_count(in_n_rows, stream);
+
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(row_count_nz.data(), 0, static_cast<nnz_t>(in_n_rows) * sizeof(nnz_t), stream));
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(row_count.data(), 0, static_cast<nnz_t>(in_n_rows) * sizeof(nnz_t), stream));
+
+  linalg::coo_degree(in_rows, in_nnz, row_count.data(), stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  linalg::coo_degree_scalar(
+    in_rows, in_vals, in_nnz, scalar(0), (nnz_t*)row_count_nz.data(), stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  thrust::device_ptr<nnz_t> d_row_count_nz = thrust::device_pointer_cast(row_count_nz.data());
+  auto out_nnz =
+    thrust::reduce(rmm::exec_policy(stream), d_row_count_nz, d_row_count_nz + in_n_rows);
+
+  out.initialize_sparsity(out_nnz);
+
+  auto out_structure = out.structure_view();
+
+  auto out_n_rows = out_structure.get_n_rows();
+  auto out_n_cols = out_structure.get_n_cols();
+  out_nnz         = out_structure.get_nnz();
+
+  auto out_rows = out_structure.get_rows().data();
+  auto out_cols = out_structure.get_cols().data();
+  auto out_vals = out.get_elements().data();
+
+  coo_remove_scalar<TPB_X, T, idx_t, nnz_t>(in_rows,
+                                            in_cols,
+                                            in_vals,
+                                            in_nnz,
+                                            out_rows,
+                                            out_cols,
+                                            out_vals,
+                                            row_count_nz.data(),
+                                            row_count.data(),
+                                            scalar(0),
+                                            in_n_rows,
                                             stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

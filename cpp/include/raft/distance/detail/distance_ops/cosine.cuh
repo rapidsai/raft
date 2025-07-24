@@ -23,7 +23,7 @@ namespace raft::distance::detail::ops {
 // Epilogue operator for CUTLASS based kernel
 template <typename DataT, typename AccT>
 struct cosine_cutlass_op {
-  __device__ cosine_cutlass_op() noexcept {}
+  _RAFT_HOST_DEVICE cosine_cutlass_op() noexcept {}
   __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
   {
     return static_cast<AccT>(1.0) - static_cast<AccT>(accVal / (aNorm * bNorm));

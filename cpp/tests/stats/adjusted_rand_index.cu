@@ -91,22 +91,18 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
       std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
     }
     // calculating golden output
-    int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
-    size_t sizeOfMat     = numUniqueClasses * numUniqueClasses * sizeof(int);
-    int* hGoldenOutput   = (int*)malloc(sizeOfMat);
-    memset(hGoldenOutput, 0, sizeOfMat);
+    int numUniqueClasses     = upperLabelRange - lowerLabelRange + 1;
+    const auto hGoldenOutput = std::make_unique<int[]>(numUniqueClasses * numUniqueClasses);
     for (int i = 0; i < nElements; i++) {
       int row    = arr1[i] - lowerLabelRange;
       int column = arr2[i] - lowerLabelRange;
       hGoldenOutput[row * numUniqueClasses + column] += 1;
     }
     int sumOfNijCTwo = 0;
-    int* a           = (int*)malloc(numUniqueClasses * sizeof(int));
-    int* b           = (int*)malloc(numUniqueClasses * sizeof(int));
-    memset(a, 0, numUniqueClasses * sizeof(int));
-    memset(b, 0, numUniqueClasses * sizeof(int));
-    int sumOfAiCTwo = 0;
-    int sumOfBiCTwo = 0;
+    const auto a     = std::make_unique<int[]>(numUniqueClasses);
+    const auto b     = std::make_unique<int[]>(numUniqueClasses);
+    int sumOfAiCTwo  = 0;
+    int sumOfBiCTwo  = 0;
     // calculating the sum of number of pairwise points in each index
     // and also the reducing contingency matrix along row and column
     for (int i = 0; i < numUniqueClasses; ++i) {
