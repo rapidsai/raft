@@ -23,6 +23,17 @@
 #define _CUSPARSE_ERR_TO_STR(err) \
   case err: return #err;
 
+// Notes:
+//(1.) CUDA_VER_12_4_UP aggregates all the CUDA version selection logic;
+//(2.) to enforce a lower version,
+//
+//`#define CUDA_ENFORCE_LOWER
+// #include <raft/sparse/detail/cusparse_wrappers.h>`
+//
+// (i.e., before including this header)
+//
+#define CUDA_VER_12_4_UP (CUDART_VERSION >= 12040)
+
 namespace raft {
 
 /**
@@ -46,7 +57,21 @@ namespace detail {
 
 inline const char* cusparse_error_to_string(cusparseStatus_t err)
 {
+#if defined(CUDART_VERSION) && CUDART_VERSION >= 10010
   return cusparseGetErrorString(err);
+#else   // CUDART_VERSION
+  switch (err) {
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_INITIALIZED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ALLOC_FAILED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INVALID_VALUE);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ARCH_MISMATCH);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_EXECUTION_FAILED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INTERNAL_ERROR);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
+    default: return "CUSPARSE_STATUS_UNKNOWN";
+  };
+#endif  // CUDART_VERSION
 }
 
 }  // namespace detail
