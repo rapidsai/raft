@@ -186,9 +186,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
 
     stream.synchronize();
     cudaProfilerStart();
-    testing::AssertionResult r = testing::AssertionSuccess();
     for (auto [n, m] : dims) {
-      if (!r) break;
       auto [out, in, vec1, vec2] = assignSafePtrs(blob, n, m);
       common::nvtx::range dims_scope("Dims-%zu-%zu", std::size_t(n), std::size_t(m));
       for (auto alongRows : ::testing::Bool()) {
@@ -207,10 +205,13 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           if (params.checkCorrectness) {
             linalg::naiveMatVec(
               blob_val.data(), in, vec1, lineLen, nLines, true, alongRows, T(1), stream);
-            r = devArrMatch(blob_val.data(), out, n * m, CompareApprox<T>(params.tolerance))
-                << " " << (alongRows ? "alongRows" : "acrossRows")
-                << " with one vec; lineLen: " << lineLen << "; nLines " << nLines;
-            if (!r) break;
+            auto r = devArrMatch(blob_val.data(), out, n * m, CompareApprox<T>(params.tolerance))
+                     << " " << (alongRows ? "alongRows" : "acrossRows")
+                     << " with one vec; lineLen: " << lineLen << "; nLines " << nLines;
+            if (!r) {
+              cudaProfilerStop();
+              return r;
+            }
           }
           {
             common::nvtx::range vecs_scope("two vecs");
@@ -224,17 +225,20 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           if (params.checkCorrectness) {
             linalg::naiveMatVec(
               blob_val.data(), in, vec1, vec2, lineLen, nLines, true, alongRows, T(1), stream);
-            r = devArrMatch(blob_val.data(), out, n * m, CompareApprox<T>(params.tolerance))
-                << " " << (alongRows ? "alongRows" : "acrossRows")
-                << " with two vecs;  lineLen: " << lineLen << "; nLines " << nLines;
-            if (!r) break;
+            auto r = devArrMatch(blob_val.data(), out, n * m, CompareApprox<T>(params.tolerance))
+                     << " " << (alongRows ? "alongRows" : "acrossRows")
+                     << " with two vecs;  lineLen: " << lineLen << "; nLines " << nLines;
+            if (!r) {
+              cudaProfilerStop();
+              return r;
+            }
           }
         }
       }
     }
     cudaProfilerStop();
 
-    return r;
+    return testing::AssertionSuccess();
   }
 
   testing::AssertionResult runWithPaddedSpan(std::vector<std::tuple<I, I>>&& dims,
@@ -244,10 +248,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
 
     stream.synchronize();
     cudaProfilerStart();
-    testing::AssertionResult r = testing::AssertionSuccess();
     for (auto alongRows : ::testing::Bool()) {
       for (auto [n, m] : dims) {
-        if (!r) break;
         // take dense testdata
         auto [out, in, vec1, vec2] = assignSafePtrs(blob, n, m);
         common::nvtx::range dims_scope("Dims-%zu-%zu", std::size_t(n), std::size_t(m));
@@ -303,10 +305,13 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                                  [outSpan, out_dense, lineLen] __device__(size_t i) {
                                    out_dense[i] = outSpan(i / lineLen, i % lineLen);
                                  });
-              r = devArrMatch(out_dense, out, n * m, CompareApprox<T>(params.tolerance))
-                  << " " << (alongRows ? "alongRows" : "acrossRows")
-                  << " with one vec;  lineLen: " << lineLen << "; nLines " << nLines;
-              if (!r) break;
+              auto r = devArrMatch(out_dense, out, n * m, CompareApprox<T>(params.tolerance))
+                       << " " << (alongRows ? "alongRows" : "acrossRows")
+                       << " with one vec;  lineLen: " << lineLen << "; nLines " << nLines;
+              if (!r) {
+                cudaProfilerStop();
+                return r;
+              }
             }
 
           } else {
@@ -336,18 +341,20 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                                  [outSpan, out_dense, lineLen] __device__(size_t i) {
                                    out_dense[i] = outSpan(i % lineLen, i / lineLen);
                                  });
-              r = devArrMatch(out_dense, out, n * m, CompareApprox<T>(params.tolerance))
-                  << " " << (alongRows ? "alongRows" : "acrossRows")
-                  << " with one vec;  lineLen: " << lineLen << "; nLines " << nLines;
-              if (!r) break;
+              auto r = devArrMatch(out_dense, out, n * m, CompareApprox<T>(params.tolerance))
+                       << " " << (alongRows ? "alongRows" : "acrossRows")
+                       << " with one vec;  lineLen: " << lineLen << "; nLines " << nLines;
+              if (!r) {
+                cudaProfilerStop();
+                return r;
+              }
             }
           }
         }
       }
     }
-    cudaProfilerStop();
 
-    return r;
+    return testing::AssertionSuccess();
   }
 
   testing::AssertionResult run()
