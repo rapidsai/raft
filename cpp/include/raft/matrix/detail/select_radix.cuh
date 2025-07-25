@@ -1026,12 +1026,7 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
       const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                  << previous_start_bit;
       if (previous_bits == kth_value_bits) {
-#if CUDART_VERSION < 12000 && __CUDA_ARCH__ <= 890
-        // Avoiding potential compiler bug in CUDA 11 (https://nvbugspro.nvidia.com/bug/4034669)
-        // This is unnecessary on H100.
-        volatile
-#endif
-          IdxT pos       = atomicAdd(p_filter_cnt, static_cast<IdxT>(1));
+        IdxT pos         = atomicAdd(p_filter_cnt, static_cast<IdxT>(1));
         out_buf[pos]     = value;
         out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i;
 

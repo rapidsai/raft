@@ -234,11 +234,6 @@ The easiest way to install RAFT is through conda and several packages are provid
 
 Use the following command, depending on your CUDA version, to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
-# for CUDA 11.8
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=11.8
-```
-
-```bash
 # for CUDA 12
 mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.9
 ```
@@ -255,8 +250,8 @@ mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-
 
 `pylibraft` and `raft-dask` both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
 ```bash
-pip install pylibraft-cu11 --extra-index-url=https://pypi.nvidia.com
-pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
+pip install pylibraft-cu12 --extra-index-url=https://pypi.nvidia.com
+pip install raft-dask-cu12 --extra-index-url=https://pypi.nvidia.com
 ```
 
 These packages statically build RAFT's pre-compiled instantiations and so the C++ headers won't be readily available to use in your code.

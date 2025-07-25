@@ -90,11 +90,6 @@ void eigDC(raft::resources const& handle,
            math_t* eig_vals,
            cudaStream_t stream)
 {
-#if CUDART_VERSION < 11010
-  eigDC_legacy(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream);
-  return;
-#endif
-
   int cudart_version = 0;
   RAFT_CUDA_TRY(cudaRuntimeGetVersion(&cudart_version));
   cudaStream_t stream_new;

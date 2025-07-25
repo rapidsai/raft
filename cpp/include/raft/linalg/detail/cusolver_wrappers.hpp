@@ -696,7 +696,6 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(  // NOLINT
     handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params);
 }
 
-#if CUDART_VERSION >= 11010
 template <typename T>
 cusolverStatus_t cusolverDnxgesvdr_bufferSize(  // NOLINT
   cusolverDnHandle_t handle,
@@ -806,7 +805,6 @@ cusolverStatus_t cusolverDnxgesvdr(  // NOLINT
   RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
   return result;
 }
-#endif  // CUDART_VERSION >= 11010
 
 /** @} */
 
@@ -1362,7 +1360,6 @@ inline cusolverStatus_t cusolverSpcsrqrsvBatched(  // NOLINT
 }
 /** @} */
 
-#if CUDART_VERSION >= 11010
 /**
  * @defgroup DnXsyevd cusolver DnXsyevd operations
  * @{
@@ -1530,7 +1527,6 @@ inline cusolverStatus_t cusolverDnxsyevd(  // NOLINT
                           info);
 }
 /** @} */
-#endif
 
 }  // namespace detail
 }  // namespace linalg
