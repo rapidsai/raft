@@ -36,11 +36,6 @@ The easiest way to install RAFT is through conda and several packages are provid
 
 Use the following command, depending on your CUDA version, to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
-# for CUDA 11.8
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=11.8
-```
-
-```bash
 # for CUDA 12
 mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.9
 ```
@@ -57,12 +52,6 @@ mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=
 
 `pylibraft` and `raft-dask` both have packages that can be [installed through pip](https://rapids.ai/pip.html#install).
 
-For CUDA 11 packages:
-```bash
-pip install pylibraft-cu11 --extra-index-url=https://pypi.nvidia.com
-pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
-```
-
 And CUDA 12 packages:
 ```bash
 pip install pylibraft-cu12 --extra-index-url=https://pypi.nvidia.com
@@ -74,9 +63,9 @@ pip install raft-dask-cu12 --extra-index-url=https://pypi.nvidia.com
 ### CUDA/GPU Requirements
 - cmake 3.26.4+
 - GCC 9.3+ (9.5.0+ recommended)
-- CUDA Toolkit 11.8+
+- CUDA Toolkit 12.0+
 - NVIDIA driver 450.80.02+
-- Volta architecture or better (compute capability >= 7.0)
+- Ampere architecture or better (compute capability >= 8.0)
 
 ### Build Dependencies
 
@@ -104,12 +93,6 @@ mamba activate rapids_raft
 ```
 
 All of RAFT's C++ APIs can be used header-only.
-
-The process for building from source with CUDA 11 differs slightly in that your host system will also need to have CUDA toolkit installed which is greater than, or equal to, the version you install into you conda environment. Installing CUDA toolkit into your host system is necessary because `nvcc` is not provided with Conda's cudatoolkit dependencies for CUDA 11. The following example will install create and install dependencies for a CUDA 11.8 conda environment:
-```bash
-mamba env create --name rapids_raft -f conda/environments/all_cuda-118_arch-x86_64.yaml
-mamba activate rapids_raft
-```
 
 The recommended way to build and install RAFT from source is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python artifacts and provides CMake options for building and installing the headers, tests, benchmarks, and the pre-compiled shared library.
 
