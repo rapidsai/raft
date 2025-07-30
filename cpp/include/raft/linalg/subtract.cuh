@@ -122,7 +122,7 @@ void subtract(raft::resources const& handle, InType in1, InType in2, OutType out
     out.data_handle(),
     in1.data_handle(),
     in2.data_handle(),
-    out.size(),
+    static_cast<typename OutType::index_type>(out.size()),
     resource::get_cuda_stream(handle));
 }
 
@@ -158,7 +158,7 @@ void subtract_scalar(
     out.data_handle(),
     in.data_handle(),
     scalar.data_handle(),
-    out.size(),
+    static_cast<typename OutType::index_type>(out.size()),
     resource::get_cuda_stream(handle));
 }
 
@@ -194,7 +194,7 @@ void subtract_scalar(
     out.data_handle(),
     in.data_handle(),
     *scalar.data_handle(),
-    out.size(),
+    static_cast<typename OutType::index_type>(out.size()),
     resource::get_cuda_stream(handle));
 }
 

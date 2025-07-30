@@ -83,7 +83,7 @@ void divide_scalar(raft::resources const& handle,
     out.data_handle(),
     in.data_handle(),
     *scalar.data_handle(),
-    out.size(),
+    static_cast<typename OutType::index_type>(out.size()),
     resource::get_cuda_stream(handle));
 }
 
