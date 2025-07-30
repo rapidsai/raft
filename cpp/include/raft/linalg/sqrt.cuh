@@ -69,10 +69,8 @@ void sqrt(raft::resources const& handle, InType in, OutType out)
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input 1 must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Inputs");
 
-  sqrt<in_value_t, out_value_t, typename OutType::index_type>(out.data_handle(),
-                                               in.data_handle(),
-                                               out.size(),
-                                               resource::get_cuda_stream(handle));
+  sqrt<in_value_t, out_value_t, typename OutType::index_type>(
+    out.data_handle(), in.data_handle(), out.size(), resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group add

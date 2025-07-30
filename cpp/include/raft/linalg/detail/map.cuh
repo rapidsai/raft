@@ -220,11 +220,8 @@ void map(const raft::resources& res, OutType out, Func f, InTypes... ins)
       typename OutType::value_type,
       typename OutType::index_type,
       Func,
-      typename InTypes::value_type...>(resource::get_cuda_stream(res),
-                                       out.data_handle(),
-                                       out.size(),
-                                       f,
-                                       ins.data_handle()...);
+      typename InTypes::value_type...>(
+    resource::get_cuda_stream(res), out.data_handle(), out.size(), f, ins.data_handle()...);
 }
 
 }  // namespace raft::linalg::detail

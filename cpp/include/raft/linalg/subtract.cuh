@@ -118,11 +118,12 @@ void subtract(raft::resources const& handle, InType in1, InType in2, OutType out
   RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
                "Size mismatch between Output and Inputs");
 
-  subtract<in_value_t, out_value_t, typename OutType::index_type>(out.data_handle(),
-                                                   in1.data_handle(),
-                                                   in2.data_handle(),
-                                                   out.size(),
-                                                   resource::get_cuda_stream(handle));
+  subtract<in_value_t, out_value_t, typename OutType::index_type>(
+    out.data_handle(),
+    in1.data_handle(),
+    in2.data_handle(),
+    out.size(),
+    resource::get_cuda_stream(handle));
 }
 
 /**
@@ -189,11 +190,12 @@ void subtract_scalar(
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
-  subtractScalar<in_value_t, out_value_t, typename OutType::index_type>(out.data_handle(),
-                                                         in.data_handle(),
-                                                         *scalar.data_handle(),
-                                                         out.size(),
-                                                         resource::get_cuda_stream(handle));
+  subtractScalar<in_value_t, out_value_t, typename OutType::index_type>(
+    out.data_handle(),
+    in.data_handle(),
+    *scalar.data_handle(),
+    out.size(),
+    resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group subtract
