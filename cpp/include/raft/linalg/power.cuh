@@ -94,11 +94,12 @@ void power(raft::resources const& handle, InType in1, InType in2, OutType out)
   RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
                "Size mismatch between Output and Inputs");
 
-    power<in_value_t, out_value_t, typename OutType::index_type>(out.data_handle(),
-                                                in1.data_handle(),
-                                                in2.data_handle(),
-                                                static_cast<typename OutType::index_type>(out.size()),
-                                                resource::get_cuda_stream(handle));
+  power<in_value_t, out_value_t, typename OutType::index_type>(
+    out.data_handle(),
+    in1.data_handle(),
+    in2.data_handle(),
+    static_cast<typename OutType::index_type>(out.size()),
+    resource::get_cuda_stream(handle));
 }
 
 /**

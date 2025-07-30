@@ -70,7 +70,10 @@ void sqrt(raft::resources const& handle, InType in, OutType out)
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Inputs");
 
   sqrt<in_value_t, out_value_t, typename OutType::index_type>(
-    out.data_handle(), in.data_handle(), static_cast<typename OutType::index_type>(out.size()), resource::get_cuda_stream(handle));
+    out.data_handle(),
+    in.data_handle(),
+    static_cast<typename OutType::index_type>(out.size()),
+    resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group add
