@@ -79,19 +79,11 @@ void divide_scalar(raft::resources const& handle,
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
-  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    divideScalar<in_value_t, out_value_t, std::uint32_t>(out.data_handle(),
-                                                         in.data_handle(),
-                                                         *scalar.data_handle(),
-                                                         static_cast<std::uint32_t>(out.size()),
-                                                         resource::get_cuda_stream(handle));
-  } else {
-    divideScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
-                                                         in.data_handle(),
-                                                         *scalar.data_handle(),
-                                                         static_cast<std::uint64_t>(out.size()),
-                                                         resource::get_cuda_stream(handle));
-  }
+  divideScalar<in_value_t, out_value_t, typename OutType::index_type>(out.data_handle(),
+                                                       in.data_handle(),
+                                                       *scalar.data_handle(),
+                                                       out.size(),
+                                                       resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group add
