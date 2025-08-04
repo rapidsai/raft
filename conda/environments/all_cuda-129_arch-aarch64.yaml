@@ -39,7 +39,7 @@ dependencies:
 - pylibraft==25.10.*,>=0.0.0a0
 - pytest
 - pytest-cov
-- rapids-build-backend>=0.3.0,<0.4.0.dev0
+- rapids-build-backend>=0.4.0,<0.5.0.dev0
 - rapids-dask-dependency==25.10.*,>=0.0.0a0
 - rapids-logger==0.1.*,>=0.0.0a0
 - recommonmark
