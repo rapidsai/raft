@@ -1,0 +1,32 @@
+From 661c7e679ac72926d619da46834d09f52a727f5e Mon Sep 17 00:00:00 2001
+From: Robert Maynard <rmaynard@nvidia.com>
+Date: Tue, 5 Aug 2025 15:05:57 -0400
+Subject: [PATCH] Support both CUDA 12 and 13 cccl header locations
+
+---
+ CMakeLists.txt | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 38dcca9f..4088b71f 100755
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -704,8 +704,14 @@ target_include_directories(
+   CUTLASS
+   SYSTEM INTERFACE
+   $<BUILD_INTERFACE:${CUDA_TOOLKIT_ROOT_DIR}/include>
+-  $<BUILD_INTERFACE:${CUDA_TOOLKIT_ROOT_DIR}/include/cccl>
+   )
++if(CUDA_VERSION VERSION_GREATER_EQUAL 13.0)
++  target_include_directories(
++    CUTLASS
++    SYSTEM INTERFACE
++    $<BUILD_INTERFACE:${CUDA_TOOLKIT_ROOT_DIR}/include/cccl>
++    )
++endif()
+ 
+ install(
+   DIRECTORY
+-- 
+2.39.5 (Apple Git-154)
+
