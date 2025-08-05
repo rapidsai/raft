@@ -5,12 +5,12 @@
       "git_url": "https://github.com/NVIDIA/cutlass.git",
       "git_tag": "v${version}",
       "patches" : [
--        {
--          "file" : "${current_json_dir}/cutlass/Support-both-CUDA-12-and-13-cccl-header-locations.patch",
--          "issue" : "Support CUDA 12 CTK layout",
--          "fixed_in" : "https://github.com/NVIDIA/cutlass/pull/2543"
--        }
--      ]
+        {
+          "file" : "${current_json_dir}/cutlass/Support-both-CUDA-12-and-13-cccl-header-locations.patch",
+          "issue" : "Support CUDA 12 CTK layout",
+          "fixed_in" : "https://github.com/NVIDIA/cutlass/pull/2543"
+        }
+      ]
     }
   }
 }
