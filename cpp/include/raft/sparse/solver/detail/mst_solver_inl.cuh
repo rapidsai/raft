@@ -127,7 +127,7 @@ Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t, alt
   // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
   // For each edge, add noise that is less than theta. That is, generate a random number in the
   // range [0.0, theta) and add it to each edge weight.
-  alteration();
+  if (e > 1) alteration();
 
   auto max_mst_edges = symmetrize_output ? 2 * v - 2 : v - 1;
 
@@ -210,7 +210,9 @@ alteration_t MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration_ma
   auto init  = tmp.element(1, stream) - tmp.element(0, stream);
   auto max   = thrust::transform_reduce(
     policy, begin, end, alteration_functor<weight_t>(), init, thrust::minimum<weight_t>());
-  return max / static_cast<alteration_t>(2);
+  // Enforce distinct weights if initial edge weights are identical by returning
+  // a value of 1
+  return max > 0 ? max / static_cast<alteration_t>(2) : 1;
 }
 
 // Compute the alteration to make all undirected edge weight unique
@@ -222,6 +224,7 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration()
   auto nblocks  = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
   // maximum alteration that does not change relative weights order
+  // Note: The relative weights order will be altered if initial edge weights are identical
   alteration_t max = alteration_max();
 
   // pool of rand values

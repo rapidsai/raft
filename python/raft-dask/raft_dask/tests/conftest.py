@@ -28,7 +28,7 @@ def ucx_cluster():
         yield scheduler_file
     else:
         cluster = LocalCUDACluster(
-            protocol="ucx",
+            protocol="ucx-old",
         )
         yield cluster
         cluster.close()

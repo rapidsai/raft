@@ -77,8 +77,6 @@ IncludeCategories:
     Priority:        1
   - Regex:           '^<(common|benchmarks|tests)/' # benchmark/test includes
     Priority:        2
-  #- Regex:           '^<(cuspatial_test|cuproj_test)/' # cuSpatial/cuProj test includes
-  #  Priority:        3
   - Regex:           '^<raft/' # RAFT includes
     Priority:        3
   - Regex:           '^<(cudf|cuml|raft|kvikio)' # Other RAPIDS includes

@@ -184,8 +184,8 @@ __device__ void run_on_list(
 {
   for (uint32_t ix = threadIdx.x + blockDim.x * blockIdx.x; ix < len; ix += blockDim.x) {
     const uint32_t src_ix = std::holds_alternative<uint32_t>(offset_or_indices)
-                              ? std::get<uint32_t>(offset_or_indices) + ix
-                              : std::get<const uint32_t*>(offset_or_indices)[ix];
+                              ? *std::get_if<uint32_t>(&offset_or_indices) + ix
+                              : (*std::get_if<const uint32_t*>(&offset_or_indices))[ix];
     run_on_vector<PqBits>(in_list_data, src_ix, ix, pq_dim, action);
   }
 }
@@ -204,8 +204,8 @@ __device__ void write_list(
   uint32_t ix         = subwarp_align::div(threadIdx.x + blockDim.x * blockIdx.x);
   for (; ix < len; ix += stride) {
     const uint32_t dst_ix = std::holds_alternative<uint32_t>(offset_or_indices)
-                              ? std::get<uint32_t>(offset_or_indices) + ix
-                              : std::get<const uint32_t*>(offset_or_indices)[ix];
+                              ? *std::get_if<uint32_t>(&offset_or_indices) + ix
+                              : (*std::get_if<const uint32_t*>(&offset_or_indices))[ix];
     write_vector<PqBits, SubWarpSize>(out_list_data, dst_ix, ix, pq_dim, action);
   }
 }

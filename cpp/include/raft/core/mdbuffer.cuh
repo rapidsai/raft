@@ -541,12 +541,13 @@ struct mdbuffer {
   }
 
   template <typename FromT>
-  auto static copy_from(raft::resources const& res, FromT&& other, memory_type mem_type)
+  storage_type_variant static copy_from(raft::resources const& res,
+                                        FromT&& other,
+                                        memory_type mem_type)
   {
-    auto result = storage_type_variant{};
     switch (mem_type) {
       case memory_type::host: {
-        result = std::visit(
+        return std::visit(
           [&res](auto&& other_view) {
             auto tmp_result = owning_type<memory_type::host>{
               res,
@@ -556,10 +557,9 @@ struct mdbuffer {
             return tmp_result;
           },
           other.view());
-        break;
       }
       case memory_type::device: {
-        result = std::visit(
+        return std::visit(
           [&res](auto&& other_view) {
             auto tmp_result = owning_type<memory_type::device>{
               res,
@@ -569,10 +569,9 @@ struct mdbuffer {
             return tmp_result;
           },
           other.view());
-        break;
       }
       case memory_type::managed: {
-        result = std::visit(
+        return std::visit(
           [&res](auto&& other_view) {
             auto tmp_result = owning_type<memory_type::managed>{
               res,
@@ -582,10 +581,9 @@ struct mdbuffer {
             return tmp_result;
           },
           other.view());
-        break;
       }
       case memory_type::pinned: {
-        result = std::visit(
+        return std::visit(
           [&res](auto&& other_view) {
             auto tmp_result = owning_type<memory_type::pinned>{
               res,
@@ -595,10 +593,9 @@ struct mdbuffer {
             return tmp_result;
           },
           other.view());
-        break;
       }
     }
-    return result;
+    __builtin_unreachable();
   }
 
  public:
@@ -675,61 +672,53 @@ struct mdbuffer {
     : data_{[&res, &other, specified_mem_type, this]() {
         auto other_mem_type = other.mem_type();
         auto mem_type       = specified_mem_type.value_or(other_mem_type);
-        auto result         = storage_type_variant{};
-        if (mem_type == other.mem_type()) {
-          result = std::move(other.data_);
-        } else if (!other.is_owning() && has_compatible_accessibility(other_mem_type, mem_type) &&
-                   !is_host_device_accessible(mem_type)) {
+        if (mem_type == other.mem_type()) { return std::move(other.data_); }
+        if (!other.is_owning() && has_compatible_accessibility(other_mem_type, mem_type) &&
+            !is_host_device_accessible(mem_type)) {
           switch (mem_type) {
             case (memory_type::host): {
-              result = std::visit(
-                [&result, this](auto&& other_view) {
+              return std::visit(
+                [this](auto&& other_view) {
                   return view_type<memory_type::host>{
                     other_view.data_handle(),
                     other_view.mapping(),
                     cp_.template make_accessor_policy<memory_type::host>()};
                 },
                 other.view());
-              break;
             }
             case (memory_type::device): {
-              result = std::visit(
-                [&result, this](auto&& other_view) {
+              return std::visit(
+                [this](auto&& other_view) {
                   return view_type<memory_type::device>{
                     other_view.data_handle(),
                     other_view.mapping(),
                     cp_.template make_accessor_policy<memory_type::device>()};
                 },
                 other.view());
-              break;
             }
             case (memory_type::managed): {
-              result = std::visit(
-                [&result, this](auto&& other_view) {
+              return std::visit(
+                [this](auto&& other_view) {
                   return view_type<memory_type::managed>{
                     other_view.data_handle(),
                     other_view.mapping(),
                     cp_.template make_accessor_policy<memory_type::managed>()};
                 },
                 other.view());
-              break;
             }
             case (memory_type::pinned): {
-              result = std::visit(
-                [&result, this](auto&& other_view) {
+              return std::visit(
+                [this](auto&& other_view) {
                   return view_type<memory_type::pinned>{
                     other_view.data_handle(),
                     other_view.mapping(),
                     cp_.template make_accessor_policy<memory_type::pinned>()};
                 },
                 other.view());
-              break;
             }
           }
-        } else {
-          result = copy_from(res, other, mem_type);
         }
-        return result;
+        return copy_from(res, other, mem_type);
       }()}
   {
   }
@@ -749,64 +738,59 @@ struct mdbuffer {
   mdbuffer(raft::resources const& res,
            mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>& other, /* NOLINT */
            std::optional<memory_type> specified_mem_type = std::nullopt)
-    : data_{[&res, &other, specified_mem_type, this]() {
+    : data_{[&res, &other, specified_mem_type, this]() -> storage_type_variant {
         auto mem_type       = specified_mem_type.value_or(other.mem_type());
-        auto result         = storage_type_variant{};
         auto other_mem_type = other.mem_type();
         if (mem_type == other_mem_type) {
-          std::visit([&result](auto&& other_view) { result = other_view; }, other.view());
-        } else if (has_compatible_accessibility(other_mem_type, mem_type) &&
-                   !is_host_device_accessible(mem_type)) {
+          return std::visit([](auto&& other_view) { return storage_type_variant{other_view}; },
+                            other.view());
+        }
+        if (has_compatible_accessibility(other_mem_type, mem_type) &&
+            !is_host_device_accessible(mem_type)) {
           switch (mem_type) {
             case (memory_type::host): {
-              result = std::visit(
-                [&result, this](auto&& other_view) {
+              return std::visit(
+                [this](auto&& other_view) {
                   return view_type<memory_type::host>{
                     other_view.data_handle(),
                     other_view.mapping(),
                     cp_.template make_accessor_policy<memory_type::host>()};
                 },
                 other.view());
-              break;
             }
             case (memory_type::device): {
-              result = std::visit(
-                [&result, this](auto&& other_view) {
+              return std::visit(
+                [this](auto&& other_view) {
                   return view_type<memory_type::device>{
                     other_view.data_handle(),
                     other_view.mapping(),
                     cp_.template make_accessor_policy<memory_type::device>()};
                 },
                 other.view());
-              break;
             }
             case (memory_type::managed): {
-              result = std::visit(
-                [&result, this](auto&& other_view) {
+              return std::visit(
+                [this](auto&& other_view) {
                   return view_type<memory_type::managed>{
                     other_view.data_handle(),
                     other_view.mapping(),
                     cp_.template make_accessor_policy<memory_type::managed>()};
                 },
                 other.view());
-              break;
             }
             case (memory_type::pinned): {
-              result = std::visit(
-                [&result, this](auto&& other_view) {
+              return std::visit(
+                [this](auto&& other_view) {
                   return view_type<memory_type::pinned>{
                     other_view.data_handle(),
                     other_view.mapping(),
                     cp_.template make_accessor_policy<memory_type::pinned>()};
                 },
                 other.view());
-              break;
             }
           }
-        } else {
-          result = copy_from(res, other, mem_type);
         }
-        return result;
+        return copy_from(res, other, mem_type);
       }()}
   {
   }

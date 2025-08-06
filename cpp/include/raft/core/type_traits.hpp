@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,21 @@
  */
 
 #pragma once
+#include <cuda_fp16.h>
 
-namespace raft::linalg {
+#include <type_traits>
 
-/**
- * @brief Enum for reduction/broadcast where an operation is to be performed along
- *        a matrix's rows or columns
- *
- */
-enum class FillMode { UPPER, LOWER };
+namespace raft {
 
 /**
- * @brief Enum for this type indicates which operation is applied to the related input (e.g. sparse
- * matrix, or vector).
- *
+ * Extension of std::is_floating_point to support CUDA types like __half.
  */
-enum class Operation { NON_TRANSPOSE, TRANSPOSE };
+template <typename T>
+struct is_floating_point {
+  static constexpr bool value =
+    std::is_floating_point<T>::value || std::is_same<typename std::remove_cv<T>::type, half>::value;
+};
 
-}  // end namespace raft::linalg
+template <typename T>
+inline constexpr bool is_floating_point_v = is_floating_point<T>::value;
+}  // namespace raft
