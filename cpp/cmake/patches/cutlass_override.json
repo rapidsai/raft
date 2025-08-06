@@ -7,8 +7,8 @@
       "patches" : [
         {
           "file" : "${current_json_dir}/cutlass/Support-both-CUDA-12-and-13-cccl-header-locations.patch",
-          "issue" : "Support CUDA 12 CTK layout",
-          "fixed_in" : "https://github.com/NVIDIA/cutlass/pull/2543"
+          "issue" : "Support CUDA 12 CTK layout[https://github.com/NVIDIA/cutlass/pull/2543]",
+          "fixed_in" : ""
         }
       ]
     }
