@@ -1,3 +1,68 @@
+# raft 25.08.00 (6 Aug 2025)
+
+## 🚨 Breaking Changes
+
+- `MatrixLinewiseOp` compile-time-invocation ([#2701](https://github.com/rapidsai/raft/pull/2701)) [@aamijar](https://github.com/aamijar)
+- Remove CUDA 11 from dependencies.yaml ([#2695](https://github.com/rapidsai/raft/pull/2695)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- stop uploading packages to downloads.rapids.ai ([#2688](https://github.com/rapidsai/raft/pull/2688)) [@jameslamb](https://github.com/jameslamb)
+- Reduce instantiations of `Reduction` kernels ([#2679](https://github.com/rapidsai/raft/pull/2679)) [@divyegala](https://github.com/divyegala)
+
+## 🐛 Bug Fixes
+
+- Fix stream sync for Copy2DAsync test ([#2744](https://github.com/rapidsai/raft/pull/2744)) [@lowener](https://github.com/lowener)
+- Several small fixes to make Raft compile with LLVM. ([#2735](https://github.com/rapidsai/raft/pull/2735)) [@vitor1001](https://github.com/vitor1001)
+- Add missing header ([#2734](https://github.com/rapidsai/raft/pull/2734)) [@vitor1001](https://github.com/vitor1001)
+- [REVIEW] Fix static initialization order fiasco in `lanczos.cu` ([#2733](https://github.com/rapidsai/raft/pull/2733)) [@legrosbuffle](https://github.com/legrosbuffle)
+- [REVIEW] Fix assertion in `fill_indices_by_rows_kernel`. ([#2732](https://github.com/rapidsai/raft/pull/2732)) [@legrosbuffle](https://github.com/legrosbuffle)
+- libucx: consider post-releases in wheel builds ([#2729](https://github.com/rapidsai/raft/pull/2729)) [@jameslamb](https://github.com/jameslamb)
+- Fix laplacian cast ([#2725](https://github.com/rapidsai/raft/pull/2725)) [@aamijar](https://github.com/aamijar)
+- Fix excess_subsample ([#2723](https://github.com/rapidsai/raft/pull/2723)) [@mfoerste4](https://github.com/mfoerste4)
+- Fix the constructor for `coordinate_structure` for non-zero `nnz`. ([#2717](https://github.com/rapidsai/raft/pull/2717)) [@legrosbuffle](https://github.com/legrosbuffle)
+- [REVIEW] Fix compile error when using `mdbuffer` with all-static extents. ([#2716](https://github.com/rapidsai/raft/pull/2716)) [@legrosbuffle](https://github.com/legrosbuffle)
+- Fix unsafe cast `coo_remove_scalar` ([#2713](https://github.com/rapidsai/raft/pull/2713)) [@aamijar](https://github.com/aamijar)
+- Fix laplacian self-loops ([#2712](https://github.com/rapidsai/raft/pull/2712)) [@aamijar](https://github.com/aamijar)
+- [REVIEW] Fix a few memory leaks. ([#2710](https://github.com/rapidsai/raft/pull/2710)) [@legrosbuffle](https://github.com/legrosbuffle)
+- Fix MST bug for graph with identical edge weights ([#2707](https://github.com/rapidsai/raft/pull/2707)) [@jnke2016](https://github.com/jnke2016)
+- Missed update accounting for reduction related APIs ([#2704](https://github.com/rapidsai/raft/pull/2704)) [@divyegala](https://github.com/divyegala)
+- Adding GH_TOKEN pass-through to summarize job ([#2702](https://github.com/rapidsai/raft/pull/2702)) [@msarahan](https://github.com/msarahan)
+- Work around Cython ctypedef bug ([#2686](https://github.com/rapidsai/raft/pull/2686)) [@vyasr](https://github.com/vyasr)
+
+## 📖 Documentation
+
+- add docs on CI workflow inputs ([#2728](https://github.com/rapidsai/raft/pull/2728)) [@jameslamb](https://github.com/jameslamb)
+
+## 🛠️ Improvements
+
+- An additional small change to remove cuda 11 stuff ([#2763](https://github.com/rapidsai/raft/pull/2763)) [@cjnolet](https://github.com/cjnolet)
+- Removing CUDA 11 from docs and code ([#2757](https://github.com/rapidsai/raft/pull/2757)) [@cjnolet](https://github.com/cjnolet)
+- fix(docker): use versioned `-latest` tag for all `rapidsai` images ([#2745](https://github.com/rapidsai/raft/pull/2745)) [@gforsyth](https://github.com/gforsyth)
+- Update protocol name for UCX-Py tests ([#2743](https://github.com/rapidsai/raft/pull/2743)) [@pentschev](https://github.com/pentschev)
+- Remove sphinx upper bound ([#2742](https://github.com/rapidsai/raft/pull/2742)) [@bdice](https://github.com/bdice)
+- remove cuspatial references, avoid triggering tests on clang-format config changes ([#2740](https://github.com/rapidsai/raft/pull/2740)) [@jameslamb](https://github.com/jameslamb)
+- MST Edge Case ([#2736](https://github.com/rapidsai/raft/pull/2736)) [@tarang-jain](https://github.com/tarang-jain)
+- Add missing `#include &lt;cassert&gt;` in `cpp/include/raft/core/math.hpp` ([#2730](https://github.com/rapidsai/raft/pull/2730)) [@trxcllnt](https://github.com/trxcllnt)
+- Update leftover CUDA 12.8 to 12.9 in docs ([#2724](https://github.com/rapidsai/raft/pull/2724)) [@jakirkham](https://github.com/jakirkham)
+- Fix docs lanczos solver ([#2722](https://github.com/rapidsai/raft/pull/2722)) [@aamijar](https://github.com/aamijar)
+- Use CUDA 12.9 in Conda, Devcontainers, Spark, GHA, etc. ([#2721](https://github.com/rapidsai/raft/pull/2721)) [@jakirkham](https://github.com/jakirkham)
+- Remove nvidia and dask channels ([#2720](https://github.com/rapidsai/raft/pull/2720)) [@vyasr](https://github.com/vyasr)
+- [REVIEW] Fix compile error of `abs_op` when compiling with `clang` ([#2718](https://github.com/rapidsai/raft/pull/2718)) [@legrosbuffle](https://github.com/legrosbuffle)
+- Avoid using internal method std::experimental::details::alignTo(). ([#2714](https://github.com/rapidsai/raft/pull/2714)) [@vitor1001](https://github.com/vitor1001)
+- refactor(shellcheck): fix all remaining warnings/errors ([#2703](https://github.com/rapidsai/raft/pull/2703)) [@gforsyth](https://github.com/gforsyth)
+- `MatrixLinewiseOp` compile-time-invocation ([#2701](https://github.com/rapidsai/raft/pull/2701)) [@aamijar](https://github.com/aamijar)
+- Remove pytest pin ([#2699](https://github.com/rapidsai/raft/pull/2699)) [@vyasr](https://github.com/vyasr)
+- Fix several issues that breaks LLVM ([#2698](https://github.com/rapidsai/raft/pull/2698)) [@vitor1001](https://github.com/vitor1001)
+- Remove CUDA 11 from dependencies.yaml ([#2695](https://github.com/rapidsai/raft/pull/2695)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Remove CUDA 11 devcontainers and update CI scripts ([#2690](https://github.com/rapidsai/raft/pull/2690)) [@bdice](https://github.com/bdice)
+- refactor(rattler): remove cuda11 options and general cleanup ([#2689](https://github.com/rapidsai/raft/pull/2689)) [@gforsyth](https://github.com/gforsyth)
+- stop uploading packages to downloads.rapids.ai ([#2688](https://github.com/rapidsai/raft/pull/2688)) [@jameslamb](https://github.com/jameslamb)
+- fix(devcontainers): typo in container name ([#2687](https://github.com/rapidsai/raft/pull/2687)) [@gforsyth](https://github.com/gforsyth)
+- Reduce instantiations of `Reduction` kernels ([#2679](https://github.com/rapidsai/raft/pull/2679)) [@divyegala](https://github.com/divyegala)
+- Forward-merge branch-25.06 into branch-25.08 ([#2675](https://github.com/rapidsai/raft/pull/2675)) [@divyegala](https://github.com/divyegala)
+- Add support for F16 in linalg::transpose ([#2672](https://github.com/rapidsai/raft/pull/2672)) [@enp1s0](https://github.com/enp1s0)
+- Forward-merge branch-25.06 into branch-25.08 ([#2664](https://github.com/rapidsai/raft/pull/2664)) [@gforsyth](https://github.com/gforsyth)
+- Support `coo_matrix` in `coo_symmetrize` and `coo_remove_scalar` ([#2662](https://github.com/rapidsai/raft/pull/2662)) [@aamijar](https://github.com/aamijar)
+- Lanczos Solver `which=SA,SM,LA,LM` argument ([#2628](https://github.com/rapidsai/raft/pull/2628)) [@aamijar](https://github.com/aamijar)
+
 # raft 25.06.00 (5 Jun 2025)
 
 ## 🚨 Breaking Changes
