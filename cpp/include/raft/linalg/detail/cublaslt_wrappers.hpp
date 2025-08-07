@@ -223,6 +223,51 @@ struct matmul_cache {
 };
 
 /**
+ * A helper structure to allocate alpha and beta pointers if not provided.
+ * This designed to do a minimal amount of synchronization.
+ */
+template <bool DevicePointerMode, typename S>
+struct coef_wrapper {
+  const S* alpha;
+  const S* beta;
+};
+
+template <typename S>
+struct coef_wrapper<false, S> {
+  S alpha_default = 1;
+  S beta_default  = 0;
+  const S* alpha;
+  const S* beta;
+  coef_wrapper(const S* alpha_in, const S* beta_in, rmm::cuda_stream_view)
+    : alpha(alpha_in == nullptr ? &alpha_default : alpha_in),
+      beta(beta_in == nullptr ? &beta_default : beta_in)
+  {
+  }
+};
+
+template <typename S>
+struct coef_wrapper<true, S> {
+  S* store = nullptr;
+  rmm::cuda_stream_view stream;
+  const S* alpha;
+  const S* beta;
+  coef_wrapper(const S* alpha_in, const S* beta_in, rmm::cuda_stream_view stream)
+    : stream(stream), alpha(alpha_in), beta(beta_in)
+  {
+    if (alpha != nullptr && beta != nullptr) { return; }
+    S defaults[2] = {1, 0};
+    RAFT_CUDA_TRY(cudaMallocAsync(&store, 2 * sizeof(S), stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(store, &defaults, 2 * sizeof(S), cudaMemcpyHostToDevice, stream));
+    if (alpha == nullptr) { alpha = &store[0]; }
+    if (beta == nullptr) { alpha = &store[1]; }
+  }
+  ~coef_wrapper() noexcept
+  {
+    if (store != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFreeAsync(store, stream)); }
+  }
+};
+
+/**
  * Compatibility version of the cublasLt matmul wrapper: It takes the cudaStream_t argument
  * explicitly rather than through the raft::resources. This function is used by other legacy
  * functions, which take the cudaStream_t argument explicitly; by using `legacy_matmul`, such
@@ -258,14 +303,16 @@ template <bool DevicePointerMode = false, typename S, typename A, typename B, ty
     mm_desc.reset(new matmul_desc{matmul_desc::create<S, A, B, C, DevicePointerMode>(res, mm_key)});
     cache.set(mm_key, mm_desc);
   }
+  // Allocate alpha and beta pointers if not provided.
+  coef_wrapper<DevicePointerMode, S> w(alpha, beta, stream);
   RAFT_CUBLAS_TRY(cublasLtMatmul(resource::get_cublaslt_handle(res),
                                  mm_desc->desc,
-                                 alpha,
+                                 w.alpha,
                                  a_ptr,
                                  mm_desc->a,
                                  b_ptr,
                                  mm_desc->b,
-                                 beta,
+                                 w.beta,
                                  c_ptr,
                                  mm_desc->c,
                                  c_ptr,
@@ -292,12 +339,12 @@ template <bool DevicePointerMode = false, typename S, typename A, typename B, ty
  * @param [in] m number of rows of C
  * @param [in] n number of columns of C
  * @param [in] k number of rows of opB(B) / number of columns of opA(A)
- * @param [in] alpha host or device scalar
+ * @param [in] alpha host or device scalar, if nullptr, the default value 1 will be used
  * @param [in] a_ptr such a matrix that the shape of column-major opA(A) is [m, k]
  * @param [in] lda leading dimension of A
  * @param [in] b_ptr such a matrix that the shape of column-major opA(B) is [k, n]
  * @param [in] ldb leading dimension of B
- * @param [in] beta host or device scalar
+ * @param [in] beta host or device scalar, if nullptr, the default value 0 will be used
  * @param [inout] c_ptr column-major matrix of size [m, n]
  * @param [in] ldc leading dimension of C
  */
@@ -317,21 +364,21 @@ void matmul(raft::resources const& res,
             C* c_ptr,
             uint64_t ldc)
 {
-  return legacy_matmul(res,
-                       trans_a,
-                       trans_b,
-                       m,
-                       n,
-                       k,
-                       alpha,
-                       a_ptr,
-                       lda,
-                       b_ptr,
-                       ldb,
-                       beta,
-                       c_ptr,
-                       ldc,
-                       resource::get_cuda_stream(res));
+  return legacy_matmul<DevicePointerMode>(res,
+                                          trans_a,
+                                          trans_b,
+                                          m,
+                                          n,
+                                          k,
+                                          alpha,
+                                          a_ptr,
+                                          lda,
+                                          b_ptr,
+                                          ldb,
+                                          beta,
+                                          c_ptr,
+                                          ldc,
+                                          resource::get_cuda_stream(res));
 }
 
 }  // namespace raft::linalg::detail

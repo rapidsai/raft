@@ -79,25 +79,17 @@ void gemm(raft::resources const& res,
   constexpr auto kYColMajor = std::is_same_v<typename decltype(y)::layout_type, raft::col_major>;
   constexpr auto kZColMajor = std::is_same_v<typename decltype(z)::layout_type, raft::col_major>;
 
+  // NB: the function type constraints only ever allow two view types, so using std::is_same_v is
+  // fine
   constexpr auto kDeviceMode =
     std::is_same_v<ScalarViewType, raft::device_scalar_view<ValueType, ScalarIdxType>>;
 
-  ValueType alpha_value = 1;
-  ValueType beta_value  = 0;
+  // NB: we rely on the implementation of detail::matmul to set defaults
+  ValueType* alpha_ptr = nullptr;
+  ValueType* beta_ptr  = nullptr;
+  if (alpha.has_value()) { alpha_ptr = alpha.value().data_handle(); }
+  if (beta.has_value()) { beta_ptr = beta.value().data_handle(); }
 
-  auto alpha_device = raft::make_device_scalar(res, alpha_value);
-  auto beta_device  = raft::make_device_scalar(res, beta_value);
-
-  auto alpha_host = raft::make_host_scalar(alpha_value);
-  auto beta_host  = raft::make_host_scalar(beta_value);
-
-  if constexpr (kDeviceMode) {
-    if (!alpha) { alpha = alpha_device.view(); }
-    if (!beta) { beta = beta_device.view(); }
-  } else {
-    if (!alpha) { alpha = alpha_host.view(); }
-    if (!beta) { beta = beta_host.view(); }
-  }
   if constexpr (kZColMajor) {
     return detail::matmul<kDeviceMode, ValueType, ValueType, ValueType, ValueType>(
       res,
@@ -106,12 +98,12 @@ void gemm(raft::resources const& res,
       static_cast<uint64_t>(z.extent(0)),
       static_cast<uint64_t>(z.extent(1)),
       static_cast<uint64_t>(x.extent(1)),
-      alpha.value().data_handle(),
+      alpha_ptr,
       x.data_handle(),
       static_cast<uint64_t>(x.extent(kXColMajor ? 0 : 1)),
       y.data_handle(),
       static_cast<uint64_t>(y.extent(kYColMajor ? 0 : 1)),
-      beta.value().data_handle(),
+      beta_ptr,
       z.data_handle(),
       static_cast<uint64_t>(z.extent(0)));
   } else {
@@ -122,12 +114,12 @@ void gemm(raft::resources const& res,
       static_cast<uint64_t>(z.extent(1)),
       static_cast<uint64_t>(z.extent(0)),
       static_cast<uint64_t>(x.extent(1)),
-      alpha.value().data_handle(),
+      alpha_ptr,
       y.data_handle(),
       static_cast<uint64_t>(y.extent(kYColMajor ? 0 : 1)),
       x.data_handle(),
       static_cast<uint64_t>(x.extent(kXColMajor ? 0 : 1)),
-      beta.value().data_handle(),
+      beta_ptr,
       z.data_handle(),
       static_cast<uint64_t>(z.extent(1)));
   }
