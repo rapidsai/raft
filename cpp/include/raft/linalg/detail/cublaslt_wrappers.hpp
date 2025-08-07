@@ -259,7 +259,7 @@ struct coef_wrapper<true, S> {
     RAFT_CUDA_TRY(cudaMallocAsync(&store, 2 * sizeof(S), stream));
     RAFT_CUDA_TRY(cudaMemcpyAsync(store, &defaults, 2 * sizeof(S), cudaMemcpyHostToDevice, stream));
     if (alpha == nullptr) { alpha = &store[0]; }
-    if (beta == nullptr) { alpha = &store[1]; }
+    if (beta == nullptr) { beta = &store[1]; }
   }
   ~coef_wrapper() noexcept
   {
