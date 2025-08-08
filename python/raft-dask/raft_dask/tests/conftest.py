@@ -44,6 +44,7 @@ def ucxx_cluster():
     else:
         cluster = LocalCUDACluster(
             protocol="ucxx",
+            silence_logs=False,
         )
         yield cluster
         cluster.close()
