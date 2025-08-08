@@ -54,7 +54,19 @@ std::vector<float> c_host = {1.0f, 2.0f, 3.0f, 4.0f};
 // Result matrix (2x2):
 // [119, 134]
 // [287, 320]
-std::vector<float> r_host = {119.0f, 134.0f, 287.0f, 320.0f};
+std::vector<float> r_host_allcoefs = {119.0f, 134.0f, 287.0f, 320.0f};
+
+// Result matrix without coefficients (2x2):
+// A * B result when alpha=1 (default value), beta=3.0
+// [61, 70]
+// [148, 166]
+std::vector<float> r_host_noalpha = {61.0f, 70.0f, 148.0f, 166.0f};
+
+// Result matrix without coefficients (2x2):
+// A * B result when beta=0 (default value), alpha=2.0
+// [116, 128]
+// [278, 308]
+std::vector<float> r_host_nobeta = {116.0f, 128.0f, 278.0f, 308.0f};
 
 // Result matrix without coefficients (2x2):
 // A * B result when alpha=1, beta=0 (default values)
@@ -62,7 +74,20 @@ std::vector<float> r_host = {119.0f, 134.0f, 287.0f, 320.0f};
 // [139, 154]
 std::vector<float> r_host_nocoefs = {58.0f, 64.0f, 139.0f, 154.0f};
 
-TEST(Raft, GemmPointerModeHost)
+auto get_host_ground_truth(bool use_alpha, bool use_beta)
+{
+  if (use_alpha && use_beta) {
+    return r_host_allcoefs;
+  } else if (use_alpha) {
+    return r_host_nobeta;
+  } else if (use_beta) {
+    return r_host_noalpha;
+  } else {
+    return r_host_nocoefs;
+  }
+}
+
+void test_gemm_pointer_mode_host(bool use_alpha, bool use_beta)
 {
   raft::resources res;
   auto stream = raft::resource::get_cuda_stream(res);
@@ -86,8 +111,8 @@ TEST(Raft, GemmPointerModeHost)
                      a_device.view(),
                      b_device.view(),
                      c_device.view(),
-                     std::make_optional(alpha_scalar.view()),
-                     std::make_optional(beta_scalar.view()));
+                     use_alpha ? std::make_optional(alpha_scalar.view()) : std::nullopt,
+                     use_beta ? std::make_optional(beta_scalar.view()) : std::nullopt);
 
   // Copy result back to host
   std::vector<float> result(M * N);
@@ -95,12 +120,13 @@ TEST(Raft, GemmPointerModeHost)
   raft::resource::sync_stream(res);
 
   // Compare results
+  auto gt = get_host_ground_truth(use_alpha, use_beta);
   for (int i = 0; i < M * N; ++i) {
-    EXPECT_FLOAT_EQ(result[i], r_host[i]) << "Mismatch at index " << i;
+    EXPECT_FLOAT_EQ(result[i], gt[i]) << "Mismatch at index " << i;
   }
 }
 
-TEST(Raft, GemmPointerModeDevice)
+void test_gemm_pointer_mode_device(bool use_alpha, bool use_beta)
 {
   raft::resources res;
   auto stream = raft::resource::get_cuda_stream(res);
@@ -124,8 +150,8 @@ TEST(Raft, GemmPointerModeDevice)
                      a_device.view(),
                      b_device.view(),
                      c_device.view(),
-                     std::make_optional(alpha_scalar.view()),
-                     std::make_optional(beta_scalar.view()));
+                     use_alpha ? std::make_optional(alpha_scalar.view()) : std::nullopt,
+                     use_beta ? std::make_optional(beta_scalar.view()) : std::nullopt);
 
   // Copy result back to host
   std::vector<float> result(M * N);
@@ -133,38 +159,19 @@ TEST(Raft, GemmPointerModeDevice)
   raft::resource::sync_stream(res);
 
   // Compare results
+  auto gt = get_host_ground_truth(use_alpha, use_beta);
   for (int i = 0; i < M * N; ++i) {
-    EXPECT_FLOAT_EQ(result[i], r_host[i]) << "Mismatch at index " << i;
+    EXPECT_FLOAT_EQ(result[i], gt[i]) << "Mismatch at index " << i;
   }
 }
 
-TEST(Raft, GemmNoEnforcedPointerMode)
-{
-  raft::resources res;
-  auto stream = raft::resource::get_cuda_stream(res);
-
-  // Create device matrices
-  auto a_device = raft::make_device_matrix<float>(res, M, K);
-  auto b_device = raft::make_device_matrix<float>(res, K, N);
-  auto c_device = raft::make_device_matrix<float>(res, M, N);
-
-  // Copy data to device
-  raft::copy(a_device.data_handle(), a_host.data(), a_host.size(), stream);
-  raft::copy(b_device.data_handle(), b_host.data(), b_host.size(), stream);
-  raft::copy(c_device.data_handle(), c_host.data(), c_host.size(), stream);
-
-  // Perform GEMM: C = alpha * A * B + beta * C
-  raft::linalg::gemm(res, a_device.view(), b_device.view(), c_device.view());
-
-  // Copy result back to host
-  std::vector<float> result(M * N);
-  raft::copy(result.data(), c_device.data_handle(), result.size(), stream);
-  raft::resource::sync_stream(res);
-
-  // Compare results
-  for (int i = 0; i < M * N; ++i) {
-    EXPECT_FLOAT_EQ(result[i], r_host_nocoefs[i]) << "Mismatch at index " << i;
-  }
-}
+TEST(Raft, GemmPointerModeHost) { test_gemm_pointer_mode_host(true, true); }
+TEST(Raft, GemmPointerModeHostAlpha) { test_gemm_pointer_mode_host(true, false); }
+TEST(Raft, GemmPointerModeHostBeta) { test_gemm_pointer_mode_host(false, true); }
+TEST(Raft, GemmPointerModeHostDefaults) { test_gemm_pointer_mode_host(false, false); }
+TEST(Raft, GemmPointerModeDevice) { test_gemm_pointer_mode_device(true, true); }
+TEST(Raft, GemmPointerModeDeviceAlpha) { test_gemm_pointer_mode_device(true, false); }
+TEST(Raft, GemmPointerModeDeviceBeta) { test_gemm_pointer_mode_device(false, true); }
+TEST(Raft, GemmPointerModeDeviceDefaults) { test_gemm_pointer_mode_device(false, false); }
 
 }  // namespace raft::linalg
