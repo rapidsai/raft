@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#if CUDART_VERSION >= 10010
-
 #include "../test_utils.cuh"
 
 #include <raft/core/resource/cuda_stream.hpp>
@@ -167,5 +165,3 @@ INSTANTIATE_TEST_SUITE_P(EigSelTest, EigSelTestVecD, ::testing::ValuesIn(inputsd
 
 }  // end namespace linalg
 }  // end namespace raft
-
-#endif

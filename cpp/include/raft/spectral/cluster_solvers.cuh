@@ -75,7 +75,8 @@ struct kmeans_solver_t {
                  weight.data_handle() + n_obs_vecs,
                  1);
 
-    auto sw = std::make_optional((raft::device_vector_view<const value_type_t>)weight.view());
+    auto sw =
+      std::make_optional((raft::device_vector_view<const value_type_t, index_type_t>)weight.view());
     raft::cluster::kmeans_fit_predict<value_type_t, index_type_t>(
       handle,
       km_params,

@@ -57,34 +57,19 @@ DI void warpFence()
 /** warp-wide any boolean aggregator */
 DI bool any(bool inFlag, uint32_t mask = 0xffffffffu)
 {
-#if CUDART_VERSION >= 9000
   inFlag = __any_sync(mask, inFlag);
-#else
-  inFlag = __any(inFlag);
-#endif
   return inFlag;
 }
 
 /** warp-wide all boolean aggregator */
 DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
 {
-#if CUDART_VERSION >= 9000
   inFlag = __all_sync(mask, inFlag);
-#else
-  inFlag = __all(inFlag);
-#endif
   return inFlag;
 }
 
 /** For every thread in the warp, set the corresponding bit to the thread's flag value.  */
-DI uint32_t ballot(bool inFlag, uint32_t mask = 0xffffffffu)
-{
-#if CUDART_VERSION >= 9000
-  return __ballot_sync(mask, inFlag);
-#else
-  return __ballot(inFlag);
-#endif
-}
+DI uint32_t ballot(bool inFlag, uint32_t mask = 0xffffffffu) { return __ballot_sync(mask, inFlag); }
 
 template <typename T>
 struct is_shuffleable {
@@ -112,11 +97,7 @@ DI std::enable_if_t<is_shuffleable_v<T>, T> shfl(T val,
                                                  int width     = WarpSize,
                                                  uint32_t mask = 0xffffffffu)
 {
-#if CUDART_VERSION >= 9000
   return __shfl_sync(mask, val, srcLane, width);
-#else
-  return __shfl(val, srcLane, width);
-#endif
 }
 
 /// Overload of shfl for data types not supported by the CUDA intrinsics
@@ -165,11 +146,7 @@ DI std::enable_if_t<is_shuffleable_v<T>, T> shfl_up(T val,
                                                     int width     = WarpSize,
                                                     uint32_t mask = 0xffffffffu)
 {
-#if CUDART_VERSION >= 9000
   return __shfl_up_sync(mask, val, delta, width);
-#else
-  return __shfl_up(val, delta, width);
-#endif
 }
 
 /// Overload of shfl_up for data types not supported by the CUDA intrinsics
@@ -218,11 +195,7 @@ DI std::enable_if_t<is_shuffleable_v<T>, T> shfl_xor(T val,
                                                      int width     = WarpSize,
                                                      uint32_t mask = 0xffffffffu)
 {
-#if CUDART_VERSION >= 9000
   return __shfl_xor_sync(mask, val, laneMask, width);
-#else
-  return __shfl_xor(val, laneMask, width);
-#endif
 }
 
 /// Overload of shfl_xor for data types not supported by the CUDA intrinsics

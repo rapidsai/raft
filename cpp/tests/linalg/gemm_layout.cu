@@ -127,6 +127,9 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     }
 
     resource::sync_stream(handle);
+
+    RAFT_CUDA_TRY(cudaFree(X));
+    RAFT_CUDA_TRY(cudaFree(Y));
   }
 
   void TearDown() override

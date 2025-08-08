@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.8"]
+      cuda: ["12.9"]
       arch: [x86_64, aarch64]
     includes:
       - build_common
@@ -171,9 +171,7 @@ files:
 channels:
   - rapidsai
   - rapidsai-nightly
-  - dask/label/dev
   - conda-forge
-  - nvidia
 dependencies:
   rapids_build_skbuild:
     common:
@@ -295,7 +293,6 @@ dependencies:
               - nvidia-curand
               - nvidia-cusolver
               - nvidia-cusparse
-
   depends_on_cupy:
     common:
       - output_types: conda
@@ -307,7 +304,6 @@ dependencies:
           - matrix: # All CUDA 12 versions
             packages:
               - cupy-cuda12x>=12.0.0
-
   depends_on_rapids_logger:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -335,7 +331,7 @@ dependencies:
           - recommonmark
           - sphinx-copybutton
           - sphinx-markdown-tables
-          - sphinx<8.2.0
+          - sphinx
   py_version:
     specific:
       - output_types: conda
@@ -533,10 +529,10 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12==1.15.0
+              - libucx-cu12>=1.15.0,<1.15.1a0
           - matrix: null
             packages:
-              - libucx==1.15.0
+              - libucx>=1.15.0,<1.15.1a0
   depends_on_ucx_run:
     common:
       - output_types: conda

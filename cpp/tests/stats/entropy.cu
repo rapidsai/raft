@@ -65,8 +65,7 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
     // generating the golden output
     int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
-    int* p = (int*)malloc(numUniqueClasses * sizeof(int));
-    memset(p, 0, numUniqueClasses * sizeof(int));
+    const auto p = std::make_unique<int[]>(numUniqueClasses);
 
     // calculating the bincount array
     for (int i = 0; i < nElements; ++i) {

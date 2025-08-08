@@ -68,10 +68,8 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
 
     // generating the golden output
     // calculating the contingency matrix
-    int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
-    size_t sizeOfMat     = numUniqueClasses * numUniqueClasses * sizeof(int);
-    int* hGoldenOutput   = (int*)malloc(sizeOfMat);
-    memset(hGoldenOutput, 0, sizeOfMat);
+    int numUniqueClasses     = upperLabelRange - lowerLabelRange + 1;
+    const auto hGoldenOutput = std::make_unique<int[]>(numUniqueClasses * numUniqueClasses);
     int i, j;
     for (i = 0; i < nElements; i++) {
       int row    = arr1[i] - lowerLabelRange;
@@ -80,10 +78,8 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
       hGoldenOutput[row * numUniqueClasses + column] += 1;
     }
 
-    int* a = (int*)malloc(numUniqueClasses * sizeof(int));
-    int* b = (int*)malloc(numUniqueClasses * sizeof(int));
-    memset(a, 0, numUniqueClasses * sizeof(int));
-    memset(b, 0, numUniqueClasses * sizeof(int));
+    const auto a = std::make_unique<int[]>(numUniqueClasses);
+    const auto b = std::make_unique<int[]>(numUniqueClasses);
 
     // and also the reducing contingency matrix along row and column
     for (i = 0; i < numUniqueClasses; ++i) {

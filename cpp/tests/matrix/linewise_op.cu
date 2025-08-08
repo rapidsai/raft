@@ -73,8 +73,13 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     auto out_view = raft::make_device_matrix_view<T, I, layout>(out, n, m);
 
     auto vec_view = raft::make_device_vector_view<const T>(vec, lineLen);
-    matrix::linewise_op(
-      handle, in_view, out_view, raft::is_row_major(in_view), raft::add_op{}, vec_view);
+    if (raft::is_row_major(in_view)) {
+      matrix::linewise_op<raft::Apply::ALONG_ROWS>(
+        handle, in_view, out_view, raft::add_op{}, vec_view);
+    } else {
+      matrix::linewise_op<raft::Apply::ALONG_COLUMNS>(
+        handle, in_view, out_view, raft::add_op{}, vec_view);
+    }
   }
 
   template <typename layout>
@@ -92,8 +97,13 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     auto vec1_view = raft::make_device_vector_view<const T, I>(vec1, lineLen);
     auto vec2_view = raft::make_device_vector_view<const T, I>(vec2, lineLen);
 
-    matrix::linewise_op(
-      handle, in_view, out_view, raft::is_row_major(in_view), f, vec1_view, vec2_view);
+    if (raft::is_row_major(in_view)) {
+      matrix::linewise_op<raft::Apply::ALONG_ROWS>(
+        handle, in_view, out_view, f, vec1_view, vec2_view);
+    } else {
+      matrix::linewise_op<raft::Apply::ALONG_COLUMNS>(
+        handle, in_view, out_view, f, vec1_view, vec2_view);
+    }
   }
 
   rmm::device_uvector<T> genData(size_t workSizeBytes)
@@ -114,7 +124,11 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                             const T* vec)
   {
     auto vec_view = raft::make_device_vector_view<const T, I>(vec, alongLines ? lineLen : nLines);
-    matrix::linewise_op(handle, in, out, alongLines, raft::add_op{}, vec_view);
+    if (alongLines) {
+      matrix::linewise_op<raft::Apply::ALONG_ROWS>(handle, in, out, raft::add_op{}, vec_view);
+    } else {
+      matrix::linewise_op<raft::Apply::ALONG_COLUMNS>(handle, in, out, raft::add_op{}, vec_view);
+    }
   }
 
   /**
@@ -246,11 +260,11 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
         size_t matrix_size_padded;
         if (alongRows) {
           auto extents = matrix_extent<I>{n, m};
-          typename raft::layout_right_padded<T>::mapping<matrix_extent<I>> layout{extents};
+          typename raft::layout_right_padded<T>::template mapping<matrix_extent<I>> layout{extents};
           matrix_size_padded = layout.required_span_size();
         } else {
           auto extents = matrix_extent<I>{n, m};
-          typename raft::layout_left_padded<T>::mapping<matrix_extent<I>> layout{extents};
+          typename raft::layout_left_padded<T>::template mapping<matrix_extent<I>> layout{extents};
           matrix_size_padded = layout.required_span_size();
         }
 
