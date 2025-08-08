@@ -47,9 +47,9 @@ endfunction()
 # Change pinned tag here to test a commit in CI
 # To use a different ucxx locally, set the CMake variable
 # CPM_ucxx_SOURCE=/path/to/local/ucxx
-find_and_configure_ucxx(VERSION  0.45
+find_and_configure_ucxx(VERSION  0.46
         FORK             rapidsai
-        PINNED_TAG       branch-0.45
+        PINNED_TAG       branch-0.46
         EXCLUDE_FROM_ALL YES
         UCXX_STATIC      ${RAFT_DASK_UCXX_STATIC}
     )

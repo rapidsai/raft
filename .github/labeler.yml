@@ -3,14 +3,19 @@
 # Labels culled from https://github.com/rapidsai/raft/labels
 
 python:
- - 'python/**'
-
+  - changed-files:
+      any-glob-to-any-file:
+        - 'python/**'
 cpp:
- - 'cpp/**'
-
+  - changed-files:
+      any-glob-to-any-file:
+        - 'cpp/**'
 CMake:
- - '**/CMakeLists.txt'
- - '**/cmake/**'
-
+  - changed-files:
+      any-glob-to-any-file:
+        - '**/CMakeLists.txt'
+        - '**/cmake/**'
 ci:
-  - 'ci/**'
+  - changed-files:
+      any-glob-to-any-file:
+        - 'ci/**'
