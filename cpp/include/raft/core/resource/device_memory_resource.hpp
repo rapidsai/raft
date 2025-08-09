@@ -109,7 +109,9 @@ class workspace_resource_factory : public resource_factory {
     std::shared_ptr<rmm::mr::device_memory_resource> mr = {nullptr},
     std::optional<std::size_t> allocation_limit         = std::nullopt,
     std::optional<std::size_t> alignment                = std::nullopt)
-    : allocation_limit_(allocation_limit.value_or(default_allocation_limit())),
+    // default_allocation_limit() is relatively heavy, skip it while unnecessary
+    : allocation_limit_(allocation_limit.has_value() ? allocation_limit.value()
+                                                     : default_allocation_limit()),
       alignment_(alignment),
       mr_(mr ? mr : default_plain_resource())
   {
