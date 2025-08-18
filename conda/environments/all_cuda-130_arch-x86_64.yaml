@@ -11,8 +11,8 @@ dependencies:
 - clang==20.1.4
 - cmake>=3.30.4
 - cuda-nvcc
-- cuda-python>=12.6.2,<13.0a0
-- cuda-version=12.9
+- cuda-python>=13.0.0,<14.0a0
+- cuda-version=13.0
 - cupy>=13.6.0
 - cxx-compiler
 - cython>=3.0.0
@@ -45,4 +45,4 @@ dependencies:
 - sphinx-markdown-tables
 - sysroot_linux-64==2.28
 - ucx-py==0.46.*,>=0.0.0a0
-name: all_cuda-129_arch-x86_64
+name: all_cuda-130_arch-x86_64
