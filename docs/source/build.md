@@ -35,17 +35,25 @@ The easiest way to install RAFT is through conda and several packages are provid
 - `raft-dask` (optional) Python library for deployment of multi-node multi-GPU algorithms that use the RAFT `raft::comms` abstraction layer in Dask clusters.
 
 Use the following command, depending on your CUDA version, to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
+
 ```bash
-# for CUDA 12
+# CUDA 13
 mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=13.0
+
+# CUDA 12
+mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.9
 ```
 
 Note that the above commands will also install `libraft-headers` and `libraft`.
 
 You can also install the conda packages individually using the `mamba` command above. For example, if you'd like to install RAFT's headers to use in your project:
+
 ```bash
-# for CUDA 12
+# CUDA 13
 mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=13.0
+
+# CUDA 12
+mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=12.9
 ```
 
 ## Installing Python through Pip
@@ -53,6 +61,11 @@ mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=
 `pylibraft` and `raft-dask` both have packages that can be [installed through pip](https://rapids.ai/pip.html#install).
 
 ```bash
+# CUDA 13
+pip install pylibraft-cu13 --extra-index-url=https://pypi.nvidia.com
+pip install raft-dask-cu13 --extra-index-url=https://pypi.nvidia.com
+
+# CUDA 12
 pip install pylibraft-cu12 --extra-index-url=https://pypi.nvidia.com
 pip install raft-dask-cu12 --extra-index-url=https://pypi.nvidia.com
 ```
