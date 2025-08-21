@@ -280,10 +280,10 @@ dependencies:
               cuda: "13.*"
               use_cuda_wheels: "true"
             packages:
-              - nvidia-cublas-cu12
-              - nvidia-curand-cu12
-              - nvidia-cusolver-cu12
-              - nvidia-cusparse-cu12
+              - nvidia-cublas-cu13
+              - nvidia-curand-cu13
+              - nvidia-cusolver-cu13
+              - nvidia-cusparse-cu13
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
           # (e.g. for DLFW and pip devcontainers)
           - matrix:
@@ -543,6 +543,11 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - rmm-cu12==25.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - rmm-cu13==25.10.*,>=0.0.0a0
           - matrix:
             packages:
               - *rmm_unsuffixed
