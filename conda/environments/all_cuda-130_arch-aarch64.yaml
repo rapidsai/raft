@@ -14,8 +14,8 @@ dependencies:
 - cuda-nvcc
 - cuda-nvtx-dev
 - cuda-profiler-api
-- cuda-python>=12.9.2,<13.0a0
-- cuda-version=12.9
+- cuda-python>=13.0.1,<14.0a0
+- cuda-version=13.0
 - cupy>=13.6.0
 - cxx-compiler
 - cython>=3.0.0
@@ -52,4 +52,4 @@ dependencies:
 - sphinx-markdown-tables
 - sysroot_linux-aarch64==2.28
 - ucx-py==0.46.*,>=0.0.0a0
-name: all_cuda-129_arch-aarch64
+name: all_cuda-130_arch-aarch64
