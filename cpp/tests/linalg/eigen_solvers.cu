@@ -27,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <type_traits>
@@ -199,6 +200,106 @@ TEST(Raft, SpectralPartition)
     handle, adj_matrix, n_clusters, result_v.data().get(), edge_cut, cost);
 
   ASSERT_LT(edge_cut, 55.0);
+}
+
+TEST(Raft, SpectralPartitionSmallGraph)
+{
+  common::nvtx::range fun_scope("test::SpectralPartitionSmallGraph");
+  raft::handle_t handle;
+
+  // auto offsets = thrust::device_vector<int>(std::vector<int>{
+  //     0, 3, 5, 8, 11, 13, 14});
+  auto offsets = thrust::device_vector<int>(std::vector<int>{0, 2, 4, 7, 10, 12, 14});
+  auto indices =
+    thrust::device_vector<int>(std::vector<int>{1, 2, 0, 2, 0, 1, 3, 2, 4, 5, 3, 5, 3, 4});
+  // auto values  = thrust::device_vector<float>(std::vector<float>{
+  //     0.1, 0.2, 0.1, 1.2, 0.2, 1.2, 2.3, 2.3, 3.4, 3.5, 3.4, 4.5, 3.5, 4.5});
+
+  auto values =
+    thrust::device_vector<float>(std::vector<float>{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1});
+
+  auto num_verts = int(offsets.size() - 1);
+  auto num_edges = indices.size();
+
+  auto result_v = thrust::device_vector<int>(std::vector<int>(num_verts, -1));
+
+  auto constexpr const n_clusters  = 2;
+  auto constexpr const n_eig_vects = std::uint64_t{2};
+
+  // Match Python defaults: tol = machine epsilon for float32 (~1.2e-7)
+  // For float32, FLT_EPSILON is about 1.19e-7
+  auto constexpr const evs_tolerance   = 1.2e-7f;  // Machine epsilon for float32
+  auto constexpr const kmean_tolerance = 0.001f;
+  auto constexpr const evs_max_iter    = 60;  // Python default: 10 * n = 60
+  auto constexpr const kmean_max_iter  = 100;
+
+  auto eig_vals  = thrust::device_vector<float>(n_eig_vects);
+  auto eig_vects = thrust::device_vector<float>(n_eig_vects * num_verts);
+
+  // auto handle = raft::handle_t{};
+
+  // Match Python's ncv default: min(max(2*k + 1, 20), n - 1) = min(max(5, 20), 5) = 5
+  // But since n=6, ncv should be min(20, 5) = 5
+  auto restartIter_lanczos = int{5};
+
+  // Read seeds from environment variables if available, otherwise use defaults
+  auto seed_eig_solver     = std::uint64_t{7};   // default: 7
+  auto seed_cluster_solver = std::uint64_t{12};  // default: 12
+
+  const char* env_eig_seed     = std::getenv("RAFT_EIG_SEED");
+  const char* env_cluster_seed = std::getenv("RAFT_CLUSTER_SEED");
+
+  if (env_eig_seed) {
+    seed_eig_solver = std::stoull(env_eig_seed);
+    std::cout << "Using eigen solver seed from env: " << seed_eig_solver << std::endl;
+  }
+  if (env_cluster_seed) {
+    seed_cluster_solver = std::stoull(env_cluster_seed);
+    std::cout << "Using cluster solver seed from env: " << seed_cluster_solver << std::endl;
+  }
+
+  auto const adj_matrix = raft::spectral::matrix::sparse_matrix_t<int, float>{handle,
+                                                                              offsets.data().get(),
+                                                                              indices.data().get(),
+                                                                              values.data().get(),
+                                                                              num_verts,
+                                                                              num_verts,
+                                                                              num_edges};
+
+  auto eig_cfg = raft::spectral::eigen_solver_config_t<int, float>{
+    n_eig_vects, evs_max_iter, restartIter_lanczos, evs_tolerance, false, seed_eig_solver};
+  auto eigen_solver = raft::spectral::lanczos_solver_t<int, float>{eig_cfg};
+
+  auto clust_cfg = raft::spectral::cluster_solver_config_t<int, float>{
+    n_clusters, kmean_max_iter, kmean_tolerance, seed_cluster_solver};
+  auto cluster_solver = raft::spectral::kmeans_solver_t<int, float>{clust_cfg};
+
+  partition(handle,
+            adj_matrix,
+            eigen_solver,
+            cluster_solver,
+            result_v.data().get(),
+            eig_vals.data().get(),
+            eig_vects.data().get());
+
+  raft::print_device_vector("eigen_vals", eig_vals.data().get(), n_eig_vects, std::cout);
+  raft::print_device_vector(
+    "eigen_vects", eig_vects.data().get(), n_eig_vects * num_verts, std::cout);
+
+  float modularity = 0;
+  float edge_cut   = 0;
+  float ratio_cut  = 0;
+  raft::spectral::analyzeModularity(
+    handle, adj_matrix, n_clusters, result_v.data().get(), modularity);
+
+  raft::spectral::analyzePartition(
+    handle, adj_matrix, n_clusters, result_v.data().get(), edge_cut, ratio_cut);
+
+  raft::print_device_vector("clustering", result_v.data().get(), num_verts, std::cout);
+
+  printf("\n**modularity = %f", modularity);
+  printf("\nedge_cut = %f", edge_cut);
+  printf("\nratio_cut = %f\n", ratio_cut);
 }
 
 }  // namespace spectral

@@ -1736,7 +1736,8 @@ void lanczos_aux(raft::resources const& handle,
     auto uu_i = raft::make_device_scalar_view(uu.data_handle() + uu.stride(1) * i);  // uu(0, i)
     raft::linalg::add(handle, make_const_mdspan(alpha_i), make_const_mdspan(uu_i), alpha_i);
 
-    kernel_clamp_down<<<1, 1, 0, stream>>>(alpha_i.data_handle(), static_cast<ValueTypeT>(1e-9));
+    // Removed aggressive clamping that was causing issues with small eigenvalues
+    // kernel_clamp_down<<<1, 1, 0, stream>>>(alpha_i.data_handle(), static_cast<ValueTypeT>(1e-9));
 
     auto output = raft::make_device_vector_view<ValueTypeT, uint32_t>(
       beta.data_handle() + beta.stride(1) * i, 1);
@@ -1747,11 +1748,14 @@ void lanczos_aux(raft::resources const& handle,
     int blockSize = 256;
     int numBlocks = (n + blockSize - 1) / blockSize;
 
-    kernel_clamp_down_vector<<<numBlocks, blockSize, 0, stream>>>(
-      u.data_handle(), static_cast<ValueTypeT>(1e-7), n);
+    // Removed aggressive clamping that was causing issues with small eigenvalues
+    // kernel_clamp_down_vector<<<numBlocks, blockSize, 0, stream>>>(
+    //   u.data_handle(), static_cast<ValueTypeT>(1e-7), n);
 
-    kernel_clamp_down<<<1, 1, 0, stream>>>(beta.data_handle() + beta.stride(1) * i,
-                                           static_cast<ValueTypeT>(1e-6));
+    // Removed aggressive clamping that was causing issues with small eigenvalues
+    // The beta values should not be clamped to zero as it breaks the Lanczos iteration
+    // kernel_clamp_down<<<1, 1, 0, stream>>>(beta.data_handle() + beta.stride(1) * i,
+    //                                        static_cast<ValueTypeT>(1e-6));
 
     if (i >= end_idx - 1) { break; }
 

@@ -96,10 +96,40 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   // -------------------------------------------------------
 
   // Compute eigenvectors of Laplacian
+  auto csr_m_view = csr_m.to_csr_matrix_view();
+
+  raft::print_device_vector(
+    "csr_m_indptr", csr_m_view.structure_view().get_indptr().data(), n + 1, std::cout);
+  raft::print_device_vector("csr_m_indices",
+                            csr_m_view.structure_view().get_indices().data(),
+                            csr_m_view.structure_view().get_nnz(),
+                            std::cout);
+  raft::print_device_vector("csr_m_values",
+                            csr_m_view.get_elements().data(),
+                            csr_m_view.structure_view().get_nnz(),
+                            std::cout);
 
   // Initialize Laplacian
   auto laplacian =
     raft::sparse::linalg::compute_graph_laplacian(handle, csr_m.to_csr_matrix_view());
+
+  // Print the three components of the CSR matrix (laplacian)
+  // auto laplacian_view = laplacian.view();
+  auto laplacian_structure = laplacian.structure_view();
+
+  // Print row pointers (indptr)
+  raft::print_device_vector(
+    "laplacian_indptr", laplacian_structure.get_indptr().data(), n + 1, std::cout);
+
+  // Print column indices
+  raft::print_device_vector("laplacian_indices",
+                            laplacian_structure.get_indices().data(),
+                            laplacian_structure.get_nnz(),
+                            std::cout);
+
+  // Print values
+  raft::print_device_vector(
+    "laplacian_values", laplacian.get_elements().data(), laplacian_structure.get_nnz(), std::cout);
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs     = eigen_config.n_eigVecs;
