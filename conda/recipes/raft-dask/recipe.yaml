@@ -63,7 +63,9 @@ requirements:
     - ucx-py ${{ ucx_py_version }}
     - ucxx ${{ ucxx_version }}
     - cuda-cudart-dev
-    - cuda-python >=12.6.2,<13.0a0
+    - if: cuda_major == "12"
+      then: cuda-python >=12.9.2,<13.0a0
+      else: cuda-python >=13.0.1,<14.0a0
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - dask-cuda =${{ minor_version }}
@@ -75,7 +77,9 @@ requirements:
     - rmm =${{ minor_version }}
     - ucx-py ${{ ucx_py_version }}
     - cuda-cudart
-    - cuda-python >=12.6.2,<13.0a0
+    - if: cuda_major == "12"
+      then: cuda-python >=12.9.2,<13.0a0
+      else: cuda-python >=13.0.1,<14.0a0
   ignore_run_exports:
     from_package:
       - ${{ compiler("c") }}
