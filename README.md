@@ -245,9 +245,13 @@ mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-vers
 Note that the above commands will also install `libraft-headers` and `libraft`.
 
 You can also install the conda packages individually using the `mamba` command above. For example, if you'd like to install RAFT's headers and pre-compiled shared library to use in your project:
+
 ```bash
-# for CUDA 12
+# CUDA 13
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=13.0
+
+# CUDA 12
+mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.9
 ```
 
 ### Installing Python through Pip
