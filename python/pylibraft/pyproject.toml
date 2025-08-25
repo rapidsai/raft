@@ -31,7 +31,7 @@ authors = [
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 dependencies = [
-    "cuda-python",
+    "cuda-python>=13.0.1,<14.0a0",
     "libraft==25.10.*,>=0.0.0a0",
     "numpy>=1.23,<3.0a0",
     "rmm==25.10.*,>=0.0.0a0",
@@ -47,7 +47,7 @@ classifiers = [
 
 [project.optional-dependencies]
 test = [
-    "cupy-cuda12x>=12.0.0",
+    "cupy-cuda13x>=13.6.0",
     "pytest",
     "pytest-cov",
     "scikit-learn",
@@ -120,7 +120,7 @@ regex = "(?P<value>.*)"
 build-backend = "scikit_build_core.build"
 requires = [
     "cmake>=3.30.4",
-    "cuda-python",
+    "cuda-python>=13.0.1,<14.0a0",
     "cython>=3.0.0",
     "libraft==25.10.*,>=0.0.0a0",
     "librmm==25.10.*,>=0.0.0a0",
