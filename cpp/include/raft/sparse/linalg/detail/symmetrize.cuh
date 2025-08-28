@@ -50,19 +50,19 @@ namespace detail {
 
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
-template <int TPB_X = 128, typename T, typename Lambda, typename nnz_t>
+template <int TPB_X = 128, typename T, typename Lambda, typename IdxT, typename nnz_t>
 RAFT_KERNEL coo_symmetrize_kernel(const nnz_t* row_ind,
-                                  const int* rows,
-                                  const int* cols,
+                                  const IdxT* rows,
+                                  const IdxT* cols,
                                   const T* vals,
-                                  int* orows,
-                                  int* ocols,
+                                  IdxT* orows,
+                                  IdxT* ocols,
                                   T* ovals,
-                                  int n,
+                                  IdxT n,
                                   nnz_t cnnz,
                                   Lambda reduction_op)
 {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  IdxT row = (blockIdx.x * TPB_X) + threadIdx.x;
 
   if (row < n) {
     nnz_t start_idx = row_ind[row];  // each thread processes one row
@@ -72,13 +72,13 @@ RAFT_KERNEL coo_symmetrize_kernel(const nnz_t* row_ind,
     nnz_t out_start_idx = start_idx * 2;
 
     for (nnz_t idx = 0; idx < stop_idx - start_idx; idx++) {
-      int cur_row = rows[start_idx + idx];
-      int cur_col = cols[start_idx + idx];
-      T cur_val   = vals[start_idx + idx];
+      IdxT cur_row = rows[start_idx + idx];
+      IdxT cur_col = cols[start_idx + idx];
+      T cur_val    = vals[start_idx + idx];
 
-      int lookup_row = cur_col;
-      nnz_t t_start  = row_ind[lookup_row];  // Start at
-      nnz_t t_stop   = get_stop_idx(lookup_row, n, cnnz, row_ind);
+      IdxT lookup_row = cur_col;
+      nnz_t t_start   = row_ind[lookup_row];  // Start at
+      nnz_t t_stop    = get_stop_idx(lookup_row, n, cnnz, row_ind);
 
       T transpose = 0.0;
 
@@ -192,7 +192,7 @@ void coo_symmetrize(raft::resources const& handle,
   auto in_cols = in_structure.get_cols().data();
   auto in_vals = in.get_elements().data();
 
-  dim3 grid(raft::ceildiv(in_n_rows, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(in_n_rows, static_cast<IdxT>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   rmm::device_uvector<nnz_t> in_row_ind(in_n_rows, stream);
@@ -211,20 +211,22 @@ void coo_symmetrize(raft::resources const& handle,
   auto out_cols = out_structure.get_cols().data();
   auto out_vals = out.get_elements().data();
 
-  raft::matrix::fill(handle, raft::make_device_vector_view(out_rows, out_nnz), 0);
-  raft::matrix::fill(handle, raft::make_device_vector_view(out_cols, out_nnz), 0);
+  raft::matrix::fill(
+    handle, raft::make_device_vector_view(out_rows, out_nnz), static_cast<IdxT>(0));
+  raft::matrix::fill(
+    handle, raft::make_device_vector_view(out_cols, out_nnz), static_cast<IdxT>(0));
   raft::matrix::fill(handle, raft::make_device_vector_view(out_vals, out_nnz), static_cast<T>(0.0));
 
-  coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(in_row_ind.data(),
-                                                            in_rows,
-                                                            in_cols,
-                                                            in_vals,
-                                                            out_rows,
-                                                            out_cols,
-                                                            out_vals,
-                                                            in_n_rows,
-                                                            in_nnz,
-                                                            reduction_op);
+  coo_symmetrize_kernel<TPB_X, T, Lambda, IdxT, nnz_t><<<grid, blk, 0, stream>>>(in_row_ind.data(),
+                                                                                 in_rows,
+                                                                                 in_cols,
+                                                                                 in_vals,
+                                                                                 out_rows,
+                                                                                 out_cols,
+                                                                                 out_vals,
+                                                                                 in_n_rows,
+                                                                                 in_nnz,
+                                                                                 reduction_op);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
