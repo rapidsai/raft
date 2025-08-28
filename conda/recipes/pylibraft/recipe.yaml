@@ -61,7 +61,9 @@ requirements:
     - rmm =${{ minor_version }}
     - scikit-build-core >=0.10.0
     - cuda-cudart-dev
-    - cuda-python >=12.6.2,<13.0a0
+    - if: cuda_major == "12"
+      then: cuda-python >=12.9.2,<13.0a0
+      else: cuda-python >=13.0.1,<14.0a0
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - libraft =${{ version }}
@@ -70,7 +72,9 @@ requirements:
     - numpy >=1.23,<3.0a0
     - rmm =${{ minor_version }}
     - cuda-cudart
-    - cuda-python >=12.6.2,<13.0a0
+    - if: cuda_major == "12"
+      then: cuda-python >=12.9.2,<13.0a0
+      else: cuda-python >=13.0.1,<14.0a0
   ignore_run_exports:
     from_package:
       - ${{ compiler("c") }}
