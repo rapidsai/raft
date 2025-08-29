@@ -15,6 +15,16 @@
  */
 #include "select_k.cuh"
 
+#include <cuda_bf16.h>
+
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+
+#include <gtest/gtest.h>
+#include <vector>
+#include <iostream>
+
 namespace raft::matrix {
 
 auto inputs_random_longlist = testing::Values(select::params{1, 130, 15, false},
@@ -144,5 +154,61 @@ INSTANTIATE_TEST_CASE_P(                                       // NOLINT
                    testing::Values(SelectAlgo::kRadix8bits,
                                    SelectAlgo::kRadix11bits,
                                    SelectAlgo::kRadix11bitsExtraPass)));
+
+
+TEST(SelectKBF16Negative, TopK3)
+{
+  raft::device_resources handle;
+  auto stream = resource::get_cuda_stream(handle);
+
+  using DataT = nv_bfloat16;
+  using IdxT  = uint32_t;
+
+  // Input row with negatives and positives
+  std::vector<float> h_in = {-3.5f, -1.5f, -7.5f, 0.5f, -2.5f};
+  int64_t n_rows = 1;
+  int64_t n_cols = h_in.size();
+  int64_t k      = 3;
+
+  // Convert host input to bf16
+  std::vector<DataT> h_in_bf16(n_cols);
+  for (int i = 0; i < n_cols; i++) {
+    h_in_bf16[i] = __float2bfloat16(h_in[i]);
+  }
+
+  // Device allocations (explicitly row_major optional)
+  auto in_values   = raft::make_device_matrix<DataT, int64_t, row_major>(handle, n_rows, n_cols);
+  auto out_values  = raft::make_device_matrix<DataT, int64_t, row_major>(handle, n_rows, k);
+  auto out_indices = raft::make_device_matrix<IdxT, int64_t, row_major>(handle, n_rows, k);
+
+  // Copy input to device
+  raft::copy(in_values.data_handle(), h_in_bf16.data(), n_cols, stream);
+
+  // Run select_k for largest k
+  raft::matrix::select_k<DataT, IdxT>(
+    handle, in_values.view(), std::nullopt, out_values.view(), out_indices.view(),
+    /*select_min=*/false, /*sorted=*/true);
+
+  // Copy results back to host
+  std::vector<DataT> h_out(k);
+  std::vector<IdxT> h_idx(k);
+  raft::copy(h_out.data(), out_values.data_handle(), k, stream);
+  raft::copy(h_idx.data(), out_indices.data_handle(), k, stream);
+  resource::sync_stream(handle, stream);
+
+  // Debug print
+  std::cout << "Input: ";
+  for (auto v : h_in) std::cout << v << " ";
+  std::cout << "\nSelected top-" << k << ": ";
+  for (int i = 0; i < k; i++) {
+    std::cout << __bfloat162float(h_out[i]) << " (idx=" << h_idx[i] << ") ";
+  }
+  std::cout << std::endl;
+
+  // Expected top-3 largest values: [0.5, -1.5, -2.5]
+  EXPECT_NEAR(__bfloat162float(h_out[0]), 0.5f, 0.01f);
+  EXPECT_NEAR(__bfloat162float(h_out[1]), -1.5f, 0.01f);
+  EXPECT_NEAR(__bfloat162float(h_out[2]), -2.5f, 0.01f);
+}
 
 }  // namespace raft::matrix
