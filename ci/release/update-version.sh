@@ -52,7 +52,6 @@ DEPENDENCIES=(
   libraft-tests
 )
 UCXX_DEPENDENCIES=(
-  ucx-py
   libucxx
   distributed-ucxx
 )
@@ -75,7 +74,6 @@ done
 
 # RAPIDS UCX version
 for FILE in conda/recipes/*/conda_build_config.yaml; do
-  sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCXX_SHORT_TAG_PEP440}.*\"/}" "${FILE}"
   sed_runner "/^ucxx_version:$/ {n;s/.*/  - \"${NEXT_UCXX_SHORT_TAG_PEP440}.*\"/}" "${FILE}"
 done
 
