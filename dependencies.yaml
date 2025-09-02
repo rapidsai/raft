@@ -376,10 +376,10 @@ dependencies:
     common:
       - output_types: [conda, pyproject, requirements]
         packages:
-          - dask-cuda==25.10.*,>=0.0.0a0
           - rapids-dask-dependency==25.10.*,>=0.0.0a0
       - output_types: conda
         packages:
+          - &dask_cuda_unsuffixed dask-cuda==25.10.*,>=0.0.0a0
           - &pylibraft_unsuffixed pylibraft==25.10.*,>=0.0.0a0
           - &ucx_py_unsuffixed ucx-py==0.46.*,>=0.0.0a0
       - output_types: requirements
@@ -394,15 +394,21 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
+              - dask-cuda[cu12]==25.10.*,>=0.0.0a0
               - pylibraft-cu12==25.10.*,>=0.0.0a0
               - ucx-py-cu12==0.46.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
+              - dask-cuda[cu13]==25.10.*,>=0.0.0a0
               - pylibraft-cu13==25.10.*,>=0.0.0a0
               - ucx-py-cu13==0.46.*,>=0.0.0a0
-          - {matrix: null, packages: [*pylibraft_unsuffixed, *ucx_py_unsuffixed]}
+          - matrix:
+            packages:
+              - *dask_cuda_unsuffixed
+              - *pylibraft_unsuffixed
+              - *ucx_py_unsuffixed
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
