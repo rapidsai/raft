@@ -26,10 +26,20 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda_bf16.h>
+
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <numeric>
+#include <ostream>
+
+// ostream overload for __nv_bfloat16 so GTest can print values
+inline std::ostream& operator<<(std::ostream& os, const __nv_bfloat16& val)
+{
+  os << __bfloat162float(val);
+  return os;
+}
 
 namespace raft::matrix {
 
@@ -392,6 +402,54 @@ INSTANTIATE_TEST_CASE_P(                // NOLINT
   SelectK,
   SimpleFloatInt,
   testing::Combine(inputs_simple_f,
+                   testing::Values(SelectAlgo::kAuto,
+                                   SelectAlgo::kRadix8bits,
+                                   SelectAlgo::kRadix11bits,
+                                   SelectAlgo::kRadix11bitsExtraPass,
+                                   SelectAlgo::kWarpImmediate,
+                                   SelectAlgo::kWarpFiltered,
+                                   SelectAlgo::kWarpDistributed)));
+
+// Utility to convert float vector to nv_bfloat16
+inline std::vector<__nv_bfloat16> make_bf16_vec(const std::vector<float>& v)
+{
+  std::vector<__nv_bfloat16> out;
+  out.reserve(v.size());
+  for (float f : v) {
+    out.push_back(__float2bfloat16(f));
+  }
+  return out;
+}
+
+// Prepare simple test data including negative datasets (batch, N, K, select_min?, sorted?)
+auto inputs_simple_bfloat16 = testing::Values(
+  params_simple<__nv_bfloat16, uint32_t>::input_t({1, 5, 3, false, true},
+                                                  make_bf16_vec({3.5, 1.5, 7.5, -0.5, 2.5}),
+                                                  std::nullopt,
+                                                  make_bf16_vec({7.5, 3.5, 2.5}),
+                                                  {2, 0, 4}),
+  params_simple<__nv_bfloat16, uint32_t>::input_t({1, 5, 3, true, true},
+                                                  make_bf16_vec({3.5, 1.5, 7.5, -0.5, 2.5}),
+                                                  std::nullopt,
+                                                  make_bf16_vec({-0.5, 1.5, 2.5}),
+                                                  {3, 1, 4}),
+  params_simple<__nv_bfloat16, uint32_t>::input_t({1, 5, 3, false, true},
+                                                  make_bf16_vec({-3.5, -1.5, -7.5, 0.5, -2.5}),
+                                                  std::nullopt,
+                                                  make_bf16_vec({0.5, -1.5, -2.5}),
+                                                  {3, 1, 4}),
+  params_simple<__nv_bfloat16, uint32_t>::input_t({1, 5, 3, true, true},
+                                                  make_bf16_vec({-3.5, -1.5, -7.5, 0.5, -2.5}),
+                                                  std::nullopt,
+                                                  make_bf16_vec({-7.5, -3.5, -2.5}),
+                                                  {2, 0, 4}));
+
+using SimpleBFloat16Int = SelectK<__nv_bfloat16, uint32_t, params_simple>;
+TEST_P(SimpleBFloat16Int, Run) { run(); }  // NOLINT
+INSTANTIATE_TEST_CASE_P(                   // NOLINT
+  SelectK,
+  SimpleBFloat16Int,
+  testing::Combine(inputs_simple_bfloat16,
                    testing::Values(SelectAlgo::kAuto,
                                    SelectAlgo::kRadix8bits,
                                    SelectAlgo::kRadix11bits,
