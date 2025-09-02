@@ -47,7 +47,8 @@ double adjusted_rand_index(const T* firstClusterArray,
                            int size,
                            cudaStream_t stream)
 {
-  return detail::compute_adjusted_rand_index(firstClusterArray, secondClusterArray, size, stream);
+  return detail::compute_adjusted_rand_index<T, MathT>(
+    firstClusterArray, secondClusterArray, size, stream);
 }
 
 /**

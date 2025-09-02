@@ -376,10 +376,10 @@ dependencies:
     common:
       - output_types: [conda, pyproject, requirements]
         packages:
-          - dask-cuda==25.10.*,>=0.0.0a0
           - rapids-dask-dependency==25.10.*,>=0.0.0a0
       - output_types: conda
         packages:
+          - &dask_cuda_unsuffixed dask-cuda==25.10.*,>=0.0.0a0
           - &pylibraft_unsuffixed pylibraft==25.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
@@ -393,13 +393,18 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
+              - dask-cuda[cu12]==25.10.*,>=0.0.0a0
               - pylibraft-cu12==25.10.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
+              - dask-cuda[cu13]==25.10.*,>=0.0.0a0
               - pylibraft-cu13==25.10.*,>=0.0.0a0
-          - {matrix: null, packages: [*pylibraft_unsuffixed]}
+          - matrix:
+            packages:
+              - *dask_cuda_unsuffixed
+              - *pylibraft_unsuffixed
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -583,40 +588,6 @@ dependencies:
           - matrix:
             packages:
               - libucx>=1.19.0,<1.19.1a0
-  depends_on_ucx_run:
-    common:
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
-    specific:
-      - output_types: [conda]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - ucx>=1.17.0,<1.20
-          # require at least 1.19.0 on CUDA 13 (and make that the default when 'cuda' filter is not provided)
-          - matrix:
-            packages:
-              - ucx>=1.19.0,<1.20
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "true"
-            packages:
-              - libucx-cu12>=1.17.0,<1.20
-          - matrix:
-              cuda: "13.*"
-              cuda_suffixed: "true"
-            packages:
-              - libucx-cu13>=1.19.0,<1.20
-          # require at least 1.19.0 (CUDA 13 floor) if 'cuda' filter is not provided
-          - matrix:
-            packages:
-              - libucx>=1.19.0,<1.20
   depends_on_nccl:
     common:
       - output_types: conda
