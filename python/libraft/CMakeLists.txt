@@ -45,12 +45,17 @@ set(RAFT_COMPILE_LIBRARY ON)
 add_subdirectory(../../cpp raft-cpp)
 
 # assumes libraft.so is installed 2 levels deep, e.g. site-packages/libraft/lib64/libraft.so
-set_property(
-  TARGET raft_lib
-  PROPERTY INSTALL_RPATH
-           "$ORIGIN/../../nvidia/cublas/lib"
-           "$ORIGIN/../../nvidia/curand/lib"
-           "$ORIGIN/../../nvidia/cusolver/lib"
-           "$ORIGIN/../../nvidia/cusparse/lib"
-           "$ORIGIN/../../nvidia/nvjitlink/lib"
-)
+if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 13.0)
+  # starting with CTK 13 wheels, all libraries are grouped in this 'nvidia/cu13/lib' directory
+  set(rpaths
+    "$ORIGIN/../../nvidia/cu13/lib"
+  )
+else()
+  set(rpaths
+    "$ORIGIN/../../nvidia/cublas/lib"
+    "$ORIGIN/../../nvidia/curand/lib"
+    "$ORIGIN/../../nvidia/cusolver/lib"
+    "$ORIGIN/../../nvidia/cusparse/lib"
+    "$ORIGIN/../../nvidia/nvjitlink/lib"
+  )
+endif()
