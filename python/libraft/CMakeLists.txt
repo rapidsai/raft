@@ -53,6 +53,7 @@ set_property(
            "$ORIGIN/../../nvidia/cusolver/lib"
            "$ORIGIN/../../nvidia/cusparse/lib"
            "$ORIGIN/../../nvidia/nvjitlink/lib"
-           # starting with CTK 13 wheels, all libraries are grouped in this 'nvidia/cu13/lib' directory
+           # starting with CTK 13 wheels, all libraries are grouped in this 'nvidia/cu13/lib'
+           # directory
            "$ORIGIN/../../nvidia/cu13/lib"
 )
