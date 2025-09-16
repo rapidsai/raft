@@ -26,8 +26,6 @@ project(
 )
 
 rapids_cpm_init()
-# Once https://github.com/rapidsai/ucxx/issues/173 is resolved we can remove this.
-find_package(ucx REQUIRED)
 include(cmake/thirdparty/get_ucxx.cmake)
 
 # why these components:
