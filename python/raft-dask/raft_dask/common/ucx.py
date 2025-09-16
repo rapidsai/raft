@@ -21,7 +21,7 @@ async def _connection_func(ep):
 class UCX:
     """
     Singleton UCX context to encapsulate all interactions with the
-    UCX-py API and guarantee only a single listener & endpoints are
+    UCXX API and guarantee only a single listener & endpoints are
     created by RAFT Comms on a single process.
     """
 
