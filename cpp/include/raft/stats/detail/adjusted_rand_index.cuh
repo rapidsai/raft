@@ -127,7 +127,10 @@ double compute_adjusted_rand_index(const T* firstClusterArray,
                                    int size,
                                    cudaStream_t stream)
 {
-  ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
+  if (size < 2) {
+    // 1 or 0 labels always have a perfect score. This also matches sklearn behavior.
+    return 1.0;
+  }
   T minFirst, maxFirst, minSecond, maxSecond;
   auto nUniqFirst      = countUnique(firstClusterArray, size, minFirst, maxFirst, stream);
   auto nUniqSecond     = countUnique(secondClusterArray, size, minSecond, maxSecond, stream);

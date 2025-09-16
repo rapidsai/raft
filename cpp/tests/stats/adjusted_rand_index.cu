@@ -91,43 +91,47 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
       std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
     }
     // calculating golden output
-    int numUniqueClasses     = upperLabelRange - lowerLabelRange + 1;
-    const auto hGoldenOutput = std::make_unique<int[]>(numUniqueClasses * numUniqueClasses);
-    for (int i = 0; i < nElements; i++) {
-      int row    = arr1[i] - lowerLabelRange;
-      int column = arr2[i] - lowerLabelRange;
-      hGoldenOutput[row * numUniqueClasses + column] += 1;
-    }
-    int sumOfNijCTwo = 0;
-    const auto a     = std::make_unique<int[]>(numUniqueClasses);
-    const auto b     = std::make_unique<int[]>(numUniqueClasses);
-    int sumOfAiCTwo  = 0;
-    int sumOfBiCTwo  = 0;
-    // calculating the sum of number of pairwise points in each index
-    // and also the reducing contingency matrix along row and column
-    for (int i = 0; i < numUniqueClasses; ++i) {
-      for (int j = 0; j < numUniqueClasses; ++j) {
-        int Nij = hGoldenOutput[i * numUniqueClasses + j];
-        sumOfNijCTwo += ((Nij) * (Nij - 1)) / 2;
-        a[i] += hGoldenOutput[i * numUniqueClasses + j];
-        b[i] += hGoldenOutput[j * numUniqueClasses + i];
+    if (nElements >= 2) {
+      int numUniqueClasses     = upperLabelRange - lowerLabelRange + 1;
+      const auto hGoldenOutput = std::make_unique<int[]>(numUniqueClasses * numUniqueClasses);
+      for (int i = 0; i < nElements; i++) {
+        int row    = arr1[i] - lowerLabelRange;
+        int column = arr2[i] - lowerLabelRange;
+        hGoldenOutput[row * numUniqueClasses + column] += 1;
       }
+      int sumOfNijCTwo = 0;
+      const auto a     = std::make_unique<int[]>(numUniqueClasses);
+      const auto b     = std::make_unique<int[]>(numUniqueClasses);
+      int sumOfAiCTwo  = 0;
+      int sumOfBiCTwo  = 0;
+      // calculating the sum of number of pairwise points in each index
+      // and also the reducing contingency matrix along row and column
+      for (int i = 0; i < numUniqueClasses; ++i) {
+        for (int j = 0; j < numUniqueClasses; ++j) {
+          int Nij = hGoldenOutput[i * numUniqueClasses + j];
+          sumOfNijCTwo += ((Nij) * (Nij - 1)) / 2;
+          a[i] += hGoldenOutput[i * numUniqueClasses + j];
+          b[i] += hGoldenOutput[j * numUniqueClasses + i];
+        }
+      }
+      // claculating the sum of number pairwise points in ever column sum
+      // claculating the sum of number pairwise points in ever row sum
+      for (int i = 0; i < numUniqueClasses; ++i) {
+        sumOfAiCTwo += ((a[i]) * (a[i] - 1)) / 2;
+        sumOfBiCTwo += ((b[i]) * (b[i] - 1)) / 2;
+      }
+      // calculating the ARI
+      double nCTwo         = double(nElements) * double(nElements - 1) / 2.0;
+      double expectedIndex = (double(sumOfBiCTwo) * double(sumOfAiCTwo)) / double(nCTwo);
+      double maxIndex      = (double(sumOfAiCTwo) + double(sumOfBiCTwo)) / 2.0;
+      double index         = (double)sumOfNijCTwo;
+      if (maxIndex - expectedIndex)
+        truth_adjusted_rand_index = (index - expectedIndex) / (maxIndex - expectedIndex);
+      else
+        truth_adjusted_rand_index = 1.0;
+    } else {
+      truth_adjusted_rand_index = 1.0;
     }
-    // claculating the sum of number pairwise points in ever column sum
-    // claculating the sum of number pairwise points in ever row sum
-    for (int i = 0; i < numUniqueClasses; ++i) {
-      sumOfAiCTwo += ((a[i]) * (a[i] - 1)) / 2;
-      sumOfBiCTwo += ((b[i]) * (b[i] - 1)) / 2;
-    }
-    // calculating the ARI
-    double nCTwo         = double(nElements) * double(nElements - 1) / 2.0;
-    double expectedIndex = (double(sumOfBiCTwo) * double(sumOfAiCTwo)) / double(nCTwo);
-    double maxIndex      = (double(sumOfAiCTwo) + double(sumOfBiCTwo)) / 2.0;
-    double index         = (double)sumOfNijCTwo;
-    if (maxIndex - expectedIndex)
-      truth_adjusted_rand_index = (index - expectedIndex) / (maxIndex - expectedIndex);
-    else
-      truth_adjusted_rand_index = 0;
     raft::update_device(firstClusterArray.data(), &arr1[0], nElements, stream);
     raft::update_device(secondClusterArray.data(), &arr2[0], nElements, stream);
   }
@@ -149,8 +153,19 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
   double truth_adjusted_rand_index    = 0;
   double computed_adjusted_rand_index = 0;
 };
+int nElements;
+int lowerLabelRange;
+int upperLabelRange;
+bool sameArrays;
+double tolerance;
+// if this is true, then it is assumed that `sameArrays` is also true
+// further it also assumes `lowerLabelRange` and `upperLabelRange` are 0
+bool testZeroArray;
 
 const std::vector<adjustedRandIndexParam> inputs = {
+  {0, 1, 10, false, 0.000001, false},
+  {1, 1, 10, false, 0.000001, false},
+  {2, 1, 10, false, 0.000001, false},
   {199, 1, 10, false, 0.000001, false},
   {200, 15, 100, false, 0.000001, false},
   {100, 1, 20, false, 0.000001, false},
