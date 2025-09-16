@@ -63,20 +63,24 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
 
     // generating the golden output
-    int64_t a_truth = 0;
-    int64_t b_truth = 0;
+    if (size < 2) {
+      truthRandIndex = 1.0;
+    } else {
+      int64_t a_truth = 0;
+      int64_t b_truth = 0;
 
-    for (uint64_t iter = 0; iter < size; ++iter) {
-      for (uint64_t jiter = 0; jiter < iter; ++jiter) {
-        if (arr1[iter] == arr1[jiter] && arr2[iter] == arr2[jiter]) {
-          ++a_truth;
-        } else if (arr1[iter] != arr1[jiter] && arr2[iter] != arr2[jiter]) {
-          ++b_truth;
+      for (uint64_t iter = 0; iter < size; ++iter) {
+        for (uint64_t jiter = 0; jiter < iter; ++jiter) {
+          if (arr1[iter] == arr1[jiter] && arr2[iter] == arr2[jiter]) {
+            ++a_truth;
+          } else if (arr1[iter] != arr1[jiter] && arr2[iter] != arr2[jiter]) {
+            ++b_truth;
+          }
         }
       }
+      uint64_t nChooseTwo = (size * (size - 1)) / 2;
+      truthRandIndex      = (double)(((double)(a_truth + b_truth)) / (double)nChooseTwo);
     }
-    uint64_t nChooseTwo = (size * (size - 1)) / 2;
-    truthRandIndex      = (double)(((double)(a_truth + b_truth)) / (double)nChooseTwo);
 
     // allocating and initializing memory to the GPU
     stream = resource::get_cuda_stream(handle);
@@ -115,7 +119,9 @@ const std::vector<randIndexParam> inputs = {{199, 1, 10, 0.000001},
                                             {100, 1, 10000, 0.000001},
                                             {198, 1, 100, 0.000001},
                                             {300, 3, 99, 0.000001},
-                                            {2, 0, 0, 0.00001}};
+                                            {2, 0, 0, 0.00001},
+                                            {1, 0, 0, 0.00001},
+                                            {0, 0, 0, 0.00001}};
 
 // writing the test suite
 typedef randIndexTest<int> randIndexTestClass;
