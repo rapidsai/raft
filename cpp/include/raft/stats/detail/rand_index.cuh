@@ -133,8 +133,10 @@ double compute_rand_index(const T* firstClusterArray,
                           uint64_t size,
                           cudaStream_t stream)
 {
-  // rand index for size less than 2 is not defined
-  ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
+  if (size < 2) {
+    // 1 or 0 labels always have a perfect score. This also matches sklearn behavior.
+    return 1.0;
+  }
 
   // allocating and initializing memory for a and b in the GPU
   rmm::device_uvector<uint64_t> arr_buf(2, stream);
