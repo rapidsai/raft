@@ -45,20 +45,20 @@ namespace sparse {
 namespace op {
 namespace detail {
 
-template <int TPB_X, typename T, typename nnz_t>
-RAFT_KERNEL coo_remove_scalar_kernel(const int* rows,
-                                     const int* cols,
+template <int TPB_X, typename T, typename idx_t, typename nnz_t>
+RAFT_KERNEL coo_remove_scalar_kernel(const idx_t* rows,
+                                     const idx_t* cols,
                                      const T* vals,
                                      nnz_t nnz,
-                                     int* out_rows,
-                                     int* out_cols,
+                                     idx_t* out_rows,
+                                     idx_t* out_cols,
                                      T* out_vals,
                                      nnz_t* ex_scan,
                                      nnz_t* cur_ex_scan,
-                                     int m,
+                                     idx_t m,
                                      T scalar)
 {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  idx_t row = (blockIdx.x * TPB_X) + threadIdx.x;
 
   if (row < m) {
     nnz_t start       = cur_ex_scan[row];
@@ -123,20 +123,20 @@ void coo_remove_scalar(const idx_t* rows,
   thrust::exclusive_scan(rmm::exec_policy(stream), dev_cur_cnnz, dev_cur_cnnz + n, dev_cur_ex_scan);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  dim3 grid(raft::ceildiv(n, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n, static_cast<idx_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  coo_remove_scalar_kernel<TPB_X><<<grid, blk, 0, stream>>>(rows,
-                                                            cols,
-                                                            vals,
-                                                            nnz,
-                                                            crows,
-                                                            ccols,
-                                                            cvals,
-                                                            dev_ex_scan.get(),
-                                                            dev_cur_ex_scan.get(),
-                                                            n,
-                                                            scalar);
+  coo_remove_scalar_kernel<TPB_X, T, idx_t, nnz_t><<<grid, blk, 0, stream>>>(rows,
+                                                                             cols,
+                                                                             vals,
+                                                                             nnz,
+                                                                             crows,
+                                                                             ccols,
+                                                                             cvals,
+                                                                             dev_ex_scan.get(),
+                                                                             dev_cur_ex_scan.get(),
+                                                                             n,
+                                                                             scalar);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
