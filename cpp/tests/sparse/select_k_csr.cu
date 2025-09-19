@@ -56,7 +56,7 @@ struct CompareApproxWithInf {
   CompareApproxWithInf(T eps_) : eps(eps_) {}
   bool operator()(const T& a, const T& b) const
   {
-    if (std::isinf(a) && std::isinf(b)) return true;
+    if ((std::isinf(a) || std::isnan(a)) && (std::isinf(b) || std::isnan(b))) return true;
     T diff  = std::abs(a - b);
     T m     = std::max(std::abs(a), std::abs(b));
     T ratio = diff > eps ? diff / m : diff;
