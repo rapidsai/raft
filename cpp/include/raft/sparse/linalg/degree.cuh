@@ -64,11 +64,11 @@ void coo_degree(COO<T>* in, outT* results, cudaStream_t stream)
  * @param results: output row counts
  * @param stream: cuda stream to use
  */
-template <typename T, typename nnz_type, typename outT>
+template <typename T, typename idx_t, typename nnz_type, typename outT>
 void coo_degree_scalar(
-  const int* rows, const T* vals, nnz_type nnz, T scalar, outT* results, cudaStream_t stream = 0)
+  const idx_t* rows, const T* vals, nnz_type nnz, T scalar, outT* results, cudaStream_t stream = 0)
 {
-  detail::coo_degree_scalar<64>(rows, vals, nnz, scalar, results, stream);
+  detail::coo_degree_scalar<64, T, idx_t, outT, nnz_type>(rows, vals, nnz, scalar, results, stream);
 }
 
 /**

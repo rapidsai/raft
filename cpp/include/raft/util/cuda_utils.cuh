@@ -41,6 +41,19 @@ DI void myAtomicAdd(Type* address, Type val)
   atomicAdd(address, val);
 }
 
+// Specialization for int64_t (signed long long)
+template <>
+DI void myAtomicAdd(int64_t* address, int64_t val)
+{
+  // Cast to unsigned long long for atomic operation
+  unsigned long long int* address_as_ull = (unsigned long long int*)address;
+  unsigned long long int old             = *address_as_ull, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, (unsigned long long int)(((int64_t)assumed) + val));
+  } while (assumed != old);
+}
+
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ < 600)
 // Ref:
 // http://on-demand.gputechconf.com/gtc/2013/presentations/S3101-Atomic-Memory-Operations.pdf
