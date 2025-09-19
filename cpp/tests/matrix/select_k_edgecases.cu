@@ -24,6 +24,7 @@
 
 #include <gtest/gtest.h>
 
+#include <set>
 #include <vector>
 
 namespace raft::matrix {
@@ -63,6 +64,16 @@ auto run_max_k(const std::vector<DataT>& h_in, int64_t k)
   raft::copy(h_out.data(), out_values.data_handle(), k, stream);
   raft::copy(h_idx.data(), out_indices.data_handle(), k, stream);
   raft::resource::sync_stream(handle, stream);
+
+  if (k <= n_cols) {
+    // Check that all indices in h_idx are unique and valid if there's enough input.
+    std::set<IdxT> unique_indices;
+    for (auto idx : h_idx) {
+      RAFT_EXPECTS(idx < static_cast<IdxT>(n_cols), "Index in h_idx is out of bounds");
+      unique_indices.insert(idx);
+    }
+    RAFT_EXPECTS(unique_indices.size() == h_idx.size(), "Indices in h_idx are not unique");
+  }
 
   return std::make_tuple(h_out, h_idx);
 }
