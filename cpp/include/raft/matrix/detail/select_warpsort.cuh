@@ -31,6 +31,8 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/resource_ref.hpp>
 
+#include <cub/util_type.cuh>  // cub::Traits
+
 #include <algorithm>
 #include <functional>
 #include <type_traits>
