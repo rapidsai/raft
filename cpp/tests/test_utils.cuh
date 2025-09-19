@@ -188,9 +188,16 @@ testing::AssertionResult hostVecMatch(const std::vector<T>& expected_h,
            << "vector sizez mismatch: "
            << "actual=" << n << " != expected=" << expected_h.size() << "; ";
   for (size_t i = 0; i < n; ++i) {
-    auto exp = expected_h[i];
-    auto act = actual_h[i];
-    if (!eq_compare(exp, act)) {
+    auto exp       = expected_h[i];
+    auto act       = actual_h[i];
+    bool are_equal = [&]() {
+      if constexpr (std::is_invocable_v<L, decltype(exp), decltype(act), size_t>) {
+        return eq_compare(exp, act, i);
+      } else {
+        return eq_compare(exp, act);
+      }
+    }();
+    if (!are_equal) {
       return testing::AssertionFailure()
              << "actual=" << act << " != expected=" << exp << " @" << i << "; ";
     }
