@@ -26,6 +26,7 @@
 #include <raft/core/pinned_mdspan.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/integer_utils.hpp>
 
 #include <omp.h>
 
