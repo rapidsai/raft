@@ -349,51 +349,6 @@ struct index : ann::index {
   auto operator=(index&&) -> index&      = default;
   ~index()                               = default;
 
-  /** Construct an empty index. It needs to be trained and then populated. */
-  [[deprecated("Use cuVS instead")]] index(raft::resources const& handle,
-                                           raft::distance::DistanceType metric,
-                                           codebook_gen codebook_kind,
-                                           uint32_t n_lists,
-                                           uint32_t dim,
-                                           uint32_t pq_bits                    = 8,
-                                           uint32_t pq_dim                     = 0,
-                                           bool conservative_memory_allocation = false)
-    : ann::index(),
-      metric_(metric),
-      codebook_kind_(codebook_kind),
-      dim_(dim),
-      pq_bits_(pq_bits),
-      pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
-      conservative_memory_allocation_(conservative_memory_allocation),
-      pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
-      lists_{n_lists},
-      rotation_matrix_{make_device_matrix<float, uint32_t>(handle, this->rot_dim(), this->dim())},
-      list_sizes_{make_device_vector<uint32_t, uint32_t>(handle, n_lists)},
-      centers_{make_device_matrix<float, uint32_t>(handle, n_lists, this->dim_ext())},
-      centers_rot_{make_device_matrix<float, uint32_t>(handle, n_lists, this->rot_dim())},
-      data_ptrs_{make_device_vector<uint8_t*, uint32_t>(handle, n_lists)},
-      inds_ptrs_{make_device_vector<IdxT*, uint32_t>(handle, n_lists)},
-      accum_sorted_sizes_{make_host_vector<IdxT, uint32_t>(n_lists + 1)}
-  {
-    check_consistency();
-    accum_sorted_sizes_(n_lists) = 0;
-  }
-
-  /** Construct an empty index. It needs to be trained and then populated. */
-  [[deprecated("Use cuVS instead")]] index(raft::resources const& handle,
-                                           const index_params& params,
-                                           uint32_t dim)
-    : index(handle,
-            params.metric,
-            params.codebook_kind,
-            params.n_lists,
-            dim,
-            params.pq_bits,
-            params.pq_dim,
-            params.conservative_memory_allocation)
-  {
-  }
-
   using pq_centers_extents =
     std::experimental::extents<uint32_t, dynamic_extent, dynamic_extent, dynamic_extent>;
   /**
