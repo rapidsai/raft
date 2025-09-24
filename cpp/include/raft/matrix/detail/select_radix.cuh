@@ -445,7 +445,7 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
 template <typename T, typename IdxT>
 _RAFT_DEVICE void set_buf_pointers(const T* in,
                                    const IdxT* in_idx,
-                                   char* bufs,
+                                   uintptr_t bufs,
                                    IdxT buf_len,
                                    int pass,
                                    const T*& in_buf,
@@ -712,7 +712,7 @@ RAFT_KERNEL radix_kernel(const T* in,
 
   set_buf_pointers(in + l_offset,
                    (in_idx ? (in_idx + l_offset) : nullptr),
-                   bufs,
+                   reinterpret_cast<uintptr_t>(bufs),
                    buf_len,
                    pass,
                    in_buf,
@@ -1098,7 +1098,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
     const IdxT* in_idx_buf;
     T* out_buf;
     IdxT* out_idx_buf;
-    set_buf_pointers(in, in_idx, bufs, buf_len, pass, in_buf, in_idx_buf, out_buf, out_idx_buf);
+    set_buf_pointers(in, in_idx, reinterpret_cast<uintptr_t>(bufs), buf_len, pass, in_buf, in_idx_buf, out_buf, out_idx_buf);
 
     const IdxT current_len = counter.len;
     const IdxT current_k   = counter.k;
