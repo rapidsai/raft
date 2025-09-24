@@ -31,6 +31,8 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/resource_ref.hpp>
 
+#include <cub/util_type.cuh>  // cub::Traits
+
 #include <algorithm>
 #include <functional>
 #include <type_traits>
@@ -764,28 +766,51 @@ __launch_bounds__(256) RAFT_KERNEL block_kernel(const T* in,
                                                 T* out,
                                                 IdxT* out_idx)
 {
+  // * per-block output
+  {
+    const int block_id = blockIdx.x + gridDim.x * blockIdx.y;
+    out += block_id * k;
+    out_idx += block_id * k;
+  }
+  // * per-block input
+  {
+    const size_t batch_id = blockIdx.y;
+    const IdxT l_offset   = in_indptr ? in_indptr[batch_id] : (offset + batch_id) * len;
+    const IdxT l_len      = in_indptr ? (in_indptr[batch_id + 1] - in_indptr[batch_id]) : len;
+    in += l_offset;
+    if (in_idx != nullptr) { in_idx += l_offset; }
+    len = l_len;
+  }
+  // * trim k if the input is too short
+  k = std::min<int>(k, len);
+
+  // * set up the queue
   extern __shared__ __align__(256) uint8_t smem_buf_bytes[];
-  using bq_t         = block_sort<WarpSortClass, Capacity, Ascending, T, IdxT>;
+  // Map the value type T to an appropriate uint type using cub traits.
+  // This gives us two advantages:
+  //   1. More stable behavior for IEEE 754 floating-point values w.r.t. infinity and NaN
+  //      (the behavior matches the select_radix implementation)
+  //   2. Fewer expensive template instantiations
+  using bits_t       = typename cub::Traits<T>::UnsignedBits;
+  using bq_t         = block_sort<WarpSortClass, Capacity, Ascending, bits_t, IdxT>;
   uint8_t* warp_smem = bq_t::queue_t::mem_required(blockDim.x) > 0 ? smem_buf_bytes : nullptr;
   bq_t queue(k, warp_smem);
-  const size_t batch_id = blockIdx.y;
 
-  const IdxT l_len    = in_indptr ? (in_indptr[batch_id + 1] - in_indptr[batch_id]) : len;
-  const IdxT l_offset = in_indptr ? in_indptr[batch_id] : (offset + batch_id) * len;
-
-  in += l_offset;
-  if (in_idx != nullptr) { in_idx += l_offset; }
-
+  // * main loop
   const IdxT stride         = gridDim.x * blockDim.x;
-  const IdxT per_thread_lim = l_len + laneId();
+  const IdxT per_thread_lim = len + laneId();
   for (IdxT i = threadIdx.x + blockIdx.x * blockDim.x; i < per_thread_lim; i += stride) {
-    queue.add(i < l_len ? __ldcs(in + i) : WarpSortClass<Capacity, Ascending, T, IdxT>::kDummy,
-              (i < l_len && in_idx != nullptr) ? __ldcs(in_idx + i) : i);
+    // Twiddle the input value to ensure proper comparison of floating-point and signed int values
+    queue.add(i < len ? cub::Traits<T>::TwiddleIn(__ldcs(reinterpret_cast<const bits_t*>(in) + i))
+                      : WarpSortClass<Capacity, Ascending, bits_t, IdxT>::kDummy,
+              (i < len && in_idx != nullptr) ? __ldcs(in_idx + i) : i);
   }
 
+  // * write out the result
   queue.done(smem_buf_bytes);
-  const int block_id = blockIdx.x + gridDim.x * blockIdx.y;
-  queue.store(out + block_id * k, out_idx + block_id * k);
+  queue.store(reinterpret_cast<bits_t*>(out),
+              out_idx,
+              cub::Traits<T>::TwiddleOut /* Restore the FP / signed int representation.*/);
 }
 
 struct launch_params {
