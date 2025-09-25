@@ -87,13 +87,21 @@ struct Gather : public fixture {
     std::ostringstream label_stream;
     label_stream << params;
     state.SetLabel(label_stream.str());
+    state.counters.insert({{"rows", params.rows}});
+    state.counters.insert({{"cols", params.cols}});
+    state.counters.insert({{"map_length", params.map_length}});
+    state.counters.insert({{"data_on_host", params.host}});
 
-    loop_on_state(state, [this]() {
+    size_t bytes_processed = 0;
+    loop_on_state(state, [this, &bytes_processed]() {
       auto matrix_const_view = raft::make_const_mdspan(matrix.view());
       auto map_const_view    = raft::make_const_mdspan(map.view());
+      bytes_processed += size_t(params.rows) * size_t(params.cols) * sizeof(T);
+      bytes_processed += size_t(params.map_length) * sizeof(MapT);
       if constexpr (Conditional) {
         auto stencil_const_view = raft::make_const_mdspan(stencil.view());
-        auto pred_op            = raft::plug_const_op(T(0.0), raft::greater_op());
+        bytes_processed += size_t(params.map_length) * sizeof(T);
+        auto pred_op = raft::plug_const_op(T(0.0), raft::greater_op());
         raft::matrix::gather_if(
           handle, matrix_const_view, out.view(), map_const_view, stencil_const_view, pred_op);
       } else {
@@ -105,6 +113,7 @@ struct Gather : public fixture {
         }
       }
     });
+    state.SetBytesProcessed(bytes_processed);
   }
 
  private:
