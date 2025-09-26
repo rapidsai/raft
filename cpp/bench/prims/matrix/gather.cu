@@ -96,8 +96,8 @@ struct Gather : public fixture {
     loop_on_state(state, [this, &bytes_processed]() {
       auto matrix_const_view = raft::make_const_mdspan(matrix.view());
       auto map_const_view    = raft::make_const_mdspan(map.view());
-      bytes_processed += size_t(params.rows) * size_t(params.cols) * sizeof(T);
-      bytes_processed += size_t(params.map_length) * sizeof(MapT);
+      bytes_processed +=
+        size_t(params.map_length) * (sizeof(MapT) + size_t(params.cols) * sizeof(T));
       if constexpr (Conditional) {
         auto stencil_const_view = raft::make_const_mdspan(stencil.view());
         bytes_processed += size_t(params.map_length) * sizeof(T);
