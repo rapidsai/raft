@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,8 +40,6 @@ using SamplingOp = detail::SamplingOp<DataT, IndexT>;
 template <typename IndexT, typename DataT>
 using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
 
-
-
 /**
  * @brief Transform X to a cluster-distance space.
  *
@@ -66,8 +64,6 @@ void transform(raft::resources const& handle,
 {
   detail::kmeans_transform<DataT, IndexT>(handle, params, X, centroids, X_new);
 }
-
-
 
 /**
  * Automatically find the optimal value of k using a binary search.
