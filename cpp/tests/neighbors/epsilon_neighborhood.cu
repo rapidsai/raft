@@ -9,9 +9,9 @@
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/ball_cover.cuh>
+#include <raft/neighbors/epsilon_neighborhood.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/sparse/convert/csr.cuh>
-#include <raft/neighbors/epsilon_neighborhood.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
