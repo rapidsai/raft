@@ -65,4 +65,3 @@ TEST(Raft, EigenSolvers)
 
 }  // namespace spectral
 }  // namespace raft
-
