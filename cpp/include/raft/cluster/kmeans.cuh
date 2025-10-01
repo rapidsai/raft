@@ -28,44 +28,6 @@
 namespace raft::cluster::kmeans {
 
 /**
- * Functor used for sampling centroids
- */
-template <typename DataT, typename IndexT>
-using SamplingOp = detail::SamplingOp<DataT, IndexT>;
-
-/**
- * Functor used to extract the index from a KeyValue pair
- * storing both index and a distance.
- */
-template <typename IndexT, typename DataT>
-using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
-
-/**
- * @brief Transform X to a cluster-distance space.
- *
- * @tparam DataT the type of data used for weights, distances.
- * @tparam IndexT the type of data used for indexing.
- * @param[in]     handle        The raft handle.
- * @param[in]     params        Parameters for KMeans model.
- * @param[in]     X             Training instances to cluster. The data must
- *                              be in row-major format
- *                              [dim = n_samples x n_features]
- * @param[in]     centroids     Cluster centroids. The data must be in row-major format.
- *                              [dim = n_clusters x n_features]
- * @param[out]    X_new         X transformed in the new space.
- *                              [dim = n_samples x n_features]
- */
-template <typename DataT, typename IndexT>
-void transform(raft::resources const& handle,
-               const KMeansParams& params,
-               raft::device_matrix_view<const DataT, IndexT> X,
-               raft::device_matrix_view<const DataT, IndexT> centroids,
-               raft::device_matrix_view<DataT, IndexT> X_new)
-{
-  detail::kmeans_transform<DataT, IndexT>(handle, params, X, centroids, X_new);
-}
-
-/**
  * Automatically find the optimal value of k using a binary search.
  * This method maximizes the Calinski-Harabasz Index while minimizing the per-cluster inertia.
  *
