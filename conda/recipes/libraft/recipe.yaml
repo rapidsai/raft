@@ -67,7 +67,7 @@ cache:
       - libcusparse-dev
       - librmm =${{ minor_version }}
       - nccl ${{ nccl_version }}
-      - rapids-logger =0.1
+      - rapids-logger =0.2
       - ucxx ${{ ucxx_version }}
 
 outputs:
@@ -93,14 +93,14 @@ outputs:
         - cuda-version =${{ cuda_version }}
         - librmm =${{ minor_version }}
         - nccl ${{ nccl_version }}
-        - rapids-logger =0.1
+        - rapids-logger =0.2
         - ucxx ${{ ucxx_version }}
         - cuda-cudart-dev
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - cuda-cudart
         - librmm =${{ minor_version }}
-        - rapids-logger =0.1
+        - rapids-logger =0.2
       ignore_run_exports:
         from_package:
           - ${{ compiler("c") }}
