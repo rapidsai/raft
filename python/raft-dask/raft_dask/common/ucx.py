@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+import ucxx
+
 
 async def _connection_func(ep):
     UCX.get().add_server_endpoint(ep)
@@ -21,25 +23,15 @@ async def _connection_func(ep):
 class UCX:
     """
     Singleton UCX context to encapsulate all interactions with the
-    UCX-py API and guarantee only a single listener & endpoints are
+    UCXX API and guarantee only a single listener & endpoints are
     created by RAFT Comms on a single process.
     """
 
     __instance = None
 
-    def __init__(self, listener_callback, protocol):
+    def __init__(self, listener_callback):
 
         self.listener_callback = listener_callback
-
-        self._protocol = protocol
-        if self._protocol == "ucxx":
-            import ucxx
-
-            self.ucx_api = ucxx
-        else:
-            import ucp
-
-            self.ucx_api = ucp
 
         self._create_listener()
         self._endpoints = {}
@@ -50,28 +42,22 @@ class UCX:
         UCX.__instance = self
 
     @staticmethod
-    def get(listener_callback=_connection_func, protocol="ucx"):
+    def get(listener_callback=_connection_func):
         if UCX.__instance is None:
-            UCX(listener_callback, protocol)
+            UCX(listener_callback)
         return UCX.__instance
 
-    def get_protocol(self):
-        return self._protocol
-
     def get_worker(self):
-        if self._protocol == "ucxx":
-            return self.ucx_api.get_ucxx_worker()
-        else:
-            return self.ucx_api.get_ucp_worker()
+        return ucxx.get_ucxx_worker()
 
     def _create_listener(self):
-        self._listener = self.ucx_api.create_listener(self.listener_callback)
+        self._listener = ucxx.create_listener(self.listener_callback)
 
     def listener_port(self):
         return self._listener.port
 
     async def _create_endpoint(self, ip, port):
-        ep = await self.ucx_api.create_endpoint(ip, port)
+        ep = await ucxx.create_endpoint(ip, port)
         self._endpoints[(ip, port)] = ep
         return ep
 

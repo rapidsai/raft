@@ -122,19 +122,12 @@ void add(raft::resources const& handle, InType in1, InType in2, OutType out)
   RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
                "Size mismatch between Output and Inputs");
 
-  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    add<in_value_t, out_value_t, std::uint32_t>(out.data_handle(),
-                                                in1.data_handle(),
-                                                in2.data_handle(),
-                                                static_cast<std::uint32_t>(out.size()),
-                                                resource::get_cuda_stream(handle));
-  } else {
-    add<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
-                                                in1.data_handle(),
-                                                in2.data_handle(),
-                                                static_cast<std::uint64_t>(out.size()),
-                                                resource::get_cuda_stream(handle));
-  }
+  add<in_value_t, out_value_t, typename OutType::index_type>(
+    out.data_handle(),
+    in1.data_handle(),
+    in2.data_handle(),
+    static_cast<typename OutType::index_type>(out.size()),
+    resource::get_cuda_stream(handle));
 }
 
 /**
@@ -164,19 +157,12 @@ void add_scalar(raft::resources const& handle,
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
-  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    addDevScalar<in_value_t, out_value_t, std::uint32_t>(out.data_handle(),
-                                                         in.data_handle(),
-                                                         scalar.data_handle(),
-                                                         static_cast<std::uint32_t>(out.size()),
-                                                         resource::get_cuda_stream(handle));
-  } else {
-    addDevScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
-                                                         in.data_handle(),
-                                                         scalar.data_handle(),
-                                                         static_cast<std::uint64_t>(out.size()),
-                                                         resource::get_cuda_stream(handle));
-  }
+  addDevScalar<in_value_t, out_value_t, typename OutType::index_type>(
+    out.data_handle(),
+    in.data_handle(),
+    scalar.data_handle(),
+    static_cast<typename OutType::index_type>(out.size()),
+    resource::get_cuda_stream(handle));
 }
 
 /**
@@ -206,19 +192,12 @@ void add_scalar(raft::resources const& handle,
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
-  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    addScalar<in_value_t, out_value_t, std::uint32_t>(out.data_handle(),
-                                                      in.data_handle(),
-                                                      *scalar.data_handle(),
-                                                      static_cast<std::uint32_t>(out.size()),
-                                                      resource::get_cuda_stream(handle));
-  } else {
-    addScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
-                                                      in.data_handle(),
-                                                      *scalar.data_handle(),
-                                                      static_cast<std::uint64_t>(out.size()),
-                                                      resource::get_cuda_stream(handle));
-  }
+  addScalar<in_value_t, out_value_t, typename OutType::index_type>(
+    out.data_handle(),
+    in.data_handle(),
+    *scalar.data_handle(),
+    static_cast<typename OutType::index_type>(out.size()),
+    resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group add

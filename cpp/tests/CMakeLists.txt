@@ -158,6 +158,7 @@ if(BUILD_TESTS)
     linalg/dot.cu
     linalg/eig.cu
     linalg/eig_sel.cu
+    linalg/gemm_basic.cpp
     linalg/gemm_layout.cu
     linalg/gemv.cu
     linalg/map.cu
@@ -217,8 +218,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT
-    100
+    NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu matrix/select_k_edgecases.cu LIB
+    EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT 100
   )
 
   ConfigureTest(

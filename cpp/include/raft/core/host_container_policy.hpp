@@ -31,12 +31,12 @@ namespace raft {
 /**
  * @brief A container policy for host mdarray.
  */
-template <typename ElementType, typename Allocator = std::allocator<ElementType>>
+template <typename ElementType>
 class host_vector_policy {
  public:
   using element_type          = ElementType;
-  using container_type        = std::vector<element_type, Allocator>;
-  using allocator_type        = typename container_type::allocator_type;
+  using allocator_type        = std::allocator<ElementType>;
+  using container_type        = std::vector<element_type, allocator_type>;
   using pointer               = typename container_type::pointer;
   using const_pointer         = typename container_type::const_pointer;
   using reference             = element_type&;

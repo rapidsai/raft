@@ -216,27 +216,15 @@ void map(const raft::resources& res, OutType out, Func f, InTypes... ins)
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
   (map_check_shape(out, ins), ...);
 
-  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    map<PassOffset,
-        typename OutType::value_type,
-        std::uint32_t,
-        Func,
-        typename InTypes::value_type...>(resource::get_cuda_stream(res),
-                                         out.data_handle(),
-                                         uint32_t(out.size()),
-                                         f,
-                                         ins.data_handle()...);
-  } else {
-    map<PassOffset,
-        typename OutType::value_type,
-        std::uint64_t,
-        Func,
-        typename InTypes::value_type...>(resource::get_cuda_stream(res),
-                                         out.data_handle(),
-                                         uint64_t(out.size()),
-                                         f,
-                                         ins.data_handle()...);
-  }
+  map<PassOffset,
+      typename OutType::value_type,
+      typename OutType::index_type,
+      Func,
+      typename InTypes::value_type...>(resource::get_cuda_stream(res),
+                                       out.data_handle(),
+                                       static_cast<typename OutType::index_type>(out.size()),
+                                       f,
+                                       ins.data_handle()...);
 }
 
 }  // namespace raft::linalg::detail

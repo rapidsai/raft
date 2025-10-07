@@ -30,6 +30,7 @@
 #include <raft/util/vectorized.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_buffer.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/resource_ref.hpp>
 
@@ -445,7 +446,7 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
 template <typename T, typename IdxT>
 _RAFT_DEVICE void set_buf_pointers(const T* in,
                                    const IdxT* in_idx,
-                                   char* bufs,
+                                   uintptr_t bufs,
                                    IdxT buf_len,
                                    int pass,
                                    const T*& in_buf,
@@ -480,7 +481,7 @@ _RAFT_DEVICE void set_buf_pointers(const T* in,
 template <typename T, typename IdxT>
 _RAFT_DEVICE void set_buf_pointers(const T* in,
                                    const IdxT* in_idx,
-                                   char* bufs,
+                                   uintptr_t bufs,
                                    IdxT buf_len,
                                    const int pass,
                                    const T*& out_buf,
@@ -506,7 +507,7 @@ _RAFT_DEVICE void set_buf_pointers(const T* in,
 template <typename T, typename IdxT, int BitsPerPass, bool len_or_indptr = true>
 RAFT_KERNEL last_filter_kernel(const T* in,
                                const IdxT* in_idx,
-                               char* bufs,
+                               uintptr_t bufs,
                                size_t offset,
                                T* out,
                                IdxT* out_idx,
@@ -647,7 +648,7 @@ template <typename T,
           bool len_or_indptr>
 RAFT_KERNEL radix_kernel(const T* in,
                          const IdxT* in_idx,
-                         char* bufs,
+                         uintptr_t bufs,
                          size_t offset,
                          T* out,
                          IdxT* out_idx,
@@ -913,8 +914,7 @@ void radix_topk(const T* in,
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
   rmm::device_uvector<IdxT> histograms(max_chunk_size * num_buckets, stream, mr);
 
-  rmm::device_uvector<char> bufs(
-    max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
+  rmm::device_buffer bufs(max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
 
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size = std::min(max_chunk_size, batch_size - offset);
@@ -937,7 +937,7 @@ void radix_topk(const T* in,
 
       kernel<<<blocks, BlockSize, 0, stream>>>(in,
                                                in_idx,
-                                               bufs.data(),
+                                               reinterpret_cast<uintptr_t>(bufs.data()),
                                                offset,
                                                chunk_out,
                                                chunk_out_idx,
@@ -955,7 +955,7 @@ void radix_topk(const T* in,
       last_filter_kernel<T, IdxT, BitsPerPass, len_or_indptr>
         <<<blocks, BlockSize, 0, stream>>>(in,
                                            in_idx,
-                                           bufs.data(),
+                                           reinterpret_cast<uintptr_t>(bufs.data()),
                                            offset,
                                            chunk_out,
                                            chunk_out_idx,
@@ -1050,7 +1050,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
                                         T* out,
                                         IdxT* out_idx,
                                         const bool select_min,
-                                        char* bufs,
+                                        uintptr_t bufs,
                                         size_t offset)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
@@ -1182,8 +1182,7 @@ void radix_topk_one_block(const T* in,
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, true);
 
-  rmm::device_uvector<char> bufs(
-    max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
+  rmm::device_buffer bufs(max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
 
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size          = std::min(max_chunk_size, batch_size - offset);
@@ -1196,7 +1195,7 @@ void radix_topk_one_block(const T* in,
                                                  out + offset * k,
                                                  out_idx + offset * k,
                                                  select_min,
-                                                 bufs.data(),
+                                                 reinterpret_cast<uintptr_t>(bufs.data()),
                                                  offset);
   }
 }
