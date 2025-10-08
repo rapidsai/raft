@@ -39,7 +39,7 @@ void encode_tfidf(raft::resources const& handle,
                                           IndexType,
                                           IndexType,
                                           raft::device_uvector_policy,
-                                          raft::PRESERVING> coo_in,
+                                          raft::PRESERVING>& coo_in,
                   raft::device_vector_view<ValueType, int64_t> results)
 {
   auto num_cols = coo_in.structure_view().get_n_cols();
@@ -74,7 +74,7 @@ void encode_tfidf(raft::resources const& handle,
                                           IndexType,
                                           IndexType,
                                           raft::device_uvector_policy,
-                                          raft::PRESERVING> csr_in,
+                                          raft::PRESERVING>& csr_in,
                   raft::device_vector_view<ValueType, int64_t> results)
 {
   auto num_cols     = csr_in.structure_view().get_n_cols();
@@ -112,7 +112,7 @@ void encode_bm25(raft::resources const& handle,
                                          IndexType,
                                          IndexType,
                                          raft::device_uvector_policy,
-                                         raft::PRESERVING> csr_in,
+                                         raft::PRESERVING>& csr_in,
                  raft::device_vector_view<ValueType, int64_t> results,
                  float k_param = 1.6f,
                  float b_param = 0.75f)
@@ -178,7 +178,7 @@ void encode_bm25(raft::resources const& handle,
                                          IndexType,
                                          IndexType,
                                          raft::device_uvector_policy,
-                                         raft::PRESERVING> coo_in,
+                                         raft::PRESERVING>& coo_in,
                  raft::device_vector_view<ValueType, int64_t> results,
                  float k_param = 1.6f,
                  float b_param = 0.75f)
