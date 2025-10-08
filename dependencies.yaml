@@ -195,7 +195,7 @@ dependencies:
           - c-compiler
           - cuda-nvcc
           - cxx-compiler
-          - libucxx==0.46.*,>=0.0.0a0
+          - libucxx==0.46.*
     specific:
       - output_types: conda
         matrices:
@@ -367,11 +367,11 @@ dependencies:
     common:
       - output_types: [conda, pyproject, requirements]
         packages:
-          - rapids-dask-dependency==25.10.*,>=0.0.0a0
+          - rapids-dask-dependency==25.10.*
       - output_types: conda
         packages:
-          - &dask_cuda_unsuffixed dask-cuda==25.10.*,>=0.0.0a0
-          - &pylibraft_unsuffixed pylibraft==25.10.*,>=0.0.0a0
+          - &dask_cuda_unsuffixed dask-cuda==25.10.*
+          - &pylibraft_unsuffixed pylibraft==25.10.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -384,14 +384,14 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - dask-cuda[cu12]==25.10.*,>=0.0.0a0
-              - pylibraft-cu12==25.10.*,>=0.0.0a0
+              - dask-cuda==25.10.*
+              - pylibraft-cu12==25.10.*
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - dask-cuda[cu13]==25.10.*,>=0.0.0a0
-              - pylibraft-cu13==25.10.*,>=0.0.0a0
+              - dask-cuda==25.10.*
+              - pylibraft-cu13==25.10.*
           - matrix:
             packages:
               - *dask_cuda_unsuffixed
@@ -426,7 +426,7 @@ dependencies:
         packages:
           # UCXX is not currently a hard-dependency thus only installed during tests,
           # this will change in the future.
-          - &distributed_ucxx_unsuffixed distributed-ucxx==0.46.*,>=0.0.0a0
+          - &distributed_ucxx_unsuffixed distributed-ucxx==0.46.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -439,12 +439,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - distributed-ucxx-cu12==0.46.*,>=0.0.0a0
+              - distributed-ucxx-cu12==0.46.*
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - distributed-ucxx-cu13==0.46.*,>=0.0.0a0
+              - distributed-ucxx-cu13==0.46.*
           - {matrix: null, packages: [*distributed_ucxx_unsuffixed]}
   depends_on_libraft:
     common:
@@ -455,7 +455,7 @@ dependencies:
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
       - output_types: conda
         packages:
-          - &libraft_unsuffixed libraft==25.10.*,>=0.0.0a0
+          - &libraft_unsuffixed libraft==25.10.*
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -463,12 +463,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libraft-cu12==25.10.*,>=0.0.0a0
+              - libraft-cu12==25.10.*
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libraft-cu13==25.10.*,>=0.0.0a0
+              - libraft-cu13==25.10.*
           - matrix:
             packages:
               - *libraft_unsuffixed
@@ -476,17 +476,17 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libraft-headers==25.10.*,>=0.0.0a0
+          - libraft-headers==25.10.*
   depends_on_pylibraft:
     common:
       - output_types: conda
         packages:
-          - pylibraft==25.10.*,>=0.0.0a0
+          - pylibraft==25.10.*
   depends_on_raft_dask:
     common:
       - output_types: conda
         packages:
-          - raft-dask==25.10.*,>=0.0.0a0
+          - raft-dask==25.10.*
   depends_on_libraft_tests:
     common:
       - output_types: conda
@@ -496,7 +496,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &librmm_unsuffixed librmm==25.10.*,>=0.0.0a0
+          - &librmm_unsuffixed librmm==25.10.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -509,12 +509,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - librmm-cu12==25.10.*,>=0.0.0a0
+              - librmm-cu12==25.10.*
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - librmm-cu13==25.10.*,>=0.0.0a0
+              - librmm-cu13==25.10.*
           - matrix:
             packages:
               - *librmm_unsuffixed
@@ -522,7 +522,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &rmm_unsuffixed rmm==25.10.*,>=0.0.0a0
+          - &rmm_unsuffixed rmm==25.10.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -535,12 +535,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - rmm-cu12==25.10.*,>=0.0.0a0
+              - rmm-cu12==25.10.*
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - rmm-cu13==25.10.*,>=0.0.0a0
+              - rmm-cu13==25.10.*
           - matrix:
             packages:
               - *rmm_unsuffixed
