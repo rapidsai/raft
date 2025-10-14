@@ -42,7 +42,6 @@
 #include <gtest/gtest.h>
 
 namespace {
-// no alias; use cuda::std directly
 void check_status(int32_t* d_status, rmm::cuda_stream_view stream)
 {
   stream.synchronize();

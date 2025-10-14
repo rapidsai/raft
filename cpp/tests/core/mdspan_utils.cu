@@ -24,8 +24,6 @@
 
 namespace raft {
 
-// no alias; use cuda::std directly
-
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
