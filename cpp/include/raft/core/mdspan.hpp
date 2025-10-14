@@ -65,6 +65,7 @@ struct alignment {
 }  // namespace detail
 
 // Padded layout shims compatible with CCCL mdspan mappings
+// Padded layouts are requested in https://github.com/NVIDIA/cccl/issues/5752
 template <size_t PaddingStride>
 struct layout_left_padded_impl {
   static constexpr size_t padding = PaddingStride;
