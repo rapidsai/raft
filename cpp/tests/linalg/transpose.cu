@@ -271,14 +271,14 @@ template <typename T, typename IndexType>
   RAFT_EXPECTS(in.stride(0) == 1 || in.stride(1) == 1, "Unsupported matrix layout.");
   if (in.stride(1) == 1) {
     // row-major submatrix
-    std::array<size_t, 2> strides{in.extent(0), 1};
+    cuda::std::array<size_t, 2> strides{in.extent(0), 1};
     auto layout = layout_stride::mapping<matrix_extent<size_t>>{exts, strides};
     raft::device_matrix<T, IndexType, layout_stride> out{handle, layout, policy};
     ::raft::linalg::transpose(handle, in, out.view());
     return out;
   } else {
     // col-major submatrix
-    std::array<size_t, 2> strides{1, in.extent(1)};
+    cuda::std::array<size_t, 2> strides{1, in.extent(1)};
     auto layout = layout_stride::mapping<matrix_extent<size_t>>{exts, strides};
     raft::device_matrix<T, IndexType, layout_stride> out{handle, layout, policy};
     ::raft::linalg::transpose(handle, in, out.view());
@@ -430,9 +430,9 @@ void test_transpose_submatrix(const TransposeSubmatrixInputs<T>& param)
   raft::copy(out_ref.data_handle(), out_ref_h.data(), sub_len, resource::get_cuda_stream(handle));
   resource::sync_stream(handle, stream);
 
-  auto in_submat = std::experimental::submdspan(in.view(),
-                                                std::make_tuple(param.row_beg, param.row_end),
-                                                std::make_tuple(param.col_beg, param.col_end));
+  auto in_submat = cuda::std::submdspan(in.view(),
+                                        cuda::std::tuple{param.row_beg, param.row_end},
+                                        cuda::std::tuple{param.col_beg, param.col_end});
 
   static_assert(std::is_same_v<typename decltype(in_submat)::layout_type, layout_stride>);
   auto out = transpose(handle, in_submat);

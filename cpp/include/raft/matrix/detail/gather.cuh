@@ -556,7 +556,7 @@ void gather(raft::resources const& res,
             raft::mdspan<const T,
                          raft::matrix_extent<IdxT>,
                          raft::layout_stride,
-                         raft::host_device_accessor<std::experimental::default_accessor<const T>,
+                         raft::host_device_accessor<cuda::std::default_accessor<const T>,
                                                     raft::memory_type::host>> dataset,
             device_vector_view<const IdxT, MatIdxT> indices,
             raft::device_matrix_view<T, MatIdxT> output)
@@ -617,11 +617,11 @@ void gather(raft::resources const& res,
             device_vector_view<const IdxT, MatIdxT> indices,
             raft::device_matrix_view<T, MatIdxT> output)
 {
-  raft::mdspan<const T,
-               raft::matrix_extent<IdxT>,
-               raft::layout_stride,
-               raft::host_device_accessor<std::experimental::default_accessor<const T>,
-                                          raft::memory_type::host>>
+  raft::mdspan<
+    const T,
+    raft::matrix_extent<IdxT>,
+    raft::layout_stride,
+    raft::host_device_accessor<cuda::std::default_accessor<const T>, raft::memory_type::host>>
     dataset_ = raft::make_host_strided_matrix_view<const T, MatIdxT>(
       dataset.data_handle(), dataset.extent(0), dataset.extent(1), dataset.extent(1));
 

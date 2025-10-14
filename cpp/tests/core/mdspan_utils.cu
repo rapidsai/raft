@@ -24,12 +24,12 @@
 
 namespace raft {
 
-namespace stdex = std::experimental;
+// no alias; use cuda::std directly
 
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = stdex::default_accessor<ElementType>>
+          typename AccessorPolicy = cuda::std::default_accessor<ElementType>>
 struct derived_device_mdspan
   : public device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> {};
 

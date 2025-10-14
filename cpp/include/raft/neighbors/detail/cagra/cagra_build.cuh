@@ -246,7 +246,7 @@ void build_knn_graph(raft::resources const& res,
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
   using g_accessor    = typename decltype(nn_descent_idx.graph())::accessor_type;
   using g_accessor_internal =
-    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, g_accessor::mem_type>;
+    host_device_accessor<cuda::std::default_accessor<internal_IdxT>, g_accessor::mem_type>;
 
   auto knn_graph_internal =
     mdspan<internal_IdxT, matrix_extent<int64_t>, row_major, g_accessor_internal>(
@@ -257,9 +257,9 @@ void build_knn_graph(raft::resources const& res,
   graph::sort_knn_graph(res, dataset, knn_graph_internal);
 }
 
-template <typename IdxT = uint32_t,
-          typename g_accessor =
-            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
+template <
+  typename IdxT       = uint32_t,
+  typename g_accessor = host_device_accessor<cuda::std::default_accessor<IdxT>, memory_type::host>>
 void optimize(raft::resources const& res,
               mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
               raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)
@@ -272,7 +272,7 @@ void optimize(raft::resources const& res,
     new_graph.extent(1));
 
   using g_accessor_internal =
-    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, memory_type::host>;
+    host_device_accessor<cuda::std::default_accessor<internal_IdxT>, memory_type::host>;
   auto knn_graph_internal =
     mdspan<internal_IdxT, matrix_extent<int64_t>, row_major, g_accessor_internal>(
       reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
@@ -282,10 +282,10 @@ void optimize(raft::resources const& res,
   cagra::detail::graph::optimize(res, knn_graph_internal, new_graph_internal);
 }
 
-template <typename T,
-          typename IdxT = uint32_t,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <
+  typename T,
+  typename IdxT     = uint32_t,
+  typename Accessor = host_device_accessor<cuda::std::default_accessor<T>, memory_type::host>>
 index<T, IdxT> build(
   raft::resources const& res,
   const index_params& params,

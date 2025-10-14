@@ -21,15 +21,19 @@
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/memory_type.hpp>
-#include <raft/thirdparty/mdspan/include/experimental/mdspan>
+
+#include <cuda/std/mdspan>
+
+#include <algorithm>
+#include <cstdint>
 
 namespace raft {
 
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
-using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+          typename AccessorPolicy = cuda::std::default_accessor<ElementType>>
+using mdspan = cuda::std::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
 namespace detail {
 
@@ -48,7 +52,9 @@ struct padding {
   static_assert(ByteAlignment % sizeof(ValueType) == 0 || sizeof(ValueType) % ByteAlignment == 0,
                 "std::experimental::padding sizeof(ValueType) has to be multiple or "
                 "divider of ByteAlignment.");
-  static constexpr size_t value = std::max(ByteAlignment / sizeof(ValueType), 1ul);
+  static constexpr size_t value = (ByteAlignment / sizeof(ValueType)) > 1ul
+                                    ? (ByteAlignment / sizeof(ValueType))
+                                    : 1ul;
 };
 
 // alignment fixed to 128 bytes
@@ -58,12 +64,119 @@ struct alignment {
 
 }  // namespace detail
 
+// Padded layout shims compatible with CCCL mdspan mappings
+template <size_t PaddingStride>
+struct layout_left_padded_impl {
+  static constexpr size_t padding = PaddingStride;
+  template <class Extents>
+  struct mapping {
+    using extents_type = Extents;
+    using layout_type  = layout_left_padded_impl<PaddingStride>;
+    using rank_type    = typename extents_type::rank_type;
+    using index_type   = typename extents_type::index_type;
+
+    constexpr mapping() = default;
+    constexpr mapping(const extents_type& e) : inner_{e} {}
+
+    [[nodiscard]] constexpr const extents_type& extents() const noexcept
+    {
+      return inner_.extents();
+    }
+
+    [[nodiscard]] static constexpr bool is_always_unique() noexcept
+    {
+      return cuda::std::layout_left::template mapping<extents_type>::is_always_unique();
+    }
+    [[nodiscard]] static constexpr bool is_always_exhaustive() noexcept
+    {
+      return cuda::std::layout_left::template mapping<extents_type>::is_always_exhaustive();
+    }
+    [[nodiscard]] static constexpr bool is_always_strided() noexcept
+    {
+      return cuda::std::layout_left::template mapping<extents_type>::is_always_strided();
+    }
+
+    [[nodiscard]] constexpr bool is_unique() const noexcept { return inner_.is_unique(); }
+    [[nodiscard]] constexpr bool is_exhaustive() const noexcept { return inner_.is_exhaustive(); }
+    [[nodiscard]] constexpr bool is_strided() const noexcept { return inner_.is_strided(); }
+
+    [[nodiscard]] constexpr index_type stride(rank_type r) const { return inner_.stride(r); }
+
+    [[nodiscard]] constexpr size_t required_span_size() const noexcept
+    {
+      return inner_.required_span_size();
+    }
+
+    template <class... Indices>
+    [[nodiscard]] constexpr index_type operator()(Indices... idx) const
+    {
+      return inner_(static_cast<index_type>(idx)...);
+    }
+
+   private:
+    cuda::std::layout_left::template mapping<extents_type> inner_{};
+  };
+};
+
+template <size_t PaddingStride>
+struct layout_right_padded_impl {
+  static constexpr size_t padding = PaddingStride;
+  template <class Extents>
+  struct mapping {
+    using extents_type = Extents;
+    using layout_type  = layout_right_padded_impl<PaddingStride>;
+    using rank_type    = typename extents_type::rank_type;
+    using index_type   = typename extents_type::index_type;
+
+    constexpr mapping() = default;
+    constexpr mapping(const extents_type& e) : inner_{e} {}
+
+    [[nodiscard]] constexpr const extents_type& extents() const noexcept
+    {
+      return inner_.extents();
+    }
+
+    [[nodiscard]] static constexpr bool is_always_unique() noexcept
+    {
+      return cuda::std::layout_right::template mapping<extents_type>::is_always_unique();
+    }
+    [[nodiscard]] static constexpr bool is_always_exhaustive() noexcept
+    {
+      return cuda::std::layout_right::template mapping<extents_type>::is_always_exhaustive();
+    }
+    [[nodiscard]] static constexpr bool is_always_strided() noexcept
+    {
+      return cuda::std::layout_right::template mapping<extents_type>::is_always_strided();
+    }
+
+    [[nodiscard]] constexpr bool is_unique() const noexcept { return inner_.is_unique(); }
+    [[nodiscard]] constexpr bool is_exhaustive() const noexcept { return inner_.is_exhaustive(); }
+    [[nodiscard]] constexpr bool is_strided() const noexcept { return inner_.is_strided(); }
+
+    [[nodiscard]] constexpr index_type stride(rank_type r) const { return inner_.stride(r); }
+
+    [[nodiscard]] constexpr size_t required_span_size() const noexcept
+    {
+      return inner_.required_span_size();
+    }
+
+    template <class... Indices>
+    [[nodiscard]] constexpr index_type operator()(Indices... idx) const
+    {
+      return inner_(static_cast<index_type>(idx)...);
+    }
+
+   private:
+    cuda::std::layout_right::template mapping<extents_type> inner_{};
+  };
+};
+
 template <typename ElementType>
-using layout_right_padded = std::experimental::layout_right_padded<
+using layout_right_padded = layout_right_padded_impl<
   detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
 
 template <typename ElementType>
-using layout_left_padded = std::experimental::layout_left_padded<
+using layout_left_padded = layout_left_padded_impl<
   detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
 
 template <typename ElementType, typename LayoutPolicy>
@@ -141,8 +254,7 @@ using enable_if_output_mdspan = std::enable_if_t<is_output_mdspan_v<Tn...>>;
 // slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64
 // bit when the index is smaller, then try to avoid division when it's exp of 2.
 template <typename I, typename IndexType, size_t... Extents>
-RAFT_INLINE_FUNCTION auto unravel_index_impl(
-  I idx, std::experimental::extents<IndexType, Extents...> shape)
+RAFT_INLINE_FUNCTION auto unravel_index_impl(I idx, cuda::std::extents<IndexType, Extents...> shape)
 {
   constexpr auto kRank = static_cast<int32_t>(shape.rank());
   std::size_t index[shape.rank()]{0};  // NOLINT
@@ -183,9 +295,9 @@ template <typename ElementType,
 constexpr auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
   using accessor_type = host_device_accessor<
-    std::experimental::default_accessor<ElementType>,
+    cuda::std::default_accessor<ElementType>,
     detail::memory_type_from_access<is_host_accessible, is_device_accessible>()>;
-  /*using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
+  /*using accessor_type = host_device_accessor<cuda::std::default_accessor<ElementType>,
                                              mem_type>; */
 
   return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
@@ -197,8 +309,9 @@ constexpr auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts
  * @param[in] strides the strides between elements in the layout
  * @return raft::layout_stride::mapping<Extents>
  */
-template <typename Extents, typename Strides>
-auto make_strided_layout(Extents extents, Strides strides)
+template <typename Extents>
+auto make_strided_layout(Extents extents,
+                         cuda::std::array<typename Extents::index_type, Extents::rank()> strides)
 {
   return layout_stride::mapping<Extents>{extents, strides};
 }
@@ -237,10 +350,10 @@ auto flatten(mdspan_type mds)
 
   vector_extent<typename mdspan_type::size_type> ext{mds.size()};
 
-  return std::experimental::mdspan<typename mdspan_type::element_type,
-                                   decltype(ext),
-                                   typename mdspan_type::layout_type,
-                                   typename mdspan_type::accessor_type>(mds.data_handle(), ext);
+  return cuda::std::mdspan<typename mdspan_type::element_type,
+                           decltype(ext),
+                           typename mdspan_type::layout_type,
+                           typename mdspan_type::accessor_type>(mds.data_handle(), ext);
 }
 
 /**
@@ -267,11 +380,10 @@ auto reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
   }
   RAFT_EXPECTS(new_size == mds.size(), "Cannot reshape array with size mismatch");
 
-  return std::experimental::mdspan<typename mdspan_type::element_type,
-                                   decltype(new_shape),
-                                   typename mdspan_type::layout_type,
-                                   typename mdspan_type::accessor_type>(mds.data_handle(),
-                                                                        new_shape);
+  return cuda::std::mdspan<typename mdspan_type::element_type,
+                           decltype(new_shape),
+                           typename mdspan_type::layout_type,
+                           typename mdspan_type::accessor_type>(mds.data_handle(), new_shape);
 }
 
 /* @} */
@@ -307,7 +419,7 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
                 "Only C layout is supported.");
   static_assert(std::is_integral_v<Idx>, "Index must be integral.");
   auto constexpr kIs64 = sizeof(std::remove_cv_t<std::remove_reference_t<Idx>>) == sizeof(uint64_t);
-  if (kIs64 && static_cast<uint64_t>(idx) > std::numeric_limits<uint32_t>::max()) {
+  if (kIs64 && static_cast<uint64_t>(idx) > cuda::std::numeric_limits<uint32_t>::max()) {
     return unravel_index_impl<uint64_t>(static_cast<uint64_t>(idx), shape);
   } else {
     return unravel_index_impl<uint32_t>(static_cast<uint32_t>(idx), shape);
@@ -356,11 +468,11 @@ template <typename Extents, typename Strides>
  *
  * @tparam ElementType
  * @param a
- * @return std::experimental::default_accessor<std::add_const_t<ElementType>>
+ * @return cuda::std::default_accessor<std::add_const_t<ElementType>>
  */
 template <class ElementType>
-std::experimental::default_accessor<std::add_const_t<ElementType>> accessor_of_const(
-  std::experimental::default_accessor<ElementType> a)
+cuda::std::default_accessor<std::add_const_t<ElementType>> accessor_of_const(
+  cuda::std::default_accessor<ElementType> a)
 {
   return {a};
 }
@@ -371,12 +483,12 @@ std::experimental::default_accessor<std::add_const_t<ElementType>> accessor_of_c
  * @tparam ElementType the data type of the mdspan elements
  * @tparam MemType the type of memory where the elements are stored.
  * @param a host_device_accessor
- * @return host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>,
+ * @return host_device_accessor<cuda::std::default_accessor<std::add_const_t<ElementType>>,
  * MemType>
  */
 template <class ElementType, memory_type MemType>
-host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>, MemType>
-accessor_of_const(host_device_accessor<std::experimental::default_accessor<ElementType>, MemType> a)
+host_device_accessor<cuda::std::default_accessor<std::add_const_t<ElementType>>, MemType>
+accessor_of_const(host_device_accessor<cuda::std::default_accessor<ElementType>, MemType> a)
 {
   return {a};
 }

@@ -25,18 +25,12 @@ from libcpp.string cimport string
 from pylibraft.common.handle cimport device_resources
 
 
-cdef extern from "raft/thirdparty/mdspan/include/experimental/__p0009_bits/layout_stride.hpp" namespace "std::experimental":  # noqa: E501
-    cdef cppclass layout_right:
-        pass
-
-    cdef cppclass layout_left:
-        pass
-
-
 cdef extern from "raft/core/mdspan_types.hpp" \
         namespace "raft":
-    ctypedef layout_right row_major
-    ctypedef layout_left col_major
+    cdef cppclass row_major:
+        pass
+    cdef cppclass col_major:
+        pass
     cdef cppclass matrix_extent[IndexType]:
         pass
 

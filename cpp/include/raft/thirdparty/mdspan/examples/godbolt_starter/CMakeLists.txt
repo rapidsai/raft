@@ -1,1 +1,0 @@
-mdspan_add_example(godbolt_starter)

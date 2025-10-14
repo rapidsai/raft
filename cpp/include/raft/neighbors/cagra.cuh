@@ -138,10 +138,10 @@ void build_knn_graph(raft::resources const& res,
  * @param[in] build_params an instance of experimental::nn_descent::index_params that are parameters
  *                     to run the nn-descent algorithm
  */
-template <typename DataT,
-          typename IdxT = uint32_t,
-          typename accessor =
-            host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>>
+template <
+  typename DataT,
+  typename IdxT     = uint32_t,
+  typename accessor = host_device_accessor<cuda::std::default_accessor<DataT>, memory_type::device>>
 void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
@@ -181,12 +181,12 @@ void build_knn_graph(raft::resources const& res,
  * @param[in,out] knn_graph a matrix view (host or device) of the input knn graph [n_rows,
  * knn_graph_degree]
  */
-template <typename DataT,
-          typename IdxT = uint32_t,
-          typename d_accessor =
-            host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>,
-          typename g_accessor =
-            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
+template <
+  typename DataT,
+  typename IdxT = uint32_t,
+  typename d_accessor =
+    host_device_accessor<cuda::std::default_accessor<DataT>, memory_type::device>,
+  typename g_accessor = host_device_accessor<cuda::std::default_accessor<IdxT>, memory_type::host>>
 void sort_knn_graph(raft::resources const& res,
                     mdspan<const DataT, matrix_extent<int64_t>, row_major, d_accessor> dataset,
                     mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph)
@@ -194,7 +194,7 @@ void sort_knn_graph(raft::resources const& res,
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
 
   using g_accessor_internal =
-    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, g_accessor::mem_type>;
+    host_device_accessor<cuda::std::default_accessor<internal_IdxT>, g_accessor::mem_type>;
   auto knn_graph_internal =
     mdspan<internal_IdxT, matrix_extent<int64_t>, row_major, g_accessor_internal>(
       reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
@@ -221,9 +221,9 @@ void sort_knn_graph(raft::resources const& res,
  * knn_graph_degree]
  * @param[out] new_graph a host matrix view of the optimized knn graph [n_rows, graph_degree]
  */
-template <typename IdxT = uint32_t,
-          typename g_accessor =
-            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
+template <
+  typename IdxT       = uint32_t,
+  typename g_accessor = host_device_accessor<cuda::std::default_accessor<IdxT>, memory_type::host>>
 void optimize(raft::resources const& res,
               mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
               raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)
@@ -271,10 +271,10 @@ void optimize(raft::resources const& res,
  *
  * @return the constructed cagra index
  */
-template <typename T,
-          typename IdxT = uint32_t,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <
+  typename T,
+  typename IdxT     = uint32_t,
+  typename Accessor = host_device_accessor<cuda::std::default_accessor<T>, memory_type::host>>
 index<T, IdxT> build(raft::resources const& res,
                      const index_params& params,
                      mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)

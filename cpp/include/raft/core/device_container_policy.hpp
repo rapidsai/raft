@@ -159,8 +159,8 @@ class device_uvector_policy {
   using reference       = device_reference<element_type>;
   using const_reference = device_reference<element_type const>;
 
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
+  using accessor_policy       = cuda::std::default_accessor<element_type>;
+  using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
  public:
   auto create(raft::resources const& res, size_t n) -> container_type

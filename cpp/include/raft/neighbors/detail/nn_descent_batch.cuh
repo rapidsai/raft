@@ -48,10 +48,10 @@ namespace raft::neighbors::experimental::nn_descent::detail {
 //
 // Run balanced kmeans on a subsample of the dataset to get centroids
 //
-template <typename T,
-          typename IdxT = uint32_t,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <
+  typename T,
+  typename IdxT     = uint32_t,
+  typename Accessor = host_device_accessor<cuda::std::default_accessor<T>, memory_type::host>>
 void get_balanced_kmeans_centroids(
   raft::resources const& res,
   raft::distance::DistanceType metric,
@@ -341,11 +341,11 @@ RAFT_KERNEL merge_subgraphs(IdxT* cluster_data_indices,
 //
 // builds knn graph using NN Descent and merge with global graph
 //
-template <typename T,
-          typename IdxT        = uint32_t,
-          typename epilogue_op = DistEpilogue<IdxT, T>,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <
+  typename T,
+  typename IdxT        = uint32_t,
+  typename epilogue_op = DistEpilogue<IdxT, T>,
+  typename Accessor    = host_device_accessor<cuda::std::default_accessor<T>, memory_type::host>>
 void build_and_merge(raft::resources const& res,
                      const index_params& params,
                      size_t num_data_in_cluster,
@@ -562,11 +562,11 @@ void cluster_nnd(raft::resources const& res,
   }
 }
 
-template <typename T,
-          typename IdxT        = uint32_t,
-          typename epilogue_op = DistEpilogue<IdxT, T>,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<float>, memory_type::host>>
+template <
+  typename T,
+  typename IdxT        = uint32_t,
+  typename epilogue_op = DistEpilogue<IdxT, T>,
+  typename Accessor = host_device_accessor<cuda::std::default_accessor<float>, memory_type::host>>
 index<IdxT> batch_build(raft::resources const& res,
                         const index_params& params,
                         mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,

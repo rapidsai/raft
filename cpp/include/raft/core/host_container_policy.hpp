@@ -41,8 +41,8 @@ class host_vector_policy {
   using const_pointer         = typename container_type::const_pointer;
   using reference             = element_type&;
   using const_reference       = element_type const&;
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
+  using accessor_policy       = cuda::std::default_accessor<element_type>;
+  using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
  public:
   auto create(raft::resources const&, size_t n) -> container_type { return container_type(n); }
