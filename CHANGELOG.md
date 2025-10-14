@@ -1,3 +1,51 @@
+# raft 25.10.00 (8 Oct 2025)
+
+## 🐛 Bug Fixes
+
+- Workaround for an illegal memory access on SM 120 devices ([#2821](https://github.com/rapidsai/raft/pull/2821)) [@achirkin](https://github.com/achirkin)
+- Fix sparse select_k: don&#39;t write beyond min(input_len, k) ([#2814](https://github.com/rapidsai/raft/pull/2814)) [@achirkin](https://github.com/achirkin)
+- [BUG] Fix compilation error in matrix/detail/gather.cuh ([#2811](https://github.com/rapidsai/raft/pull/2811)) [@enp1s0](https://github.com/enp1s0)
+- Fix select_k for negative bfloat16 ([#2799](https://github.com/rapidsai/raft/pull/2799)) [@apivovarov](https://github.com/apivovarov)
+- Fix index types for coo kernels ([#2793](https://github.com/rapidsai/raft/pull/2793)) [@aamijar](https://github.com/aamijar)
+- Fix the GEMM pointer mode setting ([#2777](https://github.com/rapidsai/raft/pull/2777)) [@achirkin](https://github.com/achirkin)
+- Fix `host_vector_policy` issue ([#2739](https://github.com/rapidsai/raft/pull/2739)) [@viclafargue](https://github.com/viclafargue)
+
+## 📖 Documentation
+
+- Fix UCX-Py mention to UCXX in docstring ([#2804](https://github.com/rapidsai/raft/pull/2804)) [@pentschev](https://github.com/pentschev)
+
+## 🚀 New Features
+
+- Update cutlass to a version that supports CUDA 13 ([#2774](https://github.com/rapidsai/raft/pull/2774)) [@robertmaynard](https://github.com/robertmaynard)
+
+## 🛠️ Improvements
+
+- Fix missed deps in `update-version.sh` ([#2826](https://github.com/rapidsai/raft/pull/2826)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Empty commit to trigger a build ([#2816](https://github.com/rapidsai/raft/pull/2816)) [@msarahan](https://github.com/msarahan)
+- Make warpsort kernels use the IEEE 754 bit representation for ordering ([#2807](https://github.com/rapidsai/raft/pull/2807)) [@achirkin](https://github.com/achirkin)
+- Configure repo for automatic release notes generation ([#2806](https://github.com/rapidsai/raft/pull/2806)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Support &lt; 2 element arrays in `rand_index`/`adjusted_rand_index` ([#2805](https://github.com/rapidsai/raft/pull/2805)) [@jcrist](https://github.com/jcrist)
+- update dependencies: use cuda-toolkit wheels ([#2802](https://github.com/rapidsai/raft/pull/2802)) [@jameslamb](https://github.com/jameslamb)
+- Use branch-25.10 again ([#2800](https://github.com/rapidsai/raft/pull/2800)) [@jameslamb](https://github.com/jameslamb)
+- Remove CMake find UCX package ([#2798](https://github.com/rapidsai/raft/pull/2798)) [@pentschev](https://github.com/pentschev)
+- use dask-cuda[cu12, cu13] extras for wheel dependencies ([#2797](https://github.com/rapidsai/raft/pull/2797)) [@jameslamb](https://github.com/jameslamb)
+- Remove UCX-Py ([#2791](https://github.com/rapidsai/raft/pull/2791)) [@pentschev](https://github.com/pentschev)
+- Update rapids-dependency-file-generator ([#2790](https://github.com/rapidsai/raft/pull/2790)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Build and test with CUDA 13.0.0 ([#2787](https://github.com/rapidsai/raft/pull/2787)) [@jameslamb](https://github.com/jameslamb)
+- Fix template arg passing in `adjusted_rand_index` ([#2785](https://github.com/rapidsai/raft/pull/2785)) [@jinsolp](https://github.com/jinsolp)
+- Use build cluster in devcontainers ([#2781](https://github.com/rapidsai/raft/pull/2781)) [@trxcllnt](https://github.com/trxcllnt)
+- Use rapids_cuda_enable_fatbin_compression ([#2780](https://github.com/rapidsai/raft/pull/2780)) [@robertmaynard](https://github.com/robertmaynard)
+- Increase Dask tests verbosity in CI ([#2779](https://github.com/rapidsai/raft/pull/2779)) [@pentschev](https://github.com/pentschev)
+- Update rapids_config to handle user defined branch name ([#2778](https://github.com/rapidsai/raft/pull/2778)) [@robertmaynard](https://github.com/robertmaynard)
+- [REVIEW] Fix: skip default_allocation_limit() if unnecessary ([#2775](https://github.com/rapidsai/raft/pull/2775)) [@i-Pear](https://github.com/i-Pear)
+- Update rapids-build-backend to 0.4.1 ([#2773](https://github.com/rapidsai/raft/pull/2773)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- ci(labeler): update labeler action to [@v5 ([#2772](https://github.com/rapidsai/raft/pull/2772)) @gforsyth](https://github.com/v5 ([#2772](https://github.com/rapidsai/raft/pull/2772)) @gforsyth)
+- Register bfloat16/bfloat162 in util/vectorized.cuh ([#2769](https://github.com/rapidsai/raft/pull/2769)) [@apivovarov](https://github.com/apivovarov)
+- Use mdspan::index_type to Only Instantiate Specific Kernels ([#2767](https://github.com/rapidsai/raft/pull/2767)) [@tarang-jain](https://github.com/tarang-jain)
+- Allow latest OS in devcontainers ([#2759](https://github.com/rapidsai/raft/pull/2759)) [@bdice](https://github.com/bdice)
+- Update build infra to support new branching strategy ([#2751](https://github.com/rapidsai/raft/pull/2751)) [@robertmaynard](https://github.com/robertmaynard)
+- Use GCC 14 in conda builds. ([#2708](https://github.com/rapidsai/raft/pull/2708)) [@vyasr](https://github.com/vyasr)
+
 # raft 25.08.00 (6 Aug 2025)
 
 ## 🚨 Breaking Changes
