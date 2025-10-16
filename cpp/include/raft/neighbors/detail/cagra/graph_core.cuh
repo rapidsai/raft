@@ -561,9 +561,11 @@ void optimize(raft::resources const& res,
                           num_shift);
         output_graph_ptr[num_protected_edges + (output_graph_degree * j)] = i;
       }
+#if defined(_OPENMP)
       if ((omp_get_thread_num() == 0) && ((j % _omp_chunk) == 0)) {
         RAFT_LOG_DEBUG("# Replacing reverse edges: %lu / %lu    ", j, graph_size);
       }
+#endif
     }
     RAFT_LOG_DEBUG("\n");
 
