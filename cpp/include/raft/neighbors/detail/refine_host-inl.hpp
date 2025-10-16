@@ -44,7 +44,11 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "neighbors::refine_host(%zu, %zu -> %zu)", n_queries, orig_k, refined_k);
 
+#if defined(_OPENMP)
   auto suggested_n_threads = std::max(1, std::min(omp_get_num_procs(), omp_get_max_threads()));
+#else
+  auto suggested_n_threads = 1;
+#endif
 
   // If the number of queries is small, separate the distance calculation and
   // the top-k calculation into separate loops, and apply finer-grained thread
@@ -102,7 +106,14 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
 #pragma omp parallel num_threads(suggested_n_threads)
   {
     std::vector<std::tuple<DistanceT, IdxT>> refined_pairs(orig_k);
-    for (size_t i = omp_get_thread_num(); i < n_queries; i += omp_get_num_threads()) {
+#if defined(_OPENMP)
+    size_t i   = omp_get_thread_num();
+    size_t inc = omp_get_num_threads();
+#else
+    size_t i   = 0;
+    size_t inc = 1;
+#endif
+    for (; i < n_queries; i += inc) {
       // Compute the refined distance using original dataset vectors
       const DataT* query = queries.data_handle() + dim * i;
       for (size_t j = 0; j < orig_k; j++) {
