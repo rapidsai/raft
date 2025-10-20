@@ -1,27 +1,26 @@
 #cpp code owners
-cpp/               @rapidsai/cuml-cpp-codeowners
-cpp/               @rapidsai/cugraph-cpp-codeowners
+cpp/               @rapidsai/raft-cpp-codeowners
 
 #python code owners
-python/            @rapidsai/cuml-python-codeowners
-python/            @rapidsai/cugraph-python-codeowners
+python/            @rapidsai/raft-python-codeowners
 
 #cmake code owners
-**/CMakeLists.txt  @rapidsai/cuml-cmake-codeowners
-**/CMakeLists.txt  @rapidsai/cugraph-cmake-codeowners
-**/cmake/          @rapidsai/cuml-cmake-codeowners
-**/cmake/          @rapidsai/cugraph-cmake-codeowners
-python/setup.py    @rapidsai/cuml-cmake-codeowners
-python/setup.py    @rapidsai/cugraph-cmake-codeowners
-build.sh           @rapidsai/cuml-cmake-codeowners
-build.sh           @rapidsai/cugraph-cmake-codeowners
-**/build.sh        @rapidsai/cuml-cmake-codeowners
-**/build.sh        @rapidsai/cugraph-cmake-codeowners
+CMakeLists.txt     @rapidsai/raft-cmake-codeowners
+**/cmake/          @rapidsai/raft-cmake-codeowners
+*.cmake            @rapidsai/raft-cmake-codeowners
+python/setup.py    @rapidsai/raft-cmake-codeowners
+build.sh           @rapidsai/raft-cmake-codeowners
+**/build.sh        @rapidsai/raft-cmake-codeowners
 
-#build/ops code owners
-.github/           @rapidsai/ops-codeowners
-ci/                @rapidsai/ops-codeowners
-conda/             @rapidsai/ops-codeowners
-**/Dockerfile      @rapidsai/ops-codeowners
-**/.dockerignore   @rapidsai/ops-codeowners
-docker/            @rapidsai/ops-codeowners
+#CI code owners
+/.github/                @rapidsai/ci-codeowners
+/ci/                     @rapidsai/ci-codeowners
+/.shellcheckrc           @rapidsai/ci-codeowners
+
+#packaging code owners
+/.pre-commit-config.yaml @rapidsai/packaging-codeowners
+/.devcontainer/          @rapidsai/packaging-codeowners
+/conda/                  @rapidsai/packaging-codeowners
+dependencies.yaml        @rapidsai/packaging-codeowners
+/build.sh                @rapidsai/packaging-codeowners
+pyproject.toml           @rapidsai/packaging-codeowners

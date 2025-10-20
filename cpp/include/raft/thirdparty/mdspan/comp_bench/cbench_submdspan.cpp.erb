@@ -1,0 +1,33 @@
+
+#include <experimental/mdspan>
+
+int test(int* data) {
+  #if defined(METABENCH)
+  auto sub0 = std::experimental::mdspan<int,
+    std::experimental::extents<
+      <%= (["2"] * n).join(", ") %>
+    >
+  >(data);
+  <% (32/n).times do |k| %>
+  auto <%= "sub0_#{k}" %> = std::experimental::mdspan<int,
+    std::experimental::extents<
+      <%= (["#{k+2}"] * n).join(", ") %>
+    >
+  >(data);
+  <% n.times do |i| %>
+    auto <%= "sub#{i+1}_#{k}" %> = std::experimental::submdspan(
+       <%= "sub#{i}_#{k}" %>,
+       1
+       <%= ", std::experimental::full_extent" * (n - i - 1) %>
+    );
+  <% end %>
+  <% end %>
+  return 42
+  <% (16/n).times do |k| %>
+      <%= " + sub#{n}_#{k}" %>()
+  <% end %>
+  ;
+  #endif
+}
+
+int main() {}

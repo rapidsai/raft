@@ -17,12 +17,19 @@ build/
 build_prims/
 dist/
 python/**/**/*.cpp
-python/external_repositories
-python/record.txt
+python/raft-dask/record.txt
+python/pylibraft/record.txt
 log
 .ipynb_checkpoints
 .DS_Store
 dask-worker-space/
+*.egg-info/
+*.bin
+temporary_*.json
+
+## scikit-build
+_skbuild
+
 ## eclipse
 .project
 .cproject
@@ -44,3 +51,17 @@ dask-worker-space/
 
 ## doxygen build check inside ci/checks/style.sh
 doxygen_check/
+
+## cibuildwheel
+/wheelhouse
+
+# doxygen
+_xml
+
+# sphinx
+_html
+_text
+
+# clang tooling
+compile_commands.json
+.clangd/

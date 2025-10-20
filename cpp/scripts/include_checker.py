@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import argparse
 IncludeRegex = re.compile(r"\s*#include\s*(\S+)")
 RemoveComments = re.compile(r"//.*")
 
+exclusion_regex = re.compile(r".*thirdparty.*")
 
 def parse_args():
     argparser = argparse.ArgumentParser(
@@ -43,7 +44,7 @@ def list_all_source_file(file_regex, srcdirs):
     for srcdir in srcdirs:
         for root, dirs, files in os.walk(srcdir):
             for f in files:
-                if re.search(file_regex, f):
+                if not re.search(exclusion_regex, root) and re.search(file_regex, f):
                     src = os.path.join(root, f)
                     all_files.append(src)
     return all_files
