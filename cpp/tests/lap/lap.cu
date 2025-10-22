@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");

@@ -1,4 +1,5 @@
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 repos:
       - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -107,20 +108,35 @@ repos:
         hooks:
               - id: check-json
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.5.0
+        rev: v1.1.0
         hooks:
           - id: verify-copyright
+            name: verify-copyright-raft
+            args: [--fix, --spdx]
             files: |
               (?x)
-                  [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
-                  CMakeLists[.]txt$|
-                  CMakeLists_standalone[.]txt$|
-                  meta[.]yaml$
+                [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|bat)$|
+                CMakeLists[.]txt$|
+                CMakeLists_standalone[.]txt$|
+                meta[.]yaml$|
+                ^[.]pre-commit-config[.]yaml$|
+                pyproject[.]toml$|
+                recipe[.]yaml$|
+                dependencies[.]yaml$|
+                Makefile$|
+                pytest[.]ini$
             exclude: |
+              (?x)^(
+                cpp/include/raft/neighbors/detail/faiss_select/|
+                cpp/include/raft/thirdparty/|
+                docs/source/sphinxext/github_link[.]py$
+              )
+          - id: verify-copyright
+            name: verify-copyright-scikit-learn
+            args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND BSD-3-Clause"]
+            files: |
               (?x)
-                  cpp/include/raft/neighbors/detail/faiss_select/|
-                  cpp/include/raft/thirdparty/|
-                  docs/source/sphinxext/github_link[.]py
+                ^docs/source/sphinxext/github_link[.]py$
           - id: verify-alpha-spec
           - id: verify-codeowners
             args: [--fix, --project-prefix=raft]
