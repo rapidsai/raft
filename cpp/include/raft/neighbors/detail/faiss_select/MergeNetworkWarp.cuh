@@ -1,5 +1,7 @@
 /**
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * SPDX-FileCopyrightText: Copyright (c) Facebook, Inc. and its affiliates.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0 AND MIT
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file thirdparty/LICENSES/LICENSE.faiss

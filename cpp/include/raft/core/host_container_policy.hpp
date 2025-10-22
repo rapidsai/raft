@@ -1,13 +1,13 @@
 /*
- * Copyright (2019) Sandia Corporation
+ * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
  *
  * The source code is licensed under the 3-clause BSD license found in the LICENSE file
  * thirdparty/LICENSES/mdarray.license
  */
 
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
  */
 #pragma once
 #include <raft/core/mdspan_types.hpp>

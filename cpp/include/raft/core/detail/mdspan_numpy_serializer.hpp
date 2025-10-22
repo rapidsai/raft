@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0 AND MIT
  */
 
 #pragma once
@@ -39,7 +39,7 @@ namespace numpy_serializer {
  *
  * MIT License
  *
- * Copyright (c) 2021 Leon Merten Lohse
+ * SPDX-FileCopyrightText: Copyright (c) 2021 Leon Merten Lohse
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal

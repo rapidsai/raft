@@ -124,19 +124,48 @@ repos:
                 recipe[.]yaml$|
                 dependencies[.]yaml$|
                 Makefile$|
-                pytest[.]ini$
+                pytest[.]ini$|
+                [.]flake8$
             exclude: |
               (?x)^(
                 cpp/include/raft/neighbors/detail/faiss_select/|
                 cpp/include/raft/thirdparty/|
-                docs/source/sphinxext/github_link[.]py$
+                docs/source/sphinxext/github_link[.]py$|
+                cpp/include/raft/core/detail/mdspan_numpy_serializer[.]hpp$|
+                cpp/include/raft/core/mdarray[.]hpp$|
+                cpp/include/raft/core/device_container_policy[.]hpp$|
+                cpp/include/raft/core/host_container_policy[.]hpp$
               )
           - id: verify-copyright
             name: verify-copyright-scikit-learn
             args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND BSD-3-Clause"]
             files: |
-              (?x)
-                ^docs/source/sphinxext/github_link[.]py$
+              (?x)^(
+                docs/source/sphinxext/github_link[.]py$
+              )
+          - id: verify-copyright
+            name: verify-copyright-sandia
+            args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND BSD-3-Clause"]
+            files: |
+              (?x)^(
+                cpp/include/raft/core/mdarray[.]hpp$|
+                cpp/include/raft/core/device_container_policy[.]hpp$|
+                cpp/include/raft/core/host_container_policy[.]hpp$
+              )
+          - id: verify-copyright
+            name: verify-copyright-faiss
+            args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND MIT"]
+            files: |
+              (?x)^(
+                cpp/include/raft/neighbors/detail/faiss_select/
+              )
+          - id: verify-copyright
+            name: verify-copyright-numpy
+            args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND MIT"]
+            files: |
+              (?x)^(
+                cpp/include/raft/core/detail/mdspan_numpy_serializer[.]hpp$
+              )
           - id: verify-alpha-spec
           - id: verify-codeowners
             args: [--fix, --project-prefix=raft]
