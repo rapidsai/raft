@@ -46,6 +46,7 @@ cdef extern from "nccl.h":
         ncclInternalError
         ncclInvalidArgument
         ncclInvalidUsage
+        ncclInProgress
         ncclNumResults
 
     ncclResult_t ncclCommInitRank(ncclComm_t *comm,
@@ -61,7 +62,11 @@ cdef extern from "nccl.h":
 
     const char *ncclGetErrorString(ncclResult_t result) nogil
 
+    ncclResult_t ncclCommGetAsyncError(ncclComm_t comm, ncclResult_t *asyncError) nogil
+
     ncclResult_t ncclCommAbort(ncclComm_t comm) nogil
+
+    ncclResult_t ncclCommFinalize(ncclComm_t comm) nogil
 
     ncclResult_t ncclCommDestroy(ncclComm_t comm) nogil
 
@@ -152,12 +157,48 @@ cdef class nccl:
 
     def destroy(self):
         """
-        Call destroy on the underlying NCCL comm
+        Call finalize and destroy on the underlying NCCL comm.
+        
+        ncclCommFinalize is an intra-node collective operation that must be
+        called before ncclCommDestroy to properly finalize internal NCCL state
+        and avoid hangs, especially in multi-node setups.
+        
+        Since ncclCommFinalize is asynchronous, we poll until completion before
+        calling ncclCommDestroy.
+        
+        See: https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/api/comms.html
         """
         comm_ = <ncclComm_t*>self.comm
 
         cdef ncclResult_t result
+        cdef ncclResult_t asyncErr
         if comm_ != NULL:
+            # Step 1: Finalize (intra-node collective, asynchronous)
+            with nogil:
+                result = ncclCommFinalize(deref(comm_))
+
+            if result != ncclSuccess and result != ncclInProgress:
+                with nogil:
+                    err_str = ncclGetErrorString(result)
+                raise RuntimeError("NCCL_ERROR during finalize: %s" % err_str)
+
+            # Step 2: Poll until finalize completes
+            # ncclCommFinalize returns immediately with ncclInProgress,
+            # so we need to poll ncclCommGetAsyncError until it's done
+            with nogil:
+                asyncErr = ncclInProgress
+                while asyncErr == ncclInProgress:
+                    result = ncclCommGetAsyncError(deref(comm_), &asyncErr)
+                    if result != ncclSuccess:
+                        break
+
+            # Check for errors during finalize
+            if asyncErr != ncclSuccess:
+                with nogil:
+                    err_str = ncclGetErrorString(asyncErr)
+                raise RuntimeError("NCCL_ERROR during finalize (async): %s" % err_str)
+
+            # Step 3: Destroy (now safe after finalize completed)
             with nogil:
                 result = ncclCommDestroy(deref(comm_))
 
@@ -167,8 +208,7 @@ cdef class nccl:
             if result != ncclSuccess:
                 with nogil:
                     err_str = ncclGetErrorString(result)
-
-                raise RuntimeError("NCCL_ERROR: %s" % err_str)
+                raise RuntimeError("NCCL_ERROR during destroy: %s" % err_str)
 
     def abort(self):
         """
