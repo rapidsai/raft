@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright Louis Dionne 2017
-# SPDX-FileCopyrightText: Copyright Bruno Dutra 2016
-# SPDX-License-Identifier: BSL-1.0
-
 # Copyright Louis Dionne 2017
 # Copyright Bruno Dutra 2016
 #
