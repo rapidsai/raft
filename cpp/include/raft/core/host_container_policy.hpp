@@ -22,15 +22,11 @@
  */
 #pragma once
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resource/host_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/integer_utils.hpp>
 
-#include <sys/mman.h>
-
-#include <cerrno>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
+#include <memory_resource>
 
 namespace raft {
 
@@ -41,45 +37,12 @@ namespace raft {
  */
 template <typename T>
 struct host_container {
-  using value_type                                  = std::remove_cv_t<T>;
-  static inline constexpr size_t kHugePageThreshold = 1024ull * 1024ull * 1024ull;  // 1GB
-  static inline constexpr size_t kHugePageSize      = 2ull * 1024ull * 1024ull;     // 2MB
+  using value_type = std::remove_cv_t<T>;
 
  private:
+  std::pmr::memory_resource* mr_;
   std::size_t bytesize_ = 0;
   value_type* data_     = nullptr;
-
-  static inline auto calculate_size(std::size_t count) -> std::size_t
-  {
-    auto size = count * sizeof(value_type);
-    if (size < kHugePageThreshold) { return size; }
-    return raft::round_up_safe(size, kHugePageSize);
-  }
-
-  static inline auto mmap_verbose(size_t length, int prot, int flags, int fd, off_t offset)
-    -> value_type*
-  {
-    if (length == 0) {
-      // Empty container is allowed
-      return nullptr;
-    }
-    auto ptr = mmap(nullptr, length, prot, flags, fd, offset);
-    if (ptr == MAP_FAILED) {
-      RAFT_FAIL(
-        "Failed call to raft::host_container_policy:mmap(nullptr, %zu, 0x%08x, 0x%08x, %d, %zd), "
-        "error: %s",
-        length,
-        prot,
-        flags,
-        fd,
-        offset,
-        strerror(errno));
-    }
-    if (length >= kHugePageThreshold && reinterpret_cast<uintptr_t>(ptr) % kHugePageSize == 0) {
-      madvise(ptr, length, MADV_HUGEPAGE);
-    }
-    return reinterpret_cast<value_type*>(ptr);
-  }
 
  public:
   using size_type = std::size_t;
@@ -93,22 +56,27 @@ struct host_container {
   using iterator       = pointer;
   using const_iterator = const_pointer;
 
-  explicit host_container(std::size_t count)
-    : bytesize_(calculate_size(count)),
-      data_(mmap_verbose(bytesize_, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))
+  host_container(raft::resources const& res, size_type count)
+    : mr_(resource::get_host_memory_resource(res)),
+      bytesize_(sizeof(value_type) * count),
+      data_(static_cast<pointer>(mr_->allocate(bytesize_)))
   {
-  }
-  ~host_container() noexcept
-  {
-    if (data_ != nullptr) { munmap(data_, bytesize_); }
   }
 
-  host_container(host_container&& other)
-    : bytesize_{std::exchange(other.bytesize_, 0)}, data_{std::exchange(other.data_, nullptr)}
+  ~host_container() noexcept
+  {
+    if (data_ != nullptr) { mr_->deallocate(data_, bytesize_); }
+  }
+
+  host_container(host_container&& other) noexcept
+    : mr_{std::exchange(other.mr_, nullptr)},
+      bytesize_{std::exchange(other.bytesize_, 0)},
+      data_{std::exchange(other.data_, nullptr)}
   {
   }
-  host_container& operator=(host_container&& other)
+  host_container& operator=(host_container&& other) noexcept
   {
+    std::swap(this->mr_, other.mr_);
     std::swap(this->bytesize_, other.bytesize_);
     std::swap(this->data_, other.data_);
     return *this;
@@ -133,6 +101,15 @@ struct host_container {
     return data_[i];
   }
 
+  void resize(size_type count)
+  {
+    // NB: we don't preserve the data, so can deallocate first
+    //     resizing is not a part of mdarray api anyway.
+    if (data_ != nullptr) { mr_->deallocate(data_, bytesize_); }
+    bytesize_ = sizeof(value_type) * count;
+    data_     = static_cast<pointer>(mr_->allocate(bytesize_));
+  }
+
   [[nodiscard]] auto data() noexcept -> pointer { return data_; }
   [[nodiscard]] auto data() const noexcept -> const_pointer { return data_; }
 };
@@ -153,7 +130,10 @@ class host_vector_policy {
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
  public:
-  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n); }
+  auto create(raft::resources const& res, size_t n) -> container_type
+  {
+    return container_type(res, n);
+  }
 
   constexpr host_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) =
     default;

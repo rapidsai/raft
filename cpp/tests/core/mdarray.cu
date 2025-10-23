@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -163,9 +163,11 @@ void test_mdarray_basic()
       ASSERT_EQ(h_view(0, 3), 1);
     });
 
-    //    static_assert(std::is_nothrow_default_constructible<mdarray_t>::value);
+    static_assert(!std::is_nothrow_default_constructible<mdarray_t>::value);
     static_assert(std::is_nothrow_move_constructible<mdarray_t>::value);
     static_assert(std::is_nothrow_move_assignable<mdarray_t>::value);
+    static_assert(!std::is_copy_constructible<mdarray_t>::value);
+    static_assert(!std::is_copy_assignable<mdarray_t>::value);
   }
   {
     /**
@@ -217,34 +219,6 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
   };
 
   {
-    // copy ctor
-    auto policy = make_policy();
-    mdarray_t arr{handle, layout, policy};
-    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
-    mdarray_t arr_copy_construct{arr};
-    check_eq(arr, arr_copy_construct);
-
-    auto const& ref = arr;
-    mdarray_t arr_copy_construct_1{ref};
-    check_eq(ref, arr_copy_construct_1);
-  }
-
-  {
-    // copy assign
-    auto policy = make_policy();
-    mdarray_t arr{handle, layout, policy};
-    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
-    mdarray_t arr_copy_assign{handle, layout, policy};
-    arr_copy_assign = arr;
-    check_eq(arr, arr_copy_assign);
-
-    auto const& ref = arr;
-    mdarray_t arr_copy_assign_1{handle, layout, policy};
-    arr_copy_assign_1 = ref;
-    check_eq(ref, arr_copy_assign_1);
-  }
-
-  {
     // move ctor
     auto policy = make_policy();
     mdarray_t arr{handle, layout, policy};
@@ -266,7 +240,7 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
   }
 }
 
-TEST(MDArray, CopyMove)
+TEST(MDArray, Move)
 {
   using matrix_extent = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   using d_matrix_t    = device_mdarray<float, matrix_extent>;
@@ -285,9 +259,10 @@ TEST(MDArray, CopyMove)
     d_matrix_t::layout_type::mapping<matrix_extent> layout{extents};
     d_matrix_t non_dft{handle, layout, policy};
 
-    arr = non_dft;
-    ASSERT_NE(arr.data_handle(), non_dft.data_handle());
-    ASSERT_EQ(arr.extent(0), non_dft.extent(0));
+    d_matrix_t arr_orig = std::move(arr);
+    arr                 = std::move(non_dft);
+    ASSERT_NE(arr.data_handle(), arr_orig.data_handle());
+    ASSERT_EQ(arr.extent(0), arr_orig.extent(0));
   }
   {
     h_matrix_t arr(handle);
@@ -297,9 +272,10 @@ TEST(MDArray, CopyMove)
     h_matrix_t::layout_type::mapping<matrix_extent> layout{extents};
     h_matrix_t non_dft{handle, layout, policy};
 
-    arr = non_dft;
-    ASSERT_NE(arr.data_handle(), non_dft.data_handle());
-    ASSERT_EQ(arr.extent(0), non_dft.extent(0));
+    h_matrix_t arr_orig = std::move(arr);
+    arr                 = std::move(non_dft);
+    ASSERT_NE(arr.data_handle(), arr_orig.data_handle());
+    ASSERT_EQ(arr.extent(0), arr_orig.extent(0));
   }
 }
 
