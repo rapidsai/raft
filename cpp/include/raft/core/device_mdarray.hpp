@@ -153,9 +153,9 @@ template <typename ElementType, typename IndexType = std::uint32_t>
 auto make_device_scalar(raft::resources const& handle, ElementType const& v)
 {
   scalar_extent<IndexType> extents;
-  using policy_t = typename device_scalar<ElementType>::container_policy_type;
+  using policy_t = typename device_scalar<ElementType, IndexType>::container_policy_type;
   policy_t policy{};
-  auto scalar = device_scalar<ElementType>{handle, extents, policy};
+  auto scalar = device_scalar<ElementType, IndexType>{handle, extents, policy};
   scalar(0)   = v;
   return scalar;
 }
