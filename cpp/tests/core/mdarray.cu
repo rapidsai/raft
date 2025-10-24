@@ -151,7 +151,7 @@ void test_mdarray_basic()
     using mdarray_t = host_mdarray<float, matrix_extent, layout_c_contiguous>;
     mdarray_t::container_policy_type policy;
     static_assert(
-      std::is_same_v<typename decltype(policy)::accessor_type, host_vector_policy<float>>);
+      std::is_same_v<typename decltype(policy)::accessor_type, host_container_policy<float>>);
     layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
     host_mdarray<float, matrix_extent, layout_c_contiguous> array{handle, layout, policy};
 
@@ -249,7 +249,7 @@ TEST(MDArray, Move)
   test_mdarray_copy_move<d_matrix_t>(rmm::exec_policy(s), []() { return policy_t{}; });
 
   using h_matrix_t = host_mdarray<float, matrix_extent>;
-  test_mdarray_copy_move<h_matrix_t>(thrust::host, []() { return host_vector_policy<float>{}; });
+  test_mdarray_copy_move<h_matrix_t>(thrust::host, []() { return host_container_policy<float>{}; });
 
   {
     d_matrix_t arr{handle};

@@ -134,7 +134,8 @@ class device_uvector {
     return device_reference<T const>{thrust::device_ptr<T const>{data_.data() + i}, data_.stream()};
   }
 
-  void resize(size_type size) { data_.resize(size, data_.stream()); }
+  /** Recreate the container using the same allocator but possibly with a different size. */
+  void recreate(size_type size) { data_.resize(size, data_.stream()); }
 
   [[nodiscard]] auto data() noexcept -> pointer { return data_.data(); }
   [[nodiscard]] auto data() const noexcept -> const_pointer { return data_.data(); }

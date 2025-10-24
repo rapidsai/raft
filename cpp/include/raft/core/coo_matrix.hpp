@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -190,8 +190,8 @@ class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZT
   void initialize_sparsity(nnz_type nnz)
   {
     sparse_structure_type::initialize_sparsity(nnz);
-    c_rows_.resize(nnz);
-    c_cols_.resize(nnz);
+    c_rows_.recreate(nnz);
+    c_cols_.recreate(nnz);
   }
 
  protected:

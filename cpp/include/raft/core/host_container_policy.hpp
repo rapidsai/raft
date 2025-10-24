@@ -21,8 +21,8 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <raft/core/mdspan_types.hpp>
-#include <raft/core/resource/host_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/integer_utils.hpp>
 
@@ -56,8 +56,8 @@ struct host_container {
   using iterator       = pointer;
   using const_iterator = const_pointer;
 
-  host_container(raft::resources const& res, size_type count)
-    : mr_(resource::get_host_memory_resource(res)),
+  host_container(size_type count, std::pmr::memory_resource* mr = nullptr)
+    : mr_(mr == nullptr ? std::pmr::get_default_resource() : mr),
       bytesize_(sizeof(value_type) * count),
       data_(static_cast<pointer>(mr_->allocate(bytesize_)))
   {
@@ -101,7 +101,8 @@ struct host_container {
     return data_[i];
   }
 
-  void resize(size_type count)
+  /** Recreate the container using the same allocator but possibly with a different size. */
+  void recreate(size_type count)
   {
     // NB: we don't preserve the data, so can deallocate first
     //     resizing is not a part of mdarray api anyway.
@@ -118,7 +119,7 @@ struct host_container {
  * @brief A container policy for host mdarray.
  */
 template <typename ElementType>
-class host_vector_policy {
+class host_container_policy {
  public:
   using element_type          = ElementType;
   using container_type        = host_container<element_type>;
@@ -130,13 +131,10 @@ class host_vector_policy {
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
  public:
-  auto create(raft::resources const& res, size_t n) -> container_type
-  {
-    return container_type(res, n);
-  }
+  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n, mr_); }
 
-  constexpr host_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) =
-    default;
+  constexpr host_container_policy() noexcept = default;
+  explicit host_container_policy(std::pmr::memory_resource* mr) noexcept : mr_(mr) {}
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -150,6 +148,9 @@ class host_vector_policy {
 
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
+
+ private:
+  std::pmr::memory_resource* mr_{std::pmr::get_default_resource()};
 };
 
 }  // namespace raft

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ using host_coordinate_structure_view = coordinate_structure_view<RowType, ColTyp
 template <typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_container_policy>
 using host_coordinate_structure =
   coordinate_structure<RowType, ColType, NZType, false, ContainerPolicy>;
 
@@ -53,7 +53,7 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy,
+          template <typename T> typename ContainerPolicy = host_container_policy,
           SparsityType sparsity_type                     = SparsityType::OWNING>
 using host_coo_matrix =
   coo_matrix<ElementType, RowType, ColType, NZType, false, ContainerPolicy, sparsity_type>;
@@ -65,7 +65,7 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_container_policy>
 using host_sparsity_owning_coo_matrix =
   coo_matrix<ElementType, RowType, ColType, NZType, false, ContainerPolicy>;
 
@@ -73,7 +73,7 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_container_policy>
 using host_sparsity_preserving_coo_matrix = coo_matrix<ElementType,
                                                        RowType,
                                                        ColType,

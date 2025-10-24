@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,6 @@ enum resource_type {
   NCCL_COMM,                 // nccl comm
   ROOT_RANK,                 // root rank in multi-gpu world
   MULTI_GPU,                 // resource that tracks resource of each device in multi-gpu world
-  HOST_MEMORY_RESOURCE,      // std::mpr host memory resource
 
   LAST_KEY  // reserved for the last key
 };
