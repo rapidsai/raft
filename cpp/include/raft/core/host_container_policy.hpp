@@ -31,8 +31,7 @@
 namespace raft {
 
 /**
- * @brief A thin wrapper over mmap for implementing the host mdarray
- * container policy.
+ * @brief A container using the std::pmr::memory_resource for allocations.
  *
  */
 template <typename T>

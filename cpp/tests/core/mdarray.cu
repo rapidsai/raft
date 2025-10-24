@@ -25,6 +25,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/pmr/mmap_memory_resource.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -149,19 +150,34 @@ void test_mdarray_basic()
      * host policy
      */
     using mdarray_t = host_mdarray<float, matrix_extent, layout_c_contiguous>;
-    mdarray_t::container_policy_type policy;
-    static_assert(
-      std::is_same_v<typename decltype(policy)::accessor_type, host_container_policy<float>>);
-    layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
-    host_mdarray<float, matrix_extent, layout_c_contiguous> array{handle, layout, policy};
 
-    array(0, 3) = 1;
-    ASSERT_EQ(array(0, 3), 1);
-    auto h_view = array.view();
-    static_assert(decltype(h_view)::accessor_type::is_host_type::value);
-    thrust::for_each_n(thrust::host, thrust::make_counting_iterator(0ul), 1, [h_view](auto i) {
-      ASSERT_EQ(h_view(0, 3), 1);
-    });
+    raft::pmr::mmap_memory_resource mmap_mr_default;
+    raft::pmr::mmap_memory_resource mmap_mr_hugepages{raft::pmr::kMmapRequestHugePages};
+    raft::pmr::mmap_memory_resource mmap_mr_huge_file{raft::pmr::kMmapRequestHugePages |
+                                                      raft::pmr::kMmapFileBacked};
+    std::pmr::synchronized_pool_resource pool_mr{&mmap_mr_huge_file};
+
+    std::vector<std::pmr::memory_resource*> memory_resources{std::pmr::get_default_resource(),
+                                                             &mmap_mr_default,
+                                                             &mmap_mr_hugepages,
+                                                             &mmap_mr_huge_file,
+                                                             &pool_mr};
+
+    for (auto* mr : memory_resources) {
+      mdarray_t::container_policy_type policy{mr};
+      static_assert(
+        std::is_same_v<typename decltype(policy)::accessor_type, host_container_policy<float>>);
+      layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
+      host_mdarray<float, matrix_extent, layout_c_contiguous> array{handle, layout, policy};
+
+      array(0, 3) = 1;
+      ASSERT_EQ(array(0, 3), 1);
+      auto h_view = array.view();
+      static_assert(decltype(h_view)::accessor_type::is_host_type::value);
+      thrust::for_each_n(thrust::host, thrust::make_counting_iterator(0ul), 1, [h_view](auto i) {
+        ASSERT_EQ(h_view(0, 3), 1);
+      });
+    }
 
     static_assert(!std::is_nothrow_default_constructible<mdarray_t>::value);
     static_assert(std::is_nothrow_move_constructible<mdarray_t>::value);
