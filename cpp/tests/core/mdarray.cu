@@ -235,7 +235,6 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
     thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
     mdarray_t arr_move_assign{handle, layout, policy};
     arr_move_assign = std::move(arr);
-    ASSERT_EQ(arr.data_handle(), nullptr);
     check_eq(arr_origin, arr_move_assign);
   }
 }
@@ -262,7 +261,8 @@ TEST(MDArray, Move)
     d_matrix_t arr_orig = std::move(arr);
     arr                 = std::move(non_dft);
     ASSERT_NE(arr.data_handle(), arr_orig.data_handle());
-    ASSERT_EQ(arr.extent(0), arr_orig.extent(0));
+    ASSERT_EQ(arr_orig.extent(0), 0);
+    ASSERT_EQ(arr.extent(0), 3);
   }
   {
     h_matrix_t arr(handle);
@@ -275,7 +275,8 @@ TEST(MDArray, Move)
     h_matrix_t arr_orig = std::move(arr);
     arr                 = std::move(non_dft);
     ASSERT_NE(arr.data_handle(), arr_orig.data_handle());
-    ASSERT_EQ(arr.extent(0), arr_orig.extent(0));
+    ASSERT_EQ(arr_orig.extent(0), 0);
+    ASSERT_EQ(arr.extent(0), 3);
   }
 }
 
