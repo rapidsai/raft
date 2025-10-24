@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -199,8 +199,8 @@ class compressed_structure
   void initialize_sparsity(NZType nnz) override
   {
     sparse_structure_type::initialize_sparsity(nnz);
-    c_indptr_.recreate(this->get_n_rows() + 1);
-    c_indices_.recreate(nnz);
+    c_indptr_.resize(this->get_n_rows() + 1);
+    c_indices_.resize(nnz);
   }
 
  protected:

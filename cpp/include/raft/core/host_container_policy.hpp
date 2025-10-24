@@ -100,14 +100,13 @@ struct host_container {
     return data_[i];
   }
 
-  /** Recreate the container using the same allocator but possibly with a different size. */
-  void recreate(size_type count)
+  void resize(size_type count)
   {
-    // NB: we don't preserve the data, so can deallocate first
-    //     resizing is not a part of mdarray api anyway.
-    if (data_ != nullptr) { mr_->deallocate(data_, bytesize_); }
-    bytesize_ = sizeof(value_type) * count;
-    data_     = static_cast<pointer>(mr_->allocate(bytesize_));
+    auto cur_count = bytesize_ / sizeof(value_type);
+    if (count <= cur_count) { return; }
+    host_container new_container{count, mr_};
+    std::copy(data_, data_ + cur_count, new_container.data_);
+    *this = std::move(new_container);
   }
 
   [[nodiscard]] auto data() noexcept -> pointer { return data_; }

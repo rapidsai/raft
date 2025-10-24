@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -188,7 +188,7 @@ class sparse_matrix {
 
   ~sparse_matrix() noexcept(std::is_nothrow_destructible<container_type>::value) = default;
 
-  void initialize_sparsity(nnz_type nnz) { c_elements_.recreate(nnz); };
+  void initialize_sparsity(nnz_type nnz) { c_elements_.resize(nnz); };
 
   raft::span<ElementType, is_device> get_elements()
   {
