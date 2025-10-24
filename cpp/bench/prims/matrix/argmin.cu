@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -36,9 +36,14 @@ struct Argmin : public fixture {
 
   void run_benchmark(::benchmark::State& state) override
   {
-    loop_on_state(state, [this]() {
+    state.counters.insert({{"rows", params.rows}});
+    state.counters.insert({{"cols", params.cols}});
+    size_t bytes_processed = 0;
+    loop_on_state(state, [this, &bytes_processed]() {
       raft::matrix::argmin(handle, raft::make_const_mdspan(matrix.view()), indices.view());
+      bytes_processed += size_t(params.rows) * size_t(params.cols) * sizeof(T);
     });
+    state.SetBytesProcessed(bytes_processed);
   }
 
  private:

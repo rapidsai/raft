@@ -1,6 +1,22 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+<<<<<<< HEAD
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
+=======
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+>>>>>>> main
  */
 
 #include <common/benchmark.hpp>
@@ -76,13 +92,21 @@ struct Gather : public fixture {
     std::ostringstream label_stream;
     label_stream << params;
     state.SetLabel(label_stream.str());
+    state.counters.insert({{"rows", params.rows}});
+    state.counters.insert({{"cols", params.cols}});
+    state.counters.insert({{"map_length", params.map_length}});
+    state.counters.insert({{"data_on_host", params.host}});
 
-    loop_on_state(state, [this]() {
+    size_t bytes_processed = 0;
+    loop_on_state(state, [this, &bytes_processed]() {
       auto matrix_const_view = raft::make_const_mdspan(matrix.view());
       auto map_const_view    = raft::make_const_mdspan(map.view());
+      bytes_processed +=
+        size_t(params.map_length) * (sizeof(MapT) + size_t(params.cols) * sizeof(T));
       if constexpr (Conditional) {
         auto stencil_const_view = raft::make_const_mdspan(stencil.view());
-        auto pred_op            = raft::plug_const_op(T(0.0), raft::greater_op());
+        bytes_processed += size_t(params.map_length) * sizeof(T);
+        auto pred_op = raft::plug_const_op(T(0.0), raft::greater_op());
         raft::matrix::gather_if(
           handle, matrix_const_view, out.view(), map_const_view, stencil_const_view, pred_op);
       } else {
@@ -94,6 +118,7 @@ struct Gather : public fixture {
         }
       }
     });
+    state.SetBytesProcessed(bytes_processed);
   }
 
  private:

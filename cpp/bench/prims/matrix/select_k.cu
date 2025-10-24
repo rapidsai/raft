@@ -1,6 +1,22 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+<<<<<<< HEAD
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
+=======
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+>>>>>>> main
  */
 
 #include <common/benchmark.hpp>
@@ -93,6 +109,14 @@ struct selection : public fixture {
       if (params_.use_same_leading_bits) { label_stream << "#same-leading-bits"; }
       if (params_.frac_infinities > 0) { label_stream << "#infs-" << params_.frac_infinities; }
       state.SetLabel(label_stream.str());
+      state.counters.insert({{"batch_size", params_.batch_size}});
+      state.counters.insert({{"len", params_.len}});
+      state.counters.insert({{"k", params_.k}});
+      state.counters.insert({{"select_min", params_.select_min}});
+      state.counters.insert({{"use_index_input", params_.use_index_input}});
+      state.counters.insert({{"use_same_leading_bits", params_.use_same_leading_bits}});
+      state.counters.insert({{"use_memory_pool", params_.use_memory_pool}});
+      state.counters.insert({{"frac_infinities", params_.frac_infinities}});
       common::nvtx::range case_scope("%s - %s", state.name().c_str(), label_stream.str().c_str());
       int iter = 0;
       loop_on_state(state, [&iter, this]() {
@@ -116,6 +140,8 @@ struct selection : public fixture {
                                      false,
                                      Algo);
       });
+      state.SetBytesProcessed(size_t(iter) * params_.batch_size * params_.len *
+                              (sizeof(KeyT) + (params_.use_index_input ? sizeof(IdxT) : 0)));
     } catch (raft::exception& e) {
       state.SkipWithError(e.what());
     }
