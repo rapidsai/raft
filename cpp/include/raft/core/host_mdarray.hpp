@@ -109,9 +109,9 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
-auto make_device_mdarray(raft::resources const& res,
-                         std::pmr::memory_resource* mr,
-                         extents<IndexType, Extents...> exts)
+auto make_host_mdarray(raft::resources const& res,
+                       std::pmr::memory_resource* mr,
+                       extents<IndexType, Extents...> exts)
 {
   using mdarray_t = host_mdarray<ElementType, decltype(exts), LayoutPolicy>;
 
