@@ -580,7 +580,9 @@ void gather(raft::resources const& res,
   auto out_tmp2 = raft::make_pinned_matrix<T, MatIdxT>(res, max_batch_size, n_dim);
 
   // Usually a limited number of threads provide sufficient bandwidth for gathering data.
+#if defined(_OPENMP)
   int n_threads = std::min(omp_get_max_threads(), 32);
+#endif
 
   // The gather_buff function has a parallel for loop. We start the the omp parallel
   // region here, to avoid repeated overhead within the device_offset loop.
