@@ -29,9 +29,9 @@ namespace sparse {
 
 template <typename T2, typename T1>
 void get_clean_coo(raft::resources& handle,
-                   raft::device_vector_view<T1> rows,
-                   raft::device_vector_view<T1> columns,
-                   raft::device_vector_view<T2> values,
+                   raft::device_vector_view<T1, int64_t> rows,
+                   raft::device_vector_view<T1, int64_t> columns,
+                   raft::device_vector_view<T2, int64_t> values,
                    int nnz,
                    int num_rows,
                    int num_cols,

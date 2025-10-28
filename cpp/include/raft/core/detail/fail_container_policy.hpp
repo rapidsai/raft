@@ -18,7 +18,8 @@
 #include <raft/core/error.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/thirdparty/mdspan/include/experimental/mdspan>
+
+#include <cuda/std/mdspan>
 
 #include <stddef.h>
 
@@ -122,8 +123,8 @@ struct fail_container_policy {
   using reference       = typename container_type::reference;
   using const_reference = typename container_type::const_reference;
 
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
+  using accessor_policy       = cuda::std::default_accessor<element_type>;
+  using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
   auto create(raft::resources const& res, size_t n) -> container_type { return container_type(n); }
 

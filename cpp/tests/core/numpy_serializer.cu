@@ -34,7 +34,7 @@
 namespace {
 
 template <class IndexType, std::size_t Rank>
-using dextents = std::experimental::dextents<IndexType, Rank>;
+using dextents = cuda::std::dextents<IndexType, Rank>;
 
 }  // anonymous namespace
 

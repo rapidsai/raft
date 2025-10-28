@@ -36,10 +36,10 @@ struct check_zeroes {
   }
 };
 
-template <typename T1, typename T2>
+template <typename T1, typename T2, typename DenseVectorView, typename ResultVectorView>
 void preproc(raft::resources& handle,
-             raft::device_vector_view<T2> dense_values,
-             raft::device_vector_view<T2> results,
+             DenseVectorView dense_values,
+             ResultVectorView results,
              int num_rows,
              int num_cols,
              bool tf_idf)
@@ -136,10 +136,10 @@ void preproc(raft::resources& handle,
   raft::copy(results.data_handle(), out_host_vector.data_handle(), out_host_vector.size(), stream);
 }
 
-template <typename T1, typename T2>
+template <typename T1, typename T2, typename ResultVectorView>
 void calc_tfidf_bm25(raft::resources& handle,
                      raft::device_csr_matrix_view<T2, T1, T1, T1> csr_in,
-                     raft::device_vector_view<T2> results,
+                     ResultVectorView results,
                      bool tf_idf = false)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);

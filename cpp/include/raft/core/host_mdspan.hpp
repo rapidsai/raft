@@ -33,7 +33,7 @@ using host_accessor = host_device_accessor<AccessorPolicy, memory_type::host>;
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
+          typename AccessorPolicy = cuda::std::default_accessor<ElementType>>
 using host_mdspan = mdspan<ElementType, Extents, LayoutPolicy, host_accessor<AccessorPolicy>>;
 
 template <typename T, bool B>
@@ -118,7 +118,7 @@ using host_aligned_matrix_view =
   host_mdspan<ElementType,
               matrix_extent<IndexType>,
               LayoutPolicy,
-              std::experimental::aligned_accessor<ElementType, detail::alignment::value>>;
+              cuda::std::aligned_accessor<ElementType, detail::alignment::value>>;
 
 /**
  * @brief Create a 2-dim 128 byte aligned mdspan instance for host pointer. It's
@@ -137,8 +137,7 @@ template <typename ElementType,
 auto constexpr make_host_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
 {
   using data_handle_type =
-    typename std::experimental::aligned_accessor<ElementType,
-                                                 detail::alignment::value>::data_handle_type;
+    typename cuda::std::aligned_accessor<ElementType, detail::alignment::value>::data_handle_type;
 
   static_assert(std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
                 std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value);
@@ -214,7 +213,7 @@ auto constexpr make_host_strided_matrix_view(ElementType* ptr,
   assert(is_row_major ? stride0 >= n_cols : stride1 >= n_rows);
   matrix_extent<IndexType> extents{n_rows, n_cols};
 
-  auto layout = make_strided_layout(extents, std::array<IndexType, 2>{stride0, stride1});
+  auto layout = make_strided_layout(extents, cuda::std::array<IndexType, 2>{stride0, stride1});
   return host_matrix_view<ElementType, IndexType, layout_stride>{ptr, layout};
 }
 

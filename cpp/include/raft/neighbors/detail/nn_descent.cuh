@@ -1431,11 +1431,11 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   }
 }
 
-template <typename T,
-          typename IdxT        = uint32_t,
-          typename epilogue_op = DistEpilogue<IdxT, T>,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <
+  typename T,
+  typename IdxT        = uint32_t,
+  typename epilogue_op = DistEpilogue<IdxT, T>,
+  typename Accessor    = host_device_accessor<cuda::std::default_accessor<T>, memory_type::host>>
 void build(raft::resources const& res,
            const index_params& params,
            mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
@@ -1508,11 +1508,11 @@ void build(raft::resources const& res,
   }
 }
 
-template <typename T,
-          typename IdxT        = uint32_t,
-          typename epilogue_op = DistEpilogue<IdxT, T>,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <
+  typename T,
+  typename IdxT        = uint32_t,
+  typename epilogue_op = DistEpilogue<IdxT, T>,
+  typename Accessor    = host_device_accessor<cuda::std::default_accessor<T>, memory_type::host>>
 index<IdxT> build(raft::resources const& res,
                   const index_params& params,
                   mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,

@@ -28,7 +28,7 @@ namespace raft {
 /**
  * @brief A span class for host pointer.
  */
-template <typename T, size_t extent = std::experimental::dynamic_extent>
+template <typename T, size_t extent = cuda::std::dynamic_extent>
 using host_span = span<T, false, extent>;
 
 /**

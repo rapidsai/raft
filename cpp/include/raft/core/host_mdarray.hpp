@@ -183,9 +183,9 @@ auto make_host_scalar(raft::resources& res, ElementType const& v)
   // requires some more compile time dispatching. This is enabled in the ref impl but
   // hasn't been ported here yet.
   scalar_extent<IndexType> extents;
-  using policy_t = typename host_scalar<ElementType>::container_policy_type;
+  using policy_t = typename host_scalar<ElementType, IndexType>::container_policy_type;
   policy_t policy;
-  auto scalar = host_scalar<ElementType>{res, extents, policy};
+  auto scalar = host_scalar<ElementType, IndexType>{res, extents, policy};
   scalar(0)   = v;
   return scalar;
 }
@@ -208,10 +208,10 @@ auto make_host_scalar(ElementType const& v)
   // requires some more compile time dispatching. This is enabled in the ref impl but
   // hasn't been ported here yet.
   scalar_extent<IndexType> extents;
-  using policy_t = typename host_scalar<ElementType>::container_policy_type;
+  using policy_t = typename host_scalar<ElementType, IndexType>::container_policy_type;
   policy_t policy;
   raft::resources handle;
-  auto scalar = host_scalar<ElementType>{handle, extents, policy};
+  auto scalar = host_scalar<ElementType, IndexType>{handle, extents, policy};
   scalar(0)   = v;
   return scalar;
 }
