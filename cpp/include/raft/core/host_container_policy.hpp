@@ -37,14 +37,7 @@ namespace raft {
 template <typename T>
 struct host_container {
   using value_type = std::remove_cv_t<T>;
-
- private:
-  std::pmr::memory_resource* mr_;
-  std::size_t bytesize_ = 0;
-  value_type* data_     = nullptr;
-
- public:
-  using size_type = std::size_t;
+  using size_type  = std::size_t;
 
   using reference       = value_type&;
   using const_reference = value_type const&;
@@ -55,16 +48,22 @@ struct host_container {
   using iterator       = pointer;
   using const_iterator = const_pointer;
 
+ private:
+  std::pmr::memory_resource* mr_;
+  size_type bytesize_ = 0;
+  value_type* data_   = nullptr;
+
+ public:
   host_container(size_type count, std::pmr::memory_resource* mr = nullptr)
     : mr_(mr == nullptr ? std::pmr::get_default_resource() : mr),
       bytesize_(sizeof(value_type) * count),
-      data_(static_cast<pointer>(mr_->allocate(bytesize_)))
+      data_(bytesize_ > 0 ? static_cast<pointer>(mr_->allocate(bytesize_)) : nullptr)
   {
   }
 
   ~host_container() noexcept
   {
-    if (data_ != nullptr) { mr_->deallocate(data_, bytesize_); }
+    if (bytesize_ > 0 && data_ != nullptr) { mr_->deallocate(data_, bytesize_); }
   }
 
   host_container(host_container&& other) noexcept
