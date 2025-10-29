@@ -915,7 +915,7 @@ inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle,
     handle, m, n, k, nnz, alpha, A, lda, cscValB, cscColPtrB, cscRowIndB, beta, C, ldc);
 #pragma GCC diagnostic pop
 }
-#else  // CUDART >= 12.0
+#else  // CUDART >= 12.2
 template <typename T>
 cusparseStatus_t cusparsegemmi(  // NOLINT
   cusparseHandle_t handle,
