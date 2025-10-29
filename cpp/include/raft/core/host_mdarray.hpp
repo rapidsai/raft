@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ namespace raft {
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = host_vector_policy<ElementType>>
+          typename ContainerPolicy = host_container_policy<ElementType>>
 using host_mdarray = mdarray<ElementType, Extents, LayoutPolicy, host_accessor<ContainerPolicy>>;
 
 /**
@@ -91,6 +91,32 @@ auto make_host_mdarray(raft::resources& res, extents<IndexType, Extents...> exts
 
   typename mdarray_t::mapping_type layout{exts};
   typename mdarray_t::container_policy_type policy;
+
+  return mdarray_t{res, layout, policy};
+}
+
+/**
+ * @brief Create a host mdarray.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param res raft::resources
+ * @param mr std::pmr::memory_resource used for allocating the memory for the array
+ * @param exts dimensionality of the array (series of integers)
+ * @return raft::device_mdarray
+ */
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_c_contiguous,
+          size_t... Extents>
+auto make_host_mdarray(raft::resources const& res,
+                       std::pmr::memory_resource* mr,
+                       extents<IndexType, Extents...> exts)
+{
+  using mdarray_t = host_mdarray<ElementType, decltype(exts), LayoutPolicy>;
+
+  typename mdarray_t::mapping_type layout{exts};
+  typename mdarray_t::container_policy_type policy{mr};
 
   return mdarray_t{res, layout, policy};
 }

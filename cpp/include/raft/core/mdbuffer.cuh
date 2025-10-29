@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ template <typename T, raft::memory_type MemType>
 struct memory_type_to_default_policy {};
 template <typename T>
 struct memory_type_to_default_policy<T, raft::memory_type::host> {
-  using type = typename raft::host_vector_policy<T>;
+  using type = typename raft::host_container_policy<T>;
 };
 template <typename T>
 struct memory_type_to_default_policy<T, raft::memory_type::device> {
