@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,11 +145,11 @@ void reduce(raft::resources const& handle,
   bool constexpr along_rows = apply == Apply::ALONG_ROWS;
 
   if constexpr (along_rows) {
-    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(1),
-                 "Output should be equal to number of columns in Input");
-  } else {
     RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(0),
                  "Output should be equal to number of rows in Input");
+  } else {
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(1),
+                 "Output should be equal to number of columns in Input");
   }
 
   reduce<row_major, along_rows>(dots.data_handle(),
