@@ -264,17 +264,8 @@ class std_comms : public comms_iface {
           bool restart = false;  // resets the timeout when any progress was made
 
           if (worker->isProgressThreadRunning()) {
-            // Wait for a UCXX progress thread roundtrip, prevent waiting for longer
-            // than 10ms for each operation, will retry in next iteration.
-            ucxx::utils::CallbackNotifier callbackNotifierPre{};
-            (void)worker->registerGenericPre(
-              [&callbackNotifierPre]() { callbackNotifierPre.set(); }, 10000000 /* 10ms */);
-            callbackNotifierPre.wait();
-
-            ucxx::utils::CallbackNotifier callbackNotifierPost{};
-            (void)worker->registerGenericPost(
-              [&callbackNotifierPost]() { callbackNotifierPost.set(); }, 10000000 /* 10ms */);
-            callbackNotifierPost.wait();
+            // Progress thread is running in background, just yield to let it work
+            std::this_thread::yield();
           } else {
             // Causes UCXX to progress through the send/recv message queue
             while (!worker->progress()) {
