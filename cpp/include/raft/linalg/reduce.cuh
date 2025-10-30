@@ -92,14 +92,39 @@ void reduce(OutType* dots,
 
 /**
  * @brief Compute reduction of the input matrix along the requested dimension
- *        This API computes a reduction of a matrix whose underlying storage
- *        is either row-major or column-major, while allowing the choose the
- *        dimension for reduction. Depending upon the dimension chosen for
- *        reduction, the memory accesses may be coalesced or strided.
- *        In case of an add-reduction, a compensated summation will be performed
- *        in order to reduce numerical error. Note that the compensation will not
- *        be equivalent to a sequential compensation to preserve parallel efficiency.
+ *
+ * This API computes a reduction of a matrix whose underlying storage
+ * is either row-major or column-major, while allowing the choose the
+ * dimension for reduction. Depending upon the dimension chosen for
+ * reduction, the memory accesses may be coalesced or strided.
+ * In case of an add-reduction, a compensated summation will be performed
+ * in order to reduce numerical error. Note that the compensation will not
+ * be equivalent to a sequential compensation to preserve parallel efficiency.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   // Compute the max value of each row of a matrix
+ *   raft::resources handle;
+ *   int n_rows = 2;
+ *   int n_cols = 3;
+ *   float input_h[n_rows * n_cols] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+ *   auto  input_d = raft::make_device_matrix<float, int, raft::row_major>(handle, n_rows, n_cols);
+ *   auto output = raft::make_device_vector<float, int>(handle, n_rows);
+ *   raft::copy(input_d.data_handle(), input_h, n_rows * n_cols, stream);
+ *   raft::linalg::reduce<raft::Apply::ALONG_ROWS>(
+ *     handle, raft::make_const_mdspan(input_d.view()), output.view(), 0.0f, false,
+ *     raft::identity_op(), raft::max_op(), raft::identity_op()); float output_h[n_rows];
+ *   raft::copy(output_h, output.data_handle(), n_rows, stream);
+ *   raft::resource::sync_stream(handle, stream);
+ *   ASSERT_EQ(output_h[0], 3.0f);
+ *   ASSERT_EQ(output_h[1], 6.0f);
+ * @endcode
+ *
  * @tparam Apply whether to reduce along rows or along columns (using raft::linalg::Apply)
+ *         In ALONG_ROWS mode, the reduction will output 1 value per row. It will
+ *         return a vector of size n_rows.
+ *         In ALONG_COLUMNS mode, the reduction will output 1 value per column. It will
+ *         return a vector of size n_columns.
  * @tparam InElementType the input data-type of underlying raft::matrix_view
  * @tparam LayoutPolicy The layout of Input/Output (row or col major)
  * @tparam OutElementType the output data-type of underlying raft::matrix_view and reduction
