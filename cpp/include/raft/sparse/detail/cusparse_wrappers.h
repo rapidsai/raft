@@ -151,7 +151,7 @@ inline void cusparsecoosortByRow(  // NOLINT
 }
 /** @} */
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
+#if not defined CUDA_ENFORCE_LOWER
 /**
  * @defgroup cusparse Create CSR operations
  * @{
@@ -517,7 +517,7 @@ inline cusparseStatus_t cusparsecsrmv(cusparseHandle_t handle,
 /** @} */
 #endif
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
+#if not defined CUDA_ENFORCE_LOWER
 /**
  * @defgroup Csrmm cusparse csrmm operations
  * @{

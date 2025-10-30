@@ -224,7 +224,7 @@ struct sparse_matrix_t {
     cusparseOperation_t trans = transpose ? CUSPARSE_OPERATION_TRANSPOSE :  // transpose
                                   CUSPARSE_OPERATION_NON_TRANSPOSE;         // non-transpose
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
+#if not defined CUDA_ENFORCE_LOWER
     auto size_x = transpose ? nrows_ : ncols_;
     auto size_y = transpose ? ncols_ : nrows_;
 
@@ -307,7 +307,7 @@ struct sparse_matrix_t {
 
   resources const& get_handle(void) const { return handle_; }
 
-#if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
+#if not defined CUDA_ENFORCE_LOWER
   cusparseSpMVAlg_t translate_algorithm(sparse_mv_alg_t alg) const
   {
     switch (alg) {
