@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -192,15 +192,15 @@ class mdarray
    * being used for allocation.
    */
   mdarray(raft::resources const& handle,
-                                      mapping_type const& m,
-                                      container_policy_type const& cp)
+          mapping_type const& m,
+          container_policy_type const& cp)
     : cp_(cp), map_(m), c_(cp_.create(handle, map_.required_span_size()))
   {
   }
 
   mdarray(raft::resources const& handle,
-                                      mapping_type const& m,
-                                      container_policy_type& cp)
+          mapping_type const& m,
+          container_policy_type& cp)
     : cp_(cp), map_(m), c_(cp_.create(handle, map_.required_span_size()))
   {
   }
