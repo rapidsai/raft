@@ -120,7 +120,7 @@ void reduce(OutType* dots,
  *   ASSERT_EQ(output_h[1], 6.0f);
  * @endcode
  *
- * @tparam Apply whether to reduce along rows or along columns (using raft::linalg::Apply)
+ * @tparam Apply whether to reduce along rows or along columns (using raft::Apply)
  *         In ALONG_ROWS mode, the reduction will output 1 value per row. It will
  *         return a vector of size n_rows.
  *         In ALONG_COLUMNS mode, the reduction will output 1 value per column. It will
