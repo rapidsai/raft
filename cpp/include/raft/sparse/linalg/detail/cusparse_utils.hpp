@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/linalg/linalg_types.hpp>
@@ -95,6 +96,32 @@ cusparseSpMatDescr_t create_descriptor(
     static_cast<int64_t>(csr_structure.get_nnz()),
     const_cast<IndptrType*>(csr_structure.get_indptr().data()),
     const_cast<IndicesType*>(csr_structure.get_indices().data()),
+    const_cast<std::remove_const_t<ValueType>*>(sparse_view.get_elements().data())));
+  return descr;
+}
+
+/**
+ * @brief create a cuSparse sparse descriptor for COO matrix
+ * @tparam ValueType Data type of sparse_view (float/double)
+ * @tparam RowType Data type of coo_matrix_view row indices
+ * @tparam ColType Data type of coo_matrix_view column indices
+ * @tparam NZType Type of sparse_view
+ * @param[in] sparse_view input raft::device_coo_matrix_view of size M rows x K columns
+ * @returns sparse matrix descriptor to be used by cuSparse API
+ */
+template <typename ValueType, typename RowType, typename ColType, typename NZType>
+cusparseSpMatDescr_t create_descriptor(
+  raft::device_coo_matrix_view<ValueType, RowType, ColType, NZType> sparse_view)
+{
+  cusparseSpMatDescr_t descr;
+  auto coo_structure = sparse_view.structure_view();
+  RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatecoo(
+    &descr,
+    static_cast<int64_t>(coo_structure.get_n_rows()),
+    static_cast<int64_t>(coo_structure.get_n_cols()),
+    static_cast<int64_t>(coo_structure.get_nnz()),
+    const_cast<RowType*>(coo_structure.get_rows().data()),
+    const_cast<ColType*>(coo_structure.get_cols().data()),
     const_cast<std::remove_const_t<ValueType>*>(sparse_view.get_elements().data())));
   return descr;
 }

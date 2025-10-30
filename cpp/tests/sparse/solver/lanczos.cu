@@ -16,6 +16,7 @@
 
 #include "../../test_utils.cuh"
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/mdspan.hpp>
@@ -25,6 +26,7 @@
 #include <raft/random/rmat_rectangular_generator.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/random/rng_state.hpp>
+#include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/degree.cuh>
@@ -217,6 +219,40 @@ class rmat_lanczos_tests
                                              n_components,
                                              raft::CompareApprox<ValueType>(1e-5),
                                              stream));
+
+    // Also test with COO matrix - use the existing symmetric_coo directly
+    // Create COO matrix view from the existing COO data
+    auto coo_structure =
+      raft::make_device_coordinate_structure_view<IndexType, IndexType, IndexType>(
+        symmetric_coo.rows(),
+        symmetric_coo.cols(),
+        symmetric_coo.n_rows,
+        symmetric_coo.n_rows,
+        symmetric_coo.nnz);
+
+    auto coo_matrix = raft::make_device_coo_matrix_view<ValueType, IndexType, IndexType, IndexType>(
+      symmetric_coo.vals(), coo_structure);
+
+    raft::device_vector<ValueType, uint32_t, raft::col_major> eigenvalues_coo =
+      raft::make_device_vector<ValueType, uint32_t, raft::col_major>(handle, n_components);
+    raft::device_matrix<ValueType, uint32_t, raft::col_major> eigenvectors_coo =
+      raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(
+        handle, symmetric_coo.n_rows, n_components);
+
+    std::get<0>(stats) =
+      raft::sparse::solver::lanczos_compute_smallest_eigenvectors<IndexType, ValueType>(
+        handle,
+        config,
+        coo_matrix,
+        std::make_optional(v0.view()),
+        eigenvalues_coo.view(),
+        eigenvectors_coo.view());
+
+    ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues_coo.data_handle(),
+                                             expected_eigenvalues.data_handle(),
+                                             n_components,
+                                             raft::CompareApprox<ValueType>(1e-5),
+                                             stream));
   }
 
  protected:
@@ -297,6 +333,39 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
         eigenvectors.view());
 
     ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues.data_handle(),
+                                             expected_eigenvalues.data_handle(),
+                                             params.n_components,
+                                             raft::CompareApprox<ValueType>(1e-5),
+                                             stream));
+
+    // Also test with COO matrix (convert CSR to COO format)
+    raft::device_vector<IndexType, uint32_t, raft::row_major> coo_rows =
+      raft::make_device_vector<IndexType, uint32_t, raft::row_major>(handle, nnz);
+    raft::sparse::convert::csr_to_coo(rows.data_handle(), n, coo_rows.data_handle(), nnz, stream);
+
+    auto coo_structure =
+      raft::make_device_coordinate_structure_view<IndexType, IndexType, IndexType>(
+        coo_rows.data_handle(), cols.data_handle(), n, n, nnz);
+
+    auto coo_matrix = raft::make_device_coo_matrix_view<ValueType, IndexType, IndexType, IndexType>(
+      vals.data_handle(), coo_structure);
+
+    raft::device_vector<ValueType, uint32_t, raft::col_major> eigenvalues_coo =
+      raft::make_device_vector<ValueType, uint32_t, raft::col_major>(handle, params.n_components);
+    raft::device_matrix<ValueType, uint32_t, raft::col_major> eigenvectors_coo =
+      raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(
+        handle, n, params.n_components);
+
+    std::get<0>(stats) =
+      raft::sparse::solver::lanczos_compute_smallest_eigenvectors<IndexType, ValueType>(
+        handle,
+        config,
+        coo_matrix,
+        std::make_optional(v0.view()),
+        eigenvalues_coo.view(),
+        eigenvectors_coo.view());
+
+    ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues_coo.data_handle(),
                                              expected_eigenvalues.data_handle(),
                                              params.n_components,
                                              raft::CompareApprox<ValueType>(1e-5),
