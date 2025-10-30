@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,34 +21,117 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/util/integer_utils.hpp>
 
-#include <vector>
+#include <memory_resource>
 
 namespace raft {
+
+/**
+ * @brief A container using the std::pmr::memory_resource for allocations.
+ *
+ */
+template <typename T>
+struct host_container {
+  using value_type = std::remove_cv_t<T>;
+  using size_type  = std::size_t;
+
+  using reference       = value_type&;
+  using const_reference = value_type const&;
+
+  using pointer       = value_type*;
+  using const_pointer = value_type const*;
+
+  using iterator       = pointer;
+  using const_iterator = const_pointer;
+
+ private:
+  std::pmr::memory_resource* mr_;
+  size_type bytesize_ = 0;
+  value_type* data_   = nullptr;
+
+ public:
+  host_container(size_type count, std::pmr::memory_resource* mr = nullptr)
+    : mr_(mr == nullptr ? std::pmr::get_default_resource() : mr),
+      bytesize_(sizeof(value_type) * count),
+      data_(bytesize_ > 0 ? static_cast<pointer>(mr_->allocate(bytesize_)) : nullptr)
+  {
+  }
+
+  ~host_container() noexcept
+  {
+    if (bytesize_ > 0 && data_ != nullptr) { mr_->deallocate(data_, bytesize_); }
+  }
+
+  host_container(host_container&& other) noexcept
+    : mr_{std::exchange(other.mr_, nullptr)},
+      bytesize_{std::exchange(other.bytesize_, 0)},
+      data_{std::exchange(other.data_, nullptr)}
+  {
+  }
+  host_container& operator=(host_container&& other) noexcept
+  {
+    std::swap(this->mr_, other.mr_);
+    std::swap(this->bytesize_, other.bytesize_);
+    std::swap(this->data_, other.data_);
+    return *this;
+  }
+  host_container(host_container const&) = delete;  // Copying disallowed: one array one owner
+  host_container& operator=(host_container const&) = delete;
+
+  /**
+   * @brief Index operator that returns a reference to the actual data.
+   */
+  template <typename Index>
+  auto operator[](Index i) noexcept -> reference
+  {
+    return data_[i];
+  }
+  /**
+   * @brief Index operator that returns a reference to the actual data.
+   */
+  template <typename Index>
+  auto operator[](Index i) const noexcept -> const_reference
+  {
+    return data_[i];
+  }
+
+  void resize(size_type count)
+  {
+    auto cur_count = bytesize_ / sizeof(value_type);
+    if (count <= cur_count) { return; }
+    host_container new_container{count, mr_};
+    std::copy(data_, data_ + cur_count, new_container.data_);
+    *this = std::move(new_container);
+  }
+
+  [[nodiscard]] auto data() noexcept -> pointer { return data_; }
+  [[nodiscard]] auto data() const noexcept -> const_pointer { return data_; }
+};
 
 /**
  * @brief A container policy for host mdarray.
  */
 template <typename ElementType>
-class host_vector_policy {
+class host_container_policy {
  public:
   using element_type          = ElementType;
-  using allocator_type        = std::allocator<ElementType>;
-  using container_type        = std::vector<element_type, allocator_type>;
+  using container_type        = host_container<element_type>;
   using pointer               = typename container_type::pointer;
   using const_pointer         = typename container_type::const_pointer;
-  using reference             = element_type&;
-  using const_reference       = element_type const&;
+  using reference             = typename container_type::reference;
+  using const_reference       = typename container_type::const_reference;
   using accessor_policy       = std::experimental::default_accessor<element_type>;
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
  public:
-  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n); }
+  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n, mr_); }
 
-  constexpr host_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) =
-    default;
+  constexpr host_container_policy() noexcept = default;
+  explicit host_container_policy(std::pmr::memory_resource* mr) noexcept : mr_(mr) {}
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -62,6 +145,9 @@ class host_vector_policy {
 
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
+
+ private:
+  std::pmr::memory_resource* mr_{std::pmr::get_default_resource()};
 };
 
 }  // namespace raft

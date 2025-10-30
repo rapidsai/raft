@@ -120,7 +120,7 @@ repos:
               (?x)
                   cpp/include/raft/neighbors/detail/faiss_select/|
                   cpp/include/raft/thirdparty/|
-                  docs/source/sphinxext/github_link[.]py|
+                  docs/source/sphinxext/github_link[.]py
           - id: verify-alpha-spec
           - id: verify-codeowners
             args: [--fix, --project-prefix=raft]
