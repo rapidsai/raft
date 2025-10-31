@@ -17,9 +17,9 @@ from pylibraft.common import auto_convert_output, device_ndarray
 def gen_cai(m, n, t=None):
     if t is None:
         return device_ndarray.empty((m, n))
-    elif isinstance(t, tuple):
+    elif t is tuple:
         return device_ndarray.empty((m, n)), device_ndarray.empty((m, n))
-    elif isinstance(t, list):
+    elif t is list:
         return [device_ndarray.empty((m, n)), device_ndarray.empty((m, n))]
 
 
