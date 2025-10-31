@@ -191,7 +191,9 @@ class mdarray
    * so that the device implementation can make sure the relevant CUDA stream is
    * being used for allocation.
    */
-  constexpr mdarray(raft::resources const& handle, mapping_type const& m, container_policy_type const& cp)
+  constexpr mdarray(raft::resources const& handle,
+                    mapping_type const& m,
+                    container_policy_type const& cp)
     : cp_(cp), map_(m), c_(cp_.create(handle, map_.required_span_size()))
   {
   }
