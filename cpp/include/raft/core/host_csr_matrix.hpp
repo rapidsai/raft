@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -32,7 +32,7 @@ using host_compressed_structure_view =
 template <typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_container_policy>
 using host_compressed_structure =
   compressed_structure<IndptrType, IndicesType, NZType, false, ContainerPolicy>;
 
@@ -46,7 +46,7 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy,
+          template <typename T> typename ContainerPolicy = host_container_policy,
           SparsityType sparsity_type                     = SparsityType::OWNING>
 using host_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, false, ContainerPolicy, sparsity_type>;
@@ -58,7 +58,7 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_container_policy>
 using host_sparsity_owning_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, false, ContainerPolicy>;
 
@@ -69,7 +69,7 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_container_policy>
 using host_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
                                                        IndptrType,
                                                        IndicesType,

@@ -84,15 +84,10 @@ class device_uvector {
   using const_iterator = const_pointer;
 
  public:
-  ~device_uvector()                         = default;
-  device_uvector(device_uvector&&) noexcept = default;
-  device_uvector(device_uvector const& that) : data_{that.data_, that.data_.stream()} {}
-
-  auto operator=(device_uvector<T> const& that) -> device_uvector<T>&
-  {
-    data_ = rmm::device_uvector<T>{that.data_, that.data_.stream()};
-    return *this;
-  }
+  ~device_uvector()                                                       = default;
+  device_uvector(device_uvector&&) noexcept                               = default;
+  device_uvector(device_uvector const& that)                              = delete;
+  auto operator=(device_uvector<T> const& that) -> device_uvector<T>&     = delete;
   auto operator=(device_uvector<T>&& that) noexcept -> device_uvector<T>& = default;
 
   /**
