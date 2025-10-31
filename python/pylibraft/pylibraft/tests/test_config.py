@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -17,9 +17,9 @@ from pylibraft.common import auto_convert_output, device_ndarray
 def gen_cai(m, n, t=None):
     if t is None:
         return device_ndarray.empty((m, n))
-    elif t == tuple:
+    elif isinstance(t, tuple):
         return device_ndarray.empty((m, n)), device_ndarray.empty((m, n))
-    elif t == list:
+    elif isinstance(t, list):
         return [device_ndarray.empty((m, n)), device_ndarray.empty((m, n))]
 
 
@@ -33,7 +33,6 @@ def gen_cai(m, n, t=None):
 )
 @pytest.mark.parametrize("gen_t", [None, tuple, list])
 def test_auto_convert_output(out_type, gen_t):
-
     conf, t = out_type
     pylibraft.config.set_output_as(conf)
 

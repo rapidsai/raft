@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
@@ -45,48 +45,23 @@ test = [
 Homepage = "https://github.com/rapidsai/raft"
 Documentation = "https://docs.rapids.ai/api/raft/stable/"
 
-[tool.isort]
-line_length = 79
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-combine_as_imports = true
-order_by_type = true
-known_dask = [
+[tool.ruff]
+extend = "../../pyproject.toml"
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "raft_dask",
+]
+
+[tool.ruff.lint.isort.sections]
+dask = [
     "dask",
     "distributed",
     "dask_cuda",
 ]
-known_rapids = [
+rapids = [
     "pylibraft",
     "rmm",
-]
-known_first_party = [
-    "raft_dask",
-]
-default_section = "THIRDPARTY"
-sections = [
-    "FUTURE",
-    "STDLIB",
-    "THIRDPARTY",
-    "DASK",
-    "RAPIDS",
-    "FIRSTPARTY",
-    "LOCALFOLDER",
-]
-skip = [
-    "thirdparty",
-    ".eggs",
-    ".git",
-    ".hg",
-    ".mypy_cache",
-    ".tox",
-    ".venv",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "__init__.py",
 ]
 
 [tool.scikit-build]

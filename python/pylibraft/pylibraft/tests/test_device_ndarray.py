@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -11,7 +11,6 @@ from pylibraft.common import device_ndarray
 @pytest.mark.parametrize("order", ["F", "C"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_basic_attributes(order, dtype):
-
     a = np.random.random((500, 2)).astype(dtype)
 
     if order == "C":
@@ -34,7 +33,6 @@ def test_basic_attributes(order, dtype):
 @pytest.mark.parametrize("order", ["F", "C"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_empty(order, dtype):
-
     a = np.random.random((500, 2)).astype(dtype)
     if order == "C":
         a = np.ascontiguousarray(a)

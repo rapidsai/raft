@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -12,7 +12,6 @@ from pylibraft.common import cai_wrapper, device_ndarray
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("shape", [(10, 5)])
 def test_basic_accessors(order, dtype, shape):
-
     a = np.random.random(shape).astype(dtype)
 
     if order == "C":

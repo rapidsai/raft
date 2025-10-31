@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -69,7 +69,6 @@ def test_comms_init_no_p2p(cluster):
         assert cb.ucx_initialized is False
 
     finally:
-
         cb.destroy()
         client.close()
 
@@ -173,7 +172,6 @@ else:
 
 
 def _test_nccl_root_placement(client, root_location):
-
     cb = None
     try:
         cb = Comms(
@@ -224,7 +222,6 @@ def test_nccl_root_placement_ucx(root_location, request):
 
 
 def _test_collectives(client, func, root_location):
-
     try:
         cb = Comms(
             verbose=True, client=client, nccl_root_location=root_location
@@ -232,7 +229,6 @@ def _test_collectives(client, func, root_location):
         cb.init()
 
         for k, v in cb.worker_info(cb.worker_addresses).items():
-
             dfs = [
                 client.submit(
                     func_test_collective,
@@ -268,7 +264,6 @@ def test_collectives_ucx(func, root_location, request):
 
 
 def _test_comm_split(client):
-
     cb = Comms(comms_p2p=True, verbose=True)
     cb.init()
 
@@ -296,7 +291,6 @@ def test_comm_split_ucx(request):
 
 
 def _test_send_recv_protocol(n_trials, client):
-
     cb = Comms(comms_p2p=True, verbose=True)
     cb.init()
 
@@ -328,7 +322,6 @@ def test_send_recv_protocol_ucx(n_trials, request):
 
 
 def _test_device_send_or_recv(n_trials, client):
-
     cb = Comms(comms_p2p=True, verbose=True)
     cb.init()
 
@@ -362,7 +355,6 @@ def test_device_send_or_recv_ucx(n_trials, request):
 
 
 def _test_device_sendrecv(n_trials, client):
-
     cb = Comms(comms_p2p=True, verbose=True)
     cb.init()
 
@@ -396,7 +388,6 @@ def test_device_sendrecv_ucx(n_trials, request):
 
 
 def _test_device_multicast_sendrecv(n_trials, client):
-
     cb = Comms(comms_p2p=True, verbose=True)
     cb.init()
 

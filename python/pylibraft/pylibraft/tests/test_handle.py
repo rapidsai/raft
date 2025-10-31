@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -30,7 +30,6 @@ def generate_theta(r_scale, c_scale):
 
 @pytest.mark.parametrize("stream", [cupy.cuda.Stream().ptr, Stream()])
 def test_handle_external_stream(stream):
-
     theta, theta_device = generate_theta(16, 16)
     out_buff = np.empty((1000, 2), dtype=np.int32)
     output_device = device_ndarray(out_buff)

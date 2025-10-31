@@ -1,25 +1,52 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
-[tool.black]
+[tool.ruff]
 line-length = 79
-target-version = ["py310"]
-include = '\.py?$'
-force-exclude = '''
-/(
-    thirdparty |
-    \.eggs |
-    \.git |
-    \.hg |
-    \.mypy_cache |
-    \.tox |
-    \.venv |
-    _build |
-    buck-out |
-    build |
-    dist
-)/
-'''
+include = [
+    "*.py",
+    "*.pyx",
+    "*.pxd",
+    "*.pxi",
+]
+exclude = [
+    "thirdparty",
+    "__init__.py",
+]
+
+[tool.ruff.lint]
+ignore = [
+    # whitespace before :
+    "E203",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Rules ignored only in Cython:
+# E211: whitespace before '(' (used in multi-line imports)
+# E225: Missing whitespace around operators (breaks cython casting syntax like <int>)
+# E226: Missing whitespace around arithmetic operators (breaks cython pointer syntax like int*)
+# E227: Missing whitespace around bitwise or shift operator (Can also break casting syntax)
+# E275: Missing whitespace after keyword (Doesn't work with Cython except?)
+# E402: invalid syntax (works for Python, not Cython)
+# E999: invalid syntax (works for Python, not Cython)
+"*.pyx" = ["E211", "E225", "E226", "E227", "E275", "E402", "E999"]
+"*.pxd" = ["E211", "E225", "E226", "E227", "E275", "E402", "E999"]
+"*.pxi" = ["E211", "E225", "E226", "E227", "E275", "E402", "E999"]
+"*.ipynb" = ["F401"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+order-by-type = true
+default-section = "third-party"
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "dask",
+    "rapids",
+    "first-party",
+    "local-folder",
+]
 
 [tool.pydocstyle]
 # Due to https://github.com/PyCQA/pydocstyle/issues/363, we must exclude rather
