@@ -1,4 +1,8 @@
 /*
+ * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
 //@HEADER
 // ************************************************************************
 //
