@@ -16,7 +16,9 @@ endif()
 # clang)
 if(CMAKE_COMPILER_IS_GNUCXX)
   list(APPEND RAFT_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
-  list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations -Werror=all-warnings)
+  list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations
+       -Werror=all-warnings
+  )
 
 endif()
 
