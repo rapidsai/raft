@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -6,7 +6,6 @@ from __future__ import print_function
 import sys
 import re
 import os
-import subprocess
 import argparse
 
 
@@ -15,14 +14,20 @@ RemoveComments = re.compile(r"//.*")
 
 exclusion_regex = re.compile(r".*thirdparty.*")
 
+
 def parse_args():
     argparser = argparse.ArgumentParser(
-        "Checks for a consistent '#include' syntax")
-    argparser.add_argument("--regex", type=str,
-                           default=r"[.](cu|cuh|h|hpp|hxx|cpp)$",
-                           help="Regex string to filter in sources")
-    argparser.add_argument("dirs", type=str, nargs="*",
-                           help="List of dirs where to find sources")
+        "Checks for a consistent '#include' syntax"
+    )
+    argparser.add_argument(
+        "--regex",
+        type=str,
+        default=r"[.](cu|cuh|h|hpp|hxx|cpp)$",
+        help="Regex string to filter in sources",
+    )
+    argparser.add_argument(
+        "dirs", type=str, nargs="*", help="List of dirs where to find sources"
+    )
     args = argparser.parse_args()
     args.regex_compiled = re.compile(args.regex)
     return args
@@ -33,7 +38,9 @@ def list_all_source_file(file_regex, srcdirs):
     for srcdir in srcdirs:
         for root, dirs, files in os.walk(srcdir):
             for f in files:
-                if not re.search(exclusion_regex, root) and re.search(file_regex, f):
+                if not re.search(exclusion_regex, root) and re.search(
+                    file_regex, f
+                ):
                     src = os.path.join(root, f)
                     all_files.append(src)
     return all_files
@@ -51,10 +58,10 @@ def check_includes_in(src):
         inc_file = val[1:-1]  # strip out " or <
         full_path = os.path.join(dir, inc_file)
         line_num = line_number + 1
-        if val[0] == "\"" and not os.path.exists(full_path):
+        if val[0] == '"' and not os.path.exists(full_path):
             errs.append("Line:%d use #include <...>" % line_num)
         elif val[0] == "<" and os.path.exists(full_path):
-            errs.append("Line:%d use #include \"...\"" % line_num)
+            errs.append('Line:%d use #include "..."' % line_num)
     return errs
 
 

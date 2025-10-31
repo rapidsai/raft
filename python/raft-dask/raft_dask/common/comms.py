@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -362,8 +362,7 @@ def _func_set_scheduler_as_nccl_root(sessionId, verbose, dask_scheduler):
     """
     if verbose:
         logger.info(
-            msg=f"Setting scheduler as NCCL "
-            f"root for sessionId, '{sessionId}'"
+            msg=f"Setting scheduler as NCCL root for sessionId, '{sessionId}'"
         )
 
     nccl_uid = set_nccl_root(sessionId=sessionId, state_object=dask_scheduler)

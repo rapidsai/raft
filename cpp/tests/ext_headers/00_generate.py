@@ -44,10 +44,7 @@ for ext_header in ext_headers:
     header = ext_header.replace("-ext", "")
 
     path = (
-        header
-        .replace("/", "_")
-        .replace(".cuh", ".cu")
-        .replace(".hpp", ".cpp")
+        header.replace("/", "_").replace(".cuh", ".cu").replace(".hpp", ".cpp")
     )
 
     with open(path, "w") as f:

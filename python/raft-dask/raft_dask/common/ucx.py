@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -19,7 +19,6 @@ class UCX:
     __instance = None
 
     def __init__(self, listener_callback):
-
         self.listener_callback = listener_callback
 
         self._create_listener()

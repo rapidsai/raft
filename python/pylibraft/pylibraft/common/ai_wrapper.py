@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -72,7 +72,7 @@ class ai_wrapper:
 
         if expected_dtype is not None and self.dtype != expected_dtype:
             raise ValueError(
-                f"invalid dtype {self.dtype}: expected " f"{expected_dtype}"
+                f"invalid dtype {self.dtype}: expected {expected_dtype}"
             )
 
         if not self.c_contiguous:

@@ -7,31 +7,12 @@ repos:
         hooks:
               - id: trailing-whitespace
               - id: end-of-file-fixer
-      - repo: https://github.com/PyCQA/isort
-        rev: 5.12.0
+      - repo: https://github.com/astral-sh/ruff-pre-commit
+        rev: v0.14.1
         hooks:
-              - id: isort
-                # Use the config file specific to each subproject so that each
-                # project can specify its own first/third-party packages.
-                args: ["--config-root=python/", "--resolve-all-configs"]
-                files: python/.*
-                types_or: [python, cython, pyi]
-      - repo: https://github.com/psf/black
-        rev: 22.3.0
-        hooks:
-              - id: black
-                files: python/.*
-                # Explicitly specify the pyproject.toml at the repo root, not per-project.
-                args: ["--config", "pyproject.toml"]
-      - repo: https://github.com/PyCQA/flake8
-        rev: 7.1.1
-        hooks:
-              - id: flake8
-                args: ["--config=.flake8"]
-                files: python/.*$
-                types: [file]
-                types_or: [python, cython]
-                additional_dependencies: ["flake8-force"]
+              - id: ruff-check
+                args: [--fix]
+              - id: ruff-format
       - repo: https://github.com/pre-commit/mirrors-mypy
         rev: 'v1.3.0'
         hooks:
