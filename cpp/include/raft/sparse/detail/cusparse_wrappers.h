@@ -216,7 +216,6 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                            CUSPARSE_INDEX_BASE_ZERO,
                            CUDA_R_16F);
 }
-
 template <>
 inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                           int64_t rows,
@@ -238,7 +237,6 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                            CUSPARSE_INDEX_BASE_ZERO,
                            CUDA_R_32F);
 }
-
 template <>
 inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                           int64_t rows,
