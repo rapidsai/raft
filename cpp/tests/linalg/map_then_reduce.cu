@@ -148,32 +148,21 @@ class MapGenericReduceTest : public ::testing::Test {
 
   void testMin()
   {
-#if CCCL_MAJOR_VERSION >= 3
-    using cuda::minimum;
-#else
-    using minimum = cub::Min;
-#endif
-
     OutType neutral  = std::numeric_limits<InType>::max();
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, minimum{});
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cuda::minimum{});
     EXPECT_TRUE(raft::devArrMatch(
       OutType(1), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
   void testMax()
   {
-#if CCCL_MAJOR_VERSION >= 3
-    using cuda::maximum;
-#else
-    using maximum = cub::Max;
-#endif
     OutType neutral  = std::numeric_limits<InType>::min();
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, maximum{});
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cuda::maximum{});
     EXPECT_TRUE(raft::devArrMatch(
       OutType(5), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
