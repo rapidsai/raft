@@ -67,9 +67,29 @@ function(ConfigureBench)
 endfunction()
 
 if(BUILD_PRIMS_BENCH)
-  ConfigureBench(NAME CORE_BENCH PATH core/bitset.cu core/copy.cu main.cpp)
+  # Sorted in descending order by compile time, so the *longest* targets are compiled first. Use
+  # https://github.com/nico/ninjatracing to extract the flamegraph from .ninja_log and sort by
+  # compile time:
+  # ~~~
+  # $ ninjatracing cpp/build/.ninja_log | \
+  #   jq -r --arg dir 'bench/prims/CMakeFiles' -f <(cat <<"EOF"
+  # map(
+  #   .dur as $dur | .name
+  #   | scan("^" + $dir + "/(.*)\\.dir/.*$")
+  #   | first | {name: ., dur: $dur}
+  # )
+  # | unique_by(.name)
+  # | sort_by(.dur)
+  # | map(.name)
+  # | reverse[]
+  # EOF
+  # )
+  # ~~~
 
-  ConfigureBench(NAME UTIL_BENCH PATH util/popc.cu main.cpp)
+  ConfigureBench(
+    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu matrix/select_k.cu main.cpp OPTIONAL
+    LIB EXPLICIT_INSTANTIATE_ONLY
+  )
 
   ConfigureBench(
     NAME
@@ -90,18 +110,17 @@ if(BUILD_PRIMS_BENCH)
   )
 
   ConfigureBench(
-    NAME MATRIX_BENCH PATH matrix/argmin.cu matrix/gather.cu matrix/select_k.cu main.cpp OPTIONAL
-    LIB EXPLICIT_INSTANTIATE_ONLY
+    NAME SPARSE_BENCH PATH sparse/bitmap_to_csr.cu sparse/convert_csr.cu sparse/select_k_csr.cu
+    main.cpp
   )
+
+  ConfigureBench(NAME CORE_BENCH PATH core/bitset.cu core/copy.cu main.cpp)
 
   ConfigureBench(
     NAME RANDOM_BENCH PATH random/make_blobs.cu random/permute.cu random/rng.cu random/subsample.cu
     main.cpp
   )
 
-  ConfigureBench(
-    NAME SPARSE_BENCH PATH sparse/bitmap_to_csr.cu sparse/convert_csr.cu sparse/select_k_csr.cu
-    main.cpp
-  )
+  ConfigureBench(NAME UTIL_BENCH PATH util/popc.cu main.cpp)
 
 endif()

@@ -84,59 +84,123 @@ endfunction()
 # test sources ##################################################################################
 # ##################################################################################################
 if(BUILD_TESTS)
+  # Sorted in descending order by compile time, so the *longest* targets are compiled first. Use
+  # https://github.com/nico/ninjatracing to extract the flamegraph from .ninja_log and sort by
+  # compile time:
+  # ~~~
+  # $ ninjatracing cpp/build/.ninja_log | \
+  #   jq -r --arg dir 'tests/CMakeFiles' -f <(cat <<"EOF"
+  # map(
+  #   .dur as $dur | .name
+  #   | scan("^" + $dir + "/(.*)\\.dir/.*$")
+  #   | first | {name: ., dur: $dur}
+  # )
+  # | unique_by(.name)
+  # | sort_by(.dur)
+  # | map(.name)
+  # | reverse[]
+  # EOF
+  # )
+  # ~~~
+
+  ConfigureTest(
+    NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
+    neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
+  )
+
+  ConfigureTest(
+    NAME SOLVERS_TEST PATH linalg/eigen_solvers.cu lap/lap.cu sparse/mst.cu
+    sparse/solver/lanczos.cu LIB EXPLICIT_INSTANTIATE_ONLY
+  )
+
+  ConfigureTest(
+    NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu matrix/select_k_edgecases.cu LIB
+    EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT 100
+  )
+
+  ConfigureTest(
+    NAME MATRIX_SELECT_LARGE_TEST PATH matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS
+    1 PERCENT 100
+  )
+
   ConfigureTest(
     NAME
-    CORE_TEST
+    UTILS_TEST
     PATH
-    core/bitmap.cu
-    core/bitset.cu
-    core/device_resources_manager.cpp
-    core/device_setter.cpp
-    core/math_device.cu
-    core/math_host.cpp
-    core/operators_device.cu
-    core/operators_host.cpp
-    core/handle.cpp
-    core/interruptible.cu
-    core/nvtx.cpp
-    core/mdarray.cu
-    core/mdbuffer.cu
-    core/mdspan_copy.cpp
-    core/mdspan_copy.cu
-    core/mdspan_utils.cu
-    core/numpy_serializer.cu
-    core/memory_type.cpp
-    core/sparse_matrix.cu
-    core/sparse_matrix.cpp
-    core/span.cpp
-    core/span.cu
-    core/stream_view.cpp
-    core/temporary_device_buffer.cu
-    test.cpp
+    core/seive.cu
+    util/bitonic_sort.cu
+    util/cudart_utils.cpp
+    util/device_atomics.cu
+    util/integer_utils.cpp
+    util/integer_utils.cu
+    util/memory_type_dispatcher.cu
+    util/popc.cu
+    util/pow2_utils.cu
+    util/reduction.cu
+  )
+
+  ConfigureTest(
+    NAME
+    SPARSE_TEST
+    PATH
+    sparse/add.cu
+    sparse/convert_coo.cu
+    sparse/convert_csr.cu
+    sparse/csr_row_slice.cu
+    sparse/csr_to_dense.cu
+    sparse/csr_transpose.cu
+    sparse/degree.cu
+    sparse/diagonal.cu
+    sparse/filter.cu
+    sparse/laplacian.cu
+    sparse/masked_matmul.cu
+    sparse/norm.cu
+    sparse/normalize.cu
+    sparse/preprocess.cu
+    sparse/reduce.cu
+    sparse/row_op.cu
+    sparse/sddmm.cu
+    sparse/select_k_csr.cu
+    sparse/sort.cu
+    sparse/spgemmi.cu
+    sparse/spmm.cu
+    sparse/symmetrize.cu
+    GPUS
+    1
+    PERCENT
+    100
+  )
+
+  ConfigureTest(
+    NAME
+    STATS_TEST
+    PATH
+    stats/accuracy.cu
+    stats/adjusted_rand_index.cu
+    stats/completeness_score.cu
+    stats/contingencyMatrix.cu
+    stats/cov.cu
+    stats/dispersion.cu
+    stats/entropy.cu
+    stats/histogram.cu
+    stats/homogeneity_score.cu
+    stats/information_criterion.cu
+    stats/kl_divergence.cu
+    stats/mean.cu
+    stats/meanvar.cu
+    stats/mean_center.cu
+    stats/minmax.cu
+    stats/mutual_info_score.cu
+    stats/r2_score.cu
+    stats/rand_index.cu
+    stats/regression_metrics.cu
+    stats/stddev.cu
+    stats/sum.cu
+    stats/weighted_mean.cu
+    stats/v_measure.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
-
-  ConfigureTest(
-    NAME CORE_TEST PATH core/stream_view.cpp core/mdspan_copy.cpp LIB EXPLICIT_INSTANTIATE_ONLY
-    NOCUDA
-  )
-
-  list(APPEND EXT_HEADER_TEST_SOURCES ext_headers/raft_core_logger.cpp)
-
-  # Test that the split headers compile in isolation with:
-  #
-  # * EXT_HEADERS_TEST_COMPILED_EXPLICIT: RAFT_COMPILED, RAFT_EXPLICIT_INSTANTIATE_ONLY defined
-  # * EXT_HEADERS_TEST_COMPILED_IMPLICIT: RAFT_COMPILED defined
-  # * EXT_HEADERS_TEST_IMPLICIT:          no macros defined.
-  ConfigureTest(
-    NAME EXT_HEADERS_TEST_COMPILED_EXPLICIT PATH ${EXT_HEADER_TEST_SOURCES} LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
-  ConfigureTest(NAME EXT_HEADERS_TEST_COMPILED_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES} LIB)
-  ConfigureTest(NAME EXT_HEADERS_TEST_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES})
-
-  ConfigureTest(NAME LABEL_TEST PATH label/label.cu label/merge_labels.cu)
 
   ConfigureTest(
     NAME
@@ -183,6 +247,58 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME
+    RANDOM_TEST
+    PATH
+    random/make_blobs.cu
+    random/make_regression.cu
+    random/multi_variable_gaussian.cu
+    random/rng_pcg_host_api.cu
+    random/permute.cu
+    random/rng.cu
+    random/rng_discrete.cu
+    random/rng_int.cu
+    random/rmat_rectangular_generator.cu
+    random/sample_without_replacement.cu
+    random/excess_sampling.cu
+  )
+
+  ConfigureTest(
+    NAME
+    CORE_TEST
+    PATH
+    core/bitmap.cu
+    core/bitset.cu
+    core/device_resources_manager.cpp
+    core/device_setter.cpp
+    core/math_device.cu
+    core/math_host.cpp
+    core/operators_device.cu
+    core/operators_host.cpp
+    core/handle.cpp
+    core/interruptible.cu
+    core/nvtx.cpp
+    core/mdarray.cu
+    core/mdbuffer.cu
+    core/mdspan_copy.cpp
+    core/mdspan_copy.cu
+    core/mdspan_utils.cu
+    core/numpy_serializer.cu
+    core/memory_type.cpp
+    core/sparse_matrix.cu
+    core/sparse_matrix.cpp
+    core/span.cpp
+    core/span.cu
+    core/stream_view.cpp
+    core/temporary_device_buffer.cu
+    test.cpp
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+  )
+
+  ConfigureTest(NAME LABEL_TEST PATH label/label.cu label/merge_labels.cu)
+
+  ConfigureTest(
+    NAME
     MATRIX_TEST
     PATH
     matrix/argmax.cu
@@ -211,120 +327,23 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME MATRIX_SELECT_TEST PATH matrix/select_k.cu matrix/select_k_edgecases.cu LIB
-    EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT 100
+    NAME CORE_TEST PATH core/stream_view.cpp core/mdspan_copy.cpp LIB EXPLICIT_INSTANTIATE_ONLY
+    NOCUDA
   )
 
+  # Test that the split headers compile in isolation with:
+  #
+  # * EXT_HEADERS_TEST_COMPILED_EXPLICIT: RAFT_COMPILED, RAFT_EXPLICIT_INSTANTIATE_ONLY defined
+  # * EXT_HEADERS_TEST_COMPILED_IMPLICIT: RAFT_COMPILED defined
+  # * EXT_HEADERS_TEST_IMPLICIT:          no macros defined.
+  list(APPEND EXT_HEADER_TEST_SOURCES ext_headers/raft_core_logger.cpp)
+  ConfigureTest(NAME EXT_HEADERS_TEST_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES})
+  ConfigureTest(NAME EXT_HEADERS_TEST_COMPILED_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES} LIB)
   ConfigureTest(
-    NAME MATRIX_SELECT_LARGE_TEST PATH matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS
-    1 PERCENT 100
-  )
-
-  ConfigureTest(
-    NAME
-    RANDOM_TEST
-    PATH
-    random/make_blobs.cu
-    random/make_regression.cu
-    random/multi_variable_gaussian.cu
-    random/rng_pcg_host_api.cu
-    random/permute.cu
-    random/rng.cu
-    random/rng_discrete.cu
-    random/rng_int.cu
-    random/rmat_rectangular_generator.cu
-    random/sample_without_replacement.cu
-    random/excess_sampling.cu
-  )
-
-  ConfigureTest(
-    NAME SOLVERS_TEST PATH linalg/eigen_solvers.cu lap/lap.cu sparse/mst.cu
-    sparse/solver/lanczos.cu LIB EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureTest(
-    NAME
-    SPARSE_TEST
-    PATH
-    sparse/add.cu
-    sparse/convert_coo.cu
-    sparse/convert_csr.cu
-    sparse/csr_row_slice.cu
-    sparse/csr_to_dense.cu
-    sparse/csr_transpose.cu
-    sparse/degree.cu
-    sparse/diagonal.cu
-    sparse/filter.cu
-    sparse/laplacian.cu
-    sparse/masked_matmul.cu
-    sparse/norm.cu
-    sparse/normalize.cu
-    sparse/preprocess.cu
-    sparse/reduce.cu
-    sparse/row_op.cu
-    sparse/sddmm.cu
-    sparse/select_k_csr.cu
-    sparse/sort.cu
-    sparse/spgemmi.cu
-    sparse/spmm.cu
-    sparse/symmetrize.cu
-    GPUS
-    1
-    PERCENT
-    100
-  )
-
-  ConfigureTest(
-    NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
-    neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
-  )
-
-  ConfigureTest(
-    NAME
-    STATS_TEST
-    PATH
-    stats/accuracy.cu
-    stats/adjusted_rand_index.cu
-    stats/completeness_score.cu
-    stats/contingencyMatrix.cu
-    stats/cov.cu
-    stats/dispersion.cu
-    stats/entropy.cu
-    stats/histogram.cu
-    stats/homogeneity_score.cu
-    stats/information_criterion.cu
-    stats/kl_divergence.cu
-    stats/mean.cu
-    stats/meanvar.cu
-    stats/mean_center.cu
-    stats/minmax.cu
-    stats/mutual_info_score.cu
-    stats/r2_score.cu
-    stats/rand_index.cu
-    stats/regression_metrics.cu
-    stats/stddev.cu
-    stats/sum.cu
-    stats/weighted_mean.cu
-    stats/v_measure.cu
-    LIB
+    NAME EXT_HEADERS_TEST_COMPILED_EXPLICIT PATH ${EXT_HEADER_TEST_SOURCES} LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
 
-  ConfigureTest(
-    NAME
-    UTILS_TEST
-    PATH
-    core/seive.cu
-    util/bitonic_sort.cu
-    util/cudart_utils.cpp
-    util/device_atomics.cu
-    util/integer_utils.cpp
-    util/integer_utils.cu
-    util/memory_type_dispatcher.cu
-    util/popc.cu
-    util/pow2_utils.cu
-    util/reduction.cu
-  )
 endif()
 
 # ##################################################################################################
