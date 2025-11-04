@@ -19,8 +19,8 @@ namespace raft::sparse::solver {
 
 /**
  *  @brief Find the eigenpairs using lanczos solver
- *  @tparam index_type_t the type of data used for indexing.
- *  @tparam value_type_t the type of data used for weights, distances.
+ *  @tparam IndexTypeT the type of data used for indexing.
+ *  @tparam ValueTypeT the type of data used for weights, distances.
  *  @param handle the raft handle.
  *  @param config lanczos config used to set hyperparameters
  *  @param A Sparse matrix in CSR format.
@@ -44,21 +44,21 @@ auto lanczos_compute_smallest_eigenvectors(
 
 /**
  *  @brief Find the eigenpairs using lanczos solver
- *  @tparam index_type_t the type of data used for indexing.
- *  @tparam value_type_t the type of data used for weights, distances.
+ *  @tparam IndexTypeT the type of data used for indexing.
+ *  @tparam ValueTypeT the type of data used for weights, distances.
  *  @param handle the raft handle.
  *  @param config lanczos config used to set hyperparameters
- *  @param A Sparse matrix in CSR format.
+ *  @param A Sparse matrix in COO format.
  *  @param v0 Optional Initial lanczos vector
  *  @param eigenvalues output eigenvalues
  *  @param eigenvectors output eigenvectors
  *  @return Zero if successful. Otherwise non-zero.
  */
-template <typename IndexTypeT, typename ValueTypeT, typename AType>
+template <typename IndexTypeT, typename ValueTypeT>
 auto lanczos_compute_smallest_eigenvectors(
   raft::resources const& handle,
   lanczos_solver_config<ValueTypeT> const& config,
-  AType A,
+  raft::device_coo_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
   std::optional<raft::device_vector_view<ValueTypeT, uint32_t, raft::row_major>> v0,
   raft::device_vector_view<ValueTypeT, uint32_t, raft::col_major> eigenvalues,
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors) -> int
@@ -73,9 +73,9 @@ auto lanczos_compute_smallest_eigenvectors(
  *  @tparam value_type_t the type of data used for weights, distances.
  *  @param handle the raft handle.
  *  @param config lanczos config used to set hyperparameters
- *  @param rows Vector view of the rows of the sparse matrix.
- *  @param cols Vector view of the cols of the sparse matrix.
- *  @param vals Vector view of the vals of the sparse matrix.
+ *  @param rows Vector view of the rows of the sparse CSR matrix.
+ *  @param cols Vector view of the cols of the sparse CSR matrix.
+ *  @param vals Vector view of the vals of the sparse CSR matrix.
  *  @param v0 Optional Initial lanczos vector
  *  @param eigenvalues output eigenvalues
  *  @param eigenvectors output eigenvectors
