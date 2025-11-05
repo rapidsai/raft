@@ -229,8 +229,8 @@ void scale_by_diagonal_symmetric(
     res, values_view, [rows, cols, diag_ptr, values] __device__(NNZType idx) -> T {
       auto row    = rows[idx];
       auto col    = cols[idx];
-      T row_scale = 1.0f / diag_ptr[row];  // Scale factor for this row
-      T col_scale = 1.0f / diag_ptr[col];  // Scale factor for the column
+      T row_scale = diag_ptr[row] == 0 ? 0 : 1.0f / diag_ptr[row];  // Scale factor for this row
+      T col_scale = diag_ptr[col] == 0 ? 0 : 1.0f / diag_ptr[col];  // Scale factor for the column
 
       // Scale by both row and column diagonal elements
       return row_scale * values[idx] * col_scale;
