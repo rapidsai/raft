@@ -199,7 +199,6 @@ void diagonal(raft::resources const& res,
  * @brief Scale a COO matrix by its diagonal elements
  *
  * This function scales each element of the COO matrix by the corresponding diagonal element.
- * Specifically, it computes M_ij = D_i^(-1/2) * M_ij * D_j^(-1/2) where D is the diagonal.
  *
  * @tparam T The data type of the matrix elements
  * @tparam RowType The data type of the row indices
@@ -207,7 +206,7 @@ void diagonal(raft::resources const& res,
  * @tparam NNZType The data type for representing nonzero counts
  *
  * @param[in]     res             RAFT resources for managing device memory and streams
- * @param[in]     diagonal        View of the input vector containing diagonal elements (D^(-1/2))
+ * @param[in]     diagonal        View of the input vector containing diagonal elements
  * @param[in,out] coo_matrix      View of the COO matrix to scale
  */
 template <typename T, typename RowType, typename ColType, typename NNZType>
