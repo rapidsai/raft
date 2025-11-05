@@ -1,4 +1,5 @@
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 repos:
       - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -6,31 +7,12 @@ repos:
         hooks:
               - id: trailing-whitespace
               - id: end-of-file-fixer
-      - repo: https://github.com/PyCQA/isort
-        rev: 5.12.0
+      - repo: https://github.com/astral-sh/ruff-pre-commit
+        rev: v0.14.1
         hooks:
-              - id: isort
-                # Use the config file specific to each subproject so that each
-                # project can specify its own first/third-party packages.
-                args: ["--config-root=python/", "--resolve-all-configs"]
-                files: python/.*
-                types_or: [python, cython, pyi]
-      - repo: https://github.com/psf/black
-        rev: 22.3.0
-        hooks:
-              - id: black
-                files: python/.*
-                # Explicitly specify the pyproject.toml at the repo root, not per-project.
-                args: ["--config", "pyproject.toml"]
-      - repo: https://github.com/PyCQA/flake8
-        rev: 7.1.1
-        hooks:
-              - id: flake8
-                args: ["--config=.flake8"]
-                files: python/.*$
-                types: [file]
-                types_or: [python, cython]
-                additional_dependencies: ["flake8-force"]
+              - id: ruff-check
+                args: [--fix]
+              - id: ruff-format
       - repo: https://github.com/pre-commit/mirrors-mypy
         rev: 'v1.3.0'
         hooks:
@@ -107,20 +89,64 @@ repos:
         hooks:
               - id: check-json
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.5.0
+        rev: v1.2.0
         hooks:
           - id: verify-copyright
+            name: verify-copyright-raft
+            args: [--fix, --spdx]
             files: |
               (?x)
-                  [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
-                  CMakeLists[.]txt$|
-                  CMakeLists_standalone[.]txt$|
-                  meta[.]yaml$
+                [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|bat)$|
+                CMakeLists[.]txt$|
+                CMakeLists_standalone[.]txt$|
+                meta[.]yaml$|
+                ^[.]pre-commit-config[.]yaml$|
+                pyproject[.]toml$|
+                recipe[.]yaml$|
+                dependencies[.]yaml$|
+                Makefile$|
+                pytest[.]ini$|
+                [.]flake8$
             exclude: |
-              (?x)
-                  cpp/include/raft/neighbors/detail/faiss_select/|
-                  cpp/include/raft/thirdparty/|
-                  docs/source/sphinxext/github_link[.]py
+              (?x)^(
+                cpp/include/raft/neighbors/detail/faiss_select/|
+                cpp/include/raft/thirdparty/|
+                docs/source/sphinxext/github_link[.]py$|
+                cpp/include/raft/core/detail/mdspan_numpy_serializer[.]hpp$|
+                cpp/include/raft/core/mdarray[.]hpp$|
+                cpp/include/raft/core/device_container_policy[.]hpp$|
+                cpp/include/raft/core/host_container_policy[.]hpp$
+              )
+          - id: verify-copyright
+            name: verify-copyright-scikit-learn
+            args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND BSD-3-Clause"]
+            files: |
+              (?x)^(
+                docs/source/sphinxext/github_link[.]py$
+              )
+          - id: verify-copyright
+            name: verify-copyright-sandia
+            args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND BSD-3-Clause"]
+            files: |
+              (?x)^(
+                cpp/include/raft/core/mdarray[.]hpp$|
+                cpp/include/raft/core/device_container_policy[.]hpp$|
+                cpp/include/raft/core/host_container_policy[.]hpp$
+              )
+          - id: verify-copyright
+            name: verify-copyright-faiss
+            args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND MIT"]
+            files: |
+              (?x)^(
+                cpp/include/raft/neighbors/detail/faiss_select/
+              )
+          - id: verify-copyright
+            name: verify-copyright-numpy
+            args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND MIT"]
+            files: |
+              (?x)^(
+                cpp/include/raft/core/detail/mdspan_numpy_serializer[.]hpp$
+              )
           - id: verify-alpha-spec
           - id: verify-codeowners
             args: [--fix, --project-prefix=raft]

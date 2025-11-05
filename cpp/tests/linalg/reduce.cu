@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "../test_utils.cuh"
@@ -69,7 +58,7 @@ void reduceLaunch(OutType* dots,
                   ReduceLambda reduce_op,
                   FinalLambda final_op)
 {
-  IdxType output_size = alongRows ? cols : rows;
+  IdxType output_size = alongRows ? rows : cols;
 
   auto output_view          = raft::make_device_vector_view(dots, output_size);
   auto input_view_row_major = raft::make_device_matrix_view(data, rows, cols);
@@ -114,7 +103,81 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType,
   }
 
  protected:
-  void SetUp() override
+  void simpleTest()
+  {
+    IdxType rows           = 3;
+    IdxType cols           = 4;
+    auto data_h            = std::vector<InType>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+    auto expected_output_h = std::vector<OutType>{0.0f, 0.0f, 0.0f, 0.0f};
+    auto output =
+      raft::make_device_vector<OutType, IdxType>(handle, params.alongRows ? rows : cols);
+
+    // Row Major
+    {
+      auto data = raft::make_device_matrix<InType, IdxType, raft::row_major>(handle, rows, cols);
+      raft::copy(data.data_handle(), data_h.data(), data.size(), stream);
+
+      if (params.alongRows) {
+        reduce<Apply::ALONG_ROWS>(handle,
+                                  raft::make_const_mdspan(data.view()),
+                                  output.view(),
+                                  OutType(0.0f),
+                                  false,
+                                  raft::identity_op(),
+                                  raft::max_op(),
+                                  raft::identity_op());
+        expected_output_h = std::vector<OutType>{4, 8, 12};
+      } else {
+        reduce<Apply::ALONG_COLUMNS>(handle,
+                                     raft::make_const_mdspan(data.view()),
+                                     output.view(),
+                                     OutType(0.0f),
+                                     false,
+                                     raft::identity_op(),
+                                     raft::max_op(),
+                                     raft::identity_op());
+        expected_output_h = std::vector<OutType>{9, 10, 11, 12};
+      }
+      ASSERT_TRUE(raft::devArrMatchHost(expected_output_h.data(),
+                                        output.data_handle(),
+                                        output.size(),
+                                        raft::CompareApprox(0.0f),
+                                        stream));
+    }
+    // Col Major
+    {
+      auto data = raft::make_device_matrix<InType, IdxType, raft::col_major>(handle, rows, cols);
+      raft::copy(data.data_handle(), data_h.data(), data.size(), stream);
+      if (params.alongRows) {
+        reduce<Apply::ALONG_ROWS>(handle,
+                                  raft::make_const_mdspan(data.view()),
+                                  output.view(),
+                                  OutType(0.0f),
+                                  false,
+                                  raft::identity_op(),
+                                  raft::max_op(),
+                                  raft::identity_op());
+        expected_output_h = std::vector<OutType>{10, 11, 12};
+      } else {
+        reduce<Apply::ALONG_COLUMNS>(handle,
+                                     raft::make_const_mdspan(data.view()),
+                                     output.view(),
+                                     OutType(0.0f),
+                                     false,
+                                     raft::identity_op(),
+                                     raft::max_op(),
+                                     raft::identity_op());
+        expected_output_h = std::vector<OutType>{3, 6, 9, 12};
+      }
+      ASSERT_TRUE(raft::devArrMatchHost(expected_output_h.data(),
+                                        output.data_handle(),
+                                        output.size(),
+                                        raft::CompareApprox(0.0f),
+                                        stream));
+    }
+  }
+
+  void fullTest()
   {
     raft::random::RngState r(params.seed);
     IdxType rows = params.rows, cols = params.cols;
@@ -179,6 +242,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType,
 
     resource::sync_stream(handle, stream);
   }
+  void SetUp() override {}
 
  protected:
   raft::resources handle;
@@ -193,10 +257,37 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType,
   typedef RAFT_DEPAREN(test_type) test_name;                                                      \
   TEST_P(test_name, Result)                                                                       \
   {                                                                                               \
+    fullTest();                                                                                   \
     ASSERT_TRUE(raft::devArrMatch(                                                                \
       dots_exp.data(), dots_act.data(), dots_exp.size(), raft::CompareApprox(params.tolerance))); \
   }                                                                                               \
   INSTANTIATE_TEST_CASE_P(ReduceTests, test_name, ::testing::ValuesIn(test_inputs))
+
+#define SIMPLE_REDUCE_TEST(test_type, test_name, test_inputs) \
+  typedef RAFT_DEPAREN(test_type) test_name;                  \
+  TEST_P(test_name, Result) { simpleTest(); }                 \
+  INSTANTIATE_TEST_CASE_P(SimpleReduceTests, test_name, ::testing::ValuesIn(test_inputs))
+
+const std::vector<ReduceInputs<float, float, int>> inputs_simple_ff_i32 =
+  raft::util::itertools::product<ReduceInputs<float, float, int>>(
+    {0.000002f}, {3}, {4}, {true, false}, {true, false}, {0.0f}, {1234ULL});
+const std::vector<ReduceInputs<double, double, int>> inputs_simple_dd_i32 =
+  raft::util::itertools::product<ReduceInputs<double, double, int>>(
+    {0.000002}, {3}, {4}, {true, false}, {true, false}, {0.0}, {1234ULL});
+const std::vector<ReduceInputs<float, float, uint32_t>> inputs_simple_ff_u32 =
+  raft::util::itertools::product<ReduceInputs<float, float, uint32_t>>(
+    {0.000002f}, {3u}, {4u}, {true, false}, {true, false}, {0.0f}, {1234ULL});
+const std::vector<ReduceInputs<double, double, uint64_t>> inputs_simple_dd_u64 =
+  raft::util::itertools::product<ReduceInputs<double, double, uint64_t>>(
+    {0.000002}, {3ULL}, {4ULL}, {true, false}, {true, false}, {0.0}, {1234ULL});
+SIMPLE_REDUCE_TEST((ReduceTest<float, float, int>), SimpleReduceTestFFI32, inputs_simple_ff_i32);
+SIMPLE_REDUCE_TEST((ReduceTest<double, double, int>), SimpleReduceTestDDI32, inputs_simple_dd_i32);
+SIMPLE_REDUCE_TEST((ReduceTest<float, float, uint32_t>),
+                   SimpleReduceTestFFU32,
+                   inputs_simple_ff_u32);
+SIMPLE_REDUCE_TEST((ReduceTest<double, double, uint64_t>),
+                   SimpleReduceTestDDU64,
+                   inputs_simple_dd_u64);
 
 const std::vector<ReduceInputs<float, float, int>> inputsff_i32 =
   raft::util::itertools::product<ReduceInputs<float, float, int>>(
