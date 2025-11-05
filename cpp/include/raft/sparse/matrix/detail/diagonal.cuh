@@ -43,7 +43,6 @@ void diagonal(raft::resources const& res,
   auto row_offsets = structure.get_indptr().data();
   auto diag_ptr    = diagonal.data_handle();
 
-  // Initialize diagonal to zero for consistency
   raft::matrix::fill(res, diagonal, T(0));
 
   auto policy = raft::resource::get_thrust_policy(res);
@@ -184,12 +183,10 @@ void diagonal(raft::resources const& res,
   auto cols     = structure.get_cols().data();
   auto diag_ptr = diagonal.data_handle();
 
-  // Initialize diagonal to zero using RAFT's fill function
   raft::matrix::fill(res, diagonal, T(0));
 
   auto policy = raft::resource::get_thrust_policy(res);
 
-  // Extract diagonal elements from COO matrix
   thrust::for_each(policy,
                    thrust::counting_iterator<NNZType>(0),
                    thrust::counting_iterator<NNZType>(nnz),
@@ -229,7 +226,6 @@ void scale_by_diagonal_symmetric(
 
   auto policy = raft::resource::get_thrust_policy(res);
 
-  // Scale each element by both row and column diagonal elements
   thrust::for_each(policy,
                    thrust::counting_iterator<NNZType>(0),
                    thrust::counting_iterator<NNZType>(nnz),
@@ -273,7 +269,6 @@ void set_diagonal(raft::resources const& res,
 
   auto policy = raft::resource::get_thrust_policy(res);
 
-  // Set diagonal elements to the scalar value
   thrust::for_each(policy,
                    thrust::counting_iterator<NNZType>(0),
                    thrust::counting_iterator<NNZType>(nnz),
