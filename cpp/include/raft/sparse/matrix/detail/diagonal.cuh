@@ -10,6 +10,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/util/input_validation.hpp>
 
@@ -176,7 +177,6 @@ void diagonal(raft::resources const& res,
 {
   auto structure = coo_matrix_view.structure_view();
   auto nnz       = structure.get_nnz();
-  auto n_rows    = structure.get_n_rows();
 
   auto values   = coo_matrix_view.get_elements().data();
   auto rows     = structure.get_rows().data();
@@ -185,14 +185,14 @@ void diagonal(raft::resources const& res,
 
   raft::matrix::fill(res, diagonal, T(0));
 
-  auto policy = raft::resource::get_thrust_policy(res);
-
-  thrust::for_each(policy,
-                   thrust::counting_iterator<NNZType>(0),
-                   thrust::counting_iterator<NNZType>(nnz),
-                   [values, rows, cols, diag_ptr] __device__(NNZType idx) {
-                     if (rows[idx] == cols[idx]) { diag_ptr[rows[idx]] = values[idx]; }
-                   });
+  auto values_view = coo_matrix_view.get_elements();
+  raft::linalg::map_offset(
+    res, values_view, [values, rows, cols, diag_ptr] __device__(NNZType idx) -> T {
+      if (rows[idx] == cols[idx]) {
+        diag_ptr[rows[idx]] = values[idx];  // Scatter to diagonal
+      }
+      return values[idx];  // Return value unchanged
+    });
 }
 
 /**
@@ -223,20 +223,18 @@ void scale_by_diagonal_symmetric(
   auto cols     = structure.get_cols().data();
   auto diag_ptr = diagonal.data_handle();
 
-  auto policy = raft::resource::get_thrust_policy(res);
+  // Use map_offset to scale each element by its row and column diagonal values
+  auto values_view = coo_matrix.get_elements();
+  raft::linalg::map_offset(
+    res, values_view, [rows, cols, diag_ptr, values] __device__(NNZType idx) -> T {
+      auto row    = rows[idx];
+      auto col    = cols[idx];
+      T row_scale = 1.0f / diag_ptr[row];  // Scale factor for this row
+      T col_scale = 1.0f / diag_ptr[col];  // Scale factor for the column
 
-  thrust::for_each(policy,
-                   thrust::counting_iterator<NNZType>(0),
-                   thrust::counting_iterator<NNZType>(nnz),
-                   [values, rows, cols, diag_ptr] __device__(NNZType idx) {
-                     auto row    = rows[idx];
-                     auto col    = cols[idx];
-                     T row_scale = 1.0f / diag_ptr[row];  // Scale factor for this row
-                     T col_scale = 1.0f / diag_ptr[col];  // Scale factor for the column
-
-                     // Scale by both row and column diagonal elements
-                     values[idx] = row_scale * values[idx] * col_scale;
-                   });
+      // Scale by both row and column diagonal elements
+      return row_scale * values[idx] * col_scale;
+    });
 }
 
 /**
@@ -266,14 +264,15 @@ void set_diagonal(raft::resources const& res,
   auto rows   = structure.get_rows().data();
   auto cols   = structure.get_cols().data();
 
-  auto policy = raft::resource::get_thrust_policy(res);
-
-  thrust::for_each(policy,
-                   thrust::counting_iterator<NNZType>(0),
-                   thrust::counting_iterator<NNZType>(nnz),
-                   [values, rows, cols, scalar] __device__(NNZType idx) {
-                     if (rows[idx] == cols[idx]) { values[idx] = scalar; }
-                   });
+  // Use map_offset to conditionally set diagonal elements
+  auto values_view = coo_matrix.get_elements();
+  raft::linalg::map_offset(
+    res, values_view, [rows, cols, scalar, values] __device__(NNZType idx) -> T {
+      if (rows[idx] == cols[idx]) {
+        return scalar;  // Set diagonal element to scalar
+      }
+      return values[idx];  // Keep non-diagonal elements unchanged
+    });
 }
 
 }  // namespace raft::sparse::matrix::detail
