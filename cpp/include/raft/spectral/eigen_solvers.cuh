@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __EIGEN_SOLVERS_H
@@ -81,15 +81,16 @@ struct lanczos_solver_t {
       std::nullopt};
     auto input_structure = input.structure_view();
 
-    auto solver_iterations = sparse::solver::lanczos_compute_smallest_eigenvectors(
-      handle,
-      lanczos_config,
-      input,
-      v0_opt,
-      raft::make_device_vector_view<value_type_t, uint32_t, raft::col_major>(eigVals,
-                                                                             config_.n_eigVecs),
-      raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(
-        eigVecs, input_structure.get_n_rows(), config_.n_eigVecs));
+    auto solver_iterations =
+      sparse::solver::lanczos_compute_smallest_eigenvectors<index_type_t, value_type_t>(
+        handle,
+        lanczos_config,
+        input,
+        v0_opt,
+        raft::make_device_vector_view<value_type_t, uint32_t, raft::col_major>(eigVals,
+                                                                               config_.n_eigVecs),
+        raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(
+          eigVecs, input_structure.get_n_rows(), config_.n_eigVecs));
 
     return index_type_t{solver_iterations};
   }
