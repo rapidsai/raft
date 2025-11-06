@@ -259,6 +259,126 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                            CUDA_R_64F);
 }
 /** @} */
+
+/**
+ * @defgroup cusparse Create COO operations
+ * @{
+ */
+template <typename ValueT, typename RowIndicesType, typename ColIndicesType>
+cusparseStatus_t cusparsecreatecoo(cusparseSpMatDescr_t* spMatDescr,
+                                   int64_t rows,
+                                   int64_t cols,
+                                   int64_t nnz,
+                                   RowIndicesType* cooRowInd,
+                                   ColIndicesType* cooColInd,
+                                   ValueT* cooValues);
+
+template <>
+inline cusparseStatus_t cusparsecreatecoo(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows,
+                                          int64_t cols,
+                                          int64_t nnz,
+                                          int32_t* cooRowInd,
+                                          int32_t* cooColInd,
+                                          float* cooValues)
+{
+  return cusparseCreateCoo(spMatDescr,
+                           rows,
+                           cols,
+                           nnz,
+                           cooRowInd,
+                           cooColInd,
+                           cooValues,
+                           CUSPARSE_INDEX_32I,
+                           CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_32F);
+}
+
+template <>
+inline cusparseStatus_t cusparsecreatecoo(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows,
+                                          int64_t cols,
+                                          int64_t nnz,
+                                          int32_t* cooRowInd,
+                                          int32_t* cooColInd,
+                                          double* cooValues)
+{
+  return cusparseCreateCoo(spMatDescr,
+                           rows,
+                           cols,
+                           nnz,
+                           cooRowInd,
+                           cooColInd,
+                           cooValues,
+                           CUSPARSE_INDEX_32I,
+                           CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_64F);
+}
+
+template <>
+inline cusparseStatus_t cusparsecreatecoo(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows,
+                                          int64_t cols,
+                                          int64_t nnz,
+                                          int32_t* cooRowInd,
+                                          int32_t* cooColInd,
+                                          half* cooValues)
+{
+  return cusparseCreateCoo(spMatDescr,
+                           rows,
+                           cols,
+                           nnz,
+                           cooRowInd,
+                           cooColInd,
+                           cooValues,
+                           CUSPARSE_INDEX_32I,
+                           CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_16F);
+}
+
+template <>
+inline cusparseStatus_t cusparsecreatecoo(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows,
+                                          int64_t cols,
+                                          int64_t nnz,
+                                          int64_t* cooRowInd,
+                                          int64_t* cooColInd,
+                                          float* cooValues)
+{
+  return cusparseCreateCoo(spMatDescr,
+                           rows,
+                           cols,
+                           nnz,
+                           cooRowInd,
+                           cooColInd,
+                           cooValues,
+                           CUSPARSE_INDEX_64I,
+                           CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_32F);
+}
+
+template <>
+inline cusparseStatus_t cusparsecreatecoo(cusparseSpMatDescr_t* spMatDescr,
+                                          int64_t rows,
+                                          int64_t cols,
+                                          int64_t nnz,
+                                          int64_t* cooRowInd,
+                                          int64_t* cooColInd,
+                                          double* cooValues)
+{
+  return cusparseCreateCoo(spMatDescr,
+                           rows,
+                           cols,
+                           nnz,
+                           cooRowInd,
+                           cooColInd,
+                           cooValues,
+                           CUSPARSE_INDEX_64I,
+                           CUSPARSE_INDEX_BASE_ZERO,
+                           CUDA_R_64F);
+}
+/** @} */
+
 /**
  * @defgroup cusparse CreateDnVec operations
  * @{
