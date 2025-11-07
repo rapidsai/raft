@@ -147,10 +147,10 @@ if [[ "${RUN_CONTEXT}" == "main" ]]; then
     # In main context, update CI script URLs to use NEW release/ paradigm
     sed_runner "s|/rapidsai/rapids-cmake/main/|/rapidsai/rapids-cmake/release/${NEXT_SHORT_TAG}/|g" ci/check_style.sh
 elif [[ "${RUN_CONTEXT}" == "release" ]]; then
-    # In release context, use release branch for documentation links
-    sed_runner "s|main|release/${NEXT_SHORT_TAG}|g" docs/source/build.md
-    sed_runner "s|main|release/${NEXT_SHORT_TAG}|g" docs/source/developer_guide.md
-    sed_runner "s|main|release/${NEXT_SHORT_TAG}|g" README.md
+    # In release context, use release branch for documentation links (word boundaries to avoid partial matches)
+    sed_runner "s|\\bmain\\b|release/${NEXT_SHORT_TAG}|g" docs/source/build.md
+    sed_runner "s|\\bmain\\b|release/${NEXT_SHORT_TAG}|g" docs/source/developer_guide.md
+    sed_runner "s|\\bmain\\b|release/${NEXT_SHORT_TAG}|g" README.md
     # Update CI script URLs to use NEW release/ paradigm
     sed_runner "s|/rapidsai/rapids-cmake/main/|/rapidsai/rapids-cmake/release/${NEXT_SHORT_TAG}/|g" ci/check_style.sh
 fi
