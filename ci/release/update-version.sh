@@ -144,21 +144,13 @@ done
 sed_runner "/^set(RAFT_VERSION/ s|\".*\"|\"${NEXT_SHORT_TAG}\"|g" docs/source/build.md
 
 if [[ "${RUN_CONTEXT}" == "main" ]]; then
-    # In main context, use main branch for documentation links
-    sed_runner "s|branch-[0-9][0-9]\\.[0-9][0-9]|main|g" docs/source/build.md
-    sed_runner "/rapidsai\\/raft/ s|branch-[0-9][0-9]\\.[0-9][0-9]|main|g" docs/source/developer_guide.md
-    sed_runner "s|branch-[0-9][0-9]\\.[0-9][0-9]|main|g" README.md
-    # Update CI script URLs to use NEW release/ paradigm
-    sed_runner "s|/rapidsai/rapids-cmake/branch-[^/]*/|/rapidsai/rapids-cmake/release/${NEXT_SHORT_TAG}/|g" ci/check_style.sh
+    # In main context, update CI script URLs to use NEW release/ paradigm
     sed_runner "s|/rapidsai/rapids-cmake/main/|/rapidsai/rapids-cmake/release/${NEXT_SHORT_TAG}/|g" ci/check_style.sh
 elif [[ "${RUN_CONTEXT}" == "release" ]]; then
     # In release context, use release branch for documentation links
-    sed_runner "s|main|branch-${NEXT_SHORT_TAG}|g" docs/source/build.md
-    sed_runner "s|branch-[0-9][0-9]\\.[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" docs/source/build.md
-    sed_runner "s|main|branch-${NEXT_SHORT_TAG}|g" docs/source/developer_guide.md
-    sed_runner "/rapidsai\\/raft/ s|branch-[0-9][0-9]\\.[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" docs/source/developer_guide.md
-    sed_runner "s|main|branch-${NEXT_SHORT_TAG}|g" README.md
-    sed_runner "s|branch-[0-9][0-9]\\.[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" README.md
+    sed_runner "s|main|release/${NEXT_SHORT_TAG}|g" docs/source/build.md
+    sed_runner "s|main|release/${NEXT_SHORT_TAG}|g" docs/source/developer_guide.md
+    sed_runner "s|main|release/${NEXT_SHORT_TAG}|g" README.md
     # Update CI script URLs to use NEW release/ paradigm
     sed_runner "s|/rapidsai/rapids-cmake/main/|/rapidsai/rapids-cmake/release/${NEXT_SHORT_TAG}/|g" ci/check_style.sh
 fi
