@@ -86,10 +86,10 @@ void scale_by_diagonal_symmetric(
   auto diag_ptr    = diagonal.data_handle();
 
   raft::linalg::map_offset(res, diagonal, [=] __device__(auto idx) {
-    T row_scale = 1.0f / diag_ptr[idx];  // Scale factor for this row
+    T row_scale = diag_ptr[idx] == 0 ? 0 : 1.0f / diag_ptr[idx];  // Scale factor for this row
     for (auto j = row_offsets[idx]; j < row_offsets[idx + 1]; j++) {
       IndexType col = col_indices[j];
-      T col_scale   = 1.0f / diag_ptr[col];  // Scale factor for the column
+      T col_scale   = diag_ptr[col] == 0 ? 0 : 1.0f / diag_ptr[col];  // Scale factor for the column
       values[j]     = row_scale * values[j] * col_scale;
     }
     return diag_ptr[idx];
@@ -168,7 +168,7 @@ void diagonal(raft::resources const& res,
 
   auto values_view = raft::make_device_vector_view(values, nnz);
 
-  raft::linalg::map_offset(res, values_view, [=] __device__(NNZType idx) {
+  raft::linalg::map_offset(res, values_view, [=] __device__(auto idx) {
     if (rows[idx] == cols[idx]) { diag_ptr[rows[idx]] = values[idx]; }
     return values[idx];
   });
@@ -204,11 +204,11 @@ void scale_by_diagonal_symmetric(
 
   auto values_view = raft::make_device_vector_view(values, nnz);
 
-  raft::linalg::map_offset(res, values_view, [=] __device__(NNZType idx) {
+  raft::linalg::map_offset(res, values_view, [=] __device__(auto idx) {
     auto row    = rows[idx];
     auto col    = cols[idx];
-    T row_scale = 1.0f / diag_ptr[row];  // Scale factor for this row
-    T col_scale = 1.0f / diag_ptr[col];  // Scale factor for the column
+    T row_scale = diag_ptr[row] == 0 ? 0 : 1.0f / diag_ptr[row];  // Scale factor for this row
+    T col_scale = diag_ptr[col] == 0 ? 0 : 1.0f / diag_ptr[col];  // Scale factor for the column
 
     return row_scale * values[idx] * col_scale;
   });
@@ -243,7 +243,7 @@ void set_diagonal(raft::resources const& res,
 
   auto values_view = raft::make_device_vector_view(values, nnz);
 
-  raft::linalg::map_offset(res, values_view, [=] __device__(NNZType idx) {
+  raft::linalg::map_offset(res, values_view, [=] __device__(auto idx) {
     if (rows[idx] == cols[idx]) { return scalar; }
     return values[idx];
   });
