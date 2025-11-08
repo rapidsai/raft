@@ -9,7 +9,6 @@
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/matrix/init.cuh>
 #include <raft/util/input_validation.hpp>
 
