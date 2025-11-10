@@ -94,7 +94,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/build_cpp.sh
-      node_type: cpu16
+      node_type: cpu8
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
@@ -146,7 +146,7 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      node_type: cpu16
+      node_type: cpu8
       script: ci/build_wheel_libraft.sh
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
