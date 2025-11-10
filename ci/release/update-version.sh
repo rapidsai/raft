@@ -89,9 +89,16 @@ function sed_runner() {
     sed -i.bak ''"${1}"'' "${2}" && rm -f "${2}".bak
 }
 
-# Update UCXX references this does NOT use context-aware branch logic
+# Update UCXX references - context-aware for ucxx's release/ branching strategy
 sed_runner 's/'"find_and_configure_ucxx(VERSION .*"'/'"find_and_configure_ucxx(VERSION  ${NEXT_UCXX_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
-sed_runner 's/'"branch-.*"'/'"branch-${NEXT_UCXX_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
+
+if [[ "${RUN_CONTEXT}" == "main" ]]; then
+  # In main context, keep ucxx on main (no changes needed to PINNED_TAG)
+  :
+elif [[ "${RUN_CONTEXT}" == "release" ]]; then
+  # In release context, use ucxx's release/ branching strategy with ucxx's versioning
+  sed_runner 's|PINNED_TAG       main|PINNED_TAG       release/${NEXT_UCXX_SHORT_TAG_PEP440}|g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
+fi
 
 # Centralized version file update
 echo "${NEXT_FULL_TAG}" > VERSION
