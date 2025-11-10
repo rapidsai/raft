@@ -93,11 +93,11 @@ function sed_runner() {
 sed_runner 's/'"find_and_configure_ucxx(VERSION .*"'/'"find_and_configure_ucxx(VERSION  ${NEXT_UCXX_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
 
 if [[ "${RUN_CONTEXT}" == "main" ]]; then
-  # In main context, keep ucxx on main (no changes needed to PINNED_TAG)
+  # In main context, keep ucxx on main (no changes needed)
   :
 elif [[ "${RUN_CONTEXT}" == "release" ]]; then
   # In release context, use ucxx's release/ branching strategy with ucxx's versioning
-  sed_runner 's|PINNED_TAG       main|PINNED_TAG       release/${NEXT_UCXX_SHORT_TAG_PEP440}|g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
+  sed_runner "s|main|release/${NEXT_UCXX_SHORT_TAG_PEP440}|g" python/raft-dask/cmake/thirdparty/get_ucxx.cmake
 fi
 
 # Centralized version file update
