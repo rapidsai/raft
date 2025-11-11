@@ -9,6 +9,12 @@
 #include <raft/core/resource/multi_gpu.hpp>
 #include <raft/core/resource/resource_types.hpp>
 
+#include <rmm/cuda_device.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
+
+#include <memory>
 #include <unordered_set>
 #include <vector>
 
@@ -77,14 +83,21 @@ class device_resources_snmg : public device_resources {
   /**
    * @brief Set a memory pool on all GPUs of the multi-gpu world
    */
-  void set_memory_pool(int percent_of_free_memory) const
+  void set_memory_pool(int percent_of_free_memory)
   {
     int world_size = raft::resource::get_num_ranks(*this);
-    for (int gpu_id = 0; gpu_id < world_size; gpu_id++) {
-      const raft::resources& dev_res = raft::resource::set_current_device_to_rank(*this, gpu_id);
-      // check limit for each device
-      size_t limit = rmm::percent_of_free_device_memory(percent_of_free_memory);
-      raft::resource::set_workspace_to_pool_resource(dev_res, limit);
+    for (int rank = 0; rank < world_size; rank++) {
+      const raft::resources& dev_res = raft::resource::set_current_device_to_rank(*this, rank);
+      
+      // Get the actual device ID for this rank
+      int device_id = raft::resource::get_device_id(dev_res);
+      
+      // create a pool memory resource for each device
+      auto old_mr = rmm::mr::get_current_device_resource();
+      per_device_pools_.push_back(std::make_unique<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>(
+        old_mr, rmm::percent_of_free_device_memory(percent_of_free_memory)));
+      rmm::cuda_device_id id(device_id);
+      rmm::mr::set_per_device_resource(id, per_device_pools_.back().get());
     }
     RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
@@ -125,6 +138,7 @@ class device_resources_snmg : public device_resources {
     }
   }
   int main_gpu_id_;
+  std::vector<std::unique_ptr<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>> per_device_pools_;
 };  // class device_resources_snmg
 
 }  // namespace raft
