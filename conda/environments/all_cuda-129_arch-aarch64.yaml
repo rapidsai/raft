@@ -18,7 +18,7 @@ dependencies:
 - cuda-version=12.9
 - cupy>=13.6.0
 - cxx-compiler
-- cython>=3.0.0
+- cython>=3.0.0,<3.2.0a0
 - dask-cuda==25.12.*,>=0.0.0a0
 - distributed-ucxx==0.47.*,>=0.0.0a0
 - doxygen>=1.8.20
@@ -37,8 +37,8 @@ dependencies:
 - pre-commit
 - pydata-sphinx-theme
 - pylibraft==25.12.*,>=0.0.0a0
-- pytest
 - pytest-cov
+- pytest<9.0.0a0
 - rapids-build-backend>=0.4.0,<0.5.0.dev0
 - rapids-dask-dependency==25.12.*,>=0.0.0a0
 - rapids-logger==0.2.*,>=0.0.0a0
