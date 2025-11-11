@@ -42,7 +42,7 @@ fi
 SKBUILD_CMAKE_ARGS="-DUSE_NCCL_RUNTIME_WHEEL=ON"
 export SKBUILD_CMAKE_ARGS
 
-sccache --zero-stats
+sccache --stop-server >/dev/null 2>&1 || true
 
 rapids-logger "Building '${package_name}' wheel"
 
