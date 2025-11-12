@@ -93,8 +93,8 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: pull-request
-      node_type: cpu4
       script: ci/build_cpp.sh
+      node_type: cpu8
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
@@ -146,7 +146,7 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      node_type: cpu4
+      node_type: cpu8
       script: ci/build_wheel_libraft.sh
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
@@ -159,7 +159,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: pull-request
-      node_type: cpu4
+      node_type: cpu8
       script: ci/build_wheel_pylibraft.sh
       package-name: pylibraft
       package-type: python
@@ -179,7 +179,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: pull-request
-      node_type: cpu4
+      node_type: cpu8
       script: "ci/build_wheel_raft_dask.sh"
       package-name: raft_dask
       package-type: python
