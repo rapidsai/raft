@@ -40,7 +40,7 @@ endfunction()
 # CPM_ucxx_SOURCE=/path/to/local/ucxx
 find_and_configure_ucxx(VERSION  0.47
         FORK             rapidsai
-        PINNED_TAG       branch-0.47
+        PINNED_TAG       main
         EXCLUDE_FROM_ALL YES
         UCXX_STATIC      ${RAFT_DASK_UCXX_STATIC}
     )
