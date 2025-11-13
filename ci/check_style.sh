@@ -18,7 +18,7 @@ conda activate checks
 # get config for cmake-format checks
 RAPIDS_BRANCH="$(cat "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../RAPIDS_BRANCH)"
 FORMAT_FILE_URL="https://raw.githubusercontent.com/rapidsai/rapids-cmake/${RAPIDS_BRANCH}/cmake-format-rapids-cmake.json"
-export RAPIDS_CMAKE_FORMAT_FILE=/tmp/rapids_cmake_ci/cmake-formats-rapids-cmake.json
+export RAPIDS_CMAKE_FORMAT_FILE=/tmp/rapids_cmake_ci/cmake-format-rapids-cmake.json
 mkdir -p "$(dirname ${RAPIDS_CMAKE_FORMAT_FILE})"
 wget -O ${RAPIDS_CMAKE_FORMAT_FILE} "${FORMAT_FILE_URL}"
 
