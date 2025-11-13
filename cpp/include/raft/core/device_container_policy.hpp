@@ -21,7 +21,7 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
 #include <thrust/device_ptr.h>
