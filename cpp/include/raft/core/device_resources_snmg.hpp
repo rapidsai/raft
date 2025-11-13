@@ -81,10 +81,11 @@ class device_resources_snmg : public device_resources {
   ~device_resources_snmg()
   {
     // Restore original device memory resources
-    for (const auto& [device_id, original_mr] : device_original_mrs_) {
-      RAFT_CUDA_TRY(cudaSetDevice(device_id));
-      rmm::cuda_device_id id(device_id);
-      rmm::mr::set_per_device_resource(id, original_mr);
+    if (!device_original_mrs_.empty()) {
+      for (const auto& [device_id, original_mr] : device_original_mrs_) {
+        rmm::cuda_device_id id(device_id);
+        rmm::mr::set_per_device_resource(id, original_mr);
+      }
     }
   }
 
