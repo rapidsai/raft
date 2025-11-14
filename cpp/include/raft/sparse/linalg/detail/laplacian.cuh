@@ -18,11 +18,20 @@
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/sparse/matrix/diagonal.cuh>
 
 #include <type_traits>
 
 namespace raft::sparse::linalg::detail {
+
+struct zero_to_one_functor {
+  template <typename T>
+  __device__ T operator()(const T& x) const
+  {
+    return x == T(0) ? T(1) : x;
+  }
+};
 
 /* Compute the graph Laplacian of an adjacency matrix
  *
@@ -147,6 +156,9 @@ auto laplacian_normalized(
 
   raft::linalg::unary_op(
     res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), raft::sqrt_op());
+
+  raft::linalg::map(
+    res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), zero_to_one_functor{});
 
   raft::sparse::matrix::scale_by_diagonal_symmetric(res, diagonal.view(), laplacian.view());
   raft::sparse::matrix::set_diagonal(res, laplacian.view(), static_cast<ElementType>(1.0));
