@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __EIGEN_SOLVERS_H
 #define __EIGEN_SOLVERS_H
@@ -92,15 +81,16 @@ struct lanczos_solver_t {
       std::nullopt};
     auto input_structure = input.structure_view();
 
-    auto solver_iterations = sparse::solver::lanczos_compute_smallest_eigenvectors(
-      handle,
-      lanczos_config,
-      input,
-      v0_opt,
-      raft::make_device_vector_view<value_type_t, uint32_t, raft::col_major>(eigVals,
-                                                                             config_.n_eigVecs),
-      raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(
-        eigVecs, input_structure.get_n_rows(), config_.n_eigVecs));
+    auto solver_iterations =
+      sparse::solver::lanczos_compute_smallest_eigenvectors<index_type_t, value_type_t>(
+        handle,
+        lanczos_config,
+        input,
+        v0_opt,
+        raft::make_device_vector_view<value_type_t, uint32_t, raft::col_major>(eigVals,
+                                                                               config_.n_eigVecs),
+        raft::make_device_matrix_view<value_type_t, uint32_t, raft::col_major>(
+          eigVecs, input_structure.get_n_rows(), config_.n_eigVecs));
 
     return index_type_t{solver_iterations};
   }
