@@ -17,7 +17,7 @@
 #include <raft_internal/matrix/select_k.cuh>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 
 #include <cstdint>
 #include <cstring>
