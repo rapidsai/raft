@@ -1,21 +1,11 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -40,9 +30,9 @@ namespace raft::sparse::matrix {
  * @param[out] diagonal        View of the output vector where diagonal elements will be stored
  *
  */
-template <typename T, typename IndexType>
+template <typename T, typename IndptrType, typename IndexType, typename NNZType>
 void diagonal(raft::resources const& res,
-              raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
+              raft::device_csr_matrix_view<T, IndptrType, IndexType, NNZType> csr_matrix_view,
               raft::device_vector_view<T, IndexType> diagonal)
 {
   detail::diagonal(res, csr_matrix_view, diagonal);
@@ -64,11 +54,11 @@ void diagonal(raft::resources const& res,
  *
  *
  */
-template <typename T, typename IndexType>
+template <typename T, typename IndptrType, typename IndexType, typename NNZType>
 void scale_by_diagonal_symmetric(
   raft::resources const& res,
   const raft::device_vector_view<T, IndexType> diagonal,
-  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view)
+  raft::device_csr_matrix_view<T, IndptrType, IndexType, NNZType> csr_matrix_view)
 {
   detail::scale_by_diagonal_symmetric(res, diagonal, csr_matrix_view);
 }
@@ -88,12 +78,82 @@ void scale_by_diagonal_symmetric(
  * @param[in]  scalar          The scalar value to set the diagonal elements to
  *
  */
-template <typename T, typename IndexType>
+template <typename T, typename IndptrType, typename IndexType, typename NNZType>
 void set_diagonal(raft::resources const& res,
-                  raft::device_csr_matrix_view<T, IndexType, IndexType, IndexType> csr_matrix_view,
+                  raft::device_csr_matrix_view<T, IndptrType, IndexType, NNZType> csr_matrix_view,
                   T scalar)
 {
   detail::set_diagonal(res, csr_matrix_view, scalar);
+}
+
+/**
+ * @brief Get the diagonal vector from a COO matrix
+ *
+ * This function extracts the diagonal elements from a COO matrix and stores them in a vector.
+ * The diagonal elements are the elements where the row index and column index are the same.
+ *
+ * @tparam T The data type of the matrix elements
+ * @tparam RowType The data type of the row indices
+ * @tparam ColType The data type of the column indices
+ * @tparam NNZType The data type for representing nonzero counts
+ *
+ * @param[in]  res             RAFT resources for managing device memory and streams
+ * @param[in]  coo_matrix_view View of the input COO matrix from which to extract the diagonal
+ * @param[out] diagonal        View of the output vector where diagonal elements will be stored
+ */
+template <typename T, typename RowType, typename ColType, typename NNZType>
+void diagonal(raft::resources const& res,
+              raft::device_coo_matrix_view<T, RowType, ColType, NNZType> coo_matrix_view,
+              raft::device_vector_view<T, RowType> diagonal)
+{
+  detail::diagonal(res, coo_matrix_view, diagonal);
+}
+
+/**
+ * @brief Scale a COO matrix by its diagonal elements
+ *
+ * This function scales each element of the COO matrix by the corresponding diagonal element.
+ * The diagonal elements are assumed to be stored in the diagonal vector.
+ *
+ * @tparam T The data type of the matrix elements
+ * @tparam RowType The data type of the row indices
+ * @tparam ColType The data type of the column indices
+ * @tparam NNZType The data type for representing nonzero counts
+ *
+ * @param[in]  res             RAFT resources for managing device memory and streams
+ * @param[in]  diagonal        View of the input vector containing diagonal elements
+ * @param[in]  coo_matrix_view View of the input COO matrix to scale
+ */
+template <typename T, typename RowType, typename ColType, typename NNZType>
+void scale_by_diagonal_symmetric(
+  raft::resources const& res,
+  const raft::device_vector_view<T, RowType> diagonal,
+  raft::device_coo_matrix_view<T, RowType, ColType, NNZType> coo_matrix_view)
+{
+  detail::scale_by_diagonal_symmetric(res, diagonal, coo_matrix_view);
+}
+
+/**
+ * @brief Set the diagonal elements of a COO matrix to a scalar value
+ *
+ * This function sets the diagonal elements of a COO matrix to a scalar value.
+ * The diagonal elements are the elements where the row index and column index are the same.
+ *
+ * @tparam T The data type of the matrix elements
+ * @tparam RowType The data type of the row indices
+ * @tparam ColType The data type of the column indices
+ * @tparam NNZType The data type for representing nonzero counts
+ *
+ * @param[in]  res             RAFT resources for managing device memory and streams
+ * @param[in]  coo_matrix_view View of the input COO matrix to modify
+ * @param[in]  scalar          The scalar value to set the diagonal elements to
+ */
+template <typename T, typename RowType, typename ColType, typename NNZType>
+void set_diagonal(raft::resources const& res,
+                  raft::device_coo_matrix_view<T, RowType, ColType, NNZType> coo_matrix_view,
+                  T scalar)
+{
+  detail::set_diagonal(res, coo_matrix_view, scalar);
 }
 
 }  // namespace raft::sparse::matrix

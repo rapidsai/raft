@@ -1,16 +1,5 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # IMPORTANT DISCLAIMER:                                                       #
@@ -31,7 +20,8 @@ import subprocess
 EXPECTED_VERSIONS = ("20.1.4",)
 VERSION_REGEX = re.compile(r"clang version ([0-9.]+)")
 CMAKE_COMPILER_REGEX = re.compile(
-    r"^\s*CMAKE_CXX_COMPILER:FILEPATH=(.+)\s*$", re.MULTILINE)
+    r"^\s*CMAKE_CXX_COMPILER:FILEPATH=(.+)\s*$", re.MULTILINE
+)
 CLANG_COMPILER = "clang++"
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
@@ -39,7 +29,7 @@ XCOMPILER_FLAG = re.compile(r"-((Xcompiler)|(-compiler-options))=?")
 XPTXAS_FLAG = re.compile(r"-((Xptxas)|(-ptxas-options))=?")
 # any options that may have equal signs in nvcc but not in clang
 # add those options here if you find any
-OPTIONS_NO_EQUAL_SIGN = ['-isystem']
+OPTIONS_NO_EQUAL_SIGN = ["-isystem"]
 SEPARATOR = "-" * 8
 END_SEPARATOR = "*" * 64
 
@@ -47,28 +37,48 @@ END_SEPARATOR = "*" * 64
 def parse_args():
     argparser = argparse.ArgumentParser("Runs clang-tidy on a project")
     argparser.add_argument(
-        "-cdb", type=str, default="compile_commands.json",
-        help="Path to cmake-generated compilation database")
+        "-cdb",
+        type=str,
+        default="compile_commands.json",
+        help="Path to cmake-generated compilation database",
+    )
     argparser.add_argument(
-        "-exe", type=str, default="clang-tidy", help="Path to clang-tidy exe")
+        "-exe", type=str, default="clang-tidy", help="Path to clang-tidy exe"
+    )
     argparser.add_argument(
-        "-ignore", type=str, default=None,
-        help="Regex used to ignore files from checking")
+        "-ignore",
+        type=str,
+        default=None,
+        help="Regex used to ignore files from checking",
+    )
     argparser.add_argument(
-        "-select", type=str, default=None,
-        help="Regex used to select files for checking")
+        "-select",
+        type=str,
+        default=None,
+        help="Regex used to select files for checking",
+    )
     argparser.add_argument(
-        "-j", type=int, default=-1, help="Number of parallel jobs to launch.")
+        "-j", type=int, default=-1, help="Number of parallel jobs to launch."
+    )
     argparser.add_argument(
-        "-root", type=str, default=None,
-        help="Repo root path to filter headers correctly, CWD by default.")
+        "-root",
+        type=str,
+        default=None,
+        help="Repo root path to filter headers correctly, CWD by default.",
+    )
     argparser.add_argument(
-        "-thrust_dir", type=str, default=None,
-        help="Pass the directory to a THRUST git repo recent enough for clang.")
+        "-thrust_dir",
+        type=str,
+        default=None,
+        help="Pass the directory to a THRUST git repo recent enough for clang.",
+    )
     argparser.add_argument(
-        "-build_dir", type=str, default=None,
+        "-build_dir",
+        type=str,
+        default=None,
         help="Directory from which compile commands should be called. "
-        "By default, directory of compile_commands.json file.")
+        "By default, directory of compile_commands.json file.",
+    )
     args = argparser.parse_args()
     if args.j <= 0:
         args.j = mp.cpu_count()
@@ -82,8 +92,10 @@ def parse_args():
         raise Exception("Failed to figure out clang compiler version!")
     version = version.group(1)
     if version not in EXPECTED_VERSIONS:
-        raise Exception("clang compiler version must be in %s found '%s'" %
-                        (EXPECTED_VERSIONS, version))
+        raise Exception(
+            "clang compiler version must be in %s found '%s'"
+            % (EXPECTED_VERSIONS, version)
+        )
     if not os.path.exists(args.cdb):
         raise Exception("Compilation database '%s' missing" % args.cdb)
     # we assume that this script is run from repo root
@@ -93,7 +105,8 @@ def parse_args():
     # we need to have a recent enough cub version for clang to compile
     if args.thrust_dir is None:
         args.thrust_dir = os.path.join(
-            os.path.dirname(args.cdb), "thrust_1.15", "src", "thrust_1.15")
+            os.path.dirname(args.cdb), "thrust_1.15", "src", "thrust_1.15"
+        )
     if args.build_dir is None:
         args.build_dir = os.path.dirname(args.cdb)
     if not os.path.isdir(args.thrust_dir):
@@ -131,11 +144,14 @@ def get_gpu_archs(command):
     # clang only accepts a single architecture, so first determine the lowest
     archs = []
     for loc in range(len(command)):
-        if (command[loc] != "-gencode" and command[loc] != "--generate-code"
-                and not command[loc].startswith("--generate-code=")):
+        if (
+            command[loc] != "-gencode"
+            and command[loc] != "--generate-code"
+            and not command[loc].startswith("--generate-code=")
+        ):
             continue
         if command[loc].startswith("--generate-code="):
-            arch_flag = command[loc][len("--generate-code="):]
+            arch_flag = command[loc][len("--generate-code=") :]
         else:
             arch_flag = command[loc + 1]
         match = GPU_ARCH_REGEX.search(arch_flag)
@@ -145,8 +161,9 @@ def get_gpu_archs(command):
 
 
 def get_index(arr, item_options):
-    return set(i for i, s in enumerate(arr) for item in item_options
-               if s == item)
+    return set(
+        i for i, s in enumerate(arr) for item in item_options if s == item
+    )
 
 
 def remove_items(arr, item_options):
@@ -159,8 +176,12 @@ def remove_items_plus_one(arr, item_options):
         if i < len(arr) - 1:
             del arr[i + 1]
         del arr[i]
-    idx = set(i for i, s in enumerate(arr) for item in item_options
-              if s.startswith(item + "="))
+    idx = set(
+        i
+        for i, s in enumerate(arr)
+        for item in item_options
+        if s.startswith(item + "=")
+    )
     for i in sorted(idx, reverse=True):
         del arr[i]
 
@@ -170,7 +191,7 @@ def add_cuda_path(command, nvcc):
     if not nvcc_path:
         raise Exception("Command %s has invalid compiler %s" % (command, nvcc))
     cuda_root = os.path.dirname(os.path.dirname(nvcc_path))
-    command.append('--cuda-path=%s' % cuda_root)
+    command.append("--cuda-path=%s" % cuda_root)
 
 
 def get_tidy_args(cmd, args):
@@ -194,57 +215,63 @@ def get_tidy_args(cmd, args):
         # provide proper cuda path to clang
         add_cuda_path(command, cc_orig)
         # remove all kinds of nvcc flags clang doesn't know about
-        remove_items_plus_one(command, [
-            "--generate-code",
-            "-gencode",
-            "--x",
-            "-x",
-            "--compiler-bindir",
-            "-ccbin",
-            "--diag_suppress",
-            "-diag-suppress",
-            "--default-stream",
-            "-default-stream",
-        ])
-        remove_items(command, [
-            "-extended-lambda",
-            "--extended-lambda",
-            "-expt-extended-lambda",
-            "--expt-extended-lambda",
-            "-expt-relaxed-constexpr",
-            "--expt-relaxed-constexpr",
-            "--device-debug",
-            "-G",
-            "--generate-line-info",
-            "-lineinfo",
-        ])
+        remove_items_plus_one(
+            command,
+            [
+                "--generate-code",
+                "-gencode",
+                "--x",
+                "-x",
+                "--compiler-bindir",
+                "-ccbin",
+                "--diag_suppress",
+                "-diag-suppress",
+                "--default-stream",
+                "-default-stream",
+            ],
+        )
+        remove_items(
+            command,
+            [
+                "-extended-lambda",
+                "--extended-lambda",
+                "-expt-extended-lambda",
+                "--expt-extended-lambda",
+                "-expt-relaxed-constexpr",
+                "--expt-relaxed-constexpr",
+                "--device-debug",
+                "-G",
+                "--generate-line-info",
+                "-lineinfo",
+            ],
+        )
         # "-x cuda" is the right usage in clang
         command.extend(["-x", "cuda"])
         # we remove -Xcompiler flags: here we basically have to hope for the
         # best that clang++ will accept any flags which nvcc passed to gcc
         for i, c in reversed(list(enumerate(command))):
-            new_c = XCOMPILER_FLAG.sub('', c)
+            new_c = XCOMPILER_FLAG.sub("", c)
             if new_c == c:
                 continue
-            command[i:i + 1] = new_c.split(',')
+            command[i : i + 1] = new_c.split(",")
         # we also change -Xptxas to -Xcuda-ptxas, always adding space here
         for i, c in reversed(list(enumerate(command))):
             if XPTXAS_FLAG.search(c):
                 if not c.endswith("=") and i < len(command) - 1:
                     del command[i + 1]
-                command[i] = '-Xcuda-ptxas'
-                command.insert(i + 1, XPTXAS_FLAG.sub('', c))
+                command[i] = "-Xcuda-ptxas"
+                command.insert(i + 1, XPTXAS_FLAG.sub("", c))
         # several options like isystem don't expect `=`
         for opt in OPTIONS_NO_EQUAL_SIGN:
-            opt_eq = opt + '='
+            opt_eq = opt + "="
             # make sure that we iterate from back to front here for insert
             for i, c in reversed(list(enumerate(command))):
                 if not c.startswith(opt_eq):
                     continue
-                x = c.split('=')
+                x = c.split("=")
                 # we only care about the first `=`
                 command[i] = x[0]
-                command.insert(i + 1, '='.join(x[1:]))
+                command.insert(i + 1, "=".join(x[1:]))
         # use extensible whole program, to avoid ptx resolution/linking
         command.extend(["-Xcuda-ptxas", "-ewp"])
         # for libcudacxx, we need to allow variadic functions
@@ -252,13 +279,17 @@ def get_tidy_args(cmd, args):
         # add some additional CUDA intrinsics
         cuda_intrinsics_file = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
-            "__clang_cuda_additional_intrinsics.h")
+            "__clang_cuda_additional_intrinsics.h",
+        )
         command.extend(["-include", cuda_intrinsics_file])
     # somehow this option gets onto the commandline, it is unrecognized by tidy
-    remove_items(command, [
-        "--forward-unknown-to-host-compiler",
-        "-forward-unknown-to-host-compiler"
-    ])
+    remove_items(
+        command,
+        [
+            "--forward-unknown-to-host-compiler",
+            "-forward-unknown-to-host-compiler",
+        ],
+    )
     # do not treat warnings as errors here !
     for i, x in reversed(list(enumerate(command))):
         if x.startswith("-Werror"):
@@ -282,8 +313,14 @@ def check_output_for_errors(output):
 
 def run_clang_tidy_command(tidy_cmd, cwd):
     cmd = " ".join(tidy_cmd)
-    result = subprocess.run(cmd, check=False, shell=True, cwd=cwd,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    result = subprocess.run(
+        cmd,
+        check=False,
+        shell=True,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
     result.stdout = result.stdout.decode("utf-8").strip()
     out = "CMD: " + cmd + "\n"
     out += "EXIT-CODE: %d\n" % result.returncode
@@ -311,7 +348,8 @@ class LockContext(object):
 def print_result(passed, stdout, file, errors):
     if any(errors):
         raise Exception(
-            "File %s: got %d errors:\n%s" % (file, len(errors), stdout))
+            "File %s: got %d errors:\n%s" % (file, len(errors), stdout)
+        )
     status_str = "PASSED" if passed else "FAILED"
     print("%s File:%s %s %s" % (SEPARATOR, file, status_str, SEPARATOR))
     if not passed and stdout:
@@ -365,11 +403,15 @@ def run_sequential(args, all_files):
     # actual tidy checker
     for cmd in all_files:
         # skip files that we don't want to look at
-        if args.ignore_compiled is not None and \
-           re.search(args.ignore_compiled, cmd["file"]) is not None:
+        if (
+            args.ignore_compiled is not None
+            and re.search(args.ignore_compiled, cmd["file"]) is not None
+        ):
             continue
-        if args.select_compiled is not None and \
-           re.search(args.select_compiled, cmd["file"]) is None:
+        if (
+            args.select_compiled is not None
+            and re.search(args.select_compiled, cmd["file"]) is None
+        ):
             continue
         results.append(run_clang_tidy(cmd, args))
     return parse_results(results)
@@ -390,11 +432,15 @@ def run_parallel(args, all_files):
     # actual tidy checker
     for cmd in all_files:
         # skip files that we don't want to look at
-        if args.ignore_compiled is not None and \
-           re.search(args.ignore_compiled, cmd["file"]) is not None:
+        if (
+            args.ignore_compiled is not None
+            and re.search(args.ignore_compiled, cmd["file"]) is not None
+        ):
             continue
-        if args.select_compiled is not None and \
-           re.search(args.select_compiled, cmd["file"]) is None:
+        if (
+            args.select_compiled is not None
+            and re.search(args.select_compiled, cmd["file"]) is None
+        ):
             continue
         results.append(pool.apply_async(run_clang_tidy, args=(cmd, args)))
     results_final = [r.get() for r in results]
@@ -420,22 +466,29 @@ def main():
         # first get a list of all checks that were run
         ret = subprocess.check_output(args.exe + " --list-checks", shell=True)
         ret = ret.decode("utf-8")
-        checks = [line.strip() for line in ret.splitlines()
-                  if line.startswith(' ' * 4)]
+        checks = [
+            line.strip()
+            for line in ret.splitlines()
+            if line.startswith(" " * 4)
+        ]
         max_check_len = max(len(c) for c in checks)
         check_counts = dict()
         content = os.linesep.join(lines)
         for check in checks:
             check_counts[check] = content.count(check)
         sorted_counts = sorted(
-            check_counts.items(), key=lambda x: x[1], reverse=True)
-        print("Failed {} check(s) in total. Counts as per below:".format(
-            sum(1 for _, count in sorted_counts if count > 0)))
+            check_counts.items(), key=lambda x: x[1], reverse=True
+        )
+        print(
+            "Failed {} check(s) in total. Counts as per below:".format(
+                sum(1 for _, count in sorted_counts if count > 0)
+            )
+        )
         for check, count in sorted_counts:
             if count <= 0:
                 break
             n_space = max_check_len - len(check) + 4
-            print("{}:{}{}".format(check, ' ' * n_space, count))
+            print("{}:{}{}".format(check, " " * n_space, count))
         raise Exception("clang-tidy failed! Refer to the errors above.")
 
 

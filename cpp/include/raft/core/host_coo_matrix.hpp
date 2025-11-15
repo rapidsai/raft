@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
@@ -39,7 +28,7 @@ using host_coordinate_structure_view = coordinate_structure_view<RowType, ColTyp
 template <typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_container_policy>
 using host_coordinate_structure =
   coordinate_structure<RowType, ColType, NZType, false, ContainerPolicy>;
 
@@ -53,7 +42,7 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy,
+          template <typename T> typename ContainerPolicy = host_container_policy,
           SparsityType sparsity_type                     = SparsityType::OWNING>
 using host_coo_matrix =
   coo_matrix<ElementType, RowType, ColType, NZType, false, ContainerPolicy, sparsity_type>;
@@ -65,7 +54,7 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_container_policy>
 using host_sparsity_owning_coo_matrix =
   coo_matrix<ElementType, RowType, ColType, NZType, false, ContainerPolicy>;
 
@@ -73,7 +62,7 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_container_policy>
 using host_sparsity_preserving_coo_matrix = coo_matrix<ElementType,
                                                        RowType,
                                                        ColType,
