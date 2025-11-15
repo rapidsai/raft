@@ -95,6 +95,7 @@ jobs:
       build_type: pull-request
       script: ci/build_cpp.sh
       node_type: cpu16
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
@@ -103,6 +104,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-checks:
     needs: conda-cpp-build
     secrets: inherit
@@ -124,6 +126,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_python.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   docs-build:
     needs: conda-python-build
     secrets: inherit
@@ -143,20 +146,24 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
+      node_type: cpu16
       script: ci/build_wheel_libraft.sh
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       package-name: libraft
       package-type: cpp
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-build-pylibraft:
     needs: [checks, wheel-build-libraft]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/25.12
     with:
       build_type: pull-request
+      node_type: cpu8
       script: ci/build_wheel_pylibraft.sh
       package-name: pylibraft
       package-type: python
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-pylibraft:
     needs: [wheel-build-pylibraft, changed-files]
     secrets: inherit
@@ -165,15 +172,18 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel_pylibraft.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-build-raft-dask:
     needs: [checks, wheel-build-libraft]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/25.12
     with:
       build_type: pull-request
+      node_type: cpu8
       script: "ci/build_wheel_raft_dask.sh"
       package-name: raft_dask
       package-type: python
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-raft-dask:
     needs: [wheel-build-raft-dask, changed-files]
     secrets: inherit
@@ -182,6 +192,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel_raft_dask.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   devcontainer:
     needs: telemetry-setup
     secrets: inherit

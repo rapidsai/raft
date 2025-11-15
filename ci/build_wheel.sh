@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -42,7 +42,7 @@ fi
 SKBUILD_CMAKE_ARGS="-DUSE_NCCL_RUNTIME_WHEEL=ON"
 export SKBUILD_CMAKE_ARGS
 
-sccache --zero-stats
+sccache --stop-server 2>/dev/null || true
 
 rapids-logger "Building '${package_name}' wheel"
 
