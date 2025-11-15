@@ -7,7 +7,6 @@
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/linalg/map.cuh>
 #include <raft/sparse/matrix/diagonal.cuh>
 
 #include <type_traits>
@@ -146,7 +145,7 @@ auto laplacian_normalized(
   raft::linalg::unary_op(
     res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), raft::sqrt_op());
 
-  raft::linalg::map(
+  raft::linalg::unary_op(
     res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), zero_to_one_functor{});
 
   raft::sparse::matrix::scale_by_diagonal_symmetric(res, diagonal.view(), laplacian.view());
