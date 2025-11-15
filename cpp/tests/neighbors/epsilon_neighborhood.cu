@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,9 +9,9 @@
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/ball_cover.cuh>
+#include <raft/neighbors/epsilon_neighborhood.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/sparse/convert/csr.cuh>
-#include <raft/spatial/knn/epsilon_neighborhood.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -23,6 +23,10 @@
 namespace raft {
 namespace spatial {
 namespace knn {
+
+using raft::neighbors::epsilon_neighborhood::eps_neighbors_l2sq;
+using raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood;
+
 template <typename T, typename IdxT>
 struct EpsInputs {
   IdxT n_row, n_col, n_centers, n_batches;

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -248,43 +248,6 @@ struct index : ann::index {
   auto operator=(const index&) -> index& = delete;
   auto operator=(index&&) -> index&      = default;
   ~index()                               = default;
-
-  /** Construct an empty index. It needs to be trained and then populated. */
-  [[deprecated("Use cuVS instead")]] index(raft::resources const& res,
-                                           raft::distance::DistanceType metric,
-                                           uint32_t n_lists,
-                                           bool adaptive_centers,
-                                           bool conservative_memory_allocation,
-                                           uint32_t dim)
-    : ann::index(),
-      veclen_(calculate_veclen(dim)),
-      metric_(metric),
-      adaptive_centers_(adaptive_centers),
-      conservative_memory_allocation_{conservative_memory_allocation},
-      lists_{n_lists},
-      list_sizes_{make_device_vector<uint32_t, uint32_t>(res, n_lists)},
-      centers_(make_device_matrix<float, uint32_t>(res, n_lists, dim)),
-      center_norms_(std::nullopt),
-      data_ptrs_{make_device_vector<T*, uint32_t>(res, n_lists)},
-      inds_ptrs_{make_device_vector<IdxT*, uint32_t>(res, n_lists)},
-      accum_sorted_sizes_{make_host_vector<IdxT, uint32_t>(n_lists + 1)}
-  {
-    check_consistency();
-    accum_sorted_sizes_(n_lists) = 0;
-  }
-
-  /** Construct an empty index. It needs to be trained and then populated. */
-  [[deprecated("Use cuVS instead")]] index(raft::resources const& res,
-                                           const index_params& params,
-                                           uint32_t dim)
-    : index(res,
-            params.metric,
-            params.n_lists,
-            params.adaptive_centers,
-            params.conservative_memory_allocation,
-            dim)
-  {
-  }
 
   /** Pointers to the inverted lists (clusters) data  [n_lists]. */
   inline auto data_ptrs() noexcept -> device_vector_view<T*, uint32_t> { return data_ptrs_.view(); }
