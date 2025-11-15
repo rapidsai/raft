@@ -278,25 +278,16 @@ endif()
 set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 
 if(RAFT_COMPILE_LIBRARY)
-  # Sorted in descending order by compile time, so the *longest* targets are compiled first. Use
-  # https://github.com/nico/ninjatracing to extract the flamegraph from .ninja_log and sort by
-  # compile time:
-  # ~~~
-  # $ ninjatracing cpp/build/.ninja_log \
-  # | jq -r --arg dir 'CMakeFiles/raft_objs.dir' \
-  #   'sort_by(.dur) | map(.name | scan("^" + $dir + "/(.*)\\.o$")[])[]' \
-  # | tac
-  # ~~~
   add_library(
     raft_objs OBJECT
-    src/raft_runtime/solver/lanczos_solver_int64_float.cu
-    src/raft_runtime/solver/lanczos_solver_int64_double.cu
-    src/raft_runtime/solver/lanczos_solver_int_double.cu
-    src/raft_runtime/solver/lanczos_solver_int_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
+    src/raft_runtime/solver/lanczos_solver_int64_double.cu
+    src/raft_runtime/solver/lanczos_solver_int64_float.cu
+    src/raft_runtime/solver/lanczos_solver_int_double.cu
+    src/raft_runtime/solver/lanczos_solver_int_float.cu
   )
   set_target_properties(
     raft_objs
