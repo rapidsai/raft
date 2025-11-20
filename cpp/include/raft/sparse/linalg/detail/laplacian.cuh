@@ -13,6 +13,14 @@
 
 namespace raft::sparse::linalg::detail {
 
+struct zero_to_one_functor {
+  template <typename T>
+  __device__ T operator()(const T& x) const
+  {
+    return x == T(0) ? T(1) : x;
+  }
+};
+
 /* Compute the graph Laplacian of an adjacency matrix
  *
  * This kernel implements the necessary logic for computing a graph
@@ -136,6 +144,9 @@ auto laplacian_normalized(
 
   raft::linalg::unary_op(
     res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), raft::sqrt_op());
+
+  raft::linalg::unary_op(
+    res, raft::make_const_mdspan(diagonal.view()), diagonal.view(), zero_to_one_functor{});
 
   raft::sparse::matrix::scale_by_diagonal_symmetric(res, diagonal.view(), laplacian.view());
   raft::sparse::matrix::set_diagonal(res, laplacian.view(), static_cast<ElementType>(1.0));

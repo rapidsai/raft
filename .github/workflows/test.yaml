@@ -25,7 +25,7 @@ on:
 jobs:
   conda-cpp-checks:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@release/25.12
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -33,37 +33,41 @@ jobs:
       sha: ${{ inputs.sha }}
   conda-cpp-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@release/25.12
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       script: ci/test_cpp.sh
       sha: ${{ inputs.sha }}
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-python-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@release/25.12
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       script: ci/test_python.sh
       sha: ${{ inputs.sha }}
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-pylibraft:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@release/25.12
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: ci/test_wheel_pylibraft.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-raft-dask:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@release/25.12
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: ci/test_wheel_raft_dask.sh
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN

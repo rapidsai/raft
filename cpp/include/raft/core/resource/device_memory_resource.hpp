@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -9,10 +9,10 @@
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#include <rmm/mr/device/device_memory_resource.hpp>
-#include <rmm/mr/device/limiting_resource_adaptor.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/mr/device_memory_resource.hpp>
+#include <rmm/mr/limiting_resource_adaptor.hpp>
+#include <rmm/mr/per_device_resource.hpp>
+#include <rmm/mr/pool_memory_resource.hpp>
 
 #include <cstddef>
 #include <optional>
