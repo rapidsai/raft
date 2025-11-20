@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -217,10 +217,3 @@ index<T, IdxT> deserialize(raft::resources const& handle, const std::string& fil
 /**@}*/
 
 }  // namespace raft::neighbors::cagra
-
-// TODO: Remove deprecated experimental namespace in 23.12 release
-namespace raft::neighbors::experimental::cagra {
-using raft::neighbors::cagra::deserialize;
-using raft::neighbors::cagra::serialize;
-
-}  // namespace raft::neighbors::experimental::cagra
