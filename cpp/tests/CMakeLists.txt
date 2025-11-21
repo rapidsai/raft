@@ -280,7 +280,6 @@ if(BUILD_TESTS)
     100
   )
 
-
   ConfigureTest(
     NAME
     STATS_TEST
