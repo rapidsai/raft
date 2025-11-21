@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -66,12 +66,12 @@ struct kmeans_solver_t {
 
     auto sw =
       std::make_optional((raft::device_vector_view<const value_type_t, index_type_t>)weight.view());
-    raft::cluster::kmeans_fit_predict<value_type_t, index_type_t>(
+    raft::cluster::detail::kmeans_fit_predict<value_type_t, index_type_t>(
       handle,
       km_params,
       X,
       sw,
-      centroids.view(),
+      std::make_optional(centroids.view()),
       labels,
       raft::make_host_scalar_view(&residual),
       raft::make_host_scalar_view(&iters));
