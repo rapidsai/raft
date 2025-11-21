@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -74,7 +74,7 @@ TEST(Raft, AnalyzePartition)
 
   // Create cluster assignments: 4 clusters, vertices assigned cyclically
   auto constexpr const n_clusters = 4;
-  auto clusters = thrust::device_vector<int>(num_verts);
+  auto clusters                   = thrust::device_vector<int>(num_verts);
   for (int i = 0; i < num_verts; ++i) {
     clusters[i] = i % n_clusters;
   }
@@ -134,7 +134,7 @@ TEST(Raft, AnalyzeModularity)
 
   // Create cluster assignments: 4 clusters, vertices assigned cyclically
   auto constexpr const n_clusters = 4;
-  auto clusters = thrust::device_vector<int>(num_verts);
+  auto clusters                   = thrust::device_vector<int>(num_verts);
   for (int i = 0; i < num_verts; ++i) {
     clusters[i] = i % n_clusters;
   }
