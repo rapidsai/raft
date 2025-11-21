@@ -17,6 +17,12 @@
 namespace raft::cluster::kmeans {
 
 /**
+ * Functor used for sampling centroids
+ */
+template <typename DataT, typename IndexT>
+using SamplingOp = detail::SamplingOp<DataT, IndexT>;
+
+/**
  * Automatically find the optimal value of k using a binary search.
  * This method maximizes the Calinski-Harabasz Index while minimizing the per-cluster inertia.
  *
