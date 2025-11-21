@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -30,6 +30,20 @@ struct search_params : ann::search_params {
 template <typename T>
 struct index : ann::index {
  public:
+  /**
+   * @brief load a base-layer-only hnswlib index originally saved from a built CAGRA index.
+   *  This is a virtual class and it cannot be used directly. To create an index, use the factory
+   *  function `raft::neighbors::hnsw::from_cagra` from the header
+   *  `raft/neighbors/hnsw.hpp`
+   *
+   * @param[in] dim dimensions of the training dataset
+   * @param[in] metric distance metric to search. Supported metrics ("L2Expanded", "InnerProduct")
+   */
+  [[deprecated("Use cuVS instead")]] index(int dim, raft::distance::DistanceType metric)
+    : dim_{dim}, metric_{metric}
+  {
+  }
+
   /**
   @brief Get underlying index
   */

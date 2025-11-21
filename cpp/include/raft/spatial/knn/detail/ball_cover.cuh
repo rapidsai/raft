@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
 #include "haversine_distance.cuh"

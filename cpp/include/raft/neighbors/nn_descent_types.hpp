@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -78,6 +78,65 @@ struct index_params : ann::index_params {
 template <typename IdxT>
 struct index : ann::index {
  public:
+  /**
+   * @brief Construct a new index object
+   *
+   * This constructor creates an nn-descent index which is a knn-graph in host memory.
+   * The type of the knn-graph is a dense raft::host_matrix and dimensions are
+   * (n_rows, n_cols).
+   *
+   * @param res raft::resources is an object mangaging resources
+   * @param n_rows number of rows in knn-graph
+   * @param n_cols number of cols in knn-graph
+   * @param return_distances whether to allocate and get distances information
+   */
+  [[deprecated("Use cuVS instead")]] index(raft::resources const& res,
+                                           int64_t n_rows,
+                                           int64_t n_cols,
+                                           bool return_distances = false)
+    : ann::index(),
+      res_{res},
+      metric_{raft::distance::DistanceType::L2Expanded},
+      graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(n_rows, n_cols)},
+      graph_view_{graph_.view()},
+      return_distances_(return_distances)
+  {
+    if (return_distances) {
+      distances_      = raft::make_device_matrix<float, int64_t>(res_, n_rows, n_cols);
+      distances_view_ = distances_.value().view();
+    }
+  }
+
+  /**
+   * @brief Construct a new index object
+   *
+   * This constructor creates an nn-descent index using a user allocated host memory knn-graph.
+   * The type of the knn-graph is a dense raft::host_matrix and dimensions are
+   * (n_rows, n_cols).
+   *
+   * @param res raft::resources is an object mangaging resources
+   * @param graph_view raft::host_matrix_view<IdxT, int64_t, raft::row_major> for storing knn-graph
+   * @param distances_view std::optional<raft::device_matrix_view<T, int64_t, row_major>> for
+   * storing knn-graph distances
+   * @param return_distances whether to allocate and get distances information
+   */
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view,
+    std::optional<raft::device_matrix_view<float, int64_t, row_major>> distances_view =
+      std::nullopt,
+    bool return_distances = false)
+    : ann::index(),
+      res_{res},
+      metric_{raft::distance::DistanceType::L2Expanded},
+      graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(0, 0)},
+      distances_{raft::make_device_matrix<float, int64_t>(res_, 0, 0)},
+      graph_view_{graph_view},
+      distances_view_(distances_view),
+      return_distances_(return_distances)
+  {
+  }
+
   /** Distance metric used for clustering. */
   [[nodiscard]] constexpr inline auto metric() const noexcept -> raft::distance::DistanceType
   {
