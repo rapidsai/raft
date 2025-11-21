@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
 #include "haversine_distance.cuh"

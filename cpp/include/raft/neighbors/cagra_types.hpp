@@ -154,6 +154,21 @@ struct index : ann::index {
     return graph_view_.extent(1);
   }
 
+  /**
+   * DEPRECATED: please use data() instead.
+   *   If you need to query dataset dimensions, use the dim() and size() of the cagra index.
+   *   The data_handle() is not always available: you need to do a dynamic_cast to the expected
+   *   dataset type at runtime.
+   */
+  [[nodiscard]] [[deprecated("Use data()")]] inline auto dataset() const noexcept
+    -> device_matrix_view<const T, int64_t, layout_stride>
+  {
+    auto p = dynamic_cast<strided_dataset<T, int64_t>*>(dataset_.get());
+    if (p != nullptr) { return p->view(); }
+    auto d = dataset_->dim();
+    return make_device_strided_matrix_view<const T, int64_t>(nullptr, 0, d, d);
+  }
+
   /** Dataset [size, dim] */
   [[nodiscard]] inline auto data() const noexcept -> const neighbors::dataset<int64_t>&
   {
@@ -173,6 +188,88 @@ struct index : ann::index {
   auto operator=(const index&) -> index& = delete;
   auto operator=(index&&) -> index&      = default;
   ~index()                               = default;
+
+  /** Construct an empty index. */
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
+    : ann::index(),
+      metric_(metric),
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      dataset_(new neighbors::empty_dataset<int64_t>(0))
+  {
+  }
+
+  /** Construct an index from dataset and knn_graph arrays
+   *
+   * If the dataset and graph is already in GPU memory, then the index is just a thin wrapper around
+   * these that stores a non-owning a reference to the arrays.
+   *
+   * The constructor also accepts host arrays. In that case they are copied to the device, and the
+   * device arrays will be owned by the index.
+   *
+   * In case the dasates rows are not 16 bytes aligned, then we create a padded copy in device
+   * memory to ensure alignment for vectorized load.
+   *
+   * Usage examples:
+   *
+   * - Cagra index is normally created by the cagra::build
+   * @code{.cpp}
+   *   using namespace raft::neighbors::experimental;
+   *   auto dataset = raft::make_host_matrix<float, int64_t>(n_rows, n_cols);
+   *   load_dataset(dataset.view());
+   *   // use default index parameters
+   *   cagra::index_params index_params;
+   *   // create and fill the index from a [N, D] dataset
+   *   auto index = cagra::build(res, index_params, dataset);
+   *   // use default search parameters
+   *   cagra::search_params search_params;
+   *   // search K nearest neighbours
+   *   auto neighbors = raft::make_device_matrix<uint32_t, int64_t>(res, n_queries, k);
+   *   auto distances = raft::make_device_matrix<float, int64_t>(res, n_queries, k);
+   *   cagra::search(res, search_params, index, queries, neighbors, distances);
+   * @endcode
+   *   In the above example, we have passed a host dataset to build. The returned index will own a
+   * device copy of the dataset and the knn_graph. In contrast, if we pass the dataset as a
+   * device_mdspan to build, then it will only store a reference to it.
+   *
+   * - Constructing index using existing knn-graph
+   * @code{.cpp}
+   *   using namespace raft::neighbors::experimental;
+   *
+   *   auto dataset = raft::make_device_matrix<float, int64_t>(res, n_rows, n_cols);
+   *   auto knn_graph = raft::make_device_matrix<uint32_n, int64_t>(res, n_rows, graph_degree);
+   *
+   *   // custom loading and graph creation
+   *   // load_dataset(dataset.view());
+   *   // create_knn_graph(knn_graph.view());
+   *
+   *   // Wrap the existing device arrays into an index structure
+   *   cagra::index<T, IdxT> index(res, metric, raft::make_const_mdspan(dataset.view()),
+   *                               raft::make_const_mdspan(knn_graph.view()));
+   *
+   *   // Both knn_graph and dataset objects have to be in scope while the index is used because
+   *   // the index only stores a reference to these.
+   *   cagra::search(res, search_params, index, queries, neighbors, distances);
+   * @endcode
+   *
+   */
+  template <typename data_accessor, typename graph_accessor>
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    raft::distance::DistanceType metric,
+    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+    mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph)
+    : ann::index(),
+      metric_(metric),
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      dataset_(make_aligned_dataset(res, dataset, 16))
+  {
+    RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
+                 "Dataset and knn_graph must have equal number of rows");
+    update_graph(res, knn_graph);
+    resource::sync_stream(res);
+  }
 
   /**
    * Replace the dataset with a new dataset.
@@ -263,3 +360,13 @@ struct index : ann::index {
 /** @} */
 
 }  // namespace raft::neighbors::cagra
+
+// TODO: Remove deprecated experimental namespace in 23.12 release
+namespace raft::neighbors::experimental::cagra {
+using raft::neighbors::cagra::graph_build_algo;
+using raft::neighbors::cagra::hash_mode;
+using raft::neighbors::cagra::index;
+using raft::neighbors::cagra::index_params;
+using raft::neighbors::cagra::search_algo;
+using raft::neighbors::cagra::search_params;
+}  // namespace raft::neighbors::experimental::cagra
