@@ -172,8 +172,8 @@ files:
     includes:
       - test_python_common
 channels:
-  - rapidsai
   - rapidsai-nightly
+  - rapidsai
   - conda-forge
 dependencies:
   rapids_build_skbuild:
