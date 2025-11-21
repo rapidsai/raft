@@ -74,6 +74,71 @@ struct index : ann::index {
   auto operator=(index&&) -> index&      = default;
   ~index()                               = default;
 
+  /** Construct a brute force index from dataset
+   *
+   * Constructs a brute force index from a dataset. This lets us precompute norms for
+   * the dataset, providing a speed benefit over doing this at query time.
+
+   * If the dataset is already in GPU memory, then this class stores a non-owning reference to
+   * the dataset. If the dataset is in host memory, it will be copied to the device and the
+   * index will own the device memory.
+   */
+
+  template <typename data_accessor>
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+    std::optional<raft::device_vector<T, int64_t>>&& norms,
+    raft::distance::DistanceType metric,
+    T metric_arg = 0.0)
+    : ann::index(),
+      metric_(metric),
+      dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
+      norms_(std::move(norms)),
+      metric_arg_(metric_arg)
+  {
+    if (norms_) { norms_view_ = make_const_mdspan(norms_.value().view()); }
+    update_dataset(res, dataset);
+    resource::sync_stream(res);
+  }
+
+  /** Construct a brute force index from dataset
+   *
+   * This class stores a non-owning reference to the dataset and norms here.
+   * Having precomputed norms gives us a performance advantage at query time.
+   */
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    raft::device_matrix_view<const T, int64_t, row_major> dataset_view,
+    std::optional<raft::device_vector_view<const T, int64_t>> norms_view,
+    raft::distance::DistanceType metric,
+    T metric_arg = 0.0)
+    : ann::index(),
+      metric_(metric),
+      dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
+      dataset_view_(dataset_view),
+      norms_view_(norms_view),
+      metric_arg_(metric_arg)
+  {
+  }
+
+  template <typename data_accessor>
+  [[deprecated("Use cuVS instead")]] index(
+    raft::resources const& res,
+    index_params const& params,
+    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+    std::optional<raft::device_vector<T, int64_t>>&& norms = std::nullopt)
+    : ann::index(),
+      metric_(params.metric),
+      dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
+      norms_(std::move(norms)),
+      metric_arg_(params.metric_arg)
+  {
+    if (norms_) { norms_view_ = make_const_mdspan(norms_.value().view()); }
+    update_dataset(res, dataset);
+    resource::sync_stream(res);
+  }
+
   /**
    * Replace the dataset with a new dataset.
    */
