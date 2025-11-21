@@ -9,9 +9,8 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/normalize.cuh>
-#include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/detail/spectral_util.cuh>
-#include <raft/spectral/eigen_solvers.cuh>
+#include <raft/spectral/detail/warn_dbg.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
 #include <cuda.h>
@@ -28,85 +27,6 @@ namespace raft {
 namespace spectral {
 namespace detail {
 
-// =========================================================
-// Spectral modularity_maximization
-// =========================================================
-
-/** Compute partition for a weighted undirected graph. This
- *  partition attempts to minimize the cost function:
- *    Cost = \sum_i (Edges cut by ith partition)/(Vertices in ith partition)
- *
- *  @param G Weighted graph in CSR format
- *  @param nClusters Number of partitions.
- *  @param nEigVecs Number of eigenvectors to compute.
- *  @param maxIter_lanczos Maximum number of Lanczos iterations.
- *  @param restartIter_lanczos Maximum size of Lanczos system before
- *    implicit restart.
- *  @param tol_lanczos Convergence tolerance for Lanczos method.
- *  @param maxIter_kmeans Maximum number of k-means iterations.
- *  @param tol_kmeans Convergence tolerance for k-means algorithm.
- *  @param clusters (Output, device memory, n entries) Cluster
- *    assignments.
- *  @param iters_lanczos On exit, number of Lanczos iterations
- *    performed.
- *  @param iters_kmeans On exit, number of k-means iterations
- *    performed.
- *  @return error flag.
- */
-template <typename vertex_t,
-          typename weight_t,
-          typename nnz_t,
-          typename EigenSolver,
-          typename ClusterSolver>
-std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
-  raft::resources const& handle,
-  raft::spectral::matrix::sparse_matrix_t<vertex_t, weight_t, nnz_t> const& csr_m,
-  EigenSolver const& eigen_solver,
-  ClusterSolver const& cluster_solver,
-  vertex_t* __restrict__ clusters,
-  weight_t* eigVals,
-  weight_t* eigVecs)
-{
-  RAFT_EXPECTS(clusters != nullptr, "Null clusters buffer.");
-  RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
-  RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
-
-  auto stream   = resource::get_cuda_stream(handle);
-  auto cublas_h = resource::get_cublas_handle(handle);
-
-  std::tuple<vertex_t, weight_t, vertex_t>
-    stats;  // # iters eigen solver, cluster solver residual, # iters cluster solver
-
-  vertex_t n = csr_m.nrows_;
-
-  // Compute eigenvectors of Modularity Matrix
-
-  // Initialize Modularity Matrix
-  raft::spectral::matrix::modularity_matrix_t<vertex_t, weight_t, nnz_t> B{handle, csr_m};
-
-  auto eigen_config = eigen_solver.get_config();
-  auto nEigVecs     = eigen_config.n_eigVecs;
-
-  // Compute eigenvectors corresponding to largest eigenvalues
-  std::get<0>(stats) = eigen_solver.solve_largest_eigenvectors(handle, B, eigVals, eigVecs);
-
-  // Whiten eigenvector matrix
-  transform_eigen_matrix(handle, n, nEigVecs, eigVecs);
-
-  // notice that at this point the matrix has already been transposed, so we are scaling
-  // columns
-  auto dataset_view = raft::make_device_matrix_view(eigVecs, nEigVecs, n);
-  raft::linalg::row_normalize<raft::linalg::L2Norm>(
-    handle, raft::make_const_mdspan(dataset_view), dataset_view);
-
-  // Find partition clustering
-  auto pair_cluster = cluster_solver.solve(handle, n, nEigVecs, eigVecs, clusters);
-
-  std::get<1>(stats) = pair_cluster.first;
-  std::get<2>(stats) = pair_cluster.second;
-
-  return stats;
-}
 //===================================================
 // Analysis of graph partition
 // =========================================================
