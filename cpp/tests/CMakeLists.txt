@@ -122,7 +122,14 @@ if(BUILD_TESTS)
     NOCUDA
   )
 
-  list(APPEND EXT_HEADER_TEST_SOURCES ext_headers/raft_core_logger.cpp)
+  list(
+    APPEND
+    EXT_HEADER_TEST_SOURCES
+    ext_headers/raft_core_logger.cpp
+    ext_headers/raft_linalg_detail_coalesced_reduction.cu
+    ext_headers/raft_matrix_detail_select_k.cu
+    ext_headers/raft_sparse_matrix_detail_select_k.cu
+  )
 
   # Test that the split headers compile in isolation with:
   #
@@ -272,11 +279,6 @@ if(BUILD_TESTS)
     1
     PERCENT
     100
-  )
-
-  ConfigureTest(
-    NAME NEIGHBORS_TEST PATH neighbors/haversine.cu neighbors/ball_cover.cu
-    neighbors/epsilon_neighborhood.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(

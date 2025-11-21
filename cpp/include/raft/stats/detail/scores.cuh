@@ -5,11 +5,9 @@
 
 #pragma once
 
-#include <raft/distance/distance.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/power.cuh>
 #include <raft/linalg/subtract.cuh>
-#include <raft/spatial/knn/knn.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/util/cudart_utils.hpp>
 
