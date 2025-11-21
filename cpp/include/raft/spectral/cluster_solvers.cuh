@@ -71,7 +71,7 @@ struct kmeans_solver_t {
       km_params,
       X,
       sw,
-      std::make_optional(centroids.view()),
+      centroids.view(),
       labels,
       raft::make_host_scalar_view(&residual),
       raft::make_host_scalar_view(&iters));
