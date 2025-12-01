@@ -112,17 +112,10 @@ class host_container_policy {
   using container_type        = host_container<element_type>;
   using pointer               = typename container_type::pointer;
   using const_pointer         = typename container_type::const_pointer;
-<<<<<<< HEAD
-  using reference             = element_type&;
-  using const_reference       = element_type const&;
-  using accessor_policy       = cuda::std::default_accessor<element_type>;
-  using const_accessor_policy = cuda::std::default_accessor<element_type const>;
-=======
   using reference             = typename container_type::reference;
   using const_reference       = typename container_type::const_reference;
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
->>>>>>> upstream/main
+  using accessor_policy       = cuda::std::default_accessor<element_type>;
+  using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
  public:
   auto create(raft::resources const&, size_t n) -> container_type { return container_type(n, mr_); }

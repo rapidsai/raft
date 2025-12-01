@@ -54,12 +54,24 @@ struct alignment {
 
 }  // namespace detail
 
+/**
+ * @brief Padded layouts that take a padding value directly.
+ */
+template <size_t PaddingStride = cuda::std::dynamic_extent>
+using layout_left_padded_impl = cuda::std::layout_left_padded<PaddingStride>;
+
+template <size_t PaddingStride = cuda::std::dynamic_extent>
+using layout_right_padded_impl = cuda::std::layout_right_padded<PaddingStride>;
+
+/**
+ * @brief Padded layouts that compute padding from element type.
+ */
 template <typename ElementType>
-using layout_right_padded = std::experimental::layout_right_padded<
+using layout_right_padded = cuda::std::layout_right_padded<
   detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
 
 template <typename ElementType>
-using layout_left_padded = std::experimental::layout_left_padded<
+using layout_left_padded = cuda::std::layout_left_padded<
   detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
 
 template <typename ElementType, typename LayoutPolicy>
