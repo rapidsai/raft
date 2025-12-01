@@ -523,18 +523,18 @@ void gather_if(const InputIteratorT in,
  */
 template <typename T, typename IdxT, typename Accessor, typename MatIdxT = int64_t>
 void gather_buff(
-  raft::mdspan<const T, raft::matrix_extent<IdxT>, raft::layout_stride, Accessor> dataset,
+  raft::mdspan<const T, raft::matrix_extent<MatIdxT>, raft::layout_stride, Accessor> dataset,
   host_vector_view<const IdxT, MatIdxT> indices,
   MatIdxT offset,
   pinned_matrix_view<T, MatIdxT> buff)
 {
   raft::common::nvtx::range<common::nvtx::domain::raft> fun_scope("gather_host_buff");
-  IdxT batch_size = std::min<IdxT>(buff.extent(0), indices.extent(0) - offset);
+  MatIdxT batch_size = std::min<MatIdxT>(buff.extent(0), indices.extent(0) - offset);
 
 #pragma omp for
-  for (IdxT i = 0; i < batch_size; i++) {
+  for (MatIdxT i = 0; i < batch_size; i++) {
     IdxT in_idx = indices(offset + i);
-    for (IdxT k = 0; k < buff.extent(1); k++) {
+    for (MatIdxT k = 0; k < buff.extent(1); k++) {
       buff(i, k) = dataset(in_idx, k);
     }
   }
@@ -543,7 +543,7 @@ void gather_buff(
 template <typename T, typename IdxT, typename MatIdxT = int64_t>
 void gather(raft::resources const& res,
             raft::mdspan<const T,
-                         raft::matrix_extent<IdxT>,
+                         raft::matrix_extent<MatIdxT>,
                          raft::layout_stride,
                          raft::host_device_accessor<cuda::std::default_accessor<const T>,
                                                     raft::memory_type::host>> dataset,
@@ -610,7 +610,7 @@ void gather(raft::resources const& res,
 {
   raft::mdspan<
     const T,
-    raft::matrix_extent<IdxT>,
+    raft::matrix_extent<MatIdxT>,
     raft::layout_stride,
     raft::host_device_accessor<cuda::std::default_accessor<const T>, raft::memory_type::host>>
     dataset_ = raft::make_host_strided_matrix_view<const T, MatIdxT>(

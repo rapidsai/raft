@@ -182,7 +182,7 @@ RAFT_INLINE_FUNCTION auto unravel_index_impl(I idx, cuda::std::extents<IndexType
  * @return raft::mdspan
  */
 template <typename ElementType,
-          typename IndexType        = std::uint32_t,
+          typename IndexType,
           typename LayoutPolicy     = layout_c_contiguous,
           bool is_host_accessible   = false,
           bool is_device_accessible = true,
@@ -262,7 +262,7 @@ auto flatten(mdspan_type mds)
  * @return raft::host_mdspan or raft::device_mdspan, depending on AccessorPolicy
  */
 template <typename mdspan_type,
-          typename IndexType = std::uint32_t,
+          typename IndexType,
           size_t... Extents,
           typename = enable_if_mdspan<mdspan_type>>
 auto reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
