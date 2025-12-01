@@ -5,6 +5,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/detail/mdspan_layout_padded.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
 #include <raft/core/error.hpp>
 #include <raft/core/host_device_accessor.hpp>
@@ -53,120 +54,12 @@ struct alignment {
 
 }  // namespace detail
 
-// Padded layout shims compatible with CCCL mdspan mappings
-// Padded layouts are requested in https://github.com/NVIDIA/cccl/issues/5752
-template <size_t PaddingStride>
-struct layout_left_padded_impl {
-  static constexpr size_t padding = PaddingStride;
-  template <class Extents>
-  struct mapping {
-    using extents_type = Extents;
-    using layout_type  = layout_left_padded_impl<PaddingStride>;
-    using rank_type    = typename extents_type::rank_type;
-    using index_type   = typename extents_type::index_type;
-
-    constexpr mapping() = default;
-    constexpr mapping(const extents_type& e) : inner_{e} {}
-
-    [[nodiscard]] constexpr const extents_type& extents() const noexcept
-    {
-      return inner_.extents();
-    }
-
-    [[nodiscard]] static constexpr bool is_always_unique() noexcept
-    {
-      return cuda::std::layout_left::template mapping<extents_type>::is_always_unique();
-    }
-    [[nodiscard]] static constexpr bool is_always_exhaustive() noexcept
-    {
-      return cuda::std::layout_left::template mapping<extents_type>::is_always_exhaustive();
-    }
-    [[nodiscard]] static constexpr bool is_always_strided() noexcept
-    {
-      return cuda::std::layout_left::template mapping<extents_type>::is_always_strided();
-    }
-
-    [[nodiscard]] constexpr bool is_unique() const noexcept { return inner_.is_unique(); }
-    [[nodiscard]] constexpr bool is_exhaustive() const noexcept { return inner_.is_exhaustive(); }
-    [[nodiscard]] constexpr bool is_strided() const noexcept { return inner_.is_strided(); }
-
-    [[nodiscard]] constexpr index_type stride(rank_type r) const { return inner_.stride(r); }
-
-    [[nodiscard]] constexpr size_t required_span_size() const noexcept
-    {
-      return inner_.required_span_size();
-    }
-
-    template <class... Indices>
-    [[nodiscard]] constexpr index_type operator()(Indices... idx) const
-    {
-      return inner_(static_cast<index_type>(idx)...);
-    }
-
-   private:
-    cuda::std::layout_left::template mapping<extents_type> inner_{};
-  };
-};
-
-template <size_t PaddingStride>
-struct layout_right_padded_impl {
-  static constexpr size_t padding = PaddingStride;
-  template <class Extents>
-  struct mapping {
-    using extents_type = Extents;
-    using layout_type  = layout_right_padded_impl<PaddingStride>;
-    using rank_type    = typename extents_type::rank_type;
-    using index_type   = typename extents_type::index_type;
-
-    constexpr mapping() = default;
-    constexpr mapping(const extents_type& e) : inner_{e} {}
-
-    [[nodiscard]] constexpr const extents_type& extents() const noexcept
-    {
-      return inner_.extents();
-    }
-
-    [[nodiscard]] static constexpr bool is_always_unique() noexcept
-    {
-      return cuda::std::layout_right::template mapping<extents_type>::is_always_unique();
-    }
-    [[nodiscard]] static constexpr bool is_always_exhaustive() noexcept
-    {
-      return cuda::std::layout_right::template mapping<extents_type>::is_always_exhaustive();
-    }
-    [[nodiscard]] static constexpr bool is_always_strided() noexcept
-    {
-      return cuda::std::layout_right::template mapping<extents_type>::is_always_strided();
-    }
-
-    [[nodiscard]] constexpr bool is_unique() const noexcept { return inner_.is_unique(); }
-    [[nodiscard]] constexpr bool is_exhaustive() const noexcept { return inner_.is_exhaustive(); }
-    [[nodiscard]] constexpr bool is_strided() const noexcept { return inner_.is_strided(); }
-
-    [[nodiscard]] constexpr index_type stride(rank_type r) const { return inner_.stride(r); }
-
-    [[nodiscard]] constexpr size_t required_span_size() const noexcept
-    {
-      return inner_.required_span_size();
-    }
-
-    template <class... Indices>
-    [[nodiscard]] constexpr index_type operator()(Indices... idx) const
-    {
-      return inner_(static_cast<index_type>(idx)...);
-    }
-
-   private:
-    cuda::std::layout_right::template mapping<extents_type> inner_{};
-  };
-};
-
 template <typename ElementType>
-using layout_right_padded = layout_right_padded_impl<
+using layout_right_padded = std::experimental::layout_right_padded<
   detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
 
 template <typename ElementType>
-using layout_left_padded = layout_left_padded_impl<
+using layout_left_padded = std::experimental::layout_left_padded<
   detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
 
 template <typename ElementType, typename LayoutPolicy>
