@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,6 +10,8 @@
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/random/rng.cuh>
+
+#include <thrust/for_each.h>
 
 #include <gtest/gtest.h>
 
