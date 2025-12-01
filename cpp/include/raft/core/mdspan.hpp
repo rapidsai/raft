@@ -37,10 +37,10 @@ constexpr IntType alignTo(IntType a, IntType b)
 template <class ValueType, size_t ByteAlignment = 128>
 struct padding {
   static_assert(std::is_same<std::remove_cv_t<ValueType>, ValueType>::value,
-                "std::experimental::padding ValueType has to be provided without "
+                "raft::padding ValueType has to be provided without "
                 "const or volatile specifiers.");
   static_assert(ByteAlignment % sizeof(ValueType) == 0 || sizeof(ValueType) % ByteAlignment == 0,
-                "std::experimental::padding sizeof(ValueType) has to be multiple or "
+                "raft::padding sizeof(ValueType) has to be multiple or "
                 "divider of ByteAlignment.");
   static constexpr size_t value = (ByteAlignment / sizeof(ValueType)) > 1ul
                                     ? (ByteAlignment / sizeof(ValueType))
