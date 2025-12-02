@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -29,6 +29,7 @@
 #include <rmm/cuda_device.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/for_each.h>
 #include <thrust/iterator/transform_iterator.h>
 
 #include <cstdint>
