@@ -8,9 +8,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/sparse/linalg/laplacian.cuh>
-// #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/detail/spectral_util.cuh>
-// #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 
 #include <cuda.h>

@@ -6,7 +6,6 @@
 #pragma once
 
 #include <raft/core/math.hpp>
-// #include <raft/distance/distance_types.hpp>
 
 #include <cub/cub.cuh>
 #include <cuda_fp16.h>
