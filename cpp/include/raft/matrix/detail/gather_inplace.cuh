@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -9,6 +9,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/util/fast_int_div.cuh>
 
+#include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
 namespace raft {
