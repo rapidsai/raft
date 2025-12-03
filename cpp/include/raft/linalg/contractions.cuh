@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __CONTRACTIONS_H
@@ -159,6 +159,12 @@ struct Policy4x4<half, _veclen> {
   typedef KernelPolicy<half, _veclen, 64, 4, 4, 16, 16> Policy;
   typedef ColKernelPolicy<half, _veclen, 64, 4, 4, 16, 16> ColPolicy;
 };
+
+template <int _veclen>
+struct Policy4x4<uint8_t, _veclen> {
+  typedef KernelPolicy<uint8_t, _veclen, 64, 4, 4, 16, 16> Policy;
+  typedef ColKernelPolicy<uint8_t, _veclen, 64, 4, 4, 16, 16> ColPolicy;
+};
 /** @} */
 
 /**
@@ -180,6 +186,12 @@ template <int _veclen>
 struct Policy4x4Skinny<double, _veclen> {
   typedef KernelPolicy<double, _veclen, 8, 4, 4, 8, 8> Policy;
   typedef ColKernelPolicy<double, _veclen, 8, 4, 4, 8, 8> ColPolicy;
+};
+
+template <int _veclen>
+struct Policy4x4Skinny<uint8_t, _veclen> {
+  typedef KernelPolicy<uint8_t, _veclen, 8, 4, 4, 8, 8> Policy;
+  typedef ColKernelPolicy<uint8_t, _veclen, 8, 4, 4, 8, 8> ColPolicy;
 };
 
 /**
