@@ -7,6 +7,9 @@ set -euo pipefail
 rapids-logger "Create checks conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
+rapids-logger "Configuring conda strict channel priority"
+conda config --set channel_priority strict
+
 rapids-dependency-file-generator \
   --output conda \
   --file-key checks \
