@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <raft/linalg/reduce.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/random/rmat_rectangular_generator.cuh>
 #include <raft/random/rng.cuh>
