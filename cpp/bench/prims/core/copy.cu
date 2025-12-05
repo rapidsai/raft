@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <common/benchmark.hpp>
@@ -11,7 +11,8 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/memory_type.hpp>
-#include <raft/thirdparty/mdspan/include/experimental/mdspan>
+
+#include <cuda/std/mdspan>
 
 #include <cstdint>
 #include <numeric>

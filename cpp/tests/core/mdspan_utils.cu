@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,12 +13,10 @@
 
 namespace raft {
 
-namespace stdex = std::experimental;
-
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = stdex::default_accessor<ElementType>>
+          typename AccessorPolicy = cuda::std::default_accessor<ElementType>>
 struct derived_device_mdspan
   : public device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> {};
 

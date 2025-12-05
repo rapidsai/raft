@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -215,12 +215,12 @@ void shift_array(T* array, uint64_t num)
 }
 }  // namespace
 
-template <typename DataT,
-          typename IdxT = uint32_t,
-          typename d_accessor =
-            host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>,
-          typename g_accessor =
-            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
+template <
+  typename DataT,
+  typename IdxT = uint32_t,
+  typename d_accessor =
+    host_device_accessor<cuda::std::default_accessor<DataT>, memory_type::device>,
+  typename g_accessor = host_device_accessor<cuda::std::default_accessor<IdxT>, memory_type::host>>
 void sort_knn_graph(raft::resources const& res,
                     mdspan<const DataT, matrix_extent<int64_t>, row_major, d_accessor> dataset,
                     mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph)
@@ -305,9 +305,9 @@ void sort_knn_graph(raft::resources const& res,
   RAFT_LOG_DEBUG("# Sorting kNN graph time: %.1lf sec\n", time_sort_end - time_sort_start);
 }
 
-template <typename IdxT = uint32_t,
-          typename g_accessor =
-            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
+template <
+  typename IdxT       = uint32_t,
+  typename g_accessor = host_device_accessor<cuda::std::default_accessor<IdxT>, memory_type::host>>
 void optimize(raft::resources const& res,
               mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
               raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)

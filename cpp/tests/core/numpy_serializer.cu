@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -23,7 +23,7 @@
 namespace {
 
 template <class IndexType, std::size_t Rank>
-using dextents = std::experimental::dextents<IndexType, Rank>;
+using dextents = cuda::std::dextents<IndexType, Rank>;
 
 }  // anonymous namespace
 

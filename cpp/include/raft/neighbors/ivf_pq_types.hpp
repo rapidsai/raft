@@ -395,7 +395,7 @@ struct index : ann::index {
   }
 
   using pq_centers_extents =
-    std::experimental::extents<uint32_t, dynamic_extent, dynamic_extent, dynamic_extent>;
+    raft::extents<uint32_t, dynamic_extent, dynamic_extent, dynamic_extent>;
   /**
    * PQ cluster centers
    *
