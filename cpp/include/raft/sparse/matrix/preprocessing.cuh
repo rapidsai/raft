@@ -6,6 +6,7 @@
 #pragma once
 
 #include <raft/core/device_coo_matrix.hpp>
+#include <raft/core/device_csr_matrix.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/matrix/detail/preprocessing.cuh>
 
