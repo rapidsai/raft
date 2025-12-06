@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -22,7 +22,7 @@ using managed_accessor = host_device_accessor<AccessorPolicy, memory_type::manag
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
+          typename AccessorPolicy = cuda::std::default_accessor<ElementType>>
 using managed_mdspan = mdspan<ElementType, Extents, LayoutPolicy, managed_accessor<AccessorPolicy>>;
 
 template <typename T, bool B>
@@ -111,7 +111,7 @@ using managed_aligned_matrix_view =
   managed_mdspan<ElementType,
                  matrix_extent<IndexType>,
                  LayoutPolicy,
-                 std::experimental::aligned_accessor<ElementType, detail::alignment::value>>;
+                 cuda::std::aligned_accessor<ElementType, detail::alignment::value>>;
 
 /**
  * @brief Create a 2-dim 128 byte aligned mdspan instance for managed pointer. It's
@@ -132,8 +132,7 @@ auto constexpr make_managed_aligned_matrix_view(ElementType* ptr,
                                                 IndexType n_cols)
 {
   using data_handle_type =
-    typename std::experimental::aligned_accessor<ElementType,
-                                                 detail::alignment::value>::data_handle_type;
+    typename cuda::std::aligned_accessor<ElementType, detail::alignment::value>::data_handle_type;
   static_assert(std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
                 std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value);
   assert(reinterpret_cast<std::uintptr_t>(ptr) ==
