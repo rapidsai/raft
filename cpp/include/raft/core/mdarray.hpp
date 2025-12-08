@@ -347,7 +347,7 @@ auto flatten(const array_interface_type& mda)
  *         ContainerPolicy
  */
 template <typename array_interface_type,
-          typename IndexType = std::uint32_t,
+          typename IndexType,
           size_t... Extents,
           std::enable_if_t<is_array_interface_v<array_interface_type>>* = nullptr>
 auto reshape(const array_interface_type& mda, extents<IndexType, Extents...> new_shape)

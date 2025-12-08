@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -691,7 +691,7 @@ void make_rotation_matrix(raft::resources const& res,
 template <typename IdxT>
 void set_centers(raft::resources const& res,
                  index<IdxT>* index,
-                 device_matrix_view<const float, uint32_t> cluster_centers)
+                 device_matrix_view<const float, IdxT> cluster_centers)
 {
   RAFT_EXPECTS(cluster_centers.extent(0) == index->n_lists(),
                "Number of rows in the new centers must be equal to the number of IVF lists");

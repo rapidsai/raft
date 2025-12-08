@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@ namespace raft {
 /**
  * @brief A span class for device pointer.
  */
-template <typename T, size_t extent = std::experimental::dynamic_extent>
+template <typename T, size_t extent = cuda::std::dynamic_extent>
 using device_span = span<T, true, extent>;
 
 /**
