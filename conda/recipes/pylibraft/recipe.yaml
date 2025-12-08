@@ -68,29 +68,29 @@ requirements:
     - ${{ stdlib("c") }}
   host:
     - cuda-version =${{ cuda_version }}
-    - cython >=3.0.0,<3.2.0a0
+    - cython >=3.0.0,<3.2.0
     - libraft =${{ version }}
     - libraft-headers =${{ version }}
     - pip
     - python =${{ py_version }}
-    - rapids-build-backend >=0.4.0,<0.5.0.dev0
+    - rapids-build-backend >=0.4.0,<0.5.0
     - rmm =${{ minor_version }}
     - scikit-build-core >=0.10.0
     - cuda-cudart-dev
     - if: cuda_major == "12"
-      then: cuda-python >=12.9.2,<13.0a0
-      else: cuda-python >=13.0.1,<14.0a0
+      then: cuda-python >=12.9.2,<13.0
+      else: cuda-python >=13.0.1,<14.0
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - libraft =${{ version }}
     - libraft-headers =${{ version }}
     - python
-    - numpy >=1.23,<3.0a0
+    - numpy >=1.23,<3.0
     - rmm =${{ minor_version }}
     - cuda-cudart
     - if: cuda_major == "12"
-      then: cuda-python >=12.9.2,<13.0a0
-      else: cuda-python >=13.0.1,<14.0a0
+      then: cuda-python >=12.9.2,<13.0
+      else: cuda-python >=13.0.1,<14.0
   ignore_run_exports:
     from_package:
       - ${{ compiler("c") }}
