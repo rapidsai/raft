@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -50,8 +50,18 @@ struct pointer_residency_count<Type, Types...> {
     auto [on_device, on_host] = pointer_residency_count<Types...>::run(ptrs...);
     cudaPointerAttributes attr;
     RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
-    if (attr.devicePointer || attr.type == cudaMemoryTypeDevice) { ++on_device; }
-    if (attr.hostPointer || attr.type == cudaMemoryTypeUnregistered) { ++on_host; }
+
+    // Unregistered memory (e.g. regular malloc, numpy arrays) is host-only.
+    // With HMM/ATS enabled, cudaPointerGetAttributes may report a non-null devicePointer
+    // for such memory, but relying on page-fault access is unreliable for GPU kernels.
+    // We must treat unregistered memory as host-only to ensure proper device allocation.
+    bool is_unregistered = (attr.type == cudaMemoryTypeUnregistered);
+    bool is_device_accessible =
+      !is_unregistered && (attr.devicePointer || attr.type == cudaMemoryTypeDevice);
+    bool is_host_accessible = is_unregistered || attr.hostPointer;
+
+    if (is_device_accessible) { ++on_device; }
+    if (is_host_accessible) { ++on_host; }
     return std::make_tuple(on_device, on_host);
   }
 };
