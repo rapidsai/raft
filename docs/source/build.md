@@ -241,7 +241,6 @@ RAFT's CMake has the following configurable flags available:
 | BUILD_PRIMS_BENCH               | ON, OFF              | OFF | Compile benchmarks                                                           |
 | CUDA_ENABLE_KERNELINFO          | ON, OFF              | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer`         |
 | CUDA_ENABLE_LINEINFO            | ON, OFF              | OFF | Enable the -lineinfo option for nvcc                                         |
-| CUDA_STATIC_RUNTIME             | ON, OFF              | OFF | Statically link the CUDA runtime                                             |
 | CUDA_STATIC_MATH_LIBRARIES      | ON, OFF              | OFF | Statically link the CUDA math libraries                                      |
 | DETECT_CONDA_ENV                | ON, OFF              | ON  | Enable detection of conda environment for dependencies                       |
 | raft_FIND_COMPONENTS            | compiled distributed |     | Configures the optional components as a space-separated list                 |

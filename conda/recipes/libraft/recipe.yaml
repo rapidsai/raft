@@ -168,7 +168,6 @@ outputs:
           - ${{ stdlib("c") }}
         by_name:
           - cuda-version
-          - libmm
           - cuda-cudart
           - libcusparse
           - libcublas
@@ -222,7 +221,6 @@ outputs:
           - ${{ stdlib("c") }}
         by_name:
           - cuda-version
-          - libmm
           - libcusparse
           - libcublas
           - libcurand
@@ -274,7 +272,6 @@ outputs:
           - ${{ stdlib("c") }}
         by_name:
           - cuda-version
-          - libmm
           - libcusparse
           - libcublas
           - libcurand
@@ -326,7 +323,6 @@ outputs:
           - ${{ stdlib("c") }}
         by_name:
           - cuda-version
-          - libmm
           - libcusparse
           - libcublas
           - libcurand
