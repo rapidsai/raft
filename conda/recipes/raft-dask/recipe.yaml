@@ -90,7 +90,6 @@ requirements:
     - python
     - rapids-dask-dependency =${{ minor_version }}
     - rmm =${{ minor_version }}
-    - cuda-cudart
     - if: cuda_major == "12"
       then: cuda-python >=12.9.2,<13.0
       else: cuda-python >=13.0.1,<14.0
@@ -101,7 +100,6 @@ requirements:
       - ${{ compiler("cuda") }}
       - ${{ stdlib("c") }}
     by_name:
-      - cuda-cudart
       - cuda-version
       - nccl
 
