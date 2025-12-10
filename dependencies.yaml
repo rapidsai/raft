@@ -257,7 +257,6 @@ dependencies:
       - output_types: [conda]
         packages:
           - cuda-nvtx-dev
-          - cuda-cudart-dev
           - cuda-profiler-api
           - libcublas-dev
           - libcurand-dev

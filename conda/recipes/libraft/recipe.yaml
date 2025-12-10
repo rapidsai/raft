@@ -73,7 +73,6 @@ cache:
       - ${{ stdlib("c") }}
     host:
       - cuda-version =${{ cuda_version }}
-      - cuda-cudart-dev
       - cuda-profiler-api
       - libcublas-dev
       - libcurand-dev
@@ -109,7 +108,6 @@ outputs:
         - nccl ${{ nccl_version }}
         - rapids-logger =0.2
         - ucxx ${{ ucxx_version }}
-        - cuda-cudart-dev
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - librmm =${{ minor_version }}
@@ -121,7 +119,6 @@ outputs:
           - ${{ compiler("cuda") }}
           - ${{ stdlib("c") }}
         by_name:
-          - cuda-cudart
           - cuda-version
           - libcublas
           - libcurand
@@ -154,7 +151,6 @@ outputs:
         - librmm =${{ minor_version }}
         - nccl ${{ nccl_version }}
         - ucxx ${{ ucxx_version }}
-        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -168,7 +164,6 @@ outputs:
           - ${{ stdlib("c") }}
         by_name:
           - cuda-version
-          - cuda-cudart
           - libcusparse
           - libcublas
           - libcurand
@@ -199,7 +194,6 @@ outputs:
       host:
         - ${{ pin_subpackage("libraft-headers", exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -250,7 +244,6 @@ outputs:
       host:
         - ${{ pin_subpackage("libraft-headers", exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -302,7 +295,6 @@ outputs:
         - ${{ pin_subpackage('libraft', exact=True) }}
         - ${{ pin_subpackage('libraft-static', exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev

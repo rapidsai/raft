@@ -77,7 +77,6 @@ requirements:
     - rmm =${{ minor_version }}
     - scikit-build-core >=0.10.0
     - ucxx ${{ ucxx_version }}
-    - cuda-cudart-dev
     - if: cuda_major == "12"
       then: cuda-python >=12.9.2,<13.0
       else: cuda-python >=13.0.1,<14.0
