@@ -6,8 +6,11 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/matrix/diagonal.cuh>
+
+#include <thrust/scan.h>
 
 #include <type_traits>
 
@@ -108,6 +111,169 @@ auto compute_graph_laplacian(
   return result;
 }
 
+template <typename ElementType, typename RowType, typename ColType, typename NZType>
+device_coo_matrix<std::remove_const_t<ElementType>,
+                  std::remove_const_t<RowType>,
+                  std::remove_const_t<ColType>,
+                  std::remove_const_t<NZType>>
+compute_graph_laplacian(raft::resources const& res,
+                        device_coo_matrix_view<ElementType, RowType, ColType, NZType> input)
+{
+  auto input_structure = input.structure_view();
+  auto dim             = input_structure.get_n_rows();
+  RAFT_EXPECTS(dim == input_structure.get_n_cols(),
+               "The graph Laplacian can only be computed on a square adjacency matrix");
+
+  auto stream = resource::get_cuda_stream(res);
+
+  // std::cout << "enter laplacian" << std::endl;
+
+  auto marked_diagonal = raft::make_device_vector<int, RowType>(res, dim);
+  raft::matrix::fill(res, marked_diagonal.view(), int(1));
+  auto marked_diagonal_ptr = marked_diagonal.data_handle();
+  auto rows_ptr            = input_structure.get_rows().data();
+  auto cols_ptr            = input_structure.get_cols().data();
+  auto values_ptr          = input.get_elements().data();
+
+  // auto values_view = input.get_elements();
+  auto diagonal_count_vec = raft::make_device_vector<RowType, int>(res, 1);
+  raft::matrix::fill(res, diagonal_count_vec.view(), RowType(0));
+  auto diagonal_count_ptr = diagonal_count_vec.data_handle();
+
+  // std::cout << "marked_diagonal created" << std::endl;
+
+  raft::linalg::map_offset(
+    res,
+    raft::make_device_vector_view(values_ptr, input_structure.get_nnz()),
+    [rows_ptr, cols_ptr, values_ptr, marked_diagonal_ptr, diagonal_count_ptr] __device__(auto idx) {
+      if (rows_ptr[idx] == cols_ptr[idx]) {
+        marked_diagonal_ptr[rows_ptr[idx]] = 0;
+        atomicAdd(diagonal_count_ptr, RowType(1));
+      }
+      return values_ptr[idx];
+    });
+
+  RowType host_diagonal_count;
+  raft::copy(&host_diagonal_count, diagonal_count_ptr, 1, stream);
+  resource::sync_stream(res);
+  RowType extra_diagonal_space = dim - host_diagonal_count;
+
+  // std::cout << "1st map offset done" << std::endl;
+
+  auto result = make_device_coo_matrix<std::remove_const_t<ElementType>,
+                                       std::remove_const_t<RowType>,
+                                       std::remove_const_t<ColType>,
+                                       std::remove_const_t<NZType>>(
+    res, dim, dim, input_structure.get_nnz() + extra_diagonal_space);
+
+  // std::cout << "laplacian allocated result" << std::endl;
+
+  auto result_rows_ptr   = result.structure_view().get_rows().data();
+  auto result_cols_ptr   = result.structure_view().get_cols().data();
+  auto result_values_ptr = result.get_elements().data();
+
+  // std::cout << "input_structure.get_nnz(): " << input_structure.get_nnz() << std::endl;
+  // std::cout << "result.structure_view().get_nnz(): " << result.structure_view().get_nnz() <<
+  // std::endl;
+
+  raft::copy(result_values_ptr, values_ptr, input_structure.get_nnz(), stream);
+  raft::copy(result_cols_ptr, cols_ptr, input_structure.get_nnz(), stream);
+  raft::copy(result_rows_ptr, rows_ptr, input_structure.get_nnz(), stream);
+
+  // std::cout << "result copied" << std::endl;
+
+  auto scan_diagonal     = raft::make_device_vector<NZType, NZType>(res, dim);
+  auto scan_diagonal_ptr = scan_diagonal.data_handle();
+  auto input_nnz         = input_structure.get_nnz();
+
+  thrust::exclusive_scan(raft::resource::get_thrust_policy(res),
+                         marked_diagonal_ptr,
+                         marked_diagonal_ptr + dim,
+                         scan_diagonal_ptr);
+
+  // auto diagonal_cols = raft::make_device_vector<RowType, RowType>(res, extra_diagonal_space);
+  // auto diagonal_rows = raft::make_device_vector<RowType, RowType>(res, extra_diagonal_space);
+  // auto diagonal_values = raft::make_device_vector<ElementType, RowType>(res,
+  // extra_diagonal_space); auto diagonal_cols_ptr = diagonal_cols.data_handle(); auto
+  // diagonal_rows_ptr = diagonal_rows.data_handle(); auto diagonal_values_ptr =
+  // diagonal_values.data_handle();
+
+  // raft::linalg::map_offset(res, marked_diagonal.view(), [diagonal_cols_ptr, diagonal_rows_ptr,
+  // diagonal_values_ptr, scan_diagonal_ptr] __device__(auto idx) {
+  //   if (marked_diagonal_ptr[idx] == 1) {
+  //     diagonal_cols_ptr[scan_diagonal_ptr[idx]] = idx;
+  //     diagonal_rows_ptr[scan_diagonal_ptr[idx]] = idx;
+  //     diagonal_values_ptr[scan_diagonal_ptr[idx]] = 0;
+  //   }
+  //   return marked_diagonal_ptr[idx];
+  // });
+
+  raft::linalg::map_offset(
+    res,
+    marked_diagonal.view(),
+    [result_rows_ptr,
+     result_cols_ptr,
+     result_values_ptr,
+     marked_diagonal_ptr,
+     scan_diagonal_ptr,
+     input_nnz] __device__(auto idx) {
+      if (marked_diagonal_ptr[idx] == 1) {
+        result_rows_ptr[input_nnz + static_cast<NZType>(scan_diagonal_ptr[idx])]   = idx;
+        result_cols_ptr[input_nnz + static_cast<NZType>(scan_diagonal_ptr[idx])]   = idx;
+        result_values_ptr[input_nnz + static_cast<NZType>(scan_diagonal_ptr[idx])] = 0;
+      }
+      return marked_diagonal_ptr[idx];
+    });
+
+  // raft::print_device_vector("result_rows_ptr", result_rows_ptr + input_nnz + extra_diagonal_space
+  // - 1 - 4, 5, std::cout); raft::print_device_vector("result_cols_ptr", result_cols_ptr +
+  // input_nnz + extra_diagonal_space - 1 - 4, 5, std::cout);
+  // raft::print_device_vector("result_values_ptr", result_values_ptr + input_nnz +
+  // extra_diagonal_space - 1 - 4, 5, std::cout);
+
+  // std::cout << "2nd map offset done" << std::endl;
+
+  auto degrees = raft::make_device_vector<ElementType, RowType>(res, dim);
+  raft::matrix::fill(res, degrees.view(), ElementType(0));
+  auto degrees_ptr = degrees.data_handle();
+
+  // D
+  auto result_nnz = result.structure_view().get_nnz();
+  raft::linalg::map_offset(
+    res,
+    raft::make_device_vector_view(result_values_ptr, result_nnz),
+    [result_rows_ptr, result_cols_ptr, result_values_ptr, degrees_ptr] __device__(auto idx) {
+      atomicAdd(&degrees_ptr[result_rows_ptr[idx]], result_values_ptr[idx]);
+      return result_values_ptr[idx];
+    });
+
+  // std::cout << "3rd map offset done" << std::endl;
+
+  // D - A
+  raft::linalg::map_offset(
+    res,
+    raft::make_device_vector_view(result_values_ptr, result_nnz),
+    [result_rows_ptr, result_cols_ptr, result_values_ptr, degrees_ptr] __device__(auto idx) {
+      if (result_rows_ptr[idx] == result_cols_ptr[idx]) {
+        result_values_ptr[idx] =
+          degrees_ptr[result_rows_ptr[idx]] - result_values_ptr[idx];  // on diagonal
+      } else {
+        result_values_ptr[idx] = -result_values_ptr[idx];  // off diaganal
+      }
+      return result_values_ptr[idx];
+    });
+
+  // raft::print_device_vector("result_rows_ptr", result_rows_ptr + input_nnz + extra_diagonal_space
+  // - 1 - 4, 5, std::cout); raft::print_device_vector("result_cols_ptr", result_cols_ptr +
+  // input_nnz + extra_diagonal_space - 1 - 4, 5, std::cout);
+  // raft::print_device_vector("result_values_ptr", result_values_ptr + input_nnz +
+  // extra_diagonal_space - 1 - 4, 5, std::cout);
+
+  // std::cout << "4th map offset done" << std::endl;
+
+  return result;
+}
+
 /**
  * @brief Given a CSR adjacency matrix, return the normalized graph Laplacian
  *
@@ -129,11 +295,10 @@ auto compute_graph_laplacian(
  *
  * @return A CSR matrix containing the normalized graph Laplacian
  */
-template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-auto laplacian_normalized(
-  raft::resources const& res,
-  device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType> input,
-  device_vector_view<ElementType, IndptrType> diagonal_out)
+template <typename SparseInputType, typename ElementType, typename IndptrType>
+auto laplacian_normalized(raft::resources const& res,
+                          SparseInputType input,
+                          device_vector_view<ElementType, IndptrType> diagonal_out)
 {
   auto laplacian           = detail::compute_graph_laplacian(res, input);
   auto laplacian_structure = laplacian.structure_view();
