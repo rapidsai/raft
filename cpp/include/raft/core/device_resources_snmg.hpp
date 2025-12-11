@@ -10,9 +10,9 @@
 #include <raft/core/resource/resource_types.hpp>
 
 #include <rmm/cuda_device.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/mr/device_memory_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
+#include <rmm/mr/pool_memory_resource.hpp>
 
 #include <memory>
 #include <unordered_set>
