@@ -1649,7 +1649,7 @@ void lanczos_aux(raft::resources const& handle,
                                                 cusparse_v,
                                                 &zero,
                                                 cusparse_u,
-                                                CUSPARSE_SPMV_ALG_DEFAULT,
+                                                CUSPARSE_SPMV_CSR_ALG2,
                                                 &bufferSize,
                                                 stream);
   auto cusparse_spmv_buffer = raft::make_device_vector<ValueTypeT>(handle, bufferSize);
@@ -1662,7 +1662,7 @@ void lanczos_aux(raft::resources const& handle,
                                        cusparse_v,
                                        &zero,
                                        cusparse_u,
-                                       CUSPARSE_SPMV_ALG_DEFAULT,
+                                       CUSPARSE_SPMV_CSR_ALG2,
                                        cusparse_spmv_buffer.data_handle(),
                                        stream);
 
@@ -1949,7 +1949,7 @@ auto lanczos_smallest(raft::resources const& handle,
                                                   cusparse_v,
                                                   &zero,
                                                   cusparse_u,
-                                                  CUSPARSE_SPMV_ALG_DEFAULT,
+                                                  CUSPARSE_SPMV_CSR_ALG2,
                                                   &bufferSize,
                                                   stream);
     auto cusparse_spmv_buffer = raft::make_device_vector<ValueTypeT>(handle, bufferSize);
@@ -1961,7 +1961,7 @@ auto lanczos_smallest(raft::resources const& handle,
                                        cusparse_v,
                                        &zero,
                                        cusparse_u,
-                                       CUSPARSE_SPMV_ALG_DEFAULT,
+                                       CUSPARSE_SPMV_CSR_ALG2,
                                        cusparse_spmv_buffer.data_handle(),
                                        stream);
 
