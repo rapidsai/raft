@@ -181,7 +181,7 @@ class rmat_lanczos_tests
       symmetric_coo.n_rows,
       (uint64_t)symmetric_coo.nnz};
     raft::sparse::solver::lanczos_solver_config<ValueType> config{
-      n_components, params.maxiter, params.restartiter, params.tol, params.which, rng.seed};
+      n_components, params.maxiter, params.restartiter, params.tol, params.which, std::nullopt};
 
     auto csr_structure =
       raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
