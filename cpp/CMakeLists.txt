@@ -573,6 +573,8 @@ endif()
 # * build test executable ----------------------------------------------------
 
 if(BUILD_TESTS)
+  # include CTest module -- automatically calls enable_testing()
+  include(CTest)
   add_subdirectory(tests)
 endif()
 
