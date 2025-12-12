@@ -7,6 +7,7 @@
 #include "../util/preprocess_utils.cu"
 
 #include <raft/sparse/matrix/preprocessing.cuh>
+#include <raft/sparse/op/reduce.cuh>
 
 #include <gtest/gtest.h>
 
