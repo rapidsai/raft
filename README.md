@@ -236,7 +236,7 @@ Use the following command, depending on your CUDA version, to install all of the
 
 ```bash
 # CUDA 13
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=13.0
+mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=13.1
 
 # CUDA 12
 mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.9
@@ -248,7 +248,7 @@ You can also install the conda packages individually using the `mamba` command a
 
 ```bash
 # CUDA 13
-mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=13.0
+mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=13.1
 
 # CUDA 12
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.9
