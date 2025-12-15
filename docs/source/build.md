@@ -38,10 +38,10 @@ Use the following command, depending on your CUDA version, to install all of the
 
 ```bash
 # CUDA 13
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=13.1
+mamba install -c rapidsai -c conda-forge raft-dask pylibraft cuda-version=13.1
 
 # CUDA 12
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.9
+mamba install -c rapidsai -c conda-forge raft-dask pylibraft cuda-version=12.9
 ```
 
 Note that the above commands will also install `libraft-headers` and `libraft`.
@@ -50,10 +50,10 @@ You can also install the conda packages individually using the `mamba` command a
 
 ```bash
 # CUDA 13
-mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=13.1
+mamba install -c rapidsai -c conda-forge libraft-headers cuda-version=13.1
 
 # CUDA 12
-mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=12.9
+mamba install -c rapidsai -c conda-forge libraft-headers cuda-version=12.9
 ```
 
 ## Installing Python through Pip
