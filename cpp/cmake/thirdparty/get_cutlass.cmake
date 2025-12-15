@@ -25,9 +25,7 @@ function(find_and_configure_cutlass)
       CACHE BOOL "Disable CUTLASS to build with cuBLAS library."
   )
 
-  if (CUDA_STATIC_RUNTIME)
-    set(CUDART_LIBRARY "${CUDA_cudart_static_LIBRARY}" CACHE FILEPATH "fixing cutlass cmake code" FORCE)
-  endif()
+  set(CUDART_LIBRARY "${CUDA_cudart_static_LIBRARY}" CACHE FILEPATH "fixing cutlass cmake code" FORCE)
 
   include("${rapids-cmake-dir}/cpm/package_override.cmake")
   rapids_cpm_package_override("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../patches/cutlass_override.json")
