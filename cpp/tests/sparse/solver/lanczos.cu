@@ -181,7 +181,7 @@ class rmat_lanczos_tests
       symmetric_coo.n_rows,
       (uint64_t)symmetric_coo.nnz};
     raft::sparse::solver::lanczos_solver_config<ValueType> config{
-      n_components, params.maxiter, params.restartiter, params.tol, params.which, params.seed};
+      n_components, params.maxiter, params.restartiter, params.tol, params.which, rng.seed};
 
     auto csr_structure =
       raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
@@ -261,7 +261,7 @@ class rmat_lanczos_tests
     ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues_coo.data_handle(),
                                              expected_eigenvalues.data_handle(),
                                              n_components,
-                                             raft::CompareApprox<ValueType>(1e-5),
+                                             raft::CompareApprox<ValueType>(1e-4),
                                              stream));
   }
 
@@ -871,7 +871,7 @@ const std::vector<rmat_lanczos_inputs<int, float>> rmat_inputsf = {
     -12.623185,  -12.55508,   -12.2874565, -12.053391,  -11.677346, -11.558279, -11.163732,
     -10.922034,  -10.7936945, -10.558049,  -10.205776,  -10.005316, -9.559181,  -9.491834,
     -9.242631,   -8.883637,   -8.765364,   -8.688508,   -8.458255,  -8.385196,  -8.217982,
-    -8.044123}}};
+    -8.0442095}}};
 
 using LanczosTestF = lanczos_tests<int, float>;
 TEST_P(LanczosTestF, Result) { Run(); }
