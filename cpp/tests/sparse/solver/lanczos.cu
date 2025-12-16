@@ -181,7 +181,7 @@ class rmat_lanczos_tests
       symmetric_coo.n_rows,
       (uint64_t)symmetric_coo.nnz};
     raft::sparse::solver::lanczos_solver_config<ValueType> config{
-      n_components, params.maxiter, params.restartiter, params.tol, params.which, std::nullopt};
+      n_components, params.maxiter, params.restartiter, params.tol, params.which, params.seed};
 
     auto csr_structure =
       raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
@@ -207,6 +207,27 @@ class rmat_lanczos_tests
                                              expected_eigenvalues.data_handle(),
                                              n_components,
                                              raft::CompareApprox<ValueType>(1e-5),
+                                             stream));
+
+    // Reproducibility test - run again with same seed and verify exact match
+    raft::device_vector<ValueType, uint32_t, raft::col_major> eigenvalues2 =
+      raft::make_device_vector<ValueType, uint32_t, raft::col_major>(handle, n_components);
+    raft::device_matrix<ValueType, uint32_t, raft::col_major> eigenvectors2 =
+      raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(
+        handle, symmetric_coo.n_rows, n_components);
+
+    raft::sparse::solver::lanczos_compute_smallest_eigenvectors<IndexType, ValueType>(
+      handle,
+      config,
+      csr_matrix,
+      std::make_optional(v0.view()),
+      eigenvalues2.view(),
+      eigenvectors2.view());
+
+    ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues.data_handle(),
+                                             eigenvalues2.data_handle(),
+                                             n_components,
+                                             raft::Compare<ValueType>(),
                                              stream));
 
     // Also test with COO matrix - use the existing symmetric_coo directly
@@ -325,6 +346,27 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
                                              expected_eigenvalues.data_handle(),
                                              params.n_components,
                                              raft::CompareApprox<ValueType>(1e-5),
+                                             stream));
+
+    // Reproducibility test - run again with same seed and verify exact match
+    raft::device_vector<ValueType, uint32_t, raft::col_major> eigenvalues2 =
+      raft::make_device_vector<ValueType, uint32_t, raft::col_major>(handle, params.n_components);
+    raft::device_matrix<ValueType, uint32_t, raft::col_major> eigenvectors2 =
+      raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(
+        handle, n, params.n_components);
+
+    raft::sparse::solver::lanczos_compute_smallest_eigenvectors<IndexType, ValueType>(
+      handle,
+      config,
+      csr_matrix,
+      std::make_optional(v0.view()),
+      eigenvalues2.view(),
+      eigenvectors2.view());
+
+    ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues.data_handle(),
+                                             eigenvalues2.data_handle(),
+                                             params.n_components,
+                                             raft::Compare<ValueType>(),
                                              stream));
 
     // Also test with COO matrix (convert CSR to COO format)
@@ -829,7 +871,7 @@ const std::vector<rmat_lanczos_inputs<int, float>> rmat_inputsf = {
     -12.623185,  -12.55508,   -12.2874565, -12.053391,  -11.677346, -11.558279, -11.163732,
     -10.922034,  -10.7936945, -10.558049,  -10.205776,  -10.005316, -9.559181,  -9.491834,
     -9.242631,   -8.883637,   -8.765364,   -8.688508,   -8.458255,  -8.385196,  -8.217982,
-    -8.0442095}}};
+    -8.044123}}};
 
 using LanczosTestF = lanczos_tests<int, float>;
 TEST_P(LanczosTestF, Result) { Run(); }
