@@ -4,10 +4,14 @@
  */
 #pragma once
 
-#include <raft/cluster/detail/kmeans_common.cuh>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
+#include <raft/label/classlabels.cuh>
 #include <raft/linalg/map_reduce.cuh>
-#include <raft/sparse/neighbors/cross_component_nn.cuh>
+#include <raft/stats/histogram.cuh>
+
+#include <thrust/reduce.h>
 
 namespace raft::sparse::matrix::detail {
 
@@ -62,9 +66,18 @@ void fit_tfidf(raft::resources const& handle,
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  rmm::device_uvector<char> workspace(0, stream);
-  raft::cluster::detail::countLabels(
-    handle, columns, idFeatCount.data_handle(), nnz, num_cols, workspace);
+  // Use RAFT's histogram function to count occurrences of each column index
+  // This replaces the countLabels function from kmeans_common.cuh
+  raft::stats::histogram(
+    raft::stats::HistTypeAuto,                           // Let RAFT choose the best algorithm
+    idFeatCount.data_handle(),                           // output bins (counts per feature)
+    num_cols,                                            // number of bins (one per column/feature)
+    columns,                                             // input data (column indices)
+    nnz,                                                 // number of data points
+    1,                                                   // single batch
+    stream,                                              // CUDA stream
+    raft::stats::IdentityBinner<IndexType, IndexType>()  // column indices map directly to bins
+  );
 
   // get total number of words
   auto batchIdLen = raft::make_host_scalar<ValueType>(0);
@@ -105,7 +118,10 @@ void fit_bm25(raft::resources const& handle,
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  int uniq_cnt  = raft::sparse::neighbors::get_n_components(rows, nnz, stream);
+  // Count unique row indices using raft::label::getUniquelabels
+  // This replaces the get_n_components function from cross_component_nn.cuh
+  rmm::device_uvector<IndexType> temp_unique_rows(0, stream);
+  int uniq_cnt  = raft::label::getUniquelabels(temp_unique_rows, rows, nnz, stream);
   auto row_keys = raft::make_device_vector<IndexType>(handle, uniq_cnt);
   auto row_cnts = raft::make_device_vector<ValueType>(handle, uniq_cnt);
   get_uniques_counts<IndexType, ValueType, int64_t>(
