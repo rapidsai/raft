@@ -9,6 +9,7 @@
 #define _USE_MATH_DEFINES
 
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -1622,8 +1623,20 @@ void lanczos_aux(raft::resources const& handle,
                  int ncv,
                  raft::device_matrix_view<ValueTypeT, uint32_t> v,
                  raft::device_matrix_view<ValueTypeT, uint32_t> uu,
-                 raft::device_matrix_view<ValueTypeT, uint32_t> vv)
+                 raft::device_matrix_view<ValueTypeT, uint32_t> vv,
+                 std::optional<uint64_t> seed)
 {
+  // Deterministic when seed is provided
+  cusparseSpMVAlg_t spmv_alg;
+  if (seed.has_value()) {
+    if constexpr (is_device_coo_matrix_view<AType>::value) {
+      spmv_alg = CUSPARSE_SPMV_COO_ALG2;
+    } else {
+      spmv_alg = CUSPARSE_SPMV_CSR_ALG2;
+    }
+  } else {
+    spmv_alg = CUSPARSE_SPMV_ALG_DEFAULT;
+  }
   auto stream = resource::get_cuda_stream(handle);
 
   IndexTypeT n  = A.structure_view().get_n_rows();
@@ -1649,7 +1662,7 @@ void lanczos_aux(raft::resources const& handle,
                                                 cusparse_v,
                                                 &zero,
                                                 cusparse_u,
-                                                CUSPARSE_SPMV_ALG_DEFAULT,
+                                                spmv_alg,
                                                 &bufferSize,
                                                 stream);
   auto cusparse_spmv_buffer = raft::make_device_vector<ValueTypeT>(handle, bufferSize);
@@ -1662,7 +1675,7 @@ void lanczos_aux(raft::resources const& handle,
                                        cusparse_v,
                                        &zero,
                                        cusparse_u,
-                                       CUSPARSE_SPMV_ALG_DEFAULT,
+                                       spmv_alg,
                                        cusparse_spmv_buffer.data_handle(),
                                        stream);
 
@@ -1763,8 +1776,19 @@ auto lanczos_smallest(raft::resources const& handle,
                       ValueTypeT* eigVals_dev,
                       ValueTypeT* eigVecs_dev,
                       ValueTypeT* v0,
-                      uint64_t seed) -> int
+                      std::optional<uint64_t> seed) -> int
 {
+  // Deterministic when seed is provided
+  cusparseSpMVAlg_t spmv_alg;
+  if (seed.has_value()) {
+    if constexpr (is_device_coo_matrix_view<AType>::value) {
+      spmv_alg = CUSPARSE_SPMV_COO_ALG2;
+    } else {
+      spmv_alg = CUSPARSE_SPMV_CSR_ALG2;
+    }
+  } else {
+    spmv_alg = CUSPARSE_SPMV_ALG_DEFAULT;
+  }
   int n       = A.structure_view().get_n_rows();
   int ncv     = restartIter;
   auto stream = resource::get_cuda_stream(handle);
@@ -1811,7 +1835,8 @@ auto lanczos_smallest(raft::resources const& handle,
                                              ncv,
                                              v.view(),
                                              aux_uu.view(),
-                                             vv.view());
+                                             vv.view(),
+                                             seed);
 
   auto eigenvectors =
     raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(handle, ncv, ncv);
@@ -1949,7 +1974,7 @@ auto lanczos_smallest(raft::resources const& handle,
                                                   cusparse_v,
                                                   &zero,
                                                   cusparse_u,
-                                                  CUSPARSE_SPMV_ALG_DEFAULT,
+                                                  spmv_alg,
                                                   &bufferSize,
                                                   stream);
     auto cusparse_spmv_buffer = raft::make_device_vector<ValueTypeT>(handle, bufferSize);
@@ -1961,7 +1986,7 @@ auto lanczos_smallest(raft::resources const& handle,
                                        cusparse_v,
                                        &zero,
                                        cusparse_u,
-                                       CUSPARSE_SPMV_ALG_DEFAULT,
+                                       spmv_alg,
                                        cusparse_spmv_buffer.data_handle(),
                                        stream);
 
@@ -2065,7 +2090,8 @@ auto lanczos_smallest(raft::resources const& handle,
                                                ncv,
                                                v.view(),
                                                aux_uu.view(),
-                                               vv.view());
+                                               vv.view(),
+                                               seed);
     iter += ncv - nEigVecs;
     lanczos_solve_ritz<IndexTypeT, ValueTypeT>(handle,
                                                alpha.view(),
@@ -2143,9 +2169,10 @@ auto lanczos_compute_smallest_eigenvectors(
                                                            config.seed);
   } else {
     // Handle the optional v0 initial Lanczos vector if nullopt is used
-    auto n       = A.structure_view().get_n_rows();
-    auto temp_v0 = raft::make_device_vector<ValueTypeT, uint32_t>(handle, n);
-    raft::random::RngState rng_state(config.seed);
+    auto n        = A.structure_view().get_n_rows();
+    auto temp_v0  = raft::make_device_vector<ValueTypeT, uint32_t>(handle, n);
+    uint64_t seed = config.seed.value_or(std::random_device{}());
+    raft::random::RngState rng_state(seed);
     raft::random::uniform(handle, rng_state, temp_v0.view(), ValueTypeT{0.0}, ValueTypeT{1.0});
     return lanczos_smallest<IndexTypeT, ValueTypeT, AType>(handle,
                                                            A,
