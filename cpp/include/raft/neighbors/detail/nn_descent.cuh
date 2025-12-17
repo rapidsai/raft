@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -1431,11 +1420,11 @@ void GNND<Data_t, Index_t, epilogue_op>::build(Data_t* data,
   }
 }
 
-template <typename T,
-          typename IdxT        = uint32_t,
-          typename epilogue_op = DistEpilogue<IdxT, T>,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <
+  typename T,
+  typename IdxT        = uint32_t,
+  typename epilogue_op = DistEpilogue<IdxT, T>,
+  typename Accessor    = host_device_accessor<cuda::std::default_accessor<T>, memory_type::host>>
 void build(raft::resources const& res,
            const index_params& params,
            mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
@@ -1508,11 +1497,11 @@ void build(raft::resources const& res,
   }
 }
 
-template <typename T,
-          typename IdxT        = uint32_t,
-          typename epilogue_op = DistEpilogue<IdxT, T>,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <
+  typename T,
+  typename IdxT        = uint32_t,
+  typename epilogue_op = DistEpilogue<IdxT, T>,
+  typename Accessor    = host_device_accessor<cuda::std::default_accessor<T>, memory_type::host>>
 index<IdxT> build(raft::resources const& res,
                   const index_params& params,
                   mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,

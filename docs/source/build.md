@@ -75,13 +75,13 @@ pip install raft-dask-cu12 --extra-index-url=https://pypi.nvidia.com
 ### CUDA/GPU Requirements
 - cmake 3.26.4+
 - GCC 9.3+ (9.5.0+ recommended)
-- CUDA Toolkit 12.0+
+- CUDA Toolkit 12.2+
 - NVIDIA driver 450.80.02+
 - Ampere architecture or better (compute capability >= 8.0)
 
 ### Build Dependencies
 
-In addition to the libraries included with cudatoolkit 12.0+, there are some other dependencies below for building RAFT from source. Many of the dependencies are optional and depend only on the primitives being used. All of these can be installed with cmake or [rapids-cpm](https://github.com/rapidsai/rapids-cmake#cpm) and many of them can be installed with [conda](https://anaconda.org).
+In addition to the libraries included with cudatoolkit 12.2+, there are some other dependencies below for building RAFT from source. Many of the dependencies are optional and depend only on the primitives being used. All of these can be installed with cmake or [rapids-cpm](https://github.com/rapidsai/rapids-cmake#cpm) and many of them can be installed with [conda](https://anaconda.org).
 
 #### Required
 - [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
@@ -100,7 +100,7 @@ In addition to the libraries included with cudatoolkit 12.0+, there are some oth
 
 Conda environment scripts are provided for installing the necessary dependencies to build both the C++ and Python libraries from source. It is preferred to use `mamba`, as it provides significant speedup over `conda`:
 ```bash
-mamba env create --name rapids_raft -f conda/environments/all_cuda-130_arch-x86_64.yaml
+mamba env create --name rapids_raft -f conda/environments/all_cuda-130_arch-$(uname -m).yaml
 mamba activate rapids_raft
 ```
 
@@ -241,7 +241,6 @@ RAFT's CMake has the following configurable flags available:
 | BUILD_PRIMS_BENCH               | ON, OFF              | OFF | Compile benchmarks                                                           |
 | CUDA_ENABLE_KERNELINFO          | ON, OFF              | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer`         |
 | CUDA_ENABLE_LINEINFO            | ON, OFF              | OFF | Enable the -lineinfo option for nvcc                                         |
-| CUDA_STATIC_RUNTIME             | ON, OFF              | OFF | Statically link the CUDA runtime                                             |
 | CUDA_STATIC_MATH_LIBRARIES      | ON, OFF              | OFF | Statically link the CUDA math libraries                                      |
 | DETECT_CONDA_ENV                | ON, OFF              | ON  | Enable detection of conda environment for dependencies                       |
 | raft_FIND_COMPONENTS            | compiled distributed |     | Configures the optional components as a space-separated list                 |

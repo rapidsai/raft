@@ -1,25 +1,15 @@
 /*
+ * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
+ */
+/*
  * Copyright (2019) Sandia Corporation
  *
  * The source code is licensed under the 3-clause BSD license found in the LICENSE file
  * thirdparty/LICENSES/mdarray.license
  */
 
-/*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 #pragma once
 #ifndef RAFT_DISABLE_CUDA
 #include <raft/core/detail/span.hpp>  // dynamic_extent
@@ -31,7 +21,7 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
 #include <thrust/device_ptr.h>
@@ -94,15 +84,10 @@ class device_uvector {
   using const_iterator = const_pointer;
 
  public:
-  ~device_uvector()                         = default;
-  device_uvector(device_uvector&&) noexcept = default;
-  device_uvector(device_uvector const& that) : data_{that.data_, that.data_.stream()} {}
-
-  auto operator=(device_uvector<T> const& that) -> device_uvector<T>&
-  {
-    data_ = rmm::device_uvector<T>{that.data_, that.data_.stream()};
-    return *this;
-  }
+  ~device_uvector()                                                       = default;
+  device_uvector(device_uvector&&) noexcept                               = default;
+  device_uvector(device_uvector const& that)                              = delete;
+  auto operator=(device_uvector<T> const& that) -> device_uvector<T>&     = delete;
   auto operator=(device_uvector<T>&& that) noexcept -> device_uvector<T>& = default;
 
   /**
@@ -159,8 +144,8 @@ class device_uvector_policy {
   using reference       = device_reference<element_type>;
   using const_reference = device_reference<element_type const>;
 
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
+  using accessor_policy       = cuda::std::default_accessor<element_type>;
+  using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
  public:
   auto create(raft::resources const& res, size_t n) -> container_type

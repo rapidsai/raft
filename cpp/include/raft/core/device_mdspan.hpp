@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -33,7 +22,7 @@ using device_accessor = host_device_accessor<AccessorPolicy, memory_type::device
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
+          typename AccessorPolicy = cuda::std::default_accessor<ElementType>>
 using device_mdspan = mdspan<ElementType, Extents, LayoutPolicy, device_accessor<AccessorPolicy>>;
 
 template <typename T, bool B>
@@ -121,7 +110,7 @@ using device_aligned_matrix_view =
   device_mdspan<ElementType,
                 matrix_extent<IndexType>,
                 LayoutPolicy,
-                std::experimental::aligned_accessor<ElementType, detail::alignment::value>>;
+                cuda::std::aligned_accessor<ElementType, detail::alignment::value>>;
 
 /**
  * @brief Create a 2-dim 128 byte aligned mdspan instance for device pointer. It's
@@ -140,8 +129,7 @@ template <typename ElementType,
 auto constexpr make_device_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
 {
   using data_handle_type =
-    typename std::experimental::aligned_accessor<ElementType,
-                                                 detail::alignment::value>::data_handle_type;
+    typename cuda::std::aligned_accessor<ElementType, detail::alignment::value>::data_handle_type;
   static_assert(std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
                 std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value);
   assert(reinterpret_cast<std::uintptr_t>(ptr) ==
@@ -217,7 +205,7 @@ auto constexpr make_device_strided_matrix_view(ElementType* ptr,
   assert(is_row_major ? stride0 >= n_cols : stride1 >= n_rows);
   matrix_extent<IndexType> extents{n_rows, n_cols};
 
-  auto layout = make_strided_layout(extents, std::array<IndexType, 2>{stride0, stride1});
+  auto layout = make_strided_layout(extents, cuda::std::array<IndexType, 2>{stride0, stride1});
   return device_matrix_view<ElementType, IndexType, layout_stride>{ptr, layout};
 }
 
@@ -273,6 +261,6 @@ auto constexpr make_device_vector_view(
 template <typename IndexType>
 auto make_vector_strided_layout(IndexType n, IndexType stride)
 {
-  return make_strided_layout(vector_extent<IndexType>{n}, std::array<IndexType, 1>{stride});
+  return make_strided_layout(vector_extent<IndexType>{n}, cuda::std::array<IndexType, 1>{stride});
 }
 }  // end namespace raft

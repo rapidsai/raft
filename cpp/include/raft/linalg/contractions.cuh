@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __CONTRACTIONS_H
 #define __CONTRACTIONS_H
@@ -170,6 +159,12 @@ struct Policy4x4<half, _veclen> {
   typedef KernelPolicy<half, _veclen, 64, 4, 4, 16, 16> Policy;
   typedef ColKernelPolicy<half, _veclen, 64, 4, 4, 16, 16> ColPolicy;
 };
+
+template <int _veclen>
+struct Policy4x4<uint8_t, _veclen> {
+  typedef KernelPolicy<uint8_t, _veclen, 64, 4, 4, 16, 16> Policy;
+  typedef ColKernelPolicy<uint8_t, _veclen, 64, 4, 4, 16, 16> ColPolicy;
+};
 /** @} */
 
 /**
@@ -191,6 +186,12 @@ template <int _veclen>
 struct Policy4x4Skinny<double, _veclen> {
   typedef KernelPolicy<double, _veclen, 8, 4, 4, 8, 8> Policy;
   typedef ColKernelPolicy<double, _veclen, 8, 4, 4, 8, 8> ColPolicy;
+};
+
+template <int _veclen>
+struct Policy4x4Skinny<uint8_t, _veclen> {
+  typedef KernelPolicy<uint8_t, _veclen, 8, 4, 4, 8, 8> Policy;
+  typedef ColKernelPolicy<uint8_t, _veclen, 8, 4, 4, 8, 8> ColPolicy;
 };
 
 /**

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -39,7 +28,7 @@ void encode_tfidf(raft::resources const& handle,
                                           IndexType,
                                           IndexType,
                                           raft::device_uvector_policy,
-                                          raft::PRESERVING> coo_in,
+                                          raft::PRESERVING>& coo_in,
                   raft::device_vector_view<ValueType, int64_t> results)
 {
   auto num_cols = coo_in.structure_view().get_n_cols();
@@ -74,7 +63,7 @@ void encode_tfidf(raft::resources const& handle,
                                           IndexType,
                                           IndexType,
                                           raft::device_uvector_policy,
-                                          raft::PRESERVING> csr_in,
+                                          raft::PRESERVING>& csr_in,
                   raft::device_vector_view<ValueType, int64_t> results)
 {
   auto num_cols     = csr_in.structure_view().get_n_cols();
@@ -112,7 +101,7 @@ void encode_bm25(raft::resources const& handle,
                                          IndexType,
                                          IndexType,
                                          raft::device_uvector_policy,
-                                         raft::PRESERVING> csr_in,
+                                         raft::PRESERVING>& csr_in,
                  raft::device_vector_view<ValueType, int64_t> results,
                  float k_param = 1.6f,
                  float b_param = 0.75f)
@@ -178,7 +167,7 @@ void encode_bm25(raft::resources const& handle,
                                          IndexType,
                                          IndexType,
                                          raft::device_uvector_policy,
-                                         raft::PRESERVING> coo_in,
+                                         raft::PRESERVING>& coo_in,
                  raft::device_vector_view<ValueType, int64_t> results,
                  float k_param = 1.6f,
                  float b_param = 0.75f)

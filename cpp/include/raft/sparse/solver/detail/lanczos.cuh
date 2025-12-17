@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -20,6 +9,7 @@
 #define _USE_MATH_DEFINES
 
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -1621,9 +1611,9 @@ void lanczos_solve_ritz(
   }
 }
 
-template <typename IndexTypeT, typename ValueTypeT>
+template <typename IndexTypeT, typename ValueTypeT, typename AType>
 void lanczos_aux(raft::resources const& handle,
-                 raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
+                 AType A,
                  raft::device_matrix_view<ValueTypeT, uint32_t, raft::row_major> V,
                  raft::device_matrix_view<ValueTypeT, uint32_t> u,
                  raft::device_matrix_view<ValueTypeT, uint32_t> alpha,
@@ -1633,8 +1623,20 @@ void lanczos_aux(raft::resources const& handle,
                  int ncv,
                  raft::device_matrix_view<ValueTypeT, uint32_t> v,
                  raft::device_matrix_view<ValueTypeT, uint32_t> uu,
-                 raft::device_matrix_view<ValueTypeT, uint32_t> vv)
+                 raft::device_matrix_view<ValueTypeT, uint32_t> vv,
+                 std::optional<uint64_t> seed)
 {
+  // Deterministic when seed is provided
+  cusparseSpMVAlg_t spmv_alg;
+  if (seed.has_value()) {
+    if constexpr (is_device_coo_matrix_view<AType>::value) {
+      spmv_alg = CUSPARSE_SPMV_COO_ALG2;
+    } else {
+      spmv_alg = CUSPARSE_SPMV_CSR_ALG2;
+    }
+  } else {
+    spmv_alg = CUSPARSE_SPMV_ALG_DEFAULT;
+  }
   auto stream = resource::get_cuda_stream(handle);
 
   IndexTypeT n  = A.structure_view().get_n_rows();
@@ -1660,7 +1662,7 @@ void lanczos_aux(raft::resources const& handle,
                                                 cusparse_v,
                                                 &zero,
                                                 cusparse_u,
-                                                CUSPARSE_SPMV_ALG_DEFAULT,
+                                                spmv_alg,
                                                 &bufferSize,
                                                 stream);
   auto cusparse_spmv_buffer = raft::make_device_vector<ValueTypeT>(handle, bufferSize);
@@ -1673,7 +1675,7 @@ void lanczos_aux(raft::resources const& handle,
                                        cusparse_v,
                                        &zero,
                                        cusparse_u,
-                                       CUSPARSE_SPMV_ALG_DEFAULT,
+                                       spmv_alg,
                                        cusparse_spmv_buffer.data_handle(),
                                        stream);
 
@@ -1763,20 +1765,30 @@ void lanczos_aux(raft::resources const& handle,
   }
 }
 
-template <typename IndexTypeT, typename ValueTypeT>
-auto lanczos_smallest(
-  raft::resources const& handle,
-  raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
-  int nEigVecs,
-  int maxIter,
-  int restartIter,
-  ValueTypeT tol,
-  LANCZOS_WHICH which,
-  ValueTypeT* eigVals_dev,
-  ValueTypeT* eigVecs_dev,
-  ValueTypeT* v0,
-  uint64_t seed) -> int
+template <typename IndexTypeT, typename ValueTypeT, typename AType>
+auto lanczos_smallest(raft::resources const& handle,
+                      AType A,
+                      int nEigVecs,
+                      int maxIter,
+                      int restartIter,
+                      ValueTypeT tol,
+                      LANCZOS_WHICH which,
+                      ValueTypeT* eigVals_dev,
+                      ValueTypeT* eigVecs_dev,
+                      ValueTypeT* v0,
+                      std::optional<uint64_t> seed) -> int
 {
+  // Deterministic when seed is provided
+  cusparseSpMVAlg_t spmv_alg;
+  if (seed.has_value()) {
+    if constexpr (is_device_coo_matrix_view<AType>::value) {
+      spmv_alg = CUSPARSE_SPMV_COO_ALG2;
+    } else {
+      spmv_alg = CUSPARSE_SPMV_CSR_ALG2;
+    }
+  } else {
+    spmv_alg = CUSPARSE_SPMV_ALG_DEFAULT;
+  }
   int n       = A.structure_view().get_n_rows();
   int ncv     = restartIter;
   auto stream = resource::get_cuda_stream(handle);
@@ -1812,18 +1824,19 @@ auto lanczos_smallest(
   auto aux_uu = raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, 1, ncv);
   auto vv     = raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, 1, n);
 
-  lanczos_aux(handle,
-              A,
-              V.view(),
-              u.view(),
-              alpha.view(),
-              beta.view(),
-              0,
-              ncv,
-              ncv,
-              v.view(),
-              aux_uu.view(),
-              vv.view());
+  lanczos_aux<IndexTypeT, ValueTypeT, AType>(handle,
+                                             A,
+                                             V.view(),
+                                             u.view(),
+                                             alpha.view(),
+                                             beta.view(),
+                                             0,
+                                             ncv,
+                                             ncv,
+                                             v.view(),
+                                             aux_uu.view(),
+                                             vv.view(),
+                                             seed);
 
   auto eigenvectors =
     raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(handle, ncv, ncv);
@@ -1961,7 +1974,7 @@ auto lanczos_smallest(
                                                   cusparse_v,
                                                   &zero,
                                                   cusparse_u,
-                                                  CUSPARSE_SPMV_ALG_DEFAULT,
+                                                  spmv_alg,
                                                   &bufferSize,
                                                   stream);
     auto cusparse_spmv_buffer = raft::make_device_vector<ValueTypeT>(handle, bufferSize);
@@ -1973,7 +1986,7 @@ auto lanczos_smallest(
                                        cusparse_v,
                                        &zero,
                                        cusparse_u,
-                                       CUSPARSE_SPMV_ALG_DEFAULT,
+                                       spmv_alg,
                                        cusparse_spmv_buffer.data_handle(),
                                        stream);
 
@@ -2066,18 +2079,19 @@ auto lanczos_smallest(
         return y / *device_scalar;
       });
 
-    lanczos_aux(handle,
-                A,
-                V.view(),
-                u.view(),
-                alpha.view(),
-                beta.view(),
-                nEigVecs + 1,
-                ncv,
-                ncv,
-                v.view(),
-                aux_uu.view(),
-                vv.view());
+    lanczos_aux<IndexTypeT, ValueTypeT, AType>(handle,
+                                               A,
+                                               V.view(),
+                                               u.view(),
+                                               alpha.view(),
+                                               beta.view(),
+                                               nEigVecs + 1,
+                                               ncv,
+                                               ncv,
+                                               v.view(),
+                                               aux_uu.view(),
+                                               vv.view(),
+                                               seed);
     iter += ncv - nEigVecs;
     lanczos_solve_ritz<IndexTypeT, ValueTypeT>(handle,
                                                alpha.view(),
@@ -2132,44 +2146,45 @@ auto lanczos_smallest(
   return 0;
 }
 
-template <typename IndexTypeT, typename ValueTypeT>
+template <typename IndexTypeT, typename ValueTypeT, typename AType>
 auto lanczos_compute_smallest_eigenvectors(
   raft::resources const& handle,
   lanczos_solver_config<ValueTypeT> const& config,
-  raft::device_csr_matrix_view<ValueTypeT, IndexTypeT, IndexTypeT, IndexTypeT> A,
+  AType A,
   std::optional<raft::device_vector_view<ValueTypeT, uint32_t>> v0,
   raft::device_vector_view<ValueTypeT, uint32_t> eigenvalues,
   raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> eigenvectors) -> int
 {
   if (v0.has_value()) {
-    return lanczos_smallest(handle,
-                            A,
-                            config.n_components,
-                            config.max_iterations,
-                            config.ncv,
-                            config.tolerance,
-                            config.which,
-                            eigenvalues.data_handle(),
-                            eigenvectors.data_handle(),
-                            v0->data_handle(),
-                            config.seed);
+    return lanczos_smallest<IndexTypeT, ValueTypeT, AType>(handle,
+                                                           A,
+                                                           config.n_components,
+                                                           config.max_iterations,
+                                                           config.ncv,
+                                                           config.tolerance,
+                                                           config.which,
+                                                           eigenvalues.data_handle(),
+                                                           eigenvectors.data_handle(),
+                                                           v0->data_handle(),
+                                                           config.seed);
   } else {
     // Handle the optional v0 initial Lanczos vector if nullopt is used
-    auto n       = A.structure_view().get_n_rows();
-    auto temp_v0 = raft::make_device_vector<ValueTypeT, uint32_t>(handle, n);
-    raft::random::RngState rng_state(config.seed);
+    auto n        = A.structure_view().get_n_rows();
+    auto temp_v0  = raft::make_device_vector<ValueTypeT, uint32_t>(handle, n);
+    uint64_t seed = config.seed.value_or(std::random_device{}());
+    raft::random::RngState rng_state(seed);
     raft::random::uniform(handle, rng_state, temp_v0.view(), ValueTypeT{0.0}, ValueTypeT{1.0});
-    return lanczos_smallest(handle,
-                            A,
-                            config.n_components,
-                            config.max_iterations,
-                            config.ncv,
-                            config.tolerance,
-                            config.which,
-                            eigenvalues.data_handle(),
-                            eigenvectors.data_handle(),
-                            temp_v0.data_handle(),
-                            config.seed);
+    return lanczos_smallest<IndexTypeT, ValueTypeT, AType>(handle,
+                                                           A,
+                                                           config.n_components,
+                                                           config.max_iterations,
+                                                           config.ncv,
+                                                           config.tolerance,
+                                                           config.which,
+                                                           eigenvalues.data_handle(),
+                                                           eigenvectors.data_handle(),
+                                                           temp_v0.data_handle(),
+                                                           config.seed);
   }
 }
 
