@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 # cython: profile=False
@@ -46,7 +46,7 @@ cdef extern from "raft/sparse/solver/lanczos_types.hpp" \
         int ncv
         ValueTypeT tolerance
         LANCZOS_WHICH which
-        uint64_t seed
+        optional[uint64_t] seed
 
 cdef lanczos_solver_config[float] config_float
 cdef lanczos_solver_config[double] config_double
@@ -164,13 +164,14 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
     vals_ptr = <uintptr_t>vals.data
     cdef optional[device_vector_view[double, uint32_t]] d_v0
     cdef optional[device_vector_view[float, uint32_t]] f_v0
+    cdef optional[uint64_t] seed_opt
+    if seed is not None:
+        seed_opt = <uint64_t>seed
 
     if ncv is None:
         ncv = min(n, max(2*k + 1, 20))
     else:
         ncv = min(max(ncv, k + 2), n - 1)
-
-    seed = seed if seed is not None else 42
     if maxiter is None:
         maxiter = 10 * n
     if tol == 0:
@@ -203,8 +204,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_float.max_iterations = maxiter
         config_float.ncv = ncv
         config_float.tolerance = tol
-        config_float.seed = seed
-
+        config_float.seed = seed_opt
         config_float.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
@@ -226,8 +226,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_float.max_iterations = maxiter
         config_float.ncv = ncv
         config_float.tolerance = tol
-        config_float.seed = seed
-
+        config_float.seed = seed_opt
         config_float.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
@@ -249,8 +248,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_double.max_iterations = maxiter
         config_double.ncv = ncv
         config_double.tolerance = tol
-        config_double.seed = seed
-
+        config_double.seed = seed_opt
         config_double.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
@@ -272,8 +270,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_double.max_iterations = maxiter
         config_double.ncv = ncv
         config_double.tolerance = tol
-        config_double.seed = seed
-
+        config_double.seed = seed_opt
         config_double.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
