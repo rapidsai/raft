@@ -205,6 +205,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_float.ncv = ncv
         config_float.tolerance = tol
         config_float.seed = seed_opt
+
         config_float.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
@@ -227,6 +228,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_float.ncv = ncv
         config_float.tolerance = tol
         config_float.seed = seed_opt
+
         config_float.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
@@ -249,6 +251,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_double.ncv = ncv
         config_double.tolerance = tol
         config_double.seed = seed_opt
+
         config_double.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
@@ -271,6 +274,7 @@ def eigsh(A, k=6, which="LM", v0=None, ncv=None, maxiter=None,
         config_double.ncv = ncv
         config_double.tolerance = tol
         config_double.seed = seed_opt
+
         config_double.which = set_config_which(which)
         if v0 is not None:
             v0 = cai_wrapper(v0)
