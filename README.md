@@ -1,7 +1,7 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
 
 <p align="center">
-  <img src="img/arch.svg" alt="RAFT tech stack" width="100%">
+  <img src="img/raft-tech-stack.svg" alt="RAFT tech stack" width="100%">
 </p>
 
 
