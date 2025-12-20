@@ -1,8 +1,0 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
- * SPDX-License-Identifier: Apache-2.0
- */
-
-#pragma once
-
-#include "ivf_flat_interleaved_scan-inl.cuh"

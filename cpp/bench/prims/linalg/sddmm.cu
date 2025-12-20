@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <common/benchmark.hpp>
@@ -8,8 +8,6 @@
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/distance/distance.cuh>
-#include <raft/distance/distance_types.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/linalg/sddmm.hpp>
 #include <raft/util/itertools.hpp>
@@ -196,17 +194,6 @@ struct SDDMMBench : public fixture {
                                     op_b,
                                     raft::make_host_scalar_view<ValueType>(&params.alpha),
                                     raft::make_host_scalar_view<ValueType>(&params.beta));
-        resource::sync_stream(handle);
-      } else {
-        raft::distance::pairwise_distance(handle,
-                                          a_data_d.data(),
-                                          b_data_d.data(),
-                                          c_dense_data_d.data(),
-                                          static_cast<int>(params.m),
-                                          static_cast<int>(params.n),
-                                          static_cast<int>(params.k),
-                                          raft::distance::DistanceType::InnerProduct,
-                                          std::is_same_v<LayoutPolicyA, row_major>);
         resource::sync_stream(handle);
       }
     });

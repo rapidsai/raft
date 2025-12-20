@@ -1,3 +1,42 @@
+# raft 25.12.00 (10 Dec 2025)
+
+### 🚨 Breaking Changes
+* More consistent container policies & host memory resource by @achirkin in https://github.com/rapidsai/raft/pull/2835
+* Require CUDA 12.2+ by @jakirkham in https://github.com/rapidsai/raft/pull/2850
+### 🐛 Bug Fixes
+* Correct tagging in the `irecv` function of the STD communicator by @viclafargue in https://github.com/rapidsai/raft/pull/2829
+* Fix copyright hook file exclusion by @KyleFromNVIDIA in https://github.com/rapidsai/raft/pull/2840
+* Properly guard usage of openmp function calls by @robertmaynard in https://github.com/rapidsai/raft/pull/2839
+* Fix reduce mdspan API by @lowener in https://github.com/rapidsai/raft/pull/2853
+* Fix for STD comm waitall function by @viclafargue in https://github.com/rapidsai/raft/pull/2852
+* Pin Cython pre-3.2.0 and PyTest pre-9 by @jakirkham in https://github.com/rapidsai/raft/pull/2864
+* refactored update-version.sh to handle new branching strategy by @rockhowse in https://github.com/rapidsai/raft/pull/2863
+* Fix laplacian scaling coefficients by @aamijar in https://github.com/rapidsai/raft/pull/2871
+* Revert "Remove Deprecated API (#2813)" by @csadorf in https://github.com/rapidsai/raft/pull/2881
+### 📖 Documentation
+* Use current system architecture in conda environment creation command by @bdice in https://github.com/rapidsai/raft/pull/2862
+### 🚀 New Features
+* BENCH_PRIMS: convenience reporting of benchmark parameters and read throughput by @achirkin in https://github.com/rapidsai/raft/pull/2824
+### 🛠️ Improvements
+* Update to rapids-logger 0.2 by @bdice in https://github.com/rapidsai/raft/pull/2828
+* Enable `sccache-dist` connection pool by @trxcllnt in https://github.com/rapidsai/raft/pull/2837
+* Use main in RAPIDS_BRANCH by @bdice in https://github.com/rapidsai/raft/pull/2842
+* Use main shared-workflows branch by @bdice in https://github.com/rapidsai/raft/pull/2844
+* Use SPDX for all copyright headers by @KyleFromNVIDIA in https://github.com/rapidsai/raft/pull/2845
+* Use ruff-check, ruff-format instead of black, flake8, isort by @KyleFromNVIDIA in https://github.com/rapidsai/raft/pull/2855
+* Remove shims for CCCL < 3.1 compatibility by @bdice in https://github.com/rapidsai/raft/pull/2858
+* Always convert warnings to errors by @jakirkham in https://github.com/rapidsai/raft/pull/2857
+* Lanczos Solver with COO input and cusparse wrappers by @aamijar in https://github.com/rapidsai/raft/pull/2851
+* COO support in sparse matrix utilities by @aamijar in https://github.com/rapidsai/raft/pull/2861
+* Update RMM includes from `<rmm/mr/device/*>` to `<rmm/mr/*>` by @bdice in https://github.com/rapidsai/raft/pull/2867
+* Use `sccache-dist` build cluster for conda and wheel builds by @trxcllnt in https://github.com/rapidsai/raft/pull/2859
+* Remove Deprecated API by @jnke2016 in https://github.com/rapidsai/raft/pull/2813
+
+## New Contributors
+* @rockhowse made their first contribution in https://github.com/rapidsai/raft/pull/2863
+
+**Full Changelog**: https://github.com/rapidsai/raft/compare/v25.12.00a...release/25.12
+
 # raft 25.10.00 (8 Oct 2025)
 
 ## 🐛 Bug Fixes
