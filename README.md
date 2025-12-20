@@ -1,8 +1,5 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
 
-> [!IMPORTANT]
-> The vector search and clustering algorithms in RAFT have been formally migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). The headers for the vector search and clustering algorithms in RAFT will remain for a bried period, but will no longer be tested, benchmarked, included in the pre-compiled libraft binary, or otherwise updated after the 24.12 (December 2024) release. We will be removing these headers altogether in a future release. It is strongly suggested to use cuVS for these routines, which include any headers in the `distance`, `neighbors`, `cluster` and `spatial` directories, and use the RAFT versions at your own risk.
-
 <p align="center">
   <img src="img/arch.svg" alt="RAFT tech stack" width="100%">
 </p>
