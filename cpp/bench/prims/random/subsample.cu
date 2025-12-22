@@ -12,7 +12,6 @@
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/random/sample_without_replacement.cuh>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_scalar.hpp>
