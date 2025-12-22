@@ -6,6 +6,7 @@
 #pragma once
 
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/pow2_utils.cuh>
 
 #include <cuda_fp16.h>
 
