@@ -24,6 +24,9 @@ project(
   LANGUAGES ${lang_list}
 )
 
+# Disable C++20 module scanning (not using modules, just C++20 features)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 # Write the version header
 rapids_cmake_write_version_file(include/raft/version_config.hpp)
 
@@ -289,9 +292,9 @@ if(RAFT_COMPILE_LIBRARY)
   )
   set_target_properties(
     raft_objs
-    PROPERTIES CXX_STANDARD 17
+    PROPERTIES CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
   )

@@ -91,10 +91,6 @@ struct DeviceXor {
   }
 };
 
-// FIXME: remove this if C++17 is supported.
-// `static_assert` requires a string literal at C++14.
-#define errmsg_cast "size mismatch."
-
 template <typename T_output, typename T_input>
 __forceinline__ __device__ T_output type_reinterpret(T_input value)
 {
@@ -210,7 +206,7 @@ struct genericAtomicOperationImpl<T, Op, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value, Op op)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
 
     T old_value = *addr;
     T assumed{old_value};
@@ -249,7 +245,7 @@ struct genericAtomicOperationImpl<long int, DeviceSum, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value, DeviceSum op)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
     T_int ret = atomicAdd(reinterpret_cast<T_int*>(addr), type_reinterpret<T_int, T>(update_value));
     return type_reinterpret<T, T_int>(ret);
   }
@@ -261,7 +257,7 @@ struct genericAtomicOperationImpl<unsigned long int, DeviceSum, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value, DeviceSum op)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
     T_int ret = atomicAdd(reinterpret_cast<T_int*>(addr), type_reinterpret<T_int, T>(update_value));
     return type_reinterpret<T, T_int>(ret);
   }
@@ -280,7 +276,7 @@ struct genericAtomicOperationImpl<long long int, DeviceSum, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value, DeviceSum op)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
     T_int ret = atomicAdd(reinterpret_cast<T_int*>(addr), type_reinterpret<T_int, T>(update_value));
     return type_reinterpret<T, T_int>(ret);
   }
@@ -292,7 +288,7 @@ struct genericAtomicOperationImpl<unsigned long int, DeviceMin, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value, DeviceMin op)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
     T ret = atomicMin(reinterpret_cast<T_int*>(addr), type_reinterpret<T_int, T>(update_value));
     return type_reinterpret<T, T_int>(ret);
   }
@@ -304,7 +300,7 @@ struct genericAtomicOperationImpl<unsigned long int, DeviceMax, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value, DeviceMax op)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
     T ret = atomicMax(reinterpret_cast<T_int*>(addr), type_reinterpret<T_int, T>(update_value));
     return type_reinterpret<T, T_int>(ret);
   }
@@ -315,7 +311,7 @@ struct genericAtomicOperationImpl<T, DeviceAnd, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value, DeviceAnd op)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
     T_int ret = atomicAnd(reinterpret_cast<T_int*>(addr), type_reinterpret<T_int, T>(update_value));
     return type_reinterpret<T, T_int>(ret);
   }
@@ -326,7 +322,7 @@ struct genericAtomicOperationImpl<T, DeviceOr, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value, DeviceOr op)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
     T_int ret = atomicOr(reinterpret_cast<T_int*>(addr), type_reinterpret<T_int, T>(update_value));
     return type_reinterpret<T, T_int>(ret);
   }
@@ -337,7 +333,7 @@ struct genericAtomicOperationImpl<T, DeviceXor, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& update_value, DeviceXor op)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
     T_int ret = atomicXor(reinterpret_cast<T_int*>(addr), type_reinterpret<T_int, T>(update_value));
     return type_reinterpret<T, T_int>(ret);
   }
@@ -429,7 +425,7 @@ struct typesAtomicCASImpl<T, 8> {
   __forceinline__ __device__ T operator()(T* addr, T const& compare, T const& update_value)
   {
     using T_int = unsigned long long int;
-    static_assert(sizeof(T) == sizeof(T_int), errmsg_cast);
+    static_assert(sizeof(T) == sizeof(T_int), "size mismatch.");
 
     T_int ret = atomicCAS(reinterpret_cast<T_int*>(addr),
                           type_reinterpret<T_int, T>(compare),
