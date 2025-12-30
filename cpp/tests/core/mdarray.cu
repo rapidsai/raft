@@ -425,6 +425,7 @@ TEST(MDArray, FuncArg)
 
     auto slice =
       cuda::std::submdspan(d_matrix.view(), cuda::std::tuple{2ul, 4ul}, cuda::std::tuple{2ul, 5ul});
+    ASSERT_TRUE(slice.is_strided());
     ASSERT_EQ(slice.extent(0), 2);
     ASSERT_EQ(slice.extent(1), 3);
     // is using device_accessor mixin.
