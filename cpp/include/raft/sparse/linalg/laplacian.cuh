@@ -22,6 +22,21 @@ auto compute_graph_laplacian(
   return detail::compute_graph_laplacian(res, input);
 }
 
+/** Given a COO adjacency matrix, return the graph Laplacian
+ *
+ * Note that for non-symmetric matrices, the out-degree Laplacian is returned.
+ */
+template <typename ElementType, typename RowType, typename ColType, typename NZType>
+device_coo_matrix<std::remove_const_t<ElementType>,
+                  std::remove_const_t<RowType>,
+                  std::remove_const_t<ColType>,
+                  std::remove_const_t<NZType>>
+compute_graph_laplacian(raft::resources const& res,
+                        device_coo_matrix_view<ElementType, RowType, ColType, NZType> input)
+{
+  return detail::compute_graph_laplacian(res, input);
+}
+
 /**
  * @brief Given a CSR adjacency matrix, return the normalized graph Laplacian
  *
@@ -49,7 +64,41 @@ auto laplacian_normalized(
   device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType> input,
   device_vector_view<ElementType, IndptrType> diagonal_out)
 {
-  return detail::laplacian_normalized(res, input, diagonal_out);
+  return detail::laplacian_normalized<
+    device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>,
+    ElementType,
+    IndptrType>(res, input, diagonal_out);
+}
+
+/**
+ * @brief Given a COO adjacency matrix, return the normalized graph Laplacian
+ *
+ * Return the normalized Laplacian matrix, which is defined as D^(-1/2) * L * D^(-1/2),
+ * where D is the diagonal degree matrix and L is the graph Laplacian.
+ * Also returns the scaled diagonal degree matrix.
+ *
+ *
+ * @tparam ElementType The data type of the matrix elements
+ * @tparam IndptrType The data type of the row pointers
+ * @tparam IndicesType The data type of the column indices
+ * @tparam NZType The data type for representing nonzero counts
+ *
+ * @param[in] res RAFT resources for managing device memory and streams
+ * @param[in] input View of the input CSR adjacency matrix
+ * @param[out] diagonal_out View of the output vector where the scaled diagonal degree
+ *                           matrix D^(-1/2) will be stored (must be pre-allocated with
+ *                           size at least n_rows)
+ *
+ * @return A CSR matrix containing the normalized graph Laplacian
+ */
+template <typename ElementType, typename RowType, typename ColType, typename NZType>
+auto laplacian_normalized(raft::resources const& res,
+                          device_coo_matrix_view<ElementType, RowType, ColType, NZType> input,
+                          device_vector_view<ElementType, RowType> diagonal_out)
+{
+  return detail::laplacian_normalized<device_coo_matrix_view<ElementType, RowType, ColType, NZType>,
+                                      ElementType,
+                                      RowType>(res, input, diagonal_out);
 }
 
 }  // namespace raft::sparse::linalg
