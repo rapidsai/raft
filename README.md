@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > The vector search and clustering algorithms in RAFT have been formally migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). The headers for the vector search and clustering algorithms in RAFT will remain for a bried period, but will no longer be tested, benchmarked, included in the pre-compiled libraft binary, or otherwise updated after the 24.12 (December 2024) release. We will be removing these headers altogether in a future release. It is strongly suggested to use cuVS for these routines, which include any headers in the `distance`, `neighbors`, `cluster` and `spatial` directories, and use the RAFT versions at your own risk.
 
-![RAFT tech stack](img/raft-tech-stack-vss.png)
+![RAFT tech stack](https://raw.githubusercontent.com/rapidsai/raft/HEAD/img/raft-tech-stack-vss.png)
 
 
 
@@ -62,7 +62,7 @@ In addition being a C++ library, RAFT also provides 2 Python libraries:
 - `pylibraft` - lightweight Python wrappers around RAFT's host-accessible "runtime" APIs.
 - `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
 
-![RAFT is a C++ header-only template library with optional shared library and lightweight Python wrappers](img/arch.png)
+![RAFT is a C++ header-only template library with optional shared library and lightweight Python wrappers](https://raw.githubusercontent.com/rapidsai/raft/HEAD/img/arch.png)
 
 
 ## Is RAFT right for me?
