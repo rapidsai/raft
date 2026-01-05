@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/kvp.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <cuda_fp16.h>
@@ -13,7 +14,8 @@
 
 namespace raft {
 
-template <typename math_, int VecLen>
+// Third parameter enables SFINAE for conditional specializations (e.g., KeyValuePair by size)
+template <typename math_, int VecLen, typename Enable = void>
 struct IOType {};
 template <>
 struct IOType<bool, 1> {
@@ -234,11 +236,58 @@ struct IOType<double, 2> {
 };
 
 /**
+ * Generic IOType specializations for ALL KeyValuePair<K, V> types based on sizeof.
+ * Uses SFINAE to only enable for sizes that support vectorized I/O.
+ *
+ * 4-byte KVP (e.g., <int16_t,int16_t>, <uint8_t,__half>):
+ *   - VecLen=1: int32_t (4 bytes, load 1 KVP)
+ *   - VecLen=2: int2 (8 bytes, load 2 KVPs)
+ *   - VecLen=4: int4 (16 bytes, load 4 KVPs)
+ *
+ * 8-byte KVP (e.g., <int,float>, <float,int>, <int,int>, <uint32_t,float>):
+ *   - VecLen=1: int2 (8 bytes, load 1 KVP)
+ *   - VecLen=2: int4 (16 bytes, load 2 KVPs)
+ *
+ * 16-byte KVP (e.g., <int64_t,double>, <int,double>, <int64_t,float>):
+ *   - VecLen=1: int4 (16 bytes, load 1 KVP)
+ */
+
+template <typename K, typename V>
+struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 4>> {
+  typedef int32_t Type;
+};
+
+template <typename K, typename V>
+struct IOType<KeyValuePair<K, V>, 2, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 4>> {
+  typedef int2 Type;
+};
+
+template <typename K, typename V>
+struct IOType<KeyValuePair<K, V>, 4, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 4>> {
+  typedef int4 Type;
+};
+
+template <typename K, typename V>
+struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 8>> {
+  typedef int2 Type;
+};
+
+template <typename K, typename V>
+struct IOType<KeyValuePair<K, V>, 2, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 8>> {
+  typedef int4 Type;
+};
+
+template <typename K, typename V>
+struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 16>> {
+  typedef int4 Type;
+};
+
+/**
  * @brief Type trait to detect if a type supports vectorized I/O operations.
  *
  * A type is vectorizable if it has IOType<T, 1> specialization.
- * Types like KeyValuePair that don't have IOType specializations
- * will return false, causing the map functions to use non-vectorized access.
+ * Common KeyValuePair types have IOType specializations above.
+ * Custom types without IOType specializations will use non-vectorized access.
  */
 template <typename T, typename = void>
 struct is_vectorizable_type : std::false_type {};

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,11 +17,11 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <gtest/gtest.h>
-
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/transform.h>
+
+#include <gtest/gtest.h>
 
 namespace raft {
 namespace linalg {
@@ -116,9 +116,13 @@ void mapLaunch(OutType* out,
   if constexpr (is_kvp<InType>::value) {
     map(handle, out_view, KVPAddOp{scalar}, in1_view, in2_view, in3_view);
   } else {
-    map(handle, out_view,
-        [=] __device__(InType a, InType b, InType c) { return a + b + c + scalar; },
-        in1_view, in2_view, in3_view);
+    map(
+      handle,
+      out_view,
+      [=] __device__(InType a, InType b, InType c) { return a + b + c + scalar; },
+      in1_view,
+      in2_view,
+      in3_view);
   }
 }
 
@@ -229,21 +233,21 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       uniform(handle, r, fval2.data(), len, float(-1.0), float(1.0));
       uniform(handle, r, fval3.data(), len, float(-1.0), float(1.0));
 
-      raft::device_resources local_handle{stream};
+      raft::device_resources handle{stream};
       auto fkey1_view = raft::make_device_vector_view<const float>(fkey1.data(), fkey1.size());
       auto fkey2_view = raft::make_device_vector_view<const float>(fkey2.data(), fkey2.size());
       auto fkey3_view = raft::make_device_vector_view<const float>(fkey3.data(), fkey3.size());
       auto fval1_view = raft::make_device_vector_view<const float>(fval1.data(), fval1.size());
       auto fval2_view = raft::make_device_vector_view<const float>(fval2.data(), fval2.size());
       auto fval3_view = raft::make_device_vector_view<const float>(fval3.data(), fval3.size());
-      auto in1_view = raft::make_device_vector_view(in1.data(), in1.size());
-      auto in2_view = raft::make_device_vector_view(in2.data(), in2.size());
-      auto in3_view = raft::make_device_vector_view(in3.data(), in3.size());
+      auto in1_view   = raft::make_device_vector_view(in1.data(), in1.size());
+      auto in2_view   = raft::make_device_vector_view(in2.data(), in2.size());
+      auto in3_view   = raft::make_device_vector_view(in3.data(), in3.size());
 
       auto make_kvp = [] __device__(float k, float v) { return KVP{static_cast<int>(k), v}; };
-      raft::linalg::map(local_handle, in1_view, make_kvp, fkey1_view, fval1_view);
-      raft::linalg::map(local_handle, in2_view, make_kvp, fkey2_view, fval2_view);
-      raft::linalg::map(local_handle, in3_view, make_kvp, fkey3_view, fval3_view);
+      raft::linalg::map(handle, in1_view, make_kvp, fkey1_view, fval1_view);
+      raft::linalg::map(handle, in2_view, make_kvp, fkey2_view, fval2_view);
+      raft::linalg::map(handle, in3_view, make_kvp, fkey3_view, fval3_view);
     } else {
       // For padded_float: first create random float arrays, then convert
       rmm::device_uvector<float> fin1(params.len, stream);
@@ -253,7 +257,7 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       uniform(handle, r, fin2.data(), len, float(-1.0), float(1.0));
       uniform(handle, r, fin3.data(), len, float(-1.0), float(1.0));
 
-      raft::device_resources local_handle{stream};
+      raft::device_resources handle{stream};
       auto fin1_view = raft::make_device_vector_view(fin1.data(), fin1.size());
       auto fin2_view = raft::make_device_vector_view(fin2.data(), fin2.size());
       auto fin3_view = raft::make_device_vector_view(fin3.data(), fin3.size());
@@ -262,9 +266,9 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       auto in3_view  = raft::make_device_vector_view(in3.data(), in3.size());
 
       auto add_padding = [] __device__(float a) { return padded_float(a); };
-      raft::linalg::map(local_handle, in1_view, add_padding, raft::make_const_mdspan(fin1_view));
-      raft::linalg::map(local_handle, in2_view, add_padding, raft::make_const_mdspan(fin2_view));
-      raft::linalg::map(local_handle, in3_view, add_padding, raft::make_const_mdspan(fin3_view));
+      raft::linalg::map(handle, in1_view, add_padding, raft::make_const_mdspan(fin1_view));
+      raft::linalg::map(handle, in2_view, add_padding, raft::make_const_mdspan(fin2_view));
+      raft::linalg::map(handle, in3_view, add_padding, raft::make_const_mdspan(fin3_view));
     }
 
     create_ref(out_ref.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);
@@ -292,13 +296,12 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
   {
   }
 
-  // Functor for KVP map_offset test (must be public to avoid extended lambda restriction)
+  // Functor for KVP map_offset test
   struct KVPScaleOp {
     OutType scalar;
     __device__ OutType operator()(IdxType idx) const
     {
-      return OutType{static_cast<int>(idx) * scalar.key,
-                     static_cast<float>(idx) * scalar.value};
+      return OutType{static_cast<int>(idx) * scalar.key, static_cast<float>(idx) * scalar.value};
     }
   };
 
@@ -409,22 +412,22 @@ struct CompareKVP {
   {
     // Keys must match exactly, values must be within tolerance
     if (a.key != b.key) return false;
-    float diff = std::abs(a.value - b.value);
-    float m    = std::max(std::abs(a.value), std::abs(b.value));
+    float diff  = std::abs(a.value - b.value);
+    float m     = std::max(std::abs(a.value), std::abs(b.value));
     float ratio = diff > eps ? diff / m : diff;
     return (ratio <= eps);
   }
 };
 
-#define MAP_TEST_KVP(test_type, test_name, inputs)                       \
-  typedef RAFT_DEPAREN(test_type) test_name;                             \
-  TEST_P(test_name, Result)                                              \
-  {                                                                      \
-    ASSERT_TRUE(devArrMatch(this->out_ref.data(),                        \
-                            this->out.data(),                            \
-                            this->params.len,                            \
-                            CompareKVP(this->params.tolerance.value)));  \
-  }                                                                      \
+#define MAP_TEST_KVP(test_type, test_name, inputs)                      \
+  typedef RAFT_DEPAREN(test_type) test_name;                            \
+  TEST_P(test_name, Result)                                             \
+  {                                                                     \
+    ASSERT_TRUE(devArrMatch(this->out_ref.data(),                       \
+                            this->out.data(),                           \
+                            this->params.len,                           \
+                            CompareKVP(this->params.tolerance.value))); \
+  }                                                                     \
   INSTANTIATE_TEST_SUITE_P(MapTests, test_name, ::testing::ValuesIn(inputs))
 
 const std::vector<MapInputs<KVP, int>> inputs_kvp_i32 = {
