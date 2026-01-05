@@ -38,10 +38,10 @@ Use the following command, depending on your CUDA version, to install all of the
 
 ```bash
 # CUDA 13
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=13.0
+mamba install -c rapidsai -c conda-forge raft-dask pylibraft cuda-version=13.1
 
 # CUDA 12
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.9
+mamba install -c rapidsai -c conda-forge raft-dask pylibraft cuda-version=12.9
 ```
 
 Note that the above commands will also install `libraft-headers` and `libraft`.
@@ -50,10 +50,10 @@ You can also install the conda packages individually using the `mamba` command a
 
 ```bash
 # CUDA 13
-mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=13.0
+mamba install -c rapidsai -c conda-forge libraft-headers cuda-version=13.1
 
 # CUDA 12
-mamba install -c rapidsai -c conda-forge -c nvidia libraft-headers cuda-version=12.9
+mamba install -c rapidsai -c conda-forge libraft-headers cuda-version=12.9
 ```
 
 ## Installing Python through Pip
@@ -100,7 +100,7 @@ In addition to the libraries included with cudatoolkit 12.2+, there are some oth
 
 Conda environment scripts are provided for installing the necessary dependencies to build both the C++ and Python libraries from source. It is preferred to use `mamba`, as it provides significant speedup over `conda`:
 ```bash
-mamba env create --name rapids_raft -f conda/environments/all_cuda-130_arch-$(uname -m).yaml
+mamba env create --name rapids_raft -f conda/environments/all_cuda-131_arch-$(uname -m).yaml
 mamba activate rapids_raft
 ```
 
@@ -273,12 +273,12 @@ Note that some additional compiler flags might need to be added when building ag
 target_compile_options(your_target_name PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda --expt-relaxed-constexpr>)
 ```
 
-Further, it's important that the language level be set to at least C++ 17. This can be done with cmake:
+Further, it's important that the language level be set to at least C++ 20. This can be done with cmake:
 ```cmake
 set_target_properties(your_target_name
-PROPERTIES CXX_STANDARD                        17
+PROPERTIES CXX_STANDARD                        20
            CXX_STANDARD_REQUIRED               ON
-           CUDA_STANDARD                       17
+           CUDA_STANDARD                       20
            CUDA_STANDARD_REQUIRED              ON
            POSITION_INDEPENDENT_CODE           ON
            INTERFACE_POSITION_INDEPENDENT_CODE ON)
