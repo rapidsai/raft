@@ -8,6 +8,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/core/kvp.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/eltwise.cuh>
@@ -17,6 +18,10 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
+
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/transform.h>
 
 namespace raft {
 namespace linalg {
@@ -73,6 +78,25 @@ inline auto operator<<(std::ostream& os, const padded_float& x) -> std::ostream&
   return os;
 }
 
+/*
+ * KeyValuePair type alias and traits for use in the existing test framework
+ */
+using KVP = raft::KeyValuePair<int, float>;
+
+// Type trait to detect KVP
+template <typename T>
+struct is_kvp : std::false_type {};
+template <typename K, typename V>
+struct is_kvp<raft::KeyValuePair<K, V>> : std::true_type {};
+
+struct KVPAddOp {
+  KVP scalar;
+  __device__ KVP operator()(KVP a, KVP b, KVP c) const
+  {
+    return KVP{a.key + b.key + c.key + scalar.key, a.value + b.value + c.value + scalar.value};
+  }
+};
+
 template <typename InType, typename IdxType, typename OutType>
 void mapLaunch(OutType* out,
                const InType* in1,
@@ -88,13 +112,14 @@ void mapLaunch(OutType* out,
   auto in1_view = raft::make_device_vector_view(in1, len);
   auto in2_view = raft::make_device_vector_view(in2, len);
   auto in3_view = raft::make_device_vector_view(in3, len);
-  map(
-    handle,
-    out_view,
-    [=] __device__(InType a, InType b, InType c) { return a + b + c + scalar; },
-    in1_view,
-    in2_view,
-    in3_view);
+
+  if constexpr (is_kvp<InType>::value) {
+    map(handle, out_view, KVPAddOp{scalar}, in1_view, in2_view, in3_view);
+  } else {
+    map(handle, out_view,
+        [=] __device__(InType a, InType b, InType c) { return a + b + c + scalar; },
+        in1_view, in2_view, in3_view);
+  }
 }
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
@@ -103,6 +128,22 @@ struct MapInputs {
   IdxType len;
   unsigned long long int seed;
   InType scalar;
+};
+
+struct ThrustKVPAdd {
+  __host__ __device__ KVP operator()(const KVP& a, const KVP& b) const
+  {
+    return KVP{a.key + b.key, a.value + b.value};
+  }
+};
+
+// Thrust functor for KVP scalar addition
+struct ThrustKVPScalarAdd {
+  KVP scalar;
+  __host__ __device__ KVP operator()(const KVP& a) const
+  {
+    return KVP{a.key + scalar.key, a.value + scalar.value};
+  }
 };
 
 template <typename InType, typename IdxType, typename OutType = InType>
@@ -114,10 +155,39 @@ void create_ref(OutType* out_ref,
                 IdxType len,
                 cudaStream_t stream)
 {
-  rmm::device_uvector<InType> tmp(len, stream);
-  eltwiseAdd(tmp.data(), in1, in2, len, stream);
-  eltwiseAdd(out_ref, tmp.data(), in3, len, stream);
-  scalarAdd(out_ref, out_ref, (OutType)scalar, len, stream);
+  if constexpr (is_kvp<InType>::value) {
+    // For KVP: use thrust::transform (independent from raft::linalg::map)
+    auto policy = thrust::cuda::par.on(stream);
+    rmm::device_uvector<InType> tmp(len, stream);
+
+    // tmp = in1 + in2
+    thrust::transform(policy,
+                      thrust::device_pointer_cast(in1),
+                      thrust::device_pointer_cast(in1 + len),
+                      thrust::device_pointer_cast(in2),
+                      thrust::device_pointer_cast(tmp.data()),
+                      ThrustKVPAdd{});
+
+    // out_ref = tmp + in3
+    thrust::transform(policy,
+                      thrust::device_pointer_cast(tmp.data()),
+                      thrust::device_pointer_cast(tmp.data() + len),
+                      thrust::device_pointer_cast(in3),
+                      thrust::device_pointer_cast(out_ref),
+                      ThrustKVPAdd{});
+
+    // out_ref = out_ref + scalar
+    thrust::transform(policy,
+                      thrust::device_pointer_cast(out_ref),
+                      thrust::device_pointer_cast(out_ref + len),
+                      thrust::device_pointer_cast(out_ref),
+                      ThrustKVPScalarAdd{scalar});
+  } else {
+    rmm::device_uvector<InType> tmp(len, stream);
+    eltwiseAdd(tmp.data(), in1, in2, len, stream);
+    eltwiseAdd(out_ref, tmp.data(), in3, len, stream);
+    scalarAdd(out_ref, out_ref, (OutType)scalar, len, stream);
+  }
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }
 
@@ -144,8 +214,38 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       uniform(handle, r, in1.data(), len, InType(-1.0), InType(1.0));
       uniform(handle, r, in2.data(), len, InType(-1.0), InType(1.0));
       uniform(handle, r, in3.data(), len, InType(-1.0), InType(1.0));
+    } else if constexpr (is_kvp<InType>::value) {
+      // For KVP: create random floats for keys and values, then combine into KVP
+      rmm::device_uvector<float> fkey1(params.len, stream);
+      rmm::device_uvector<float> fkey2(params.len, stream);
+      rmm::device_uvector<float> fkey3(params.len, stream);
+      rmm::device_uvector<float> fval1(params.len, stream);
+      rmm::device_uvector<float> fval2(params.len, stream);
+      rmm::device_uvector<float> fval3(params.len, stream);
+      uniform(handle, r, fkey1.data(), len, float(-100.0), float(100.0));
+      uniform(handle, r, fkey2.data(), len, float(-100.0), float(100.0));
+      uniform(handle, r, fkey3.data(), len, float(-100.0), float(100.0));
+      uniform(handle, r, fval1.data(), len, float(-1.0), float(1.0));
+      uniform(handle, r, fval2.data(), len, float(-1.0), float(1.0));
+      uniform(handle, r, fval3.data(), len, float(-1.0), float(1.0));
+
+      raft::device_resources local_handle{stream};
+      auto fkey1_view = raft::make_device_vector_view<const float>(fkey1.data(), fkey1.size());
+      auto fkey2_view = raft::make_device_vector_view<const float>(fkey2.data(), fkey2.size());
+      auto fkey3_view = raft::make_device_vector_view<const float>(fkey3.data(), fkey3.size());
+      auto fval1_view = raft::make_device_vector_view<const float>(fval1.data(), fval1.size());
+      auto fval2_view = raft::make_device_vector_view<const float>(fval2.data(), fval2.size());
+      auto fval3_view = raft::make_device_vector_view<const float>(fval3.data(), fval3.size());
+      auto in1_view = raft::make_device_vector_view(in1.data(), in1.size());
+      auto in2_view = raft::make_device_vector_view(in2.data(), in2.size());
+      auto in3_view = raft::make_device_vector_view(in3.data(), in3.size());
+
+      auto make_kvp = [] __device__(float k, float v) { return KVP{static_cast<int>(k), v}; };
+      raft::linalg::map(local_handle, in1_view, make_kvp, fkey1_view, fval1_view);
+      raft::linalg::map(local_handle, in2_view, make_kvp, fkey2_view, fval2_view);
+      raft::linalg::map(local_handle, in3_view, make_kvp, fkey3_view, fval3_view);
     } else {
-      // First create random float arrays
+      // For padded_float: first create random float arrays, then convert
       rmm::device_uvector<float> fin1(params.len, stream);
       rmm::device_uvector<float> fin2(params.len, stream);
       rmm::device_uvector<float> fin3(params.len, stream);
@@ -153,8 +253,7 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       uniform(handle, r, fin2.data(), len, float(-1.0), float(1.0));
       uniform(handle, r, fin3.data(), len, float(-1.0), float(1.0));
 
-      // Then pad them
-      raft::device_resources handle{stream};
+      raft::device_resources local_handle{stream};
       auto fin1_view = raft::make_device_vector_view(fin1.data(), fin1.size());
       auto fin2_view = raft::make_device_vector_view(fin2.data(), fin2.size());
       auto fin3_view = raft::make_device_vector_view(fin3.data(), fin3.size());
@@ -163,9 +262,9 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       auto in3_view  = raft::make_device_vector_view(in3.data(), in3.size());
 
       auto add_padding = [] __device__(float a) { return padded_float(a); };
-      raft::linalg::map(handle, in1_view, add_padding, raft::make_const_mdspan(fin1_view));
-      raft::linalg::map(handle, in2_view, add_padding, raft::make_const_mdspan(fin2_view));
-      raft::linalg::map(handle, in3_view, add_padding, raft::make_const_mdspan(fin3_view));
+      raft::linalg::map(local_handle, in1_view, add_padding, raft::make_const_mdspan(fin1_view));
+      raft::linalg::map(local_handle, in2_view, add_padding, raft::make_const_mdspan(fin2_view));
+      raft::linalg::map(local_handle, in3_view, add_padding, raft::make_const_mdspan(fin3_view));
     }
 
     create_ref(out_ref.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);
@@ -193,17 +292,35 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
   {
   }
 
+  // Functor for KVP map_offset test (must be public to avoid extended lambda restriction)
+  struct KVPScaleOp {
+    OutType scalar;
+    __device__ OutType operator()(IdxType idx) const
+    {
+      return OutType{static_cast<int>(idx) * scalar.key,
+                     static_cast<float>(idx) * scalar.value};
+    }
+  };
+
  protected:
   void SetUp() override
   {
     IdxType len    = params.len;
     OutType scalar = params.scalar;
-    naiveScale(out_ref.data(), (OutType*)nullptr, scalar, len, stream);
 
-    auto out_view = raft::make_device_vector_view(out.data(), len);
-    map_offset(handle,
-               out_view,
-               raft::compose_op(raft::cast_op<OutType>(), raft::mul_const_op<OutType>(scalar)));
+    auto out_view     = raft::make_device_vector_view(out.data(), len);
+    auto out_ref_view = raft::make_device_vector_view(out_ref.data(), len);
+
+    if constexpr (is_kvp<OutType>::value) {
+      KVPScaleOp op{scalar};
+      map_offset(handle, out_ref_view, op);
+      map_offset(handle, out_view, op);
+    } else {
+      naiveScale(out_ref.data(), (OutType*)nullptr, scalar, len, stream);
+      map_offset(handle,
+                 out_view,
+                 raft::compose_op(raft::cast_op<OutType>(), raft::mul_const_op<OutType>(scalar)));
+    }
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
@@ -281,6 +398,44 @@ MAP_TEST_PADDED((MapTest<padded_float, size_t>), MapTestD_padded_float, inputsd_
 MAP_TEST_PADDED((MapOffsetTest<padded_float, size_t>),
                 MapOffsetTestD_padded_float,
                 inputsd_padded_float);
+
+// Comparator for KeyValuePair
+struct CompareKVP {
+  float eps;
+  CompareKVP(float eps_) : eps(eps_) {}
+  CompareKVP(KVP eps_) : eps(eps_.value) {}
+  CompareKVP(double eps_) : eps(static_cast<float>(eps_)) {}
+  bool operator()(const KVP& a, const KVP& b) const
+  {
+    // Keys must match exactly, values must be within tolerance
+    if (a.key != b.key) return false;
+    float diff = std::abs(a.value - b.value);
+    float m    = std::max(std::abs(a.value), std::abs(b.value));
+    float ratio = diff > eps ? diff / m : diff;
+    return (ratio <= eps);
+  }
+};
+
+#define MAP_TEST_KVP(test_type, test_name, inputs)                       \
+  typedef RAFT_DEPAREN(test_type) test_name;                             \
+  TEST_P(test_name, Result)                                              \
+  {                                                                      \
+    ASSERT_TRUE(devArrMatch(this->out_ref.data(),                        \
+                            this->out.data(),                            \
+                            this->params.len,                            \
+                            CompareKVP(this->params.tolerance.value)));  \
+  }                                                                      \
+  INSTANTIATE_TEST_SUITE_P(MapTests, test_name, ::testing::ValuesIn(inputs))
+
+const std::vector<MapInputs<KVP, int>> inputs_kvp_i32 = {
+  {KVP{0, 0.000001f}, 1024 * 1024, 1234ULL, KVP{10, 1.5f}}};
+MAP_TEST_KVP((MapTest<KVP, int>), MapTestKVP_i32, inputs_kvp_i32);
+MAP_TEST_KVP((MapOffsetTest<KVP, int>), MapOffsetTestKVP_i32, inputs_kvp_i32);
+
+const std::vector<MapInputs<KVP, size_t>> inputs_kvp_i64 = {
+  {KVP{0, 0.000001f}, 1024 * 1024, 1234ULL, KVP{5, 2.3f}}};
+MAP_TEST_KVP((MapTest<KVP, size_t>), MapTestKVP_i64, inputs_kvp_i64);
+MAP_TEST_KVP((MapOffsetTest<KVP, size_t>), MapOffsetTestKVP_i64, inputs_kvp_i64);
 
 }  // namespace linalg
 }  // namespace raft

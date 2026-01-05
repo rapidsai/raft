@@ -108,6 +108,9 @@ struct ratio_selector {
   template <typename T>
   constexpr static auto ignoring_alignment() -> ratio_selector
   {
+    // Types that don't support vectorized I/O (e.g., KeyValuePair) must use ratio=1
+    if constexpr (!is_vectorizable_type<T>::value) { return ratio_selector{1, 0}; }
+
     constexpr bool T_evenly_fits_in_cache_line = (kCoalescedVectorSize % sizeof(T)) == 0;
 
     if constexpr (T_evenly_fits_in_cache_line) {
