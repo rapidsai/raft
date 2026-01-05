@@ -401,8 +401,7 @@ template <typename T, typename Index, typename LayoutPolicy>
 void check_matrix_layout(device_matrix_view<T, Index, LayoutPolicy> in)
 {
   static_assert(in.rank() == 2);
-  // is_exhaustive() is not constexpr for dynamic extents in CCCL 3.2+
-  EXPECT_TRUE(in.is_exhaustive());
+  static_assert(in.is_exhaustive());
 
   bool constexpr kIsCContiguous = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
   bool constexpr kIsFContiguous = std::is_same_v<LayoutPolicy, layout_f_contiguous>;
