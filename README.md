@@ -1,4 +1,4 @@
-# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
+# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/rapidsai/raft/HEAD/img/raft-tech-stack.svg" alt="RAFT tech stack" width="100%">
@@ -96,29 +96,7 @@ auto matrix = raft::make_device_matrix<float>(handle, n_rows, n_cols);
 Most of the primitives in RAFT accept a `raft::device_resources` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
 
 The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
-pairwise Euclidean distances:
-```c++
-#include <raft/core/device_resources.hpp>
-#include <raft/core/device_mdarray.hpp>
-#include <raft/random/make_blobs.cuh>
-#include <raft/distance/distance.cuh>
-
-raft::device_resources handle;
-
-int n_samples = 5000;
-int n_features = 50;
-
-auto input = raft::make_device_matrix<float, int>(handle, n_samples, n_features);
-auto labels = raft::make_device_vector<int, int>(handle, n_samples);
-auto output = raft::make_device_matrix<float, int>(handle, n_samples, n_samples);
-
-raft::random::make_blobs(handle, input.view(), labels.view());
-
-auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
-```
-
-It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information. Take this example from the [NVIDIA cuVS](https://github.com/rapidsai/cuvs) library:
+pairwise Euclidean distances with the [NVIDIA cuVS](https://github.com/rapidsai/cuvs) library:
 
 ```c++
 #include <raft/core/device_resources.hpp>
