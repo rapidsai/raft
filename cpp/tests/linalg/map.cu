@@ -160,7 +160,6 @@ void create_ref(OutType* out_ref,
                 cudaStream_t stream)
 {
   if constexpr (is_kvp<InType>::value) {
-    // For KVP: use thrust::transform (independent from raft::linalg::map)
     auto policy = thrust::cuda::par.on(stream);
     rmm::device_uvector<InType> tmp(len, stream);
 
@@ -249,7 +248,7 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       raft::linalg::map(handle, in2_view, make_kvp, fkey2_view, fval2_view);
       raft::linalg::map(handle, in3_view, make_kvp, fkey3_view, fval3_view);
     } else {
-      // For padded_float: first create random float arrays, then convert
+      // First create random float arrays
       rmm::device_uvector<float> fin1(params.len, stream);
       rmm::device_uvector<float> fin2(params.len, stream);
       rmm::device_uvector<float> fin3(params.len, stream);
@@ -257,6 +256,7 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       uniform(handle, r, fin2.data(), len, float(-1.0), float(1.0));
       uniform(handle, r, fin3.data(), len, float(-1.0), float(1.0));
 
+      // Then pad them
       raft::device_resources handle{stream};
       auto fin1_view = raft::make_device_vector_view(fin1.data(), fin1.size());
       auto fin2_view = raft::make_device_vector_view(fin2.data(), fin2.size());

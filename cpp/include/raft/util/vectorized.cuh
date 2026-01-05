@@ -239,7 +239,7 @@ struct IOType<double, 2> {
  * Generic IOType specializations for ALL KeyValuePair<K, V> types based on sizeof.
  * Uses SFINAE to only enable for sizes that support vectorized I/O.
  *
- * 4-byte KVP (e.g., <int16_t,int16_t>, <uint8_t,__half>):
+ * 4-byte KVP (e.g., <int16_t,int16_t>):
  *   - VecLen=1: int32_t (4 bytes, load 1 KVP)
  *   - VecLen=2: int2 (8 bytes, load 2 KVPs)
  *   - VecLen=4: int4 (16 bytes, load 4 KVPs)
