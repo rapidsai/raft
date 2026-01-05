@@ -1,9 +1,8 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
 
-> [!IMPORTANT]
-> The vector search and clustering algorithms in RAFT have been formally migrated to a new library dedicated to vector search called [cuVS](https://github.com/rapidsai/cuvs). The headers for the vector search and clustering algorithms in RAFT will remain for a bried period, but will no longer be tested, benchmarked, included in the pre-compiled libraft binary, or otherwise updated after the 24.12 (December 2024) release. We will be removing these headers altogether in a future release. It is strongly suggested to use cuVS for these routines, which include any headers in the `distance`, `neighbors`, `cluster` and `spatial` directories, and use the RAFT versions at your own risk.
-
-![RAFT tech stack](img/raft-tech-stack-vss.png)
+<p align="center">
+  <img src="img/raft-tech-stack.svg" alt="RAFT tech stack" width="100%">
+</p>
 
 
 
@@ -236,10 +235,10 @@ Use the following command, depending on your CUDA version, to install all of the
 
 ```bash
 # CUDA 13
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=13.0
+mamba install -c rapidsai -c conda-forge raft-dask pylibraft cuda-version=13.1
 
 # CUDA 12
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.9
+mamba install -c rapidsai -c conda-forge raft-dask pylibraft cuda-version=12.9
 ```
 
 Note that the above commands will also install `libraft-headers` and `libraft`.
@@ -248,10 +247,10 @@ You can also install the conda packages individually using the `mamba` command a
 
 ```bash
 # CUDA 13
-mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=13.0
+mamba install -c rapidsai -c conda-forge libraft libraft-headers cuda-version=13.1
 
 # CUDA 12
-mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.9
+mamba install -c rapidsai -c conda-forge libraft libraft-headers cuda-version=12.9
 ```
 
 ### Installing Python through Pip
