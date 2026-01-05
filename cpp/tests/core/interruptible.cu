@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -31,7 +31,7 @@ RAFT_KERNEL gpu_wait(int millis)
     volatile double x = 0;
     for (int i = 0; i < 10000; i++) {
       x = x + double(i);
-      x /= 2.0;
+      x = x / 2.0;
       __syncthreads();
     }
 #endif

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # raft build scripts
@@ -38,8 +38,8 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --uninstall                 - uninstall files for specified targets which were built and installed prior
    --compile-lib               - compile shared library for all components
    --compile-static-lib        - compile static library for all components
-   --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
-   --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. NEIGHBORS_PRIMS_BENCH;CLUSTER_PRIMS_BENCH)
+   --limit-tests               - semicolon-separated list of test executables to compile (e.g. MATRIX_TEST;STATS_TEST)
+   --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. MATRIX_PRIMS_BENCH)
    --allgpuarch                - build for all supported GPU architectures
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
@@ -83,7 +83,6 @@ LINALG_TEST;\
 MATRIX_SELECT_LARGE_TEST;\
 MATRIX_SELECT_TEST;\
 MATRIX_TEST;\
-NEIGHBORS_TEST;\
 RANDOM_TEST;\
 SOLVERS_TEST;\
 SPARSE_TEST;\
@@ -314,15 +313,7 @@ if hasArg tests || (( NUMARGS == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};${TEST_TARGETS}"
 
     # Force compile library when needed test targets are specified
-    if [[ $CMAKE_TARGET == *"CLUSTER_TEST"* || \
-          $CMAKE_TARGET == *"DISTANCE_TEST"* || \
-          $CMAKE_TARGET == *"MATRIX_TEST"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_ANN_BRUTE_FORCE_TEST"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_ANN_CAGRA_TEST"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_ANN_IVF_TEST"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_TEST"* || \
-          $CMAKE_TARGET == *"SPARSE_DIST_TEST" || \
-          $CMAKE_TARGET == *"SPARSE_NEIGHBORS_TEST"* || \
+    if [[ $CMAKE_TARGET == *"MATRIX_TEST"* || \
           $CMAKE_TARGET == *"STATS_TEST"* ]]; then
       echo "-- Enabling compiled lib for gtests"
       COMPILE_LIBRARY=ON
@@ -334,9 +325,7 @@ if hasArg bench-prims || (( NUMARGS == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};${PRIMS_BENCH_TARGETS}"
 
     # Force compile library when needed benchmark targets are specified
-    if [[ $CMAKE_TARGET == *"CLUSTER_PRIMS_BENCH"* || \
-          $CMAKE_TARGET == *"MATRIX_PRIMS_BENCH"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_PRIMS_BENCH"* ]]; then
+    if [[ $CMAKE_TARGET == *"MATRIX_PRIMS_BENCH"* ]]; then
       echo "-- Enabling compiled lib for benchmarks"
       COMPILE_LIBRARY=ON
     fi

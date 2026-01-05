@@ -273,12 +273,12 @@ Note that some additional compiler flags might need to be added when building ag
 target_compile_options(your_target_name PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda --expt-relaxed-constexpr>)
 ```
 
-Further, it's important that the language level be set to at least C++ 17. This can be done with cmake:
+Further, it's important that the language level be set to at least C++ 20. This can be done with cmake:
 ```cmake
 set_target_properties(your_target_name
-PROPERTIES CXX_STANDARD                        17
+PROPERTIES CXX_STANDARD                        20
            CXX_STANDARD_REQUIRED               ON
-           CUDA_STANDARD                       17
+           CUDA_STANDARD                       20
            CUDA_STANDARD_REQUIRED              ON
            POSITION_INDEPENDENT_CODE           ON
            INTERFACE_POSITION_INDEPENDENT_CODE ON)

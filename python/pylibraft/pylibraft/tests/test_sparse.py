@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -142,3 +142,21 @@ class TestEigsh:
         v_v0 = cupy.copysign(ev_v0[:, 0], v)
 
         assert cupy.linalg.norm(v - v_v0) < cupy.linalg.norm(v - v_aux)
+
+    @pytest.mark.parametrize("dtype", ["f", "d"])
+    @pytest.mark.parametrize("seed", [42, 123, 0])
+    def test_reproducibility(self, dtype, seed):
+        """Test that eigsh produces reproducible results when given a seed."""
+        xp, sp = cupy, sparse
+
+        # Make symmetric matrix
+        a = self._make_matrix(dtype, xp)
+        a = sp.coo_matrix(a).asformat("csr")
+
+        # Run eigsh twice with the same seed
+        w1, v1 = eigsh(a, k=3, which="SA", seed=seed)
+        w2, v2 = eigsh(a, k=3, which="SA", seed=seed)
+
+        # Results should be identical
+        assert cupy.allclose(w1, w2), "Eigenvalues differ with same seed"
+        assert cupy.allclose(v1, v2), "Eigenvectors differ with same seed"

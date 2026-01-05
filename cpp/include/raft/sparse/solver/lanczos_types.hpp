@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 namespace raft::sparse::solver {
 
@@ -60,7 +61,7 @@ struct lanczos_solver_config {
   /** @brief Random seed for initialization of the algorithm
    *  @note Controls reproducibility of results
    */
-  uint64_t seed;
+  std::optional<uint64_t> seed = std::nullopt;
 };
 
 }  // namespace raft::sparse::solver
