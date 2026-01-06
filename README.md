@@ -66,7 +66,7 @@ In addition being a C++ library, RAFT also provides 2 Python libraries:
 
 ## Is RAFT right for me?
 
-RAFT contains low-level primitives for accelerating applications and workflows. Data source providers and application developers may find specific tools -- like ANN algorithms -- very useful. RAFT is not intended to be used directly by data scientists for discovery and experimentation. For data science tools, please see the [RAPIDS website](https://rapids.ai/).
+RAFT contains low-level primitives for accelerating applications and workflows. Data source providers and application developers may find specific tools very useful. RAFT is not intended to be used directly by data scientists for discovery and experimentation. For data science tools, please see the [RAPIDS website](https://rapids.ai/).
 
 ## Getting started
 
