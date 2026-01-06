@@ -33,7 +33,7 @@
     "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils"
   ],
   "initializeCommand": ["/bin/bash", "-c", "mkdir -m 0755 -p ${localWorkspaceFolder}/../.{aws,cache,config/pip,local/share/${localWorkspaceFolderBasename}-cuda13.1-venvs}"],
-  "onCreateCommand": ["/bin/bash", "-c", "sudo apt-get update && sudo apt-get install -y --no-install-recommends libnccl-dev"],
+  "onCreateCommand": ["/bin/bash", "-c", "sudo apt-get update && sudo apt-get install -y --no-install-recommends libnccl-dev=2.28.9-1+cuda13.0"],
   "postAttachCommand": ["/bin/bash", "-c", "if [ ${CODESPACES:-false} = 'true' ]; then . devcontainer-utils-post-attach-command; . rapids-post-attach-command; fi"],
   "workspaceFolder": "/home/coder",
   "workspaceMount": "source=${localWorkspaceFolder},target=/home/coder/raft,type=bind,consistency=consistent",
