@@ -1,10 +1,13 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
 
 source rapids-init-pip
+
+# TODO(jameslamb): revert this when it's pre-installed in CI images
+source ci/install_libnccl.sh
 
 package_dir="python/raft-dask"
 
