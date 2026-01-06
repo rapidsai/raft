@@ -22,7 +22,8 @@
       "installcuBLAS": true,
       "installcuSOLVER": true,
       "installcuRAND": true,
-      "installcuSPARSE": true
+      "installcuSPARSE": true,
+      "installNCCL": true
     },
     "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils:26.2": {}
   },
