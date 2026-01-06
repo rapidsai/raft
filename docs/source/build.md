@@ -180,7 +180,7 @@ The benchmarks are broken apart by algorithm category, so you will find several 
 It can take sometime to compile all of the benchmarks. You can build individual benchmarks by providing a semicolon-separated list to the `--limit-bench-prims` option in `build.sh`:
 
 ```bash
-./build.sh libraft bench-prims -n --limit-bench=NEIGHBORS_PRIMS_BENCH;MATRIX_PRIMS_BENCH;LINALG_PRIMS_BENCH
+./build.sh libraft bench-prims -n --limit-bench=MATRIX_PRIMS_BENCH;LINALG_PRIMS_BENCH
 ```
 
 ### Python libraries
