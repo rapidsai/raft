@@ -6,6 +6,11 @@ set -euo pipefail
 
 source rapids-init-pip
 
+# Only use stable ABI package for Python >= 3.11
+if [[ "${RAPIDS_PY_VERSION}" != "3.10" ]]; then
+  source ./ci/use_upstream_sabi_wheels.sh
+fi
+
 package_dir="python/raft-dask"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
@@ -20,3 +25,9 @@ echo "libraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBRAFT_WHEELHOUSE}"/l
 
 ci/build_wheel.sh raft-dask ${package_dir}
 ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
+
+# Only use stable ABI package naming for Python >= 3.11
+if [[ "${RAPIDS_PY_VERSION}" != "3.10" ]]; then
+  RAPIDS_PACKAGE_NAME="$(rapids-package-name wheel_python raft_dask --stable --cuda)"
+  export RAPIDS_PACKAGE_NAME
+fi
