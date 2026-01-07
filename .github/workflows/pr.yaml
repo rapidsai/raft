@@ -164,6 +164,10 @@ jobs:
       package-name: pylibraft
       package-type: python
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      # Build a wheel for each CUDA x ARCH x PY_VER (3.10 and 3.11)
+      # When we drop Python 3.10, this can be simplified to:
+      # matrix_filter: map(select(.PY_VER == "3.11")) | unique_by({CUDA_VER, ARCH})
+      matrix_filter: map(select(.PY_VER == "3.11" or .PY_VER == "3.10")) | unique_by({CUDA_VER, ARCH, PY_VER})
   wheel-tests-pylibraft:
     needs: [wheel-build-pylibraft, changed-files]
     secrets: inherit
@@ -184,6 +188,10 @@ jobs:
       package-name: raft_dask
       package-type: python
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      # Build a wheel for each CUDA x ARCH x PY_VER (3.10 and 3.11)
+      # When we drop Python 3.10, this can be simplified to:
+      # matrix_filter: map(select(.PY_VER == "3.11")) | unique_by({CUDA_VER, ARCH})
+      matrix_filter: map(select(.PY_VER == "3.11" or .PY_VER == "3.10")) | unique_by({CUDA_VER, ARCH, PY_VER})
   wheel-tests-raft-dask:
     needs: [wheel-build-raft-dask, changed-files]
     secrets: inherit
