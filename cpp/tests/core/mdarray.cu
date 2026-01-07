@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -401,8 +401,7 @@ template <typename T, typename Index, typename LayoutPolicy>
 void check_matrix_layout(device_matrix_view<T, Index, LayoutPolicy> in)
 {
   static_assert(in.rank() == 2);
-  // is_exhaustive() is not constexpr for dynamic extents in CCCL 3.2+
-  EXPECT_TRUE(in.is_exhaustive());
+  static_assert(in.is_exhaustive());
 
   bool constexpr kIsCContiguous = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
   bool constexpr kIsFContiguous = std::is_same_v<LayoutPolicy, layout_f_contiguous>;
@@ -425,7 +424,7 @@ TEST(MDArray, FuncArg)
 
     auto slice =
       cuda::std::submdspan(d_matrix.view(), cuda::std::tuple{2ul, 4ul}, cuda::std::tuple{2ul, 5ul});
-    ASSERT_TRUE(slice.is_strided());
+    static_assert(slice.is_strided());
     ASSERT_EQ(slice.extent(0), 2);
     ASSERT_EQ(slice.extent(1), 3);
     // is using device_accessor mixin.
