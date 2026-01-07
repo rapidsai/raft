@@ -286,8 +286,8 @@ PROPERTIES CXX_STANDARD                        20
 
 The `raft::raft` CMake target is made available when including RAFT into your CMake project but additional CMake targets can be made available by adding to the `COMPONENTS` option in CMake's `find_package(raft)` (refer to [CMake docs](https://cmake.org/cmake/help/latest/command/find_package.html#basic-signature) to learn more). The components should be separated by spaces. The `raft::raft` target will always be available. Note that the `distributed` component also exports additional dependencies.
 
-| Component   | Target              | Description                                              | Base Dependencies                      |
-|-------------|---------------------|----------------------------------------------------------|----------------------------------------|
+| Component   | Target              | Description                                              | Base Dependencies             |
+|-------------|---------------------|----------------------------------------------------------|-------------------------------|
 | n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL |
-| compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                             |
-| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL
+| compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                    |
+| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL         |
