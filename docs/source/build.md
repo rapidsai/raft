@@ -86,7 +86,6 @@ In addition to the libraries included with cudatoolkit 12.2+, there are some oth
 #### Required
 - [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
 - [Thrust](https://github.com/NVIDIA/thrust) v1.17 / [CUB](https://github.com/NVIDIA/cub)
-- [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
 
 #### Optional
 - [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `raft-dask`.

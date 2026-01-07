@@ -90,9 +90,8 @@ outputs:
     build:
       script:
         content: |
-          # Unspecified brings in cuco and friends
+          # Unspecified brings in all components
           cmake --install cpp/build --component Unspecified
-          cmake --install cpp/build --component cuco
           cmake --install cpp/build --component raft
           cmake --install cpp/build --component distributed
       string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
