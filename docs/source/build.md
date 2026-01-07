@@ -109,7 +109,7 @@ The recommended way to build and install RAFT from source is to use the `build.s
 
 ### Header-only C++
 
-`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like CUTLASS, which will need to be explicitly enabled in `build.sh`.
+`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed.
 
 The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`.
 ```bash
@@ -289,6 +289,6 @@ The `raft::raft` CMake target is made available when including RAFT into your CM
 
 | Component   | Target              | Description                                              | Base Dependencies                      |
 |-------------|---------------------|----------------------------------------------------------|----------------------------------------|
-| n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
+| n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL |
 | compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                             |
 | distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 repos:
@@ -83,7 +83,6 @@ repos:
                 exclude: |
                   (?x)
                     ^CHANGELOG[.]md$|
-                    ^cpp/cmake/patches/cutlass/build-export[.]patch$
       - repo: https://github.com/pre-commit/pre-commit-hooks
         rev: v5.0.0
         hooks:
