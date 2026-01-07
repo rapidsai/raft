@@ -113,12 +113,8 @@ auto compute_graph_laplacian(
 }
 
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-device_coo_matrix<std::remove_const_t<ElementType>,
-                  std::remove_const_t<RowType>,
-                  std::remove_const_t<ColType>,
-                  std::remove_const_t<NZType>>
-compute_graph_laplacian(raft::resources const& res,
-                        device_coo_matrix_view<ElementType, RowType, ColType, NZType> input)
+device_coo_matrix<ElementType, RowType, ColType, NZType> compute_graph_laplacian(
+  raft::resources const& res, device_coo_matrix_view<ElementType, RowType, ColType, NZType> input)
 {
   auto input_structure = input.structure_view();
   auto dim             = input_structure.get_n_rows();

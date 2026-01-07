@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -27,12 +27,8 @@ auto compute_graph_laplacian(
  * Note that for non-symmetric matrices, the out-degree Laplacian is returned.
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-device_coo_matrix<std::remove_const_t<ElementType>,
-                  std::remove_const_t<RowType>,
-                  std::remove_const_t<ColType>,
-                  std::remove_const_t<NZType>>
-compute_graph_laplacian(raft::resources const& res,
-                        device_coo_matrix_view<ElementType, RowType, ColType, NZType> input)
+device_coo_matrix<ElementType, RowType, ColType, NZType> compute_graph_laplacian(
+  raft::resources const& res, device_coo_matrix_view<ElementType, RowType, ColType, NZType> input)
 {
   return detail::compute_graph_laplacian(res, input);
 }
