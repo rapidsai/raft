@@ -85,7 +85,7 @@ IncludeCategories:
     Priority:        5
   - Regex:           '^<(thrust|cub|cuda)/' # CCCL includes
     Priority:        6
-  - Regex:           '^<(cooperative_groups|cuco|cuda|device_types|driver_types|math_constants|nvtx3)' # CUDA includes
+  - Regex:           '^<(cooperative_groups|cuda|device_types|driver_types|math_constants|nvtx3)' # CUDA includes
     Priority:        6
   - Regex:           '^<.*\..*' # other system includes (e.g. with a '.')
     Priority:        7
