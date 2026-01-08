@@ -43,7 +43,7 @@ dependencies:
 - rapids-logger==0.2.*,>=0.0.0a0
 - recommonmark
 - rmm==26.2.*,>=0.0.0a0
-- scikit-build-core>=0.10.0
+- scikit-build-core>=0.11.0
 - scikit-learn
 - scipy
 - sphinx

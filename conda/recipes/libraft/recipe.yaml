@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
@@ -90,9 +90,8 @@ outputs:
     build:
       script:
         content: |
-          # Unspecified brings in cuco and cutlass and friends
+          # Unspecified brings in all components
           cmake --install cpp/build --component Unspecified
-          cmake --install cpp/build --component cuco
           cmake --install cpp/build --component raft
           cmake --install cpp/build --component distributed
       string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
@@ -129,7 +128,7 @@ outputs:
           - ucxx
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license }}
       summary: libraft-headers-only library
 
   - package:
@@ -174,7 +173,7 @@ outputs:
 
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license }}
       summary: libraft-headers library
 
   - package:
@@ -224,7 +223,7 @@ outputs:
           - ucxx
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license }}
       summary: ${{ load_from_file("python/libraft/pyproject.toml").project.description }}
 
   - package:
@@ -274,7 +273,7 @@ outputs:
           - ucxx
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license }}
       summary: libraft static library
 
   - package:
@@ -324,5 +323,5 @@ outputs:
           - ucxx
     about:
       homepage: ${{ load_from_file("python/libraft/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libraft/pyproject.toml").project.license }}
       summary: libraft tests

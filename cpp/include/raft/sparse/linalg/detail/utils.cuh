@@ -13,7 +13,7 @@
 
 namespace raft {
 namespace sparse {
-namespace distance {
+namespace linalg {
 namespace detail {
 
 /**
@@ -155,6 +155,6 @@ void faster_dot_on_csr(raft::resources const& handle,
 }
 
 }  // namespace detail
-}  // namespace distance
+}  // namespace linalg
 }  // namespace sparse
 }  // namespace raft

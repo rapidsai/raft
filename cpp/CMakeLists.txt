@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
@@ -23,6 +23,9 @@ project(
   VERSION "${RAPIDS_VERSION}"
   LANGUAGES ${lang_list}
 )
+
+# Disable C++20 module scanning (not using modules, just C++20 features)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # Write the version header
 rapids_cmake_write_version_file(include/raft/version_config.hpp)
@@ -161,13 +164,9 @@ include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
 rapids_cpm_rapids_logger(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
 create_logger_macros(RAFT "raft::default_logger()" include/raft/core)
 
-# CCCL before rmm/cuco so we get the right version of CCCL
+# CCCL before rmm so we get the right version of CCCL
 include(cmake/thirdparty/get_cccl.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_cutlass.cmake)
-
-include(${rapids-cmake-dir}/cpm/cuco.cmake)
-rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
 
 if(BUILD_TESTS)
   include(${rapids-cmake-dir}/cpm/gtest.cmake)
@@ -190,10 +189,7 @@ target_include_directories(
 )
 
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-target_link_libraries(
-  raft INTERFACE rapids_logger::rapids_logger rmm::rmm cuco::cuco nvidia::cutlass::cutlass
-                 CCCL::CCCL
-)
+target_link_libraries(raft INTERFACE rapids_logger::rapids_logger rmm::rmm CCCL::CCCL)
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
@@ -289,9 +285,9 @@ if(RAFT_COMPILE_LIBRARY)
   )
   set_target_properties(
     raft_objs
-    PROPERTIES CXX_STANDARD 17
+    PROPERTIES CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
   )
