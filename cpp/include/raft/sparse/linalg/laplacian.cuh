@@ -80,7 +80,7 @@ auto laplacian_normalized(
  * @tparam NZType The data type for representing nonzero counts
  *
  * @param[in] res RAFT resources for managing device memory and streams
- * @param[in] input View of the input CSR adjacency matrix
+ * @param[in] input View of the input COO adjacency matrix
  * @param[out] diagonal_out View of the output vector where the scaled diagonal degree
  *                           matrix D^(-1/2) will be stored (must be pre-allocated with
  *                           size at least n_rows)
