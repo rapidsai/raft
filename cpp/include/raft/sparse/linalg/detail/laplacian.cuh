@@ -10,7 +10,10 @@
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/matrix/diagonal.cuh>
+#include <raft/sparse/op/sort.cuh>
 
+#include <thrust/iterator/discard_iterator.h>
+#include <thrust/reduce.h>
 #include <thrust/scan.h>
 
 #include <type_traits>
@@ -190,18 +193,27 @@ device_coo_matrix<ElementType, RowType, ColType, NZType> compute_graph_laplacian
                              return marked_diagonal_ptr[idx];
                            });
 
-  auto degrees = raft::make_device_vector<ElementType, RowType>(res, dim);
+  raft::sparse::op::coo_sort<ElementType, RowType, NZType>(
+    dim,
+    dim,
+    result.structure_view().get_nnz(),
+    result.structure_view().get_rows().data(),
+    result.structure_view().get_cols().data(),
+    result.get_elements().data(),
+    raft::resource::get_cuda_stream(res));
+
+  auto result_nnz = result.structure_view().get_nnz();
+  auto degrees    = raft::make_device_vector<ElementType, RowType>(res, dim);
   raft::matrix::fill(res, degrees.view(), ElementType(0));
   auto degrees_ptr = degrees.data_handle();
 
   // D
-  auto result_nnz = result.structure_view().get_nnz();
-  raft::linalg::map_offset(res,
-                           raft::make_device_vector_view(result_values_ptr, result_nnz),
-                           [result_rows_ptr, result_values_ptr, degrees_ptr] __device__(auto idx) {
-                             atomicAdd(&degrees_ptr[result_rows_ptr[idx]], result_values_ptr[idx]);
-                             return result_values_ptr[idx];
-                           });
+  thrust::reduce_by_key(raft::resource::get_thrust_policy(res),
+                        result_rows_ptr,                  // keys_first
+                        result_rows_ptr + result_nnz,     // keys_last
+                        result_values_ptr,                // values_first
+                        thrust::make_discard_iterator(),  // keys_output (discarded)
+                        degrees_ptr);                     // values_output (row sums)
 
   // D - A
   raft::linalg::map_offset(
