@@ -173,7 +173,7 @@ device_coo_matrix<ElementType, RowType, ColType, NZType> compute_graph_laplacian
                          marked_diagonal_ptr + dim,
                          scan_diagonal_ptr);
 
-  // populate the extra diaganal indexes and initialize the values to 0
+  // populate the extra diagonal indexes and initialize the values to 0
   raft::linalg::map_offset(res,
                            marked_diagonal.view(),
                            [result_rows_ptr,
