@@ -75,7 +75,7 @@ auto laplacian_normalized(
  *
  *
  * @tparam ElementType The data type of the matrix elements
- * @tparam IndptrType The data type of the row pointers
+ * @tparam RowType The data type of the row pointers
  * @tparam IndicesType The data type of the column indices
  * @tparam NZType The data type for representing nonzero counts
  *
