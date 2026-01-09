@@ -76,7 +76,7 @@ auto laplacian_normalized(
  *
  * @tparam ElementType The data type of the matrix elements
  * @tparam RowType The data type of the row pointers
- * @tparam IndicesType The data type of the column indices
+ * @tparam ColType The data type of the column indices
  * @tparam NZType The data type for representing nonzero counts
  *
  * @param[in] res RAFT resources for managing device memory and streams
