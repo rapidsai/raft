@@ -85,7 +85,7 @@ auto laplacian_normalized(
  *                           matrix D^(-1/2) will be stored (must be pre-allocated with
  *                           size at least n_rows)
  *
- * @return A CSR matrix containing the normalized graph Laplacian
+ * @return A COO matrix containing the normalized graph Laplacian
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
 auto laplacian_normalized(raft::resources const& res,
