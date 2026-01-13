@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,6 +17,7 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/mr/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cub/cub.cuh>
 
@@ -52,16 +53,16 @@ template <typename T>
 struct sample : public fixture {
   sample(const sample_inputs& p)
     : params(p),
-      old_mr(rmm::mr::get_current_device_resource()),
+      old_mr(rmm::mr::get_current_device_resource_ref()),
       pool_mr(rmm::mr::get_current_device_resource(), 2 * GiB),
       in(make_device_vector<T, int64_t>(res, p.n_samples)),
       out(make_device_vector<T, int64_t>(res, p.n_train))
   {
-    rmm::mr::set_current_device_resource(&pool_mr);
+    rmm::mr::set_current_device_resource_ref(&pool_mr);
     raft::random::RngState r(123456ULL);
   }
 
-  ~sample() { rmm::mr::set_current_device_resource(old_mr); }
+  ~sample() { rmm::mr::set_current_device_resource_ref(old_mr); }
   void run_benchmark(::benchmark::State& state) override
   {
     std::ostringstream label_stream;
@@ -83,7 +84,7 @@ struct sample : public fixture {
  private:
   float GiB = 1073741824.0f;
   raft::device_resources res;
-  rmm::mr::device_memory_resource* old_mr;
+  rmm::device_async_resource_ref old_mr;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr;
   sample_inputs params;
   raft::device_vector<T, int64_t> out, in;
