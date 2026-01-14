@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
@@ -90,9 +90,8 @@ outputs:
     build:
       script:
         content: |
-          # Unspecified brings in cuco and cutlass and friends
+          # Unspecified brings in all components
           cmake --install cpp/build --component Unspecified
-          cmake --install cpp/build --component cuco
           cmake --install cpp/build --component raft
           cmake --install cpp/build --component distributed
       string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
