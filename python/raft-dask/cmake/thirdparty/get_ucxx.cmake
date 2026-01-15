@@ -1,6 +1,6 @@
 #=============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 #=============================================================================
@@ -38,7 +38,7 @@ endfunction()
 # Change pinned tag here to test a commit in CI
 # To use a different ucxx locally, set the CMake variable
 # CPM_ucxx_SOURCE=/path/to/local/ucxx
-find_and_configure_ucxx(VERSION  0.48
+find_and_configure_ucxx(VERSION  0.49
         FORK             rapidsai
         PINNED_TAG       main
         EXCLUDE_FROM_ALL YES
