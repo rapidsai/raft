@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -645,32 +645,6 @@ auto lanczos_smallest(raft::resources const& handle,
       raft::make_device_matrix<ValueTypeT, uint32_t, raft::row_major>(handle, n, nEigVecs);
 
     raft::linalg::transpose(handle, V_k, V_k_T.view());
-
-    ValueTypeT three = 3;
-    ValueTypeT two   = 2;
-
-    std::vector<ValueTypeT> M   = {1, 2, 3, 4, 5, 6};
-    std::vector<ValueTypeT> vec = {1, 1};
-
-    auto M_dev   = raft::make_device_matrix<ValueTypeT>(handle, 2, 3);
-    auto vec_dev = raft::make_device_vector<ValueTypeT>(handle, 2);
-    auto out     = raft::make_device_vector<ValueTypeT>(handle, 3);
-    raft::copy(M_dev.data_handle(), M.data(), 6, stream);
-    raft::copy(vec_dev.data_handle(), vec.data(), 2, stream);
-
-    raft::linalg::gemv(handle,
-                       CUBLAS_OP_N,
-                       three,
-                       two,
-                       &one,
-                       M_dev.data_handle(),
-                       three,
-                       vec_dev.data_handle(),
-                       1,
-                       &zero,
-                       out.data_handle(),
-                       1,
-                       stream);
 
     raft::linalg::gemv(handle,
                        CUBLAS_OP_N,
