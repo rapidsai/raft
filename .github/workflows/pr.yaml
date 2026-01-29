@@ -153,6 +153,7 @@ jobs:
           - '!ci/run_ctests.sh'
           - '!ci/test_cpp.sh'
           - '!ci/validate_wheel.sh'
+          - '!conda/**'
           - '!cpp/.clang-format'
           - '!docs/**'
           - '!img/**'
