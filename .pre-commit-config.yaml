@@ -88,7 +88,7 @@ repos:
         hooks:
               - id: check-json
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v1.3.3
+        rev: v1.4.1
         hooks:
           - id: verify-copyright
             name: verify-copyright-raft
@@ -150,17 +150,9 @@ repos:
           - id: verify-codeowners
             args: [--fix, --project-prefix=raft]
           - id: verify-hardcoded-version
-            exclude: |
-              (?x)
-                devcontainer[.]json$|
-                dependencies[.]yaml$|
-                ^[.]github/workflows/|
-                [.]md$|
-                pom[.]xml$|
-                ^[.]pre-commit-config[.]yaml$|
-                [.]rst$|
-                ^conda/environments/|
-                [.](png)$
+          - id: verify-hardcoded-version
+            name: verify-hardcoded-version-ucxx
+            args: [--fix, --version-file=UCXX_VERSION]
       - repo: https://github.com/rapidsai/dependency-file-generator
         rev: v1.20.0
         hooks:

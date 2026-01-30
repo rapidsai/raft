@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -35,6 +35,29 @@ if(NOT rapids-cmake-branch)
   set(rapids-cmake-branch "${_rapids_branch}")
 endif()
 include("${CMAKE_CURRENT_LIST_DIR}/RAPIDS.cmake")
+
+# Read UCXX version and branch files
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../UCXX_VERSION" _ucxx_version)
+if(_ucxx_version MATCHES [[^([0-9][0-9])\.([0-9][0-9])\.([0-9][0-9])]])
+  set(UCXX_VERSION_MAJOR "${CMAKE_MATCH_1}")
+  set(UCXX_VERSION_MINOR "${CMAKE_MATCH_2}")
+  set(UCXX_VERSION_PATCH "${CMAKE_MATCH_3}")
+  set(UCXX_VERSION_MAJOR_MINOR "${UCXX_VERSION_MAJOR}.${UCXX_VERSION_MINOR}")
+  set(UCXX_VERSION "${UCXX_VERSION_MAJOR}.${UCXX_VERSION_MINOR}.${UCXX_VERSION_PATCH}")
+else()
+  string(REPLACE "\n" "\n  " _ucxx_version_formatted "  ${_ucxx_version}")
+  message(
+    FATAL_ERROR
+      "Could not determine ucxx version. Contents of UCXX_VERSION file:\n${_ucxx_version_formatted}"
+  )
+endif()
+file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../UCXX_BRANCH" UCXX_BRANCH)
+if(NOT UCXX_BRANCH)
+  message(
+    FATAL_ERROR
+      "Could not determine branch name to use for ucxx. The file \"${CMAKE_CURRENT_LIST_DIR}/../UCXX_BRANCH\" is missing."
+  )
+endif()
 
 # Don't use sccache-dist for CMake's compiler tests
 set(ENV{SCCACHE_NO_DIST_COMPILE} "1")

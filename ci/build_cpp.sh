@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -17,6 +17,9 @@ sccache --stop-server 2>/dev/null || true
 
 RAPIDS_PACKAGE_VERSION=$(rapids-generate-version)
 export RAPIDS_PACKAGE_VERSION
+
+UCXX_PACKAGE_DEPENDENCY="$(cat UCXX_VERSION)"
+export UCXX_PACKAGE_DEPENDENCY
 
 RAPIDS_ARTIFACTS_DIR=${RAPIDS_ARTIFACTS_DIR:-"${PWD}/artifacts"}
 mkdir -p "${RAPIDS_ARTIFACTS_DIR}"
