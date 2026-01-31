@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,6 +14,7 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/std/tuple>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -26,7 +27,6 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/transform_reduce.h>
-#include <thrust/tuple.h>
 #include <thrust/unique.h>
 
 #include <curand.h>
@@ -169,10 +169,10 @@ Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t, alt
 // ||y|-|x||
 template <typename weight_t>
 struct alteration_functor {
-  __host__ __device__ weight_t operator()(const thrust::tuple<weight_t, weight_t>& t)
+  __host__ __device__ weight_t operator()(const cuda::std::tuple<weight_t, weight_t>& t)
   {
-    auto x = thrust::get<0>(t);
-    auto y = thrust::get<1>(t);
+    auto x = cuda::std::get<0>(t);
+    auto y = cuda::std::get<1>(t);
     x      = x < 0 ? -x : x;
     y      = y < 0 ? -y : y;
     return x < y ? y - x : x - y;
@@ -194,8 +194,8 @@ alteration_t MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration_ma
   auto new_end = thrust::unique(policy, tmp.begin(), tmp.end());
 
   // min(a[i+1]-a[i])/2
-  auto begin = thrust::make_zip_iterator(thrust::make_tuple(tmp.begin(), tmp.begin() + 1));
-  auto end   = thrust::make_zip_iterator(thrust::make_tuple(new_end - 1, new_end));
+  auto begin = thrust::make_zip_iterator(cuda::std::make_tuple(tmp.begin(), tmp.begin() + 1));
+  auto end   = thrust::make_zip_iterator(cuda::std::make_tuple(new_end - 1, new_end));
   auto init  = tmp.element(1, stream) - tmp.element(0, stream);
   auto max   = thrust::transform_reduce(
     policy, begin, end, alteration_functor<weight_t>(), init, thrust::minimum<weight_t>());
@@ -365,9 +365,9 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::check_termination()
 
 template <typename vertex_t, typename weight_t>
 struct new_edges_functor {
-  __host__ __device__ bool operator()(const thrust::tuple<vertex_t, vertex_t, weight_t>& t)
+  __host__ __device__ bool operator()(const cuda::std::tuple<vertex_t, vertex_t, weight_t>& t)
   {
-    auto src = thrust::get<0>(t);
+    auto src = cuda::std::get<0>(t);
 
     return src != std::numeric_limits<vertex_t>::max() ? true : false;
   }
@@ -383,15 +383,15 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::append_src_dst_pair(
 
   // iterator to end of mst edges added to final output in previous iteration
   auto src_dst_zip_end =
-    thrust::make_zip_iterator(thrust::make_tuple(mst_src + curr_mst_edge_count,
-                                                 mst_dst + curr_mst_edge_count,
-                                                 mst_weights + curr_mst_edge_count));
+    thrust::make_zip_iterator(cuda::std::make_tuple(mst_src + curr_mst_edge_count,
+                                                    mst_dst + curr_mst_edge_count,
+                                                    mst_weights + curr_mst_edge_count));
 
   // iterator to new mst edges found
   auto temp_src_dst_zip_begin = thrust::make_zip_iterator(
-    thrust::make_tuple(temp_src.begin(), temp_dst.begin(), temp_weights.begin()));
+    cuda::std::make_tuple(temp_src.begin(), temp_dst.begin(), temp_weights.begin()));
   auto temp_src_dst_zip_end = thrust::make_zip_iterator(
-    thrust::make_tuple(temp_src.end(), temp_dst.end(), temp_weights.end()));
+    cuda::std::make_tuple(temp_src.end(), temp_dst.end(), temp_weights.end()));
 
   // copy new mst edges to final output
   thrust::copy_if(policy,

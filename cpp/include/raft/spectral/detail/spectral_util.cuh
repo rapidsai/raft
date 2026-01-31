@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,6 +13,7 @@
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/std/tuple>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
@@ -21,7 +22,6 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
-#include <thrust/tuple.h>
 
 #include <algorithm>
 
@@ -115,7 +115,7 @@ struct equal_to_i_op {
   template <typename Tuple_>
   __host__ __device__ void operator()(Tuple_ t)
   {
-    thrust::get<1>(t) = (thrust::get<0>(t) == i) ? (value_type_t)1.0 : (value_type_t)0.0;
+    cuda::std::get<1>(t) = (cuda::std::get<0>(t) == i) ? (value_type_t)1.0 : (value_type_t)0.0;
   }
 };
 }  // namespace
@@ -140,10 +140,10 @@ bool construct_indicator(
 
   thrust::for_each(
     thrust_exec_policy,
-    thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(clusters),
-                                                 thrust::device_pointer_cast(part_i.raw()))),
-    thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(clusters + n),
-                                                 thrust::device_pointer_cast(part_i.raw() + n))),
+    thrust::make_zip_iterator(cuda::std::make_tuple(thrust::device_pointer_cast(clusters),
+                                                    thrust::device_pointer_cast(part_i.raw()))),
+    thrust::make_zip_iterator(cuda::std::make_tuple(thrust::device_pointer_cast(clusters + n),
+                                                    thrust::device_pointer_cast(part_i.raw() + n))),
     equal_to_i_op<vertex_t, weight_t>(index));
   RAFT_CHECK_CUDA(stream);
 
