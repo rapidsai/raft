@@ -153,6 +153,12 @@ repos:
           - id: verify-hardcoded-version
             name: verify-hardcoded-version-ucxx
             args: [--fix, --version-file=UCXX_VERSION]
+          - id: verify-pyproject-license
+            # ignore the top-level pyproject.toml, which doesn't
+            # have or need a [project] table
+            exclude: |
+              (?x)
+                ^pyproject[.]toml$
       - repo: https://github.com/rapidsai/dependency-file-generator
         rev: v1.20.0
         hooks:
