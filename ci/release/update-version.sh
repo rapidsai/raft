@@ -138,9 +138,7 @@ done
 # Documentation references - context-aware
 sed_runner "/^set(RAFT_VERSION/ s|\".*\"|\"${NEXT_SHORT_TAG}\"|g" docs/source/build.md
 
-if [[ "${RUN_CONTEXT}" == "main" ]]; then
-    :
-elif [[ "${RUN_CONTEXT}" == "release" ]]; then
+if [[ "${RUN_CONTEXT}" == "release" ]]; then
     # In release context, use release branch for documentation links (only in GitHub URLs)
     sed_runner "s|/blob/main/|/blob/release/${NEXT_SHORT_TAG}/|g" docs/source/build.md
     sed_runner "s|/blob/main/|/blob/release/${NEXT_SHORT_TAG}/|g" docs/source/developer_guide.md
