@@ -77,5 +77,5 @@ select = [
     "distro-too-large-compressed",
 ]
 
-# PyPI limit is 100 MiB, fail CI before we get too close to that
-max_allowed_size_compressed = '25M'
+# PyPI hard limit is 1GiB, but try to keep these as small as possible
+max_allowed_size_compressed = '25Mi'
