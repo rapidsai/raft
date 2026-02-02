@@ -18,7 +18,7 @@ sccache --stop-server 2>/dev/null || true
 RAPIDS_PACKAGE_VERSION=$(rapids-generate-version)
 export RAPIDS_PACKAGE_VERSION
 
-UCXX_PACKAGE_DEPENDENCY="$(cat UCXX_VERSION)"
+UCXX_PACKAGE_DEPENDENCY="$(sed -E -e 's/^([0-9]+\.[0-9]+)\.[0-9]+$/\1.*/' UCXX_VERSION)"
 export UCXX_PACKAGE_DEPENDENCY
 
 RAPIDS_ARTIFACTS_DIR=${RAPIDS_ARTIFACTS_DIR:-"${PWD}/artifacts"}

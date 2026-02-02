@@ -19,7 +19,7 @@ version=$(rapids-generate-version)
 export RAPIDS_PACKAGE_VERSION=${version}
 echo "${version}" > VERSION
 
-UCXX_PACKAGE_DEPENDENCY="$(cat UCXX_VERSION).*"
+UCXX_PACKAGE_DEPENDENCY="$(sed -E -e 's/^([0-9]+\.[0-9]+)\.[0-9]+$/\1.*/' UCXX_VERSION)"
 export UCXX_PACKAGE_DEPENDENCY
 
 # populates `RATTLER_CHANNELS` array and `RATTLER_ARGS` array
