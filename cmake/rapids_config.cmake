@@ -38,7 +38,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/RAPIDS.cmake")
 
 # Read UCXX version and branch files
 file(READ "${CMAKE_CURRENT_LIST_DIR}/../UCXX_VERSION" _ucxx_version)
-if(_ucxx_version MATCHES [[^([0-9][0-9])\.([0-9][0-9])\.([0-9][0-9])]])
+if(_ucxx_version MATCHES [[^([0-9]+)\.([0-9]+)\.([0-9]+)]])
   set(UCXX_VERSION_MAJOR "${CMAKE_MATCH_1}")
   set(UCXX_VERSION_MINOR "${CMAKE_MATCH_2}")
   set(UCXX_VERSION_PATCH "${CMAKE_MATCH_3}")
