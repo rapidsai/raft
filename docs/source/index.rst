@@ -1,7 +1,7 @@
-RAPIDS RAFT: Reusable Accelerated Functions and Tools for Vector Search and More
+RAFT: Reusable Accelerated Functions and Tools
 ================================================================================
 
-.. image:: ../../img/raft-tech-stack-vss.png
+.. image:: ../../img/raft-tech-stack.svg
   :width: 800
   :alt: RAFT Tech Stack
 

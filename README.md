@@ -237,12 +237,12 @@ mamba install -c rapidsai -c conda-forge libraft libraft-headers cuda-version=12
 
 ```bash
 # CUDA 13
-pip install pylibraft-cu13 --extra-index-url=https://pypi.nvidia.com
-pip install raft-dask-cu13 --extra-index-url=https://pypi.nvidia.com
+pip install pylibraft-cu13
+pip install raft-dask-cu13
 
 # CUDA 12
-pip install pylibraft-cu12 --extra-index-url=https://pypi.nvidia.com
-pip install raft-dask-cu12 --extra-index-url=https://pypi.nvidia.com
+pip install pylibraft-cu12
+pip install raft-dask-cu12
 ```
 
 These packages statically build RAFT's pre-compiled instantiations and so the C++ headers won't be readily available to use in your code.
