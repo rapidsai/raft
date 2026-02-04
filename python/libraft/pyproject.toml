@@ -18,7 +18,7 @@ authors = [
     { name = "NVIDIA Corporation" },
 ]
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "cuda-toolkit[cublas,curand,cusolver,cusparse]>=12,<14",
     "librmm==26.4.*,>=0.0.0a0",
