@@ -195,6 +195,8 @@ jobs:
     with:
       build_type: pull-request
       script: ci/build_python.sh
+      # Build a conda package for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   conda-python-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -242,6 +244,8 @@ jobs:
       package-name: pylibraft
       package-type: python
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      # Build a wheel for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-tests-pylibraft:
     needs: [wheel-build-pylibraft, changed-files]
     secrets: inherit
@@ -262,6 +266,8 @@ jobs:
       package-name: raft_dask
       package-type: python
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      # Build a wheel for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-tests-raft-dask:
     needs: [wheel-build-raft-dask, changed-files]
     secrets: inherit
