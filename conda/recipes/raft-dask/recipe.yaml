@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
@@ -11,6 +11,7 @@ context:
   py_version: ${{ env.get("RAPIDS_PY_VERSION") }}
   py_buildstring: ${{ py_version | version_to_buildstring }}
   head_rev: '${{ git.head_rev(".")[:8] }}'
+  ucxx_version: ${{ env.get("UCXX_PACKAGE_DEPENDENCY") }}
 
 package:
   name: raft-dask
