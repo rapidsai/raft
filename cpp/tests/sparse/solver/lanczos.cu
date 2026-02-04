@@ -315,6 +315,17 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
     int runtimeVersion;
     cudaError_t result = cudaRuntimeGetVersion(&runtimeVersion);
 
+    if (result == cudaSuccess) {
+      int major = runtimeVersion / 1000;
+      int minor = (runtimeVersion % 1000) / 10;
+
+      // Skip SM gtests for CUDA 13.1.x
+      // See https://github.com/rapidsai/raft/issues/2705
+      if (major == 13 && minor == 1 && params.which == raft::sparse::solver::LANCZOS_WHICH::SM) {
+        GTEST_SKIP();
+      }
+    }
+
     raft::random::uniform<ValueType>(handle, rng, v0.view(), 0, 1);
     std::tuple<IndexType, ValueType, IndexType> stats;
 
@@ -877,6 +888,9 @@ TEST_P(LanczosTestF, Result) { Run(); }
 using LanczosTestD = lanczos_tests<int, double>;
 TEST_P(LanczosTestD, Result) { Run(); }
 
+using LanczosTestD_SM = lanczos_tests<int, double>;
+TEST_P(LanczosTestD_SM, Result) { Run(); }
+
 using LanczosTestD_LA = lanczos_tests<int, double>;
 TEST_P(LanczosTestD_LA, Result) { Run(); }
 
@@ -885,6 +899,9 @@ TEST_P(LanczosTestD_LM, Result) { Run(); }
 
 using LanczosTestD_SA = lanczos_tests<int, double>;
 TEST_P(LanczosTestD_SA, Result) { Run(); }
+
+using LanczosTestF_SM = lanczos_tests<int, float>;
+TEST_P(LanczosTestF_SM, Result) { Run(); }
 
 using LanczosTestF_LA = lanczos_tests<int, float>;
 TEST_P(LanczosTestF_LA, Result) { Run(); }
@@ -902,22 +919,14 @@ INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF, ::testing::ValuesIn(inputsf)
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestD, ::testing::ValuesIn(inputsd));
 INSTANTIATE_TEST_CASE_P(LanczosTests, RmatLanczosTestF, ::testing::ValuesIn(rmat_inputsf));
 
+INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestD_SM, ::testing::ValuesIn(inputsd_SM));
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestD_LA, ::testing::ValuesIn(inputsd_LA));
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestD_LM, ::testing::ValuesIn(inputsd_LM));
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestD_SA, ::testing::ValuesIn(inputsd_SA));
 
+INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF_SM, ::testing::ValuesIn(inputsf_SM));
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF_LA, ::testing::ValuesIn(inputsf_LA));
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF_LM, ::testing::ValuesIn(inputsf_LM));
 INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF_SA, ::testing::ValuesIn(inputsf_SA));
-
-// https://github.com/rapidsai/raft/issues/2705
-// using LanczosTestD_SM = lanczos_tests<int, double>;
-// TEST_P(LanczosTestD_SM, Result) { Run(); }
-
-// using LanczosTestF_SM = lanczos_tests<int, float>;
-// TEST_P(LanczosTestF_SM, Result) { Run(); }
-
-// INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestD_SM, ::testing::ValuesIn(inputsd_SM));
-// INSTANTIATE_TEST_CASE_P(LanczosTests, LanczosTestF_SM, ::testing::ValuesIn(inputsf_SM));
 
 }  // namespace raft::sparse::solver
