@@ -103,7 +103,6 @@ PARALLEL_LEVEL=${PARALLEL_LEVEL:=$(nproc)}
 BUILD_ABI=${BUILD_ABI:=ON}
 
 PYTHON_ARGS_FOR_INSTALL=(
-    -m pip install
     -v
     --no-build-isolation
     --no-deps
@@ -474,13 +473,13 @@ fi
 # Build and (optionally) install the pylibraft Python package
 if (( NUMARGS == 0 )) || hasArg pylibraft; then
     SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python "${PYTHON_ARGS_FOR_INSTALL[@]}" "${REPODIR}"/python/pylibraft
+        python -m pip install "${PYTHON_ARGS_FOR_INSTALL[@]}" "${REPODIR}"/python/pylibraft
 fi
 
 # Build and (optionally) install the raft-dask Python package
 if (( NUMARGS == 0 )) || hasArg raft-dask; then
     SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python "${PYTHON_ARGS_FOR_INSTALL[@]}" "${REPODIR}"/python/raft-dask
+        python -m pip install "${PYTHON_ARGS_FOR_INSTALL[@]}" "${REPODIR}"/python/raft-dask
 fi
 
 if hasArg docs; then
