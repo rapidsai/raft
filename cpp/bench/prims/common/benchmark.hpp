@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,6 +20,7 @@
 #include <rmm/mr/device_memory_resource.hpp>
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/mr/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <benchmark/benchmark.h>
 
@@ -33,26 +34,26 @@ namespace raft::bench {
  */
 struct using_pool_memory_res {
  private:
-  rmm::mr::device_memory_resource* orig_res_;
+  rmm::device_async_resource_ref orig_res_;
   rmm::mr::cuda_memory_resource cuda_res_{};
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_res_;
 
  public:
   using_pool_memory_res(size_t initial_size, size_t max_size)
-    : orig_res_(rmm::mr::get_current_device_resource()),
+    : orig_res_(rmm::mr::get_current_device_resource_ref()),
       pool_res_(&cuda_res_, initial_size, max_size)
   {
-    rmm::mr::set_current_device_resource(&pool_res_);
+    rmm::mr::set_current_device_resource_ref(&pool_res_);
   }
 
   using_pool_memory_res()
-    : orig_res_(rmm::mr::get_current_device_resource()),
+    : orig_res_(rmm::mr::get_current_device_resource_ref()),
       pool_res_(&cuda_res_, rmm::percent_of_free_device_memory(50))
   {
-    rmm::mr::set_current_device_resource(&pool_res_);
+    rmm::mr::set_current_device_resource_ref(&pool_res_);
   }
 
-  ~using_pool_memory_res() { rmm::mr::set_current_device_resource(orig_res_); }
+  ~using_pool_memory_res() { rmm::mr::set_current_device_resource_ref(orig_res_); }
 };
 
 /**
