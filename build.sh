@@ -466,7 +466,7 @@ if (( NUMARGS == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg
 fi
 
 # If `RAPIDS_PY_VERSION` is set, use that as the lower-bound for the stable ABI CPython version
-if [ -n "${RAPIDS_PY_VERSION}" ]; then
+if [ -n "${RAPIDS_PY_VERSION:-}" ]; then
     RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
     PYTHON_ARGS_FOR_INSTALL+=("--config-settings" "skbuild.wheel.py-api=${RAPIDS_PY_API}")
 fi
