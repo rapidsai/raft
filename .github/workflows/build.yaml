@@ -55,6 +55,8 @@ jobs:
       script: ci/build_python.sh
       sha: ${{ inputs.sha }}
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      # Build a conda package for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   upload-conda:
     needs: [cpp-build, python-build]
     secrets: inherit
@@ -118,6 +120,8 @@ jobs:
       package-name: pylibraft
       package-type: python
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      # Build a wheel for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-pylibraft:
     needs: wheel-build-pylibraft
     secrets: inherit
@@ -129,6 +133,7 @@ jobs:
       date: ${{ inputs.date }}
       package-name: pylibraft
       package-type: python
+      publish-wheel-search-key: pylibraft_wheel_python_abi3
   wheel-build-raft-dask:
     needs: wheel-build-libraft
     secrets: inherit
@@ -143,6 +148,8 @@ jobs:
       package-name: raft_dask
       package-type: python
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      # Build a wheel for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
@@ -154,3 +161,4 @@ jobs:
       date: ${{ inputs.date }}
       package-name: raft_dask
       package-type: python
+      publish-wheel-search-key: raft_dask_wheel_python_abi3
