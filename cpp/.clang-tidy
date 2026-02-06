@@ -4,7 +4,6 @@
 Checks:          'clang-diagnostic-*,clang-analyzer-*,modernize-*,-modernize-make-*,-modernize-raw-string-literal,google-*,-google-default-arguments,-clang-diagnostic-#pragma-messages,readability-identifier-naming,-*,modernize-*,-modernize-make-*,-modernize-raw-string-literal,google-*,-google-default-arguments,-clang-diagnostic-#pragma-messages,readability-identifier-naming'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
-AnalyzeTemporaryDtors: false
 FormatStyle:     none
 User:            snanditale
 CheckOptions:
