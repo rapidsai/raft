@@ -35,9 +35,7 @@
 #include <test_utils.h>
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
-#include <iostream>
 
 namespace raft::sparse::solver {
 
@@ -314,6 +312,17 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
   {
     int runtimeVersion;
     cudaError_t result = cudaRuntimeGetVersion(&runtimeVersion);
+
+    if (result == cudaSuccess) {
+      int major = runtimeVersion / 1000;
+      int minor = (runtimeVersion % 1000) / 10;
+
+      // Skip SM gtests for CUDA 13.1.x
+      // See https://github.com/rapidsai/raft/issues/2705
+      if (major == 13 && minor == 1 && params.which == raft::sparse::solver::LANCZOS_WHICH::SM) {
+        GTEST_SKIP();
+      }
+    }
 
     raft::random::uniform<ValueType>(handle, rng, v0.view(), 0, 1);
     std::tuple<IndexType, ValueType, IndexType> stats;
