@@ -172,7 +172,6 @@ jobs:
       build_type: pull-request
       script: ci/build_cpp.sh
       node_type: cpu16
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
@@ -181,7 +180,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-checks:
     needs: conda-cpp-build
     secrets: inherit
@@ -205,7 +203,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_python.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   docs-build:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -232,7 +229,6 @@ jobs:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       package-name: libraft
       package-type: cpp
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-build-pylibraft:
     needs: [checks, wheel-build-libraft]
     secrets: inherit
@@ -243,7 +239,6 @@ jobs:
       script: ci/build_wheel_pylibraft.sh
       package-name: pylibraft
       package-type: python
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-tests-pylibraft:
@@ -254,7 +249,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel_pylibraft.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-build-raft-dask:
     needs: [checks, wheel-build-libraft]
     secrets: inherit
@@ -265,7 +259,6 @@ jobs:
       script: "ci/build_wheel_raft_dask.sh"
       package-name: raft_dask
       package-type: python
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-tests-raft-dask:
@@ -276,7 +269,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel_raft_dask.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   devcontainer:
     needs: telemetry-setup
     secrets: inherit
@@ -285,12 +277,10 @@ jobs:
       arch: '["amd64", "arm64"]'
       cuda: '["13.1"]'
       node_type: "cpu8"
-      rapids-aux-secret-1: GIST_REPO_READ_ORG_GITHUB_TOKEN
       env: |
         SCCACHE_DIST_MAX_RETRIES=inf
         SCCACHE_SERVER_LOG=sccache=debug
         SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE=false
-        SCCACHE_DIST_AUTH_TOKEN_VAR=RAPIDS_AUX_SECRET_1
       build_command: |
         sccache --zero-stats;
         build-all -j0 -DBUILD_PRIMS_BENCH=ON --verbose 2>&1 | tee telemetry-artifacts/build.log;
