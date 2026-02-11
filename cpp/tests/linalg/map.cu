@@ -311,8 +311,7 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
     IdxType len    = params.len;
     OutType scalar = params.scalar;
 
-    auto out_view     = raft::make_device_vector_view(out.data(), len);
-    auto out_ref_view = raft::make_device_vector_view(out_ref.data(), len);
+    auto out_view = raft::make_device_vector_view(out.data(), len);
 
     if constexpr (is_kvp<OutType>::value) {
       KVPScaleOp op{scalar};
@@ -425,15 +424,15 @@ struct CompareKVP {
   }
 };
 
-#define MAP_TEST_KVP(test_type, test_name, inputs)                                         \
-  typedef RAFT_DEPAREN(test_type) test_name;                                               \
-  TEST_P(test_name, Result)                                                                \
-  {                                                                                        \
-    ASSERT_TRUE(devArrMatch(this->out_ref.data(),                       \
-                            this->out.data(),                           \
-                            this->params.len,                           \
-                            CompareKVP(static_cast<float>(this->params.tolerance.value))); \
-  }                                                                                        \
+#define MAP_TEST_KVP(test_type, test_name, inputs)                                          \
+  typedef RAFT_DEPAREN(test_type) test_name;                                                \
+  TEST_P(test_name, Result)                                                                 \
+  {                                                                                         \
+    ASSERT_TRUE(devArrMatch(this->out_ref.data(),                                           \
+                            this->out.data(),                                               \
+                            this->params.len,                                               \
+                            CompareKVP(static_cast<float>(this->params.tolerance.value)))); \
+  }                                                                                         \
   INSTANTIATE_TEST_SUITE_P(MapTests, test_name, ::testing::ValuesIn(inputs))
 
 const std::vector<MapInputs<KVP, int>> inputs_kvp_i32 = {
