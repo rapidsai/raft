@@ -80,9 +80,14 @@ inline auto operator<<(std::ostream& os, const padded_float& x) -> std::ostream&
 }
 
 /*
- * KeyValuePair type alias and traits for use in the existing test framework
+ * KeyValuePair type aliases for testing different sizes:
+ *   - KVP4:  4-byte KVP (int16_t, int16_t)
+ *   - KVP8:  8-byte KVP (int, float)
+ *   - KVP16: 16-byte KVP (int64_t, double)
  */
-using KVP = raft::KeyValuePair<int, float>;
+using KVP4  = raft::KeyValuePair<int16_t, int16_t>;
+using KVP8  = raft::KeyValuePair<int, float>;
+using KVP16 = raft::KeyValuePair<int64_t, double>;
 
 // Type trait to detect KVP
 template <typename T>
@@ -90,11 +95,15 @@ struct is_kvp : std::false_type {};
 template <typename K, typename V>
 struct is_kvp<raft::KeyValuePair<K, V>> : std::true_type {};
 
+// Templated KVP add operation for any KeyValuePair type
+template <typename KVPType>
 struct KVPAddOp {
-  KVP scalar;
-  __device__ KVP operator()(KVP a, KVP b, KVP c) const
+  KVPType scalar;
+  __device__ KVPType operator()(KVPType a, KVPType b, KVPType c) const
   {
-    return KVP{a.key + b.key + c.key + scalar.key, a.value + b.value + c.value + scalar.value};
+    return KVPType{
+      static_cast<typename KVPType::Key>(a.key + b.key + c.key + scalar.key),
+      static_cast<typename KVPType::Value>(a.value + b.value + c.value + scalar.value)};
   }
 };
 
@@ -115,7 +124,7 @@ void mapLaunch(OutType* out,
   auto in3_view = raft::make_device_vector_view(in3, len);
 
   if constexpr (is_kvp<InType>::value) {
-    map(handle, out_view, KVPAddOp{scalar}, in1_view, in2_view, in3_view);
+    map(handle, out_view, KVPAddOp<InType>{scalar}, in1_view, in2_view, in3_view);
   } else {
     map(
       handle,
@@ -135,19 +144,23 @@ struct MapInputs {
   InType scalar;
 };
 
+template <typename KVPType>
 struct ThrustKVPAdd {
-  __host__ __device__ KVP operator()(const KVP& a, const KVP& b) const
+  __host__ __device__ KVPType operator()(const KVPType& a, const KVPType& b) const
   {
-    return KVP{a.key + b.key, a.value + b.value};
+    return KVPType{static_cast<typename KVPType::Key>(a.key + b.key),
+                   static_cast<typename KVPType::Value>(a.value + b.value)};
   }
 };
 
-// Thrust functor for KVP scalar addition
+// Templated thrust functor for KVP scalar addition
+template <typename KVPType>
 struct ThrustKVPScalarAdd {
-  KVP scalar;
-  __host__ __device__ KVP operator()(const KVP& a) const
+  KVPType scalar;
+  __host__ __device__ KVPType operator()(const KVPType& a) const
   {
-    return KVP{a.key + scalar.key, a.value + scalar.value};
+    return KVPType{static_cast<typename KVPType::Key>(a.key + scalar.key),
+                   static_cast<typename KVPType::Value>(a.value + scalar.value)};
   }
 };
 
@@ -170,7 +183,7 @@ void create_ref(OutType* out_ref,
                       thrust::device_pointer_cast(in1 + len),
                       thrust::device_pointer_cast(in2),
                       thrust::device_pointer_cast(tmp.data()),
-                      ThrustKVPAdd{});
+                      ThrustKVPAdd<InType>{});
 
     // out_ref = tmp + in3
     thrust::transform(policy,
@@ -178,14 +191,14 @@ void create_ref(OutType* out_ref,
                       thrust::device_pointer_cast(tmp.data() + len),
                       thrust::device_pointer_cast(in3),
                       thrust::device_pointer_cast(out_ref),
-                      ThrustKVPAdd{});
+                      ThrustKVPAdd<InType>{});
 
     // out_ref = out_ref + scalar
     thrust::transform(policy,
                       thrust::device_pointer_cast(out_ref),
                       thrust::device_pointer_cast(out_ref + len),
                       thrust::device_pointer_cast(out_ref),
-                      ThrustKVPScalarAdd{scalar});
+                      ThrustKVPScalarAdd<InType>{scalar});
   } else {
     rmm::device_uvector<InType> tmp(len, stream);
     eltwiseAdd(tmp.data(), in1, in2, len, stream);
@@ -219,31 +232,35 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       uniform(handle, r, in2.data(), len, InType(-1.0), InType(1.0));
       uniform(handle, r, in3.data(), len, InType(-1.0), InType(1.0));
     } else if constexpr (is_kvp<InType>::value) {
-      // For KVP: create random floats for keys and values, then combine into KVP
-      rmm::device_uvector<float> fkey1(params.len, stream);
-      rmm::device_uvector<float> fkey2(params.len, stream);
-      rmm::device_uvector<float> fkey3(params.len, stream);
-      rmm::device_uvector<float> fval1(params.len, stream);
-      rmm::device_uvector<float> fval2(params.len, stream);
-      rmm::device_uvector<float> fval3(params.len, stream);
-      uniform(handle, r, fkey1.data(), len, float(-100.0), float(100.0));
-      uniform(handle, r, fkey2.data(), len, float(-100.0), float(100.0));
-      uniform(handle, r, fkey3.data(), len, float(-100.0), float(100.0));
-      uniform(handle, r, fval1.data(), len, float(-1.0), float(1.0));
-      uniform(handle, r, fval2.data(), len, float(-1.0), float(1.0));
-      uniform(handle, r, fval3.data(), len, float(-1.0), float(1.0));
+      using KeyType   = typename InType::Key;
+      using ValueType = typename InType::Value;
 
-      auto fkey1_view = raft::make_device_vector_view<const float>(fkey1.data(), fkey1.size());
-      auto fkey2_view = raft::make_device_vector_view<const float>(fkey2.data(), fkey2.size());
-      auto fkey3_view = raft::make_device_vector_view<const float>(fkey3.data(), fkey3.size());
-      auto fval1_view = raft::make_device_vector_view<const float>(fval1.data(), fval1.size());
-      auto fval2_view = raft::make_device_vector_view<const float>(fval2.data(), fval2.size());
-      auto fval3_view = raft::make_device_vector_view<const float>(fval3.data(), fval3.size());
+      rmm::device_uvector<double> fkey1(params.len, stream);
+      rmm::device_uvector<double> fkey2(params.len, stream);
+      rmm::device_uvector<double> fkey3(params.len, stream);
+      rmm::device_uvector<double> fval1(params.len, stream);
+      rmm::device_uvector<double> fval2(params.len, stream);
+      rmm::device_uvector<double> fval3(params.len, stream);
+      uniform(handle, r, fkey1.data(), len, double(-100.0), double(100.0));
+      uniform(handle, r, fkey2.data(), len, double(-100.0), double(100.0));
+      uniform(handle, r, fkey3.data(), len, double(-100.0), double(100.0));
+      uniform(handle, r, fval1.data(), len, double(-1.0), double(1.0));
+      uniform(handle, r, fval2.data(), len, double(-1.0), double(1.0));
+      uniform(handle, r, fval3.data(), len, double(-1.0), double(1.0));
+
+      auto fkey1_view = raft::make_device_vector_view<const double>(fkey1.data(), fkey1.size());
+      auto fkey2_view = raft::make_device_vector_view<const double>(fkey2.data(), fkey2.size());
+      auto fkey3_view = raft::make_device_vector_view<const double>(fkey3.data(), fkey3.size());
+      auto fval1_view = raft::make_device_vector_view<const double>(fval1.data(), fval1.size());
+      auto fval2_view = raft::make_device_vector_view<const double>(fval2.data(), fval2.size());
+      auto fval3_view = raft::make_device_vector_view<const double>(fval3.data(), fval3.size());
       auto in1_view   = raft::make_device_vector_view(in1.data(), in1.size());
       auto in2_view   = raft::make_device_vector_view(in2.data(), in2.size());
       auto in3_view   = raft::make_device_vector_view(in3.data(), in3.size());
 
-      auto make_kvp = [] __device__(float k, float v) { return KVP{static_cast<int>(k), v}; };
+      auto make_kvp = [] __device__(double k, double v) {
+        return InType{static_cast<KeyType>(k), static_cast<ValueType>(v)};
+      };
       raft::linalg::map(handle, in1_view, make_kvp, fkey1_view, fval1_view);
       raft::linalg::map(handle, in2_view, make_kvp, fkey2_view, fval2_view);
       raft::linalg::map(handle, in3_view, make_kvp, fkey3_view, fval3_view);
@@ -301,7 +318,10 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
     OutType scalar;
     __host__ __device__ OutType operator()(IdxType idx) const
     {
-      return OutType{static_cast<int>(idx) * scalar.key, static_cast<float>(idx) * scalar.value};
+      using KeyType   = typename OutType::Key;
+      using ValueType = typename OutType::Value;
+      return OutType{static_cast<KeyType>(static_cast<KeyType>(idx) * scalar.key),
+                     static_cast<ValueType>(static_cast<ValueType>(idx) * scalar.value)};
     }
   };
 
@@ -409,41 +429,53 @@ MAP_TEST_PADDED((MapOffsetTest<padded_float, size_t>),
                 MapOffsetTestD_padded_float,
                 inputsd_padded_float);
 
-// Comparator for KeyValuePair
+template <typename KVPType>
 struct CompareKVP {
-  float eps;
-  CompareKVP(float eps_) : eps(eps_) {}
-  bool operator()(const KVP& a, const KVP& b) const
+  double eps;
+  CompareKVP(double eps_) : eps(eps_) {}
+  bool operator()(const KVPType& a, const KVPType& b) const
   {
-    // Keys must match exactly, values must be within tolerance
     if (a.key != b.key) return false;
-    float diff  = std::abs(a.value - b.value);
-    float m     = std::max(std::abs(a.value), std::abs(b.value));
-    float ratio = diff > eps ? diff / m : diff;
+    double diff = std::abs(static_cast<double>(a.value) - static_cast<double>(b.value));
+    double m =
+      std::max(std::abs(static_cast<double>(a.value)), std::abs(static_cast<double>(b.value)));
+    double ratio = diff > eps ? diff / m : diff;
     return (ratio <= eps);
   }
 };
 
-#define MAP_TEST_KVP(test_type, test_name, inputs)                                          \
-  typedef RAFT_DEPAREN(test_type) test_name;                                                \
-  TEST_P(test_name, Result)                                                                 \
-  {                                                                                         \
-    ASSERT_TRUE(devArrMatch(this->out_ref.data(),                                           \
-                            this->out.data(),                                               \
-                            this->params.len,                                               \
-                            CompareKVP(static_cast<float>(this->params.tolerance.value)))); \
-  }                                                                                         \
+#define MAP_TEST_KVP(test_type, test_name, kvp_type, inputs)                                 \
+  typedef RAFT_DEPAREN(test_type) test_name;                                                 \
+  TEST_P(test_name, Result)                                                                  \
+  {                                                                                          \
+    ASSERT_TRUE(                                                                             \
+      devArrMatch(this->out_ref.data(),                                                      \
+                  this->out.data(),                                                          \
+                  this->params.len,                                                          \
+                  CompareKVP<kvp_type>(static_cast<double>(this->params.tolerance.value)))); \
+  }                                                                                          \
   INSTANTIATE_TEST_SUITE_P(MapTests, test_name, ::testing::ValuesIn(inputs))
 
-const std::vector<MapInputs<KVP, int>> inputs_kvp_i32 = {
-  {KVP{0, 0.000001f}, 1024 * 1024, 1234ULL, KVP{10, 1.5f}}};
-MAP_TEST_KVP((MapTest<KVP, int>), MapTestKVP_i32, inputs_kvp_i32);
-MAP_TEST_KVP((MapOffsetTest<KVP, int>), MapOffsetTestKVP_i32, inputs_kvp_i32);
+const std::vector<MapInputs<KVP4, int>> inputs_kvp4_i32 = {
+  {KVP4{0, 0}, 1024, 1234ULL, KVP4{10, 3}}};
+MAP_TEST_KVP((MapTest<KVP4, int>), MapTestKVP4_i32, KVP4, inputs_kvp4_i32);
+MAP_TEST_KVP((MapOffsetTest<KVP4, int>), MapOffsetTestKVP4_i32, KVP4, inputs_kvp4_i32);
 
-const std::vector<MapInputs<KVP, int64_t>> inputs_kvp_i64 = {
-  {KVP{0, 0.000001f}, 1024 * 1024, 1234ULL, KVP{5, 2.3f}}};
-MAP_TEST_KVP((MapTest<KVP, int64_t>), MapTestKVP_i64, inputs_kvp_i64);
-MAP_TEST_KVP((MapOffsetTest<KVP, int64_t>), MapOffsetTestKVP_i64, inputs_kvp_i64);
+const std::vector<MapInputs<KVP8, int>> inputs_kvp8_i32 = {
+  {KVP8{0, 0.000001f}, 1024 * 1024, 1234ULL, KVP8{10, 1.5f}}};
+MAP_TEST_KVP((MapTest<KVP8, int>), MapTestKVP8_i32, KVP8, inputs_kvp8_i32);
+MAP_TEST_KVP((MapOffsetTest<KVP8, int>), MapOffsetTestKVP8_i32, KVP8, inputs_kvp8_i32);
+
+const std::vector<MapInputs<KVP8, int64_t>> inputs_kvp8_i64 = {
+  {KVP8{0, 0.000001f}, 1024 * 1024, 1234ULL, KVP8{5, 2.3f}}};
+MAP_TEST_KVP((MapTest<KVP8, int64_t>), MapTestKVP8_i64, KVP8, inputs_kvp8_i64);
+MAP_TEST_KVP((MapOffsetTest<KVP8, int64_t>), MapOffsetTestKVP8_i64, KVP8, inputs_kvp8_i64);
+
+// 16-byte K  VP tests (int64_t, double)
+const std::vector<MapInputs<KVP16, int>> inputs_kvp16_i32 = {
+  {KVP16{0, 0.00000001}, 1024 * 1024, 1234ULL, KVP16{10, 1.5}}};
+MAP_TEST_KVP((MapTest<KVP16, int>), MapTestKVP16_i32, KVP16, inputs_kvp16_i32);
+MAP_TEST_KVP((MapOffsetTest<KVP16, int>), MapOffsetTestKVP16_i32, KVP16, inputs_kvp16_i32);
 
 }  // namespace linalg
 }  // namespace raft
