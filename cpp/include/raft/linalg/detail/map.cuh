@@ -13,6 +13,7 @@
 #include <raft/util/integer_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
+#include <raft/util/vectorized_kvp.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 

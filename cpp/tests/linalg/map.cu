@@ -19,6 +19,7 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
 
 #include <gtest/gtest.h>
@@ -232,7 +233,6 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
       uniform(handle, r, fval2.data(), len, float(-1.0), float(1.0));
       uniform(handle, r, fval3.data(), len, float(-1.0), float(1.0));
 
-      raft::device_resources handle{stream};
       auto fkey1_view = raft::make_device_vector_view<const float>(fkey1.data(), fkey1.size());
       auto fkey2_view = raft::make_device_vector_view<const float>(fkey2.data(), fkey2.size());
       auto fkey3_view = raft::make_device_vector_view<const float>(fkey3.data(), fkey3.size());
@@ -299,7 +299,7 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
   // Functor for KVP map_offset test
   struct KVPScaleOp {
     OutType scalar;
-    __device__ OutType operator()(IdxType idx) const
+    __host__ __device__ OutType operator()(IdxType idx) const
     {
       return OutType{static_cast<int>(idx) * scalar.key, static_cast<float>(idx) * scalar.value};
     }
@@ -316,7 +316,15 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
 
     if constexpr (is_kvp<OutType>::value) {
       KVPScaleOp op{scalar};
-      map_offset(handle, out_ref_view, op);
+
+      // Use thrust to create reference for KVP type
+      auto policy = thrust::cuda::par.on(stream);
+      thrust::transform(policy,
+                        thrust::counting_iterator<IdxType>(0),
+                        thrust::counting_iterator<IdxType>(len),
+                        thrust::device_pointer_cast(out_ref.data()),
+                        op);
+
       map_offset(handle, out_view, op);
     } else {
       naiveScale(out_ref.data(), (OutType*)nullptr, scalar, len, stream);
@@ -406,8 +414,6 @@ MAP_TEST_PADDED((MapOffsetTest<padded_float, size_t>),
 struct CompareKVP {
   float eps;
   CompareKVP(float eps_) : eps(eps_) {}
-  CompareKVP(KVP eps_) : eps(eps_.value) {}
-  CompareKVP(double eps_) : eps(static_cast<float>(eps_)) {}
   bool operator()(const KVP& a, const KVP& b) const
   {
     // Keys must match exactly, values must be within tolerance
@@ -419,15 +425,15 @@ struct CompareKVP {
   }
 };
 
-#define MAP_TEST_KVP(test_type, test_name, inputs)                      \
-  typedef RAFT_DEPAREN(test_type) test_name;                            \
-  TEST_P(test_name, Result)                                             \
-  {                                                                     \
+#define MAP_TEST_KVP(test_type, test_name, inputs)                                         \
+  typedef RAFT_DEPAREN(test_type) test_name;                                               \
+  TEST_P(test_name, Result)                                                                \
+  {                                                                                        \
     ASSERT_TRUE(devArrMatch(this->out_ref.data(),                       \
                             this->out.data(),                           \
                             this->params.len,                           \
-                            CompareKVP(this->params.tolerance.value))); \
-  }                                                                     \
+                            CompareKVP(static_cast<float>(this->params.tolerance.value))); \
+  }                                                                                        \
   INSTANTIATE_TEST_SUITE_P(MapTests, test_name, ::testing::ValuesIn(inputs))
 
 const std::vector<MapInputs<KVP, int>> inputs_kvp_i32 = {
@@ -435,10 +441,10 @@ const std::vector<MapInputs<KVP, int>> inputs_kvp_i32 = {
 MAP_TEST_KVP((MapTest<KVP, int>), MapTestKVP_i32, inputs_kvp_i32);
 MAP_TEST_KVP((MapOffsetTest<KVP, int>), MapOffsetTestKVP_i32, inputs_kvp_i32);
 
-const std::vector<MapInputs<KVP, size_t>> inputs_kvp_i64 = {
+const std::vector<MapInputs<KVP, int64_t>> inputs_kvp_i64 = {
   {KVP{0, 0.000001f}, 1024 * 1024, 1234ULL, KVP{5, 2.3f}}};
-MAP_TEST_KVP((MapTest<KVP, size_t>), MapTestKVP_i64, inputs_kvp_i64);
-MAP_TEST_KVP((MapOffsetTest<KVP, size_t>), MapOffsetTestKVP_i64, inputs_kvp_i64);
+MAP_TEST_KVP((MapTest<KVP, int64_t>), MapTestKVP_i64, inputs_kvp_i64);
+MAP_TEST_KVP((MapOffsetTest<KVP, int64_t>), MapOffsetTestKVP_i64, inputs_kvp_i64);
 
 }  // namespace linalg
 }  // namespace raft
