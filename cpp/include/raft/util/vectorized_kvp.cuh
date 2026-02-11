@@ -12,7 +12,6 @@
 namespace raft {
 /**
  * Generic IOType specializations for ALL KeyValuePair<K, V> types based on sizeof.
- * Uses SFINAE to only enable for sizes that support vectorized I/O.
  *
  * 4-byte KVP (e.g., <int16_t,int16_t>):
  *   - VecLen=1: int32_t (4 bytes, load 1 KVP)
@@ -23,43 +22,47 @@ namespace raft {
  *   - VecLen=1: int2 (8 bytes, load 1 KVP)
  *   - VecLen=2: int4 (16 bytes, load 2 KVPs)
  *
- * 16-byte KVP (e.g., <int64_t, double>, <int64_t, float>):
+ * 16-byte KVP (e.g., <int64_t, double>, <int, double>):
  *   - VecLen=1: int4 (16 bytes, load 1 KVP)
  */
 
+// 4-byte KVP specializations
 template <typename K, typename V>
-struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 4>> {
+requires(sizeof(KeyValuePair<K, V>) == 4) struct IOType<KeyValuePair<K, V>, 1> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int32_t Type;
+  using Type = int32_t;
 };
 
 template <typename K, typename V>
-struct IOType<KeyValuePair<K, V>, 2, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 4>> {
+requires(sizeof(KeyValuePair<K, V>) == 4) struct IOType<KeyValuePair<K, V>, 2> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int2 Type;
+  using Type = int2;
 };
 
 template <typename K, typename V>
-struct IOType<KeyValuePair<K, V>, 4, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 4>> {
+requires(sizeof(KeyValuePair<K, V>) == 4) struct IOType<KeyValuePair<K, V>, 4> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int4 Type;
+  using Type = int4;
+};
+
+// 8-byte KVP specializations
+template <typename K, typename V>
+requires(sizeof(KeyValuePair<K, V>) == 8) struct IOType<KeyValuePair<K, V>, 1> {
+  static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
+  using Type = int2;
 };
 
 template <typename K, typename V>
-struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 8>> {
+requires(sizeof(KeyValuePair<K, V>) == 8) struct IOType<KeyValuePair<K, V>, 2> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int2 Type;
+  using Type = int4;
 };
 
+// 16-byte KVP specializations
 template <typename K, typename V>
-struct IOType<KeyValuePair<K, V>, 2, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 8>> {
+requires(sizeof(KeyValuePair<K, V>) == 16) struct IOType<KeyValuePair<K, V>, 1> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int4 Type;
+  using Type = int4;
 };
 
-template <typename K, typename V>
-struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 16>> {
-  static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int4 Type;
-};
 }  // namespace raft
