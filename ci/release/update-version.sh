@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 ########################
 # RAFT Version Updater #
@@ -78,9 +78,11 @@ NEXT_UCXX_SHORT_TAG_PEP440=$(python -c "from packaging.version import Version; p
 # Set branch references based on RUN_CONTEXT
 if [[ "${RUN_CONTEXT}" == "main" ]]; then
     RAPIDS_BRANCH_NAME="main"
+    UCXX_BRANCH_NAME="main"
     echo "Preparing development branch update ${CURRENT_TAG} => ${NEXT_FULL_TAG} (targeting main branch)"
 elif [[ "${RUN_CONTEXT}" == "release" ]]; then
     RAPIDS_BRANCH_NAME="release/${NEXT_SHORT_TAG}"
+    UCXX_BRANCH_NAME="release/${NEXT_UCXX_SHORT_TAG}"
     echo "Preparing release branch update ${CURRENT_TAG} => ${NEXT_FULL_TAG} (targeting release/${NEXT_SHORT_TAG} branch)"
 fi
 
@@ -89,20 +91,11 @@ function sed_runner() {
     sed -i.bak ''"${1}"'' "${2}" && rm -f "${2}".bak
 }
 
-# Update UCXX references - context-aware for ucxx's release/ branching strategy
-sed_runner 's/'"find_and_configure_ucxx(VERSION .*"'/'"find_and_configure_ucxx(VERSION  ${NEXT_UCXX_SHORT_TAG_PEP440}"'/g' python/raft-dask/cmake/thirdparty/get_ucxx.cmake
-
-if [[ "${RUN_CONTEXT}" == "main" ]]; then
-  # In main context, keep ucxx on main (no changes needed)
-  :
-elif [[ "${RUN_CONTEXT}" == "release" ]]; then
-  # In release context, use ucxx's release/ branching strategy with ucxx's versioning
-  sed_runner "s|main|release/${NEXT_UCXX_SHORT_TAG_PEP440}|g" python/raft-dask/cmake/thirdparty/get_ucxx.cmake
-fi
-
 # Centralized version file update
 echo "${NEXT_FULL_TAG}" > VERSION
 echo "${RAPIDS_BRANCH_NAME}" > RAPIDS_BRANCH
+echo "${NEXT_UCXX_SHORT_TAG}.00" > UCXX_VERSION
+echo "${UCXX_BRANCH_NAME}" > UCXX_BRANCH
 
 DEPENDENCIES=(
   dask-cuda
@@ -136,11 +129,6 @@ for FILE in python/*/pyproject.toml; do
   done
 done
 
-# RAPIDS UCX version
-for FILE in conda/recipes/*/conda_build_config.yaml; do
-  sed_runner "/^ucxx_version:\$/ {n;s|.*|  - \"${NEXT_UCXX_SHORT_TAG_PEP440}\\.*\"|;}" "${FILE}"
-done
-
 # CI files - context-aware branch references
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-workflows/ s|@.*|@${RAPIDS_BRANCH_NAME}|g" "${FILE}"
@@ -150,16 +138,11 @@ done
 # Documentation references - context-aware
 sed_runner "/^set(RAFT_VERSION/ s|\".*\"|\"${NEXT_SHORT_TAG}\"|g" docs/source/build.md
 
-if [[ "${RUN_CONTEXT}" == "main" ]]; then
-    # In main context, update CI script URLs to use NEW release/ paradigm
-    sed_runner "s|/rapidsai/rapids-cmake/main/|/rapidsai/rapids-cmake/release/${NEXT_SHORT_TAG}/|g" ci/check_style.sh
-elif [[ "${RUN_CONTEXT}" == "release" ]]; then
-    # In release context, use release branch for documentation links (word boundaries to avoid partial matches)
-    sed_runner "s|\\bmain\\b|release/${NEXT_SHORT_TAG}|g" docs/source/build.md
-    sed_runner "s|\\bmain\\b|release/${NEXT_SHORT_TAG}|g" docs/source/developer_guide.md
-    sed_runner "s|\\bmain\\b|release/${NEXT_SHORT_TAG}|g" README.md
-    # Update CI script URLs to use NEW release/ paradigm
-    sed_runner "s|/rapidsai/rapids-cmake/main/|/rapidsai/rapids-cmake/release/${NEXT_SHORT_TAG}/|g" ci/check_style.sh
+if [[ "${RUN_CONTEXT}" == "release" ]]; then
+    # In release context, use release branch for documentation links (only in GitHub URLs)
+    sed_runner "s|/blob/main/|/blob/release/${NEXT_SHORT_TAG}/|g" docs/source/build.md
+    sed_runner "s|/blob/main/|/blob/release/${NEXT_SHORT_TAG}/|g" docs/source/developer_guide.md
+    sed_runner "s|/blob/main/|/blob/release/${NEXT_SHORT_TAG}/|g" README.md
 fi
 
 # .devcontainer files

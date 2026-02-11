@@ -62,12 +62,12 @@ mamba install -c rapidsai -c conda-forge libraft-headers cuda-version=12.9
 
 ```bash
 # CUDA 13
-pip install pylibraft-cu13 --extra-index-url=https://pypi.nvidia.com
-pip install raft-dask-cu13 --extra-index-url=https://pypi.nvidia.com
+pip install pylibraft-cu13
+pip install raft-dask-cu13
 
 # CUDA 12
-pip install pylibraft-cu12 --extra-index-url=https://pypi.nvidia.com
-pip install raft-dask-cu12 --extra-index-url=https://pypi.nvidia.com
+pip install pylibraft-cu12
+pip install raft-dask-cu12
 ```
 
 ## Building C++ and Python from source
@@ -86,8 +86,6 @@ In addition to the libraries included with cudatoolkit 12.2+, there are some oth
 #### Required
 - [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
 - [Thrust](https://github.com/NVIDIA/thrust) v1.17 / [CUB](https://github.com/NVIDIA/cub)
-- [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
-- [CUTLASS](https://github.com/NVIDIA/cutlass)  v2.9.1 - Used in `raft::distance` API.
 
 #### Optional
 - [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `raft-dask`.
@@ -110,7 +108,7 @@ The recommended way to build and install RAFT from source is to use the `build.s
 
 ### Header-only C++
 
-`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like CUTLASS, which will need to be explicitly enabled in `build.sh`.
+`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed.
 
 The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`.
 ```bash
@@ -180,7 +178,7 @@ The benchmarks are broken apart by algorithm category, so you will find several 
 It can take sometime to compile all of the benchmarks. You can build individual benchmarks by providing a semicolon-separated list to the `--limit-bench-prims` option in `build.sh`:
 
 ```bash
-./build.sh libraft bench-prims -n --limit-bench=NEIGHBORS_PRIMS_BENCH;MATRIX_PRIMS_BENCH;LINALG_PRIMS_BENCH
+./build.sh libraft bench-prims -n --limit-bench=MATRIX_PRIMS_BENCH;LINALG_PRIMS_BENCH
 ```
 
 ### Python libraries
@@ -288,8 +286,8 @@ PROPERTIES CXX_STANDARD                        20
 
 The `raft::raft` CMake target is made available when including RAFT into your CMake project but additional CMake targets can be made available by adding to the `COMPONENTS` option in CMake's `find_package(raft)` (refer to [CMake docs](https://cmake.org/cmake/help/latest/command/find_package.html#basic-signature) to learn more). The components should be separated by spaces. The `raft::raft` target will always be available. Note that the `distributed` component also exports additional dependencies.
 
-| Component   | Target              | Description                                              | Base Dependencies                      |
-|-------------|---------------------|----------------------------------------------------------|----------------------------------------|
-| n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
-| compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                             |
-| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL
+| Component   | Target              | Description                                              | Base Dependencies             |
+|-------------|---------------------|----------------------------------------------------------|-------------------------------|
+| n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL |
+| compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                    |
+| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL         |

@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -9,8 +9,7 @@ cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
 include(../../cmake/rapids_config.cmake)
 
-# We always need CUDA for pylibraft because the raft dependency brings in a header-only cuco
-# dependency that enables CUDA unconditionally.
+# We always need CUDA for pylibraft because the raft dependency enables CUDA unconditionally.
 include(rapids-cuda)
 rapids_cuda_init_architectures(pylibraft)
 
@@ -20,7 +19,7 @@ project(
   LANGUAGES CXX CUDA
 )
 
-# an installed version of raft contains the other necessary targets (like CCCL and cuco)
+# an installed version of raft contains the other necessary targets (like CCCL)
 find_package(raft "${RAPIDS_VERSION}" REQUIRED COMPONENTS raft compiled)
 
 include(rapids-cython-core)

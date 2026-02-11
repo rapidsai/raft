@@ -6,6 +6,7 @@
 #pragma once
 
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/pow2_utils.cuh>
 
 #include <cuda_fp16.h>
 
@@ -388,4 +389,42 @@ struct TxN_t<math_, 0> {
   }
 };
 
+template <int VecBytes = 16, typename T>
+DI void copy_vectorized(T* out, const T* in, uint32_t n)
+{
+  constexpr int VecElems = VecBytes / sizeof(T);  // NOLINT
+  using align_bytes      = raft::Pow2<(size_t)VecBytes>;
+  if constexpr (VecElems > 1) {
+    using align_elems = raft::Pow2<VecElems>;
+    if (!align_bytes::areSameAlignOffsets(out, in)) {
+      return copy_vectorized<(VecBytes >> 1), T>(out, in, n);
+    }
+    {  // process unaligned head
+      const uint32_t head = align_bytes::roundUp(in) - in;
+      if (head > 0) {
+        copy_vectorized<sizeof(T), T>(out, in, head);
+        n -= head;
+        in += head;
+        out += head;
+      }
+    }
+    {  // process main part vectorized
+      using vec_t = typename raft::IOType<T, VecElems>::Type;
+      copy_vectorized<sizeof(vec_t), vec_t>(
+        reinterpret_cast<vec_t*>(out), reinterpret_cast<const vec_t*>(in), align_elems::div(n));
+    }
+    {  // process unaligned tail
+      const uint32_t tail = align_elems::mod(n);
+      if (tail > 0) {
+        n -= tail;
+        copy_vectorized<sizeof(T), T>(out + n, in + n, tail);
+      }
+    }
+  }
+  if constexpr (VecElems <= 1) {
+    for (uint32_t i = threadIdx.x; i < n; i += blockDim.x) {
+      out[i] = in[i];
+    }
+  }
+}
 }  // namespace raft

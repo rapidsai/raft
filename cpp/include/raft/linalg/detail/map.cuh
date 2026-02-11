@@ -17,7 +17,7 @@
 
 #include <rmm/cuda_stream_view.hpp>
 
-#include <thrust/tuple.h>
+#include <cuda/std/tuple>
 
 namespace raft::linalg::detail {
 
@@ -42,13 +42,13 @@ __device__ __forceinline__ void map_kernel_mainloop(
   OutT* out_ptr, IdxT offset, IdxT len, Func f, const InTs*... in_ptrs, std::index_sequence<Is...>)
 {
   TxN_t<OutT, R> wide;
-  thrust::tuple<TxN_t<InTs, R>...> wide_args;
+  cuda::std::tuple<TxN_t<InTs, R>...> wide_args;
   if (offset + R <= len) {
-    (thrust::get<Is>(wide_args).load(in_ptrs, offset), ...);
+    (cuda::std::get<Is>(wide_args).load(in_ptrs, offset), ...);
 #pragma unroll
     for (int j = 0; j < R; ++j) {
       wide.val.data[j] = map_apply<PassOffset, OutT, IdxT, Func, InTs...>(
-        f, offset + j, thrust::get<Is>(wide_args).val.data[j]...);
+        f, offset + j, cuda::std::get<Is>(wide_args).val.data[j]...);
     }
     wide.store(out_ptr, offset);
   }
