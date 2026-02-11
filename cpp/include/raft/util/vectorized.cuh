@@ -10,6 +10,8 @@
 
 #include <cuda_fp16.h>
 
+#include <type_traits>
+
 namespace raft {
 
 template <typename math_, int VecLen>
@@ -231,6 +233,19 @@ template <>
 struct IOType<double, 2> {
   typedef double2 Type;
 };
+
+/**
+ * @brief Type trait to detect if a type supports vectorized I/O operations.
+ *
+ * A type is vectorizable if it has IOType<T, 1> specialization.
+ * Common KeyValuePair types have IOType specializations above.
+ * Custom types without IOType specializations will use non-vectorized access.
+ */
+template <typename T, typename = void>
+struct is_vectorizable_type : std::false_type {};
+
+template <typename T>
+struct is_vectorizable_type<T, std::void_t<typename IOType<T, 1>::Type>> : std::true_type {};
 
 /**
  * @struct TxN_t

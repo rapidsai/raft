@@ -13,6 +13,7 @@
 #include <raft/util/integer_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
+#include <raft/util/vectorized_kvp.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 
@@ -108,6 +109,9 @@ struct ratio_selector {
   template <typename T>
   constexpr static auto ignoring_alignment() -> ratio_selector
   {
+    // Types without IOType specializations must use ratio=1 (non-vectorized access)
+    if constexpr (!is_vectorizable_type<T>::value) { return ratio_selector{1, 0}; }
+
     constexpr bool T_evenly_fits_in_cache_line = (kCoalescedVectorSize % sizeof(T)) == 0;
 
     if constexpr (T_evenly_fits_in_cache_line) {
