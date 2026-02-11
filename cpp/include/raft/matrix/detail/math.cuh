@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -58,7 +58,7 @@ void power(math_t* in, math_t* out, int len, cudaStream_t stream)
 }
 
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t* in,
+void seqRoot(const math_t* in,
              math_t* out,
              math_t scalar,
              IdxType len,
@@ -94,7 +94,7 @@ void seqRoot(
 }
 
 template <typename math_t, typename IdxType = int>
-void seqRoot(math_t* in, math_t* out, IdxType len, cudaStream_t stream)
+void seqRoot(const math_t* in, math_t* out, IdxType len, cudaStream_t stream)
 {
   math_t scalar = 1.0;
   seqRoot(in, out, scalar, len, stream);
@@ -184,7 +184,7 @@ void setValue(math_t* out, const math_t* in, math_t scalar, int len, cudaStream_
 
 template <typename math_t, typename IdxType = int>
 void ratio(
-  raft::resources const& handle, math_t* src, math_t* dest, IdxType len, cudaStream_t stream)
+  raft::resources const& handle, const math_t* src, math_t* dest, IdxType len, cudaStream_t stream)
 {
   auto d_src  = src;
   auto d_dest = dest;
