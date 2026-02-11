@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
  */
 /*
@@ -24,6 +24,7 @@
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
+#include <cuda/memory_resource>
 #include <thrust/device_ptr.h>
 
 namespace raft {
@@ -170,7 +171,8 @@ class device_uvector_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 
  private:
-  rmm::device_async_resource_ref mr_{rmm::mr::get_current_device_resource()};
+  cuda::mr::any_resource<cuda::mr::device_accessible> mr_{
+    rmm::mr::get_current_device_resource_ref()};
 };
 
 }  // namespace raft
