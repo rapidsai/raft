@@ -29,36 +29,36 @@ namespace raft {
 template <typename K, typename V>
 struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 4>> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int32_t Type;
+  using Type = int32_t;
 };
 
 template <typename K, typename V>
 struct IOType<KeyValuePair<K, V>, 2, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 4>> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int2 Type;
+  using Type = int2;
 };
 
 template <typename K, typename V>
 struct IOType<KeyValuePair<K, V>, 4, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 4>> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int4 Type;
+  using Type = int4;
 };
 
 template <typename K, typename V>
 struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 8>> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int2 Type;
+  using Type = int2;
 };
 
 template <typename K, typename V>
 struct IOType<KeyValuePair<K, V>, 2, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 8>> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int4 Type;
+  using Type = int4;
 };
 
 template <typename K, typename V>
 struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>) == 16>> {
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
-  typedef int4 Type;
+  using Type = int4;
 };
 }  // namespace raft
