@@ -50,6 +50,7 @@ jobs:
         uses: rapidsai/shared-actions/check_nightly_success/dispatch@main
         with:
           repo: raft
+          max_days_without_success: 30
   changed-files:
     secrets: inherit
     needs: telemetry-setup
