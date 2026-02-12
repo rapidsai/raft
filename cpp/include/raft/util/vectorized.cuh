@@ -14,7 +14,8 @@
 
 namespace raft {
 
-template <typename math_, int VecLen>
+// Third parameter enables SFINAE for conditional specializations (e.g., KeyValuePair by size)
+template <typename math_, int VecLen, typename Enable = void>
 struct IOType {};
 template <>
 struct IOType<bool, 1> {
