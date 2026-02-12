@@ -12,7 +12,6 @@
 namespace raft {
 /**
  * Generic IOType specializations for ALL KeyValuePair<K, V> types based on sizeof.
- * Uses SFINAE to only enable for sizes that support vectorized I/O.
  *
  * 4-byte KVP (e.g., <int16_t,int16_t>):
  *   - VecLen=1: int32_t (4 bytes, load 1 KVP)
