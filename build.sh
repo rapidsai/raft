@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # raft build scripts
@@ -101,6 +101,14 @@ CMAKE_TARGET=""
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX:=$LIBRAFT_BUILD_DIR/install}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=$(nproc)}
 BUILD_ABI=${BUILD_ABI:=ON}
+
+PYTHON_ARGS_FOR_INSTALL=(
+    -v
+    --no-build-isolation
+    --no-deps
+    --config-settings
+    "rapidsai.disable-cuda=true"
+)
 
 # Default to Ninja if generator is not specified
 export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
@@ -456,16 +464,22 @@ if (( NUMARGS == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg
   fi
 fi
 
+# If `RAPIDS_PY_VERSION` is set, use that as the lower-bound for the stable ABI CPython version
+if [ -n "${RAPIDS_PY_VERSION:-}" ]; then
+    RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
+    PYTHON_ARGS_FOR_INSTALL+=("--config-settings" "skbuild.wheel.py-api=${RAPIDS_PY_API}")
+fi
+
 # Build and (optionally) install the pylibraft Python package
 if (( NUMARGS == 0 )) || hasArg pylibraft; then
     SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true "${REPODIR}"/python/pylibraft
+        python -m pip install "${PYTHON_ARGS_FOR_INSTALL[@]}" "${REPODIR}"/python/pylibraft
 fi
 
 # Build and (optionally) install the raft-dask Python package
 if (( NUMARGS == 0 )) || hasArg raft-dask; then
     SKBUILD_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true "${REPODIR}"/python/raft-dask
+        python -m pip install "${PYTHON_ARGS_FOR_INSTALL[@]}" "${REPODIR}"/python/raft-dask
 fi
 
 if hasArg docs; then

@@ -7,7 +7,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/detail/math.cuh>
 
 namespace raft::matrix {
 

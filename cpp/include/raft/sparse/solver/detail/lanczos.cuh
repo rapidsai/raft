@@ -754,7 +754,7 @@ auto lanczos_smallest(raft::resources const& handle,
 }
 
 template <typename IndexTypeT, typename ValueTypeT, typename AType>
-auto lanczos_compute_smallest_eigenvectors(
+auto lanczos_compute_eigenpairs(
   raft::resources const& handle,
   lanczos_solver_config<ValueTypeT> const& config,
   AType A,

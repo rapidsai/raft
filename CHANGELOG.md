@@ -1,3 +1,51 @@
+# raft 26.02.00 (4 Feb 2026)
+
+### 🚨 Breaking Changes
+* Use CCCL's mdspan implementation by @bdice in https://github.com/rapidsai/raft/pull/2836
+* Default to static linking of libcudart by @bdice in https://github.com/rapidsai/raft/pull/2890
+* Remove `neighbors/`, `cluster/`, `distance/`, `spatial/`, `sparse/neighbors/` apis by @aamijar in https://github.com/rapidsai/raft/pull/2885
+* Remove cutlass and cuco dependencies by @divyegala in https://github.com/rapidsai/raft/pull/2916
+### 🐛 Bug Fixes
+* Include `<thrust/for_each.h>` where it is used by @bdice in https://github.com/rapidsai/raft/pull/2883
+* Include CTest module in CMakeLists.txt by @bdice in https://github.com/rapidsai/raft/pull/2895
+* Fix Lanczos Determinism by @aamijar in https://github.com/rapidsai/raft/pull/2894
+* Change compile-time assertion to runtime assertion on is_strided by @bdice in https://github.com/rapidsai/raft/pull/2909
+* Set memory pool through RMM by @viclafargue in https://github.com/rapidsai/raft/pull/2866
+### 📖 Documentation
+* New readme image by @aamijar in https://github.com/rapidsai/raft/pull/2907
+* Readme improvements by @aamijar in https://github.com/rapidsai/raft/pull/2906
+### 🚀 New Features
+* Tile Policy for Uint8 Input (Pairwise) by @tarang-jain in https://github.com/rapidsai/raft/pull/2770
+* Add copy_vectorized to RAFT by @lowener in https://github.com/rapidsai/raft/pull/2900
+### 🛠️ Improvements
+* Use strict priority in CI conda tests by @bdice in https://github.com/rapidsai/raft/pull/2879
+* Use strict priority in CI conda tests by @bdice in https://github.com/rapidsai/raft/pull/2884
+* Remove alpha specs from non-RAPIDS dependencies by @bdice in https://github.com/rapidsai/raft/pull/2886
+* Enable merge barriers by @KyleFromNVIDIA in https://github.com/rapidsai/raft/pull/2889
+* Fix is_exhaustive, no longer constexpr by @bdice in https://github.com/rapidsai/raft/pull/2888
+* Add devcontainer fallback for C++ test location by @bdice in https://github.com/rapidsai/raft/pull/2893
+* `eigsh` optional seed by @aamijar in https://github.com/rapidsai/raft/pull/2899
+* Empty commit to trigger a build by @bdice in https://github.com/rapidsai/raft/pull/2904
+* Update to C++20 by @divyegala in https://github.com/rapidsai/raft/pull/2908
+* Use SPDX license identifiers in pyproject.toml, bump build dependency floors by @jameslamb in https://github.com/rapidsai/raft/pull/2910
+* Remove `neighbors/detail/faiss_select` by @aamijar in https://github.com/rapidsai/raft/pull/2902
+* Remove `sparse/distance` by @aamijar in https://github.com/rapidsai/raft/pull/2905
+* Add CUDA 13.1 support by @bdice in https://github.com/rapidsai/raft/pull/2896
+* Fix CCCL 3.2 mdspan constexpr issues by @bdice in https://github.com/rapidsai/raft/pull/2911
+* build and test against CUDA 13.1.0 by @jameslamb in https://github.com/rapidsai/raft/pull/2912
+* Laplacian Kernel for COO inputs by @aamijar in https://github.com/rapidsai/raft/pull/2891
+* Empty commit to trigger a build by @jameslamb in https://github.com/rapidsai/raft/pull/2919
+* Use main shared-workflows branch by @jameslamb in https://github.com/rapidsai/raft/pull/2921
+* Fix update-version.sh incorrectly replacing main() function names by @AyodeAwe in https://github.com/rapidsai/raft/pull/2923
+* Lanczos remove dead code by @aamijar in https://github.com/rapidsai/raft/pull/2918
+* wheel builds: react to changes in pip's handling of build constraints by @mmccarty in https://github.com/rapidsai/raft/pull/2927
+* fix(build): build package on merge to `release/*` branch by @gforsyth in https://github.com/rapidsai/raft/pull/2929
+
+## New Contributors
+* @mmccarty made their first contribution in https://github.com/rapidsai/raft/pull/2927
+
+**Full Changelog**: https://github.com/rapidsai/raft/compare/v26.02.00a...release/26.02
+
 # raft 25.12.00 (10 Dec 2025)
 
 ### 🚨 Breaking Changes
