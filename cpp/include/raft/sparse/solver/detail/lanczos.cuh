@@ -41,7 +41,6 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/gather.cuh>
-// include <raft/matrix/matrix.cuh>
 #include <raft/matrix/slice.cuh>
 #include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>

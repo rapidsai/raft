@@ -9,7 +9,6 @@
 #include <raft/linalg/rsvd.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/diagonal.cuh>
-// #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
