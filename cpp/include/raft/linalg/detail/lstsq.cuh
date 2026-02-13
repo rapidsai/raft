@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include <common/nvtx.hpp>
-
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream_pool.hpp>
