@@ -140,8 +140,11 @@ void svdEig(raft::resources const& handle,
   raft::matrix::row_reverse(handle,
                             make_device_matrix_view<math_t, idx_t, col_major>(S, n_cols, idx_t(1)));
 
-  raft::matrix::sqrt(handle,
-                     make_device_matrix_view<math_t, idx_t, col_major>(S, n_cols, idx_t(1)));
+  raft::matrix::weighted_sqrt(
+    handle,
+    make_device_matrix_view<math_t, idx_t, col_major>(S, n_cols, idx_t(1)),
+    make_host_scalar_view<math_t>(&alpha),
+    true);
 
   if (gen_left_vec) {
     raft::linalg::gemm(handle,
