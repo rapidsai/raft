@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -112,7 +112,6 @@ if(BUILD_TESTS)
     core/span.cu
     core/stream_view.cpp
     core/temporary_device_buffer.cu
-    test.cpp
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
