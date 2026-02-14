@@ -5,7 +5,8 @@
 
 #include "../test_utils.cuh"
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/tsvd.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -40,7 +41,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
  public:
   TsvdTest()
     : params(::testing::TestWithParam<TsvdInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       components(0, stream),
       components_ref(0, stream),
       data2(0, stream),
@@ -82,7 +83,14 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    tsvdFit(handle, data.data(), components.data(), singular_vals.data(), prms, stream);
+    auto input_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data.data(), prms.n_rows, prms.n_cols);
+    auto components_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      components.data(), prms.n_components, prms.n_cols);
+    auto singular_vals_view =
+      raft::make_device_vector_view<T, std::size_t>(singular_vals.data(), prms.n_components);
+
+    tsvd_fit(handle, prms, input_view, components_view, singular_vals_view);
   }
 
   void advancedTest()
@@ -122,24 +130,36 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     rmm::device_uvector<T> explained_var_ratio2(prms.n_components, stream);
     rmm::device_uvector<T> singular_vals2(prms.n_components, stream);
 
-    tsvdFitTransform(handle,
-                     data2.data(),
-                     data2_trans.data(),
-                     components2.data(),
-                     explained_vars2.data(),
-                     explained_var_ratio2.data(),
-                     singular_vals2.data(),
-                     prms,
-                     stream);
+    auto input_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data2.data(), prms.n_rows, prms.n_cols);
+    auto trans_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data2_trans.data(), prms.n_rows, prms.n_components);
+    auto comp_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      components2.data(), prms.n_components, prms.n_cols);
+    auto ev_view =
+      raft::make_device_vector_view<T, std::size_t>(explained_vars2.data(), prms.n_components);
+    auto evr_view =
+      raft::make_device_vector_view<T, std::size_t>(explained_var_ratio2.data(), prms.n_components);
+    auto sv_view =
+      raft::make_device_vector_view<T, std::size_t>(singular_vals2.data(), prms.n_components);
+
+    tsvd_fit_transform(handle, prms, input_view, trans_view, comp_view, ev_view, evr_view, sv_view);
 
     data2_back.resize(len, stream);
-    tsvdInverseTransform(
-      handle, data2_trans.data(), components2.data(), data2_back.data(), prms, stream);
+
+    auto trans_in_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data2_trans.data(), prms.n_rows, prms.n_components);
+    auto comp_in_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      components2.data(), prms.n_components, prms.n_cols);
+    auto output_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data2_back.data(), prms.n_rows, prms.n_cols);
+
+    tsvd_inverse_transform(handle, prms, trans_in_view, comp_in_view, output_view);
   }
 
  protected:
-  raft::handle_t handle;
-  cudaStream_t stream = 0;
+  raft::device_resources handle;
+  cudaStream_t stream;
 
   TsvdInputs<T> params;
   rmm::device_uvector<T> components, components_ref, data2, data2_back;
@@ -162,7 +182,7 @@ TEST_P(TsvdTestLeftVecF, Result)
                           components_ref.data(),
                           (params.n_col * params.n_col),
                           raft::CompareApprox<float>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef TsvdTest<double> TsvdTestLeftVecD;
@@ -172,7 +192,7 @@ TEST_P(TsvdTestLeftVecD, Result)
                           components_ref.data(),
                           (params.n_col * params.n_col),
                           raft::CompareApprox<double>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef TsvdTest<float> TsvdTestDataVecF;
@@ -182,7 +202,7 @@ TEST_P(TsvdTestDataVecF, Result)
                           data2_back.data(),
                           (params.n_col2 * params.n_col2),
                           raft::CompareApprox<float>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef TsvdTest<double> TsvdTestDataVecD;
@@ -192,7 +212,7 @@ TEST_P(TsvdTestDataVecD, Result)
                           data2_back.data(),
                           (params.n_col2 * params.n_col2),
                           raft::CompareApprox<double>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestLeftVecF, ::testing::ValuesIn(inputsf2));

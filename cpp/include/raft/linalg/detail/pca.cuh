@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/matrix_vector.cuh>
@@ -26,7 +26,7 @@
 namespace raft::linalg::detail {
 
 template <typename math_t, typename enum_solver = solver>
-void truncCompExpVars(const raft::handle_t& handle,
+void truncCompExpVars(raft::resources const& handle,
                       math_t* in,
                       math_t* components,
                       math_t* explained_var,
@@ -101,7 +101,7 @@ void truncCompExpVars(const raft::handle_t& handle,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaFit(const raft::handle_t& handle,
+void pcaFit(raft::resources const& handle,
             math_t* input,
             math_t* components,
             math_t* explained_var,
@@ -113,7 +113,7 @@ void pcaFit(const raft::handle_t& handle,
             cudaStream_t stream,
             bool flip_signs_based_on_U = false)
 {
-  auto cublas_handle = handle.get_cublas_handle();
+  auto cublas_handle = raft::resource::get_cublas_handle(handle);
 
   ASSERT(prms.n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
@@ -157,63 +157,52 @@ void pcaFit(const raft::handle_t& handle,
 }
 
 /**
- * @brief perform fit and transform operations for the pca. Generates transformed data,
- * eigenvectors, explained vars, singular vals, etc.
- * @param[in] handle: cuml handle object
- * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
- * indicated in prms.
- * @param[out] trans_input: the transformed data. Size n_rows * n_components.
- * @param[out] components: the principal components of the input data. Size n_cols * n_components.
- * @param[out] explained_var: explained variances (eigenvalues) of the principal components. Size
- * n_components * 1.
- * @param[out] explained_var_ratio: the ratio of the explained variance and total variance. Size
- * n_components * 1.
- * @param[out] singular_vals: singular values of the data. Size n_components * 1
- * @param[out] mu: mean of all the features (all the columns in the data). Size n_cols * 1.
- * @param[out] noise_vars: variance of the noise. Size 1 * 1 (scalar).
+ * @brief performs transform operation for the pca. Transforms the data to eigenspace.
+ * @param[in] handle: the internal cuml handle object
+ * @param[in] input: the data is transformed. Size n_rows x n_components.
+ * @param[in] components: principal components of the input data. Size n_cols * n_components.
+ * @param[out] trans_input:  the transformed data. Size n_rows * n_components.
+ * @param[in] singular_vals: singular values of the data. Size n_components * 1.
+ * @param[in] mu: mean value of the input data
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaFitTransform(const raft::handle_t& handle,
-                     math_t* input,
-                     math_t* trans_input,
-                     math_t* components,
-                     math_t* explained_var,
-                     math_t* explained_var_ratio,
-                     math_t* singular_vals,
-                     math_t* mu,
-                     math_t* noise_vars,
-                     const paramsPCA& prms,
-                     cudaStream_t stream,
-                     bool flip_signs_based_on_U = false)
+void pcaTransform(raft::resources const& handle,
+                  math_t* input,
+                  math_t* components,
+                  math_t* trans_input,
+                  math_t* singular_vals,
+                  math_t* mu,
+                  const paramsPCA& prms,
+                  cudaStream_t stream)
 {
-  detail::pcaFit(handle,
-                 input,
-                 components,
-                 explained_var,
-                 explained_var_ratio,
-                 singular_vals,
-                 mu,
-                 noise_vars,
-                 prms,
-                 stream,
-                 flip_signs_based_on_U);
-  pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
-}
+  ASSERT(prms.n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
+  ASSERT(prms.n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
+  ASSERT(prms.n_components > 0,
+         "Parameter n_components: number of components cannot be less than one");
 
-// TODO: implement pcaGetCovariance function
-template <typename math_t>
-void pcaGetCovariance()
-{
-  ASSERT(false, "pcaGetCovariance: will be implemented!");
-}
+  auto components_len = prms.n_cols * prms.n_components;
+  rmm::device_uvector<math_t> components_copy{components_len, stream};
+  raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
 
-// TODO: implement pcaGetPrecision function
-template <typename math_t>
-void pcaGetPrecision()
-{
-  ASSERT(false, "pcaGetPrecision: will be implemented!");
+  if (prms.whiten) {
+    math_t scalar = math_t(sqrt(prms.n_rows - 1));
+    raft::linalg::scalarMultiply(components_copy.data(),
+                                 components_copy.data(),
+                                 scalar,
+                                 prms.n_cols * prms.n_components,
+                                 stream);
+    raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
+      handle,
+      raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
+        components_copy.data(), prms.n_cols, prms.n_components),
+      raft::make_device_vector_view<const math_t, std::size_t>(singular_vals, prms.n_components));
+  }
+
+  raft::stats::meanCenter<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
+  detail::tsvdTransform(handle, input, components_copy.data(), trans_input, prms, stream);
+  raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
 }
 
 /**
@@ -230,7 +219,7 @@ void pcaGetPrecision()
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaInverseTransform(const raft::handle_t& handle,
+void pcaInverseTransform(raft::resources const& handle,
                          math_t* trans_input,
                          math_t* components,
                          math_t* singular_vals,
@@ -267,67 +256,50 @@ void pcaInverseTransform(const raft::handle_t& handle,
   raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
 }
 
-// TODO: implement pcaScore function
-template <typename math_t>
-void pcaScore()
-{
-  ASSERT(false, "pcaScore: will be implemented!");
-}
-
-// TODO: implement pcaScoreSamples function
-template <typename math_t>
-void pcaScoreSamples()
-{
-  ASSERT(false, "pcaScoreSamples: will be implemented!");
-}
-
 /**
- * @brief performs transform operation for the pca. Transforms the data to eigenspace.
- * @param[in] handle: the internal cuml handle object
- * @param[in] input: the data is transformed. Size n_rows x n_components.
- * @param[in] components: principal components of the input data. Size n_cols * n_components.
- * @param[out] trans_input:  the transformed data. Size n_rows * n_components.
- * @param[in] singular_vals: singular values of the data. Size n_components * 1.
- * @param[in] mu: mean value of the input data
+ * @brief perform fit and transform operations for the pca. Generates transformed data,
+ * eigenvectors, explained vars, singular vals, etc.
+ * @param[in] handle: cuml handle object
+ * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
+ * indicated in prms.
+ * @param[out] trans_input: the transformed data. Size n_rows * n_components.
+ * @param[out] components: the principal components of the input data. Size n_cols * n_components.
+ * @param[out] explained_var: explained variances (eigenvalues) of the principal components. Size
+ * n_components * 1.
+ * @param[out] explained_var_ratio: the ratio of the explained variance and total variance. Size
+ * n_components * 1.
+ * @param[out] singular_vals: singular values of the data. Size n_components * 1
+ * @param[out] mu: mean of all the features (all the columns in the data). Size n_cols * 1.
+ * @param[out] noise_vars: variance of the noise. Size 1 * 1 (scalar).
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaTransform(const raft::handle_t& handle,
-                  math_t* input,
-                  math_t* components,
-                  math_t* trans_input,
-                  math_t* singular_vals,
-                  math_t* mu,
-                  const paramsPCA& prms,
-                  cudaStream_t stream)
+void pcaFitTransform(raft::resources const& handle,
+                     math_t* input,
+                     math_t* trans_input,
+                     math_t* components,
+                     math_t* explained_var,
+                     math_t* explained_var_ratio,
+                     math_t* singular_vals,
+                     math_t* mu,
+                     math_t* noise_vars,
+                     const paramsPCA& prms,
+                     cudaStream_t stream,
+                     bool flip_signs_based_on_U = false)
 {
-  ASSERT(prms.n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
-  ASSERT(prms.n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
-  ASSERT(prms.n_components > 0,
-         "Parameter n_components: number of components cannot be less than one");
-
-  auto components_len = prms.n_cols * prms.n_components;
-  rmm::device_uvector<math_t> components_copy{components_len, stream};
-  raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
-
-  if (prms.whiten) {
-    math_t scalar = math_t(sqrt(prms.n_rows - 1));
-    raft::linalg::scalarMultiply(components_copy.data(),
-                                 components_copy.data(),
-                                 scalar,
-                                 prms.n_cols * prms.n_components,
-                                 stream);
-    raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
-      handle,
-      raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
-        components_copy.data(), prms.n_cols, prms.n_components),
-      raft::make_device_vector_view<const math_t, std::size_t>(singular_vals, prms.n_components));
-  }
-
-  raft::stats::meanCenter<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
-  detail::tsvdTransform(handle, input, components_copy.data(), trans_input, prms, stream);
-  raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
+  detail::pcaFit(handle,
+                 input,
+                 components,
+                 explained_var,
+                 explained_var_ratio,
+                 singular_vals,
+                 mu,
+                 noise_vars,
+                 prms,
+                 stream,
+                 flip_signs_based_on_U);
+  detail::pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
 }
 
 };  // end namespace raft::linalg::detail

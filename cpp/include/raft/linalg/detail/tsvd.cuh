@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/types.hpp>
 #include <raft/linalg/add.cuh>
@@ -38,7 +38,7 @@
 namespace raft::linalg::detail {
 
 template <typename math_t>
-void calCompExpVarsSvd(const raft::handle_t& handle,
+void calCompExpVarsSvd(raft::resources const& handle,
                        math_t* in,
                        math_t* components,
                        math_t* singular_vals,
@@ -47,8 +47,8 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
                        const paramsTSVD& prms,
                        cudaStream_t stream)
 {
-  auto cusolver_handle = handle.get_cusolver_dn_handle();
-  auto cublas_handle   = handle.get_cublas_handle();
+  auto cusolver_handle = raft::resource::get_cusolver_dn_handle(handle);
+  auto cublas_handle   = raft::resource::get_cublas_handle(handle);
 
   auto diff    = prms.n_cols - prms.n_components;
   math_t ratio = math_t(diff) / math_t(prms.n_cols);
@@ -97,14 +97,14 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
 }
 
 template <typename math_t, typename enum_solver = solver>
-void calEig(const raft::handle_t& handle,
+void calEig(raft::resources const& handle,
             math_t* in,
             math_t* components,
             math_t* explained_var,
             const paramsTSVDTemplate<enum_solver>& prms,
             cudaStream_t stream)
 {
-  auto cusolver_handle = handle.get_cusolver_dn_handle();
+  auto cusolver_handle = raft::resource::get_cusolver_dn_handle(handle);
 
   if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
     raft::linalg::eigJacobi(handle,
@@ -146,7 +146,7 @@ void calEig(const raft::handle_t& handle,
  * @{
  */
 template <typename math_t>
-void signFlipComponents(const raft::handle_t& handle,
+void signFlipComponents(raft::resources const& handle,
                         math_t* input,
                         math_t* components,
                         std::size_t n_samples,
@@ -299,7 +299,7 @@ void signFlip(math_t* input,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdFit(const raft::handle_t& handle,
+void tsvdFit(raft::resources const& handle,
              math_t* input,
              math_t* components,
              math_t* singular_vals,
@@ -307,7 +307,7 @@ void tsvdFit(const raft::handle_t& handle,
              cudaStream_t stream,
              bool flip_signs_based_on_U = false)
 {
-  auto cublas_handle = handle.get_cublas_handle();
+  auto cublas_handle = raft::resource::get_cublas_handle(handle);
 
   ASSERT(prms.n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
@@ -370,61 +370,6 @@ void tsvdFit(const raft::handle_t& handle,
 }
 
 /**
- * @brief performs fit and transform operations for the tsvd. Generates transformed data,
- * eigenvectors, explained vars, singular vals, etc.
- * @param[in] handle: the internal cuml handle object
- * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
- * indicated in prms.
- * @param[out] trans_input: the transformed data. Size n_rows * n_components.
- * @param[out] components: the principal components of the input data. Size n_cols * n_components.
- * @param[out] explained_var: explained variances (eigenvalues) of the principal components. Size
- * n_components * 1.
- * @param[out] explained_var_ratio: the ratio of the explained variance and total variance. Size
- * n_components * 1.
- * @param[out] singular_vals: singular values of the data. Size n_components * 1
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] stream cuda stream
- */
-template <typename math_t>
-void tsvdFitTransform(const raft::handle_t& handle,
-                      math_t* input,
-                      math_t* trans_input,
-                      math_t* components,
-                      math_t* explained_var,
-                      math_t* explained_var_ratio,
-                      math_t* singular_vals,
-                      const paramsTSVD& prms,
-                      cudaStream_t stream,
-                      bool flip_signs_based_on_U = false)
-{
-  detail::tsvdFit(handle, input, components, singular_vals, prms, stream, flip_signs_based_on_U);
-  tsvdTransform(handle, input, components, trans_input, prms, stream);
-
-  rmm::device_uvector<math_t> mu_trans(prms.n_components, stream);
-  raft::stats::mean<false>(
-    mu_trans.data(), trans_input, prms.n_components, prms.n_rows, false, stream);
-  raft::stats::vars<false>(
-    explained_var, trans_input, mu_trans.data(), prms.n_components, prms.n_rows, false, stream);
-
-  rmm::device_uvector<math_t> mu(prms.n_cols, stream);
-  rmm::device_uvector<math_t> vars(prms.n_cols, stream);
-
-  raft::stats::mean<false>(mu.data(), input, prms.n_cols, prms.n_rows, false, stream);
-  raft::stats::vars<false>(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, false, stream);
-
-  rmm::device_scalar<math_t> total_vars(stream);
-  raft::stats::sum<false>(total_vars.data(), vars.data(), std::size_t(1), prms.n_cols, stream);
-
-  math_t total_vars_h;
-  raft::update_host(&total_vars_h, total_vars.data(), 1, stream);
-  handle.sync_stream(stream);
-  math_t scalar = math_t(1) / total_vars_h;
-
-  raft::linalg::scalarMultiply(
-    explained_var_ratio, explained_var, scalar, prms.n_components, stream);
-}
-
-/**
  * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
  * @param[in] handle the internal cuml handle object
  * @param[in] input: the data is transformed. Size n_rows x n_components.
@@ -434,7 +379,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdTransform(const raft::handle_t& handle,
+void tsvdTransform(raft::resources const& handle,
                    math_t* input,
                    math_t* components,
                    math_t* trans_input,
@@ -475,7 +420,7 @@ void tsvdTransform(const raft::handle_t& handle,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void tsvdInverseTransform(const raft::handle_t& handle,
+void tsvdInverseTransform(raft::resources const& handle,
                           math_t* trans_input,
                           math_t* components,
                           math_t* input,
@@ -503,6 +448,61 @@ void tsvdInverseTransform(const raft::handle_t& handle,
                      alpha,
                      beta,
                      stream);
+}
+
+/**
+ * @brief performs fit and transform operations for the tsvd. Generates transformed data,
+ * eigenvectors, explained vars, singular vals, etc.
+ * @param[in] handle: the internal cuml handle object
+ * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
+ * indicated in prms.
+ * @param[out] trans_input: the transformed data. Size n_rows * n_components.
+ * @param[out] components: the principal components of the input data. Size n_cols * n_components.
+ * @param[out] explained_var: explained variances (eigenvalues) of the principal components. Size
+ * n_components * 1.
+ * @param[out] explained_var_ratio: the ratio of the explained variance and total variance. Size
+ * n_components * 1.
+ * @param[out] singular_vals: singular values of the data. Size n_components * 1
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
+ * @param[in] stream cuda stream
+ */
+template <typename math_t>
+void tsvdFitTransform(raft::resources const& handle,
+                      math_t* input,
+                      math_t* trans_input,
+                      math_t* components,
+                      math_t* explained_var,
+                      math_t* explained_var_ratio,
+                      math_t* singular_vals,
+                      const paramsTSVD& prms,
+                      cudaStream_t stream,
+                      bool flip_signs_based_on_U = false)
+{
+  detail::tsvdFit(handle, input, components, singular_vals, prms, stream, flip_signs_based_on_U);
+  detail::tsvdTransform(handle, input, components, trans_input, prms, stream);
+
+  rmm::device_uvector<math_t> mu_trans(prms.n_components, stream);
+  raft::stats::mean<false>(
+    mu_trans.data(), trans_input, prms.n_components, prms.n_rows, false, stream);
+  raft::stats::vars<false>(
+    explained_var, trans_input, mu_trans.data(), prms.n_components, prms.n_rows, false, stream);
+
+  rmm::device_uvector<math_t> mu(prms.n_cols, stream);
+  rmm::device_uvector<math_t> vars(prms.n_cols, stream);
+
+  raft::stats::mean<false>(mu.data(), input, prms.n_cols, prms.n_rows, false, stream);
+  raft::stats::vars<false>(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, false, stream);
+
+  rmm::device_scalar<math_t> total_vars(stream);
+  raft::stats::sum<false>(total_vars.data(), vars.data(), std::size_t(1), prms.n_cols, stream);
+
+  math_t total_vars_h;
+  raft::update_host(&total_vars_h, total_vars.data(), 1, stream);
+  raft::resource::sync_stream(handle, stream);
+  math_t scalar = math_t(1) / total_vars_h;
+
+  raft::linalg::scalarMultiply(
+    explained_var_ratio, explained_var, scalar, prms.n_components, stream);
 }
 
 };  // end namespace raft::linalg::detail

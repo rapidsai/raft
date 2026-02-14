@@ -7,193 +7,164 @@
 
 #include "detail/tsvd.cuh"
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+
 namespace raft::linalg {
 
-template <typename math_t>
-void calCompExpVarsSvd(const raft::handle_t& handle,
-                       math_t* in,
-                       math_t* components,
-                       math_t* singular_vals,
-                       math_t* explained_vars,
-                       math_t* explained_var_ratio,
-                       const paramsTSVD& prms,
-                       cudaStream_t stream)
-{
-  detail::calCompExpVarsSvd(
-    handle, in, components, singular_vals, explained_vars, explained_var_ratio, prms, stream);
-}
+/**
+ * @defgroup tsvd Truncated SVD operations
+ * @{
+ */
 
-template <typename math_t, typename enum_solver = solver>
-void calEig(const raft::handle_t& handle,
-            math_t* in,
-            math_t* components,
-            math_t* explained_var,
-            const paramsTSVDTemplate<enum_solver>& prms,
-            cudaStream_t stream)
+/**
+ * @brief perform fit operation for tSVD. Generates eigenvectors, singular vals, etc.
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
+ * @param[in] handle raft::resources
+ * @param[in] prms data structure that includes all the parameters from input size to algorithm.
+ * @param[inout] input the data is fitted to tSVD. Size n_rows x n_cols (col-major).
+ * @param[out] components the principal components of the input data. Size n_components x n_cols
+ * (col-major).
+ * @param[out] singular_vals singular values of the data. Size n_components.
+ * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
+ */
+template <typename math_t, typename idx_t = std::size_t>
+void tsvd_fit(raft::resources const& handle,
+              const paramsTSVD& prms,
+              raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+              raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+              raft::device_vector_view<math_t, idx_t> singular_vals,
+              bool flip_signs_based_on_U = false)
 {
-  detail::calEig(handle, in, components, explained_var, prms, stream);
+  auto stream = resource::get_cuda_stream(handle);
+
+  paramsTSVD prms_with_dims = prms;
+  prms_with_dims.n_rows     = static_cast<std::size_t>(input.extent(0));
+  prms_with_dims.n_cols     = static_cast<std::size_t>(input.extent(1));
+
+  detail::tsvdFit(handle,
+                  input.data_handle(),
+                  components.data_handle(),
+                  singular_vals.data_handle(),
+                  prms_with_dims,
+                  stream,
+                  flip_signs_based_on_U);
 }
 
 /**
- * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
- * vectors
- * @param handle: resource handle
- * @param components: components matrix, used to determine the sign of max absolute value
- * @param input: input data
- * @param n_rows: number of rows of components matrix
- * @param n_cols: number of columns of components matrix
- * @param n_samples: number of samples (number of rows of input)
- * @param stream: cuda stream
- * @param flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
- * @{
+ * @brief performs fit and transform operations for tSVD. Generates transformed data,
+ * eigenvectors, explained vars, singular vals, etc.
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
+ * @param[in] handle raft::resources
+ * @param[in] prms data structure that includes all the parameters from input size to algorithm.
+ * @param[inout] input the data is fitted to tSVD. Size n_rows x n_cols (col-major).
+ * @param[out] trans_input the transformed data. Size n_rows x n_components (col-major).
+ * @param[out] components the principal components of the input data. Size n_components x n_cols
+ * (col-major).
+ * @param[out] explained_var explained variances (eigenvalues) of the principal components. Size
+ * n_components.
+ * @param[out] explained_var_ratio the ratio of the explained variance and total variance. Size
+ * n_components.
+ * @param[out] singular_vals singular values of the data. Size n_components.
+ * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  */
-template <typename math_t>
-void signFlipComponents(const raft::handle_t& handle,
-                        math_t* input,
-                        math_t* components,
-                        std::size_t n_samples,
-                        std::size_t n_features,
-                        std::size_t n_components,
-                        cudaStream_t stream,
-                        bool center,
+template <typename math_t, typename idx_t = std::size_t>
+void tsvd_fit_transform(raft::resources const& handle,
+                        const paramsTSVD& prms,
+                        raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                        raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
+                        raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                        raft::device_vector_view<math_t, idx_t> explained_var,
+                        raft::device_vector_view<math_t, idx_t> explained_var_ratio,
+                        raft::device_vector_view<math_t, idx_t> singular_vals,
                         bool flip_signs_based_on_U = false)
 {
-  detail::signFlipComponents(handle,
-                             input,
-                             components,
-                             n_samples,
-                             n_features,
-                             n_components,
-                             stream,
-                             center,
-                             flip_signs_based_on_U);
-}
+  auto stream = resource::get_cuda_stream(handle);
 
-/**
- * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
- * vectors
- * @param input: input matrix that will be used to determine the sign.
- * @param n_rows: number of rows of input matrix
- * @param n_cols: number of columns of input matrix
- * @param components: components matrix.
- * @param n_cols_comp: number of columns of components matrix
- * @param stream cuda stream
- * @{
- */
-template <typename math_t>
-void signFlip(math_t* input,
-              std::size_t n_rows,
-              std::size_t n_cols,
-              math_t* components,
-              std::size_t n_cols_comp,
-              cudaStream_t stream)
-{
-  detail::signFlip(input, n_rows, n_cols, components, n_cols_comp, stream);
-}
+  paramsTSVD prms_with_dims = prms;
+  prms_with_dims.n_rows     = static_cast<std::size_t>(input.extent(0));
+  prms_with_dims.n_cols     = static_cast<std::size_t>(input.extent(1));
 
-/**
- * @brief perform fit operation for the tsvd. Generates eigenvectors, explained vars, singular vals,
- * etc.
- * @param[in] handle: the internal cuml handle object
- * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
- * indicated in prms.
- * @param[out] components: the principal components of the input data. Size n_cols * n_components.
- * @param[out] singular_vals: singular values of the data. Size n_components * 1
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] stream cuda stream
- */
-template <typename math_t>
-void tsvdFit(const raft::handle_t& handle,
-             math_t* input,
-             math_t* components,
-             math_t* singular_vals,
-             const paramsTSVD& prms,
-             cudaStream_t stream,
-             bool flip_signs_based_on_U = false)
-{
-  detail::tsvdFit(handle, input, components, singular_vals, prms, stream, flip_signs_based_on_U);
-}
-
-/**
- * @brief performs fit and transform operations for the tsvd. Generates transformed data,
- * eigenvectors, explained vars, singular vals, etc.
- * @param[in] handle: the internal cuml handle object
- * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
- * indicated in prms.
- * @param[out] trans_input: the transformed data. Size n_rows * n_components.
- * @param[out] components: the principal components of the input data. Size n_cols * n_components.
- * @param[out] explained_var: explained variances (eigenvalues) of the principal components. Size
- * n_components * 1.
- * @param[out] explained_var_ratio: the ratio of the explained variance and total variance. Size
- * n_components * 1.
- * @param[out] singular_vals: singular values of the data. Size n_components * 1
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] stream cuda stream
- */
-template <typename math_t>
-void tsvdFitTransform(const raft::handle_t& handle,
-                      math_t* input,
-                      math_t* trans_input,
-                      math_t* components,
-                      math_t* explained_var,
-                      math_t* explained_var_ratio,
-                      math_t* singular_vals,
-                      const paramsTSVD& prms,
-                      cudaStream_t stream,
-                      bool flip_signs_based_on_U = false)
-{
   detail::tsvdFitTransform(handle,
-                           input,
-                           trans_input,
-                           components,
-                           explained_var,
-                           explained_var_ratio,
-                           singular_vals,
-                           prms,
+                           input.data_handle(),
+                           trans_input.data_handle(),
+                           components.data_handle(),
+                           explained_var.data_handle(),
+                           explained_var_ratio.data_handle(),
+                           singular_vals.data_handle(),
+                           prms_with_dims,
                            stream,
                            flip_signs_based_on_U);
 }
 
 /**
- * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
- * @param[in] handle the internal cuml handle object
- * @param[in] input: the data is transformed. Size n_rows x n_components.
- * @param[in] components: principal components of the input data. Size n_cols * n_components.
- * @param[out] trans_input: output that is transformed version of input
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] stream cuda stream
+ * @brief performs transform operation for tSVD. Transforms the data to eigenspace.
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
+ * @param[in] handle raft::resources
+ * @param[in] prms data structure that includes all the parameters from input size to algorithm.
+ * @param[in] input the data to be transformed. Size n_rows x n_cols (col-major).
+ * @param[in] components principal components of the input data. Size n_components x n_cols
+ * (col-major).
+ * @param[out] trans_input output that is transformed version of input. Size n_rows x n_components
+ * (col-major).
  */
-template <typename math_t>
-void tsvdTransform(const raft::handle_t& handle,
-                   math_t* input,
-                   math_t* components,
-                   math_t* trans_input,
-                   const paramsTSVD& prms,
-                   cudaStream_t stream)
+template <typename math_t, typename idx_t = std::size_t>
+void tsvd_transform(raft::resources const& handle,
+                    const paramsTSVD& prms,
+                    raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                    raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                    raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input)
 {
-  detail::tsvdTransform(handle, input, components, trans_input, prms, stream);
+  auto stream = resource::get_cuda_stream(handle);
+
+  paramsTSVD prms_with_dims = prms;
+  prms_with_dims.n_rows     = static_cast<std::size_t>(input.extent(0));
+  prms_with_dims.n_cols     = static_cast<std::size_t>(input.extent(1));
+
+  detail::tsvdTransform(handle,
+                        input.data_handle(),
+                        components.data_handle(),
+                        trans_input.data_handle(),
+                        prms_with_dims,
+                        stream);
 }
 
 /**
- * @brief performs inverse transform operation for the tsvd. Transforms the transformed data back to
+ * @brief performs inverse transform operation for tSVD. Transforms the transformed data back to
  * original data.
- * @param[in] handle the internal cuml handle object
- * @param[in] trans_input: the data is fitted to PCA. Size n_rows x n_components.
- * @param[in] components: transpose of the principal components of the input data. Size n_components
- * * n_cols.
- * @param[out] input: the data is fitted to PCA. Size n_rows x n_cols.
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] stream cuda stream
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
+ * @param[in] handle raft::resources
+ * @param[in] prms data structure that includes all the parameters from input size to algorithm.
+ * @param[in] trans_input the transformed data. Size n_rows x n_components (col-major).
+ * @param[in] components transpose of the principal components. Size n_components x n_cols
+ * (col-major).
+ * @param[out] output the reconstructed data. Size n_rows x n_cols (col-major).
  */
-template <typename math_t>
-void tsvdInverseTransform(const raft::handle_t& handle,
-                          math_t* trans_input,
-                          math_t* components,
-                          math_t* input,
-                          const paramsTSVD& prms,
-                          cudaStream_t stream)
+template <typename math_t, typename idx_t = std::size_t>
+void tsvd_inverse_transform(raft::resources const& handle,
+                            const paramsTSVD& prms,
+                            raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
+                            raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                            raft::device_matrix_view<math_t, idx_t, raft::col_major> output)
 {
-  detail::tsvdInverseTransform(handle, trans_input, components, input, prms, stream);
+  auto stream = resource::get_cuda_stream(handle);
+
+  paramsTSVD prms_with_dims = prms;
+  prms_with_dims.n_rows     = static_cast<std::size_t>(output.extent(0));
+  prms_with_dims.n_cols     = static_cast<std::size_t>(output.extent(1));
+
+  detail::tsvdInverseTransform(handle,
+                               trans_input.data_handle(),
+                               components.data_handle(),
+                               output.data_handle(),
+                               prms_with_dims,
+                               stream);
 }
+
+/** @} */  // end group tsvd
 
 };  // end namespace raft::linalg

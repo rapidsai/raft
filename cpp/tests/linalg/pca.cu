@@ -5,7 +5,8 @@
 
 #include "../test_utils.cuh"
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/pca.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -42,7 +43,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
  public:
   PcaTest()
     : params(::testing::TestWithParam<PcaInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       explained_vars(params.n_col, stream),
       explained_vars_ref(params.n_col, stream),
       components(params.n_col * params.n_col, stream),
@@ -97,32 +98,40 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    pcaFit(handle,
-           data.data(),
-           components.data(),
-           explained_vars.data(),
-           explained_var_ratio.data(),
-           singular_vals.data(),
-           mean.data(),
-           noise_vars.data(),
-           prms,
-           stream);
-    pcaTransform(handle,
-                 data.data(),
-                 components.data(),
-                 trans_data.data(),
-                 singular_vals.data(),
-                 mean.data(),
-                 prms,
-                 stream);
-    pcaInverseTransform(handle,
-                        trans_data.data(),
-                        components.data(),
-                        singular_vals.data(),
-                        mean.data(),
-                        data_back.data(),
-                        prms,
-                        stream);
+    auto input_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data.data(), prms.n_rows, prms.n_cols);
+    auto components_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      components.data(), prms.n_components, prms.n_cols);
+    auto explained_var_view =
+      raft::make_device_vector_view<T, std::size_t>(explained_vars.data(), prms.n_components);
+    auto explained_var_ratio_view =
+      raft::make_device_vector_view<T, std::size_t>(explained_var_ratio.data(), prms.n_components);
+    auto singular_vals_view =
+      raft::make_device_vector_view<T, std::size_t>(singular_vals.data(), prms.n_components);
+    auto mu_view         = raft::make_device_vector_view<T, std::size_t>(mean.data(), prms.n_cols);
+    auto noise_vars_view = raft::make_device_scalar_view<T>(noise_vars.data());
+
+    pca_fit(handle,
+            prms,
+            input_view,
+            components_view,
+            explained_var_view,
+            explained_var_ratio_view,
+            singular_vals_view,
+            mu_view,
+            noise_vars_view);
+
+    auto trans_data_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      trans_data.data(), prms.n_rows, prms.n_components);
+
+    pca_transform(
+      handle, prms, input_view, components_view, singular_vals_view, mu_view, trans_data_view);
+
+    auto data_back_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data_back.data(), prms.n_rows, prms.n_cols);
+
+    pca_inverse_transform(
+      handle, prms, trans_data_view, components_view, singular_vals_view, mu_view, data_back_view);
   }
 
   void advancedTest()
@@ -151,31 +160,41 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     rmm::device_uvector<T> mean2(prms.n_cols, stream);
     rmm::device_uvector<T> noise_vars2(1, stream);
 
-    pcaFitTransform(handle,
-                    data2.data(),
-                    data2_trans.data(),
-                    components2.data(),
-                    explained_vars2.data(),
-                    explained_var_ratio2.data(),
-                    singular_vals2.data(),
-                    mean2.data(),
-                    noise_vars2.data(),
-                    prms,
-                    stream);
+    auto input_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data2.data(), prms.n_rows, prms.n_cols);
+    auto trans_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data2_trans.data(), prms.n_rows, prms.n_components);
+    auto comp_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      components2.data(), prms.n_components, prms.n_cols);
+    auto ev_view =
+      raft::make_device_vector_view<T, std::size_t>(explained_vars2.data(), prms.n_components);
+    auto evr_view =
+      raft::make_device_vector_view<T, std::size_t>(explained_var_ratio2.data(), prms.n_components);
+    auto sv_view =
+      raft::make_device_vector_view<T, std::size_t>(singular_vals2.data(), prms.n_components);
+    auto mu_view    = raft::make_device_vector_view<T, std::size_t>(mean2.data(), prms.n_cols);
+    auto noise_view = raft::make_device_scalar_view<T>(noise_vars2.data());
 
-    pcaInverseTransform(handle,
-                        data2_trans.data(),
-                        components2.data(),
-                        singular_vals2.data(),
-                        mean2.data(),
-                        data2_back.data(),
-                        prms,
-                        stream);
+    pca_fit_transform(handle,
+                      prms,
+                      input_view,
+                      trans_view,
+                      comp_view,
+                      ev_view,
+                      evr_view,
+                      sv_view,
+                      mu_view,
+                      noise_view);
+
+    auto data2_back_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      data2_back.data(), prms.n_rows, prms.n_cols);
+
+    pca_inverse_transform(handle, prms, trans_view, comp_view, sv_view, mu_view, data2_back_view);
   }
 
  protected:
-  raft::handle_t handle;
-  cudaStream_t stream = 0;
+  raft::device_resources handle;
+  cudaStream_t stream;
 
   PcaInputs<T> params;
 
@@ -198,7 +217,7 @@ TEST_P(PcaTestValF, Result)
                           explained_vars_ref.data(),
                           params.n_col,
                           raft::CompareApprox<float>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef PcaTest<double> PcaTestValD;
@@ -208,7 +227,7 @@ TEST_P(PcaTestValD, Result)
                           explained_vars_ref.data(),
                           params.n_col,
                           raft::CompareApprox<double>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef PcaTest<float> PcaTestLeftVecF;
@@ -218,7 +237,7 @@ TEST_P(PcaTestLeftVecF, Result)
                           components_ref.data(),
                           (params.n_col * params.n_col),
                           raft::CompareApprox<float>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef PcaTest<double> PcaTestLeftVecD;
@@ -228,7 +247,7 @@ TEST_P(PcaTestLeftVecD, Result)
                           components_ref.data(),
                           (params.n_col * params.n_col),
                           raft::CompareApprox<double>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef PcaTest<float> PcaTestTransDataF;
@@ -238,7 +257,7 @@ TEST_P(PcaTestTransDataF, Result)
                           trans_data_ref.data(),
                           (params.n_row * params.n_col),
                           raft::CompareApprox<float>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef PcaTest<double> PcaTestTransDataD;
@@ -248,7 +267,7 @@ TEST_P(PcaTestTransDataD, Result)
                           trans_data_ref.data(),
                           (params.n_row * params.n_col),
                           raft::CompareApprox<double>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef PcaTest<float> PcaTestDataVecSmallF;
@@ -258,7 +277,7 @@ TEST_P(PcaTestDataVecSmallF, Result)
                           data_back.data(),
                           (params.n_col * params.n_col),
                           raft::CompareApprox<float>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef PcaTest<double> PcaTestDataVecSmallD;
@@ -268,7 +287,7 @@ TEST_P(PcaTestDataVecSmallD, Result)
                           data_back.data(),
                           (params.n_col * params.n_col),
                           raft::CompareApprox<double>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 // FIXME: These tests are disabled due to driver 418+ making them fail:
@@ -280,7 +299,7 @@ TEST_P(PcaTestDataVecF, Result)
                           data2_back.data(),
                           (params.n_col2 * params.n_col2),
                           raft::CompareApprox<float>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef PcaTest<double> PcaTestDataVecD;
@@ -290,7 +309,7 @@ TEST_P(PcaTestDataVecD, Result)
                           data2_back.data(),
                           (params.n_col2 * params.n_col2),
                           raft::CompareApprox<double>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValF, ::testing::ValuesIn(inputsf2));
