@@ -8,7 +8,7 @@
 #include <raft/util/cuda_utils.cuh>
 
 #include <cub/block/block_reduce.cuh>
-#include <cub/warp/warp_shuffle.cuh>
+#include <cub/util_ptx.cuh>
 
 #include <limits>
 
