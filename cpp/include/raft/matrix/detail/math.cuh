@@ -16,7 +16,9 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <cub/cub.cuh>
+#include <cub/block/block_reduce.cuh>
+#include <cub/block/specializations/block_reduce_raking_commutative_only.cuh>
+#include <cub/util_type.cuh>
 
 namespace raft {
 namespace matrix {
