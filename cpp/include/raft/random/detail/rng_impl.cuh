@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -18,7 +18,9 @@
 
 #include <rmm/device_scalar.hpp>
 
-#include <cub/cub.cuh>
+#include <cub/device/device_merge_sort.cuh>
+#include <cub/device/device_scan.cuh>
+#include <cub/device/device_select.cuh>
 #include <cuda_fp16.h>
 
 namespace raft {

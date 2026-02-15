@@ -1,6 +1,6 @@
 /*
 
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/matrix/select_k_types.hpp>
 
-#include <cub/cub.cuh>
+#include <cub/device/device_segmented_radix_sort.cuh>
 
 namespace raft::matrix::detail {
 

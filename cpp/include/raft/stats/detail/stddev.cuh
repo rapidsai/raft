@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,8 +9,6 @@
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
-
-#include <cub/cub.cuh>
 
 namespace raft {
 namespace stats {
