@@ -29,7 +29,7 @@ namespace raft::linalg {
  * @param[out] singular_vals singular values of the data. Size n_components.
  * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  */
-template <typename math_t, typename idx_t = std::size_t>
+template <typename math_t, typename idx_t>
 void tsvd_fit(raft::resources const& handle,
               const paramsTSVD& prms,
               raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
@@ -70,7 +70,7 @@ void tsvd_fit(raft::resources const& handle,
  * @param[out] singular_vals singular values of the data. Size n_components.
  * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  */
-template <typename math_t, typename idx_t = std::size_t>
+template <typename math_t, typename idx_t>
 void tsvd_fit_transform(raft::resources const& handle,
                         const paramsTSVD& prms,
                         raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
@@ -111,7 +111,7 @@ void tsvd_fit_transform(raft::resources const& handle,
  * @param[out] trans_input output that is transformed version of input. Size n_rows x n_components
  * (col-major).
  */
-template <typename math_t, typename idx_t = std::size_t>
+template <typename math_t, typename idx_t>
 void tsvd_transform(raft::resources const& handle,
                     const paramsTSVD& prms,
                     raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
@@ -144,7 +144,7 @@ void tsvd_transform(raft::resources const& handle,
  * (col-major).
  * @param[out] output the reconstructed data. Size n_rows x n_cols (col-major).
  */
-template <typename math_t, typename idx_t = std::size_t>
+template <typename math_t, typename idx_t>
 void tsvd_inverse_transform(raft::resources const& handle,
                             const paramsTSVD& prms,
                             raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,

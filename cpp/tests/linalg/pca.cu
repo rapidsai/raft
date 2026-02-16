@@ -109,7 +109,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     auto singular_vals_view =
       raft::make_device_vector_view<T, std::size_t>(singular_vals.data(), prms.n_components);
     auto mu_view         = raft::make_device_vector_view<T, std::size_t>(mean.data(), prms.n_cols);
-    auto noise_vars_view = raft::make_device_scalar_view<T>(noise_vars.data());
+    auto noise_vars_view = raft::make_device_scalar_view<T, std::size_t>(noise_vars.data());
 
     pca_fit(handle,
             prms,
@@ -173,7 +173,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     auto sv_view =
       raft::make_device_vector_view<T, std::size_t>(singular_vals2.data(), prms.n_components);
     auto mu_view    = raft::make_device_vector_view<T, std::size_t>(mean2.data(), prms.n_cols);
-    auto noise_view = raft::make_device_scalar_view<T>(noise_vars2.data());
+    auto noise_view = raft::make_device_scalar_view<T, std::size_t>(noise_vars2.data());
 
     pca_fit_transform(handle,
                       prms,
