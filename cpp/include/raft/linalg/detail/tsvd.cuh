@@ -135,7 +135,7 @@ void calEig(raft::resources const& handle,
 /**
  * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
  * vectors
- * @param handle: resource handle
+ * @param handle: raft::resources
  * @param components: components matrix, used to determine the sign of max absolute value
  * @param input: input data
  * @param n_rows: number of rows of components matrix
@@ -290,7 +290,7 @@ void signFlip(math_t* input,
 /**
  * @brief perform fit operation for the tsvd. Generates eigenvectors, explained vars, singular vals,
  * etc.
- * @param[in] handle: the internal cuml handle object
+ * @param[in] handle: raft::resources
  * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
  * indicated in prms.
  * @param[out] components: the principal components of the input data. Size n_cols * n_components.
@@ -371,7 +371,7 @@ void tsvdFit(raft::resources const& handle,
 
 /**
  * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
- * @param[in] handle the internal cuml handle object
+ * @param[in] handle raft::resources
  * @param[in] input: the data is transformed. Size n_rows x n_components.
  * @param[in] components: principal components of the input data. Size n_cols * n_components.
  * @param[out] trans_input: output that is transformed version of input
@@ -411,7 +411,7 @@ void tsvdTransform(raft::resources const& handle,
 /**
  * @brief performs inverse transform operation for the tsvd. Transforms the transformed data back to
  * original data.
- * @param[in] handle the internal cuml handle object
+ * @param[in] handle raft::resources
  * @param[in] trans_input: the data is fitted to PCA. Size n_rows x n_components.
  * @param[in] components: transpose of the principal components of the input data. Size n_components
  * * n_cols.
@@ -453,7 +453,7 @@ void tsvdInverseTransform(raft::resources const& handle,
 /**
  * @brief performs fit and transform operations for the tsvd. Generates transformed data,
  * eigenvectors, explained vars, singular vals, etc.
- * @param[in] handle: the internal cuml handle object
+ * @param[in] handle: raft::resources
  * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
  * indicated in prms.
  * @param[out] trans_input: the transformed data. Size n_rows * n_components.

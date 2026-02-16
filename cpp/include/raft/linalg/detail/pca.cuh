@@ -86,7 +86,7 @@ void truncCompExpVars(raft::resources const& handle,
 /**
  * @brief perform fit operation for the pca. Generates eigenvectors, explained vars, singular vals,
  * etc.
- * @param[in] handle: cuml handle object
+ * @param[in] handle: raft::resources
  * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
  * indicated in prms.
  * @param[out] components: the principal components of the input data. Size n_cols * n_components.
@@ -158,7 +158,7 @@ void pcaFit(raft::resources const& handle,
 
 /**
  * @brief performs transform operation for the pca. Transforms the data to eigenspace.
- * @param[in] handle: the internal cuml handle object
+ * @param[in] handle: raft::resources
  * @param[in] input: the data is transformed. Size n_rows x n_components.
  * @param[in] components: principal components of the input data. Size n_cols * n_components.
  * @param[out] trans_input:  the transformed data. Size n_rows * n_components.
@@ -208,7 +208,7 @@ void pcaTransform(raft::resources const& handle,
 /**
  * @brief performs inverse transform operation for the pca. Transforms the transformed data back to
  * original data.
- * @param[in] handle: the internal cuml handle object
+ * @param[in] handle: raft::resources
  * @param[in] trans_input: the data is fitted to PCA. Size n_rows x n_components.
  * @param[in] components: transpose of the principal components of the input data. Size n_components
  * * n_cols.
@@ -259,7 +259,7 @@ void pcaInverseTransform(raft::resources const& handle,
 /**
  * @brief perform fit and transform operations for the pca. Generates transformed data,
  * eigenvectors, explained vars, singular vals, etc.
- * @param[in] handle: cuml handle object
+ * @param[in] handle: raft::resources
  * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
  * indicated in prms.
  * @param[out] trans_input: the transformed data. Size n_rows * n_components.
