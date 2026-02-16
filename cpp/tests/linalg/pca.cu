@@ -290,8 +290,6 @@ TEST_P(PcaTestDataVecSmallD, Result)
                           resource::get_cuda_stream(handle)));
 }
 
-// FIXME: These tests are disabled due to driver 418+ making them fail:
-// https://github.com/rapidsai/cuml/issues/379
 typedef PcaTest<float> PcaTestDataVecF;
 TEST_P(PcaTestDataVecF, Result)
 {
