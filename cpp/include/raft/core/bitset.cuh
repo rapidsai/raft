@@ -235,7 +235,9 @@ void bitset<bitset_t, index_t>::resize(const raft::resources& res,
     auto new_elements_view = raft::make_device_vector_view<bitset_t, index_t>(
       bitset_.data() + old_size, new_size - old_size);
     raft::linalg::map(
-      res, new_elements_view, raft::const_op<bitset_t>{default_value ? ~bitset_t{0} : bitset_t{0}});
+      res,
+      new_elements_view,
+      raft::const_op<bitset_t>{default_value ? bitset_t{~bitset_t{0}} : bitset_t{0}});
   }
 }
 
@@ -291,8 +293,9 @@ template <typename bitset_t, typename index_t>
 void bitset<bitset_t, index_t>::reset(const raft::resources& res, bool default_value)
 {
   auto bitset_view = raft::make_device_vector_view<bitset_t, index_t>(bitset_.data(), n_elements());
-  raft::linalg::map(
-    res, bitset_view, raft::const_op<bitset_t>{default_value ? ~bitset_t{0} : bitset_t{0}});
+  raft::linalg::map(res,
+                    bitset_view,
+                    raft::const_op<bitset_t>{default_value ? bitset_t{~bitset_t{0}} : bitset_t{0}});
 }
 
 template <typename bitset_t, typename index_t>
