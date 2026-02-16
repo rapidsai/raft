@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@
 #include <raft/core/bitset.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/reduce.cuh>
@@ -17,8 +17,7 @@
 #include <raft/util/popc.cuh>
 
 #include <rmm/device_scalar.hpp>
-
-#include <thrust/for_each.h>
+#include <rmm/device_uvector.hpp>
 
 namespace raft::core {
 
@@ -165,7 +164,6 @@ void bitset_view<bitset_t, index_t>::repeat(const raft::resources& res,
                                             index_t times,
                                             bitset_t* output_device_ptr) const
 {
-  auto thrust_policy                 = raft::resource::get_thrust_policy(res);
   constexpr index_t bits_per_element = sizeof(bitset_t) * 8;
 
   if (bitset_len_ % bits_per_element == 0) {
@@ -234,10 +232,10 @@ void bitset<bitset_t, index_t>::resize(const raft::resources& res,
   bitset_len_ = new_bitset_len;
   if (old_size < new_size) {
     // If the new size is larger, set the new bits to the default value
-    thrust::fill_n(raft::resource::get_thrust_policy(res),
-                   bitset_.data() + old_size,
-                   new_size - old_size,
-                   default_value ? ~bitset_t{0} : bitset_t{0});
+    auto new_elements_view = raft::make_device_vector_view<bitset_t, index_t>(
+      bitset_.data() + old_size, new_size - old_size);
+    raft::linalg::map(
+      res, new_elements_view, raft::const_op<bitset_t>{default_value ? ~bitset_t{0} : bitset_t{0}});
   }
 }
 
@@ -262,12 +260,20 @@ void bitset<bitset_t, index_t>::set(const raft::resources& res,
                                     bool set_value)
 {
   auto this_bitset_view = view();
-  thrust::for_each_n(raft::resource::get_thrust_policy(res),
-                     mask_index.data_handle(),
-                     mask_index.extent(0),
-                     [this_bitset_view, set_value] __device__(const index_t sample_index) {
-                       this_bitset_view.set(sample_index, set_value);
-                     });
+  // Use map_offset with a dummy output (we only need the side effect of calling set)
+  // Create a temporary output buffer that we'll ignore
+  rmm::device_uvector<index_t> dummy_output(mask_index.extent(0),
+                                            raft::resource::get_cuda_stream(res));
+  auto dummy_output_view =
+    raft::make_device_vector_view<index_t, index_t>(dummy_output.data(), mask_index.extent(0));
+  raft::linalg::map_offset(
+    res,
+    dummy_output_view,
+    [this_bitset_view, set_value] __device__(index_t idx, const index_t sample_index) -> index_t {
+      this_bitset_view.set(sample_index, set_value);
+      return sample_index;  // Return the input value as output (dummy)
+    },
+    mask_index);
 }
 
 template <typename bitset_t, typename index_t>
@@ -284,10 +290,9 @@ void bitset<bitset_t, index_t>::flip(const raft::resources& res)
 template <typename bitset_t, typename index_t>
 void bitset<bitset_t, index_t>::reset(const raft::resources& res, bool default_value)
 {
-  thrust::fill_n(raft::resource::get_thrust_policy(res),
-                 bitset_.data(),
-                 n_elements(),
-                 default_value ? ~bitset_t{0} : bitset_t{0});
+  auto bitset_view = raft::make_device_vector_view<bitset_t, index_t>(bitset_.data(), n_elements());
+  raft::linalg::map(
+    res, bitset_view, raft::const_op<bitset_t>{default_value ? ~bitset_t{0} : bitset_t{0}});
 }
 
 template <typename bitset_t, typename index_t>
