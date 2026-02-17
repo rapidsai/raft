@@ -262,18 +262,15 @@ void bitset<bitset_t, index_t>::set(const raft::resources& res,
                                     bool set_value)
 {
   auto this_bitset_view = view();
-  // Use map_offset with a dummy output (we only need the side effect of calling set)
-  // Create a temporary output buffer that we'll ignore
-  rmm::device_uvector<index_t> dummy_output(mask_index.extent(0),
-                                            raft::resource::get_cuda_stream(res));
-  auto dummy_output_view =
-    raft::make_device_vector_view<index_t, index_t>(dummy_output.data(), mask_index.extent(0));
+  // Use mask_index as output since we're just writing back the same values
+  auto mask_index_output = raft::make_device_vector_view<index_t, index_t>(
+    const_cast<index_t*>(mask_index.data_handle()), mask_index.extent(0));
   raft::linalg::map_offset(
     res,
-    dummy_output_view,
+    mask_index_output,
     [this_bitset_view, set_value] __device__(index_t idx, const index_t sample_index) -> index_t {
       this_bitset_view.set(sample_index, set_value);
-      return sample_index;  // Return the input value as output (dummy)
+      return sample_index;  // Return the input value as output (in-place)
     },
     mask_index);
 }
