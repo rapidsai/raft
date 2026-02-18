@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,6 +10,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/scores.cuh>
 
 namespace raft {
@@ -49,6 +50,14 @@ float accuracy(raft::resources const& handle,
                raft::device_vector_view<const value_t, idx_t> predictions,
                raft::device_vector_view<const value_t, idx_t> ref_predictions)
 {
+  if (resource::get_dry_run_flag(handle)) {
+    // detail::accuracy_score allocates this, but we can't pass 'dry-run' to it, because it doesn't
+    // accept raft::resources handle.
+    // We can't change the signature of it, because the overload above uses it too.
+    [[maybe_unused]] rmm::device_uvector<value_t> diffs_array(predictions.extent(0),
+                                                              resource::get_cuda_stream(handle));
+    return 0;
+  }
   RAFT_EXPECTS(predictions.size() == ref_predictions.size(), "Size mismatch");
   RAFT_EXPECTS(predictions.is_exhaustive(), "predictions must be contiguous");
   RAFT_EXPECTS(ref_predictions.is_exhaustive(), "ref_predictions must be contiguous");

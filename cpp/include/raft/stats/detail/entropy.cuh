@@ -45,6 +45,7 @@ struct entropyOp {
  * @brief function to calculate the bincounts of number of samples in every label
  *
  * @tparam LabelT: type of the labels
+ * @param dry_run: whether to run in dry-run mode
  * @param labels: the pointer to the array containing labels for every data sample
  * @param binCountArray: pointer to the 1D array that contains the count of samples per cluster
  * @param nRows: number of data samples
@@ -54,7 +55,8 @@ struct entropyOp {
  * @param stream: the cuda stream where to launch this kernel
  */
 template <typename LabelT>
-void countLabels(const LabelT* labels,
+void countLabels(bool dry_run,
+                 const LabelT* labels,
                  double* binCountArray,
                  int nRows,
                  LabelT lowerLabelRange,
@@ -79,6 +81,8 @@ void countLabels(const LabelT* labels,
 
   workspace.resize(temp_storage_bytes, stream);
 
+  if (dry_run) { return; }
+
   RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(workspace.data(),
                                                     temp_storage_bytes,
                                                     labels,
@@ -94,6 +98,7 @@ void countLabels(const LabelT* labels,
  * @brief Function to calculate entropy
  * <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
  *
+ * @param dry_run: whether to run in dry-run mode
  * @param clusterArray: the array of classes of type T
  * @param size: the size of the data points of type int
  * @param lowerLabelRange: the lower bound of the range of labels
@@ -102,7 +107,8 @@ void countLabels(const LabelT* labels,
  * @return the entropy score
  */
 template <typename T>
-double entropy(const T* clusterArray,
+double entropy(bool dry_run,
+               const T* clusterArray,
                const int size,
                const T lowerLabelRange,
                const T upperLabelRange,
@@ -114,15 +120,20 @@ double entropy(const T* clusterArray,
 
   // declaring, allocating and initializing memory for bincount array and entropy values
   rmm::device_uvector<double> prob(numUniqueClasses, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(prob.data(), 0, numUniqueClasses * sizeof(double), stream));
+  if (!dry_run) {
+    RAFT_CUDA_TRY(cudaMemsetAsync(prob.data(), 0, numUniqueClasses * sizeof(double), stream));
+  }
   rmm::device_scalar<double> d_entropy(stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(d_entropy.data(), 0, sizeof(double), stream));
+  if (!dry_run) { RAFT_CUDA_TRY(cudaMemsetAsync(d_entropy.data(), 0, sizeof(double), stream)); }
 
   // workspace allocation
   rmm::device_uvector<char> workspace(1, stream);
 
   // calculating the bincounts and populating the prob array
-  countLabels(clusterArray, prob.data(), size, lowerLabelRange, upperLabelRange, workspace, stream);
+  countLabels(
+    dry_run, clusterArray, prob.data(), size, lowerLabelRange, upperLabelRange, workspace, stream);
+
+  if (dry_run) { return 0.0; }
 
   // scalar dividing by size
   raft::linalg::divideScalar<double>(

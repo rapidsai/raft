@@ -104,13 +104,15 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel, cudaStream_t s
  *        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
  * @tparam T data-type for input label arrays
  * @tparam MathT integral data-type used for computing n-choose-r
+ * @param dry_run: whether to run in dry-run mode
  * @param firstClusterArray: the array of classes
  * @param secondClusterArray: the array of classes
  * @param size: the size of the data points of type int
  * @param stream: the cudaStream object
  */
 template <typename T, typename MathT = int>
-double compute_adjusted_rand_index(const T* firstClusterArray,
+double compute_adjusted_rand_index(bool dry_run,
+                                   const T* firstClusterArray,
                                    const T* secondClusterArray,
                                    int size,
                                    cudaStream_t stream)
@@ -118,6 +120,26 @@ double compute_adjusted_rand_index(const T* firstClusterArray,
   if (size < 2) {
     // 1 or 0 labels always have a perfect score. This also matches sklearn behavior.
     return 1.0;
+  }
+  if (dry_run) {
+    // Upper bound on total extra allocations in terms of `size`.
+    // The label range nClasses = maxLabel - minLabel + 1 is bounded by `size`
+    // (at most `size` distinct labels with contiguous labeling).
+    //
+    // Allocations (all alive simultaneously):
+    //   dContingencyMatrix:  nClasses^2 * sizeof(MathT)  <=  size^2 * sizeof(MathT)
+    //   a, b:                2 * nClasses * sizeof(MathT) <=  2 * size * sizeof(MathT)
+    //   d_aCTwoSum, d_bCTwoSum, d_nChooseTwoSum:             3 * sizeof(MathT)
+    //   workspaceBuff (SORT_AND_GATOMICS worst case):
+    //     staging:  2 * alignTo(size * sizeof(T), 256)  <=  2 * size * sizeof(T) + 512
+    //     CUB tmp:  <= size * sizeof(T)
+    //
+    // Total <= (size^2 + 2*size + 3) * sizeof(MathT) + 3*size*sizeof(T) + 512
+    // NB: this is a very generous bound, as nClasses is probably much smaller that the size.
+    auto n                 = static_cast<size_t>(size);
+    auto alloc_upper_bound = (n * n + 2 * n + 3) * sizeof(MathT) + 3 * n * sizeof(T) + 512;
+    rmm::device_uvector<uint8_t> dry_run_alloc(alloc_upper_bound, stream);
+    return 0.0;
   }
   T minFirst, maxFirst, minSecond, maxSecond;
   auto nUniqFirst      = countUnique(firstClusterArray, size, minFirst, maxFirst, stream);
