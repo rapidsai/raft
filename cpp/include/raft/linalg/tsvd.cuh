@@ -170,25 +170,24 @@ void tsvd_inverse_transform(raft::resources const& handle,
  * of a symmetric matrix using either divide-and-conquer or Jacobi method.
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
- * @tparam enum_solver solver enum type
  * @param[in] handle raft::resources
  * @param[in] prms tSVD parameters (controls algorithm, tolerance, iterations)
  * @param[inout] in symmetric input matrix [n_cols x n_cols] (col-major). Overwritten.
  * @param[out] components eigenvectors [n_cols x n_cols] (col-major)
  * @param[out] explained_var eigenvalues [n_cols]
  */
-template <typename math_t, typename idx_t, typename enum_solver = solver>
+template <typename math_t, typename idx_t>
 void cal_eig(raft::resources const& handle,
-             const paramsTSVDTemplate<enum_solver>& prms,
+             const paramsTSVD& prms,
              raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
              raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
              raft::device_vector_view<math_t, idx_t> explained_var)
 {
   auto stream = resource::get_cuda_stream(handle);
 
-  paramsTSVDTemplate<enum_solver> prms_with_dims = prms;
-  prms_with_dims.n_rows                          = static_cast<std::size_t>(in.extent(0));
-  prms_with_dims.n_cols                          = static_cast<std::size_t>(in.extent(1));
+  paramsTSVD prms_with_dims = prms;
+  prms_with_dims.n_rows     = static_cast<std::size_t>(in.extent(0));
+  prms_with_dims.n_cols     = static_cast<std::size_t>(in.extent(1));
 
   detail::calEig(handle,
                  in.data_handle(),

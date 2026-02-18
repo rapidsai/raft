@@ -25,14 +25,14 @@
 
 namespace raft::linalg::detail {
 
-template <typename math_t, typename enum_solver = solver>
+template <typename math_t>
 void truncCompExpVars(raft::resources const& handle,
                       math_t* in,
                       math_t* components,
                       math_t* explained_var,
                       math_t* explained_var_ratio,
                       math_t* noise_vars,
-                      const paramsTSVDTemplate<enum_solver>& prms,
+                      const paramsTSVD& prms,
                       cudaStream_t stream)
 {
   auto len = prms.n_cols * prms.n_cols;
@@ -40,8 +40,7 @@ void truncCompExpVars(raft::resources const& handle,
   rmm::device_uvector<math_t> explained_var_all(prms.n_cols, stream);
   rmm::device_uvector<math_t> explained_var_ratio_all(prms.n_cols, stream);
 
-  detail::calEig<math_t, enum_solver>(
-    handle, in, components_all.data(), explained_var_all.data(), prms, stream);
+  detail::calEig<math_t>(handle, in, components_all.data(), explained_var_all.data(), prms, stream);
   raft::matrix::trunc_zero_origin(
     handle,
     raft::make_device_matrix_view<const math_t, std::size_t, raft::col_major>(

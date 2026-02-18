@@ -96,17 +96,17 @@ void calCompExpVarsSvd(raft::resources const& handle,
   raft::matrix::ratio(handle, explained_vars, explained_var_ratio, prms.n_components, stream);
 }
 
-template <typename math_t, typename enum_solver = solver>
+template <typename math_t>
 void calEig(raft::resources const& handle,
             math_t* in,
             math_t* components,
             math_t* explained_var,
-            const paramsTSVDTemplate<enum_solver>& prms,
+            const paramsTSVD& prms,
             cudaStream_t stream)
 {
   auto cusolver_handle = raft::resource::get_cusolver_dn_handle(handle);
 
-  if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
+  if (prms.algorithm == solver::COV_EIG_JACOBI) {
     raft::linalg::eigJacobi(handle,
                             in,
                             prms.n_cols,
