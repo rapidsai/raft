@@ -14,14 +14,9 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <cooperative_groups.h>
-#include <cooperative_groups/reduce.h>
-#include <thrust/copy.h>
-#include <thrust/iterator/discard_iterator.h>
-#include <thrust/reduce.h>
-#include <thrust/sequence.h>
-
-#include <assert.h>
+#include <cuda/std/cassert>
+#include <thrust/fill.h>
+#include <thrust/scan.h>
 
 namespace raft {
 namespace sparse {
