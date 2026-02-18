@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,8 +14,6 @@
 #include <raft/linalg/map.cuh>
 #include <raft/matrix/detail/select_k-inl.cuh>
 #include <raft/matrix/select_k_types.hpp>
-
-#include <cub/cub.cuh>
 
 #include <type_traits>
 

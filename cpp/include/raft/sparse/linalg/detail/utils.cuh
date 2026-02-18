@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,7 +7,7 @@
 
 #include <raft/core/math.hpp>
 
-#include <cub/cub.cuh>
+#include <cub/warp/warp_reduce.cuh>
 #include <cuda_fp16.h>
 #include <cuda_pipeline.h>
 
