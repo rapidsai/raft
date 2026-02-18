@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -319,6 +319,7 @@ if(BUILD_TESTS)
     util/popc.cu
     util/pow2_utils.cu
     util/reduction.cu
+    util/dry_run_memory_resource.cpp
   )
 endif()
 

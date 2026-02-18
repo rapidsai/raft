@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -38,6 +38,7 @@ enum resource_type {
   NCCL_COMM,                 // nccl comm
   ROOT_RANK,                 // root rank in multi-gpu world
   MULTI_GPU,                 // resource that tracks resource of each device in multi-gpu world
+  DRY_RUN_FLAG,              // boolean flag indicating dry-run mode
 
   LAST_KEY  // reserved for the last key
 };
