@@ -13,11 +13,11 @@
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/std/functional>
 #include <cuda/std/tuple>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
-#include <thrust/functional.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
@@ -55,7 +55,7 @@ void transform_eigen_matrix(raft::resources const& handle,
                       thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)),
                       thrust::make_constant_iterator(mean),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
-                      thrust::minus<weight_t>());
+                      cuda::std::minus<weight_t>());
     RAFT_CHECK_CUDA(stream);
 
     // TODO: Call from public API when ready
@@ -69,7 +69,7 @@ void transform_eigen_matrix(raft::resources const& handle,
                       thrust::device_pointer_cast(eigVecs + IDX(0, i + 1, n)),
                       thrust::make_constant_iterator(std),
                       thrust::device_pointer_cast(eigVecs + IDX(0, i, n)),
-                      thrust::divides<weight_t>());
+                      cuda::std::divides<weight_t>());
     RAFT_CHECK_CUDA(stream);
   }
 
