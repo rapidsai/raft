@@ -14,6 +14,7 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cub/block/block_reduce.cuh>
 #include <cuda/std/cassert>
 #include <cuda/std/functional>
 #include <thrust/fill.h>
