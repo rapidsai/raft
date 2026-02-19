@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,9 +14,9 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/iterator>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
-#include <thrust/iterator/counting_iterator.h>
 
 #include <gtest/gtest.h>
 
@@ -123,7 +123,7 @@ class MatrixCopyRowsTest : public ::testing::Test {
   {
     raft::update_device(indices.data(), indices_host, n_selected, stream);
     // Init input array
-    thrust::counting_iterator<idx_t> first(0);
+    cuda::counting_iterator<idx_t> first(0);
     thrust::device_ptr<math_t> ptr(input.data());
     thrust::copy(resource::get_thrust_policy(handle), first, first + n_cols * n_rows, ptr);
   }

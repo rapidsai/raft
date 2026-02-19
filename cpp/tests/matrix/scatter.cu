@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,6 +15,7 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/iterator>
 #include <thrust/execution_policy.h>
 #include <thrust/random.h>
 #include <thrust/shuffle.h>
@@ -76,7 +77,7 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs<IdxT>> {
 
     auto exec_policy = raft::resource::get_thrust_policy(handle);
 
-    thrust::counting_iterator<IdxT> permute_iter(0);
+    cuda::counting_iterator<IdxT> permute_iter(0);
     thrust::copy(exec_policy, permute_iter, permute_iter + params.nrows, d_map.data());
 
     thrust::default_random_engine g;

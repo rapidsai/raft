@@ -13,8 +13,8 @@
 
 #include <rmm/exec_policy.hpp>
 
+#include <cuda/iterator>
 #include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
 
 #include <gtest/gtest.h>
 
@@ -264,7 +264,7 @@ void gen_uniform(const raft::resources& handle,
 
   const T1* d_keys   = keys.data();
   const T2* d_values = values.data();
-  auto counting      = thrust::make_counting_iterator<IdxT>(0);
+  auto counting      = cuda::make_counting_iterator<IdxT>(0);
   thrust::for_each(rmm::exec_policy(stream),
                    counting,
                    counting + len,
