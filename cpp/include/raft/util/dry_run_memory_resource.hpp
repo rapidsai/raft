@@ -7,6 +7,8 @@
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
+#include <raft/core/resource/managed_memory_resource.hpp>
+#include <raft/core/resource/pinned_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 
 #include <rmm/mr/device_memory_resource.hpp>
@@ -34,7 +36,9 @@ struct dry_run_stats {
   std::size_t device_workspace_peak;        ///< Peak device workspace bytes
   std::size_t device_large_workspace_peak;  ///< Peak device large workspace bytes
   std::size_t device_global_peak;           ///< Peak device global allocation bytes
-  std::size_t host_peak;                    ///< Peak host allocation bytes
+  std::size_t device_managed_peak;          ///< Peak device managed allocation bytes
+  std::size_t host_peak;                    ///< Peak host (default pmr) allocation bytes
+  std::size_t host_pinned_peak;             ///< Peak host pinned allocation bytes
 };
 
 /**
@@ -230,6 +234,9 @@ class dry_run_host_memory_resource : public std::pmr::memory_resource {
  * On construction, saves all current memory resource state and replaces it with
  * dry-run resources. On destruction, restores all original resources.
  *
+ * Global resources (rmm device, std::pmr host) are replaced globally.
+ * Handle-local resources (workspace, pinned, managed) are replaced only on the handle.
+ *
  * This class only manages resources; the action to be dry-run is executed
  * separately (see dry_run_execute()).
  */
@@ -241,9 +248,13 @@ class dry_run_resource_manager {
    */
   explicit dry_run_resource_manager(const raft::resources& res) : res_(res)
   {
-    // Save original device resource state
+    // Save original global resource state
     orig_global_device_mr_ = rmm::mr::get_current_device_resource();
     orig_pmr_              = std::pmr::get_default_resource();
+
+    // Save handle-local resources
+    orig_pinned_mr_  = resource::get_pinned_memory_resource(res);
+    orig_managed_mr_ = resource::get_managed_memory_resource(res);
 
     // Save workspace settings (use accessors that handle lazy initialization)
     auto* workspace_mr       = resource::get_workspace_resource(res);
@@ -257,15 +268,18 @@ class dry_run_resource_manager {
     dry_run_workspace_ = std::make_shared<dry_run_device_memory_resource>(orig_workspace_upstream_);
     dry_run_large_workspace_ =
       std::make_shared<dry_run_device_memory_resource>(orig_large_workspace_mr_);
-    dry_run_global_ = std::make_shared<dry_run_device_memory_resource>(orig_global_device_mr_);
-    dry_run_host_   = std::make_unique<dry_run_host_memory_resource>(orig_pmr_);
+    dry_run_global_  = std::make_shared<dry_run_device_memory_resource>(orig_global_device_mr_);
+    dry_run_managed_ = std::make_shared<dry_run_device_memory_resource>(orig_managed_mr_);
+    dry_run_host_    = std::make_unique<dry_run_host_memory_resource>(orig_pmr_);
+    dry_run_pinned_  = std::make_shared<dry_run_host_memory_resource>(orig_pinned_mr_);
 
-    // Replace global device resource
+    // Replace global resources
     rmm::mr::set_current_device_resource(dry_run_global_.get());
-    // Replace global host resource
     std::pmr::set_default_resource(dry_run_host_.get());
 
-    // Replace workspace resources
+    // Replace handle-local resources
+    resource::set_pinned_memory_resource(res, dry_run_pinned_);
+    resource::set_managed_memory_resource(res, dry_run_managed_);
     resource::set_workspace_resource(res, dry_run_workspace_, workspace_limit_, std::nullopt);
     resource::set_large_workspace_resource(res, dry_run_large_workspace_);
 
@@ -281,6 +295,12 @@ class dry_run_resource_manager {
     // Restore global resources
     rmm::mr::set_current_device_resource(orig_global_device_mr_);
     std::pmr::set_default_resource(orig_pmr_);
+
+    // Restore handle-local resources
+    resource::set_pinned_memory_resource(
+      res_, std::shared_ptr<std::pmr::memory_resource>(orig_pinned_mr_, void_op{}));
+    resource::set_managed_memory_resource(
+      res_, std::shared_ptr<rmm::mr::device_memory_resource>(orig_managed_mr_, void_op{}));
 
     // Restore workspace resources with original settings.
     // Use non-owning shared_ptrs (void_op deleter) since lifetime is managed externally.
@@ -309,16 +329,22 @@ class dry_run_resource_manager {
       .device_workspace_peak       = dry_run_workspace_->get_peak_bytes(),
       .device_large_workspace_peak = dry_run_large_workspace_->get_peak_bytes(),
       .device_global_peak          = dry_run_global_->get_peak_bytes(),
+      .device_managed_peak         = dry_run_managed_->get_peak_bytes(),
       .host_peak                   = dry_run_host_->get_peak_bytes(),
+      .host_pinned_peak            = dry_run_pinned_->get_peak_bytes(),
     };
   }
 
  private:
   const raft::resources& res_;
 
-  // Original resources (saved in constructor)
+  // Original global resources
   rmm::mr::device_memory_resource* orig_global_device_mr_{nullptr};
   std::pmr::memory_resource* orig_pmr_{nullptr};
+
+  // Original handle-local resources
+  std::pmr::memory_resource* orig_pinned_mr_{nullptr};
+  rmm::mr::device_memory_resource* orig_managed_mr_{nullptr};
   std::optional<std::size_t> workspace_limit_;
   rmm::mr::device_memory_resource* orig_workspace_upstream_{nullptr};
   rmm::mr::device_memory_resource* orig_large_workspace_mr_{nullptr};
@@ -327,7 +353,9 @@ class dry_run_resource_manager {
   std::shared_ptr<dry_run_device_memory_resource> dry_run_workspace_;
   std::shared_ptr<dry_run_device_memory_resource> dry_run_large_workspace_;
   std::shared_ptr<dry_run_device_memory_resource> dry_run_global_;
+  std::shared_ptr<dry_run_device_memory_resource> dry_run_managed_;
   std::unique_ptr<dry_run_host_memory_resource> dry_run_host_;
+  std::shared_ptr<dry_run_host_memory_resource> dry_run_pinned_;
 };
 
 /**

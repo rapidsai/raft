@@ -5,6 +5,8 @@
 
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
+#include <raft/core/resource/managed_memory_resource.hpp>
+#include <raft/core/resource/pinned_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/dry_run_memory_resource.hpp>
@@ -191,6 +193,30 @@ TEST(DryRunResourceManager, RestoresHostResource)
   EXPECT_EQ(std::pmr::get_default_resource(), original_pmr);
 }
 
+TEST(DryRunResourceManager, RestoresPinnedResource)
+{
+  raft::resources res;
+  auto* original_pinned = resource::get_pinned_memory_resource(res);
+  {
+    dry_run_resource_manager manager(res);
+    auto* current_pinned = resource::get_pinned_memory_resource(res);
+    EXPECT_NE(current_pinned, original_pinned);
+  }
+  EXPECT_EQ(resource::get_pinned_memory_resource(res), original_pinned);
+}
+
+TEST(DryRunResourceManager, RestoresManagedResource)
+{
+  raft::resources res;
+  auto* original_managed = resource::get_managed_memory_resource(res);
+  {
+    dry_run_resource_manager manager(res);
+    auto* current_managed = resource::get_managed_memory_resource(res);
+    EXPECT_NE(current_managed, original_managed);
+  }
+  EXPECT_EQ(resource::get_managed_memory_resource(res), original_managed);
+}
+
 TEST(DryRunResourceManager, StatsAccuracy)
 {
   raft::resources res;
@@ -205,6 +231,38 @@ TEST(DryRunResourceManager, StatsAccuracy)
 
   auto stats = manager.get_stats();
   EXPECT_EQ(stats.device_global_peak, kAllocSize);
+}
+
+TEST(DryRunResourceManager, PinnedStatsAccuracy)
+{
+  raft::resources res;
+  constexpr std::size_t kAllocSize = 64UL * 1024UL * 1024UL;  // 64 MiB
+
+  dry_run_resource_manager manager(res);
+
+  // Allocate from pinned resource in the handle
+  auto* mr  = resource::get_pinned_memory_resource(res);
+  void* ptr = mr->allocate(kAllocSize);
+  mr->deallocate(ptr, kAllocSize);
+
+  auto stats = manager.get_stats();
+  EXPECT_EQ(stats.host_pinned_peak, kAllocSize);
+}
+
+TEST(DryRunResourceManager, ManagedStatsAccuracy)
+{
+  raft::resources res;
+  constexpr std::size_t kAllocSize = 64UL * 1024UL * 1024UL;  // 64 MiB
+
+  dry_run_resource_manager manager(res);
+
+  // Allocate from managed resource in the handle
+  auto* mr  = resource::get_managed_memory_resource(res);
+  void* ptr = mr->allocate(rmm::cuda_stream_view{}, kAllocSize);
+  mr->deallocate(rmm::cuda_stream_view{}, ptr, kAllocSize);
+
+  auto stats = manager.get_stats();
+  EXPECT_EQ(stats.device_managed_peak, kAllocSize);
 }
 
 // ===== dry_run_execute tests =====
@@ -233,16 +291,21 @@ TEST(DryRunExecute, BasicExecution)
 TEST(DryRunExecute, ExceptionSafety)
 {
   raft::resources res;
-  auto* original_mr  = rmm::mr::get_current_device_resource();
-  auto* original_pmr = std::pmr::get_default_resource();
+  auto* original_mr      = rmm::mr::get_current_device_resource();
+  auto* original_pmr     = std::pmr::get_default_resource();
+  auto* original_pinned  = resource::get_pinned_memory_resource(res);
+  auto* original_managed = resource::get_managed_memory_resource(res);
 
   EXPECT_THROW(dry_run_execute(
                  res, [](raft::resources const&) { throw std::runtime_error("test exception"); }),
                std::runtime_error);
 
-  // Resources should be restored even after exception
+  // Global resources should be restored even after exception
   EXPECT_EQ(rmm::mr::get_current_device_resource(), original_mr);
   EXPECT_EQ(std::pmr::get_default_resource(), original_pmr);
+  // Handle-local resources should be restored even after exception
+  EXPECT_EQ(resource::get_pinned_memory_resource(res), original_pinned);
+  EXPECT_EQ(resource::get_managed_memory_resource(res), original_managed);
   EXPECT_FALSE(resource::get_dry_run_flag(res));
 }
 
