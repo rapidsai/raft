@@ -15,10 +15,11 @@
 #include <raft/core/resources.hpp>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
-#include <raft/util/detail/cub_wrappers.cuh>
 #include <raft/util/scatter.cuh>
 
 #include <rmm/device_uvector.hpp>
+
+#include <cub/device/device_radix_sort.cuh>
 
 #include <curand_kernel.h>
 
@@ -267,20 +268,42 @@ class RngImpl {
     rmm::device_uvector<WeightsT> sortedWts(len, stream);
     rmm::device_uvector<IdxT> inIdx(len, stream);
     rmm::device_uvector<IdxT> outIdxBuff(len, stream);
-
-    if (resource::get_dry_run_flag(handle)) { return; }
     auto* inIdxPtr = inIdx.data();
     // generate modified weights
     SamplingParams<WeightsT, IdxT> params;
     params.inIdxPtr = inIdxPtr;
     params.wts      = wts;
+
+    // Query workspace size for sortPairs before dry-run check to track allocation
+    size_t workspace_size = 0;
+    cub::DeviceRadixSort::SortPairs(nullptr,
+                                    workspace_size,
+                                    expWts.data(),
+                                    sortedWts.data(),
+                                    inIdxPtr,
+                                    outIdxBuff.data(),
+                                    (int)len,
+                                    0,
+                                    sizeof(WeightsT) * 8,
+                                    stream);
+    rmm::device_uvector<char> workspace(workspace_size, stream);
+
+    if (resource::get_dry_run_flag(handle)) { return; }
     kernel_dispatch<WeightsT, IdxT, 1, SamplingParams<WeightsT, IdxT>>(
       expWts.data(), len, stream, params);
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
     IdxT* outIdxPtr = outIdxBuff.data();
-    rmm::device_uvector<char> workspace(0, stream);
-    sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr, (int)len, stream);
+    cub::DeviceRadixSort::SortPairs(workspace.data(),
+                                    workspace_size,
+                                    expWts.data(),
+                                    sortedWts.data(),
+                                    inIdxPtr,
+                                    outIdxPtr,
+                                    (int)len,
+                                    0,
+                                    sizeof(WeightsT) * 8,
+                                    stream);
     if (outIdx != nullptr) {
       RAFT_CUDA_TRY(cudaMemcpyAsync(
         outIdx, outIdxPtr, sizeof(IdxT) * sampledLen, cudaMemcpyDeviceToDevice, stream));

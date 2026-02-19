@@ -9,17 +9,16 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/math.hpp>
 #include <raft/core/operators.cuh>
-#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/detail/cub_wrappers.cuh>
 #include <raft/util/scatter.cuh>
 
 #include <rmm/device_scalar.hpp>
 
 #include <cub/device/device_merge_sort.cuh>
+#include <cub/device/device_radix_sort.cuh>
 #include <cub/device/device_scan.cuh>
 #include <cub/device/device_select.cuh>
 #include <cuda_fp16.h>
@@ -307,6 +306,20 @@ void sampleWithoutReplacement(bool dry_run,
   params.inIdxPtr = inIdxPtr;
   params.wts      = wts;
 
+  // Query workspace size for sortPairs before dry-run check to track allocation
+  size_t workspace_size = 0;
+  cub::DeviceRadixSort::SortPairs(nullptr,
+                                  workspace_size,
+                                  expWts.data(),
+                                  sortedWts.data(),
+                                  inIdxPtr,
+                                  outIdxBuff.data(),
+                                  (int)len,
+                                  0,
+                                  sizeof(WeightsT) * 8,
+                                  stream);
+  rmm::device_uvector<char> workspace(workspace_size, stream);
+
   if (dry_run) { return; }
 
   RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, expWts.data(), len, params);
@@ -314,8 +327,16 @@ void sampleWithoutReplacement(bool dry_run,
   ///@todo: use a more efficient partitioning scheme instead of full sort
   // sort the array and pick the top sampledLen items
   IdxT* outIdxPtr = outIdxBuff.data();
-  rmm::device_uvector<char> workspace(0, stream);
-  sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr, (int)len, stream);
+  cub::DeviceRadixSort::SortPairs(workspace.data(),
+                                  workspace_size,
+                                  expWts.data(),
+                                  sortedWts.data(),
+                                  inIdxPtr,
+                                  outIdxPtr,
+                                  (int)len,
+                                  0,
+                                  sizeof(WeightsT) * 8,
+                                  stream);
   if (outIdx != nullptr) {
     RAFT_CUDA_TRY(cudaMemcpyAsync(
       outIdx, outIdxPtr, sizeof(IdxT) * sampledLen, cudaMemcpyDeviceToDevice, stream));
@@ -359,7 +380,6 @@ template <typename IdxT, typename MatIdxT = IdxT>
 auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT n_samples)
   -> raft::device_vector<IdxT, MatIdxT>
 {
-  bool dry_run = resource::get_dry_run_flag(res);
   RAFT_EXPECTS(n_samples <= N, "Cannot have more training samples than dataset vectors");
 
   // Number of samples we'll need to sample (with replacement), to expect 'k'
@@ -380,19 +400,6 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
     auto rnd_idx     = raft::make_device_vector<IdxT, IdxT>(res, n_excess_samples);
 
     auto linear_idx = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
-
-    if (dry_run) {
-      // All allocations above (rnd_idx, linear_idx) are tracked.
-      // Track additional allocations that would happen in the algorithm.
-      // Estimate workspace size: cub::DeviceMergeSort typically needs ~2*N*sizeof(IdxT)
-      size_t estimated_workspace = rnd_idx.size() * sizeof(IdxT) * 2;
-      auto workspace             = raft::make_device_vector<char, IdxT>(res, estimated_workspace);
-      auto keys_out              = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
-      auto values_out            = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
-      // Return a vector of the requested size to match expected return type
-      return raft::make_device_vector<IdxT, MatIdxT>(res, MatIdxT{n_samples});
-    }
-
     raft::linalg::map_offset(res, linear_idx.view(), identity_op());
 
     uniformInt(res, state, rnd_idx.data_handle(), rnd_idx.size(), IdxT(0), IdxT(N));
