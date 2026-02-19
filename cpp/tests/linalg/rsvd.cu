@@ -1,18 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "../test_utils.cuh"
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/rsvd.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-
-#include <rmm/device_uvector.hpp>
+#include <raft/util/dry_run_memory_resource.hpp>
 
 #include <gtest/gtest.h>
 
@@ -311,6 +311,297 @@ INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdSanityCheckRightVecD, ::testing::ValuesIn
 INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdTestSquareMatrixNormF, ::testing::ValuesIn(inputs_fx));
 
 INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdTestSquareMatrixNormD, ::testing::ValuesIn(inputs_dx));
+
+// ===================================================================
+// Dry-run tests for RSVD public API functions
+// ===================================================================
+
+TEST(RsvdDryRun, FixedRankQRWithBothVectors)
+{
+  raft::resources res;
+
+  constexpr int n_rows = 256;
+  constexpr int n_cols = 128;
+  constexpr int k      = 50;
+  constexpr int p      = 10;
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+  auto U     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, k);
+  auto V     = raft::make_device_matrix<float, int, raft::col_major>(res, k, n_cols);
+
+  // Run rsvd_fixed_rank in dry-run mode (QR, no BBT, no Jacobi, both U and V)
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_fixed_rank(
+      handle, raft::make_const_mdspan(M.view()), S_vec.view(), p, U.view(), V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
+
+TEST(RsvdDryRun, FixedRankSymmetricWithBothVectors)
+{
+  raft::resources res;
+
+  constexpr int n_rows = 256;
+  constexpr int n_cols = 128;
+  constexpr int k      = 50;
+  constexpr int p      = 10;
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+  auto U     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, k);
+  auto V     = raft::make_device_matrix<float, int, raft::col_major>(res, k, n_cols);
+
+  // Run rsvd_fixed_rank_symmetric in dry-run mode (QR, with BBT, no Jacobi, both U and V)
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_fixed_rank_symmetric(
+      handle, raft::make_const_mdspan(M.view()), S_vec.view(), p, U.view(), V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
+
+TEST(RsvdDryRun, FixedRankJacobiWithBothVectors)
+{
+  raft::resources res;
+
+  constexpr int n_rows     = 256;
+  constexpr int n_cols     = 128;
+  constexpr int k          = 50;
+  constexpr int p          = 10;
+  constexpr float tol      = 1e-7f;
+  constexpr int max_sweeps = 100;
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+  auto U     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, k);
+  auto V     = raft::make_device_matrix<float, int, raft::col_major>(res, k, n_cols);
+
+  // Run rsvd_fixed_rank_jacobi in dry-run mode (QR, no BBT, with Jacobi, both U and V)
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_fixed_rank_jacobi(handle,
+                                         raft::make_const_mdspan(M.view()),
+                                         S_vec.view(),
+                                         p,
+                                         tol,
+                                         max_sweeps,
+                                         U.view(),
+                                         V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
+
+TEST(RsvdDryRun, FixedRankSymmetricJacobiWithBothVectors)
+{
+  raft::resources res;
+
+  constexpr int n_rows     = 256;
+  constexpr int n_cols     = 128;
+  constexpr int k          = 50;
+  constexpr int p          = 10;
+  constexpr float tol      = 1e-7f;
+  constexpr int max_sweeps = 100;
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+  auto U     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, k);
+  auto V     = raft::make_device_matrix<float, int, raft::col_major>(res, k, n_cols);
+
+  // Run rsvd_fixed_rank_symmetric_jacobi in dry-run mode (QR, with BBT, with Jacobi, both U and V)
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_fixed_rank_symmetric_jacobi(handle,
+                                                   raft::make_const_mdspan(M.view()),
+                                                   S_vec.view(),
+                                                   p,
+                                                   tol,
+                                                   max_sweeps,
+                                                   U.view(),
+                                                   V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
+
+TEST(RsvdDryRun, FixedRankWithOnlyU)
+{
+  raft::resources res;
+
+  constexpr int n_rows = 256;
+  constexpr int n_cols = 128;
+  constexpr int k      = 50;
+  constexpr int p      = 10;
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+  auto U     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, k);
+
+  // Run rsvd_fixed_rank in dry-run mode (only U, no V)
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_fixed_rank(
+      handle, raft::make_const_mdspan(M.view()), S_vec.view(), p, U.view(), std::nullopt);
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
+
+TEST(RsvdDryRun, FixedRankWithOnlyV)
+{
+  raft::resources res;
+
+  constexpr int n_rows = 256;
+  constexpr int n_cols = 128;
+  constexpr int k      = 50;
+  constexpr int p      = 10;
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+  auto V     = raft::make_device_matrix<float, int, raft::col_major>(res, k, n_cols);
+
+  // Run rsvd_fixed_rank in dry-run mode (only V, no U)
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_fixed_rank(
+      handle, raft::make_const_mdspan(M.view()), S_vec.view(), p, std::nullopt, V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
+
+TEST(RsvdDryRun, FixedRankWithNoVectors)
+{
+  raft::resources res;
+
+  constexpr int n_rows = 256;
+  constexpr int n_cols = 128;
+  constexpr int k      = 50;
+  constexpr int p      = 10;
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+
+  // Run rsvd_fixed_rank in dry-run mode (no U, no V - only singular values)
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_fixed_rank(
+      handle, raft::make_const_mdspan(M.view()), S_vec.view(), p, std::nullopt, std::nullopt);
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
+
+TEST(RsvdDryRun, PercWithBothVectors)
+{
+  raft::resources res;
+
+  constexpr int n_rows     = 256;
+  constexpr int n_cols     = 128;
+  constexpr float PC_perc  = 0.2f;
+  constexpr float UpS_perc = 0.05f;
+  constexpr int k          = static_cast<int>(std::min(n_rows, n_cols) * PC_perc);
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+  auto U     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, k);
+  auto V     = raft::make_device_matrix<float, int, raft::col_major>(res, k, n_cols);
+
+  // Run rsvd_perc in dry-run mode (percentage-based, QR, no BBT, no Jacobi, both U and V)
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_perc(handle,
+                            raft::make_const_mdspan(M.view()),
+                            S_vec.view(),
+                            PC_perc,
+                            UpS_perc,
+                            U.view(),
+                            V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
+
+TEST(RsvdDryRun, PercSymmetricJacobiWithBothVectors)
+{
+  raft::resources res;
+
+  constexpr int n_rows     = 256;
+  constexpr int n_cols     = 128;
+  constexpr float PC_perc  = 0.2f;
+  constexpr float UpS_perc = 0.05f;
+  constexpr float tol      = 1e-7f;
+  constexpr int max_sweeps = 100;
+  constexpr int k          = static_cast<int>(std::min(n_rows, n_cols) * PC_perc);
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+  auto U     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, k);
+  auto V     = raft::make_device_matrix<float, int, raft::col_major>(res, k, n_cols);
+
+  // Run rsvd_perc_symmetric_jacobi in dry-run mode (percentage-based, QR, with BBT, with Jacobi,
+  // both U and V)
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_perc_symmetric_jacobi(handle,
+                                             raft::make_const_mdspan(M.view()),
+                                             S_vec.view(),
+                                             PC_perc,
+                                             UpS_perc,
+                                             tol,
+                                             max_sweeps,
+                                             U.view(),
+                                             V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
+
+TEST(RsvdDryRun, TallMatrix)
+{
+  raft::resources res;
+
+  constexpr int n_rows = 512;
+  constexpr int n_cols = 128;
+  constexpr int k      = 50;
+  constexpr int p      = 10;
+
+  // Pre-allocate input/output buffers (outside dry-run)
+  auto M     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S_vec = raft::make_device_vector<float, int>(res, k);
+  auto U     = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, k);
+  auto V     = raft::make_device_matrix<float, int, raft::col_major>(res, k, n_cols);
+
+  // Run rsvd_fixed_rank_jacobi in dry-run mode on a tall matrix
+  constexpr float tol      = 1e-7f;
+  constexpr int max_sweeps = 100;
+  auto stats               = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::rsvd_fixed_rank_jacobi(handle,
+                                         raft::make_const_mdspan(M.view()),
+                                         S_vec.view(),
+                                         p,
+                                         tol,
+                                         max_sweeps,
+                                         U.view(),
+                                         V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
+}
 
 }  // end namespace linalg
 }  // end namespace raft

@@ -1,15 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "../test_utils.cuh"
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/dry_run_memory_resource.hpp>
 
 #include <gtest/gtest.h>
 
@@ -197,11 +199,141 @@ INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecF, ::testing::ValuesIn(inputsf
 
 INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecD, ::testing::ValuesIn(inputsd2));
 
-// INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecF,
-// ::testing::ValuesIn(inputsf2));
+// ===================================================================
+// Dry-run tests for SVD public API functions
+// ===================================================================
 
-// INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecD,
-//::testing::ValuesIn(inputsd2));
+TEST(SvdDryRun, QrWithBothVectors)
+{
+  raft::resources res;
+  constexpr int n_rows = 256, n_cols = 128;
+
+  auto in        = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto sing_vals = raft::make_device_vector<float, int>(res, n_cols);
+  auto U         = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto V         = raft::make_device_matrix<float, int, raft::col_major>(res, n_cols, n_cols);
+
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::svd_qr(
+      handle, raft::make_const_mdspan(in.view()), sing_vals.view(), U.view(), V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0);
+}
+
+TEST(SvdDryRun, QrWithOnlyU)
+{
+  raft::resources res;
+  constexpr int n_rows = 256, n_cols = 128;
+
+  auto in        = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto sing_vals = raft::make_device_vector<float, int>(res, n_cols);
+  auto U         = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::svd_qr(
+      handle, raft::make_const_mdspan(in.view()), sing_vals.view(), U.view(), std::nullopt);
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0);
+}
+
+TEST(SvdDryRun, QrWithOnlyV)
+{
+  raft::resources res;
+  constexpr int n_rows = 256, n_cols = 128;
+
+  auto in        = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto sing_vals = raft::make_device_vector<float, int>(res, n_cols);
+  auto V         = raft::make_device_matrix<float, int, raft::col_major>(res, n_cols, n_cols);
+
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::svd_qr(
+      handle, raft::make_const_mdspan(in.view()), sing_vals.view(), std::nullopt, V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0);
+}
+
+TEST(SvdDryRun, QrTransposeRightVecWithBothVectors)
+{
+  raft::resources res;
+  constexpr int n_rows = 256, n_cols = 128;
+
+  auto in        = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto sing_vals = raft::make_device_vector<float, int>(res, n_cols);
+  auto U         = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto V         = raft::make_device_matrix<float, int, raft::col_major>(res, n_cols, n_cols);
+
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::svd_qr_transpose_right_vec(
+      handle, raft::make_const_mdspan(in.view()), sing_vals.view(), U.view(), V.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0);
+}
+
+TEST(SvdDryRun, EigWithBothVectors)
+{
+  raft::resources res;
+  constexpr int n_rows = 256, n_cols = 128;
+
+  auto in = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S  = raft::make_device_vector<float, int>(res, n_cols);
+  auto V  = raft::make_device_matrix<float, int, raft::col_major>(res, n_cols, n_cols);
+  auto U  = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::svd_eig(handle, raft::make_const_mdspan(in.view()), S.view(), V.view(), U.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0);
+}
+
+TEST(SvdDryRun, EigWithOnlyV)
+{
+  raft::resources res;
+  constexpr int n_rows = 256, n_cols = 128;
+
+  auto in = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+  auto S  = raft::make_device_vector<float, int>(res, n_cols);
+  auto V  = raft::make_device_matrix<float, int, raft::col_major>(res, n_cols, n_cols);
+
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::svd_eig(
+      handle, raft::make_const_mdspan(in.view()), S.view(), V.view(), std::nullopt);
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0);
+}
+
+TEST(SvdDryRun, Reconstruction)
+{
+  raft::resources res;
+  constexpr int n_rows = 256, n_cols = 128, k = 64;
+
+  auto U   = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, k);
+  auto S   = raft::make_device_matrix<float, int, raft::col_major>(res, k, k);
+  auto V   = raft::make_device_matrix<float, int, raft::col_major>(res, k, n_cols);
+  auto out = raft::make_device_matrix<float, int, raft::col_major>(res, n_rows, n_cols);
+
+  auto stats = raft::util::dry_run_execute(res, [&](raft::resources const& handle) {
+    raft::linalg::svd_reconstruction(handle,
+                                     raft::make_const_mdspan(U.view()),
+                                     raft::make_const_mdspan(S.view()),
+                                     raft::make_const_mdspan(V.view()),
+                                     out.view());
+  });
+
+  EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
+  EXPECT_GT(stats.device_global_peak, 0);
+}
 
 }  // end namespace linalg
 }  // end namespace raft
