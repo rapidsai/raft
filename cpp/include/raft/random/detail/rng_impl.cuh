@@ -9,6 +9,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/math.hpp>
 #include <raft/core/operators.cuh>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
@@ -251,7 +252,8 @@ void call_sample_with_replacement_kernel(DeviceState<GenType> const& dev_state,
 }
 
 template <typename OutType, typename WeightType, typename IndexType = OutType>
-std::enable_if_t<std::is_integral_v<OutType>> discrete(RngState& rng_state,
+std::enable_if_t<std::is_integral_v<OutType>> discrete(bool dry_run,
+                                                       RngState& rng_state,
                                                        OutType* ptr,
                                                        const WeightType* weights,
                                                        IndexType sampledLen,
@@ -264,6 +266,9 @@ std::enable_if_t<std::is_integral_v<OutType>> discrete(RngState& rng_state,
   cub::DeviceScan::InclusiveSum(
     nullptr, temp_storage_bytes, weights, weights_csum.data(), len, stream);
   rmm::device_uvector<uint8_t> temp_storage(temp_storage_bytes, stream);
+
+  if (dry_run) { return; }
+
   cub::DeviceScan::InclusiveSum(
     temp_storage.data(), temp_storage_bytes, weights, weights_csum.data(), len, stream);
 
@@ -280,7 +285,8 @@ std::enable_if_t<std::is_integral_v<OutType>> discrete(RngState& rng_state,
 
 /** Note the memory space requirements are O(4*len) */
 template <typename DataT, typename WeightsT, typename IdxT = int>
-void sampleWithoutReplacement(RngState& rng_state,
+void sampleWithoutReplacement(bool dry_run,
+                              RngState& rng_state,
                               DataT* out,
                               IdxT* outIdx,
                               const DataT* in,
@@ -300,6 +306,8 @@ void sampleWithoutReplacement(RngState& rng_state,
   SamplingParams<WeightsT, IdxT> params;
   params.inIdxPtr = inIdxPtr;
   params.wts      = wts;
+
+  if (dry_run) { return; }
 
   RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, expWts.data(), len, params);
 
@@ -351,6 +359,7 @@ template <typename IdxT, typename MatIdxT = IdxT>
 auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT n_samples)
   -> raft::device_vector<IdxT, MatIdxT>
 {
+  bool dry_run = resource::get_dry_run_flag(res);
   RAFT_EXPECTS(n_samples <= N, "Cannot have more training samples than dataset vectors");
 
   // Number of samples we'll need to sample (with replacement), to expect 'k'
@@ -371,6 +380,19 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
     auto rnd_idx     = raft::make_device_vector<IdxT, IdxT>(res, n_excess_samples);
 
     auto linear_idx = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
+
+    if (dry_run) {
+      // All allocations above (rnd_idx, linear_idx) are tracked.
+      // Track additional allocations that would happen in the algorithm.
+      // Estimate workspace size: cub::DeviceMergeSort typically needs ~2*N*sizeof(IdxT)
+      size_t estimated_workspace = rnd_idx.size() * sizeof(IdxT) * 2;
+      auto workspace             = raft::make_device_vector<char, IdxT>(res, estimated_workspace);
+      auto keys_out              = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
+      auto values_out            = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
+      // Return a vector of the requested size to match expected return type
+      return raft::make_device_vector<IdxT, MatIdxT>(res, MatIdxT{n_samples});
+    }
+
     raft::linalg::map_offset(res, linear_idx.view(), identity_op());
 
     uniformInt(res, state, rnd_idx.data_handle(), rnd_idx.size(), IdxT(0), IdxT(N));

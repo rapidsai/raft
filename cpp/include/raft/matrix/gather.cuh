@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,6 +7,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/detail/gather.cuh>
 #include <raft/matrix/detail/gather_inplace.cuh>
@@ -207,6 +208,7 @@ void gather(const raft::resources& handle,
             raft::device_matrix_view<matrix_t, idx_t, row_major> out,
             map_xform_t transform_op = raft::identity_op())
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
                "Number of rows in output matrix must equal the size of the map vector");
   RAFT_EXPECTS(out.extent(1) == in.extent(1),
@@ -252,6 +254,7 @@ void gather(
   raft::device_matrix_view<matrix_t, idx_t, row_major> out,
   map_xform_t transform_op = raft::identity_op())
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
                "Number of rows in output matrix must equal the size of the map vector");
   RAFT_EXPECTS(out.extent(1) == in.extent(1),
@@ -306,6 +309,7 @@ void gather_if(const raft::resources& handle,
                unary_pred_t pred_op,
                map_xform_t transform_op = raft::identity_op())
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
                "Number of rows in output matrix must equal the size of the map vector");
   RAFT_EXPECTS(out.extent(1) == in.extent(1),
@@ -363,6 +367,7 @@ void gather_if(const raft::resources& handle,
                unary_pred_t pred_op,
                map_xform_t transform_op = raft::identity_op())
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
                "Number of rows in output matrix must equal the size of the map vector");
   RAFT_EXPECTS(out.extent(1) == in.extent(1),

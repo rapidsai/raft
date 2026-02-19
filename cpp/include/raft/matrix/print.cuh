@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/matrix/matrix_types.hpp>
 
@@ -31,6 +32,7 @@ void print(raft::resources const& handle,
            raft::device_matrix_view<const m_t, idx_t, col_major> in,
            print_separators& separators)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::print(in.data_handle(),
                 in.extent(0),
                 in.extent(1),

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -25,6 +25,7 @@
 #include <raft/common/nvtx.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 
 namespace raft {
 namespace matrix {
@@ -84,6 +85,7 @@ void copy(raft::resources const& handle,
           raft::device_matrix_view<const m_t, matrix_idx_t, col_major> in,
           raft::device_matrix_view<m_t, matrix_idx_t, col_major> out)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   RAFT_EXPECTS(in.extent(0) == out.extent(0) && in.extent(1) == out.extent(1),
                "Input and output matrix shapes must match.");
 
@@ -248,6 +250,7 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
 template <typename m_t, typename idx_t = int>
 m_t getL2Norm(raft::resources const& handle, m_t* in, idx_t size, cudaStream_t stream)
 {
+  if (resource::get_dry_run_flag(handle)) { return {}; }
   return detail::getL2Norm(handle, in, size, stream);
 }
 

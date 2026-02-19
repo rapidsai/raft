@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,6 +11,7 @@
 
 #include "rng_device.cuh"
 
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -266,6 +267,8 @@ class RngImpl {
     rmm::device_uvector<WeightsT> sortedWts(len, stream);
     rmm::device_uvector<IdxT> inIdx(len, stream);
     rmm::device_uvector<IdxT> outIdxBuff(len, stream);
+
+    if (resource::get_dry_run_flag(handle)) { return; }
     auto* inIdxPtr = inIdx.data();
     // generate modified weights
     SamplingParams<WeightsT, IdxT> params;

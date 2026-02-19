@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/detail/math.cuh>
 
 namespace raft::matrix {
@@ -37,6 +38,7 @@ void reciprocal(raft::resources const& handle,
                 bool setzero = false,
                 math_t thres = 1e-15)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have the same size.");
   detail::reciprocal<math_t>(in.data_handle(),
                              out.data_handle(),
@@ -66,6 +68,7 @@ void reciprocal(raft::resources const& handle,
                 bool setzero = false,
                 math_t thres = 1e-15)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::reciprocal<math_t>(inout.data_handle(),
                              *(scalar.data_handle()),
                              inout.size(),

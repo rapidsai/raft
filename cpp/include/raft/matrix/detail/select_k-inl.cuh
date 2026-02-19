@@ -14,6 +14,7 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/matrix/select_k_types.hpp>
 
@@ -124,6 +125,8 @@ void segmented_sort_by_key(raft::resources const& handle,
 
   auto d_temp_storage = raft::make_device_mdarray<char, size_t>(
     handle, mr, raft::make_extents<size_t>(temp_storage_bytes));
+
+  if (resource::get_dry_run_flag(handle)) { return; }
 
   if (asc) {
     // Run sorting operation
