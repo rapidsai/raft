@@ -8,8 +8,8 @@ The dry run protocol lets callers estimate an algorithm's memory footprint witho
 #include <raft/util/dry_run_memory_resource.hpp>
 
 raft::resources res;
-// auto function(const raft::resources& res, my_args...);
-auto stats = dry_run_execute(res, my_function, my_args...);
+// auto my_function(const raft::resources& res, my_args...);
+auto stats = raft::util::dry_run_execute(res, my_function, my_args...);
 // stats.device_global_peak  – peak device memory (bytes)
 ```
 
