@@ -7,11 +7,15 @@
 
 #include "test_utils.h"
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/dry_run_memory_resource.hpp>
 
 #include <rmm/exec_policy.hpp>
+#include <rmm/mr/statistics_resource_adaptor.hpp>
 
 #include <cuda/iterator>
 #include <thrust/for_each.h>
@@ -325,6 +329,43 @@ inline std::vector<float> read_csv(std::string filename, bool skip_first_n_colum
   printf("lines read: %d\n", n_lines);
   myFile.close();
   return result;
+}
+
+/**
+ * @brief Execute an action and check dry-run protocol compliance.
+ *
+ * Runs @p action once in dry-run mode (via dry_run_execute) to record predicted
+ * allocations, then runs it for real behind an rmm::mr::statistics_resource_adaptor
+ * to record actual allocations.  Asserts the two peak values match and that
+ * the allocation is (or isn't) zero as indicated by @p expect_alloc.
+ *
+ * @tparam Action callable with signature void(raft::resources const&)
+ */
+template <typename Action>
+void execute_with_dry_run_check(raft::resources const& res, Action&& action, bool expect_alloc)
+{
+  // I) Dry run – record predicted peak
+  auto dry_stats = raft::util::dry_run_execute(res, action);
+
+  // II) Real run – record actual peak via counting adaptor
+  auto* orig_mr = rmm::mr::get_current_device_resource();
+  rmm::mr::statistics_resource_adaptor<rmm::mr::device_memory_resource> stat_mr(orig_mr);
+  rmm::mr::set_current_device_resource(&stat_mr);
+  action(res);
+  resource::sync_stream(res);
+  rmm::mr::set_current_device_resource(orig_mr);
+
+  auto actual_peak = static_cast<std::size_t>(stat_mr.get_bytes_counter().peak);
+
+  // III) Predicted peak must equal actual peak
+  EXPECT_EQ(dry_stats.device_global_peak, actual_peak);
+
+  // IV) Check expected allocation direction
+  if (expect_alloc) {
+    EXPECT_GT(dry_stats.device_global_peak, std::size_t{0});
+  } else {
+    EXPECT_EQ(dry_stats.device_global_peak, std::size_t{0});
+  }
 }
 
 };  // end namespace raft

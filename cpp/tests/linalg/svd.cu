@@ -85,11 +85,16 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
       std::make_optional(raft::make_device_matrix_view<T, int, raft::col_major>(
         right_eig_vectors_trans_qr.data(), params.n_col, params.n_col));
 
-    svd_qr_transpose_right_vec(handle,
-                               data_view,
-                               sing_vals_qr_view,
-                               left_eig_vectors_qr_view,
-                               right_eig_vectors_trans_qr_view);
+    raft::execute_with_dry_run_check(
+      handle,
+      [&](raft::resources const& h) {
+        svd_qr_transpose_right_vec(h,
+                                   data_view,
+                                   sing_vals_qr_view,
+                                   left_eig_vectors_qr_view,
+                                   right_eig_vectors_trans_qr_view);
+      },
+      true);
     resource::sync_stream(handle, stream);
   }
 
@@ -219,7 +224,7 @@ TEST(SvdDryRun, QrWithBothVectors)
   });
 
   EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
-  EXPECT_GT(stats.device_global_peak, 0);
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
 }
 
 TEST(SvdDryRun, QrWithOnlyU)
@@ -237,7 +242,7 @@ TEST(SvdDryRun, QrWithOnlyU)
   });
 
   EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
-  EXPECT_GT(stats.device_global_peak, 0);
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
 }
 
 TEST(SvdDryRun, QrWithOnlyV)
@@ -255,7 +260,7 @@ TEST(SvdDryRun, QrWithOnlyV)
   });
 
   EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
-  EXPECT_GT(stats.device_global_peak, 0);
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
 }
 
 TEST(SvdDryRun, QrTransposeRightVecWithBothVectors)
@@ -274,7 +279,7 @@ TEST(SvdDryRun, QrTransposeRightVecWithBothVectors)
   });
 
   EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
-  EXPECT_GT(stats.device_global_peak, 0);
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
 }
 
 TEST(SvdDryRun, EigWithBothVectors)
@@ -292,7 +297,7 @@ TEST(SvdDryRun, EigWithBothVectors)
   });
 
   EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
-  EXPECT_GT(stats.device_global_peak, 0);
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
 }
 
 TEST(SvdDryRun, EigWithOnlyV)
@@ -310,7 +315,7 @@ TEST(SvdDryRun, EigWithOnlyV)
   });
 
   EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
-  EXPECT_GT(stats.device_global_peak, 0);
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
 }
 
 TEST(SvdDryRun, Reconstruction)
@@ -332,7 +337,7 @@ TEST(SvdDryRun, Reconstruction)
   });
 
   EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
-  EXPECT_GT(stats.device_global_peak, 0);
+  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device memory allocation";
 }
 
 }  // end namespace linalg

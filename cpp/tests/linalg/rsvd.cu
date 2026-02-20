@@ -125,22 +125,27 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     auto S_vec_view = raft::make_device_vector_view(S.data(), params.k);
 
     // RSVD tests
-    if (params.k == 0) {  // Test with PC and upsampling ratio
-      if (params.use_bbt) {
-        rsvd_perc_symmetric(
-          handle, A_view, S_vec_view, params.PC_perc, params.UpS_perc, U_view, V_view);
-      } else {
-        rsvd_perc(handle, A_view, S_vec_view, params.PC_perc, params.UpS_perc, U_view, V_view);
-      }
-    } else {  // Test with directly given fixed rank
-      if (params.use_bbt) {
-        rsvd_fixed_rank_symmetric_jacobi(
-          handle, A_view, S_vec_view, params.p, eig_svd_tol, max_sweeps, U_view, V_view);
-      } else {
-        rsvd_fixed_rank_jacobi(
-          handle, A_view, S_vec_view, params.p, eig_svd_tol, max_sweeps, U_view, V_view);
-      }
-    }
+    raft::execute_with_dry_run_check(
+      handle,
+      [&](raft::resources const& h) {
+        if (params.k == 0) {  // Test with PC and upsampling ratio
+          if (params.use_bbt) {
+            rsvd_perc_symmetric(
+              h, A_view, S_vec_view, params.PC_perc, params.UpS_perc, U_view, V_view);
+          } else {
+            rsvd_perc(h, A_view, S_vec_view, params.PC_perc, params.UpS_perc, U_view, V_view);
+          }
+        } else {  // Test with directly given fixed rank
+          if (params.use_bbt) {
+            rsvd_fixed_rank_symmetric_jacobi(
+              h, A_view, S_vec_view, params.p, eig_svd_tol, max_sweeps, U_view, V_view);
+          } else {
+            rsvd_fixed_rank_jacobi(
+              h, A_view, S_vec_view, params.p, eig_svd_tol, max_sweeps, U_view, V_view);
+          }
+        }
+      },
+      true);
     raft::update_device(A.data(), A_backup_cpu.data(), m * n, stream);
   }
 

@@ -40,9 +40,12 @@ void qrGetQ_inplace(
 {
   RAFT_EXPECTS(n_rows >= n_cols, "QR decomposition expects n_rows >= n_cols.");
   cusolverDnHandle_t cusolver = resource::get_cusolver_dn_handle(handle);
+  auto is_dry_run             = resource::get_dry_run_flag(handle);
 
   rmm::device_uvector<math_t> tau(n_cols, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * n_cols, stream));
+  if (!is_dry_run) {
+    RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * n_cols, stream));
+  }
 
   rmm::device_scalar<int> dev_info(stream);
   int ws_size_Dngeqrf;
@@ -55,7 +58,7 @@ void qrGetQ_inplace(
 
   rmm::device_uvector<math_t> workspace(std::max(ws_size_Dngeqrf, ws_size_Dnorgqr), stream);
 
-  if (resource::get_dry_run_flag(handle)) { return; }
+  if (is_dry_run) { return; }
 
   RAFT_CUSOLVER_TRY(cusolverDngeqrf(cusolver,
                                     n_rows,
