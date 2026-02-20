@@ -11,8 +11,8 @@
 #include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/fast_int_div.cuh>
 
+#include <cuda/iterator>
 #include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
 
 #include <cstdint>
 
@@ -103,7 +103,7 @@ void scatterInplaceImpl(
       inout[map_val * n + batch_offset + col] = scratch_space[idx];
       return;
     };
-    auto counting = thrust::make_counting_iterator<IndexT>(0);
+    auto counting = cuda::make_counting_iterator<IndexT>(0);
     thrust::for_each(exec_policy, counting, counting + m * cols_per_batch, scatter_op);
   }
 }

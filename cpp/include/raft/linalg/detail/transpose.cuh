@@ -15,8 +15,8 @@
 
 #include <rmm/exec_policy.hpp>
 
+#include <cuda/iterator>
 #include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
 
 #include <cmath>
 
@@ -170,7 +170,7 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
   auto m        = n;
   auto size     = n * n;
   auto d_inout  = inout;
-  auto counting = thrust::make_counting_iterator<int>(0);
+  auto counting = cuda::make_counting_iterator<int>(0);
 
   thrust::for_each(rmm::exec_policy(stream), counting, counting + size, [=] __device__(int idx) {
     int s_row = idx % m;

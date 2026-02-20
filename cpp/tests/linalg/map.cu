@@ -17,9 +17,9 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/iterator>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
-#include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
 
 #include <gtest/gtest.h>
@@ -339,8 +339,8 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
       // Use thrust to create reference for KVP type
       auto policy = thrust::cuda::par.on(stream);
       thrust::transform(policy,
-                        thrust::counting_iterator<IdxType>(0),
-                        thrust::counting_iterator<IdxType>(len),
+                        cuda::counting_iterator<IdxType>(0),
+                        cuda::counting_iterator<IdxType>(len),
                         thrust::device_pointer_cast(out_ref.data()),
                         op);
 

@@ -15,9 +15,9 @@
 
 #include <rmm/exec_policy.hpp>
 
+#include <cuda/iterator>
 #include <cuda_runtime.h>
 #include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
 
 #include <cusolverDn.h>
 
@@ -47,7 +47,7 @@ void copyRows(const m_t* in,
   }
 
   idx_t size    = n_rows_indices * n_cols;
-  auto counting = thrust::make_counting_iterator<idx_t>(0);
+  auto counting = cuda::make_counting_iterator<idx_t>(0);
 
   thrust::for_each(rmm::exec_policy(stream), counting, counting + size, [=] __device__(idx_t idx) {
     idx_t row = idx % n_rows_indices;
@@ -66,7 +66,7 @@ void truncZeroOrigin(
   idx_t size     = out_n_rows * out_n_cols;
   auto d_q       = in;
   auto d_q_trunc = out;
-  auto counting  = thrust::make_counting_iterator<idx_t>(0);
+  auto counting  = cuda::make_counting_iterator<idx_t>(0);
 
   thrust::for_each(rmm::exec_policy(stream), counting, counting + size, [=] __device__(idx_t idx) {
     idx_t row                = idx % m;
@@ -83,7 +83,7 @@ void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
   idx_t size        = n_rows * n_cols;
   auto d_q          = inout;
   auto d_q_reversed = inout;
-  auto counting     = thrust::make_counting_iterator<idx_t>(0);
+  auto counting     = cuda::make_counting_iterator<idx_t>(0);
 
   thrust::for_each(
     rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
@@ -104,7 +104,7 @@ void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
   idx_t size        = n_rows * n_cols;
   auto d_q          = inout;
   auto d_q_reversed = inout;
-  auto counting     = thrust::make_counting_iterator<idx_t>(0);
+  auto counting     = cuda::make_counting_iterator<idx_t>(0);
 
   thrust::for_each(
     rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
