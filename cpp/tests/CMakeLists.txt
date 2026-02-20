@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -162,6 +162,7 @@ if(BUILD_TESTS)
     linalg/multiply.cu
     linalg/norm.cu
     linalg/normalize.cu
+    linalg/pca.cu
     linalg/power.cu
     linalg/randomized_svd.cu
     linalg/reduce.cu
@@ -174,6 +175,7 @@ if(BUILD_TESTS)
     linalg/svd.cu
     linalg/ternary_op.cu
     linalg/transpose.cu
+    linalg/tsvd.cu
     linalg/unary_op.cu
     GPUS
     1
