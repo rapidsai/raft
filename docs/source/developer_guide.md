@@ -311,6 +311,8 @@ To keep the dry run mode functional, the developers must follow the protocol:
 - Any other expensive function or any function involving CUDA-calls must be guarded by `resource::get_dry_run_flag(res)`
 - Allocations through rmm or raft memory resources must NOT be guarded to accurately track the allocation statistics.
 
+See the full [Dry Run Protocol](dry_run_protocol.md) guide for rules, patterns, and common mistakes.
+
 ## Header organization of expensive function templates
 
 RAFT is a heavily templated library. Several core functions are expensive to compile and we want to prevent duplicate compilation of this functionality. To limit build time, RAFT provides a precompiled library (libraft.so) where expensive function templates are instantiated for the most commonly used template parameters. To prevent (1) accidental instantiation of these templates and (2) unnecessary dependency on the internals of these templates, we use a split header structure and define macros to control template instantiation. This section describes the macros and header structure.
