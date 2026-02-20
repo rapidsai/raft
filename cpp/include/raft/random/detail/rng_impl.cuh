@@ -393,20 +393,18 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
   // There is a variance of n_excess_samples, we take 10% more elements.
   n_excess_samples += std::max<IdxT>(0.1 * n_samples, 100);
 
+  bool dry_run = resource::get_dry_run_flag(res);
+  auto stream  = resource::get_cuda_stream(res);
+
   while (true) {
     // n_excess_sampless will be larger than N around k = 0.64*N. When we reach N, then instead of
     // doing rejection sampling, we simply shuffle the range [0..N-1] using N random numbers.
     n_excess_samples = std::min<IdxT>(n_excess_samples, N);
     auto rnd_idx     = raft::make_device_vector<IdxT, IdxT>(res, n_excess_samples);
+    auto linear_idx  = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
 
-    auto linear_idx = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
-    raft::linalg::map_offset(res, linear_idx.view(), identity_op());
-
-    uniformInt(res, state, rnd_idx.data_handle(), rnd_idx.size(), IdxT(0), IdxT(N));
-
-    // Sort indices according to rnd keys
+    // Workspace size queries (safe with nullptr)
     size_t workspace_size = 0;
-    auto stream           = resource::get_cuda_stream(res);
     cub::DeviceMergeSort::SortPairs(nullptr,
                                     workspace_size,
                                     rnd_idx.data_handle(),
@@ -414,7 +412,30 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
                                     rnd_idx.size(),
                                     raft::less_op{},
                                     stream);
+
+    auto keys_out   = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
+    auto values_out = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
+    rmm::device_scalar<IdxT> num_selected(stream);
+    size_t worksize2 = 0;
+    cub::DeviceSelect::UniqueByKey(nullptr,
+                                   worksize2,
+                                   rnd_idx.data_handle(),
+                                   linear_idx.data_handle(),
+                                   keys_out.data_handle(),
+                                   values_out.data_handle(),
+                                   num_selected.data(),
+                                   rnd_idx.size(),
+                                   stream);
+
+    workspace_size = std::max(workspace_size, worksize2);
     auto workspace = raft::make_device_vector<char, IdxT>(res, workspace_size);
+
+    if (dry_run) { return raft::make_device_vector<IdxT, IdxT>(res, n_samples); }
+
+    raft::linalg::map_offset(res, linear_idx.view(), identity_op());
+    uniformInt(res, state, rnd_idx.data_handle(), rnd_idx.size(), IdxT(0), IdxT(N));
+
+    // Sort indices according to rnd keys
     cub::DeviceMergeSort::SortPairs(workspace.data_handle(),
                                     workspace_size,
                                     rnd_idx.data_handle(),
@@ -433,25 +454,6 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
     }
     // Else we do a rejection sampling (or excess sampling): we generated more random indices than
     // needed and reject the duplicates.
-    auto keys_out   = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
-    auto values_out = raft::make_device_vector<IdxT, IdxT>(res, rnd_idx.size());
-    rmm::device_scalar<IdxT> num_selected(stream);
-    size_t worksize2 = 0;
-    cub::DeviceSelect::UniqueByKey(nullptr,
-                                   worksize2,
-                                   rnd_idx.data_handle(),
-                                   linear_idx.data_handle(),
-                                   keys_out.data_handle(),
-                                   values_out.data_handle(),
-                                   num_selected.data(),
-                                   rnd_idx.size(),
-                                   stream);
-
-    if (worksize2 > workspace.size()) {
-      workspace      = raft::make_device_vector<char, IdxT>(res, worksize2);
-      workspace_size = workspace.size();
-    }
-
     cub::DeviceSelect::UniqueByKey(workspace.data_handle(),
                                    workspace_size,
                                    rnd_idx.data_handle(),
