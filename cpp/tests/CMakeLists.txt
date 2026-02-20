@@ -320,6 +320,7 @@ if(BUILD_TESTS)
     util/pow2_utils.cu
     util/reduction.cu
     util/dry_run_memory_resource.cpp
+    util/dry_run_guards.cu
   )
 endif()
 
