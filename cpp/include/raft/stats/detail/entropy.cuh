@@ -47,44 +47,33 @@ struct entropyOp {
  * @tparam LabelT: type of the labels
  * @param dry_run: whether to run in dry-run mode
  * @param labels: the pointer to the array containing labels for every data sample
- * @param binCountArray: pointer to the 1D array that contains the count of samples per cluster
+ * @param binCountArray: pointer to the 1D array that contains the count of samples per cluster.
+ *                       Can be nullptr when workspace is nullptr (for size query).
  * @param nRows: number of data samples
  * @param lowerLabelRange
  * @param upperLabelRange
- * @param workspace: device buffer containing workspace memory
+ * @param workspace: device buffer containing workspace memory. Pass nullptr to query workspace
+ * size.
+ * @param workspace_size: [in/out] When workspace is nullptr, this is set to the required workspace
+ * size. When workspace is not nullptr, this must be the size of the workspace.
  * @param stream: the cuda stream where to launch this kernel
  */
 template <typename LabelT>
-void countLabels(bool dry_run,
-                 const LabelT* labels,
+void countLabels(const LabelT* labels,
                  double* binCountArray,
                  int nRows,
                  LabelT lowerLabelRange,
                  LabelT upperLabelRange,
-                 rmm::device_uvector<char>& workspace,
+                 void* workspace,
+                 size_t& workspace_size,
                  cudaStream_t stream)
 {
-  int num_levels            = upperLabelRange - lowerLabelRange + 2;
-  LabelT lower_level        = lowerLabelRange;
-  LabelT upper_level        = upperLabelRange + 1;
-  size_t temp_storage_bytes = 0;
+  int num_levels     = upperLabelRange - lowerLabelRange + 2;
+  LabelT lower_level = lowerLabelRange;
+  LabelT upper_level = upperLabelRange + 1;
 
-  RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(nullptr,
-                                                    temp_storage_bytes,
-                                                    labels,
-                                                    binCountArray,
-                                                    num_levels,
-                                                    lower_level,
-                                                    upper_level,
-                                                    nRows,
-                                                    stream));
-
-  workspace.resize(temp_storage_bytes, stream);
-
-  if (dry_run) { return; }
-
-  RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(workspace.data(),
-                                                    temp_storage_bytes,
+  RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(workspace,
+                                                    workspace_size,
                                                     labels,
                                                     binCountArray,
                                                     num_levels,
@@ -126,14 +115,30 @@ double entropy(bool dry_run,
   rmm::device_scalar<double> d_entropy(stream);
   if (!dry_run) { RAFT_CUDA_TRY(cudaMemsetAsync(d_entropy.data(), 0, sizeof(double), stream)); }
 
+  // Query workspace size for countLabels (can run in dry-run)
+  size_t countLabels_ws_size = 0;
+  countLabels(clusterArray,
+              nullptr,
+              size,
+              lowerLabelRange,
+              upperLabelRange,
+              nullptr,
+              countLabels_ws_size,
+              stream);
   // workspace allocation
-  rmm::device_uvector<char> workspace(1, stream);
-
-  // calculating the bincounts and populating the prob array
-  countLabels(
-    dry_run, clusterArray, prob.data(), size, lowerLabelRange, upperLabelRange, workspace, stream);
+  rmm::device_uvector<char> workspace(countLabels_ws_size, stream);
 
   if (dry_run) { return 0.0; }
+
+  // calculating the bincounts and populating the prob array
+  countLabels(clusterArray,
+              prob.data(),
+              size,
+              lowerLabelRange,
+              upperLabelRange,
+              workspace.data(),
+              countLabels_ws_size,
+              stream);
 
   // scalar dividing by size
   raft::linalg::divideScalar<double>(

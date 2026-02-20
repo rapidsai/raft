@@ -121,76 +121,72 @@ double compute_adjusted_rand_index(bool dry_run,
     // 1 or 0 labels always have a perfect score. This also matches sklearn behavior.
     return 1.0;
   }
+  // Upper bound: worst case is each sample is a unique class
+  auto nClassesUpperBound = size;
+  T lowerLabelRange, upperLabelRange;
+  MathT nUniqClasses;
   if (dry_run) {
-    // Upper bound on total extra allocations in terms of `size`.
-    // The label range nClasses = maxLabel - minLabel + 1 is bounded by `size`
-    // (at most `size` distinct labels with contiguous labeling).
-    //
-    // Allocations (all alive simultaneously):
-    //   dContingencyMatrix:  nClasses^2 * sizeof(MathT)  <=  size^2 * sizeof(MathT)
-    //   a, b:                2 * nClasses * sizeof(MathT) <=  2 * size * sizeof(MathT)
-    //   d_aCTwoSum, d_bCTwoSum, d_nChooseTwoSum:             3 * sizeof(MathT)
-    //   workspaceBuff (SORT_AND_GATOMICS worst case):
-    //     staging:  2 * alignTo(size * sizeof(T), 256)  <=  2 * size * sizeof(T) + 512
-    //     CUB tmp:  <= size * sizeof(T)
-    //
-    // Total <= (size^2 + 2*size + 3) * sizeof(MathT) + 3*size*sizeof(T) + 512
-    // NB: this is a very generous bound, as nClasses is probably much smaller that the size.
-    auto n                 = static_cast<size_t>(size);
-    auto alloc_upper_bound = (n * n + 2 * n + 3) * sizeof(MathT) + 3 * n * sizeof(T) + 512;
-    rmm::device_uvector<uint8_t> dry_run_alloc(alloc_upper_bound, stream);
-    return 0.0;
+    // Use upper bound for allocations in dry-run mode
+    nUniqClasses    = MathT(nClassesUpperBound);
+    lowerLabelRange = T(0);
+    upperLabelRange = T(nClassesUpperBound - 1);
+  } else {
+    T minFirst, maxFirst, minSecond, maxSecond;
+    auto nUniqFirst  = countUnique(firstClusterArray, size, minFirst, maxFirst, stream);
+    auto nUniqSecond = countUnique(secondClusterArray, size, minSecond, maxSecond, stream);
+    lowerLabelRange  = std::min(minFirst, minSecond);
+    upperLabelRange  = std::max(maxFirst, maxSecond);
+    auto nClasses    = upperLabelRange - lowerLabelRange + 1;
+    // degenerate case of single cluster or clusters each with just one element
+    if (nUniqFirst == nUniqSecond) {
+      if (nUniqFirst == 1 || nUniqFirst == size) return 1.0;
+    }
+    nUniqClasses = MathT(nClasses);
   }
-  T minFirst, maxFirst, minSecond, maxSecond;
-  auto nUniqFirst      = countUnique(firstClusterArray, size, minFirst, maxFirst, stream);
-  auto nUniqSecond     = countUnique(secondClusterArray, size, minSecond, maxSecond, stream);
-  auto lowerLabelRange = std::min(minFirst, minSecond);
-  auto upperLabelRange = std::max(maxFirst, maxSecond);
-  auto nClasses        = upperLabelRange - lowerLabelRange + 1;
-  // degenerate case of single cluster or clusters each with just one element
-  if (nUniqFirst == nUniqSecond) {
-    if (nUniqFirst == 1 || nUniqFirst == size) return 1.0;
-  }
-  auto nUniqClasses = MathT(nClasses);
   rmm::device_uvector<MathT> dContingencyMatrix(nUniqClasses * nUniqClasses, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(
-    dContingencyMatrix.data(), 0, nUniqClasses * nUniqClasses * sizeof(MathT), stream));
   auto workspaceSz = getContingencyMatrixWorkspaceSize<T, MathT>(
-    size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
+    dry_run, size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
   rmm::device_uvector<char> workspaceBuff(workspaceSz, stream);
-  contingencyMatrix<T, MathT>(firstClusterArray,
-                              secondClusterArray,
-                              size,
-                              dContingencyMatrix.data(),
-                              stream,
-                              workspaceBuff.data(),
-                              workspaceSz,
-                              lowerLabelRange,
-                              upperLabelRange);
+  if (!dry_run) {
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      dContingencyMatrix.data(), 0, nUniqClasses * nUniqClasses * sizeof(MathT), stream));
+    contingencyMatrix<T, MathT>(firstClusterArray,
+                                secondClusterArray,
+                                size,
+                                dContingencyMatrix.data(),
+                                stream,
+                                workspaceBuff.data(),
+                                workspaceSz,
+                                lowerLabelRange,
+                                upperLabelRange);
+  }
   rmm::device_uvector<MathT> a(nUniqClasses, stream);
   rmm::device_uvector<MathT> b(nUniqClasses, stream);
   rmm::device_scalar<MathT> d_aCTwoSum(stream);
   rmm::device_scalar<MathT> d_bCTwoSum(stream);
   rmm::device_scalar<MathT> d_nChooseTwoSum(stream);
   MathT h_aCTwoSum, h_bCTwoSum, h_nChooseTwoSum;
-  RAFT_CUDA_TRY(cudaMemsetAsync(a.data(), 0, nUniqClasses * sizeof(MathT), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(b.data(), 0, nUniqClasses * sizeof(MathT), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(d_aCTwoSum.data(), 0, sizeof(MathT), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(d_bCTwoSum.data(), 0, sizeof(MathT), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(MathT), stream));
-  // calculating the sum of NijC2
-  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_nChooseTwoSum.data(),
-                                                      nUniqClasses * nUniqClasses,
-                                                      nCTwo<MathT>(),
-                                                      stream,
-                                                      dContingencyMatrix.data(),
-                                                      dContingencyMatrix.data());
+  if (!dry_run) {
+    RAFT_CUDA_TRY(cudaMemsetAsync(a.data(), 0, nUniqClasses * sizeof(MathT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(b.data(), 0, nUniqClasses * sizeof(MathT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_aCTwoSum.data(), 0, sizeof(MathT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_bCTwoSum.data(), 0, sizeof(MathT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(MathT), stream));
+    // calculating the sum of NijC2
+    raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_nChooseTwoSum.data(),
+                                                        nUniqClasses * nUniqClasses,
+                                                        nCTwo<MathT>(),
+                                                        stream,
+                                                        dContingencyMatrix.data(),
+                                                        dContingencyMatrix.data());
+  }
   // calculating the row-wise sums
-  raft::linalg::reduce<true, true, MathT, MathT>(
-    a.data(), dContingencyMatrix.data(), nUniqClasses, nUniqClasses, 0, stream);
+  raft::linalg::detail::reduce<true, true, MathT, MathT>(
+    dry_run, a.data(), dContingencyMatrix.data(), nUniqClasses, nUniqClasses, 0, stream);
   // calculating the column-wise sums
-  raft::linalg::reduce<true, false, MathT, MathT>(
-    b.data(), dContingencyMatrix.data(), nUniqClasses, nUniqClasses, 0, stream);
+  raft::linalg::detail::reduce<true, false, MathT, MathT>(
+    dry_run, b.data(), dContingencyMatrix.data(), nUniqClasses, nUniqClasses, 0, stream);
+  if (dry_run) { return 0.0; }
   // calculating the sum of number of unordered pairs for every element in a
   raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(
     d_aCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, a.data(), a.data());

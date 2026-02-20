@@ -28,7 +28,7 @@ namespace stats {
 template <typename math_t>
 float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, cudaStream_t stream)
 {
-  return detail::accuracy_score(predictions, ref_predictions, n, stream);
+  return detail::accuracy_score(false, predictions, ref_predictions, n, stream);
 }
 
 /**
@@ -50,19 +50,12 @@ float accuracy(raft::resources const& handle,
                raft::device_vector_view<const value_t, idx_t> predictions,
                raft::device_vector_view<const value_t, idx_t> ref_predictions)
 {
-  if (resource::get_dry_run_flag(handle)) {
-    // detail::accuracy_score allocates this, but we can't pass 'dry-run' to it, because it doesn't
-    // accept raft::resources handle.
-    // We can't change the signature of it, because the overload above uses it too.
-    [[maybe_unused]] rmm::device_uvector<value_t> diffs_array(predictions.extent(0),
-                                                              resource::get_cuda_stream(handle));
-    return 0;
-  }
   RAFT_EXPECTS(predictions.size() == ref_predictions.size(), "Size mismatch");
   RAFT_EXPECTS(predictions.is_exhaustive(), "predictions must be contiguous");
   RAFT_EXPECTS(ref_predictions.is_exhaustive(), "ref_predictions must be contiguous");
 
-  return detail::accuracy_score(predictions.data_handle(),
+  return detail::accuracy_score(resource::get_dry_run_flag(handle),
+                                predictions.data_handle(),
                                 ref_predictions.data_handle(),
                                 predictions.extent(0),
                                 resource::get_cuda_stream(handle));
