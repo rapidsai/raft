@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include "rmat_rectangular_generator_types.cuh"
 
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
@@ -204,6 +205,7 @@ void rmat_rectangular_gen_impl(raft::resources const& handle,
                                IdxT r_scale,
                                IdxT c_scale)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   static_assert(std::is_integral_v<IdxT>,
                 "rmat_rectangular_gen: "
                 "Template parameter IdxT must be an integral type");
@@ -259,6 +261,7 @@ void rmat_rectangular_gen_impl(raft::resources const& handle,
                                IdxT r_scale,
                                IdxT c_scale)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   static_assert(std::is_integral_v<IdxT>,
                 "rmat_rectangular_gen: "
                 "Template parameter IdxT must be an integral type");

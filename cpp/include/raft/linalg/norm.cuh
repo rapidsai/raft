@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __NORM_H
@@ -14,6 +14,7 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/types.hpp>
 #include <raft/linalg/norm_types.hpp>
 #include <raft/util/input_validation.hpp>
@@ -54,7 +55,7 @@ void rowNorm(OutType* dots,
              cudaStream_t stream,
              Lambda fin_op = raft::identity_op())
 {
-  detail::rowNormCaller<norm_type, rowMajor>(dots, data, D, N, stream, fin_op);
+  detail::rowNormCaller<norm_type, rowMajor>(false, dots, data, D, N, stream, fin_op);
 }
 
 /**
@@ -85,7 +86,7 @@ void colNorm(OutType* dots,
              cudaStream_t stream,
              Lambda fin_op = raft::identity_op())
 {
-  detail::colNormCaller<norm_type, rowMajor>(dots, data, D, N, stream, fin_op);
+  detail::colNormCaller<norm_type, rowMajor>(false, dots, data, D, N, stream, fin_op);
 }
 
 /**
@@ -128,21 +129,23 @@ void norm(raft::resources const& handle,
   if constexpr (along_rows) {
     RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(0),
                  "Output should be equal to number of rows in Input");
-    rowNorm<norm_type, row_major>(out.data_handle(),
-                                  in.data_handle(),
-                                  in.extent(1),
-                                  in.extent(0),
-                                  resource::get_cuda_stream(handle),
-                                  fin_op);
+    detail::rowNormCaller<norm_type, row_major>(resource::get_dry_run_flag(handle),
+                                                out.data_handle(),
+                                                in.data_handle(),
+                                                in.extent(1),
+                                                in.extent(0),
+                                                resource::get_cuda_stream(handle),
+                                                fin_op);
   } else {
     RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(1),
                  "Output should be equal to number of columns in Input");
-    colNorm<norm_type, row_major>(out.data_handle(),
-                                  in.data_handle(),
-                                  in.extent(1),
-                                  in.extent(0),
-                                  resource::get_cuda_stream(handle),
-                                  fin_op);
+    detail::colNormCaller<norm_type, row_major>(resource::get_dry_run_flag(handle),
+                                                out.data_handle(),
+                                                in.data_handle(),
+                                                in.extent(1),
+                                                in.extent(0),
+                                                resource::get_cuda_stream(handle),
+                                                fin_op);
   }
 }
 

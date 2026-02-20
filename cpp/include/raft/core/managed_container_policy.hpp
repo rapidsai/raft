@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -9,18 +9,15 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/core/resource/managed_memory_resource.hpp>
 #include <raft/util/cudart_utils.hpp>
-
-#include <rmm/mr/managed_memory_resource.hpp>
 
 namespace raft {
 /**
  * @brief A container policy for managed mdarray.
  */
 template <typename ElementType>
-class managed_uvector_policy {
- public:
+struct managed_uvector_policy {
   using element_type    = ElementType;
   using container_type  = device_uvector<element_type>;
   using pointer         = typename container_type::pointer;
@@ -33,7 +30,8 @@ class managed_uvector_policy {
 
   auto create(raft::resources const& res, size_t n) -> container_type
   {
-    return container_type(n, resource::get_cuda_stream(res), mr_);
+    return container_type(
+      n, resource::get_cuda_stream(res), raft::resource::get_managed_memory_resource(res));
   }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
@@ -48,14 +46,6 @@ class managed_uvector_policy {
 
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
-
- private:
-  static auto* get_default_memory_resource()
-  {
-    auto static result = rmm::mr::managed_memory_resource{};
-    return &result;
-  }
-  rmm::mr::managed_memory_resource* mr_{get_default_memory_resource()};
 };
 
 }  // namespace raft

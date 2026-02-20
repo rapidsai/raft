@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,6 +10,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/custom_resource.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/util/bitonic_sort.cuh>
 #include <raft/util/cache.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -1035,7 +1036,8 @@ void calc_launch_parameter(raft::resources const& res,
 }
 
 template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename IdxT>
-void select_k_(int num_of_block,
+void select_k_(bool dry_run,
+               int num_of_block,
                int num_of_warp,
                const T* in,
                const IdxT* in_idx,
@@ -1051,6 +1053,7 @@ void select_k_(int num_of_block,
 {
   rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream, mr);
   rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream, mr);
+  if (dry_run) { return; }
 
   int capacity   = bound_by_power_of_two(k);
   int warp_width = std::min(capacity, WarpSize);
@@ -1111,7 +1114,8 @@ void select_k_impl(raft::resources const& res,
   calc_launch_parameter<WarpSortClass, T, IdxT>(
     res, batch_size, len, k, &num_of_block, &num_of_warp);
 
-  select_k_<WarpSortClass, T, IdxT>(num_of_block,
+  select_k_<WarpSortClass, T, IdxT>(resource::get_dry_run_flag(res),
+                                    num_of_block,
                                     num_of_warp,
                                     in,
                                     in_idx,
@@ -1176,6 +1180,7 @@ void select_k(raft::resources const& res,
               bool select_min,
               const IdxT* in_indptr = nullptr)
 {
+  if (resource::get_dry_run_flag(res)) { return; }
   ASSERT(k <= kMaxCapacity, "Current max k is %d (requested %d)", kMaxCapacity, k);
   ASSERT(len <= size_t(std::numeric_limits<IdxT>::max()),
          "The `len` (%zu) does not fit the indexing type",
@@ -1189,7 +1194,8 @@ void select_k(raft::resources const& res,
   int len_per_thread = len / (num_of_block * num_of_warp * std::min(capacity, WarpSize));
 
   if (len_per_thread <= LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing) {
-    select_k_<warp_sort_immediate, T, IdxT>(num_of_block,
+    select_k_<warp_sort_immediate, T, IdxT>(resource::get_dry_run_flag(res),
+                                            num_of_block,
                                             num_of_warp,
                                             in,
                                             in_idx,
@@ -1205,7 +1211,8 @@ void select_k(raft::resources const& res,
   } else {
     calc_launch_parameter<warp_sort_filtered, T, IdxT>(
       res, batch_size, len, k, &num_of_block, &num_of_warp);
-    select_k_<warp_sort_filtered, T, IdxT>(num_of_block,
+    select_k_<warp_sort_filtered, T, IdxT>(resource::get_dry_run_flag(res),
+                                           num_of_block,
                                            num_of_warp,
                                            in,
                                            in_idx,

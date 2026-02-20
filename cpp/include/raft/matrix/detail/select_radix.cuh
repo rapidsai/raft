@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,6 +11,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/device_properties.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
@@ -871,7 +872,8 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
 }
 
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr>
-void radix_topk(const T* in,
+void radix_topk(bool dry_run,
+                const T* in,
                 const IdxT* in_idx,
                 int batch_size,
                 IdxT len,
@@ -904,6 +906,8 @@ void radix_topk(const T* in,
   rmm::device_uvector<IdxT> histograms(max_chunk_size * num_buckets, stream, mr);
 
   rmm::device_buffer bufs(max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
+
+  if (dry_run) { return; }
 
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size = std::min(max_chunk_size, batch_size - offset);
@@ -1151,7 +1155,8 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
 // used. It's used when len is relatively small or when the number of blocks per row calculated by
 // `calc_grid_dim()` is 1.
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr>
-void radix_topk_one_block(const T* in,
+void radix_topk_one_block(bool dry_run,
+                          const T* in,
                           const IdxT* in_idx,
                           int batch_size,
                           IdxT len,
@@ -1172,6 +1177,8 @@ void radix_topk_one_block(const T* in,
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, true);
 
   rmm::device_buffer bufs(max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
+
+  if (dry_run) { return; }
 
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size          = std::min(max_chunk_size, batch_size - offset);
@@ -1270,9 +1277,11 @@ void select_k(raft::resources const& res,
   RAFT_EXPECTS(!(!len_or_indptr && (len_i == nullptr)),
                "When `len_or_indptr` is false, `len_i` must not be nullptr!");
 
-  auto stream = resource::get_cuda_stream(res);
-  auto mr     = resource::get_workspace_resource(res);
+  bool dry_run = resource::get_dry_run_flag(res);
+  auto stream  = resource::get_cuda_stream(res);
+  auto mr      = resource::get_workspace_resource(res);
   if (k == len && len_or_indptr) {
+    if (dry_run) { return; }
     RAFT_CUDA_TRY(
       cudaMemcpyAsync(out, in, sizeof(T) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
     if (in_idx) {
@@ -1292,15 +1301,27 @@ void select_k(raft::resources const& res,
 
   if (len <= BlockSize * items_per_thread) {
     impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
+      dry_run, in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
   } else {
     unsigned grid_dim =
       impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt);
     if (grid_dim == 1) {
-      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
+      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(dry_run,
+                                                                                 in,
+                                                                                 in_idx,
+                                                                                 batch_size,
+                                                                                 len,
+                                                                                 k,
+                                                                                 out,
+                                                                                 out_idx,
+                                                                                 select_min,
+                                                                                 len_i,
+                                                                                 sm_cnt,
+                                                                                 stream,
+                                                                                 mr);
     } else {
-      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(in,
+      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(dry_run,
+                                                                       in,
                                                                        in_idx,
                                                                        batch_size,
                                                                        len,

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,6 +11,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 
 #include <cassert>
@@ -44,6 +45,7 @@ void uniform(raft::resources const& handle,
              OutputValueType start,
              OutputValueType end)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::uniform(
     rng_state, out.data_handle(), out.extent(0), start, end, resource::get_cuda_stream(handle));
 }
@@ -72,6 +74,7 @@ void uniform(raft::resources const& handle,
              OutType start,
              OutType end)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::uniform(rng_state, ptr, len, start, end, resource::get_cuda_stream(handle));
 }
 
@@ -95,6 +98,7 @@ void uniformInt(raft::resources const& handle,
                 OutputValueType start,
                 OutputValueType end)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   static_assert(
     std::is_same<OutputValueType, typename std::remove_cv<OutputValueType>::type>::value,
     "uniformInt: The output vector must be a view of nonconst, "
@@ -125,6 +129,7 @@ void uniformInt(raft::resources const& handle,
                 OutType start,
                 OutType end)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::uniformInt(rng_state, ptr, len, start, end, resource::get_cuda_stream(handle));
 }
 
@@ -149,6 +154,7 @@ void normal(raft::resources const& handle,
             OutputValueType mu,
             OutputValueType sigma)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::normal(
     rng_state, out.data_handle(), out.extent(0), mu, sigma, resource::get_cuda_stream(handle));
 }
@@ -173,6 +179,7 @@ void normal(raft::resources const& handle,
             OutType mu,
             OutType sigma)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::normal(rng_state, ptr, len, mu, sigma, resource::get_cuda_stream(handle));
 }
 
@@ -196,6 +203,7 @@ void normalInt(raft::resources const& handle,
                OutputValueType mu,
                OutputValueType sigma)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   static_assert(
     std::is_same<OutputValueType, typename std::remove_cv<OutputValueType>::type>::value,
     "normalInt: The output vector must be a view of nonconst, "
@@ -227,6 +235,7 @@ void normalInt(raft::resources const& handle,
                IntType mu,
                IntType sigma)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::normalInt(rng_state, ptr, len, mu, sigma, resource::get_cuda_stream(handle));
 }
 
@@ -259,6 +268,7 @@ void normalTable(
   std::variant<raft::device_vector_view<const OutputValueType, IndexType>, OutputValueType> sigma,
   raft::device_matrix_view<OutputValueType, IndexType, raft::row_major> out)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   const OutputValueType* sigma_vec_ptr = nullptr;
   OutputValueType sigma_value{};
 
@@ -325,6 +335,7 @@ void normalTable(raft::resources const& handle,
                  const OutType* sigma_vec,
                  OutType sigma)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::normalTable(
     rng_state, ptr, n_rows, n_cols, mu_vec, sigma_vec, sigma, resource::get_cuda_stream(handle));
 }
@@ -347,6 +358,7 @@ void fill(raft::resources const& handle,
           OutputValueType val,
           raft::device_vector_view<OutputValueType, IndexType> out)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::fill(rng_state, out.data_handle(), out.extent(0), val, resource::get_cuda_stream(handle));
 }
 
@@ -365,6 +377,7 @@ template <typename OutType, typename LenType = int>
 void fill(
   raft::resources const& handle, RngState& rng_state, OutType* ptr, LenType len, OutType val)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::fill(rng_state, ptr, len, val, resource::get_cuda_stream(handle));
 }
 
@@ -388,6 +401,7 @@ void bernoulli(raft::resources const& handle,
                raft::device_vector_view<OutputValueType, IndexType> out,
                Type prob)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::bernoulli(
     rng_state, out.data_handle(), out.extent(0), prob, resource::get_cuda_stream(handle));
 }
@@ -409,6 +423,7 @@ template <typename Type, typename OutType = bool, typename LenType = int>
 void bernoulli(
   raft::resources const& handle, RngState& rng_state, OutType* ptr, LenType len, Type prob)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::bernoulli(rng_state, ptr, len, prob, resource::get_cuda_stream(handle));
 }
 
@@ -432,6 +447,7 @@ void scaled_bernoulli(raft::resources const& handle,
                       OutputValueType prob,
                       OutputValueType scale)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::scaled_bernoulli(
     rng_state, out.data_handle(), out.extent(0), prob, scale, resource::get_cuda_stream(handle));
 }
@@ -456,6 +472,7 @@ void scaled_bernoulli(raft::resources const& handle,
                       OutType prob,
                       OutType scale)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::scaled_bernoulli(rng_state, ptr, len, prob, scale, resource::get_cuda_stream(handle));
 }
 
@@ -480,6 +497,7 @@ void gumbel(raft::resources const& handle,
             OutputValueType mu,
             OutputValueType beta)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::gumbel(
     rng_state, out.data_handle(), out.extent(0), mu, beta, resource::get_cuda_stream(handle));
 }
@@ -505,6 +523,7 @@ void gumbel(raft::resources const& handle,
             OutType mu,
             OutType beta)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::gumbel(rng_state, ptr, len, mu, beta, resource::get_cuda_stream(handle));
 }
 
@@ -528,6 +547,7 @@ void lognormal(raft::resources const& handle,
                OutputValueType mu,
                OutputValueType sigma)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::lognormal(
     rng_state, out.data_handle(), out.extent(0), mu, sigma, resource::get_cuda_stream(handle));
 }
@@ -552,6 +572,7 @@ void lognormal(raft::resources const& handle,
                OutType mu,
                OutType sigma)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::lognormal(rng_state, ptr, len, mu, sigma, resource::get_cuda_stream(handle));
 }
 
@@ -575,6 +596,7 @@ void logistic(raft::resources const& handle,
               OutputValueType mu,
               OutputValueType scale)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::logistic(
     rng_state, out.data_handle(), out.extent(0), mu, scale, resource::get_cuda_stream(handle));
 }
@@ -599,6 +621,7 @@ void logistic(raft::resources const& handle,
               OutType mu,
               OutType scale)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::logistic(rng_state, ptr, len, mu, scale, resource::get_cuda_stream(handle));
 }
 
@@ -620,6 +643,7 @@ void exponential(raft::resources const& handle,
                  raft::device_vector_view<OutputValueType, IndexType> out,
                  OutputValueType lambda)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::exponential(
     rng_state, out.data_handle(), out.extent(0), lambda, resource::get_cuda_stream(handle));
 }
@@ -639,6 +663,7 @@ template <typename OutType, typename LenType = int>
 void exponential(
   raft::resources const& handle, RngState& rng_state, OutType* ptr, LenType len, OutType lambda)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::exponential(rng_state, ptr, len, lambda, resource::get_cuda_stream(handle));
 }
 
@@ -660,6 +685,7 @@ void rayleigh(raft::resources const& handle,
               raft::device_vector_view<OutputValueType, IndexType> out,
               OutputValueType sigma)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::rayleigh(
     rng_state, out.data_handle(), out.extent(0), sigma, resource::get_cuda_stream(handle));
 }
@@ -679,6 +705,7 @@ template <typename OutType, typename LenType = int>
 void rayleigh(
   raft::resources const& handle, RngState& rng_state, OutType* ptr, LenType len, OutType sigma)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::rayleigh(rng_state, ptr, len, sigma, resource::get_cuda_stream(handle));
 }
 /**
@@ -701,6 +728,7 @@ void laplace(raft::resources const& handle,
              OutputValueType mu,
              OutputValueType scale)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::laplace(
     rng_state, out.data_handle(), out.extent(0), mu, scale, resource::get_cuda_stream(handle));
 }
@@ -725,6 +753,7 @@ void laplace(raft::resources const& handle,
              OutType mu,
              OutType scale)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   detail::laplace(rng_state, ptr, len, mu, scale, resource::get_cuda_stream(handle));
 }
 
@@ -761,7 +790,8 @@ std::enable_if_t<std::is_integral_v<OutType>> discrete(
   raft::device_vector_view<OutType, IndexType> out,
   raft::device_vector_view<const WeightType, IndexType> weights)
 {
-  detail::discrete(rng_state,
+  detail::discrete(resource::get_dry_run_flag(handle),
+                   rng_state,
                    out.data_handle(),
                    weights.data_handle(),
                    out.extent(0),
@@ -798,8 +828,15 @@ void sampleWithoutReplacement(raft::resources const& handle,
                               IdxT sampledLen,
                               IdxT len)
 {
-  detail::sampleWithoutReplacement(
-    rng_state, out, outIdx, in, wts, sampledLen, len, resource::get_cuda_stream(handle));
+  detail::sampleWithoutReplacement(resource::get_dry_run_flag(handle),
+                                   rng_state,
+                                   out,
+                                   outIdx,
+                                   in,
+                                   wts,
+                                   sampledLen,
+                                   len,
+                                   resource::get_cuda_stream(handle));
 }
 
 /** @brief Sample from range 0..N-1.
