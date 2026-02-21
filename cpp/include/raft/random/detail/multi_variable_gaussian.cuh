@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -21,6 +21,8 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/resource_ref.hpp>
+
+#include <cuda/memory_resource>
 
 #include <cmath>
 #include <cstdio>
@@ -365,7 +367,7 @@ class multi_variable_gaussian_setup_token {
  private:
   std::unique_ptr<multi_variable_gaussian_impl<ValueType>> impl_;
   raft::resources const& handle_;
-  rmm::device_async_resource_ref mem_resource_;
+  mutable cuda::mr::any_resource<cuda::mr::device_accessible> mem_resource_;
   int dim_ = 0;
 
   auto allocate_workspace() const
