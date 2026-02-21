@@ -58,8 +58,6 @@ jobs:
         with:
           repo: ${{ github.repository }}
           target-branch: ${{ fromJSON(steps.get-pr-info.outputs.pr-info).base.ref }}
-          # Tracking Issue: https://github.com/rapidsai/raft/issues/2951
-          max-days-without-success: 30
   changed-files:
     secrets: inherit
     needs: telemetry-setup
