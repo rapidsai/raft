@@ -12,7 +12,7 @@
 #include <raft/sparse/matrix/diagonal.cuh>
 #include <raft/sparse/op/sort.cuh>
 
-#include <thrust/iterator/discard_iterator.h>
+#include <cuda/iterator>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
 
@@ -209,11 +209,11 @@ device_coo_matrix<ElementType, RowType, ColType, NZType> compute_graph_laplacian
 
   // D
   thrust::reduce_by_key(raft::resource::get_thrust_policy(res),
-                        result_rows_ptr,                  // keys_first
-                        result_rows_ptr + result_nnz,     // keys_last
-                        result_values_ptr,                // values_first
-                        thrust::make_discard_iterator(),  // keys_output (discarded)
-                        degrees_ptr);                     // values_output (row sums)
+                        result_rows_ptr,                // keys_first
+                        result_rows_ptr + result_nnz,   // keys_last
+                        result_values_ptr,              // values_first
+                        cuda::make_discard_iterator(),  // keys_output (discarded)
+                        degrees_ptr);                   // values_output (row sums)
 
   // D - A
   raft::linalg::map_offset(
