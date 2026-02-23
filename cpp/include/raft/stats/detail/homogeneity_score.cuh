@@ -11,8 +11,8 @@
 
 #pragma once
 
-#include <raft/stats/detail/entropy.cuh>
-#include <raft/stats/detail/mutual_info_score.cuh>
+#include <raft/stats/entropy.cuh>
+#include <raft/stats/mutual_info_score.cuh>
 
 namespace raft {
 namespace stats {

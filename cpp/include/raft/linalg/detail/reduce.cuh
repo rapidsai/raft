@@ -6,7 +6,7 @@
 #pragma once
 
 #include <raft/core/operators.hpp>
-#include <raft/linalg/detail/coalesced_reduction.cuh>
+#include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/strided_reduction.cuh>
 
 namespace raft {

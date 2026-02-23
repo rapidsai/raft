@@ -6,8 +6,8 @@
 #pragma once
 
 #include <raft/core/operators.hpp>
-#include <raft/linalg/detail/reduce.cuh>
 #include <raft/linalg/norm_types.hpp>
+#include <raft/linalg/reduce.cuh>
 
 namespace raft {
 namespace linalg {
