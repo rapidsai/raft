@@ -17,10 +17,10 @@
 #include <cstdio>
 #include <type_traits>
 #ifndef RAFT_DISABLE_CUDA
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/util/cudart_utils.hpp>
 #ifdef __CUDACC__
 #include <raft/linalg/transpose.cuh>
 #include <raft/util/cuda_dev_essentials.cuh>

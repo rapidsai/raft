@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include <raft/common/nvtx.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/pinned_mdarray.hpp>
 #include <raft/core/pinned_mdspan.hpp>

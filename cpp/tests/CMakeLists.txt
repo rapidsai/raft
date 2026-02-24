@@ -112,7 +112,6 @@ if(BUILD_TESTS)
     core/span.cu
     core/stream_view.cpp
     core/temporary_device_buffer.cu
-    test.cpp
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )

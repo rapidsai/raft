@@ -5,9 +5,7 @@
 
 #pragma once
 
-#include <common/nvtx.hpp>
-
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream_pool.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
@@ -21,7 +19,6 @@
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/math.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
