@@ -1,23 +1,14 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <raft/core/error.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/util/integer_utils.hpp>
+
+#include <cuda/memory_resource>
 
 #include <linux/mman.h>
 #include <sys/mman.h>
@@ -27,9 +18,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 #include <utility>
 
-namespace raft::pmr {
+namespace raft::mr {
 
 namespace detail {
 
@@ -40,7 +32,7 @@ struct tmpfile_descriptor {
     if (fd_ == nullptr) {
       auto e = errno;
       RAFT_FAIL(
-        "raft::pmr::tmpfile_descriptor: failed to open a temporary file (std::tmpfile): errno = "
+        "raft::mr::tmpfile_descriptor: failed to open a temporary file (std::tmpfile): errno = "
         "%d, %s",
         e,
         strerror(e));
@@ -48,17 +40,15 @@ struct tmpfile_descriptor {
     if (ftruncate(fileno(fd_), file_size_bytes) == -1) {
       auto e = errno;
       RAFT_FAIL(
-        "raft::pmr::tmpfile_descriptor: failed to call `ftruncate` to allocate memory for a "
+        "raft::mr::tmpfile_descriptor: failed to call `ftruncate` to allocate memory for a "
         "temporary file. errno = %d, %s",
         e,
         strerror(e));
     }
   }
 
-  // No copies for owning struct
   tmpfile_descriptor(const tmpfile_descriptor& res)                      = delete;
   auto operator=(const tmpfile_descriptor& other) -> tmpfile_descriptor& = delete;
-  // Moving is fine
   tmpfile_descriptor(tmpfile_descriptor&& other) : fd_{std::exchange(other.fd_, nullptr)} {}
   auto operator=(tmpfile_descriptor&& other) -> tmpfile_descriptor&
   {
@@ -86,29 +76,29 @@ constexpr int kMmapRequestHugePages = 0x1;
 /** Request memory to be backed by a temporary file. */
 constexpr int kMmapFileBacked = 0x2;
 
-class mmap_memory_resource : public std::pmr::memory_resource {
+/**
+ * @brief A cuda::mr::synchronous_resource backed by mmap.
+ *
+ * Host-only; binds to rmm::host_resource_ref.
+ */
+class mmap_memory_resource {
  public:
   explicit mmap_memory_resource(int flags = kMmapDefault) noexcept : flags_{flags} {}
-  ~mmap_memory_resource() noexcept override = default;
+  ~mmap_memory_resource() noexcept = default;
 
- protected:
-  void* do_allocate(std::size_t bytes, std::size_t alignment) override
+  void* allocate_sync(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t))
   {
-    // allocating zero bytes is a no-op
     if (bytes == 0) { return nullptr; }
     auto prot  = PROT_READ | PROT_WRITE;
     auto flags = MAP_ANONYMOUS | MAP_PRIVATE;
     void* ptr  = nullptr;
     if (flags_ & kMmapFileBacked) {
-      // Note, we don't need the file descriptor to live beyond the call to mmap:
-      //       according to the POSIX specification, mmap retains its own descriptor.
       detail::tmpfile_descriptor fd{bytes};
       ptr = mmap_verbose(bytes, prot, flags, fileno(fd.value()), 0);
     } else {
       ptr = mmap_verbose(bytes, prot, flags, -1, 0);
     }
     if (flags_ & kMmapRequestHugePages) {
-      // Find a page-aligned subrange of the allocated memory to madvise
       auto madvize_start = raft::round_up_safe(reinterpret_cast<uintptr_t>(ptr), kHugePageSize);
       auto madvize_end =
         raft::round_down_safe(reinterpret_cast<uintptr_t>(ptr) + bytes, kHugePageSize);
@@ -118,39 +108,41 @@ class mmap_memory_resource : public std::pmr::memory_resource {
     return ptr;
   }
 
-  void do_deallocate(void* ptr, std::size_t bytes, std::size_t alignment) noexcept override
+  void deallocate_sync(void* ptr, std::size_t bytes, std::size_t /*alignment*/) noexcept
   {
     if (ptr == nullptr) { return; }
     if (munmap(ptr, bytes) != 0) {
-      RAFT_LOG_ERROR("Failed call to raft::host_container_policy:munmap(%p, %zu), error: %s",
+      RAFT_LOG_ERROR("Failed call to raft::mr::mmap_memory_resource::deallocate_sync(%p, %zu): %s",
                      ptr,
                      bytes,
                      strerror(errno));
     }
   }
 
-  bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override
+  [[nodiscard]] bool operator==(mmap_memory_resource const& other) const noexcept
   {
-    auto* other_mmap = dynamic_cast<const mmap_memory_resource*>(&other);
-    if (other_mmap == nullptr) { return false; }
-    return flags_ == other_mmap->flags_;
+    return flags_ == other.flags_;
   }
 
+  [[nodiscard]] bool operator!=(mmap_memory_resource const& other) const noexcept
+  {
+    return !(*this == other);
+  }
+
+  friend void get_property(mmap_memory_resource const&, cuda::mr::host_accessible) noexcept {}
+
  private:
-  static inline constexpr size_t kHugePageSize = 2ull * 1024ull * 1024ull;  // 2MB
+  static inline constexpr size_t kHugePageSize = 2ull * 1024ull * 1024ull;
   int flags_{kMmapDefault};
 
   static inline auto mmap_verbose(size_t length, int prot, int flags, int fd, off_t offset) -> void*
   {
-    if (length == 0) {
-      // Empty container is allowed
-      return nullptr;
-    }
+    if (length == 0) { return nullptr; }
     auto ptr = mmap(nullptr, length, prot, flags, fd, offset);
     if (ptr == MAP_FAILED) {
       RAFT_FAIL(
-        "Failed call to raft::host_container_policy:mmap(nullptr, %zu, 0x%08x, 0x%08x, %d, %zd), "
-        "error: %s",
+        "Failed call to raft::mr::mmap_memory_resource:mmap(nullptr, %zu, 0x%08x, 0x%08x, %d, "
+        "%zd): %s",
         length,
         prot,
         flags,
@@ -162,4 +154,4 @@ class mmap_memory_resource : public std::pmr::memory_resource {
   }
 };
 
-}  // namespace raft::pmr
+}  // namespace raft::mr

@@ -14,14 +14,15 @@
 
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/util/integer_utils.hpp>
-
-#include <memory_resource>
+#include <raft/mr/host_memory_resource.hpp>
 
 namespace raft {
 
 /**
- * @brief A container using the std::pmr::memory_resource for allocations.
+ * @brief A container using a synchronous memory resource for allocations.
+ *
+ * Accepts any ref type with allocate_sync / deallocate_sync
+ * (e.g. rmm::host_resource_ref, rmm::host_device_resource_ref, std_pmr_sync_adapter).
  *
  * @tparam T element type
  * @tparam SyncMRRef resource ref with allocate_sync/deallocate_sync
@@ -105,13 +106,15 @@ struct host_container {
 };
 
 /**
- * @brief A container policy for host mdarray.
+ * @brief Container policy for host mdarray.
+ *
+ * Defaults to raft::mr::get_host_memory_resource().
  */
 template <typename ElementType>
 class host_container_policy {
  public:
   using element_type          = ElementType;
-  using container_type        = host_container<element_type>;
+  using container_type        = host_container<element_type, raft::mr::host_resource_ref>;
   using pointer               = typename container_type::pointer;
   using const_pointer         = typename container_type::const_pointer;
   using reference             = typename container_type::reference;
@@ -119,11 +122,13 @@ class host_container_policy {
   using accessor_policy       = cuda::std::default_accessor<element_type>;
   using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
- public:
-  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n, mr_); }
+  host_container_policy() = default;
+  explicit host_container_policy(raft::mr::host_resource_ref ref) noexcept : ref_(ref) {}
 
-  constexpr host_container_policy() noexcept = default;
-  explicit host_container_policy(std::pmr::memory_resource* mr) noexcept : mr_(mr) {}
+  auto create(raft::resources const&, size_t n) -> container_type
+  {
+    return container_type(n, ref_);
+  }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -139,7 +144,7 @@ class host_container_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 
  private:
-  std::pmr::memory_resource* mr_{std::pmr::get_default_resource()};
+  raft::mr::host_resource_ref ref_ = raft::mr::get_host_memory_resource();
 };
 
 }  // namespace raft

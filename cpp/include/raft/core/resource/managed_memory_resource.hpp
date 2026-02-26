@@ -9,8 +9,6 @@
 #include <raft/mr/host_device_resource.hpp>
 #include <raft/mr/managed_memory_resource.hpp>
 
-#include <rmm/resource_ref.hpp>
-
 #include <memory>
 
 namespace raft::resource {
@@ -56,12 +54,12 @@ class managed_memory_resource_factory : public resource_factory {
 };
 
 /** @brief Get the managed memory resource. Default: raft::mr::managed_memory_resource. */
-inline auto get_managed_memory_resource(resources const& res) -> rmm::host_device_resource_ref
+inline auto get_managed_memory_resource(resources const& res) -> raft::mr::host_device_resource_ref
 {
   if (!res.has_resource_factory(resource_type::MANAGED_MEMORY_RESOURCE)) {
     res.add_resource_factory(std::make_shared<managed_memory_resource_factory>());
   }
-  return rmm::host_device_resource_ref{
+  return raft::mr::host_device_resource_ref{
     *res.get_resource<raft::mr::host_device_resource>(resource_type::MANAGED_MEMORY_RESOURCE)};
 }
 
