@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -28,7 +28,7 @@ void encode_tfidf(raft::resources const& handle,
                                           IndexType,
                                           IndexType,
                                           IndexType,
-                                          raft::device_uvector_policy,
+                                          raft::device_container_policy,
                                           raft::PRESERVING>& coo_in,
                   raft::device_vector_view<ValueType, int64_t> results)
 {
@@ -63,7 +63,7 @@ void encode_tfidf(raft::resources const& handle,
                                           IndexType,
                                           IndexType,
                                           IndexType,
-                                          raft::device_uvector_policy,
+                                          raft::device_container_policy,
                                           raft::PRESERVING>& csr_in,
                   raft::device_vector_view<ValueType, int64_t> results)
 {
@@ -101,7 +101,7 @@ void encode_bm25(raft::resources const& handle,
                                          IndexType,
                                          IndexType,
                                          IndexType,
-                                         raft::device_uvector_policy,
+                                         raft::device_container_policy,
                                          raft::PRESERVING>& csr_in,
                  raft::device_vector_view<ValueType, int64_t> results,
                  float k_param = 1.6f,
@@ -167,7 +167,7 @@ void encode_bm25(raft::resources const& handle,
                                          IndexType,
                                          IndexType,
                                          IndexType,
-                                         raft::device_uvector_policy,
+                                         raft::device_container_policy,
                                          raft::PRESERVING>& coo_in,
                  raft::device_vector_view<ValueType, int64_t> results,
                  float k_param = 1.6f,

@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
  */
 /*
@@ -134,7 +134,7 @@ class device_uvector {
  * @brief A container policy for device mdarray.
  */
 template <typename ElementType>
-class device_uvector_policy {
+class device_container_policy {
  public:
   using element_type   = ElementType;
   using container_type = device_uvector<element_type>;
@@ -153,8 +153,8 @@ class device_uvector_policy {
     return container_type(n, resource::get_cuda_stream(res), mr_);
   }
 
-  constexpr device_uvector_policy() = default;
-  explicit device_uvector_policy(rmm::device_async_resource_ref mr) noexcept : mr_(mr) {}
+  constexpr device_container_policy() = default;
+  explicit device_container_policy(rmm::device_async_resource_ref mr) noexcept : mr_(mr) {}
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -189,7 +189,7 @@ template <typename T>
 using device_uvector = detail::fail_container<T>;
 
 template <typename ElementType>
-using device_uvector_policy = detail::fail_container_policy<ElementType>;
+using device_container_policy = detail::fail_container_policy<ElementType>;
 
 }  // namespace raft
 #endif

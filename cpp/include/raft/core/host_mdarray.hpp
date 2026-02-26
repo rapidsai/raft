@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -179,6 +179,28 @@ auto make_host_matrix(IndexType n_rows, IndexType n_cols)
 {
   return make_host_mdarray<ElementType, IndexType, LayoutPolicy>(
     make_extents<IndexType>(n_rows, n_cols));
+}
+
+/**
+ * @ingroup host_mdarray_factories
+ * @brief Create an uninitialized host scalar.
+ *
+ * @tparam ElementType the data type of the scalar element
+ * @tparam IndexType the index type of the extents
+ * @param[in] res raft handle for managing expensive resources
+ * @return raft::host_scalar
+ */
+template <typename ElementType, typename IndexType = std::uint32_t>
+auto make_host_scalar(raft::resources& res)
+{
+  // FIXME(jiamingy): We can optimize this by using std::array as container policy, which
+  // requires some more compile time dispatching. This is enabled in the ref impl but
+  // hasn't been ported here yet.
+  scalar_extent<IndexType> extents;
+  using policy_t = typename host_scalar<ElementType, IndexType>::container_policy_type;
+  policy_t policy;
+  auto scalar = host_scalar<ElementType, IndexType>{res, extents, policy};
+  return scalar;
 }
 
 /**
