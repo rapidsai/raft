@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019 Sandia Corporation
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
  */
 /*
@@ -23,8 +23,10 @@ namespace raft {
 /**
  * @brief A container using the std::pmr::memory_resource for allocations.
  *
+ * @tparam T element type
+ * @tparam SyncMRRef resource ref with allocate_sync/deallocate_sync
  */
-template <typename T>
+template <typename T, typename SyncMRRef>
 struct host_container {
   using value_type = std::remove_cv_t<T>;
   using size_type  = std::size_t;
@@ -39,25 +41,25 @@ struct host_container {
   using const_iterator = const_pointer;
 
  private:
-  std::pmr::memory_resource* mr_;
+  SyncMRRef mr_;
   size_type bytesize_ = 0;
   value_type* data_   = nullptr;
 
  public:
-  host_container(size_type count, std::pmr::memory_resource* mr = nullptr)
-    : mr_(mr == nullptr ? std::pmr::get_default_resource() : mr),
+  host_container(size_type count, SyncMRRef mr)
+    : mr_(std::move(mr)),
       bytesize_(sizeof(value_type) * count),
-      data_(bytesize_ > 0 ? static_cast<pointer>(mr_->allocate(bytesize_)) : nullptr)
+      data_(bytesize_ > 0 ? static_cast<pointer>(mr_.allocate_sync(bytesize_)) : nullptr)
   {
   }
 
   ~host_container() noexcept
   {
-    if (bytesize_ > 0 && data_ != nullptr) { mr_->deallocate(data_, bytesize_); }
+    if (bytesize_ > 0 && data_ != nullptr) { mr_.deallocate_sync(data_, bytesize_); }
   }
 
   host_container(host_container&& other) noexcept
-    : mr_{std::exchange(other.mr_, nullptr)},
+    : mr_{std::move(other.mr_)},
       bytesize_{std::exchange(other.bytesize_, 0)},
       data_{std::exchange(other.data_, nullptr)}
   {
