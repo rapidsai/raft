@@ -106,7 +106,7 @@ struct host_container {
 /**
  * @brief Container policy for host mdarray.
  *
- * Defaults to raft::mr::get_host_memory_resource().
+ * Defaults to raft::mr::get_default_host_resource().
  */
 template <typename ElementType>
 class host_container_policy {
@@ -142,7 +142,7 @@ class host_container_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 
  private:
-  rmm::host_resource_ref ref_ = raft::mr::get_host_memory_resource();
+  rmm::host_resource_ref ref_ = raft::mr::get_default_host_resource();
 };
 
 }  // namespace raft

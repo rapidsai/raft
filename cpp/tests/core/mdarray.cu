@@ -19,7 +19,9 @@
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/mr/host_device_resource.hpp>
+#include <raft/mr/host_memory_resource.hpp>
 #include <raft/mr/mmap_memory_resource.hpp>
+#include <raft/pmr/resource_adaptor.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -36,6 +38,8 @@
 #include <thrust/sequence.h>
 
 #include <gtest/gtest.h>
+
+#include <memory_resource>
 
 namespace {
 void check_status(int32_t* d_status, rmm::cuda_stream_view stream)
@@ -151,14 +155,11 @@ void test_mdarray_basic()
                                                      raft::mr::kMmapFileBacked};
     std::pmr::synchronized_pool_resource pool_mr{std::pmr::get_default_resource()};
 
-    // std::pmr resources: use constructor overload
+    // std::pmr resources: wrap in resource_adaptor, pass to make_host_mdarray
     for (auto* mr :
          {std::pmr::get_default_resource(), static_cast<std::pmr::memory_resource*>(&pool_mr)}) {
-      mdarray_t::container_policy_type policy{mr};
-      static_assert(
-        std::is_same_v<typename decltype(policy)::accessor_type, host_container_policy<float>>);
-      layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
-      host_mdarray<float, matrix_extent, layout_c_contiguous> array{handle, layout, policy};
+      raft::pmr::resource_adaptor adaptor{mr};
+      auto array = make_host_mdarray<float>(handle, adaptor, make_extents<uint32_t>(4u, 4u));
 
       array(0, 3) = 1;
       ASSERT_EQ(array(0, 3), 1);
@@ -169,18 +170,11 @@ void test_mdarray_basic()
       });
     }
 
-    // cuda::mr resources (mmap): use host_resource_ref
+    // cuda::mr resources (mmap): use make_host_mdarray with rmm::host_resource_ref
     for (auto* mr : {&mmap_mr_default, &mmap_mr_hugepages, &mmap_mr_huge_file}) {
-      mdarray_t::container_policy_type policy{rmm::host_resource_ref(*mr)};
-      layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
-      host_mdarray<float, matrix_extent, layout_c_contiguous> array{handle, layout, policy};
-
-      array(0, 3) = 1;
-      ASSERT_EQ(array(0, 3), 1);
-      auto h_view = array.view();
-      thrust::for_each_n(thrust::host, cuda::make_counting_iterator(0ul), 1, [h_view](auto i) {
-        ASSERT_EQ(h_view(0, 3), 1);
-      });
+      auto array = make_host_mdarray<float>(handle, *mr, make_extents<uint32_t>(16u));
+      array(3)   = 1;
+      ASSERT_EQ(array(3), 1);
     }
 
     static_assert(!std::is_nothrow_default_constructible<mdarray_t>::value);
@@ -465,6 +459,28 @@ void test_factory_methods()
     auto ref1 = raft::resource::get_managed_memory_resource(handle1);
     auto ref2 = raft::resource::get_managed_memory_resource(handle2);
     ASSERT_EQ(ref1, ref2);
+  }
+
+  // get_default_host_resource: default ref is usable
+  {
+    auto ref  = raft::mr::get_default_host_resource();
+    void* ptr = ref.allocate_sync(128);
+    ASSERT_NE(ptr, nullptr);
+    ref.deallocate_sync(ptr, 128);
+  }
+
+  // set_default_host_resource: install mmap, allocate through default policy
+  {
+    raft::mr::mmap_memory_resource mmap_mr;
+    raft::mr::set_default_host_resource(mmap_mr);
+
+    auto ref  = raft::mr::get_default_host_resource();
+    void* ptr = ref.allocate_sync(4096);
+    ASSERT_NE(ptr, nullptr);
+    ref.deallocate_sync(ptr, 4096);
+
+    // restore default
+    raft::mr::set_default_host_resource(raft::mr::new_delete_resource());
   }
 }
 }  // anonymous namespace

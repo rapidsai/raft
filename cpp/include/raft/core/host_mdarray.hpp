@@ -74,7 +74,7 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
-auto make_host_mdarray(raft::resources& res, extents<IndexType, Extents...> exts)
+auto make_host_mdarray(raft::resources const& res, extents<IndexType, Extents...> exts)
 {
   using mdarray_t = host_mdarray<ElementType, decltype(exts), LayoutPolicy>;
 
@@ -154,7 +154,7 @@ auto make_host_mdarray(extents<IndexType, Extents...> exts)
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_host_matrix(raft::resources& res, IndexType n_rows, IndexType n_cols)
+auto make_host_matrix(raft::resources const& res, IndexType n_rows, IndexType n_cols)
 {
   return make_host_mdarray<ElementType, IndexType, LayoutPolicy>(
     res, make_extents<IndexType>(n_rows, n_cols));
@@ -191,7 +191,7 @@ auto make_host_matrix(IndexType n_rows, IndexType n_cols)
  * @return raft::host_scalar
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_host_scalar(raft::resources& res)
+auto make_host_scalar(raft::resources const& res)
 {
   // FIXME(jiamingy): We can optimize this by using std::array as container policy, which
   // requires some more compile time dispatching. This is enabled in the ref impl but
@@ -214,7 +214,7 @@ auto make_host_scalar(raft::resources& res)
  * @return raft::host_scalar
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_host_scalar(raft::resources& res, ElementType const& v)
+auto make_host_scalar(raft::resources const& res, ElementType const& v)
 {
   // FIXME(jiamingy): We can optimize this by using std::array as container policy, which
   // requires some more compile time dispatching. This is enabled in the ref impl but
@@ -266,7 +266,7 @@ auto make_host_scalar(ElementType const& v)
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_host_vector(raft::resources& res, IndexType n)
+auto make_host_vector(raft::resources const& res, IndexType n)
 {
   return make_host_mdarray<ElementType, IndexType, LayoutPolicy>(res, make_extents<IndexType>(n));
 }
