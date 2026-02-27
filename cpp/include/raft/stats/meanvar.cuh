@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __MEANVAR_H
@@ -9,6 +9,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/meanvar.cuh>
 
 namespace raft::stats {
@@ -43,7 +44,7 @@ void meanvar(Type* mean,
              bool rowMajor,
              cudaStream_t stream)
 {
-  detail::meanvar(mean, var, data, D, N, sample, rowMajor, stream);
+  detail::meanvar(false, mean, var, data, D, N, sample, rowMajor, stream);
 }
 
 /**
@@ -84,7 +85,8 @@ void meanvar(raft::resources const& handle,
   RAFT_EXPECTS(mean.is_exhaustive(), "mean must be contiguous");
   RAFT_EXPECTS(var.is_exhaustive(), "var must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
-  detail::meanvar(mean.data_handle(),
+  detail::meanvar(resource::get_dry_run_flag(handle),
+                  mean.data_handle(),
                   var.data_handle(),
                   data.data_handle(),
                   data.extent(1),

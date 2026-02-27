@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/linewise_op.cuh>
 
 namespace raft {
@@ -19,7 +20,8 @@ template <bool rowMajor,
           typename VecT,
           typename IdxType = int,
           int TPB          = 256>
-void matrixVectorOp(MatT* out,
+void matrixVectorOp(bool dry_run,
+                    MatT* out,
                     const MatT* matrix,
                     const VecT* vec,
                     IdxType D,
@@ -27,6 +29,7 @@ void matrixVectorOp(MatT* out,
                     Lambda op,
                     cudaStream_t stream)
 {
+  if (dry_run) { return; }
   raft::resources handle;
   resource::set_cuda_stream(handle, stream);
   constexpr raft::Apply apply =
@@ -56,7 +59,8 @@ template <bool rowMajor,
           typename Vec2T,
           typename IdxType = int,
           int TPB          = 256>
-void matrixVectorOp(MatT* out,
+void matrixVectorOp(bool dry_run,
+                    MatT* out,
                     const MatT* matrix,
                     const Vec1T* vec1,
                     const Vec2T* vec2,
@@ -65,6 +69,7 @@ void matrixVectorOp(MatT* out,
                     Lambda op,
                     cudaStream_t stream)
 {
+  if (dry_run) { return; }
   raft::resources handle;
   resource::set_cuda_stream(handle, stream);
   constexpr raft::Apply apply =

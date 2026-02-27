@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,6 +14,7 @@
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 
 #include <optional>
@@ -171,6 +172,7 @@ void neighborhood_recall(
   auto recall_score_d = raft::make_device_scalar(res, *recall_score.data_handle());
   neighborhood_recall(
     res, indices, ref_indices, recall_score_d.view(), distances, ref_distances, eps);
+  if (resource::get_dry_run_flag(res)) { return; }
   raft::update_host(recall_score.data_handle(),
                     recall_score_d.data_handle(),
                     1,

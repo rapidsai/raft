@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __REDUCE_COLS_BY_KEY
@@ -11,6 +11,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 
 namespace raft {
@@ -81,6 +82,7 @@ void reduce_cols_by_key(
   IndexType nkeys = 0,
   bool reset_sums = true)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   if (nkeys > 0) {
     RAFT_EXPECTS(out.extent(1) == nkeys, "Output doesn't have nkeys columns");
   } else {

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -97,11 +97,21 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
     auto eig_vals_jacobi_view =
       raft::make_device_vector_view<T, std::uint32_t>(eig_vals_jacobi.data(), params.n_row);
 
-    eig_dc(handle, cov_matrix_view, eig_vectors_view, eig_vals_view);
+    raft::execute_with_dry_run_check(
+      handle,
+      [&](raft::resources const& h) {
+        eig_dc(h, cov_matrix_view, eig_vectors_view, eig_vals_view);
+      },
+      true);
 
     T tol      = 1.e-7;
     int sweeps = 15;
-    eig_jacobi(handle, cov_matrix_view, eig_vectors_jacobi_view, eig_vals_jacobi_view, tol, sweeps);
+    raft::execute_with_dry_run_check(
+      handle,
+      [&](raft::resources const& h) {
+        eig_jacobi(h, cov_matrix_view, eig_vectors_jacobi_view, eig_vals_jacobi_view, tol, sweeps);
+      },
+      true);
 
     // test code for comparing two methods
     len = params.n * params.n;
@@ -156,10 +166,15 @@ TEST(Raft, EigStream)
     raft::make_device_matrix<float, std::uint32_t, raft::col_major>(handle, n_rows, n_rows);
   auto eig_vals_stream = raft::make_device_vector<float, std::uint32_t>(handle, n_rows);
 
-  raft::linalg::eig_dc(handle,
-                       raft::make_const_mdspan(cov_matrix_stream.view()),
-                       eig_vectors_stream.view(),
-                       eig_vals_stream.view());
+  raft::execute_with_dry_run_check(
+    handle,
+    [&](raft::resources const& h) {
+      raft::linalg::eig_dc(h,
+                           raft::make_const_mdspan(cov_matrix_stream.view()),
+                           eig_vectors_stream.view(),
+                           eig_vals_stream.view());
+    },
+    true);
   raft::resource::sync_stream(handle, raft::resource::get_cuda_stream(handle));
 }
 

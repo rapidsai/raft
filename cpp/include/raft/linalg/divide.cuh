@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __DIVIDE_H
@@ -11,6 +11,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/input_validation.hpp>
 
@@ -61,6 +62,7 @@ void divide_scalar(raft::resources const& handle,
                    OutType out,
                    raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
 

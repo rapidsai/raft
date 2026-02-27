@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __UNARY_OP_H
@@ -9,6 +9,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 
@@ -109,6 +110,7 @@ template <typename OutType,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void write_only_unary_op(const raft::resources& handle, OutType out, Lambda op)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   return writeOnlyUnaryOp(out.data_handle(), out.size(), op, resource::get_cuda_stream(handle));
 }
 
