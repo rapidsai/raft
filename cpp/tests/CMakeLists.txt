@@ -161,6 +161,7 @@ if(BUILD_TESTS)
     linalg/multiply.cu
     linalg/norm.cu
     linalg/normalize.cu
+    linalg/pca.cu
     linalg/power.cu
     linalg/randomized_svd.cu
     linalg/reduce.cu
@@ -173,6 +174,7 @@ if(BUILD_TESTS)
     linalg/svd.cu
     linalg/ternary_op.cu
     linalg/transpose.cu
+    linalg/tsvd.cu
     linalg/unary_op.cu
     GPUS
     1
