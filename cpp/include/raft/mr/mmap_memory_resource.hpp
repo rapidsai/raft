@@ -108,7 +108,9 @@ class mmap_memory_resource {
     return ptr;
   }
 
-  void deallocate_sync(void* ptr, std::size_t bytes, std::size_t /*alignment*/) noexcept
+  void deallocate_sync(void* ptr,
+                       std::size_t bytes,
+                       std::size_t /*alignment*/ = alignof(std::max_align_t)) noexcept
   {
     if (ptr == nullptr) { return; }
     if (munmap(ptr, bytes) != 0) {

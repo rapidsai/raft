@@ -114,7 +114,7 @@ template <typename ElementType>
 class host_container_policy {
  public:
   using element_type          = ElementType;
-  using container_type        = host_container<element_type, raft::mr::host_resource_ref>;
+  using container_type        = host_container<element_type, rmm::host_resource_ref>;
   using pointer               = typename container_type::pointer;
   using const_pointer         = typename container_type::const_pointer;
   using reference             = typename container_type::reference;
@@ -123,7 +123,7 @@ class host_container_policy {
   using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
   host_container_policy() = default;
-  explicit host_container_policy(raft::mr::host_resource_ref ref) noexcept : ref_(ref) {}
+  explicit host_container_policy(rmm::host_resource_ref ref) noexcept : ref_(ref) {}
 
   auto create(raft::resources const&, size_t n) -> container_type
   {
@@ -144,7 +144,7 @@ class host_container_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 
  private:
-  raft::mr::host_resource_ref ref_ = raft::mr::get_host_memory_resource();
+  rmm::host_resource_ref ref_ = raft::mr::get_host_memory_resource();
 };
 
 }  // namespace raft

@@ -4,9 +4,7 @@
  */
 #pragma once
 
-#ifndef RAFT_DISABLE_CUDA
 #include <cuda/memory_resource>
-#endif
 
 #include <cstddef>
 #include <memory_resource>
@@ -17,13 +15,18 @@ namespace raft::pmr {
  * @brief Adapter wrapping std::pmr::memory_resource to satisfy the cuda::mr::synchronous_resource
  *        concept (allocate_sync / deallocate_sync).
  *
- * In CUDA builds this also advertises cuda::mr::host_accessible so that it can bind to
- * rmm::host_resource_ref.  In RAFT_DISABLE_CUDA builds the property tag is omitted but the
- * allocate_sync / deallocate_sync interface is still provided for host_container.
+ * Also advertises cuda::mr::host_accessible so that it can bind to rmm::host_resource_ref.
  */
 class std_pmr_sync_adapter {
  public:
+  std_pmr_sync_adapter() noexcept : upstream_(std::pmr::get_default_resource()) {}
+
   explicit std_pmr_sync_adapter(std::pmr::memory_resource* upstream) noexcept : upstream_(upstream)
+  {
+  }
+
+  std_pmr_sync_adapter(std::pmr::memory_resource& upstream) noexcept  // NOLINT
+    : upstream_(&upstream)
   {
   }
 
@@ -51,9 +54,9 @@ class std_pmr_sync_adapter {
     return !(*this == other);
   }
 
-#ifndef RAFT_DISABLE_CUDA
   friend void get_property(std_pmr_sync_adapter const&, cuda::mr::host_accessible) noexcept {}
-#endif
+
+  [[nodiscard]] std::pmr::memory_resource* pmr_resource() const noexcept { return upstream_; }
 
  private:
   std::pmr::memory_resource* upstream_;

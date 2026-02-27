@@ -85,21 +85,21 @@ auto make_host_mdarray(raft::resources& res, extents<IndexType, Extents...> exts
 }
 
 /**
- * @brief Create a host mdarray.
+ * @brief Create a host mdarray with a custom memory resource.
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
  * @param res raft::resources
- * @param mr std::pmr::memory_resource used for allocating the memory for the array
+ * @param mr host memory resource reference used for allocating the memory for the array
  * @param exts dimensionality of the array (series of integers)
- * @return raft::device_mdarray
+ * @return raft::host_mdarray
  */
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
 auto make_host_mdarray(raft::resources const& res,
-                       std::pmr::memory_resource* mr,
+                       rmm::host_resource_ref mr,
                        extents<IndexType, Extents...> exts)
 {
   using mdarray_t = host_mdarray<ElementType, decltype(exts), LayoutPolicy>;

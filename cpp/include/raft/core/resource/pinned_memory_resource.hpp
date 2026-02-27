@@ -54,12 +54,12 @@ class pinned_memory_resource_factory : public resource_factory {
 };
 
 /** @brief Get the pinned memory resource. Default: raft::mr::pinned_memory_resource. */
-inline auto get_pinned_memory_resource(resources const& res) -> raft::mr::host_device_resource_ref
+inline auto get_pinned_memory_resource(resources const& res) -> rmm::host_device_resource_ref
 {
   if (!res.has_resource_factory(resource_type::PINNED_MEMORY_RESOURCE)) {
     res.add_resource_factory(std::make_shared<pinned_memory_resource_factory>());
   }
-  return raft::mr::host_device_resource_ref{
+  return rmm::host_device_resource_ref{
     *res.get_resource<raft::mr::host_device_resource>(resource_type::PINNED_MEMORY_RESOURCE)};
 }
 

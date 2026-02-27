@@ -4,8 +4,6 @@
  */
 #pragma once
 
-#ifndef RAFT_DISABLE_CUDA
-
 #include <rmm/resource_ref.hpp>
 
 #include <cuda/memory_resource>
@@ -30,23 +28,4 @@ using host_device_resource =
  */
 using host_resource = cuda::mr::any_synchronous_resource<cuda::mr::host_accessible>;
 
-/** @brief Non-owning reference to a synchronous host-accessible resource. */
-using host_resource_ref = rmm::host_resource_ref;
-
-/** @brief Non-owning reference to a synchronous host+device-accessible resource. */
-using host_device_resource_ref = rmm::host_device_resource_ref;
-
 }  // namespace raft::mr
-
-#else  // RAFT_DISABLE_CUDA
-
-#include <raft/pmr/std_pmr_sync_adapter.hpp>
-
-namespace raft::mr {
-
-using host_resource     = raft::pmr::std_pmr_sync_adapter;
-using host_resource_ref = raft::pmr::std_pmr_sync_adapter;
-
-}  // namespace raft::mr
-
-#endif
