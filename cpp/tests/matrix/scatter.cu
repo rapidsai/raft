@@ -5,7 +5,6 @@
 
 #include "../test_utils.cuh"
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/scatter.cuh>
