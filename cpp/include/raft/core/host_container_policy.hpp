@@ -19,15 +19,12 @@
 namespace raft {
 
 /**
- * @brief A container using a synchronous memory resource for allocations.
- *
- * Accepts any ref type with allocate_sync / deallocate_sync
- * (e.g. rmm::host_resource_ref, rmm::host_device_resource_ref, std_pmr_sync_adapter).
+ * @brief A container backed by a host-accessible cuda::mr::synchronous_resource.
  *
  * @tparam T element type
- * @tparam SyncMRRef resource ref with allocate_sync/deallocate_sync
+ * @tparam MR a type satisfying cuda::mr::synchronous_resource_with<cuda::mr::host_accessible>
  */
-template <typename T, typename SyncMRRef>
+template <typename T, cuda::mr::synchronous_resource_with<cuda::mr::host_accessible> MR>
 struct host_container {
   using value_type = std::remove_cv_t<T>;
   using size_type  = std::size_t;
@@ -42,12 +39,13 @@ struct host_container {
   using const_iterator = const_pointer;
 
  private:
-  SyncMRRef mr_;
+  MR mr_;
   size_type bytesize_ = 0;
   value_type* data_   = nullptr;
 
  public:
-  host_container(size_type count, SyncMRRef mr)
+  host_container(size_type count,
+                 MR mr)  // NB: pass by value, as we expect a resource_ref anyway
     : mr_(std::move(mr)),
       bytesize_(sizeof(value_type) * count),
       data_(bytesize_ > 0 ? static_cast<pointer>(mr_.allocate_sync(bytesize_)) : nullptr)
