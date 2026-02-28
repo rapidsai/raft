@@ -1,93 +1,27 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 
-#include <cstddef>
 #ifndef RAFT_DISABLE_CUDA
-#include <cuda_runtime.h>
-
-#include <type_traits>
+#include <raft/core/resource/pinned_memory_resource.hpp>
 #else
 #include <raft/core/detail/fail_container_policy.hpp>
 #endif
 
 namespace raft {
 #ifndef RAFT_DISABLE_CUDA
-
-/**
- * @brief A thin wrapper over cudaMallocHost/cudaFreeHost for implementing the pinned mdarray
- * container policy.
- *
- */
-template <typename T>
-struct pinned_container {
-  using value_type = std::remove_cv_t<T>;
-
- private:
-  value_type* data_ = nullptr;
-
- public:
-  using size_type = std::size_t;
-
-  using reference       = value_type&;
-  using const_reference = value_type const&;
-
-  using pointer       = value_type*;
-  using const_pointer = value_type const*;
-
-  using iterator       = pointer;
-  using const_iterator = const_pointer;
-
-  explicit pinned_container(std::size_t size)
-  {
-    RAFT_CUDA_TRY(cudaMallocHost(&data_, size * sizeof(value_type)));
-  }
-  ~pinned_container() noexcept
-  {
-    if (data_ != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFreeHost(data_)); }
-  }
-
-  pinned_container(pinned_container&& other) { std::swap(this->data_, other.data_); }
-  pinned_container& operator=(pinned_container&& other)
-  {
-    std::swap(this->data_, other.data_);
-    return *this;
-  }
-  pinned_container(pinned_container const&) = delete;  // Copying disallowed: one array one owner
-  pinned_container& operator=(pinned_container const&) = delete;
-
-  /**
-   * @brief Index operator that returns a reference to the actual data.
-   */
-  template <typename Index>
-  auto operator[](Index i) noexcept -> reference
-  {
-    return data_[i];
-  }
-  /**
-   * @brief Index operator that returns a reference to the actual data.
-   */
-  template <typename Index>
-  auto operator[](Index i) const noexcept -> const_reference
-  {
-    return data_[i];
-  }
-
-  [[nodiscard]] auto data() noexcept -> pointer { return data_; }
-  [[nodiscard]] auto data() const noexcept -> const_pointer { return data_; }
-};
-
 /**
  * @brief A container policy for pinned mdarray.
  */
 template <typename ElementType>
-struct pinned_vector_policy {
+struct pinned_container_policy {
   using element_type          = ElementType;
-  using container_type        = pinned_container<element_type>;
+  using container_type        = host_container<element_type, rmm::host_device_resource_ref>;
   using pointer               = typename container_type::pointer;
   using const_pointer         = typename container_type::const_pointer;
   using reference             = typename container_type::reference;
@@ -95,7 +29,10 @@ struct pinned_vector_policy {
   using accessor_policy       = cuda::std::default_accessor<element_type>;
   using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
-  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n); }
+  auto create(raft::resources const& res, size_t n) -> container_type
+  {
+    return container_type(n, raft::resource::get_pinned_memory_resource(res));
+  }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -112,6 +49,6 @@ struct pinned_vector_policy {
 };
 #else
 template <typename ElementType>
-using pinned_vector_policy = detail::fail_container_policy<ElementType>;
+using pinned_container_policy = detail::fail_container_policy<ElementType>;
 #endif
 }  // namespace raft

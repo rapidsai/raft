@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -46,7 +46,7 @@ void get_clean_coo(raft::resources& handle,
                                                num_cols);
 }
 template <typename T2, typename T1>
-raft::device_coo_matrix<T2, T1, T1, T1, raft::device_uvector_policy, raft::PRESERVING>
+raft::device_coo_matrix<T2, T1, T1, T1, raft::device_container_policy, raft::PRESERVING>
 create_coo_matrix(raft::resources& handle,
                   raft::device_vector_view<T1> rows,
                   raft::device_vector_view<T1> columns,
@@ -64,7 +64,7 @@ create_coo_matrix(raft::resources& handle,
 }
 
 template <typename T2, typename T1>
-raft::device_coo_matrix<T2, T1, T1, T1, raft::device_uvector_policy, raft::PRESERVING>
+raft::device_coo_matrix<T2, T1, T1, T1, raft::device_container_policy, raft::PRESERVING>
 create_coo_matrix(raft::resources& handle, raft::sparse::COO<T2, T1, T1>& coo)
 {
   cudaStream_t stream  = raft::resource::get_cuda_stream(handle);

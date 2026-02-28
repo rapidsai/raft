@@ -9,12 +9,19 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/managed_mdarray.hpp>
 #include <raft/core/managed_mdspan.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/pinned_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/managed_memory_resource.hpp>
+#include <raft/core/resource/pinned_memory_resource.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/pmr/mmap_memory_resource.hpp>
+#include <raft/mr/host_device_resource.hpp>
+#include <raft/mr/host_memory_resource.hpp>
+#include <raft/mr/mmap_memory_resource.hpp>
+#include <raft/pmr/resource_adaptor.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -22,6 +29,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
 #include <rmm/exec_policy.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda/iterator>
 #include <thrust/device_vector.h>
@@ -30,6 +38,8 @@
 #include <thrust/sequence.h>
 
 #include <gtest/gtest.h>
+
+#include <memory_resource>
 
 namespace {
 void check_status(int32_t* d_status, rmm::cuda_stream_view stream)
@@ -89,7 +99,7 @@ void test_mdarray_basic()
     using mdarray_t = device_mdarray<float, matrix_extent, layout_c_contiguous>;
     auto policy     = mdarray_t::container_policy_type{};
     static_assert(
-      std::is_same_v<typename decltype(policy)::accessor_type, device_uvector_policy<float>>);
+      std::is_same_v<typename decltype(policy)::accessor_type, device_container_policy<float>>);
     device_mdarray<float, matrix_extent, layout_c_contiguous> array{handle, layout, policy};
 
     array(0, 3) = 1;
@@ -139,24 +149,17 @@ void test_mdarray_basic()
      */
     using mdarray_t = host_mdarray<float, matrix_extent, layout_c_contiguous>;
 
-    raft::pmr::mmap_memory_resource mmap_mr_default;
-    raft::pmr::mmap_memory_resource mmap_mr_hugepages{raft::pmr::kMmapRequestHugePages};
-    raft::pmr::mmap_memory_resource mmap_mr_huge_file{raft::pmr::kMmapRequestHugePages |
-                                                      raft::pmr::kMmapFileBacked};
-    std::pmr::synchronized_pool_resource pool_mr{&mmap_mr_huge_file};
+    raft::mr::mmap_memory_resource mmap_mr_default;
+    raft::mr::mmap_memory_resource mmap_mr_hugepages{raft::mr::kMmapRequestHugePages};
+    raft::mr::mmap_memory_resource mmap_mr_huge_file{raft::mr::kMmapRequestHugePages |
+                                                     raft::mr::kMmapFileBacked};
+    std::pmr::synchronized_pool_resource pool_mr{std::pmr::get_default_resource()};
 
-    std::vector<std::pmr::memory_resource*> memory_resources{std::pmr::get_default_resource(),
-                                                             &mmap_mr_default,
-                                                             &mmap_mr_hugepages,
-                                                             &mmap_mr_huge_file,
-                                                             &pool_mr};
-
-    for (auto* mr : memory_resources) {
-      mdarray_t::container_policy_type policy{mr};
-      static_assert(
-        std::is_same_v<typename decltype(policy)::accessor_type, host_container_policy<float>>);
-      layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
-      host_mdarray<float, matrix_extent, layout_c_contiguous> array{handle, layout, policy};
+    // std::pmr resources: wrap in resource_adaptor, pass to make_host_mdarray
+    for (auto* mr :
+         {std::pmr::get_default_resource(), static_cast<std::pmr::memory_resource*>(&pool_mr)}) {
+      raft::pmr::resource_adaptor adaptor{mr};
+      auto array = make_host_mdarray<float>(handle, adaptor, make_extents<uint32_t>(4u, 4u));
 
       array(0, 3) = 1;
       ASSERT_EQ(array(0, 3), 1);
@@ -165,6 +168,13 @@ void test_mdarray_basic()
       thrust::for_each_n(thrust::host, cuda::make_counting_iterator(0ul), 1, [h_view](auto i) {
         ASSERT_EQ(h_view(0, 3), 1);
       });
+    }
+
+    // cuda::mr resources (mmap): use make_host_mdarray with rmm::host_resource_ref
+    for (auto* mr : {&mmap_mr_default, &mmap_mr_hugepages, &mmap_mr_huge_file}) {
+      auto array = make_host_mdarray<float>(handle, *mr, make_extents<uint32_t>(16u));
+      array(3)   = 1;
+      ASSERT_EQ(array(3), 1);
     }
 
     static_assert(!std::is_nothrow_default_constructible<mdarray_t>::value);
@@ -380,16 +390,97 @@ void test_factory_methods()
     ASSERT_EQ(view(0), 17.0);
   }
 
-  // managed
+  // managed mdarray (sync allocation, no stream)
   {
     raft::resources handle;
-    auto mda = make_device_vector<int>(handle, 10);
+    auto m_vec = make_managed_vector<float>(handle, 10);
+    ASSERT_EQ(m_vec.extent(0), 10);
+    m_vec(0) = 42.0f;
+    ASSERT_EQ(m_vec(0), 42.0f);
 
-    auto mdv = make_managed_mdspan(mda.data_handle(), raft::vector_extent<int>{10});
-
+    auto mdv = make_managed_mdspan(m_vec.data_handle(), raft::vector_extent<int>{10});
     static_assert(decltype(mdv)::accessor_type::is_managed_accessible, "Not managed mdspan");
-
     ASSERT_EQ(mdv.size(), 10);
+  }
+
+  // pinned mdarray (sync allocation, no stream)
+  {
+    raft::resources handle;
+    auto p_vec = make_pinned_vector<float>(handle, 10);
+    ASSERT_EQ(p_vec.extent(0), 10);
+    p_vec(0) = 7.0f;
+    ASSERT_EQ(p_vec(0), 7.0f);
+  }
+
+  // managed memory resource: get/set with default
+  {
+    raft::resources handle;
+    auto ref  = raft::resource::get_managed_memory_resource(handle);
+    void* ptr = ref.allocate_sync(256);
+    ASSERT_NE(ptr, nullptr);
+    ref.deallocate_sync(ptr, 256);
+  }
+
+  // managed memory resource: set custom, allocate through mdarray
+  {
+    raft::resources handle;
+    auto mr = std::make_shared<raft::mr::host_device_resource>(raft::mr::managed_memory_resource{});
+    raft::resource::set_managed_memory_resource(handle, mr);
+    auto m_vec = make_managed_vector<float>(handle, 10);
+    m_vec(0)   = 99.0f;
+    ASSERT_EQ(m_vec(0), 99.0f);
+  }
+
+  // pinned memory resource: get/set with default
+  {
+    raft::resources handle;
+    auto ref  = raft::resource::get_pinned_memory_resource(handle);
+    void* ptr = ref.allocate_sync(256);
+    ASSERT_NE(ptr, nullptr);
+    ref.deallocate_sync(ptr, 256);
+  }
+
+  // pinned memory resource: set custom, allocate through mdarray
+  {
+    raft::resources handle;
+    auto mr = std::make_shared<raft::mr::host_device_resource>(raft::mr::pinned_memory_resource{});
+    raft::resource::set_pinned_memory_resource(handle, mr);
+    auto p_vec = make_pinned_vector<float>(handle, 10);
+    p_vec(0)   = 55.0f;
+    ASSERT_EQ(p_vec(0), 55.0f);
+  }
+
+  // shared semantics: two resources objects share the same MR
+  {
+    raft::resources handle1;
+    auto mr = std::make_shared<raft::mr::host_device_resource>(raft::mr::managed_memory_resource{});
+    raft::resource::set_managed_memory_resource(handle1, mr);
+    raft::resources handle2{handle1};
+    auto ref1 = raft::resource::get_managed_memory_resource(handle1);
+    auto ref2 = raft::resource::get_managed_memory_resource(handle2);
+    ASSERT_EQ(ref1, ref2);
+  }
+
+  // get_default_host_resource: default ref is usable
+  {
+    auto ref  = raft::mr::get_default_host_resource();
+    void* ptr = ref.allocate_sync(128);
+    ASSERT_NE(ptr, nullptr);
+    ref.deallocate_sync(ptr, 128);
+  }
+
+  // set_default_host_resource: install mmap, allocate through default policy
+  {
+    raft::mr::mmap_memory_resource mmap_mr;
+    raft::mr::set_default_host_resource(mmap_mr);
+
+    auto ref  = raft::mr::get_default_host_resource();
+    void* ptr = ref.allocate_sync(4096);
+    ASSERT_NE(ptr, nullptr);
+    ref.deallocate_sync(ptr, 4096);
+
+    // restore default
+    raft::mr::set_default_host_resource(raft::mr::new_delete_resource());
   }
 }
 }  // anonymous namespace
@@ -504,7 +595,7 @@ void test_mdarray_padding()
 
     auto device_policy = padded_mdarray_type::container_policy_type{};
     static_assert(std::is_same_v<typename decltype(device_policy)::accessor_type,
-                                 device_uvector_policy<float>>);
+                                 device_container_policy<float>>);
     padded_mdarray_type padded_device_array{handle, layout, device_policy};
 
     // direct access mdarray
@@ -595,7 +686,7 @@ TEST(MDArray, Padding) { test_mdarray_padding(); }
 
     auto device_policy = padded_mdarray_type::container_policy_type{s};
     static_assert(std::is_same_v<typename decltype(device_policy)::accessor_type,
-                                 detail::device_uvector_policy<float>>);
+                                 detail::device_container_policy<float>>);
     padded_mdarray_type padded_device_array{handle, layout, device_policy};
 
     // test status

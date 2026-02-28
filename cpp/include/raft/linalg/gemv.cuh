@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __GEMV_H
@@ -267,8 +267,8 @@ void gemv(raft::resources const& handle,
   auto alpha_device = raft::make_device_scalar(handle, alpha_value);
   auto beta_device  = raft::make_device_scalar(handle, beta_value);
 
-  auto alpha_host = raft::make_host_scalar(alpha_value);
-  auto beta_host  = raft::make_host_scalar(beta_value);
+  auto alpha_host = raft::make_host_scalar(handle, alpha_value);
+  auto beta_host  = raft::make_host_scalar(handle, beta_value);
 
   if constexpr (device_mode) {
     if (!alpha) { alpha = alpha_device.view(); }

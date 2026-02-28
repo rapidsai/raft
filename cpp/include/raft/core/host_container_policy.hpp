@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019 Sandia Corporation
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
  */
 /*
@@ -14,18 +14,23 @@
 
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/util/integer_utils.hpp>
-
-#include <memory_resource>
+#include <raft/mr/host_memory_resource.hpp>
 
 namespace raft {
 
 /**
- * @brief A container using the std::pmr::memory_resource for allocations.
+ * @brief A container backed by a host-accessible cuda::mr::synchronous_resource.
  *
+ * @tparam T element type
+ * @tparam MR a type satisfying cuda::mr::synchronous_resource_with<cuda::mr::host_accessible>
  */
-template <typename T>
-struct host_container {
+template <typename T, typename MR>
+#ifdef __cpp_concepts
+requires cuda::mr::synchronous_resource_with<MR, cuda::mr::host_accessible>
+#endif
+  struct host_container {
+  static_assert(cuda::mr::synchronous_resource_with<MR, cuda::mr::host_accessible>,
+                "MR must be a host-accessible synchronous resource");
   using value_type = std::remove_cv_t<T>;
   using size_type  = std::size_t;
 
@@ -39,25 +44,26 @@ struct host_container {
   using const_iterator = const_pointer;
 
  private:
-  std::pmr::memory_resource* mr_;
+  MR mr_;
   size_type bytesize_ = 0;
   value_type* data_   = nullptr;
 
  public:
-  host_container(size_type count, std::pmr::memory_resource* mr = nullptr)
-    : mr_(mr == nullptr ? std::pmr::get_default_resource() : mr),
+  host_container(size_type count,
+                 MR mr)  // NB: pass by value, as we expect a resource_ref anyway
+    : mr_(std::move(mr)),
       bytesize_(sizeof(value_type) * count),
-      data_(bytesize_ > 0 ? static_cast<pointer>(mr_->allocate(bytesize_)) : nullptr)
+      data_(bytesize_ > 0 ? static_cast<pointer>(mr_.allocate_sync(bytesize_)) : nullptr)
   {
   }
 
   ~host_container() noexcept
   {
-    if (bytesize_ > 0 && data_ != nullptr) { mr_->deallocate(data_, bytesize_); }
+    if (bytesize_ > 0 && data_ != nullptr) { mr_.deallocate_sync(data_, bytesize_); }
   }
 
   host_container(host_container&& other) noexcept
-    : mr_{std::exchange(other.mr_, nullptr)},
+    : mr_{std::move(other.mr_)},
       bytesize_{std::exchange(other.bytesize_, 0)},
       data_{std::exchange(other.data_, nullptr)}
   {
@@ -103,13 +109,15 @@ struct host_container {
 };
 
 /**
- * @brief A container policy for host mdarray.
+ * @brief Container policy for host mdarray.
+ *
+ * Defaults to raft::mr::get_default_host_resource().
  */
 template <typename ElementType>
 class host_container_policy {
  public:
   using element_type          = ElementType;
-  using container_type        = host_container<element_type>;
+  using container_type        = host_container<element_type, rmm::host_resource_ref>;
   using pointer               = typename container_type::pointer;
   using const_pointer         = typename container_type::const_pointer;
   using reference             = typename container_type::reference;
@@ -117,11 +125,13 @@ class host_container_policy {
   using accessor_policy       = cuda::std::default_accessor<element_type>;
   using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
- public:
-  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n, mr_); }
+  host_container_policy() = default;
+  explicit host_container_policy(rmm::host_resource_ref ref) noexcept : ref_(ref) {}
 
-  constexpr host_container_policy() noexcept = default;
-  explicit host_container_policy(std::pmr::memory_resource* mr) noexcept : mr_(mr) {}
+  auto create(raft::resources const&, size_t n) -> container_type
+  {
+    return container_type(n, ref_);
+  }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -137,7 +147,7 @@ class host_container_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 
  private:
-  std::pmr::memory_resource* mr_{std::pmr::get_default_resource()};
+  rmm::host_resource_ref ref_ = raft::mr::get_default_host_resource();
 };
 
 }  // namespace raft
