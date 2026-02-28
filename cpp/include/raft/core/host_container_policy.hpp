@@ -24,8 +24,13 @@ namespace raft {
  * @tparam T element type
  * @tparam MR a type satisfying cuda::mr::synchronous_resource_with<cuda::mr::host_accessible>
  */
-template <typename T, cuda::mr::synchronous_resource_with<cuda::mr::host_accessible> MR>
-struct host_container {
+template <typename T, typename MR>
+#ifdef __cpp_concepts
+requires cuda::mr::synchronous_resource_with<MR, cuda::mr::host_accessible>
+#endif
+  struct host_container {
+  static_assert(cuda::mr::synchronous_resource_with<MR, cuda::mr::host_accessible>,
+                "MR must be a host-accessible synchronous resource");
   using value_type = std::remove_cv_t<T>;
   using size_type  = std::size_t;
 
