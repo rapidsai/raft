@@ -58,6 +58,7 @@ class resource_adaptor {
   {
     return upstream_->is_equal(*other.upstream_);
   }
+
   [[nodiscard]] bool operator!=(resource_adaptor const& other) const noexcept
   {
     return !(*this == other);
