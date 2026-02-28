@@ -72,7 +72,7 @@ requirements:
     - ${{ stdlib("c") }}
   host:
     - cuda-version =${{ cuda_version }}
-    - cython >=3.0.0,<3.2.0
+    - cython >=3.2.2
     - libraft =${{ version }}
     - libraft-headers =${{ version }}
     - pip
