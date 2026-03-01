@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -7,14 +7,18 @@
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/mr/host_device_resource.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device_memory_resource.hpp>
 #include <rmm/mr/limiting_resource_adaptor.hpp>
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/mr/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cstddef>
+#include <memory>
 #include <optional>
 
 namespace raft::resource {
@@ -27,11 +31,48 @@ namespace raft::resource {
 class device_memory_resource : public resource {
  public:
   explicit device_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr) : mr_(mr) {}
+  explicit device_memory_resource(raft::mr::device_resource ar) : any_mr_(std::move(ar)) {}
   ~device_memory_resource() override = default;
-  auto get_resource() -> void* override { return mr_.get(); }
+  auto get_resource() -> void* override
+  {
+    if (mr_) return mr_.get();
+    if (!bridge_) bridge_ = std::make_unique<any_resource_bridge>(*any_mr_);
+    return bridge_.get();
+  }
 
  private:
+  class any_resource_bridge : public rmm::mr::device_memory_resource {
+   public:
+    explicit any_resource_bridge(cuda::mr::any_resource<cuda::mr::device_accessible>& upstream)
+      : upstream_(upstream)
+    {
+    }
+
+   protected:
+    void* do_allocate(std::size_t bytes, rmm::cuda_stream_view stream) override
+    {
+      return upstream_.allocate(stream, bytes);
+    }
+
+    void do_deallocate(void* ptr, std::size_t bytes, rmm::cuda_stream_view stream) noexcept override
+    {
+      upstream_.deallocate(stream, ptr, bytes);
+    }
+
+    [[nodiscard]] bool do_is_equal(
+      rmm::mr::device_memory_resource const& other) const noexcept override
+    {
+      auto const* o = dynamic_cast<any_resource_bridge const*>(&other);
+      return o != nullptr && upstream_ == o->upstream_;
+    }
+
+   private:
+    cuda::mr::any_resource<cuda::mr::device_accessible>& upstream_;
+  };
+
   std::shared_ptr<rmm::mr::device_memory_resource> mr_;
+  std::optional<raft::mr::device_resource> any_mr_;
+  mutable std::unique_ptr<any_resource_bridge> bridge_;
 };
 
 class limiting_memory_resource : public resource {
@@ -39,7 +80,15 @@ class limiting_memory_resource : public resource {
   limiting_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr,
                            std::size_t allocation_limit,
                            std::optional<std::size_t> alignment)
-    : upstream_(mr), mr_(make_adaptor(mr, allocation_limit, alignment))
+    : upstream_(mr), mr_(make_adaptor(mr.get(), allocation_limit, alignment))
+  {
+  }
+
+  limiting_memory_resource(raft::mr::device_resource ar,
+                           std::size_t allocation_limit,
+                           std::optional<std::size_t> alignment)
+    : any_upstream_(std::move(ar)),
+      mr_(make_adaptor(rmm::device_async_resource_ref{*any_upstream_}, allocation_limit, alignment))
   {
   }
 
@@ -49,18 +98,31 @@ class limiting_memory_resource : public resource {
 
  private:
   std::shared_ptr<rmm::mr::device_memory_resource> upstream_;
+  std::optional<raft::mr::device_resource> any_upstream_;
   rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource> mr_;
 
-  static inline auto make_adaptor(std::shared_ptr<rmm::mr::device_memory_resource> upstream,
+  static inline auto make_adaptor(rmm::mr::device_memory_resource* upstream,
                                   std::size_t limit,
                                   std::optional<std::size_t> alignment)
     -> rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>
   {
-    auto p = upstream.get();
     if (alignment.has_value()) {
-      return rmm::mr::limiting_resource_adaptor(p, limit, alignment.value());
+      return rmm::mr::limiting_resource_adaptor(upstream, limit, alignment.value());
     } else {
-      return rmm::mr::limiting_resource_adaptor(p, limit);
+      return rmm::mr::limiting_resource_adaptor(upstream, limit);
+    }
+  }
+
+  static inline auto make_adaptor(rmm::device_async_resource_ref upstream,
+                                  std::size_t limit,
+                                  std::optional<std::size_t> alignment)
+    -> rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>
+  {
+    if (alignment.has_value()) {
+      return rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>(
+        upstream, limit, alignment.value());
+    } else {
+      return rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>(upstream, limit);
     }
   }
 };
@@ -78,14 +140,24 @@ class large_workspace_resource_factory : public resource_factory {
                  rmm::mr::get_current_device_resource(), void_op{}}}
   {
   }
+
+  explicit large_workspace_resource_factory(raft::mr::device_resource mr) : any_mr_(std::move(mr))
+  {
+  }
+
   auto get_resource_type() -> resource_type override
   {
     return resource_type::LARGE_WORKSPACE_RESOURCE;
   }
-  auto make_resource() -> resource* override { return new device_memory_resource(mr_); }
+  auto make_resource() -> resource* override
+  {
+    if (any_mr_) return new device_memory_resource(std::move(*any_mr_));
+    return new device_memory_resource(mr_);
+  }
 
  private:
   std::shared_ptr<rmm::mr::device_memory_resource> mr_;
+  std::optional<raft::mr::device_resource> any_mr_;
 };
 
 /**
@@ -106,9 +178,21 @@ class workspace_resource_factory : public resource_factory {
   {
   }
 
+  explicit workspace_resource_factory(raft::mr::device_resource mr,
+                                      std::optional<std::size_t> allocation_limit = std::nullopt,
+                                      std::optional<std::size_t> alignment        = std::nullopt)
+    : allocation_limit_(allocation_limit.has_value() ? allocation_limit.value()
+                                                     : default_allocation_limit()),
+      alignment_(alignment),
+      any_mr_(std::move(mr))
+  {
+  }
+
   auto get_resource_type() -> resource_type override { return resource_type::WORKSPACE_RESOURCE; }
   auto make_resource() -> resource* override
   {
+    if (any_mr_)
+      return new limiting_memory_resource(std::move(*any_mr_), allocation_limit_, alignment_);
     return new limiting_memory_resource(mr_, allocation_limit_, alignment_);
   }
 
@@ -159,6 +243,7 @@ class workspace_resource_factory : public resource_factory {
   std::size_t allocation_limit_;
   std::optional<std::size_t> alignment_;
   std::shared_ptr<rmm::mr::device_memory_resource> mr_;
+  std::optional<raft::mr::device_resource> any_mr_;
 
   static inline auto default_allocation_limit() -> std::size_t
   {
@@ -228,6 +313,21 @@ inline void set_workspace_resource(resources const& res,
 };
 
 /**
+ * @brief Set the workspace resource using any concept-based cuda::mr::resource.
+ *
+ * The resource is type-erased into any_resource<device_accessible> and stored
+ * natively, without wrapping in a device_memory_resource subclass.
+ */
+inline void set_workspace_resource(resources const& res,
+                                   raft::mr::device_resource mr,
+                                   std::optional<std::size_t> allocation_limit = std::nullopt,
+                                   std::optional<std::size_t> alignment        = std::nullopt)
+{
+  res.add_resource_factory(
+    std::make_shared<workspace_resource_factory>(std::move(mr), allocation_limit, alignment));
+}
+
+/**
  * Set the temporary workspace resource to a pool on top of the global memory resource
  * (`rmm::mr::get_current_device_resource()`.
  *
@@ -279,6 +379,17 @@ inline void set_large_workspace_resource(resources const& res,
 {
   res.add_resource_factory(std::make_shared<large_workspace_resource_factory>(mr));
 };
+
+/**
+ * @brief Set the large workspace resource using any concept-based cuda::mr::resource.
+ *
+ * The resource is type-erased into any_resource<device_accessible> and stored
+ * natively, without wrapping in a device_memory_resource subclass.
+ */
+inline void set_large_workspace_resource(resources const& res, raft::mr::device_resource mr)
+{
+  res.add_resource_factory(std::make_shared<large_workspace_resource_factory>(std::move(mr)));
+}
 
 /** @} */
 

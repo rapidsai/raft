@@ -28,4 +28,13 @@ using host_device_resource =
  */
 using host_resource = cuda::mr::any_synchronous_resource<cuda::mr::host_accessible>;
 
+/**
+ * @brief Type-erased owning async resource accessible from device.
+ *
+ * Mirrors the role of rmm::mr::device_memory_resource but uses concept-based
+ * type erasure.  Any type satisfying cuda::mr::resource with device_accessible
+ * property can be stored.
+ */
+using device_resource = cuda::mr::any_resource<cuda::mr::device_accessible>;
+
 }  // namespace raft::mr
