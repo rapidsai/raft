@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,7 +14,9 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device_memory_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 #include <rmm/mr/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 namespace raft::bench::matrix {
 
@@ -35,7 +37,7 @@ template <typename T, typename MapT, typename IdxT, bool Conditional = false>
 struct Gather : public fixture {
   Gather(const GatherParams<IdxT>& p)
     : params(p),
-      old_mr(rmm::mr::get_current_device_resource()),
+      old_mr(rmm::mr::get_current_device_resource_ref()),
       pool_mr(rmm::mr::get_current_device_resource(), 2 * (1ULL << 30)),
       matrix(this->handle),
       map(this->handle),
@@ -43,10 +45,10 @@ struct Gather : public fixture {
       stencil(this->handle),
       matrix_h(this->handle)
   {
-    rmm::mr::set_current_device_resource(&pool_mr);
+    rmm::mr::set_current_device_resource_ref(&pool_mr);
   }
 
-  ~Gather() { rmm::mr::set_current_device_resource(old_mr); }
+  ~Gather() { rmm::mr::set_current_device_resource_ref(old_mr); }
 
   void allocate_data(const ::benchmark::State& state) override
   {
@@ -107,7 +109,7 @@ struct Gather : public fixture {
 
  private:
   GatherParams<IdxT> params;
-  rmm::mr::device_memory_resource* old_mr;
+  rmm::device_async_resource_ref old_mr;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr;
   raft::device_matrix<T, IdxT> matrix, out;
   raft::host_matrix<T, IdxT> matrix_h;

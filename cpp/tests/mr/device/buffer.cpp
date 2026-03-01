@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -53,7 +53,7 @@ TEST(Raft, DeviceBufferZeroResize)
     std::make_shared<rmm::mr::limiting_resource_adaptor<rmm::mr::cuda_memory_resource>>(curr_mr,
                                                                                         1000);
 
-  rmm::mr::set_current_device_resource(limit_mr.get());
+  rmm::mr::set_current_device_resource_ref(limit_mr.get());
 
   cudaStream_t stream;
   RAFT_CUDA_TRY(cudaStreamCreate(&stream));
@@ -73,7 +73,7 @@ TEST(Raft, DeviceBufferZeroResize)
   // Now check that there is no memory left. (Used to not be true)
   ASSERT_EQ(0, limit_mr->get_allocated_bytes());
 
-  rmm::mr::set_current_device_resource(curr_mr);
+  rmm::mr::set_current_device_resource_ref(curr_mr);
 
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   RAFT_CUDA_TRY(cudaStreamDestroy(stream));
