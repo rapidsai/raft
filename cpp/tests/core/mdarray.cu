@@ -1068,9 +1068,9 @@ void test_device_resource_bridge_unwrap()
   auto ref = resource::device_memory_resource::make_ref(
     static_cast<rmm::mr::device_memory_resource*>(holder2->get_resource()));
 
-  void* ptr = ref.allocate(1024, stream);
+  void* ptr = ref.allocate(stream, 1024);
   ASSERT_NE(ptr, nullptr);
-  ref.deallocate(ptr, 1024, stream);
+  ref.deallocate(stream, ptr, 1024);
 }
 
 TEST(MDArray, DeviceResourceBridgeUnwrap) { test_device_resource_bridge_unwrap(); }
