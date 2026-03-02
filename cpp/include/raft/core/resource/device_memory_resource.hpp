@@ -30,7 +30,13 @@ namespace raft::resource {
 
 class device_memory_resource : public resource {
  public:
-  explicit device_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr) : mr_(mr) {}
+  explicit device_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr) : mr_(mr)
+  {
+    if (auto* b = dynamic_cast<any_resource_bridge*>(mr_.get())) {
+      any_mr_ = b->upstream();
+      mr_.reset();
+    }
+  }
   explicit device_memory_resource(raft::mr::device_resource ar) : any_mr_(std::move(ar)) {}
   ~device_memory_resource() override = default;
   auto get_resource() -> void* override
@@ -40,12 +46,32 @@ class device_memory_resource : public resource {
     return bridge_.get();
   }
 
+  /**
+   * @brief Construct a device_async_resource_ref from a device_memory_resource pointer,
+   *        unwrapping an any_resource_bridge if present.
+   *
+   * If the pointer is a bridge created by this class, the returned ref points
+   * directly to the enclosed any_resource, avoiding an extra virtual dispatch layer.
+   */
+  static auto make_ref(rmm::mr::device_memory_resource* dmr) -> rmm::device_async_resource_ref
+  {
+    if (auto* b = dynamic_cast<any_resource_bridge*>(dmr)) {
+      return rmm::device_async_resource_ref{b->upstream()};
+    }
+    return rmm::device_async_resource_ref{*dmr};
+  }
+
  private:
   class any_resource_bridge : public rmm::mr::device_memory_resource {
    public:
     explicit any_resource_bridge(cuda::mr::any_resource<cuda::mr::device_accessible>& upstream)
       : upstream_(upstream)
     {
+    }
+
+    auto upstream() noexcept -> cuda::mr::any_resource<cuda::mr::device_accessible>&
+    {
+      return upstream_;
     }
 
    protected:
@@ -256,14 +282,9 @@ class workspace_resource_factory : public resource_factory {
   }
 };
 
-/**
- * Load a temp workspace resource from a resources instance (and populate it on the res
- * if needed).
- *
- * @param res raft resources object for managing resources
- * @return device memory resource object
- */
-inline auto get_workspace_resource(resources const& res)
+namespace detail {
+
+inline auto get_workspace_adaptor(resources const& res)
   -> rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>*
 {
   if (!res.has_resource_factory(resource_type::WORKSPACE_RESOURCE)) {
@@ -271,7 +292,25 @@ inline auto get_workspace_resource(resources const& res)
   }
   return res.get_resource<rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>>(
     resource_type::WORKSPACE_RESOURCE);
-};
+}
+
+}  // namespace detail
+
+/**
+ * @brief Load a temp workspace resource from a resources instance (and populate it on the res
+ * if needed).
+ *
+ * Prefer get_workspace_resource_ref() for allocations and
+ * get_workspace_{total,used,free}_bytes() for accounting queries.
+ *
+ * @param res raft resources object for managing resources
+ * @return pointer to the workspace limiting_resource_adaptor
+ */
+inline auto get_workspace_resource(resources const& res)
+  -> rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>*
+{
+  return detail::get_workspace_adaptor(res);
+}
 
 /**
  * @brief Get the workspace as a non-owning device_async_resource_ref.
@@ -281,27 +320,42 @@ inline auto get_workspace_resource(resources const& res)
  */
 inline auto get_workspace_resource_ref(resources const& res) -> rmm::device_async_resource_ref
 {
-  return rmm::device_async_resource_ref{*get_workspace_resource(res)};
+  return rmm::device_async_resource_ref{*detail::get_workspace_adaptor(res)};
 }
 
-/** Get the total size of the workspace resource. */
+/**
+ * @brief Get the total size of the workspace resource.
+ *
+ * @param res raft resources object for managing resources
+ * @return total allocation limit in bytes
+ */
 inline auto get_workspace_total_bytes(resources const& res) -> size_t
 {
-  return get_workspace_resource(res)->get_allocation_limit();
-};
+  return detail::get_workspace_adaptor(res)->get_allocation_limit();
+}
 
-/** Get the already allocated size of the workspace resource. */
+/**
+ * @brief Get the already allocated size of the workspace resource.
+ *
+ * @param res raft resources object for managing resources
+ * @return currently allocated bytes
+ */
 inline auto get_workspace_used_bytes(resources const& res) -> size_t
 {
-  return get_workspace_resource(res)->get_allocated_bytes();
-};
+  return detail::get_workspace_adaptor(res)->get_allocated_bytes();
+}
 
-/** Get the available size of the workspace resource. */
+/**
+ * @brief Get the available size of the workspace resource.
+ *
+ * @param res raft resources object for managing resources
+ * @return free bytes (total limit minus allocated)
+ */
 inline auto get_workspace_free_bytes(resources const& res) -> size_t
 {
-  const auto* p = get_workspace_resource(res);
+  const auto* p = detail::get_workspace_adaptor(res);
   return p->get_allocation_limit() - p->get_allocated_bytes();
-};
+}
 
 /**
  * @brief Set the workspace resource.
@@ -389,8 +443,8 @@ inline auto get_large_workspace_resource_ref(resources const& res) -> rmm::devic
   if (!res.has_resource_factory(resource_type::LARGE_WORKSPACE_RESOURCE)) {
     res.add_resource_factory(std::make_shared<large_workspace_resource_factory>());
   }
-  return rmm::device_async_resource_ref{
-    *res.get_resource<rmm::mr::device_memory_resource>(resource_type::LARGE_WORKSPACE_RESOURCE)};
+  return device_memory_resource::make_ref(
+    res.get_resource<rmm::mr::device_memory_resource>(resource_type::LARGE_WORKSPACE_RESOURCE));
 }
 
 /**

@@ -14,6 +14,7 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/core/pinned_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/managed_memory_resource.hpp>
 #include <raft/core/resource/pinned_memory_resource.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -1037,5 +1038,41 @@ void test_mdarray_unravel()
 }  // anonymous namespace
 
 TEST(MDArray, Unravel) { test_mdarray_unravel(); }
+
+void test_device_resource_bridge_unwrap()
+{
+  auto stream = rmm::cuda_stream_default;
+
+  // holder2 is created from a bridge wrapping holder1's any_resource.
+  // After holder1 (and its bridge) are destroyed, holder2 must still work —
+  // proving the bridge was unwrapped and the any_resource was copied out.
+  std::unique_ptr<resource::device_memory_resource> holder2;
+  {
+    auto any_res = raft::mr::device_resource{
+      rmm::device_async_resource_ref{*rmm::mr::get_current_device_resource()}};
+    resource::device_memory_resource holder1{any_res};
+
+    // get_resource() lazily creates a bridge
+    auto* bridge_ptr = static_cast<rmm::mr::device_memory_resource*>(holder1.get_resource());
+
+    // Wrap bridge in a non-owning shared_ptr; holder1 owns the bridge
+    auto shared_bridge = std::shared_ptr<rmm::mr::device_memory_resource>(
+      bridge_ptr, [](rmm::mr::device_memory_resource*) {});
+
+    // The shared_ptr constructor detects the bridge and copies the any_resource
+    holder2 = std::make_unique<resource::device_memory_resource>(shared_bridge);
+  }
+  // holder1 is destroyed; the bridge is freed.
+  // holder2 survives because it copied the any_resource, not the bridge pointer.
+
+  auto ref = resource::device_memory_resource::make_ref(
+    static_cast<rmm::mr::device_memory_resource*>(holder2->get_resource()));
+
+  void* ptr = ref.allocate(1024, stream);
+  ASSERT_NE(ptr, nullptr);
+  ref.deallocate(ptr, 1024, stream);
+}
+
+TEST(MDArray, DeviceResourceBridgeUnwrap) { test_device_resource_bridge_unwrap(); }
 
 }  // namespace raft
