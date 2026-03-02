@@ -151,7 +151,7 @@ class large_workspace_resource_factory : public resource_factory {
   }
   auto make_resource() -> resource* override
   {
-    if (any_mr_) return new device_memory_resource(std::move(*any_mr_));
+    if (any_mr_) return new device_memory_resource(*any_mr_);
     return new device_memory_resource(mr_);
   }
 
@@ -191,8 +191,7 @@ class workspace_resource_factory : public resource_factory {
   auto get_resource_type() -> resource_type override { return resource_type::WORKSPACE_RESOURCE; }
   auto make_resource() -> resource* override
   {
-    if (any_mr_)
-      return new limiting_memory_resource(std::move(*any_mr_), allocation_limit_, alignment_);
+    if (any_mr_) return new limiting_memory_resource(*any_mr_, allocation_limit_, alignment_);
     return new limiting_memory_resource(mr_, allocation_limit_, alignment_);
   }
 
@@ -274,6 +273,17 @@ inline auto get_workspace_resource(resources const& res)
     resource_type::WORKSPACE_RESOURCE);
 };
 
+/**
+ * @brief Get the workspace as a non-owning device_async_resource_ref.
+ *
+ * @param res raft resources object for managing resources
+ * @return non-owning reference to the workspace device memory resource
+ */
+inline auto get_workspace_resource_ref(resources const& res) -> rmm::device_async_resource_ref
+{
+  return rmm::device_async_resource_ref{*get_workspace_resource(res)};
+}
+
 /** Get the total size of the workspace resource. */
 inline auto get_workspace_total_bytes(resources const& res) -> size_t
 {
@@ -294,29 +304,13 @@ inline auto get_workspace_free_bytes(resources const& res) -> size_t
 };
 
 /**
- * Set a temporary workspace resource on a resources instance.
+ * @brief Set the workspace resource.
  *
  * @param res raft resources object for managing resources
- * @param mr an optional RMM device_memory_resource
+ * @param mr device memory resource
  * @param allocation_limit
  *   the total amount of memory in bytes available to the temporary workspace resources.
- * @param alignment optional alignment requirements passed to RMM allocations
- *
- */
-inline void set_workspace_resource(resources const& res,
-                                   std::shared_ptr<rmm::mr::device_memory_resource> mr = {nullptr},
-                                   std::optional<std::size_t> allocation_limit = std::nullopt,
-                                   std::optional<std::size_t> alignment        = std::nullopt)
-{
-  res.add_resource_factory(
-    std::make_shared<workspace_resource_factory>(mr, allocation_limit, alignment));
-};
-
-/**
- * @brief Set the workspace resource using any concept-based cuda::mr::resource.
- *
- * The resource is type-erased into any_resource<device_accessible> and stored
- * natively, without wrapping in a device_memory_resource subclass.
+ * @param alignment optional alignment requirements passed to allocations
  */
 inline void set_workspace_resource(resources const& res,
                                    raft::mr::device_resource mr,
@@ -326,6 +320,25 @@ inline void set_workspace_resource(resources const& res,
   res.add_resource_factory(
     std::make_shared<workspace_resource_factory>(std::move(mr), allocation_limit, alignment));
 }
+
+/**
+ * @deprecated Use the overload taking raft::mr::device_resource instead.
+ *
+ * @param res raft resources object for managing resources
+ * @param mr an RMM device_memory_resource
+ * @param allocation_limit
+ *   the total amount of memory in bytes available to the temporary workspace resources.
+ * @param alignment optional alignment requirements passed to allocations
+ */
+[[deprecated("use the overload taking raft::mr::device_resource instead")]]
+inline void set_workspace_resource(resources const& res,
+                                   std::shared_ptr<rmm::mr::device_memory_resource> mr,
+                                   std::optional<std::size_t> allocation_limit = std::nullopt,
+                                   std::optional<std::size_t> alignment        = std::nullopt)
+{
+  res.add_resource_factory(
+    std::make_shared<workspace_resource_factory>(mr, allocation_limit, alignment));
+};
 
 /**
  * Set the temporary workspace resource to a pool on top of the global memory resource
@@ -365,6 +378,39 @@ inline void set_workspace_to_global_resource(
     workspace_resource_factory::default_plain_resource(), allocation_limit, std::nullopt));
 };
 
+/**
+ * @brief Get the large workspace as a non-owning device_async_resource_ref.
+ *
+ * @param res raft resources object for managing resources
+ * @return non-owning reference to the large workspace device memory resource
+ */
+inline auto get_large_workspace_resource_ref(resources const& res) -> rmm::device_async_resource_ref
+{
+  if (!res.has_resource_factory(resource_type::LARGE_WORKSPACE_RESOURCE)) {
+    res.add_resource_factory(std::make_shared<large_workspace_resource_factory>());
+  }
+  return rmm::device_async_resource_ref{
+    *res.get_resource<rmm::mr::device_memory_resource>(resource_type::LARGE_WORKSPACE_RESOURCE)};
+}
+
+/**
+ * @brief Set the large workspace resource.
+ *
+ * @param res raft resources object for managing resources
+ * @param mr device memory resource
+ */
+inline void set_large_workspace_resource(resources const& res, raft::mr::device_resource mr)
+{
+  res.add_resource_factory(std::make_shared<large_workspace_resource_factory>(std::move(mr)));
+}
+
+/**
+ * @deprecated Use get_large_workspace_resource_ref() instead.
+ *
+ * @param res raft resources object for managing resources
+ * @return pointer to the large workspace device memory resource
+ */
+[[deprecated("use get_large_workspace_resource_ref() instead")]]
 inline auto get_large_workspace_resource(resources const& res) -> rmm::mr::device_memory_resource*
 {
   if (!res.has_resource_factory(resource_type::LARGE_WORKSPACE_RESOURCE)) {
@@ -373,23 +419,18 @@ inline auto get_large_workspace_resource(resources const& res) -> rmm::mr::devic
   return res.get_resource<rmm::mr::device_memory_resource>(resource_type::LARGE_WORKSPACE_RESOURCE);
 };
 
+/**
+ * @deprecated Use the overload taking raft::mr::device_resource instead.
+ *
+ * @param res raft resources object for managing resources
+ * @param mr an RMM device_memory_resource
+ */
+[[deprecated("use the overload taking raft::mr::device_resource instead")]]
 inline void set_large_workspace_resource(resources const& res,
-                                         std::shared_ptr<rmm::mr::device_memory_resource> mr = {
-                                           nullptr})
+                                         std::shared_ptr<rmm::mr::device_memory_resource> mr)
 {
   res.add_resource_factory(std::make_shared<large_workspace_resource_factory>(mr));
 };
-
-/**
- * @brief Set the large workspace resource using any concept-based cuda::mr::resource.
- *
- * The resource is type-erased into any_resource<device_accessible> and stored
- * natively, without wrapping in a device_memory_resource subclass.
- */
-inline void set_large_workspace_resource(resources const& res, raft::mr::device_resource mr)
-{
-  res.add_resource_factory(std::make_shared<large_workspace_resource_factory>(std::move(mr)));
-}
 
 /** @} */
 

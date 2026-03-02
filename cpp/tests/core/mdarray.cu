@@ -415,7 +415,7 @@ void test_factory_methods()
   // managed memory resource: get/set with default
   {
     raft::resources handle;
-    auto ref  = raft::resource::get_managed_memory_resource(handle);
+    auto ref  = raft::resource::get_managed_memory_resource_ref(handle);
     void* ptr = ref.allocate_sync(256);
     ASSERT_NE(ptr, nullptr);
     ref.deallocate_sync(ptr, 256);
@@ -424,8 +424,8 @@ void test_factory_methods()
   // managed memory resource: set custom, allocate through mdarray
   {
     raft::resources handle;
-    auto mr = std::make_shared<raft::mr::host_device_resource>(raft::mr::managed_memory_resource{});
-    raft::resource::set_managed_memory_resource(handle, mr);
+    raft::resource::set_managed_memory_resource(
+      handle, raft::mr::host_device_resource{raft::mr::managed_memory_resource{}});
     auto m_vec = make_managed_vector<float>(handle, 10);
     m_vec(0)   = 99.0f;
     ASSERT_EQ(m_vec(0), 99.0f);
@@ -434,7 +434,7 @@ void test_factory_methods()
   // pinned memory resource: get/set with default
   {
     raft::resources handle;
-    auto ref  = raft::resource::get_pinned_memory_resource(handle);
+    auto ref  = raft::resource::get_pinned_memory_resource_ref(handle);
     void* ptr = ref.allocate_sync(256);
     ASSERT_NE(ptr, nullptr);
     ref.deallocate_sync(ptr, 256);
@@ -443,8 +443,8 @@ void test_factory_methods()
   // pinned memory resource: set custom, allocate through mdarray
   {
     raft::resources handle;
-    auto mr = std::make_shared<raft::mr::host_device_resource>(raft::mr::pinned_memory_resource{});
-    raft::resource::set_pinned_memory_resource(handle, mr);
+    raft::resource::set_pinned_memory_resource(
+      handle, raft::mr::host_device_resource{raft::mr::pinned_memory_resource{}});
     auto p_vec = make_pinned_vector<float>(handle, 10);
     p_vec(0)   = 55.0f;
     ASSERT_EQ(p_vec(0), 55.0f);
@@ -453,11 +453,11 @@ void test_factory_methods()
   // shared semantics: two resources objects share the same MR
   {
     raft::resources handle1;
-    auto mr = std::make_shared<raft::mr::host_device_resource>(raft::mr::managed_memory_resource{});
-    raft::resource::set_managed_memory_resource(handle1, mr);
+    raft::resource::set_managed_memory_resource(
+      handle1, raft::mr::host_device_resource{raft::mr::managed_memory_resource{}});
     raft::resources handle2{handle1};
-    auto ref1 = raft::resource::get_managed_memory_resource(handle1);
-    auto ref2 = raft::resource::get_managed_memory_resource(handle2);
+    auto ref1 = raft::resource::get_managed_memory_resource_ref(handle1);
+    auto ref2 = raft::resource::get_managed_memory_resource_ref(handle2);
     ASSERT_EQ(ref1, ref2);
   }
 

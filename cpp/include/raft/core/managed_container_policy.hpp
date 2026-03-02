@@ -27,7 +27,7 @@ struct managed_container_policy {
 
   auto create(raft::resources const& res, size_t n) -> container_type
   {
-    return container_type(n, raft::resource::get_managed_memory_resource(res));
+    return container_type(n, raft::resource::get_managed_memory_resource_ref(res));
   }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference

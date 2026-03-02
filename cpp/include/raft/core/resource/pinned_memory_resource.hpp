@@ -9,7 +9,7 @@
 #include <raft/mr/host_device_resource.hpp>
 #include <raft/mr/pinned_memory_resource.hpp>
 
-#include <memory>
+#include <rmm/resource_ref.hpp>
 
 namespace raft::resource {
 
@@ -20,23 +20,19 @@ namespace raft::resource {
 
 class pinned_memory_resource : public resource {
  public:
-  explicit pinned_memory_resource(std::shared_ptr<raft::mr::host_device_resource> mr)
-    : mr_(std::move(mr))
-  {
-  }
+  explicit pinned_memory_resource(raft::mr::host_device_resource mr) : mr_(std::move(mr)) {}
   ~pinned_memory_resource() override = default;
-  auto get_resource() -> void* override { return mr_.get(); }
+  auto get_resource() -> void* override { return &mr_; }
 
  private:
-  std::shared_ptr<raft::mr::host_device_resource> mr_;
+  raft::mr::host_device_resource mr_;
 };
 
 class pinned_memory_resource_factory : public resource_factory {
  public:
-  explicit pinned_memory_resource_factory(std::shared_ptr<raft::mr::host_device_resource> mr = {})
-    : mr_(mr ? std::move(mr) : default_resource())
-  {
-  }
+  pinned_memory_resource_factory() : mr_(raft::mr::pinned_memory_resource{}) {}
+
+  explicit pinned_memory_resource_factory(raft::mr::host_device_resource mr) : mr_(std::move(mr)) {}
 
   auto get_resource_type() -> resource_type override
   {
@@ -45,16 +41,18 @@ class pinned_memory_resource_factory : public resource_factory {
   auto make_resource() -> resource* override { return new pinned_memory_resource(mr_); }
 
  private:
-  std::shared_ptr<raft::mr::host_device_resource> mr_;
-
-  static auto default_resource() -> std::shared_ptr<raft::mr::host_device_resource>
-  {
-    return std::make_shared<raft::mr::host_device_resource>(raft::mr::pinned_memory_resource{});
-  }
+  raft::mr::host_device_resource mr_;
 };
 
-/** @brief Get the pinned memory resource. Default: raft::mr::pinned_memory_resource. */
-inline auto get_pinned_memory_resource(resources const& res) -> rmm::host_device_resource_ref
+/**
+ * @brief Get the pinned memory resource as a non-owning host_device_resource_ref.
+ *
+ * Default: raft::mr::pinned_memory_resource.
+ *
+ * @param res raft resources object for managing resources
+ * @return non-owning reference to the pinned memory resource
+ */
+inline auto get_pinned_memory_resource_ref(resources const& res) -> rmm::host_device_resource_ref
 {
   if (!res.has_resource_factory(resource_type::PINNED_MEMORY_RESOURCE)) {
     res.add_resource_factory(std::make_shared<pinned_memory_resource_factory>());
@@ -67,10 +65,9 @@ inline auto get_pinned_memory_resource(resources const& res) -> rmm::host_device
  * @brief Set the pinned memory resource.
  *
  * @param res raft resources object for managing resources
- * @param mr  shared pointer to a host+device accessible resource
+ * @param mr  host+device accessible memory resource
  */
-inline void set_pinned_memory_resource(resources const& res,
-                                       std::shared_ptr<raft::mr::host_device_resource> mr)
+inline void set_pinned_memory_resource(resources const& res, raft::mr::host_device_resource mr)
 {
   res.add_resource_factory(std::make_shared<pinned_memory_resource_factory>(std::move(mr)));
 }
