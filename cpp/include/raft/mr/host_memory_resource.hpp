@@ -7,6 +7,8 @@
 #include <raft/mr/host_device_resource.hpp>
 #include <raft/pmr/resource_adaptor.hpp>
 
+#include <cuda/memory_resource>
+
 #include <memory_resource>
 #include <mutex>
 #include <utility>
@@ -21,7 +23,8 @@ namespace raft::mr {
 inline auto new_delete_resource() -> rmm::host_resource_ref
 {
   static raft::pmr::resource_adaptor instance{std::pmr::new_delete_resource()};
-  return rmm::host_resource_ref{instance};
+  auto cuda_ref = cuda::mr::synchronous_resource_ref<cuda::mr::host_accessible>(instance);
+  return rmm::host_resource_ref{cuda_ref};
 }
 
 namespace detail {
