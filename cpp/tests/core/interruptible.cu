@@ -1,11 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <raft/common/nvtx.hpp>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/nvtx.hpp>
 
 #include <rmm/cuda_stream.hpp>
 

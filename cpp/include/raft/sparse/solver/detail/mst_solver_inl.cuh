@@ -14,12 +14,12 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/functional>
 #include <cuda/std/tuple>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
-#include <thrust/functional.h>
 #include <thrust/host_vector.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
@@ -198,7 +198,7 @@ alteration_t MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration_ma
   auto end   = thrust::make_zip_iterator(cuda::std::make_tuple(new_end - 1, new_end));
   auto init  = tmp.element(1, stream) - tmp.element(0, stream);
   auto max   = thrust::transform_reduce(
-    policy, begin, end, alteration_functor<weight_t>(), init, thrust::minimum<weight_t>());
+    policy, begin, end, alteration_functor<weight_t>(), init, cuda::minimum<weight_t>());
   // Enforce distinct weights if initial edge weights are identical by returning
   // a value of 1
   return max > 0 ? max / static_cast<alteration_t>(2) : 1;

@@ -23,10 +23,10 @@
 #include <rmm/device_vector.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <cuda/iterator>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
 #include <thrust/sequence.h>
 
 #include <gtest/gtest.h>
@@ -51,7 +51,7 @@ void test_mdspan()
   thrust::device_vector<int32_t> status(1, 0);
   auto p_status = status.data().get();
   thrust::for_each_n(
-    rmm::exec_policy(stream), thrust::make_counting_iterator(0ul), 4, [=] __device__(size_t i) {
+    rmm::exec_policy(stream), cuda::make_counting_iterator(0ul), 4, [=] __device__(size_t i) {
       auto v = span(0, i);
       if (v != i) { raft::myAtomicAdd(p_status, 1); }
       auto k = cuda::std::submdspan(span, 0, cuda::std::full_extent);
@@ -101,7 +101,7 @@ void test_mdarray_basic()
     thrust::device_vector<int32_t> status(1, 0);
     auto p_status = status.data().get();
     thrust::for_each_n(rmm::exec_policy(s),
-                       thrust::make_counting_iterator(0ul),
+                       cuda::make_counting_iterator(0ul),
                        1,
                        [d_view, p_status] __device__(auto i) {
                          if (d_view(0, 3) != 1) { myAtomicAdd(p_status, 1); }
@@ -115,7 +115,7 @@ void test_mdarray_basic()
     ASSERT_EQ(arr(0, 3), 1);
     auto const_d_view = arr.view();
     thrust::for_each_n(rmm::exec_policy(s),
-                       thrust::make_counting_iterator(0ul),
+                       cuda::make_counting_iterator(0ul),
                        1,
                        [const_d_view, p_status] __device__(auto i) {
                          if (const_d_view(0, 3) != 1) { myAtomicAdd(p_status, 1); }
@@ -162,7 +162,7 @@ void test_mdarray_basic()
       ASSERT_EQ(array(0, 3), 1);
       auto h_view = array.view();
       static_assert(decltype(h_view)::accessor_type::is_host_type::value);
-      thrust::for_each_n(thrust::host, thrust::make_counting_iterator(0ul), 1, [h_view](auto i) {
+      thrust::for_each_n(thrust::host, cuda::make_counting_iterator(0ul), 1, [h_view](auto i) {
         ASSERT_EQ(h_view(0, 3), 1);
       });
     }
@@ -359,7 +359,7 @@ void test_factory_methods()
     thrust::device_vector<int32_t> status(1, 0);
     auto p_status = status.data().get();
     thrust::for_each_n(rmm::exec_policy(resource::get_cuda_stream(handle)),
-                       thrust::make_counting_iterator(0),
+                       cuda::make_counting_iterator(0),
                        1,
                        [=] __device__(auto i) {
                          if (view(i) != 17.0) { myAtomicAdd(p_status, 1); }
@@ -518,7 +518,7 @@ void test_mdarray_padding()
     thrust::device_vector<int32_t> status(1, 0);
     auto p_status = status.data().get();
     thrust::for_each_n(rmm::exec_policy(),
-                       thrust::make_counting_iterator(0ul),
+                       cuda::make_counting_iterator(0ul),
                        1,
                        [d_view, p_status] __device__(size_t i) {
                          if (d_view(0, 3) != 1) { myAtomicAdd(p_status, 1); }
@@ -532,7 +532,7 @@ void test_mdarray_padding()
     ASSERT_EQ(arr(0, 3), 1);
     auto const_d_view = arr.view();
     thrust::for_each_n(rmm::exec_policy(s),
-                       thrust::make_counting_iterator(0ul),
+                       cuda::make_counting_iterator(0ul),
                        1,
                        [const_d_view, p_status] __device__(size_t i) {
                          if (const_d_view(0, 3) != 1) { myAtomicAdd(p_status, 1); }
@@ -542,7 +542,7 @@ void test_mdarray_padding()
     // initialize with sequence
     thrust::for_each_n(
       rmm::exec_policy(s),
-      thrust::make_counting_iterator(0ul),
+      cuda::make_counting_iterator(0ul),
       rows * cols,
       [d_view, rows, cols] __device__(size_t i) { d_view(i / cols, i % cols) = i; });
 
@@ -552,7 +552,7 @@ void test_mdarray_padding()
       using padded_mdspan_type = device_mdspan<float, extents_type, padded_layout_row_major>;
       auto padded_span         = padded_mdspan_type(data_padded, layout);
       thrust::for_each_n(rmm::exec_policy(s),
-                         thrust::make_counting_iterator(0ul),
+                         cuda::make_counting_iterator(0ul),
                          rows * cols,
                          [padded_span, rows, cols, p_status] __device__(size_t i) {
                            if (padded_span(i / cols, i % cols) != i) myAtomicAdd(p_status, 1);
@@ -608,7 +608,7 @@ TEST(MDArray, Padding) { test_mdarray_padding(); }
       static_assert(std::is_same_v<typename decltype(d_view)::layout_type, layout_padded_general>);
       thrust::for_each_n(
         rmm::exec_policy(s),
-        thrust::make_counting_iterator(0ul),
+        cuda::make_counting_iterator(0ul),
         rows * cols,
         [d_view, rows, cols] __device__(size_t i) { d_view(i / cols, i % cols) = i; });
     }
@@ -618,7 +618,7 @@ TEST(MDArray, Padding) { test_mdarray_padding(); }
       auto data_padded = padded_device_array.data();
       auto padded_span = padded_mdspan_type(data_padded, layout);
       thrust::for_each_n(rmm::exec_policy(s),
-                         thrust::make_counting_iterator(0ul),
+                         cuda::make_counting_iterator(0ul),
                          rows * cols,
                          [padded_span, rows, cols, p_status] __device__(size_t i) {
                            if (padded_span(i / cols, i % cols) != i) myAtomicAdd(p_status, 1);
@@ -631,7 +631,7 @@ TEST(MDArray, Padding) { test_mdarray_padding(); }
       auto padded_span  = padded_device_array.view();
       auto subspan_full = stdex::submdspan(padded_span, stdex::full_extent, stdex::full_extent);
       thrust::for_each_n(rmm::exec_policy(s),
-                         thrust::make_counting_iterator(0ul),
+                         cuda::make_counting_iterator(0ul),
                          cols * rows,
                          [subspan_full, padded_span, rows, cols, p_status] __device__(size_t i) {
                            if (subspan_full(i / cols, i % cols) != padded_span(i / cols, i % cols))
@@ -649,7 +649,7 @@ TEST(MDArray, Padding) { test_mdarray_padding(); }
       auto padded_span = padded_device_array.view();
       auto row3        = stdex::submdspan(padded_span, 3, stdex::full_extent);
       thrust::for_each_n(rmm::exec_policy(s),
-                         thrust::make_counting_iterator(0ul),
+                         cuda::make_counting_iterator(0ul),
                          cols,
                          [row3, padded_span, p_status] __device__(size_t i) {
                            if (row3(i) != padded_span(3, i)) myAtomicAdd(p_status, 1);
@@ -665,7 +665,7 @@ TEST(MDArray, Padding) { test_mdarray_padding(); }
       auto padded_span = padded_device_array.view();
       auto col1        = stdex::submdspan(padded_span, stdex::full_extent, 1);
       thrust::for_each_n(rmm::exec_policy(s),
-                         thrust::make_counting_iterator(0ul),
+                         cuda::make_counting_iterator(0ul),
                          rows,
                          [col1, padded_span, p_status] __device__(size_t i) {
                            if (col1(i) != padded_span(i, 1)) myAtomicAdd(p_status, 1);
@@ -682,7 +682,7 @@ TEST(MDArray, Padding) { test_mdarray_padding(); }
       auto subspan =
         stdex::submdspan(padded_span, std::make_tuple(1ul, 4ul), std::make_tuple(2ul, 5ul));
       thrust::for_each_n(rmm::exec_policy(s),
-                         thrust::make_counting_iterator(0ul),
+                         cuda::make_counting_iterator(0ul),
                          (rows - 1) * (cols - 2),
                          [subspan, rows, cols, padded_span, p_status] __device__(size_t i) {
                            size_t idx = i / (cols - 2);
@@ -703,7 +703,7 @@ TEST(MDArray, Padding) { test_mdarray_padding(); }
       auto subspan =
         stdex::submdspan(padded_span, std::make_tuple(1ul, 4ul), std::make_tuple(2ul, 5ul));
       thrust::for_each_n(rmm::exec_policy(s),
-                         thrust::make_counting_iterator(0ul),
+                         cuda::make_counting_iterator(0ul),
                          (rows - 1) * (cols - 2),
                          [subspan, rows, cols, padded_span, p_status] __device__(size_t i) {
                            size_t idx = i / (cols - 2);
@@ -756,7 +756,7 @@ void test_mdspan_padding_by_type()
       auto padded_span       = padded_device_array.view();
       thrust::for_each_n(
         rmm::exec_policy(s),
-        thrust::make_counting_iterator(0ul),
+        cuda::make_counting_iterator(0ul),
         rows * cols,
         [rows, cols, padded_span, alignment_elements, p_status] __device__(size_t i) {
           size_t idx = i / cols;
@@ -783,7 +783,7 @@ void test_mdspan_padding_by_type()
       auto padded_span       = padded_device_array.view();
       thrust::for_each_n(
         rmm::exec_policy(s),
-        thrust::make_counting_iterator(0ul),
+        cuda::make_counting_iterator(0ul),
         rows * cols,
         [rows, cols, padded_span, alignment_elements, p_status] __device__(size_t i) {
           size_t idx = i / cols;
@@ -843,7 +843,7 @@ void test_mdspan_aligned_matrix()
   thrust::device_vector<int32_t> status(1, 0);
   auto p_status = status.data().get();
   thrust::for_each_n(rmm::exec_policy(s),
-                     thrust::make_counting_iterator(0ul),
+                     cuda::make_counting_iterator(0ul),
                      rows * cols,
                      [rows, cols, my_aligned_device_span, p_status] __device__(size_t i) {
                        size_t idx = i / cols;
@@ -922,7 +922,7 @@ void test_mdarray_unravel()
     auto m   = make_device_matrix<float, size_t>(handle, 7, 6);
     auto m_v = m.view();
     thrust::for_each_n(resource::get_thrust_policy(handle),
-                       thrust::make_counting_iterator(0ul),
+                       cuda::make_counting_iterator(0ul),
                        m_v.size(),
                        [=] HD(size_t i) {
                          auto coord =
@@ -932,7 +932,7 @@ void test_mdarray_unravel()
     thrust::device_vector<int32_t> status(1, 0);
     auto p_status = status.data().get();
     thrust::for_each_n(resource::get_thrust_policy(handle),
-                       thrust::make_counting_iterator(0ul),
+                       cuda::make_counting_iterator(0ul),
                        m_v.size(),
                        [=] __device__(size_t i) {
                          auto coord =

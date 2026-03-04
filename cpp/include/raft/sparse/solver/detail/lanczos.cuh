@@ -28,7 +28,7 @@
 #include <raft/linalg/detail/gemv.hpp>
 #include <raft/linalg/dot.cuh>
 #include <raft/linalg/eig.cuh>
-#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map.cuh>
@@ -41,7 +41,6 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/gather.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/slice.cuh>
 #include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>
