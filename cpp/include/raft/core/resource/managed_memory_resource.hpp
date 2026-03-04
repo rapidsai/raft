@@ -7,7 +7,8 @@
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/mr/host_device_resource.hpp>
-#include <raft/mr/managed_memory_resource.hpp>
+
+#include <cuda/memory_resource>
 
 namespace raft::resource {
 
@@ -28,7 +29,7 @@ class managed_memory_resource : public resource {
 
 class managed_memory_resource_factory : public resource_factory {
  public:
-  managed_memory_resource_factory() : mr_(raft::mr::managed_memory_resource{}) {}
+  managed_memory_resource_factory() : mr_(cuda::mr::legacy_managed_memory_resource{}) {}
 
   explicit managed_memory_resource_factory(raft::mr::host_device_resource mr) : mr_(std::move(mr))
   {
@@ -47,7 +48,7 @@ class managed_memory_resource_factory : public resource_factory {
 /**
  * @brief Get the managed memory resource as a non-owning host_device_resource_ref.
  *
- * Default: raft::mr::managed_memory_resource.
+ * Default: cuda::mr::legacy_managed_memory_resource.
  *
  * @param res raft resources object for managing resources
  * @return non-owning reference to the managed memory resource

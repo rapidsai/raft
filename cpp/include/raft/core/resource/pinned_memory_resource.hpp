@@ -7,7 +7,8 @@
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/mr/host_device_resource.hpp>
-#include <raft/mr/pinned_memory_resource.hpp>
+
+#include <cuda/memory_resource>
 
 namespace raft::resource {
 
@@ -28,7 +29,7 @@ class pinned_memory_resource : public resource {
 
 class pinned_memory_resource_factory : public resource_factory {
  public:
-  pinned_memory_resource_factory() : mr_(raft::mr::pinned_memory_resource{}) {}
+  pinned_memory_resource_factory() : mr_(cuda::mr::legacy_pinned_memory_resource{}) {}
 
   explicit pinned_memory_resource_factory(raft::mr::host_device_resource mr) : mr_(std::move(mr)) {}
 
@@ -45,7 +46,7 @@ class pinned_memory_resource_factory : public resource_factory {
 /**
  * @brief Get the pinned memory resource as a non-owning host_device_resource_ref.
  *
- * Default: raft::mr::pinned_memory_resource.
+ * Default: cuda::mr::legacy_pinned_memory_resource.
  *
  * @param res raft resources object for managing resources
  * @return non-owning reference to the pinned memory resource
