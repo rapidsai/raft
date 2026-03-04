@@ -19,7 +19,7 @@ namespace raft::mr {
  * @brief A cuda::mr::synchronous_resource backed by cudaMallocHost / cudaFreeHost.
  *
  * Provides CUDA-pinned (page-locked) host memory through the cuda::mr interface.
- * Accessible from both host and device; binds to rmm::host_device_resource_ref.
+ * Accessible from both host and device; binds to raft::mr::host_device_resource_ref.
  */
 class pinned_memory_resource {
  public:

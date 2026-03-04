@@ -19,7 +19,7 @@ namespace raft::mr {
  * @brief A cuda::mr::synchronous_resource backed by cudaMallocManaged / cudaFree.
  *
  * Provides CUDA unified (managed) memory accessible from both host and device.
- * Uses synchronous allocation (no stream). Binds to rmm::host_device_resource_ref.
+ * Uses synchronous allocation (no stream). Binds to raft::mr::host_device_resource_ref.
  */
 class managed_memory_resource {
  public:

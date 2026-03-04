@@ -171,7 +171,7 @@ void test_mdarray_basic()
       });
     }
 
-    // cuda::mr resources (mmap): use make_host_mdarray with rmm::host_resource_ref
+    // cuda::mr resources (mmap): use make_host_mdarray with raft::mr::host_resource_ref
     for (auto* mr : {&mmap_mr_default, &mmap_mr_hugepages, &mmap_mr_huge_file}) {
       auto array = make_host_mdarray<float>(handle, *mr, make_extents<uint32_t>(16u));
       array(3)   = 1;

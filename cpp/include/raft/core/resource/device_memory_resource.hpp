@@ -297,8 +297,8 @@ inline auto get_workspace_adaptor(resources const& res)
 }  // namespace detail
 
 /**
- * @brief Load a temp workspace resource from a resources instance (and populate it on the res
- * if needed).
+ * @brief Load a temp workspace resource from a resources instance (and populate it on the res if
+ * needed).
  *
  * Prefer get_workspace_resource_ref() for allocations and
  * get_workspace_{total,used,free}_bytes() for accounting queries.

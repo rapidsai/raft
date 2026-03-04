@@ -9,10 +9,6 @@
 #include <raft/mr/host_device_resource.hpp>
 #include <raft/mr/pinned_memory_resource.hpp>
 
-#include <rmm/resource_ref.hpp>
-
-#include <cuda/memory_resource>
-
 namespace raft::resource {
 
 /**
@@ -54,15 +50,15 @@ class pinned_memory_resource_factory : public resource_factory {
  * @param res raft resources object for managing resources
  * @return non-owning reference to the pinned memory resource
  */
-inline auto get_pinned_memory_resource_ref(resources const& res) -> rmm::host_device_resource_ref
+inline auto get_pinned_memory_resource_ref(resources const& res)
+  -> raft::mr::host_device_resource_ref
 {
   if (!res.has_resource_factory(resource_type::PINNED_MEMORY_RESOURCE)) {
     res.add_resource_factory(std::make_shared<pinned_memory_resource_factory>());
   }
   auto& mr =
     *res.get_resource<raft::mr::host_device_resource>(resource_type::PINNED_MEMORY_RESOURCE);
-  return rmm::host_device_resource_ref{
-    cuda::mr::synchronous_resource_ref<cuda::mr::host_accessible, cuda::mr::device_accessible>(mr)};
+  return raft::mr::host_device_resource_ref{mr};
 }
 
 /**

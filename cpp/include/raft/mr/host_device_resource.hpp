@@ -4,8 +4,6 @@
  */
 #pragma once
 
-#include <rmm/resource_ref.hpp>
-
 #include <cuda/memory_resource>
 
 namespace raft::mr {
@@ -36,5 +34,18 @@ using host_resource = cuda::mr::any_synchronous_resource<cuda::mr::host_accessib
  * property can be stored.
  */
 using device_resource = cuda::mr::any_resource<cuda::mr::device_accessible>;
+
+/**
+ * @brief Alias for a `cuda::mr::synchronous_resource_ref` with the property
+ * `cuda::mr::host_accessible`.
+ */
+using host_resource_ref = cuda::mr::synchronous_resource_ref<cuda::mr::host_accessible>;
+
+/**
+ * @brief Alias for a `cuda::mr::synchronous_resource_ref` with the properties
+ * `cuda::mr::host_accessible` and `cuda::mr::device_accessible`.
+ */
+using host_device_resource_ref =
+  cuda::mr::synchronous_resource_ref<cuda::mr::host_accessible, cuda::mr::device_accessible>;
 
 }  // namespace raft::mr

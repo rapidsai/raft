@@ -41,8 +41,8 @@ TEST(HostMemoryResource, MmapFileBacked)
 TEST(HostMemoryResource, MmapViaHostResourceRef)
 {
   raft::mr::mmap_memory_resource mr;
-  rmm::host_resource_ref ref = mr;
-  void* ptr                  = ref.allocate_sync(4096);
+  raft::mr::host_resource_ref ref{mr};
+  void* ptr = ref.allocate_sync(4096);
   ASSERT_NE(ptr, nullptr);
   ref.deallocate_sync(ptr, 4096);
 }

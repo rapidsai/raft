@@ -21,7 +21,7 @@ namespace raft::pmr {
  *  - From shared_ptr or unique_ptr: owning (shared ownership or exclusive transfer).
  *
  * Satisfies cuda::mr::synchronous_resource and has_property for host_accessible,
- * so it can be used directly with rmm::host_resource_ref.
+ * so it can be used directly with raft::mr::host_resource_ref.
  */
 class resource_adaptor {
  public:
@@ -77,6 +77,6 @@ class resource_adaptor {
 
 static_assert(cuda::mr::synchronous_resource_with<resource_adaptor, cuda::mr::host_accessible>,
               "resource_adaptor must satisfy synchronous_resource_with<host_accessible> for "
-              "rmm::host_resource_ref consumption");
+              "raft::mr::host_resource_ref consumption");
 
 }  // namespace raft::pmr

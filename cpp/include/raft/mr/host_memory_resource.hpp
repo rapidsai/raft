@@ -7,8 +7,6 @@
 #include <raft/mr/host_device_resource.hpp>
 #include <raft/pmr/resource_adaptor.hpp>
 
-#include <cuda/memory_resource>
-
 #include <memory_resource>
 #include <mutex>
 #include <utility>
@@ -18,13 +16,12 @@ namespace raft::mr {
 /**
  * @brief Get a reference to a stateless new/delete host memory resource.
  *
- * Analogous to std::pmr::new_delete_resource(), but returns rmm::host_resource_ref.
+ * Analogous to std::pmr::new_delete_resource(), but returns raft::mr::host_resource_ref.
  */
-inline auto new_delete_resource() -> rmm::host_resource_ref
+inline auto new_delete_resource() -> raft::mr::host_resource_ref
 {
   static raft::pmr::resource_adaptor instance{std::pmr::new_delete_resource()};
-  auto cuda_ref = cuda::mr::synchronous_resource_ref<cuda::mr::host_accessible>(instance);
-  return rmm::host_resource_ref{cuda_ref};
+  return raft::mr::host_resource_ref{instance};
 }
 
 namespace detail {
@@ -32,15 +29,15 @@ namespace detail {
 struct default_host_resource_holder {
  private:
   std::mutex lock_;
-  rmm::host_resource_ref ref_{raft::mr::new_delete_resource()};
+  raft::mr::host_resource_ref ref_{raft::mr::new_delete_resource()};
 
  public:
-  inline auto set(rmm::host_resource_ref ref) -> rmm::host_resource_ref
+  inline auto set(raft::mr::host_resource_ref ref) -> raft::mr::host_resource_ref
   {
     std::unique_lock<std::mutex> guard(lock_);
     return std::exchange(ref_, ref);
   }
-  inline auto get() -> rmm::host_resource_ref
+  inline auto get() -> raft::mr::host_resource_ref
   {
     std::unique_lock<std::mutex> guard(lock_);
     return ref_;
@@ -54,10 +51,10 @@ inline default_host_resource_holder default_host_resource_holder_{};
 /**
  * @brief Get the current default host memory resource.
  *
- * Returns rmm::host_resource_ref pointing to the resource installed
+ * Returns raft::mr::host_resource_ref pointing to the resource installed
  * via set_default_host_resource(), or new_delete_resource() if none was set.
  */
-inline auto get_default_host_resource() -> rmm::host_resource_ref
+inline auto get_default_host_resource() -> raft::mr::host_resource_ref
 {
   return detail::default_host_resource_holder_.get();
 }
@@ -71,7 +68,8 @@ inline auto get_default_host_resource() -> rmm::host_resource_ref
  * @param ref Non-owning reference to the resource to install.
  * @return The previous default host resource ref.
  */
-inline auto set_default_host_resource(rmm::host_resource_ref ref) -> rmm::host_resource_ref
+inline auto set_default_host_resource(raft::mr::host_resource_ref ref)
+  -> raft::mr::host_resource_ref
 {
   return detail::default_host_resource_holder_.set(ref);
 }

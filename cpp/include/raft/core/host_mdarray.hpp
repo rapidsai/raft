@@ -99,7 +99,7 @@ template <typename ElementType,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
 auto make_host_mdarray(raft::resources const& res,
-                       rmm::host_resource_ref mr,
+                       raft::mr::host_resource_ref mr,
                        extents<IndexType, Extents...> exts)
 {
   using mdarray_t = host_mdarray<ElementType, decltype(exts), LayoutPolicy>;
