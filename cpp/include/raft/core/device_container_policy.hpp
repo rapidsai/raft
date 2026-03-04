@@ -170,7 +170,7 @@ class device_container_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 
  private:
-  rmm::device_async_resource_ref mr_{rmm::mr::get_current_device_resource()};
+  rmm::device_async_resource_ref mr_{rmm::mr::get_current_device_resource_ref()};
 };
 
 }  // namespace raft

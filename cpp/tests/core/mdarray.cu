@@ -1048,8 +1048,7 @@ void test_device_resource_bridge_unwrap()
   // proving the bridge was unwrapped and the any_resource was copied out.
   std::unique_ptr<resource::device_memory_resource> holder2;
   {
-    auto any_res = raft::mr::device_resource{
-      rmm::device_async_resource_ref{*rmm::mr::get_current_device_resource()}};
+    auto any_res = raft::mr::device_resource{rmm::mr::get_current_device_resource_ref()};
     resource::device_memory_resource holder1{any_res};
 
     // get_resource() lazily creates a bridge
