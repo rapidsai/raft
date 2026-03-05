@@ -18,7 +18,7 @@ RMM_WHEELHOUSE=$(
 
 UCXX_COMMIT=b1e5230d5b1ac47a11cc2d421b3af91be50b39e4
 DISTRIBUTED_UCXX_WHEELHOUSE=$(
-  RAPIDS_PY_WHEEL_NAME="cu13" RAPIDS_PY_WHEEL_PURE="1" rapids-get-pr-artifact --pkg_name distributed-ucxx ucxx 604 python wheel
+  RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" RAPIDS_PY_WHEEL_PURE="1" rapids-get-pr-artifact --pkg_name distributed-ucxx ucxx 604 python wheel
 )
 LIBUCXX_WHEELHOUSE=$(
   RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-artifact ucxx 604 cpp wheel "${UCXX_COMMIT}"
