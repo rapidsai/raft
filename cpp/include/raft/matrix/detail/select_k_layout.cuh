@@ -35,10 +35,8 @@ template <typename IdxT>
 struct csr_layout {
   static constexpr bool is_uniform = false;
 
-  static __device__ __forceinline__ auto compute(IdxT,
-                                                 size_t,
-                                                 size_t batch_id,
-                                                 const IdxT* indptr) -> std::pair<IdxT, IdxT>
+  static __device__ __forceinline__ auto compute(IdxT, size_t, size_t batch_id, const IdxT* indptr)
+    -> std::pair<IdxT, IdxT>
   {
     return {indptr[batch_id + 1] - indptr[batch_id], indptr[batch_id]};
   }

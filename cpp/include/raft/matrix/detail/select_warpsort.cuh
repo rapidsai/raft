@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -917,9 +917,8 @@ struct warpsort_params_cache {
 };
 
 template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename IdxT>
-static auto calc_optimal_params(raft::resources const& res,
-                                int k,
-                                int block_size_limit = 0) -> launch_params
+static auto calc_optimal_params(raft::resources const& res, int k, int block_size_limit = 0)
+  -> launch_params
 {
   uint64_t key = (static_cast<uint64_t>(k) << 32) | static_cast<uint64_t>(block_size_limit);
   auto& cache =
@@ -1104,8 +1103,7 @@ void select_k_(int num_of_block,
 
 template <typename T,
           typename IdxT,
-          template <int, bool, typename, typename>
-          class WarpSortClass,
+          template <int, bool, typename, typename> class WarpSortClass,
           typename RowLayout>
 void select_k_impl(raft::resources const& res,
                    const T* in,
