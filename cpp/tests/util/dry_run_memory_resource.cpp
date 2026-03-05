@@ -34,42 +34,42 @@ TEST(DryRunResource, DeviceAsyncPeakTracking)
 {
   rmm::device_async_resource_ref dev_ref{*rmm::mr::get_current_device_resource()};
   raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{dev_ref};
-  auto alloc = dr.get_allocator();
+  auto counter = dr.get_counter();
 
   constexpr std::size_t kSize1 = 100UL * 1024UL * 1024UL;
   constexpr std::size_t kSize2 = 200UL * 1024UL * 1024UL;
 
   void* p1 = dr.allocate(cuda::stream_ref{cudaStreamLegacy}, kSize1);
   ASSERT_NE(p1, nullptr);
-  EXPECT_EQ(alloc->get_allocated_bytes(), kSize1);
-  EXPECT_EQ(alloc->get_peak_bytes(), kSize1);
+  EXPECT_EQ(counter->get_allocated_bytes(), kSize1);
+  EXPECT_EQ(counter->get_peak_bytes(), kSize1);
 
   void* p2 = dr.allocate(cuda::stream_ref{cudaStreamLegacy}, kSize2);
   EXPECT_EQ(p2, p1);  // same probed pointer for all allocations
-  EXPECT_EQ(alloc->get_peak_bytes(), kSize1 + kSize2);
+  EXPECT_EQ(counter->get_peak_bytes(), kSize1 + kSize2);
 
   dr.deallocate(cuda::stream_ref{cudaStreamLegacy}, p1, kSize1);
-  EXPECT_EQ(alloc->get_allocated_bytes(), kSize2);
-  EXPECT_EQ(alloc->get_peak_bytes(), kSize1 + kSize2);
+  EXPECT_EQ(counter->get_allocated_bytes(), kSize2);
+  EXPECT_EQ(counter->get_peak_bytes(), kSize1 + kSize2);
 
   dr.deallocate(cuda::stream_ref{cudaStreamLegacy}, p2, kSize2);
-  EXPECT_EQ(alloc->get_allocated_bytes(), 0);
+  EXPECT_EQ(counter->get_allocated_bytes(), 0);
 }
 
 TEST(DryRunResource, DeviceAsyncLargeAllocation)
 {
   rmm::device_async_resource_ref dev_ref{*rmm::mr::get_current_device_resource()};
   raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{dev_ref};
-  auto alloc = dr.get_allocator();
+  auto counter = dr.get_counter();
 
   constexpr std::size_t kOneGiB = 1024UL * 1024UL * 1024UL;
   void* ptr                     = dr.allocate(cuda::stream_ref{cudaStreamLegacy}, kOneGiB);
   ASSERT_NE(ptr, nullptr);
-  EXPECT_EQ(alloc->get_allocated_bytes(), kOneGiB);
+  EXPECT_EQ(counter->get_allocated_bytes(), kOneGiB);
 
   dr.deallocate(cuda::stream_ref{cudaStreamLegacy}, ptr, kOneGiB);
-  EXPECT_EQ(alloc->get_allocated_bytes(), 0);
-  EXPECT_EQ(alloc->get_peak_bytes(), kOneGiB);
+  EXPECT_EQ(counter->get_allocated_bytes(), 0);
+  EXPECT_EQ(counter->get_peak_bytes(), kOneGiB);
 }
 
 // ===== dry_run_resource tests (host sync) =====
@@ -78,7 +78,7 @@ TEST(DryRunResource, HostSyncPeakTracking)
 {
   auto host_ref = raft::mr::get_default_host_resource();
   raft::mr::dry_run_resource<raft::mr::host_resource_ref> dr{host_ref};
-  auto alloc = dr.get_allocator();
+  auto counter = dr.get_counter();
 
   constexpr std::size_t kSize1 = 100UL * 1024UL * 1024UL;
   constexpr std::size_t kSize2 = 200UL * 1024UL * 1024UL;
@@ -86,12 +86,12 @@ TEST(DryRunResource, HostSyncPeakTracking)
   void* p1 = dr.allocate_sync(kSize1);
   void* p2 = dr.allocate_sync(kSize2);
   EXPECT_EQ(p1, p2);  // same probed pointer
-  EXPECT_EQ(alloc->get_peak_bytes(), kSize1 + kSize2);
+  EXPECT_EQ(counter->get_peak_bytes(), kSize1 + kSize2);
 
   dr.deallocate_sync(p1, kSize1);
   dr.deallocate_sync(p2, kSize2);
-  EXPECT_EQ(alloc->get_allocated_bytes(), 0);
-  EXPECT_EQ(alloc->get_peak_bytes(), kSize1 + kSize2);
+  EXPECT_EQ(counter->get_allocated_bytes(), 0);
+  EXPECT_EQ(counter->get_peak_bytes(), kSize1 + kSize2);
 }
 
 // ===== dry_run_flag resource tests =====
@@ -120,9 +120,8 @@ TEST(DryRunResources, SetsFlag)
   EXPECT_FALSE(resource::get_dry_run_flag(res));
   {
     dry_run_resources dry_res(res);
-    const auto& dry_handle = static_cast<const raft::resources&>(dry_res);
-    EXPECT_TRUE(resource::get_dry_run_flag(dry_handle));
-    EXPECT_FALSE(resource::get_dry_run_flag(res));
+    EXPECT_TRUE(resource::get_dry_run_flag(dry_res));
+    EXPECT_TRUE(resource::get_dry_run_flag(res));
   }
   EXPECT_FALSE(resource::get_dry_run_flag(res));
 }
@@ -172,9 +171,8 @@ TEST(DryRunResources, PinnedStatsAccuracy)
   constexpr std::size_t kAllocSize = 64UL * 1024UL * 1024UL;
 
   dry_run_resources dry_res(res);
-  const auto& dry_handle = static_cast<const raft::resources&>(dry_res);
 
-  auto ref  = resource::get_pinned_memory_resource_ref(dry_handle);
+  auto ref  = resource::get_pinned_memory_resource_ref(dry_res);
   void* ptr = ref.allocate_sync(kAllocSize);
   ref.deallocate_sync(ptr, kAllocSize);
 
@@ -188,9 +186,8 @@ TEST(DryRunResources, ManagedStatsAccuracy)
   constexpr std::size_t kAllocSize = 64UL * 1024UL * 1024UL;
 
   dry_run_resources dry_res(res);
-  const auto& dry_handle = static_cast<const raft::resources&>(dry_res);
 
-  auto ref  = resource::get_managed_memory_resource_ref(dry_handle);
+  auto ref  = resource::get_managed_memory_resource_ref(dry_res);
   void* ptr = ref.allocate_sync(kAllocSize);
   ref.deallocate_sync(ptr, kAllocSize);
 

@@ -10,7 +10,6 @@
 
 #include <atomic>
 #include <cstddef>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <type_traits>
@@ -18,56 +17,12 @@
 
 namespace raft::mr {
 
+namespace detail {
+
 /**
- * @brief Tracks peak allocation usage without holding real memory.
- *
- * On first allocation, invokes a user-supplied probe callable to obtain a real
- * pointer in the appropriate address space.  That pointer is retained (not freed)
- * for the lifetime of the allocator so every subsequent allocation returns the
- * same valid pointer.  A cleanup callback frees the probed pointer on destruction.
- *
- * All allocations alias the same memory: the pointers are always valid in the
- * proper address space but identical across allocations.
+ * @brief Lock-free atomic counter that tracks current and peak allocation bytes.
  */
-struct dry_run_allocator {
-  static constexpr std::size_t kProbeSize = 256;
-
-  /**
-   * @brief Probe the upstream resource exactly once.
-   *
-   * Thread-safe: uses std::call_once.  The @p probe_fn is invoked at most once;
-   * it must return a pointer that remains valid until the cleanup callback runs.
-   *
-   * @tparam ProbeFn  Callable returning void* (allocates kProbeSize bytes from upstream).
-   * @param probe_fn  Called once to allocate a small chunk from the real upstream.
-   */
-  template <typename ProbeFn>
-  void probe_once(ProbeFn&& probe_fn)
-  {
-    std::call_once(probe_flag_, [&] { probe_ptr_ = probe_fn(); });
-  }
-
-  /**
-   * @brief Register a cleanup callback that frees the probed pointer.
-   *
-   * Called by dry_run_resource right after probe_once succeeds.
-   * The callback is invoked in the destructor of the last shared_ptr holder.
-   */
-  void set_cleanup(std::function<void()> fn) { cleanup_ = std::move(fn); }
-
-  ~dry_run_allocator()
-  {
-    if (cleanup_) cleanup_();
-  }
-
-  dry_run_allocator()                                    = default;
-  dry_run_allocator(dry_run_allocator const&)            = delete;
-  dry_run_allocator& operator=(dry_run_allocator const&) = delete;
-  dry_run_allocator(dry_run_allocator&&)                 = delete;
-  dry_run_allocator& operator=(dry_run_allocator&&)      = delete;
-
-  [[nodiscard]] auto get_probe_ptr() const noexcept -> void* { return probe_ptr_; }
-
+struct dry_run_memory_counter {
   void record_allocate(std::size_t bytes) noexcept
   {
     auto new_total    = allocated_bytes_.fetch_add(bytes, std::memory_order_relaxed) + bytes;
@@ -93,12 +48,66 @@ struct dry_run_allocator {
   }
 
  private:
-  std::once_flag probe_flag_;
-  void* probe_ptr_{nullptr};
-  std::function<void()> cleanup_;
   std::atomic<std::size_t> allocated_bytes_{0};
   std::atomic<std::size_t> peak_bytes_{0};
 };
+
+/**
+ * @brief Minimal RAII container for a single allocation from a memory resource.
+ *
+ * Stripped-down RAII wrapper: just allocate / deallocate / data().
+ * Two constructor overloads cover sync and async resources:
+ *   - Sync: (MR, size, alignment) -- calls allocate_sync, destructor calls deallocate_sync
+ *   - Async: (MR, stream, size, alignment) -- calls allocate, destructor calls deallocate
+ *
+ * @tparam MR  Memory resource type, stored by value (use a ref type for non-owning).
+ */
+template <typename MR>
+class probe_container {
+  MR mr_;
+  void* ptr_;
+  std::size_t size_;
+  std::size_t alignment_;
+
+ public:
+  template <typename M = MR, std::enable_if_t<cuda::mr::synchronous_resource<M>, int> = 0>
+  probe_container(MR mr, std::size_t size, std::size_t alignment = alignof(std::max_align_t))
+    : mr_(std::move(mr)), ptr_(nullptr), size_(size), alignment_(alignment)
+  {
+    ptr_ = mr_.allocate_sync(size_, alignment_);
+  }
+
+  template <typename M = MR, std::enable_if_t<cuda::mr::resource<M>, int> = 0>
+  probe_container(MR mr,
+                  cuda::stream_ref stream,
+                  std::size_t size,
+                  std::size_t alignment = alignof(std::max_align_t))
+    : mr_(std::move(mr)), ptr_(nullptr), size_(size), alignment_(alignment)
+  {
+    ptr_ = mr_.allocate(stream, size_, alignment_);
+  }
+
+  ~probe_container()
+  {
+    if (ptr_ == nullptr) return;
+    if constexpr (cuda::mr::resource<MR>) {
+      mr_.deallocate(cuda::stream_ref{cudaStreamPerThread}, ptr_, size_);
+    } else {
+      mr_.deallocate_sync(ptr_, size_, alignment_);
+    }
+  }
+
+  probe_container(probe_container const&)            = delete;
+  probe_container& operator=(probe_container const&) = delete;
+  probe_container(probe_container&&)                 = delete;
+  probe_container& operator=(probe_container&&)      = delete;
+
+  [[nodiscard]] auto data() const noexcept -> void* { return ptr_; }
+};
+
+}  // namespace detail
+
+static constexpr std::size_t kDryRunProbeSize = 256;
 
 /**
  * @brief Resource adaptor that returns a single probed pointer for every allocation
@@ -117,12 +126,18 @@ struct dry_run_allocator {
 template <typename Upstream>
 class dry_run_resource : public cuda::forward_property<dry_run_resource<Upstream>, Upstream> {
   Upstream upstream_;
-  std::shared_ptr<dry_run_allocator> alloc_;
+
+  struct shared_state {
+    detail::dry_run_memory_counter counter;
+    std::once_flag probe_flag;
+    std::unique_ptr<detail::probe_container<Upstream>> probe;
+  };
+  std::shared_ptr<shared_state> state_;
 
  public:
   template <typename U, std::enable_if_t<std::is_same_v<std::decay_t<U>, Upstream>, int> = 0>
   explicit dry_run_resource(U&& upstream)
-    : upstream_(std::forward<U>(upstream)), alloc_(std::make_shared<dry_run_allocator>())
+    : upstream_(std::forward<U>(upstream)), state_(std::make_shared<shared_state>())
   {
   }
 
@@ -132,46 +147,43 @@ class dry_run_resource : public cuda::forward_property<dry_run_resource<Upstream
   // members are __host__ only (e.g. rmm::device_async_resource_ref).
   // User-defined bodies (not = default) force plain __host__ execution space.
   dry_run_resource(dry_run_resource&& other) noexcept
-    : upstream_(std::move(other.upstream_)), alloc_(std::move(other.alloc_))
+    : upstream_(std::move(other.upstream_)), state_(std::move(other.state_))
   {
   }
-  dry_run_resource(dry_run_resource const& other) : upstream_(other.upstream_), alloc_(other.alloc_)
+  dry_run_resource(dry_run_resource const& other) : upstream_(other.upstream_), state_(other.state_)
   {
   }
   dry_run_resource& operator=(dry_run_resource&& other) noexcept
   {
     upstream_ = std::move(other.upstream_);
-    alloc_    = std::move(other.alloc_);
+    state_    = std::move(other.state_);
     return *this;
   }
   dry_run_resource& operator=(dry_run_resource const& other)
   {
     upstream_ = other.upstream_;
-    alloc_    = other.alloc_;
+    state_    = other.state_;
     return *this;
   }
 
-  [[nodiscard]] auto get_allocator() const noexcept -> std::shared_ptr<dry_run_allocator>
+  [[nodiscard]] auto get_counter() const noexcept -> std::shared_ptr<detail::dry_run_memory_counter>
   {
-    return alloc_;
+    return {state_, &state_->counter};
   }
 
   void* allocate_sync(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t))
   {
-    alloc_->probe_once([&] {
-      void* p = upstream_.allocate_sync(dry_run_allocator::kProbeSize, alignment);
-      alloc_->set_cleanup([upstream = upstream_, p, alignment]() mutable {
-        upstream.deallocate_sync(p, dry_run_allocator::kProbeSize, alignment);
-      });
-      return p;
+    std::call_once(state_->probe_flag, [&] {
+      state_->probe =
+        std::make_unique<detail::probe_container<Upstream>>(upstream_, kDryRunProbeSize, alignment);
     });
-    alloc_->record_allocate(bytes);
-    return alloc_->get_probe_ptr();
+    state_->counter.record_allocate(bytes);
+    return state_->probe->data();
   }
 
   void deallocate_sync(void*, std::size_t bytes, std::size_t = alignof(std::max_align_t)) noexcept
   {
-    alloc_->record_deallocate(bytes);
+    state_->counter.record_deallocate(bytes);
   }
 
   template <typename U = Upstream, std::enable_if_t<cuda::mr::resource<U>, int> = 0>
@@ -179,16 +191,12 @@ class dry_run_resource : public cuda::forward_property<dry_run_resource<Upstream
                  std::size_t bytes,
                  std::size_t alignment = alignof(std::max_align_t))
   {
-    alloc_->probe_once([&] {
-      void* p = upstream_.allocate(stream, dry_run_allocator::kProbeSize, alignment);
-      alloc_->set_cleanup([upstream = upstream_, p]() mutable {
-        upstream.deallocate(
-          cuda::stream_ref{cudaStreamPerThread}, p, dry_run_allocator::kProbeSize);
-      });
-      return p;
+    std::call_once(state_->probe_flag, [&] {
+      state_->probe = std::make_unique<detail::probe_container<Upstream>>(
+        upstream_, stream, kDryRunProbeSize, alignment);
     });
-    alloc_->record_allocate(bytes);
-    return alloc_->get_probe_ptr();
+    state_->counter.record_allocate(bytes);
+    return state_->probe->data();
   }
 
   template <typename U = Upstream, std::enable_if_t<cuda::mr::resource<U>, int> = 0>
@@ -197,7 +205,7 @@ class dry_run_resource : public cuda::forward_property<dry_run_resource<Upstream
                   std::size_t bytes,
                   std::size_t = alignof(std::max_align_t)) noexcept
   {
-    alloc_->record_deallocate(bytes);
+    state_->counter.record_deallocate(bytes);
   }
 
   [[nodiscard]] bool operator==(dry_run_resource const& other) const noexcept

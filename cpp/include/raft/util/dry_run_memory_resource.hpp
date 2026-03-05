@@ -45,34 +45,46 @@ struct dry_run_stats {
 };
 
 /**
- * @brief RAII object that creates an independent copy of raft::resources with
- *        all memory resources replaced by dry-run versions.
+ * @brief Resources handle that wraps all reachable memory resources with
+ *        dry-run adaptors and tracks peak allocation usage.
  *
- * Implicitly convertible to const raft::resources& so it can be passed to any
- * RAFT API.  Composable with other resource wrappers (e.g.
- * memory_tracking_resources) in either order.
+ * Inherits from raft::resources, so it can be passed anywhere a
+ * raft::resources& is expected.  On construction the handle:
+ *   - If dry-run mode is already active, does nothing (no-op).
+ *   - Materializes all tracked resource types (host, device, pinned,
+ *     managed, workspace, large_workspace).
+ *   - Takes a snapshot of the original resources to keep them alive.
+ *   - Wraps each with dry_run_resource.
+ *   - Replaces global host and device resources with dry-run versions.
+ *   - Sets the dry-run flag.
  *
- * Global resources (host via raft::mr, device via RMM) are saved on construction
- * and restored on destruction.  Handle-local resources live inside the copy and
- * die naturally.
+ * On destruction the handle resets the flag and restores global resources.
+ * Composable with memory_tracking_resources in either order.
  */
-class dry_run_resources {
+class dry_run_resources : public raft::resources {
  public:
   explicit dry_run_resources(const raft::resources& existing)
-    : res_(existing),
+    : raft::resources(existing),
+      active_(!resource::get_dry_run_flag(existing)),
       old_host_ref_(raft::mr::get_default_host_resource()),
       old_device_mr_(rmm::mr::get_current_device_resource()),
       old_device_ref_(rmm::mr::get_current_device_resource_ref())
   {
-    init();
+    if (active_) init();
   }
 
-  ~dry_run_resources() noexcept
+  ~dry_run_resources() override
   {
-    resource::set_dry_run_flag(res_, false);
+    if (!active_) return;
+    resource::set_dry_run_flag(*this, false);
     raft::mr::set_default_host_resource(old_host_ref_);
     rmm::mr::set_current_device_resource(old_device_mr_);
     rmm::mr::set_current_device_resource_ref(old_device_ref_);
+
+    // Drop all base-class entries so that probe container RAII cleanup runs
+    // during derived-member destruction, while snapshot_ is still alive.
+    resources_.clear();
+    factories_.clear();
   }
 
   dry_run_resources(dry_run_resources const&)            = delete;
@@ -80,10 +92,9 @@ class dry_run_resources {
   dry_run_resources(dry_run_resources&&)                 = delete;
   dry_run_resources& operator=(dry_run_resources&&)      = delete;
 
-  operator const raft::resources&() const noexcept { return res_; }  // NOLINT
-
   [[nodiscard]] auto get_stats() const -> dry_run_stats
   {
+    if (!active_) return {};
     return {
       .device_workspace_peak       = ws_alloc_->get_peak_bytes(),
       .device_large_workspace_peak = lws_alloc_->get_peak_bytes(),
@@ -95,18 +106,15 @@ class dry_run_resources {
   }
 
  private:
-  raft::resources res_;
+  // Declaration order determines destruction order.
+  // snapshot_ is destroyed last (keeps original resource shared_ptrs alive
+  // while dry-run adaptors hold non-owning refs into them).
+  std::vector<pair_resource> snapshot_;
 
+  bool active_;
   raft::mr::host_resource_ref old_host_ref_;
   rmm::mr::device_memory_resource* old_device_mr_;
   rmm::device_async_resource_ref old_device_ref_;
-
-  std::shared_ptr<raft::mr::dry_run_allocator> host_alloc_;
-  std::shared_ptr<raft::mr::dry_run_allocator> pinned_alloc_;
-  std::shared_ptr<raft::mr::dry_run_allocator> managed_alloc_;
-  std::shared_ptr<raft::mr::dry_run_allocator> ws_alloc_;
-  std::shared_ptr<raft::mr::dry_run_allocator> lws_alloc_;
-  std::shared_ptr<raft::mr::dry_run_allocator> device_alloc_;
 
   using host_dry_run_t = raft::mr::dry_run_resource<raft::mr::host_resource_ref>;
   std::unique_ptr<host_dry_run_t> host_adaptor_;
@@ -143,41 +151,53 @@ class dry_run_resources {
 
   std::unique_ptr<device_bridge> device_bridge_;
 
+  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> host_alloc_;
+  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> pinned_alloc_;
+  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> managed_alloc_;
+  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> ws_alloc_;
+  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> lws_alloc_;
+  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> device_alloc_;
+
   void init()
   {
-    auto* ws         = raft::resource::get_workspace_resource(res_);
+    // Force-initialize all affected resources (lazy creation).
+    auto* ws         = raft::resource::get_workspace_resource(*this);
     auto ws_limit    = ws->get_allocation_limit();
     auto ws_upstream = ws->get_upstream_resource();
-    auto lws_ref     = raft::resource::get_large_workspace_resource_ref(res_);
-    auto pinned_ref  = raft::resource::get_pinned_memory_resource_ref(res_);
-    auto managed_ref = raft::resource::get_managed_memory_resource_ref(res_);
+    auto lws_ref     = raft::resource::get_large_workspace_resource_ref(*this);
+    auto pinned_ref  = raft::resource::get_pinned_memory_resource_ref(*this);
+    auto managed_ref = raft::resource::get_managed_memory_resource_ref(*this);
+
+    // Snapshot keeps original resource objects alive while dry-run
+    // adaptors hold non-owning refs into them.
+    snapshot_ = resources_;
 
     // --- Host (global) ---
     {
       host_adaptor_ = std::make_unique<host_dry_run_t>(old_host_ref_);
-      host_alloc_   = host_adaptor_->get_allocator();
+      host_alloc_   = host_adaptor_->get_counter();
       raft::mr::set_default_host_resource(raft::mr::host_resource_ref{*host_adaptor_});
     }
 
     // --- Pinned ---
     {
       raft::mr::dry_run_resource<raft::mr::host_device_resource_ref> dr{pinned_ref};
-      pinned_alloc_ = dr.get_allocator();
-      raft::resource::set_pinned_memory_resource(res_, std::move(dr));
+      pinned_alloc_ = dr.get_counter();
+      raft::resource::set_pinned_memory_resource(*this, std::move(dr));
     }
 
     // --- Managed ---
     {
       raft::mr::dry_run_resource<raft::mr::host_device_resource_ref> dr{managed_ref};
-      managed_alloc_ = dr.get_allocator();
-      raft::resource::set_managed_memory_resource(res_, std::move(dr));
+      managed_alloc_ = dr.get_counter();
+      raft::resource::set_managed_memory_resource(*this, std::move(dr));
     }
 
     // --- Device (global) ---
     {
       rmm::device_async_resource_ref dev_ref{*old_device_mr_};
       raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{dev_ref};
-      device_alloc_  = dr.get_allocator();
+      device_alloc_  = dr.get_counter();
       device_bridge_ = std::make_unique<device_bridge>(std::move(dr));
       rmm::mr::set_current_device_resource(device_bridge_.get());
       rmm::mr::set_current_device_resource_ref(device_bridge_->adaptor_ref());
@@ -186,18 +206,18 @@ class dry_run_resources {
     // --- Workspace ---
     {
       raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{ws_upstream};
-      ws_alloc_ = dr.get_allocator();
-      raft::resource::set_workspace_resource(res_, std::move(dr), ws_limit);
+      ws_alloc_ = dr.get_counter();
+      raft::resource::set_workspace_resource(*this, std::move(dr), ws_limit);
     }
 
     // --- Large workspace ---
     {
       raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{lws_ref};
-      lws_alloc_ = dr.get_allocator();
-      raft::resource::set_large_workspace_resource(res_, std::move(dr));
+      lws_alloc_ = dr.get_counter();
+      raft::resource::set_large_workspace_resource(*this, std::move(dr));
     }
 
-    resource::set_dry_run_flag(res_, true);
+    resource::set_dry_run_flag(*this, true);
   }
 };
 
