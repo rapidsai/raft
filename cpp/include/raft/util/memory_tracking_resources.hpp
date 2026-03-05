@@ -181,9 +181,9 @@ class memory_tracking_resources : public resources {
    public:
     explicit device_tracking_bridge(device_notify_t adaptor) : adaptor_(std::move(adaptor)) {}
 
-    [[nodiscard]] auto adaptor_ref() noexcept -> rmm::device_async_resource_ref
+    [[nodiscard]] auto adaptor_ref() noexcept -> cuda::mr::resource_ref<cuda::mr::device_accessible>
     {
-      return rmm::device_async_resource_ref{adaptor_};
+      return adaptor_;
     }
   };
 
