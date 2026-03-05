@@ -19,9 +19,9 @@ namespace raft {
  * @brief A container policy for pinned mdarray.
  */
 template <typename ElementType>
-struct pinned_vector_policy {
+struct pinned_container_policy {
   using element_type          = ElementType;
-  using container_type        = host_container<element_type>;
+  using container_type        = host_container<element_type, raft::mr::host_device_resource_ref>;
   using pointer               = typename container_type::pointer;
   using const_pointer         = typename container_type::const_pointer;
   using reference             = typename container_type::reference;
@@ -31,7 +31,7 @@ struct pinned_vector_policy {
 
   auto create(raft::resources const& res, size_t n) -> container_type
   {
-    return container_type(n, raft::resource::get_pinned_memory_resource(res));
+    return container_type(n, raft::resource::get_pinned_memory_resource_ref(res));
   }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
@@ -49,6 +49,6 @@ struct pinned_vector_policy {
 };
 #else
 template <typename ElementType>
-using pinned_vector_policy = detail::fail_container_policy<ElementType>;
+using pinned_container_policy = detail::fail_container_policy<ElementType>;
 #endif
 }  // namespace raft

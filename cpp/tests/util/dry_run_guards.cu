@@ -254,15 +254,14 @@ TEST(DryRunE2E, ExceptionRestoresResources)
 {
   raft::resources res;
   auto* original_mr  = rmm::mr::get_current_device_resource();
-  auto* original_pmr = std::pmr::get_default_resource();
+  auto original_host = raft::mr::get_default_host_resource();
 
   EXPECT_THROW(dry_run_execute(
                  res, [](raft::resources const&) { throw std::runtime_error("test exception"); }),
                std::runtime_error);
 
-  // Resources should be restored even after exception
   EXPECT_EQ(rmm::mr::get_current_device_resource(), original_mr);
-  EXPECT_EQ(std::pmr::get_default_resource(), original_pmr);
+  EXPECT_EQ(raft::mr::get_default_host_resource(), original_host);
   EXPECT_FALSE(resource::get_dry_run_flag(res));
 }
 

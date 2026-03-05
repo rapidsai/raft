@@ -4,34 +4,30 @@
  */
 #pragma once
 #ifndef RAFT_DISABLE_CUDA
-#include <raft/core/detail/span.hpp>  // dynamic_extent
-#include <raft/core/device_container_policy.hpp>
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/host_device_accessor.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/resource/managed_memory_resource.hpp>
-#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 /**
  * @brief A container policy for managed mdarray.
+ *
+ * Uses synchronous allocation (allocate_sync) via host_device_resource_ref.
+ * No stream; managed memory is accessible from host and device.
  */
 template <typename ElementType>
-struct managed_uvector_policy {
-  using element_type    = ElementType;
-  using container_type  = device_uvector<element_type>;
-  using pointer         = typename container_type::pointer;
-  using const_pointer   = typename container_type::const_pointer;
-  using reference       = device_reference<element_type>;
-  using const_reference = device_reference<element_type const>;
-
+struct managed_container_policy {
+  using element_type          = ElementType;
+  using container_type        = host_container<element_type, raft::mr::host_device_resource_ref>;
+  using pointer               = typename container_type::pointer;
+  using const_pointer         = typename container_type::const_pointer;
+  using reference             = typename container_type::reference;
+  using const_reference       = typename container_type::const_reference;
   using accessor_policy       = cuda::std::default_accessor<element_type>;
   using const_accessor_policy = cuda::std::default_accessor<element_type const>;
 
   auto create(raft::resources const& res, size_t n) -> container_type
   {
-    return container_type(
-      n, resource::get_cuda_stream(res), raft::resource::get_managed_memory_resource(res));
+    return container_type(n, raft::resource::get_managed_memory_resource_ref(res));
   }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
@@ -58,7 +54,7 @@ namespace raft {
 // attempt to touch device data
 
 template <typename ElementType>
-using managed_uvector_policy = detail::fail_container_policy<ElementType>;
+using managed_container_policy = detail::fail_container_policy<ElementType>;
 
 }  // namespace raft
 #endif

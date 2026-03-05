@@ -4,22 +4,25 @@
  */
 #pragma once
 
-#include <raft/core/operators.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/managed_memory_resource.hpp>
 #include <raft/core/resource/pinned_memory_resource.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/mr/dry_run_resource.hpp>
+#include <raft/mr/host_device_resource.hpp>
+#include <raft/mr/host_memory_resource.hpp>
 
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device_memory_resource.hpp>
 #include <rmm/mr/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
-#include <atomic>
+#include <cuda/memory_resource>
+#include <cuda/stream_ref>
+
 #include <cstddef>
-#include <cstdint>
 #include <memory>
-#include <memory_resource>
-#include <optional>
 #include <utility>
 
 namespace raft::util {
@@ -37,340 +40,178 @@ struct dry_run_stats {
   std::size_t device_large_workspace_peak;  ///< Peak device large workspace bytes
   std::size_t device_global_peak;           ///< Peak device global allocation bytes
   std::size_t device_managed_peak;          ///< Peak device managed allocation bytes
-  std::size_t host_peak;                    ///< Peak host (default pmr) allocation bytes
+  std::size_t host_peak;                    ///< Peak host allocation bytes
   std::size_t host_pinned_peak;             ///< Peak host pinned allocation bytes
 };
 
 /**
- * @brief Lock-free bump allocator that tracks peak usage without holding real memory.
+ * @brief RAII object that creates an independent copy of raft::resources with
+ *        all memory resources replaced by dry-run versions.
  *
- * On first allocation, invokes a user-supplied probe callable to obtain a base address
- * (typically by briefly allocating and freeing a small chunk from a real upstream).
- * After that, every allocation bumps an atomic address by kProbeSize bytes to produce
- * unique fake pointers. No real memory is held.
+ * Implicitly convertible to const raft::resources& so it can be passed to any
+ * RAFT API.  Composable with other resource wrappers (e.g.
+ * memory_tracking_resources) in either order.
  *
- * Tracks total allocated bytes and peak usage for reporting.
+ * Global resources (host via raft::mr, device via RMM) are saved on construction
+ * and restored on destruction.  Handle-local resources live inside the copy and
+ * die naturally.
  */
-struct dry_run_allocator {
-  static constexpr std::size_t kProbeSize = 256;
-
-  /**
-   * @brief Record an allocation of @p bytes and return a fake pointer.
-   * @tparam ProbeFn Callable with signature `void*()` that allocates and immediately frees
-   *         a small chunk from a real upstream, returning the probed pointer.
-   * @param bytes The number of bytes to record as allocated.
-   * @param probe_fn Called exactly once (on the first allocation) to obtain a base address.
-   * @return A fake pointer (must not be dereferenced for data access).
-   */
-  template <typename ProbeFn>
-  auto allocate(std::size_t bytes, ProbeFn&& probe_fn) -> void*
-  {
-    // Ensure the base address is probed exactly once.
-    if (address_.load(std::memory_order_relaxed) <= kAddressLocked) {
-      auto addr = kAddressUnset;
-      while (!address_.compare_exchange_weak(
-        addr, kAddressLocked, std::memory_order_relaxed, std::memory_order_relaxed)) {
-        if (addr > kAddressLocked) {
-          break;  // The address is already set, so we can use it.
-        }
-        addr = kAddressUnset;  // Otherwise, wait for the lock to be released
-      }
-      if (addr == kAddressUnset) {  // We acquired the lock
-        try {
-          void* probe = probe_fn();
-          address_.store(reinterpret_cast<std::uintptr_t>(probe), std::memory_order_relaxed);
-        } catch (...) {
-          address_.store(kAddressUnset, std::memory_order_relaxed);  // release the lock
-          throw;
-        }
-      }
-    }
-
-    // Bump the address atomically to produce a fake pointer.
-    void* ptr = reinterpret_cast<void*>(address_.fetch_add(kProbeSize, std::memory_order_relaxed));
-
-    // Track allocated bytes and update peak (lock-free).
-    auto new_total    = allocated_bytes_.fetch_add(bytes, std::memory_order_relaxed) + bytes;
-    auto current_peak = peak_bytes_.load(std::memory_order_relaxed);
-    while (new_total > current_peak &&
-           !peak_bytes_.compare_exchange_weak(
-             current_peak, new_total, std::memory_order_relaxed, std::memory_order_relaxed)) {}
-    return ptr;
-  }
-
-  /**
-   * @brief Record a deallocation of @p bytes.
-   */
-  void deallocate(std::size_t bytes) noexcept
-  {
-    allocated_bytes_.fetch_sub(bytes, std::memory_order_relaxed);
-  }
-
-  /// @brief Get the current number of allocated (tracked) bytes.
-  [[nodiscard]] auto get_allocated_bytes() const noexcept -> std::size_t
-  {
-    return allocated_bytes_.load(std::memory_order_relaxed);
-  }
-
-  /// @brief Get the peak number of allocated (tracked) bytes.
-  [[nodiscard]] auto get_peak_bytes() const noexcept -> std::size_t
-  {
-    return peak_bytes_.load(std::memory_order_relaxed);
-  }
-
- private:
-  static constexpr std::uintptr_t kAddressUnset  = 0x0;
-  static constexpr std::uintptr_t kAddressLocked = 0x1;
-
-  std::atomic<std::uintptr_t> address_{kAddressUnset};
-  std::atomic<std::size_t> allocated_bytes_{0};
-  std::atomic<std::size_t> peak_bytes_{0};
-};
-
-/**
- * @brief A device memory resource that tracks allocations without real memory.
- *
- * Wraps a dry_run_allocator behind the rmm::mr::device_memory_resource interface.
- * On first use, briefly probes the upstream to obtain a plausible device base address.
- * After that, every allocation bumps an atomic offset and returns a fake pointer.
- *
- * The returned pointers must NOT be dereferenced — they exist only to satisfy the
- * allocator interface during a dry run.
- */
-class dry_run_device_memory_resource : public rmm::mr::device_memory_resource {
+class dry_run_resources {
  public:
-  explicit dry_run_device_memory_resource(rmm::mr::device_memory_resource* upstream)
-    : upstream_(upstream)
+  explicit dry_run_resources(const raft::resources& existing)
+    : res_(existing),
+      old_host_ref_(raft::mr::get_default_host_resource()),
+      old_device_mr_(rmm::mr::get_current_device_resource()),
+      old_device_ref_(rmm::mr::get_current_device_resource_ref())
   {
-  }
-  ~dry_run_device_memory_resource() override = default;
-
-  [[nodiscard]] auto get_allocated_bytes() const noexcept -> std::size_t
-  {
-    return alloc_.get_allocated_bytes();
-  }
-  [[nodiscard]] auto get_peak_bytes() const noexcept -> std::size_t
-  {
-    return alloc_.get_peak_bytes();
+    init();
   }
 
- private:
-  auto do_allocate(std::size_t bytes, rmm::cuda_stream_view stream) -> void* override
+  ~dry_run_resources() noexcept
   {
-    return alloc_.allocate(bytes, [&] {
-      void* p = upstream_->allocate(stream, dry_run_allocator::kProbeSize);
-      upstream_->deallocate(stream, p, dry_run_allocator::kProbeSize);
-      return p;
-    });
-  }
-
-  void do_deallocate(void* /*ptr*/,
-                     std::size_t bytes,
-                     rmm::cuda_stream_view /*stream*/) noexcept override
-  {
-    alloc_.deallocate(bytes);
-  }
-
-  [[nodiscard]] auto do_is_equal(rmm::mr::device_memory_resource const& other) const noexcept
-    -> bool override
-  {
-    return reinterpret_cast<const rmm::mr::device_memory_resource*>(this) == &other;
-  }
-
-  rmm::mr::device_memory_resource* upstream_;
-  dry_run_allocator alloc_;
-};
-
-/**
- * @brief A host memory resource (std::pmr) that tracks allocations without real memory.
- *
- * Wraps a dry_run_allocator behind the std::pmr::memory_resource interface.
- * Analogous to dry_run_device_memory_resource but for host memory.
- */
-class dry_run_host_memory_resource : public std::pmr::memory_resource {
- public:
-  explicit dry_run_host_memory_resource(std::pmr::memory_resource* upstream) : upstream_(upstream)
-  {
-  }
-  ~dry_run_host_memory_resource() override = default;
-
-  [[nodiscard]] auto get_allocated_bytes() const noexcept -> std::size_t
-  {
-    return alloc_.get_allocated_bytes();
-  }
-  [[nodiscard]] auto get_peak_bytes() const noexcept -> std::size_t
-  {
-    return alloc_.get_peak_bytes();
-  }
-
- private:
-  auto do_allocate(std::size_t bytes, std::size_t alignment) -> void* override
-  {
-    return alloc_.allocate(bytes, [&] {
-      void* p = upstream_->allocate(dry_run_allocator::kProbeSize, alignment);
-      upstream_->deallocate(p, dry_run_allocator::kProbeSize, alignment);
-      return p;
-    });
-  }
-
-  void do_deallocate(void* /*ptr*/, std::size_t bytes, std::size_t /*alignment*/) noexcept override
-  {
-    alloc_.deallocate(bytes);
-  }
-
-  [[nodiscard]] auto do_is_equal(std::pmr::memory_resource const& other) const noexcept
-    -> bool override
-  {
-    return reinterpret_cast<const std::pmr::memory_resource*>(this) == &other;
-  }
-
-  std::pmr::memory_resource* upstream_;
-  dry_run_allocator alloc_;
-};
-
-/**
- * @brief RAII manager that replaces memory resources with dry-run versions.
- *
- * On construction, saves all current memory resource state and replaces it with
- * dry-run resources. On destruction, restores all original resources.
- *
- * Global resources (rmm device, std::pmr host) are replaced globally.
- * Handle-local resources (workspace, pinned, managed) are replaced only on the handle.
- *
- * This class only manages resources; the action to be dry-run is executed
- * separately (see dry_run_execute()).
- */
-class dry_run_resource_manager {
- public:
-  /**
-   * @brief Set up dry-run resources on the given raft::resources handle.
-   * @param res The resources handle to modify.
-   */
-  explicit dry_run_resource_manager(const raft::resources& res) : res_(res)
-  {
-    // Save original global resource state
-    orig_global_device_mr_ = rmm::mr::get_current_device_resource();
-    orig_pmr_              = std::pmr::get_default_resource();
-
-    // Save handle-local resources
-    orig_pinned_mr_  = resource::get_pinned_memory_resource(res);
-    orig_managed_mr_ = resource::get_managed_memory_resource(res);
-
-    // Save workspace settings (use accessors that handle lazy initialization)
-    auto* workspace_mr       = resource::get_workspace_resource(res);
-    workspace_limit_         = workspace_mr->get_allocation_limit();
-    orig_workspace_upstream_ = orig_global_device_mr_;
-
-    // Save large workspace
-    orig_large_workspace_mr_ = resource::get_large_workspace_resource(res);
-
-    // Create dry-run resources
-    dry_run_workspace_ = std::make_shared<dry_run_device_memory_resource>(orig_workspace_upstream_);
-    dry_run_large_workspace_ =
-      std::make_shared<dry_run_device_memory_resource>(orig_large_workspace_mr_);
-    dry_run_global_  = std::make_shared<dry_run_device_memory_resource>(orig_global_device_mr_);
-    dry_run_managed_ = std::make_shared<dry_run_device_memory_resource>(orig_managed_mr_);
-    dry_run_host_    = std::make_unique<dry_run_host_memory_resource>(orig_pmr_);
-    dry_run_pinned_  = std::make_shared<dry_run_host_memory_resource>(orig_pinned_mr_);
-
-    // Replace global resources
-    rmm::mr::set_current_device_resource(dry_run_global_.get());
-    std::pmr::set_default_resource(dry_run_host_.get());
-
-    // Replace handle-local resources
-    resource::set_pinned_memory_resource(res, dry_run_pinned_);
-    resource::set_managed_memory_resource(res, dry_run_managed_);
-    resource::set_workspace_resource(res, dry_run_workspace_, workspace_limit_, std::nullopt);
-    resource::set_large_workspace_resource(res, dry_run_large_workspace_);
-
-    // Set dry-run flag
-    resource::set_dry_run_flag(res, true);
-  }
-
-  ~dry_run_resource_manager() noexcept
-  {
-    // Restore dry-run flag
     resource::set_dry_run_flag(res_, false);
-
-    // Restore global resources
-    rmm::mr::set_current_device_resource(orig_global_device_mr_);
-    std::pmr::set_default_resource(orig_pmr_);
-
-    // Restore handle-local resources
-    resource::set_pinned_memory_resource(
-      res_, std::shared_ptr<std::pmr::memory_resource>(orig_pinned_mr_, void_op{}));
-    resource::set_managed_memory_resource(
-      res_, std::shared_ptr<rmm::mr::device_memory_resource>(orig_managed_mr_, void_op{}));
-
-    // Restore workspace resources with original settings.
-    // Use non-owning shared_ptrs (void_op deleter) since lifetime is managed externally.
-    resource::set_workspace_resource(
-      res_,
-      std::shared_ptr<rmm::mr::device_memory_resource>(orig_workspace_upstream_, void_op{}),
-      workspace_limit_,
-      std::nullopt);
-    resource::set_large_workspace_resource(
-      res_, std::shared_ptr<rmm::mr::device_memory_resource>(orig_large_workspace_mr_, void_op{}));
+    raft::mr::set_default_host_resource(old_host_ref_);
+    rmm::mr::set_current_device_resource(old_device_mr_);
+    rmm::mr::set_current_device_resource_ref(old_device_ref_);
   }
 
-  // Non-copyable, non-movable
-  dry_run_resource_manager(dry_run_resource_manager const&)            = delete;
-  dry_run_resource_manager& operator=(dry_run_resource_manager const&) = delete;
-  dry_run_resource_manager(dry_run_resource_manager&&)                 = delete;
-  dry_run_resource_manager& operator=(dry_run_resource_manager&&)      = delete;
+  dry_run_resources(dry_run_resources const&)            = delete;
+  dry_run_resources& operator=(dry_run_resources const&) = delete;
+  dry_run_resources(dry_run_resources&&)                 = delete;
+  dry_run_resources& operator=(dry_run_resources&&)      = delete;
 
-  /**
-   * @brief Get the collected dry-run statistics.
-   * @return dry_run_stats with peak usage information.
-   */
+  operator const raft::resources&() const noexcept { return res_; }  // NOLINT
+
   [[nodiscard]] auto get_stats() const -> dry_run_stats
   {
     return {
-      .device_workspace_peak       = dry_run_workspace_->get_peak_bytes(),
-      .device_large_workspace_peak = dry_run_large_workspace_->get_peak_bytes(),
-      .device_global_peak          = dry_run_global_->get_peak_bytes(),
-      .device_managed_peak         = dry_run_managed_->get_peak_bytes(),
-      .host_peak                   = dry_run_host_->get_peak_bytes(),
-      .host_pinned_peak            = dry_run_pinned_->get_peak_bytes(),
+      .device_workspace_peak       = ws_alloc_->get_peak_bytes(),
+      .device_large_workspace_peak = lws_alloc_->get_peak_bytes(),
+      .device_global_peak          = device_alloc_->get_peak_bytes(),
+      .device_managed_peak         = managed_alloc_->get_peak_bytes(),
+      .host_peak                   = host_alloc_->get_peak_bytes(),
+      .host_pinned_peak            = pinned_alloc_->get_peak_bytes(),
     };
   }
 
  private:
-  const raft::resources& res_;
+  raft::resources res_;
 
-  // Original global resources
-  rmm::mr::device_memory_resource* orig_global_device_mr_{nullptr};
-  std::pmr::memory_resource* orig_pmr_{nullptr};
+  raft::mr::host_resource_ref old_host_ref_;
+  rmm::mr::device_memory_resource* old_device_mr_;
+  rmm::device_async_resource_ref old_device_ref_;
 
-  // Original handle-local resources
-  std::pmr::memory_resource* orig_pinned_mr_{nullptr};
-  rmm::mr::device_memory_resource* orig_managed_mr_{nullptr};
-  std::optional<std::size_t> workspace_limit_;
-  rmm::mr::device_memory_resource* orig_workspace_upstream_{nullptr};
-  rmm::mr::device_memory_resource* orig_large_workspace_mr_{nullptr};
+  std::shared_ptr<raft::mr::dry_run_allocator> host_alloc_;
+  std::shared_ptr<raft::mr::dry_run_allocator> pinned_alloc_;
+  std::shared_ptr<raft::mr::dry_run_allocator> managed_alloc_;
+  std::shared_ptr<raft::mr::dry_run_allocator> ws_alloc_;
+  std::shared_ptr<raft::mr::dry_run_allocator> lws_alloc_;
+  std::shared_ptr<raft::mr::dry_run_allocator> device_alloc_;
 
-  // Dry-run resources
-  std::shared_ptr<dry_run_device_memory_resource> dry_run_workspace_;
-  std::shared_ptr<dry_run_device_memory_resource> dry_run_large_workspace_;
-  std::shared_ptr<dry_run_device_memory_resource> dry_run_global_;
-  std::shared_ptr<dry_run_device_memory_resource> dry_run_managed_;
-  std::unique_ptr<dry_run_host_memory_resource> dry_run_host_;
-  std::shared_ptr<dry_run_host_memory_resource> dry_run_pinned_;
+  using host_dry_run_t = raft::mr::dry_run_resource<raft::mr::host_resource_ref>;
+  std::unique_ptr<host_dry_run_t> host_adaptor_;
+
+  class device_bridge : public rmm::mr::device_memory_resource {
+    raft::mr::dry_run_resource<rmm::device_async_resource_ref> adaptor_;
+
+   protected:
+    void* do_allocate(std::size_t bytes, rmm::cuda_stream_view stream) override
+    {
+      return adaptor_.allocate(cuda::stream_ref{stream.value()}, bytes);
+    }
+    void do_deallocate(void* ptr, std::size_t bytes, rmm::cuda_stream_view stream) noexcept override
+    {
+      adaptor_.deallocate(cuda::stream_ref{stream.value()}, ptr, bytes);
+    }
+    [[nodiscard]] bool do_is_equal(
+      rmm::mr::device_memory_resource const& other) const noexcept override
+    {
+      return this == &other;
+    }
+
+   public:
+    explicit device_bridge(raft::mr::dry_run_resource<rmm::device_async_resource_ref> adaptor)
+      : adaptor_(std::move(adaptor))
+    {
+    }
+
+    [[nodiscard]] auto adaptor_ref() noexcept -> cuda::mr::resource_ref<cuda::mr::device_accessible>
+    {
+      return adaptor_;
+    }
+  };
+
+  std::unique_ptr<device_bridge> device_bridge_;
+
+  void init()
+  {
+    auto* ws         = raft::resource::get_workspace_resource(res_);
+    auto ws_limit    = ws->get_allocation_limit();
+    auto ws_upstream = ws->get_upstream_resource();
+    auto lws_ref     = raft::resource::get_large_workspace_resource_ref(res_);
+    auto pinned_ref  = raft::resource::get_pinned_memory_resource_ref(res_);
+    auto managed_ref = raft::resource::get_managed_memory_resource_ref(res_);
+
+    // --- Host (global) ---
+    {
+      host_adaptor_ = std::make_unique<host_dry_run_t>(old_host_ref_);
+      host_alloc_   = host_adaptor_->get_allocator();
+      raft::mr::set_default_host_resource(raft::mr::host_resource_ref{*host_adaptor_});
+    }
+
+    // --- Pinned ---
+    {
+      raft::mr::dry_run_resource<raft::mr::host_device_resource_ref> dr{pinned_ref};
+      pinned_alloc_ = dr.get_allocator();
+      raft::resource::set_pinned_memory_resource(res_, std::move(dr));
+    }
+
+    // --- Managed ---
+    {
+      raft::mr::dry_run_resource<raft::mr::host_device_resource_ref> dr{managed_ref};
+      managed_alloc_ = dr.get_allocator();
+      raft::resource::set_managed_memory_resource(res_, std::move(dr));
+    }
+
+    // --- Device (global) ---
+    {
+      rmm::device_async_resource_ref dev_ref{*old_device_mr_};
+      raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{dev_ref};
+      device_alloc_  = dr.get_allocator();
+      device_bridge_ = std::make_unique<device_bridge>(std::move(dr));
+      rmm::mr::set_current_device_resource(device_bridge_.get());
+      rmm::mr::set_current_device_resource_ref(device_bridge_->adaptor_ref());
+    }
+
+    // --- Workspace ---
+    {
+      raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{ws_upstream};
+      ws_alloc_ = dr.get_allocator();
+      raft::resource::set_workspace_resource(res_, std::move(dr), ws_limit);
+    }
+
+    // --- Large workspace ---
+    {
+      raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{lws_ref};
+      lws_alloc_ = dr.get_allocator();
+      raft::resource::set_large_workspace_resource(res_, std::move(dr));
+    }
+
+    resource::set_dry_run_flag(res_, true);
+  }
 };
 
 /**
  * @brief Execute an action in dry-run mode and return memory usage statistics.
  *
- * This function:
- * 1. Replaces all memory resources with dry-run versions (RAII).
- * 2. Executes the provided action.
- * 3. Restores all original resources (RAII destructor).
- * 4. Returns statistics about peak memory usage.
+ * Creates an independent copy of the resources handle with all memory resources
+ * replaced by dry-run versions, executes the action, and returns peak usage stats.
  *
- * The action receives the resources handle and can check the dry-run flag via
- * `raft::resource::get_dry_run_flag(res)` to skip kernel execution.
+ * The action receives the dry-run resources handle (as const raft::resources&)
+ * and can check the dry-run flag via raft::resource::get_dry_run_flag(res) to
+ * skip kernel execution.
  *
- * @tparam Action A callable with signature `void(const raft::resources&, Args...)`.
+ * @tparam Action A callable with signature void(const raft::resources&, Args...).
  * @tparam Args Additional argument types to forward to the action.
  * @param res The raft resources handle.
  * @param action The action to execute in dry-run mode.
@@ -388,9 +229,10 @@ class dry_run_resource_manager {
 template <typename Action, typename... Args>
 auto dry_run_execute(const raft::resources& res, Action&& action, Args&&... args) -> dry_run_stats
 {
-  dry_run_resource_manager manager(res);
-  std::forward<Action>(action)(res, std::forward<Args>(args)...);
-  return manager.get_stats();
+  dry_run_resources dry_res(res);
+  std::forward<Action>(action)(static_cast<const raft::resources&>(dry_res),
+                               std::forward<Args>(args)...);
+  return dry_res.get_stats();
 }
 
 /** @} */
