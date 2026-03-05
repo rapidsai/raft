@@ -13,6 +13,9 @@ export PATH="/tmp/gha-tools/tools:${PATH}"
 
 source rapids-init-pip
 
+# TODO(jameslamb): revert before merging
+source ci/use_wheels_from_prs.sh
+
 # Delete system libnccl.so to ensure the wheel is used
 rm -rf /usr/lib64/libnccl*
 

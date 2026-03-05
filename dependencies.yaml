@@ -270,8 +270,9 @@ dependencies:
               cuda: "12.2"
               use_cuda_wheels: "true"
             packages:
-              # nvidia-cublas-cu12 didn't get aarch64 wheels until CTK 12.3
-              - cuda-toolkit>=12.2,<12.4
+              # nvidia-cublas-cu12 didn't get aarch64 wheels until CTK 12.3, so allow a slightly
+              # looser bound here
+              - cuda-toolkit>=12.2,<=12.3
           - matrix:
               cuda: "12.2"
               use_cuda_wheels: "true"
@@ -326,7 +327,7 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               # No direct requirement on nvJitLink at runtime for CUDA 12,
-              # but does need to ensure cusparse and nvJitLink installed together are compatible
+              # but do need to ensure cusparse and nvJitLink installed together are compatible.
               - cuda-toolkit[cublas,curand,cusolver,cusparse,nvjitlink]==12.*
           # We always want nvJitLink >= whatever minor version was available in the build environment
           # nvJitLink tends to follow the CTK's minor versions, but check at https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
