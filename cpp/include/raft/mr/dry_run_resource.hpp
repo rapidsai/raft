@@ -28,9 +28,6 @@ namespace raft::mr {
  *
  * All allocations alias the same memory: the pointers are always valid in the
  * proper address space but identical across allocations.
- *
- * Stats (current and peak bytes) are maintained atomically and are co-owned via
- * shared_ptr so they survive type-erasure of the enclosing dry_run_resource.
  */
 struct dry_run_allocator {
   static constexpr std::size_t kProbeSize = 256;
@@ -110,7 +107,7 @@ struct dry_run_allocator {
  * Modeled after raft::mr::statistics_adaptor: a single template handles host,
  * device, pinned, and managed resources depending on the Upstream type.
  *
- * Properties are forwarded from Upstream via cuda::forward_property, so
+ * Properties are forwarded from Upstream via ADL friend get_property, so
  * dry_run_resource<host_resource_ref> satisfies host_accessible,
  * dry_run_resource<host_device_resource_ref> satisfies host + device accessible,
  * and dry_run_resource<rmm::device_async_resource_ref> satisfies device_accessible.
@@ -122,22 +119,36 @@ class dry_run_resource : public cuda::forward_property<dry_run_resource<Upstream
   Upstream upstream_;
   std::shared_ptr<dry_run_allocator> alloc_;
 
-  void ensure_probed_sync(std::size_t alignment)
-  {
-    alloc_->probe_once([&] {
-      void* p = upstream_.allocate_sync(dry_run_allocator::kProbeSize, alignment);
-      alloc_->set_cleanup([upstream = upstream_, p, alignment] {
-        upstream.deallocate_sync(p, dry_run_allocator::kProbeSize, alignment);
-      });
-      return p;
-    });
-  }
-
  public:
   template <typename U, std::enable_if_t<std::is_same_v<std::decay_t<U>, Upstream>, int> = 0>
   explicit dry_run_resource(U&& upstream)
     : upstream_(std::forward<U>(upstream)), alloc_(std::make_shared<dry_run_allocator>())
   {
+  }
+
+  // NVCC injects __host__ __device__ on std::shared_ptr special members,
+  // which makes the *implicit* or *defaulted* special members __host__
+  // __device__ too.  That conflicts with Upstream types whose special
+  // members are __host__ only (e.g. rmm::device_async_resource_ref).
+  // User-defined bodies (not = default) force plain __host__ execution space.
+  dry_run_resource(dry_run_resource&& other) noexcept
+    : upstream_(std::move(other.upstream_)), alloc_(std::move(other.alloc_))
+  {
+  }
+  dry_run_resource(dry_run_resource const& other) : upstream_(other.upstream_), alloc_(other.alloc_)
+  {
+  }
+  dry_run_resource& operator=(dry_run_resource&& other) noexcept
+  {
+    upstream_ = std::move(other.upstream_);
+    alloc_    = std::move(other.alloc_);
+    return *this;
+  }
+  dry_run_resource& operator=(dry_run_resource const& other)
+  {
+    upstream_ = other.upstream_;
+    alloc_    = other.alloc_;
+    return *this;
   }
 
   [[nodiscard]] auto get_allocator() const noexcept -> std::shared_ptr<dry_run_allocator>
@@ -147,7 +158,13 @@ class dry_run_resource : public cuda::forward_property<dry_run_resource<Upstream
 
   void* allocate_sync(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t))
   {
-    ensure_probed_sync(alignment);
+    alloc_->probe_once([&] {
+      void* p = upstream_.allocate_sync(dry_run_allocator::kProbeSize, alignment);
+      alloc_->set_cleanup([upstream = upstream_, p, alignment]() mutable {
+        upstream.deallocate_sync(p, dry_run_allocator::kProbeSize, alignment);
+      });
+      return p;
+    });
     alloc_->record_allocate(bytes);
     return alloc_->get_probe_ptr();
   }
@@ -164,9 +181,9 @@ class dry_run_resource : public cuda::forward_property<dry_run_resource<Upstream
   {
     alloc_->probe_once([&] {
       void* p = upstream_.allocate(stream, dry_run_allocator::kProbeSize, alignment);
-      alloc_->set_cleanup([upstream = upstream_, p, alignment] {
+      alloc_->set_cleanup([upstream = upstream_, p]() mutable {
         upstream.deallocate(
-          cuda::stream_ref{cudaStreamLegacy}, p, dry_run_allocator::kProbeSize, alignment);
+          cuda::stream_ref{cudaStreamPerThread}, p, dry_run_allocator::kProbeSize);
       });
       return p;
     });
