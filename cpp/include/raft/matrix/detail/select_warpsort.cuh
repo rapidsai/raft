@@ -10,6 +10,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/custom_resource.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/matrix/detail/select_k_layout.cuh>
 #include <raft/util/bitonic_sort.cuh>
 #include <raft/util/cache.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -745,7 +746,8 @@ template <template <int, bool, typename, typename> class WarpSortClass,
           int Capacity,
           bool Ascending,
           typename T,
-          typename IdxT>
+          typename IdxT,
+          typename RowLayout>
 __launch_bounds__(256) RAFT_KERNEL block_kernel(const T* in,
                                                 const IdxT* in_idx,
                                                 const IdxT* in_indptr,
@@ -763,9 +765,8 @@ __launch_bounds__(256) RAFT_KERNEL block_kernel(const T* in,
   }
   // * per-block input
   {
-    const size_t batch_id = blockIdx.y;
-    const IdxT l_offset   = in_indptr ? in_indptr[batch_id] : (offset + batch_id) * len;
-    const IdxT l_len      = in_indptr ? (in_indptr[batch_id + 1] - in_indptr[batch_id]) : len;
+    const size_t batch_id        = blockIdx.y;
+    const auto [l_len, l_offset] = RowLayout::compute(len, offset, batch_id, in_indptr);
     in += l_offset;
     if (in_idx != nullptr) { in_idx += l_offset; }
     len = l_len;
@@ -810,6 +811,7 @@ struct launch_params {
 template <template <int, bool, typename, typename> class WarpSortClass,
           typename T,
           typename IdxT,
+          typename RowLayout,
           int Capacity = kMaxCapacity>
 struct launch_setup {
   /**
@@ -829,7 +831,7 @@ struct launch_setup {
     const int capacity = bound_by_power_of_two(k);
     if constexpr (Capacity > 1) {
       if (capacity < Capacity) {
-        return launch_setup<WarpSortClass, T, IdxT, Capacity / 2>::calc_optimal_params(
+        return launch_setup<WarpSortClass, T, IdxT, RowLayout, Capacity / 2>::calc_optimal_params(
           capacity, block_size_limit);
       }
     }
@@ -842,7 +844,7 @@ struct launch_setup {
     RAFT_CUDA_TRY(cudaOccupancyMaxPotentialBlockSizeVariableSMem(
       &ps.min_grid_size,
       &ps.block_size,
-      block_kernel<WarpSortClass, Capacity, true, T, IdxT>,
+      block_kernel<WarpSortClass, Capacity, true, T, IdxT, RowLayout>,
       calc_smem,
       block_size_limit));
     return ps;
@@ -865,19 +867,19 @@ struct launch_setup {
     const int capacity = bound_by_power_of_two(k);
     if constexpr (Capacity > 1) {
       if (capacity < Capacity) {
-        return launch_setup<WarpSortClass, T, IdxT, Capacity / 2>::kernel(k,
-                                                                          select_min,
-                                                                          batch_size,
-                                                                          len,
-                                                                          num_blocks,
-                                                                          block_dim,
-                                                                          smem_size,
-                                                                          in_key,
-                                                                          in_idx,
-                                                                          in_indptr,
-                                                                          out_key,
-                                                                          out_idx,
-                                                                          stream);
+        return launch_setup<WarpSortClass, T, IdxT, RowLayout, Capacity / 2>::kernel(k,
+                                                                                     select_min,
+                                                                                     batch_size,
+                                                                                     len,
+                                                                                     num_blocks,
+                                                                                     block_dim,
+                                                                                     smem_size,
+                                                                                     in_key,
+                                                                                     in_idx,
+                                                                                     in_indptr,
+                                                                                     out_key,
+                                                                                     out_idx,
+                                                                                     stream);
       }
     }
     ASSERT(capacity <= Capacity, "Requested k is too big (%d)", k);
@@ -890,17 +892,19 @@ struct launch_setup {
       size_t batch_chunk = std::min<size_t>(kMaxGridDimY, batch_size - offset);
       dim3 gs(num_blocks, batch_chunk, 1);
       if (select_min) {
-        block_kernel<WarpSortClass, Capacity, true, T, IdxT><<<gs, block_dim, smem_size, stream>>>(
-          in_key, in_idx, in_indptr, g_offset, IdxT(len), k, out_key, out_idx);
+        block_kernel<WarpSortClass, Capacity, true, T, IdxT, RowLayout>
+          <<<gs, block_dim, smem_size, stream>>>(
+            in_key, in_idx, in_indptr, g_offset, IdxT(len), k, out_key, out_idx);
       } else {
-        block_kernel<WarpSortClass, Capacity, false, T, IdxT><<<gs, block_dim, smem_size, stream>>>(
-          in_key, in_idx, in_indptr, g_offset, IdxT(len), k, out_key, out_idx);
+        block_kernel<WarpSortClass, Capacity, false, T, IdxT, RowLayout>
+          <<<gs, block_dim, smem_size, stream>>>(
+            in_key, in_idx, in_indptr, g_offset, IdxT(len), k, out_key, out_idx);
       }
       RAFT_CUDA_TRY(cudaPeekAtLastError());
       out_key += batch_chunk * num_blocks * k;
       out_idx += batch_chunk * num_blocks * k;
 
-      if (in_indptr != nullptr) { in_indptr += batch_chunk; };
+      if constexpr (!RowLayout::is_uniform) { in_indptr += batch_chunk; }
       g_offset += batch_chunk;
     }
   }
@@ -913,16 +917,17 @@ struct warpsort_params_cache {
 };
 
 template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename IdxT>
-static auto calc_optimal_params(raft::resources const& res, int k, int block_size_limit = 0)
-  -> launch_params
+static auto calc_optimal_params(raft::resources const& res,
+                                int k,
+                                int block_size_limit = 0) -> launch_params
 {
   uint64_t key = (static_cast<uint64_t>(k) << 32) | static_cast<uint64_t>(block_size_limit);
   auto& cache =
     resource::get_custom_resource<warpsort_params_cache<WarpSortClass, T, IdxT>>(res)->value;
   launch_params val;
   if (!cache.get(key, &val)) {
-    val =
-      launch_setup<WarpSortClass, T, IdxT, kMaxCapacity>::calc_optimal_params(k, block_size_limit);
+    val = launch_setup<WarpSortClass, T, IdxT, select::dense_layout<IdxT>>::calc_optimal_params(
+      k, block_size_limit);
     cache.set(key, val);
   }
   return val;
@@ -1034,7 +1039,10 @@ void calc_launch_parameter(raft::resources const& res,
   *p_num_of_warp  = num_of_warp * capacity_per_full_warp / capacity;
 }
 
-template <template <int, bool, typename, typename> class WarpSortClass, typename T, typename IdxT>
+template <template <int, bool, typename, typename> class WarpSortClass,
+          typename T,
+          typename IdxT,
+          typename RowLayout>
 void select_k_(int num_of_block,
                int num_of_warp,
                const T* in,
@@ -1062,39 +1070,43 @@ void select_k_(int num_of_block,
 
   smem_size = std::max<int>(smem_size, WarpSortClass<1, true, T, IdxT>::mem_required(block_dim));
 
-  launch_setup<WarpSortClass, T, IdxT>::kernel(k,
-                                               select_min,
-                                               batch_size,
-                                               len,
-                                               num_of_block,
-                                               block_dim,
-                                               smem_size,
-                                               in,
-                                               in_idx,
-                                               in_indptr,
-                                               result_val,
-                                               result_idx,
-                                               stream);
+  launch_setup<WarpSortClass, T, IdxT, RowLayout>::kernel(k,
+                                                          select_min,
+                                                          batch_size,
+                                                          len,
+                                                          num_of_block,
+                                                          block_dim,
+                                                          smem_size,
+                                                          in,
+                                                          in_idx,
+                                                          in_indptr,
+                                                          result_val,
+                                                          result_idx,
+                                                          stream);
 
   if (num_of_block > 1) {
     // a second pass to merge the results if necessary
-    launch_setup<WarpSortClass, T, IdxT>::kernel(k,
-                                                 select_min,
-                                                 batch_size,
-                                                 k * num_of_block,
-                                                 1,
-                                                 block_dim,
-                                                 smem_size,
-                                                 tmp_val.data(),
-                                                 tmp_idx.data(),
-                                                 nullptr,
-                                                 out,
-                                                 out_idx,
-                                                 stream);
+    launch_setup<WarpSortClass, T, IdxT, select::dense_layout<IdxT>>::kernel(k,
+                                                                             select_min,
+                                                                             batch_size,
+                                                                             k * num_of_block,
+                                                                             1,
+                                                                             block_dim,
+                                                                             smem_size,
+                                                                             tmp_val.data(),
+                                                                             tmp_idx.data(),
+                                                                             nullptr,
+                                                                             out,
+                                                                             out_idx,
+                                                                             stream);
   }
 }
 
-template <typename T, typename IdxT, template <int, bool, typename, typename> class WarpSortClass>
+template <typename T,
+          typename IdxT,
+          template <int, bool, typename, typename>
+          class WarpSortClass,
+          typename RowLayout>
 void select_k_impl(raft::resources const& res,
                    const T* in,
                    const IdxT* in_idx,
@@ -1111,19 +1123,19 @@ void select_k_impl(raft::resources const& res,
   calc_launch_parameter<WarpSortClass, T, IdxT>(
     res, batch_size, len, k, &num_of_block, &num_of_warp);
 
-  select_k_<WarpSortClass, T, IdxT>(num_of_block,
-                                    num_of_warp,
-                                    in,
-                                    in_idx,
-                                    in_indptr,
-                                    batch_size,
-                                    len,
-                                    k,
-                                    out,
-                                    out_idx,
-                                    select_min,
-                                    resource::get_cuda_stream(res),
-                                    resource::get_workspace_resource(res));
+  select_k_<WarpSortClass, T, IdxT, RowLayout>(num_of_block,
+                                               num_of_warp,
+                                               in,
+                                               in_idx,
+                                               in_indptr,
+                                               batch_size,
+                                               len,
+                                               k,
+                                               out,
+                                               out_idx,
+                                               select_min,
+                                               resource::get_cuda_stream(res),
+                                               resource::get_workspace_resource(res));
 }
 
 /**
@@ -1161,10 +1173,9 @@ void select_k_impl(raft::resources const& res,
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
  * @param[in] in_indptr
- *   CSR indptr of the index matrix, which indicates the length for each row.
- *   `nullptr` by default, under this situation, @p len is used as the length.
+ *   CSR indptr array (used only when RowLayout is `csr_layout`); nullptr for dense.
  */
-template <typename T, typename IdxT>
+template <typename T, typename IdxT, typename RowLayout>
 void select_k(raft::resources const& res,
               const T* in,
               const IdxT* in_idx,
@@ -1189,35 +1200,35 @@ void select_k(raft::resources const& res,
   int len_per_thread = len / (num_of_block * num_of_warp * std::min(capacity, WarpSize));
 
   if (len_per_thread <= LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing) {
-    select_k_<warp_sort_immediate, T, IdxT>(num_of_block,
-                                            num_of_warp,
-                                            in,
-                                            in_idx,
-                                            in_indptr,
-                                            batch_size,
-                                            len,
-                                            k,
-                                            out,
-                                            out_idx,
-                                            select_min,
-                                            resource::get_cuda_stream(res),
-                                            resource::get_workspace_resource(res));
+    select_k_<warp_sort_immediate, T, IdxT, RowLayout>(num_of_block,
+                                                       num_of_warp,
+                                                       in,
+                                                       in_idx,
+                                                       in_indptr,
+                                                       batch_size,
+                                                       len,
+                                                       k,
+                                                       out,
+                                                       out_idx,
+                                                       select_min,
+                                                       resource::get_cuda_stream(res),
+                                                       resource::get_workspace_resource(res));
   } else {
     calc_launch_parameter<warp_sort_filtered, T, IdxT>(
       res, batch_size, len, k, &num_of_block, &num_of_warp);
-    select_k_<warp_sort_filtered, T, IdxT>(num_of_block,
-                                           num_of_warp,
-                                           in,
-                                           in_idx,
-                                           in_indptr,
-                                           batch_size,
-                                           len,
-                                           k,
-                                           out,
-                                           out_idx,
-                                           select_min,
-                                           resource::get_cuda_stream(res),
-                                           resource::get_workspace_resource(res));
+    select_k_<warp_sort_filtered, T, IdxT, RowLayout>(num_of_block,
+                                                      num_of_warp,
+                                                      in,
+                                                      in_idx,
+                                                      in_indptr,
+                                                      batch_size,
+                                                      len,
+                                                      k,
+                                                      out,
+                                                      out_idx,
+                                                      select_min,
+                                                      resource::get_cuda_stream(res),
+                                                      resource::get_workspace_resource(res));
   }
 }
 

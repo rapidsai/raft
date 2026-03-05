@@ -12,6 +12,7 @@
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/linalg/map.cuh>
+#include <raft/matrix/detail/select_k_layout.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/integer_utils.hpp>
@@ -493,7 +494,7 @@ _RAFT_DEVICE void set_buf_pointers(const T* in,
   }
 }
 
-template <typename T, typename IdxT, int BitsPerPass, bool len_or_indptr = true>
+template <typename T, typename IdxT, int BitsPerPass, typename RowLayout>
 RAFT_KERNEL last_filter_kernel(const T* in,
                                const IdxT* in_idx,
                                uintptr_t bufs,
@@ -513,8 +514,7 @@ RAFT_KERNEL last_filter_kernel(const T* in,
 
   if (previous_len == 0) { return; }
 
-  const IdxT l_len    = len_or_indptr ? len : (len_i[batch_id + 1] - len_i[batch_id]);
-  const IdxT l_offset = len_or_indptr ? (offset + batch_id) * len : len_i[batch_id];
+  const auto [l_len, l_offset] = RowLayout::compute(len, offset, batch_id, len_i);
 
   const IdxT buf_len = calc_buf_len<T>(len);
 
@@ -634,7 +634,7 @@ template <typename T,
           int BitsPerPass,
           int BlockSize,
           bool fused_last_filter,
-          bool len_or_indptr>
+          typename RowLayout>
 RAFT_KERNEL radix_kernel(const T* in,
                          const IdxT* in_idx,
                          uintptr_t bufs,
@@ -655,8 +655,7 @@ RAFT_KERNEL radix_kernel(const T* in,
   IdxT previous_len;
   IdxT current_len;
 
-  const IdxT l_len    = len_or_indptr ? len : (len_i[batch_id + 1] - len_i[batch_id]);
-  const IdxT l_offset = len_or_indptr ? (offset + batch_id) * len : len_i[batch_id];
+  const auto [l_len, l_offset] = RowLayout::compute(len, offset, batch_id, len_i);
 
   if (pass == 0) {
     current_k    = k;
@@ -673,7 +672,7 @@ RAFT_KERNEL radix_kernel(const T* in,
     current_len  = counter->len;
     previous_len = counter->previous_len;
   }
-  if constexpr (!len_or_indptr) {
+  if constexpr (!RowLayout::is_uniform) {
     if (pass == 0 && l_len <= k) {
       copy_in_val(out + batch_id * k, in + l_offset, l_len, k, select_min);
       copy_in_idx(out_idx + batch_id * k, (in_idx ? (in_idx + l_offset) : nullptr), l_len);
@@ -839,7 +838,10 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
 
   int active_blocks;
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-    &active_blocks, radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, true>, BlockSize, 0));
+    &active_blocks,
+    radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, select::dense_layout<IdxT>>,
+    BlockSize,
+    0));
   active_blocks *= sm_cnt;
 
   IdxT best_num_blocks         = 0;
@@ -870,7 +872,7 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
   return best_num_blocks;
 }
 
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, typename RowLayout>
 void radix_topk(const T* in,
                 const IdxT* in_idx,
                 int batch_size,
@@ -890,7 +892,7 @@ void radix_topk(const T* in,
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
-  auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, len_or_indptr>;
+  auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, RowLayout>;
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, false);
   if (max_chunk_size != static_cast<size_t>(batch_size)) {
@@ -910,7 +912,7 @@ void radix_topk(const T* in,
     RAFT_CUDA_TRY(
       cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms.data(), 0, histograms.size() * sizeof(IdxT), stream));
-    auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, len_or_indptr>;
+    auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, RowLayout>;
 
     T* chunk_out            = out + offset * k;
     IdxT* chunk_out_idx     = out_idx + offset * k;
@@ -921,7 +923,7 @@ void radix_topk(const T* in,
 
     for (int pass = 0; pass < num_passes; ++pass) {
       if (fused_last_filter && pass == num_passes - 1) {
-        kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, true, len_or_indptr>;
+        kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, true, RowLayout>;
       }
 
       kernel<<<blocks, BlockSize, 0, stream>>>(in,
@@ -941,7 +943,7 @@ void radix_topk(const T* in,
     }
 
     if (!fused_last_filter) {
-      last_filter_kernel<T, IdxT, BitsPerPass, len_or_indptr>
+      last_filter_kernel<T, IdxT, BitsPerPass, RowLayout>
         <<<blocks, BlockSize, 0, stream>>>(in,
                                            in_idx,
                                            reinterpret_cast<uintptr_t>(bufs.data()),
@@ -1030,7 +1032,7 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
   }
 }
 
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, typename RowLayout>
 RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
                                         const IdxT* in_idx,
                                         const IdxT len,
@@ -1048,12 +1050,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
 
   const size_t batch_id = blockIdx.x;  // size_t to avoid multiplication overflow
 
-  IdxT l_len    = len;
-  IdxT l_offset = (offset + batch_id) * len;
-  if constexpr (!len_or_indptr) {
-    l_offset = len_i[batch_id];
-    l_len    = len_i[batch_id + 1] - l_offset;
-  }
+  const auto [l_len, l_offset] = RowLayout::compute(len, offset, batch_id, len_i);
 
   if (threadIdx.x == 0) {
     counter.k              = k;
@@ -1072,7 +1069,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
   const IdxT buf_len = calc_buf_len<T, IdxT, unsigned>(len);
   bufs += batch_id * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
 
-  if constexpr (!len_or_indptr) {
+  if constexpr (!RowLayout::is_uniform) {
     if (l_len <= k) {
       copy_in_val(out, in, l_len, k, select_min);
       copy_in_idx(out_idx, in_idx, l_len);
@@ -1150,7 +1147,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
 // counters and global histograms, can be kept in shared memory and cheap sync operations can be
 // used. It's used when len is relatively small or when the number of blocks per row calculated by
 // `calc_grid_dim()` is 1.
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, typename RowLayout>
 void radix_topk_one_block(const T* in,
                           const IdxT* in_idx,
                           int batch_size,
@@ -1166,7 +1163,7 @@ void radix_topk_one_block(const T* in,
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
 
-  auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>;
+  auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize, RowLayout>;
   const IdxT buf_len = calc_buf_len<T, IdxT, unsigned>(len);
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, true);
@@ -1215,10 +1212,10 @@ void radix_topk_one_block(const T* in,
  *   it affects the number of passes and number of buckets.
  * @tparam BlockSize
  *   Number of threads in a kernel thread block.
- * @tparam len_or_indptr
- *   Flag to interpret `len_i` as either direct row lengths (true) or CSR format
- *   index pointers (false). When true, each `len_i` element denotes the length of a row. When
- *   false, `len_i` represents the index pointers for a CSR matrix with shape of `batch_size + 1`.
+ * @tparam RowLayout
+ *   Row-layout policy controlling how per-row offsets and lengths are computed.
+ *   Use `select::dense_layout<IdxT>` for dense matrices (all rows have the same length).
+ *   Use `select::csr_layout<IdxT>` for CSR matrices (row lengths come from an indptr array).
  *
  * @param[in] res container of reusable resources
  * @param[in] in
@@ -1249,12 +1246,11 @@ void radix_topk_one_block(const T* in,
  *   same. That is, when the value range of input data is narrow. In such case, there could be a
  *   large number of inputs for the last filter, hence using multiple thread blocks is beneficial.
  * @param len_i
- *   Optional array used differently based on `len_or_indptr`:
- *   When `len_or_indptr` is true, `len_i` presents the lengths of each row, which is `batch_size`.
- *   When `len_or_indptr` is false, `len_i` works like a indptr for a CSR matrix. The length of each
- *   row would be (`len_i[row_id + 1] - len_i[row_id]`). `len_i` size is `batch_size + 1`.
+ *   Optional array whose interpretation depends on `RowLayout`:
+ *   For `dense_layout`, this is unused (pass nullptr).
+ *   For `csr_layout`, this is the CSR indptr array of size `batch_size + 1`.
  */
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool len_or_indptr = true>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, typename RowLayout>
 void select_k(raft::resources const& res,
               const T* in,
               const IdxT* in_idx,
@@ -1267,12 +1263,12 @@ void select_k(raft::resources const& res,
               bool fused_last_filter,
               const IdxT* len_i)
 {
-  RAFT_EXPECTS(!(!len_or_indptr && (len_i == nullptr)),
-               "When `len_or_indptr` is false, `len_i` must not be nullptr!");
+  RAFT_EXPECTS(RowLayout::is_uniform || len_i != nullptr,
+               "CSR layout requires a non-null indptr array (len_i)!");
 
   auto stream = resource::get_cuda_stream(res);
   auto mr     = resource::get_workspace_resource(res);
-  if (k == len && len_or_indptr) {
+  if (k == len && RowLayout::is_uniform) {
     RAFT_CUDA_TRY(
       cudaMemcpyAsync(out, in, sizeof(T) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
     if (in_idx) {
@@ -1291,29 +1287,29 @@ void select_k(raft::resources const& res,
   constexpr int items_per_thread = 32;
 
   if (len <= BlockSize * items_per_thread) {
-    impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(
+    impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, RowLayout>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
   } else {
     unsigned grid_dim =
       impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt);
     if (grid_dim == 1) {
-      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(
+      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, RowLayout>(
         in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
     } else {
-      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, len_or_indptr>(in,
-                                                                       in_idx,
-                                                                       batch_size,
-                                                                       len,
-                                                                       k,
-                                                                       out,
-                                                                       out_idx,
-                                                                       select_min,
-                                                                       fused_last_filter,
-                                                                       len_i,
-                                                                       grid_dim,
-                                                                       sm_cnt,
-                                                                       stream,
-                                                                       mr);
+      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, RowLayout>(in,
+                                                                   in_idx,
+                                                                   batch_size,
+                                                                   len,
+                                                                   k,
+                                                                   out,
+                                                                   out_idx,
+                                                                   select_min,
+                                                                   fused_last_filter,
+                                                                   len_i,
+                                                                   grid_dim,
+                                                                   sm_cnt,
+                                                                   stream,
+                                                                   mr);
     }
   }
 }
