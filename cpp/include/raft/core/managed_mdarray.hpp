@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -24,7 +24,7 @@ namespace raft {
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = managed_uvector_policy<ElementType>>
+          typename ContainerPolicy = managed_container_policy<ElementType>>
 using managed_mdarray =
   mdarray<ElementType, Extents, LayoutPolicy, managed_accessor<ContainerPolicy>>;
 

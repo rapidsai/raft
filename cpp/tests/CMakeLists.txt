@@ -88,6 +88,8 @@ if(BUILD_TESTS)
     NAME
     CORE_TEST
     PATH
+    core/allocation_tracking.cpp
+    core/monitor_resources.cu
     core/bitmap.cu
     core/bitset.cu
     core/device_resources_manager.cpp
@@ -117,8 +119,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME CORE_TEST PATH core/stream_view.cpp core/mdspan_copy.cpp LIB EXPLICIT_INSTANTIATE_ONLY
-    NOCUDA
+    NAME CORE_TEST PATH core/stream_view.cpp core/mdspan_copy.cpp core/host_memory_resource.cpp
+    core/allocation_tracking.cpp LIB EXPLICIT_INSTANTIATE_ONLY NOCUDA
   )
 
   list(APPEND EXT_HEADER_TEST_SOURCES ext_headers/raft_core_logger.cpp)
