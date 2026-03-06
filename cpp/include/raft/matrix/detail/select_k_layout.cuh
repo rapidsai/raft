@@ -18,10 +18,10 @@ template <typename IdxT>
 struct dense_layout {
   static constexpr bool is_uniform = true;
 
-  static __device__ __forceinline__ auto compute(IdxT len,
-                                                 size_t offset,
-                                                 size_t batch_id,
-                                                 const IdxT*) -> std::pair<IdxT, size_t>
+  static RAFT_DEVICE_INLINE_FUNCTION auto compute(IdxT len,
+                                                  size_t offset,
+                                                  size_t batch_id,
+                                                  const IdxT*) -> std::pair<IdxT, size_t>
   {
     return {len, (offset + batch_id) * len};
   }
@@ -35,7 +35,7 @@ template <typename IdxT>
 struct csr_layout {
   static constexpr bool is_uniform = false;
 
-  static __device__ __forceinline__ auto compute(IdxT, size_t, size_t batch_id, const IdxT* indptr)
+  static RAFT_DEVICE_INLINE_FUNCTION auto compute(IdxT, size_t, size_t batch_id, const IdxT* indptr)
     -> std::pair<IdxT, IdxT>
   {
     return {indptr[batch_id + 1] - indptr[batch_id], indptr[batch_id]};
