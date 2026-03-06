@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 /**
@@ -15,6 +15,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/adjusted_rand_index.cuh>
 
 namespace raft {
@@ -37,7 +38,7 @@ double adjusted_rand_index(const T* firstClusterArray,
                            cudaStream_t stream)
 {
   return detail::compute_adjusted_rand_index<T, MathT>(
-    firstClusterArray, secondClusterArray, size, stream);
+    false, firstClusterArray, secondClusterArray, size, stream);
 }
 
 /**
@@ -65,7 +66,8 @@ double adjusted_rand_index(raft::resources const& handle,
   RAFT_EXPECTS(first_cluster_array.is_exhaustive(), "first_cluster_array must be contiguous");
   RAFT_EXPECTS(second_cluster_array.is_exhaustive(), "second_cluster_array must be contiguous");
 
-  return detail::compute_adjusted_rand_index<value_t, math_t>(first_cluster_array.data_handle(),
+  return detail::compute_adjusted_rand_index<value_t, math_t>(resource::get_dry_run_flag(handle),
+                                                              first_cluster_array.data_handle(),
                                                               second_cluster_array.data_handle(),
                                                               first_cluster_array.extent(0),
                                                               resource::get_cuda_stream(handle));

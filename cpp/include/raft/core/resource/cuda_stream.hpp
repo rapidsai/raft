@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -82,13 +83,18 @@ inline void set_cuda_stream(resources const& res, rmm::cuda_stream_view stream_v
  */
 inline void sync_stream(const resources& res, rmm::cuda_stream_view stream)
 {
+  if (raft::resource::get_dry_run_flag(res)) { return; }
   interruptible::synchronize(stream);
 }
 
 /**
  * @brief synchronize main stream on the resources instance
  */
-inline void sync_stream(const resources& res) { sync_stream(res, get_cuda_stream(res)); }
+inline void sync_stream(const resources& res)
+{
+  if (raft::resource::get_dry_run_flag(res)) { return; }
+  sync_stream(res, get_cuda_stream(res));
+}
 
 /**
  * @}

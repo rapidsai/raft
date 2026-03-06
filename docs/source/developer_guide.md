@@ -292,6 +292,27 @@ Sometimes, we need to temporarily change the log pattern (eg: for reporting deci
 
 4. Before creating a new primitive, check to see if one exists already. If one exists but the API isn't flexible enough to include your use-case, consider first refactoring the existing primitive. If that is not possible without an extreme number of changes, consider how the public API could be made more flexible. If the new primitive is different enough from all existing primitives, consider whether an existing public API could invoke the new primitive as an option or argument. If the new primitive is different enough from what exists already, add a header for the new public API function to the appropriate subdirectory and namespace.
 
+## Dry Run Protocol
+
+The dry run protocol defines a mechanism to simulate the execution of algorithms to get a precise estimate of the memory requirements for a real execution with the same parameters.
+
+In dry run mode:
+- no CUDA work happens in any CUDA stream
+- no expensive CPU algorithms are allowed to run
+- no real allocations happen in any of:
+  - `rmm` default device resource (device mdarrays and `rmm::device_uvector`)
+  - `std::pmr` default (host) resource (host mdarrays)
+  - workspace memory resources managed by `raft::resources`.
+All attempted allocations in the above resources are tracked and reported, thus enabling planning of the memory usage with a relatively small overhead of simulated execution.
+
+To keep the dry run mode functional, the developers must follow the protocol:
+- Any function that takes `raft::resources` handle as an argument can run in dry run mode.
+  It's always safe to call such functions without any precautions.
+- Any other expensive function or any function involving CUDA-calls must be guarded by `resource::get_dry_run_flag(res)`
+- Allocations through rmm or raft memory resources must NOT be guarded to accurately track the allocation statistics.
+
+See the full [Dry Run Protocol](dry_run_protocol.md) guide for rules, patterns, and common mistakes.
+
 ## Header organization of expensive function templates
 
 RAFT is a heavily templated library. Several core functions are expensive to compile and we want to prevent duplicate compilation of this functionality. To limit build time, RAFT provides a precompiled library (libraft.so) where expensive function templates are instantiated for the most commonly used template parameters. To prevent (1) accidental instantiation of these templates and (2) unnecessary dependency on the internals of these templates, we use a split header structure and define macros to control template instantiation. This section describes the macros and header structure.
