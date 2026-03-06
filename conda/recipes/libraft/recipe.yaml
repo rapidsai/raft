@@ -207,6 +207,11 @@ outputs:
         - libcurand
         - libcusolver
         - libcusparse
+        - if: cuda_major == "13"
+          then:
+            # always want libnvJitLink >= whatever was built against
+            # ref: https://docs.nvidia.com/cuda/nvjitlink/index.html#compatibility
+            - ${{ pin_compatible("libnvjitlink", lower_bound="x.x", upper_bound="x") }}
       ignore_run_exports:
         from_package:
           - ${{ compiler("c") }}
@@ -219,6 +224,7 @@ outputs:
           - libcublas
           - libcurand
           - libcusolver
+          - libnvjitlink-dev
           - librmm
           - nccl
           - ucxx
@@ -257,6 +263,11 @@ outputs:
         - libcurand
         - libcusolver
         - libcusparse
+        - if: cuda_major == "13"
+          then:
+            # always want libnvJitLink >= whatever was built against
+            # ref: https://docs.nvidia.com/cuda/nvjitlink/index.html#compatibility
+            - ${{ pin_compatible("libnvjitlink", lower_bound="x.x", upper_bound="x") }}
       ignore_run_exports:
         from_package:
           - ${{ compiler("c") }}
@@ -307,6 +318,11 @@ outputs:
         - libcurand
         - libcusolver
         - libcusparse
+        - if: cuda_major == "13"
+          then:
+            # always want libnvJitLink >= whatever was built against
+            # ref: https://docs.nvidia.com/cuda/nvjitlink/index.html#compatibility
+            - ${{ pin_compatible("libnvjitlink", lower_bound="x.x", upper_bound="x") }}
       ignore_run_exports:
         from_package:
           - ${{ compiler("c") }}
