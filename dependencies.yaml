@@ -322,13 +322,16 @@ dependencies:
           - matrix:
               use_cuda_wheels: "false"
             packages:
+          # We always want nvJitLink >= whatever minor version was available in the build environment
+          # nvJitLink tends to follow the CTK's minor versions, but check at https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
+          #
+          # ref: https://github.com/rapidsai/cudf/pull/20873
           - matrix:
-              cuda: "12.*"
+              cuda: "12.9"
               use_cuda_wheels: "true"
             packages:
-              # No direct requirement on nvJitLink at runtime for CUDA 12,
-              # but do need to ensure cusparse and nvJitLink installed together are compatible.
-              - cuda-toolkit[cublas,curand,cusolver,cusparse,nvjitlink]==12.*
+              - cuda-toolkit[cublas,curand,cusolver,cusparse]==12.*
+              - nvidia-nvjitlink-cu12>=12.9,<13
           # We always want nvJitLink >= whatever minor version was available in the build environment
           # nvJitLink tends to follow the CTK's minor versions, but check at https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
           - matrix:
