@@ -21,7 +21,7 @@ namespace raft::linalg {
  * @brief perform fit operation for PCA. Generates eigenvectors, explained vars, singular vals, etc.
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
- * @param[in] handle raft::resources
+ * @param[in] handle: raft::resources
  * @param[in] prms PCA parameters (n_components, algorithm, whiten, etc.)
  * @param[inout] input the data is fitted to PCA. Size n_rows x n_cols (col-major). Modified
  * temporarily during computation.
