@@ -93,6 +93,8 @@ class mmap_memory_resource {
     auto flags = MAP_ANONYMOUS | MAP_PRIVATE;
     void* ptr  = nullptr;
     if (flags_ & kMmapFileBacked) {
+      // Note, we don't need the file descriptor to live beyond the call to mmap:
+      //       according to the POSIX specification, mmap retains its own descriptor.
       detail::tmpfile_descriptor fd{bytes};
       ptr = mmap_verbose(bytes, prot, flags, fileno(fd.value()), 0);
     } else {
