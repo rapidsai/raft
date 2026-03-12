@@ -150,9 +150,31 @@ repos:
           - id: verify-codeowners
             args: [--fix, --project-prefix=raft]
           - id: verify-hardcoded-version
+            exclude: |
+              (?x)
+                (^|/)devcontainer[.]json$|
+                (^|/)dependencies[.]yaml$|
+                ^[.]github/(workflows|ISSUE_TEMPLATE)/|
+                (^|/)pom[.]xml$|
+                ^[.]pre-commit-config[.]yaml$|
+                ^conda/environments/|
+                (^|/)UCXX_BRANCH$|
+                (^|/)RAPIDS_BRANCH$|
+                [.](md|rst)$
           - id: verify-hardcoded-version
             name: verify-hardcoded-version-ucxx
             args: [--fix, --version-file=UCXX_VERSION]
+            exclude: |
+              (?x)
+                (^|/)devcontainer[.]json$|
+                (^|/)dependencies[.]yaml$|
+                ^[.]github/(workflows|ISSUE_TEMPLATE)/|
+                (^|/)pom[.]xml$|
+                ^[.]pre-commit-config[.]yaml$|
+                ^conda/environments/|
+                (^|/)UCXX_BRANCH$|
+                (^|/)RAPIDS_BRANCH$|
+                [.](md|rst)$
           - id: verify-pyproject-license
             # ignore the top-level pyproject.toml, which doesn't
             # have or need a [project] table
