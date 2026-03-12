@@ -101,6 +101,7 @@ class mmap_memory_resource {
       ptr = mmap_verbose(bytes, prot, flags, -1, 0);
     }
     if (flags_ & kMmapRequestHugePages) {
+      // Find a page-aligned subrange of the allocated memory to madvise
       auto madvize_start = raft::round_up_safe(reinterpret_cast<uintptr_t>(ptr), kHugePageSize);
       auto madvize_end =
         raft::round_down_safe(reinterpret_cast<uintptr_t>(ptr) + bytes, kHugePageSize);
