@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -31,13 +31,15 @@ enum resource_type {
   STREAM_VIEW,               // view of a cuda stream or a placeholder in
                              // CUDA-free builds
   THRUST_POLICY,             // thrust execution policy
-  WORKSPACE_RESOURCE,        // rmm device memory resource for small temporary allocations
+  WORKSPACE_RESOURCE,        // memory resource for small temporary allocations (bounded)
   CUBLASLT_HANDLE,           // cublasLt handle
   CUSTOM,                    // runtime-shared default-constructible resource
-  LARGE_WORKSPACE_RESOURCE,  // rmm device memory resource for somewhat large temporary allocations
+  LARGE_WORKSPACE_RESOURCE,  // memory resource for somewhat large temporary allocations (unbounded)
   NCCL_COMM,                 // nccl comm
   ROOT_RANK,                 // root rank in multi-gpu world
   MULTI_GPU,                 // resource that tracks resource of each device in multi-gpu world
+  PINNED_MEMORY_RESOURCE,    // memory resource for pinned (page-locked) host allocations
+  MANAGED_MEMORY_RESOURCE,   // resource for managed (unified) allocations
 
   LAST_KEY  // reserved for the last key
 };
