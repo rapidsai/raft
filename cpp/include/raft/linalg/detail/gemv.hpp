@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include "cublas_wrappers.hpp"
 
 #include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 
 #include <cublas_v2.h>
@@ -31,6 +32,7 @@ void gemv(raft::resources const& handle,
           const int incy,
           cudaStream_t stream)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   cublasHandle_t cublas_h = resource::get_cublas_handle(handle);
   detail::cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
   RAFT_CUBLAS_TRY(detail::cublasgemv(cublas_h,
@@ -109,6 +111,7 @@ void gemv(raft::resources const& handle,
           const math_t beta,
           cudaStream_t stream)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   cublasHandle_t cublas_h = resource::get_cublas_handle(handle);
   cublasOperation_t op_a  = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
   RAFT_CUBLAS_TRY(
