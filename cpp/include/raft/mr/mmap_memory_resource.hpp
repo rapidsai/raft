@@ -93,12 +93,15 @@ class mmap_memory_resource {
     auto flags = MAP_ANONYMOUS | MAP_PRIVATE;
     void* ptr  = nullptr;
     if (flags_ & kMmapFileBacked) {
+      // Note, we don't need the file descriptor to live beyond the call to mmap:
+      //       according to the POSIX specification, mmap retains its own descriptor.
       detail::tmpfile_descriptor fd{bytes};
       ptr = mmap_verbose(bytes, prot, flags, fileno(fd.value()), 0);
     } else {
       ptr = mmap_verbose(bytes, prot, flags, -1, 0);
     }
     if (flags_ & kMmapRequestHugePages) {
+      // Find a page-aligned subrange of the allocated memory to madvise
       auto madvize_start = raft::round_up_safe(reinterpret_cast<uintptr_t>(ptr), kHugePageSize);
       auto madvize_end =
         raft::round_down_safe(reinterpret_cast<uintptr_t>(ptr) + bytes, kHugePageSize);
