@@ -21,9 +21,18 @@ namespace raft::mr {
  */
 class notifier {
  private:
+  /**
+   * @brief Activity flag.
+   *
+   * Note, the meaning is somewhat inverted:
+   * - TRUE (flag is set) means "no allocations/deallocations have occurred"
+   * - FALSE (flag is clear) means "one or more allocations/deallocations have occurred"
+   *
+   * This is hidden behind notify() and wait() to avoid confusion.
+   */
   // NB: using `cuda::std` in place of `std`,
   // because this may happen to be included in pre-C++20 code downstream.
-  cuda::std::atomic_flag flag_;  // Note, meaning of the flag is inverted
+  cuda::std::atomic_flag flag_;
 
  public:
   notifier() noexcept { flag_.test_and_set(cuda::std::memory_order_relaxed); }
@@ -67,11 +76,14 @@ class notifying_adaptor : public cuda::forward_property<notifying_adaptor<Upstre
   std::shared_ptr<notifier> notifier_;
 
  public:
-  // Prevent recursive concept satisfaction when Upstream is a __basic_any type (GCC C++20).
-  template <typename U, std::enable_if_t<std::is_same_v<std::decay_t<U>, Upstream>, int> = 0>
-  explicit notifying_adaptor(U&& upstream,
-                             std::shared_ptr<notifier> n = std::make_shared<notifier>())
-    : upstream_(std::forward<U>(upstream)), notifier_(std::move(n))
+  /**
+   * @brief Construct a new notifying adaptor.
+   *
+   * @param upstream An upstream resource or reference to wrap.
+   * @param notifier A shared notifier to use (pass it to a consumer as well).
+   */
+  notifying_adaptor(Upstream upstream, std::shared_ptr<notifier> notifier)
+    : upstream_(std::move(upstream)), notifier_(std::move(notifier))
   {
   }
 
@@ -128,8 +140,5 @@ class notifying_adaptor : public cuda::forward_property<notifying_adaptor<Upstre
   [[nodiscard]] auto upstream_resource() noexcept -> Upstream& { return upstream_; }
   [[nodiscard]] auto upstream_resource() const noexcept -> Upstream const& { return upstream_; }
 };
-
-template <typename Upstream>
-notifying_adaptor(Upstream, std::shared_ptr<notifier>) -> notifying_adaptor<Upstream>;
 
 }  // namespace raft::mr
