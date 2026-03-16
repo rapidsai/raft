@@ -53,7 +53,7 @@ struct resource_stats {
  * a shared resource_stats object.  The stats are co-owned via shared_ptr so
  * they survive type-erasure of this adaptor.
  *
- * @note Make sure to call stats() before type-erasing the adaptor to get the statistics.
+ * @note Make sure to call get_stats() before type-erasing the adaptor to get the statistics.
  *
  * @tparam Upstream  Stored by value.  Use a concrete resource type for owning
  *                   semantics, or a ref type (e.g. raft::mr::host_resource_ref)
