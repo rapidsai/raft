@@ -873,7 +873,6 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
   return best_num_blocks;
 }
 
-
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize, typename RowLayout>
 void radix_topk(bool dry_run,
                 const T* in,
@@ -1303,11 +1302,21 @@ void select_k(raft::resources const& res,
     unsigned grid_dim =
       impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt);
     if (grid_dim == 1) {
-      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, RowLayout>(
-        dry_run, in, in_idx, batch_size, len, k, out, out_idx, select_min, len_i, sm_cnt, stream, mr);
+      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize, RowLayout>(dry_run,
+                                                                             in,
+                                                                             in_idx,
+                                                                             batch_size,
+                                                                             len,
+                                                                             k,
+                                                                             out,
+                                                                             out_idx,
+                                                                             select_min,
+                                                                             len_i,
+                                                                             sm_cnt,
+                                                                             stream,
+                                                                             mr);
     } else {
-      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, RowLayout>(dry_run.
-                                                                   in,
+      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, RowLayout>(dry_run.in,
                                                                    in_idx,
                                                                    batch_size,
                                                                    len,
