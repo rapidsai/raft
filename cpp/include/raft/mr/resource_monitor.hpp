@@ -103,6 +103,9 @@ class resource_monitor {
     stop_requested_.store(true, std::memory_order_release);
     notifier_->notify();
     worker_.join();
+    // Write one more row because we may have missed some updates while spinning down.
+    // In the worst case, we duplicate one CSV record - not a big deal.
+    write_row();
   }
 
  private:
