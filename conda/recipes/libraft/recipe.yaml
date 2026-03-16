@@ -211,7 +211,7 @@ outputs:
           then:
             # always want libnvJitLink >= whatever was built against
             # ref: https://docs.nvidia.com/cuda/nvjitlink/index.html#compatibility
-            - ${{ pin_compatible("libnvjitlink", lower_bound="x.x", upper_bound="x") }}
+            - ${{ pin_compatible("libnvjitlink", lower_bound="x.x.x", upper_bound="x") }}
       ignore_run_exports:
         from_package:
           - ${{ compiler("c") }}
@@ -267,7 +267,7 @@ outputs:
           then:
             # always want libnvJitLink >= whatever was built against
             # ref: https://docs.nvidia.com/cuda/nvjitlink/index.html#compatibility
-            - ${{ pin_compatible("libnvjitlink", lower_bound="x.x", upper_bound="x") }}
+            - ${{ pin_compatible("libnvjitlink", lower_bound="x.x.x", upper_bound="x") }}
       ignore_run_exports:
         from_package:
           - ${{ compiler("c") }}
@@ -322,7 +322,7 @@ outputs:
           then:
             # always want libnvJitLink >= whatever was built against
             # ref: https://docs.nvidia.com/cuda/nvjitlink/index.html#compatibility
-            - ${{ pin_compatible("libnvjitlink", lower_bound="x.x", upper_bound="x") }}
+            - ${{ pin_compatible("libnvjitlink", lower_bound="x.x.x", upper_bound="x") }}
       ignore_run_exports:
         from_package:
           - ${{ compiler("c") }}
