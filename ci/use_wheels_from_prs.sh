@@ -16,7 +16,7 @@ RMM_WHEELHOUSE=$(
   rapids-get-pr-artifact rmm 2270 python wheel --pkg_name rmm --stable "${RMM_COMMIT}"
 )
 
-UCXX_COMMIT=d673fd753706d396a5efb5fe0e3913192ebb0c05
+UCXX_COMMIT=347de3a7c1c694fe8509ee7a6aa3d11f5e674476
 DISTRIBUTED_UCXX_WHEELHOUSE=$(
   RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" RAPIDS_PY_WHEEL_PURE="1" rapids-get-pr-artifact --pkg_name distributed-ucxx ucxx 604 python wheel
 )
