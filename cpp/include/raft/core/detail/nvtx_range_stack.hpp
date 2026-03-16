@@ -17,7 +17,10 @@ namespace detail {
 struct nvtx_range_name_stack;
 }  // namespace detail
 
-/** Shared, read-only handle to the current NVTX range name of another thread. */
+/**
+ * Shared, read-only handle to the current NVTX range name of a specific thread
+ * (set internally by one thread, read publicly by zero or more threads).
+ */
 class current_range {
   friend detail::nvtx_range_name_stack;
 
