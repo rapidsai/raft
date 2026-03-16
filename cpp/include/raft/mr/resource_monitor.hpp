@@ -111,11 +111,12 @@ class resource_monitor {
  private:
   void write_header()
   {
-    out_ << "timestamp_us,nvtx_depth,nvtx_range";
+    out_ << "timestamp_us";
     for (auto const& [name, _] : sources_) {
-      out_ << ',' << name << "_current," << name << "_total";
+      out_ << ',' << name << "_current," << name << "_peak," << name << "_total_alloc," << name
+           << "_total_freed";
     }
-    out_ << '\n';
+    out_ << ",nvtx_depth,nvtx_range\n";
     out_.flush();
   }
 
@@ -136,11 +137,18 @@ class resource_monitor {
                 .count();
     auto [range, depth] = nvtx_range_->get();
 
-    out_ << us << ',' << depth << ",\"" << range << '"';
+    out_ << us;
     for (auto const& [name, stats] : sources_) {
-      out_ << ',' << stats->bytes_current.load(std::memory_order_relaxed) << ','
-           << stats->bytes_total_allocated.load(std::memory_order_relaxed);
+      auto current = stats->bytes_current.load(std::memory_order_relaxed);
+      // Reset the peak value to allow tracking local peaks within the sample interval.
+      auto peak = stats->bytes_peak.exchange(current, std::memory_order_relaxed);
+      // Total alloc+dealloc together allow tracking the allocation throughput and detect leaks.
+      auto total_alloc = stats->bytes_total_allocated.load(std::memory_order_relaxed);
+      auto total_freed = stats->bytes_total_deallocated.load(std::memory_order_relaxed);
+
+      out_ << ',' << current << ',' << peak << ',' << total_alloc << ',' << total_freed;
     }
+    out_ << ',' << depth << ",\"" << range << '"';
     out_ << std::endl;
     out_.flush();
   }
