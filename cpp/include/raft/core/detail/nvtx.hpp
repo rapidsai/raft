@@ -148,7 +148,7 @@ inline void push_range_name(const char* name)
   event_attrib.messageType           = NVTX_MESSAGE_TYPE_ASCII;
   event_attrib.message.ascii         = name;
   nvtxDomainRangePushEx(domain_store<Domain>::value(), &event_attrib);
-  detail::range_name_stack().push(name);
+  detail::range_name_stack_instance.push(name);
 }
 
 template <typename Domain, typename... Args>
@@ -171,7 +171,7 @@ inline void push_range(const char* format, Args... args)
 template <typename Domain>
 inline void pop_range()
 {
-  detail::range_name_stack().pop();
+  detail::range_name_stack_instance.pop();
   nvtxDomainRangePop(domain_store<Domain>::value());
 }
 

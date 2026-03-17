@@ -73,11 +73,7 @@ struct nvtx_range_name_stack {
   std::shared_ptr<current_range> current_{std::make_shared<current_range>()};
 };
 
-inline auto& range_name_stack()
-{
-  thread_local nvtx_range_name_stack state{};
-  return state;
-}
+inline thread_local nvtx_range_name_stack range_name_stack_instance{};
 
 }  // namespace detail
 
@@ -88,7 +84,7 @@ inline auto& range_name_stack()
  */
 inline auto thread_local_current_range() -> std::shared_ptr<const current_range>
 {
-  return detail::range_name_stack().current();
+  return detail::range_name_stack_instance.current();
 }
 
 }  // namespace raft::common::nvtx
