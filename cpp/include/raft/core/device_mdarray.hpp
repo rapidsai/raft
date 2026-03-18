@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -26,7 +26,7 @@ namespace raft {
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = device_uvector_policy<ElementType>>
+          typename ContainerPolicy = device_container_policy<ElementType>>
 using device_mdarray =
   mdarray<ElementType, Extents, LayoutPolicy, device_accessor<ContainerPolicy>>;
 
@@ -130,12 +130,30 @@ auto make_device_matrix(raft::resources const& handle, IndexType n_rows, IndexTy
 }
 
 /**
- * @brief Create a device scalar from v.
+ * @brief Create an uninitialized device scalar.
  *
  * @tparam ElementType the data type of the scalar element
  * @tparam IndexType the index type of the extents
  * @param[in] handle raft handle for managing expensive cuda resources
- * @param[in] v scalar to wrap on device
+ * @return raft::device_scalar
+ */
+template <typename ElementType, typename IndexType = std::uint32_t>
+auto make_device_scalar(raft::resources const& handle)
+{
+  scalar_extent<IndexType> extents;
+  using policy_t = typename device_scalar<ElementType, IndexType>::container_policy_type;
+  policy_t policy{};
+  return device_scalar<ElementType, IndexType>{handle, extents, policy};
+}
+
+/**
+ * @brief Create a device scalar from v
+ * (async copy in the resource-provided stream).
+ *
+ * @tparam ElementType the data type of the scalar element
+ * @tparam IndexType the index type of the extents
+ * @param[in] handle raft handle for managing expensive cuda resources
+ * @param[in] v scalar to copy to device
  * @return raft::device_scalar
  */
 template <typename ElementType, typename IndexType = std::uint32_t>

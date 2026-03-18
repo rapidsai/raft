@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -77,15 +77,15 @@ struct memory_type_to_default_policy<T, raft::memory_type::host> {
 };
 template <typename T>
 struct memory_type_to_default_policy<T, raft::memory_type::device> {
-  using type = typename raft::device_uvector_policy<T>;
+  using type = typename raft::device_container_policy<T>;
 };
 template <typename T>
 struct memory_type_to_default_policy<T, raft::memory_type::managed> {
-  using type = typename raft::managed_uvector_policy<T>;
+  using type = typename raft::managed_container_policy<T>;
 };
 template <typename T>
 struct memory_type_to_default_policy<T, raft::memory_type::pinned> {
-  using type = typename raft::pinned_vector_policy<T>;
+  using type = typename raft::pinned_container_policy<T>;
 };
 
 template <typename T, raft::memory_type MemType>
