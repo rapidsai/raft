@@ -74,21 +74,22 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     components_ref.resize(len_comp, stream);
     raft::update_device(components_ref.data(), components_ref_h.data(), len_comp, stream);
 
+    std::size_t n_rows       = params.n_row;
+    std::size_t n_cols       = params.n_col;
+    std::size_t n_components = params.n_col;
+
     paramsTSVD prms;
-    prms.n_cols       = params.n_col;
-    prms.n_rows       = params.n_row;
-    prms.n_components = params.n_col;
     if (params.algo == 0)
       prms.algorithm = solver::COV_EIG_DQ;
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    auto input_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data.data(), prms.n_rows, prms.n_cols);
+    auto input_view =
+      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(data.data(), n_rows, n_cols);
     auto components_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      components.data(), prms.n_components, prms.n_cols);
+      components.data(), n_components, n_cols);
     auto singular_vals_view =
-      raft::make_device_vector_view<T, std::size_t>(singular_vals.data(), prms.n_components);
+      raft::make_device_vector_view<T, std::size_t>(singular_vals.data(), n_components);
 
     tsvd_fit(handle, prms, input_view, components_view, singular_vals_view);
   }
@@ -98,16 +99,17 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     raft::random::Rng r(params.seed, raft::random::GenPC);
     int len = params.n_row2 * params.n_col2;
 
+    std::size_t n_rows       = params.n_row2;
+    std::size_t n_cols       = params.n_col2;
+    std::size_t n_components = params.n_col2;
+
     paramsTSVD prms;
-    prms.n_cols       = params.n_col2;
-    prms.n_rows       = params.n_row2;
-    prms.n_components = params.n_col2;
     if (params.algo == 0)
       prms.algorithm = solver::COV_EIG_DQ;
     else if (params.algo == 1)
       prms.algorithm = solver::COV_EIG_JACOBI;
     else
-      prms.n_components = params.n_col2 - 15;
+      n_components = params.n_col2 - 15;
 
     data2.resize(len, stream);
     int redundant_cols = int(params.redundancy * params.n_col2);
@@ -122,37 +124,37 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
                                   redundant_len * sizeof(T),
                                   cudaMemcpyDeviceToDevice,
                                   stream));
-    rmm::device_uvector<T> data2_trans(prms.n_rows * prms.n_components, stream);
+    rmm::device_uvector<T> data2_trans(n_rows * n_components, stream);
 
-    int len_comp = params.n_col2 * prms.n_components;
+    int len_comp = params.n_col2 * n_components;
     rmm::device_uvector<T> components2(len_comp, stream);
-    rmm::device_uvector<T> explained_vars2(prms.n_components, stream);
-    rmm::device_uvector<T> explained_var_ratio2(prms.n_components, stream);
-    rmm::device_uvector<T> singular_vals2(prms.n_components, stream);
+    rmm::device_uvector<T> explained_vars2(n_components, stream);
+    rmm::device_uvector<T> explained_var_ratio2(n_components, stream);
+    rmm::device_uvector<T> singular_vals2(n_components, stream);
 
-    auto input_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data2.data(), prms.n_rows, prms.n_cols);
+    auto input_view =
+      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(data2.data(), n_rows, n_cols);
     auto trans_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data2_trans.data(), prms.n_rows, prms.n_components);
+      data2_trans.data(), n_rows, n_components);
     auto comp_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      components2.data(), prms.n_components, prms.n_cols);
+      components2.data(), n_components, n_cols);
     auto ev_view =
-      raft::make_device_vector_view<T, std::size_t>(explained_vars2.data(), prms.n_components);
+      raft::make_device_vector_view<T, std::size_t>(explained_vars2.data(), n_components);
     auto evr_view =
-      raft::make_device_vector_view<T, std::size_t>(explained_var_ratio2.data(), prms.n_components);
+      raft::make_device_vector_view<T, std::size_t>(explained_var_ratio2.data(), n_components);
     auto sv_view =
-      raft::make_device_vector_view<T, std::size_t>(singular_vals2.data(), prms.n_components);
+      raft::make_device_vector_view<T, std::size_t>(singular_vals2.data(), n_components);
 
     tsvd_fit_transform(handle, prms, input_view, trans_view, comp_view, ev_view, evr_view, sv_view);
 
     data2_back.resize(len, stream);
 
     auto trans_in_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data2_trans.data(), prms.n_rows, prms.n_components);
+      data2_trans.data(), n_rows, n_components);
     auto comp_in_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      components2.data(), prms.n_components, prms.n_cols);
+      components2.data(), n_components, n_cols);
     auto output_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data2_back.data(), prms.n_rows, prms.n_cols);
+      data2_back.data(), n_rows, n_cols);
 
     tsvd_inverse_transform(handle, prms, trans_in_view, comp_in_view, output_view);
   }

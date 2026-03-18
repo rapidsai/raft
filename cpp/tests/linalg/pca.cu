@@ -73,7 +73,8 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     trans_data_ref_h.resize(len);
     raft::update_device(trans_data_ref.data(), trans_data_ref_h.data(), len, stream);
 
-    int len_comp = params.n_col * params.n_col;
+    int n_components = params.n_col;
+    int len_comp     = params.n_col * params.n_col;
     rmm::device_uvector<T> explained_var_ratio(params.n_col, stream);
     rmm::device_uvector<T> singular_vals(params.n_col, stream);
     rmm::device_uvector<T> mean(params.n_col, stream);
@@ -88,27 +89,27 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     raft::update_device(
       explained_vars_ref.data(), explained_vars_ref_h.data(), params.n_col, stream);
 
+    std::size_t n_rows = params.n_row;
+    std::size_t n_cols = params.n_col;
+
     paramsPCA prms;
-    prms.n_cols       = params.n_col;
-    prms.n_rows       = params.n_row;
-    prms.n_components = params.n_col;
-    prms.whiten       = false;
+    prms.whiten = false;
     if (params.algo == 0)
       prms.algorithm = solver::COV_EIG_DQ;
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    auto input_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data.data(), prms.n_rows, prms.n_cols);
+    auto input_view =
+      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(data.data(), n_rows, n_cols);
     auto components_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      components.data(), prms.n_components, prms.n_cols);
+      components.data(), n_components, n_cols);
     auto explained_var_view =
-      raft::make_device_vector_view<T, std::size_t>(explained_vars.data(), prms.n_components);
+      raft::make_device_vector_view<T, std::size_t>(explained_vars.data(), n_components);
     auto explained_var_ratio_view =
-      raft::make_device_vector_view<T, std::size_t>(explained_var_ratio.data(), prms.n_components);
+      raft::make_device_vector_view<T, std::size_t>(explained_var_ratio.data(), n_components);
     auto singular_vals_view =
-      raft::make_device_vector_view<T, std::size_t>(singular_vals.data(), prms.n_components);
-    auto mu_view         = raft::make_device_vector_view<T, std::size_t>(mean.data(), prms.n_cols);
+      raft::make_device_vector_view<T, std::size_t>(singular_vals.data(), n_components);
+    auto mu_view         = raft::make_device_vector_view<T, std::size_t>(mean.data(), n_cols);
     auto noise_vars_view = raft::make_device_scalar_view<T, std::size_t>(noise_vars.data());
 
     pca_fit(handle,
@@ -122,13 +123,13 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
             noise_vars_view);
 
     auto trans_data_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      trans_data.data(), prms.n_rows, prms.n_components);
+      trans_data.data(), n_rows, n_components);
 
     pca_transform(
       handle, prms, input_view, components_view, singular_vals_view, mu_view, trans_data_view);
 
     auto data_back_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data_back.data(), prms.n_rows, prms.n_cols);
+      data_back.data(), n_rows, n_cols);
 
     pca_inverse_transform(
       handle, prms, trans_data_view, components_view, singular_vals_view, mu_view, data_back_view);
@@ -139,40 +140,41 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     raft::random::Rng r(params.seed, raft::random::GenPC);
     int len = params.len2;
 
+    std::size_t n_rows       = params.n_row2;
+    std::size_t n_cols       = params.n_col2;
+    std::size_t n_components = params.n_col2;
+
     paramsPCA prms;
-    prms.n_cols       = params.n_col2;
-    prms.n_rows       = params.n_row2;
-    prms.n_components = params.n_col2;
-    prms.whiten       = false;
+    prms.whiten = false;
     if (params.algo == 0)
       prms.algorithm = solver::COV_EIG_DQ;
     else if (params.algo == 1)
       prms.algorithm = solver::COV_EIG_JACOBI;
 
     r.uniform(data2.data(), len, T(-1.0), T(1.0), stream);
-    rmm::device_uvector<T> data2_trans(prms.n_rows * prms.n_components, stream);
+    rmm::device_uvector<T> data2_trans(n_rows * n_components, stream);
 
-    int len_comp = params.n_col2 * prms.n_components;
+    int len_comp = params.n_col2 * n_components;
     rmm::device_uvector<T> components2(len_comp, stream);
-    rmm::device_uvector<T> explained_vars2(prms.n_components, stream);
-    rmm::device_uvector<T> explained_var_ratio2(prms.n_components, stream);
-    rmm::device_uvector<T> singular_vals2(prms.n_components, stream);
-    rmm::device_uvector<T> mean2(prms.n_cols, stream);
+    rmm::device_uvector<T> explained_vars2(n_components, stream);
+    rmm::device_uvector<T> explained_var_ratio2(n_components, stream);
+    rmm::device_uvector<T> singular_vals2(n_components, stream);
+    rmm::device_uvector<T> mean2(n_cols, stream);
     rmm::device_uvector<T> noise_vars2(1, stream);
 
-    auto input_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data2.data(), prms.n_rows, prms.n_cols);
+    auto input_view =
+      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(data2.data(), n_rows, n_cols);
     auto trans_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data2_trans.data(), prms.n_rows, prms.n_components);
+      data2_trans.data(), n_rows, n_components);
     auto comp_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      components2.data(), prms.n_components, prms.n_cols);
+      components2.data(), n_components, n_cols);
     auto ev_view =
-      raft::make_device_vector_view<T, std::size_t>(explained_vars2.data(), prms.n_components);
+      raft::make_device_vector_view<T, std::size_t>(explained_vars2.data(), n_components);
     auto evr_view =
-      raft::make_device_vector_view<T, std::size_t>(explained_var_ratio2.data(), prms.n_components);
+      raft::make_device_vector_view<T, std::size_t>(explained_var_ratio2.data(), n_components);
     auto sv_view =
-      raft::make_device_vector_view<T, std::size_t>(singular_vals2.data(), prms.n_components);
-    auto mu_view    = raft::make_device_vector_view<T, std::size_t>(mean2.data(), prms.n_cols);
+      raft::make_device_vector_view<T, std::size_t>(singular_vals2.data(), n_components);
+    auto mu_view    = raft::make_device_vector_view<T, std::size_t>(mean2.data(), n_cols);
     auto noise_view = raft::make_device_scalar_view<T, std::size_t>(noise_vars2.data());
 
     pca_fit_transform(handle,
@@ -187,7 +189,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
                       noise_view);
 
     auto data2_back_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-      data2_back.data(), prms.n_rows, prms.n_cols);
+      data2_back.data(), n_rows, n_cols);
 
     pca_inverse_transform(handle, prms, trans_view, comp_view, sv_view, mu_view, data2_back_view);
   }

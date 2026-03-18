@@ -34,7 +34,8 @@ void trunc_comp_exp_vars(raft::resources const& handle,
                          raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
                          raft::device_vector_view<math_t, idx_t> explained_var,
                          raft::device_vector_view<math_t, idx_t> explained_var_ratio,
-                         raft::device_scalar_view<math_t, idx_t> noise_vars)
+                         raft::device_scalar_view<math_t, idx_t> noise_vars,
+                         std::size_t n_rows)
 {
   auto stream = resource::get_cuda_stream(handle);
 
@@ -78,7 +79,7 @@ void trunc_comp_exp_vars(raft::resources const& handle,
       explained_var_ratio.data_handle(), n_components, idx_t(1)));
 
   if (static_cast<std::size_t>(n_components) < static_cast<std::size_t>(n_cols) &&
-      static_cast<std::size_t>(n_components) < prms.n_rows) {
+      static_cast<std::size_t>(n_components) < n_rows) {
     raft::stats::mean<true>(noise_vars.data_handle(),
                             explained_var_all.data() + static_cast<std::size_t>(n_components),
                             std::size_t{1},
@@ -124,13 +125,12 @@ void pca_fit(raft::resources const& handle,
   auto n_rows = input.extent(0);
   auto n_cols = input.extent(1);
 
+  auto n_components = components.extent(0);
+
   ASSERT(n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
-  ASSERT(prms.n_components > 0,
-         "Parameter n_components: number of components cannot be less than one");
-
-  auto n_components = static_cast<idx_t>(prms.n_components);
-  if (n_components > n_cols) n_components = n_cols;
+  ASSERT(n_components > 0, "Parameter n_components: number of components cannot be less than one");
+  ASSERT(n_components <= n_cols, "n_components cannot exceed n_cols");
 
   raft::stats::mean<false>(mu.data_handle(), input.data_handle(), n_cols, n_rows, false, stream);
 
@@ -140,18 +140,15 @@ void pca_fit(raft::resources const& handle,
   raft::stats::cov<false>(
     handle, cov.data(), input.data_handle(), mu.data_handle(), n_cols, n_rows, true, true, stream);
 
-  paramsPCA prms_with_rows = prms;
-  prms_with_rows.n_rows    = static_cast<std::size_t>(n_rows);
-  prms_with_rows.n_cols    = static_cast<std::size_t>(n_cols);
-
   detail::trunc_comp_exp_vars(
     handle,
-    prms_with_rows,
+    prms,
     raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(cov.data(), n_cols, n_cols),
     components,
     explained_var,
     explained_var_ratio,
-    noise_vars);
+    noise_vars,
+    static_cast<std::size_t>(n_rows));
 
   math_t scalar = (n_rows - 1);
   raft::matrix::weighted_sqrt(handle,

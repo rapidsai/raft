@@ -22,11 +22,8 @@ enum class solver : int {
 
 /** @brief Parameters for TSVD (and base for PCA). */
 struct paramsTSVD {
-  std::size_t n_rows    = 0;
-  std::size_t n_cols    = 0;
   float tol             = 0.0;
   uint64_t n_iterations = 15;
-  uint64_t n_components = 1;
   solver algorithm      = solver::COV_EIG_DQ;
 };
 

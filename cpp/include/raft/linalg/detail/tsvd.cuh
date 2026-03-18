@@ -310,13 +310,12 @@ void tsvd_fit(raft::resources const& handle,
   auto n_rows = input.extent(0);
   auto n_cols = input.extent(1);
 
+  auto n_components = components.extent(0);
+
   ASSERT(n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
-  ASSERT(prms.n_components > 0,
-         "Parameter n_components: number of components cannot be less than one");
-
-  auto n_components = static_cast<idx_t>(prms.n_components);
-  if (n_components > n_cols) n_components = n_cols;
+  ASSERT(n_components > 0, "Parameter n_components: number of components cannot be less than one");
+  ASSERT(n_components <= n_cols, "n_components cannot exceed n_cols");
 
   auto len = static_cast<std::size_t>(n_cols * n_cols);
   rmm::device_uvector<math_t> input_cross_mult(len, stream);

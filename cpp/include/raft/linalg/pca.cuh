@@ -164,12 +164,13 @@ void pca_transform(raft::resources const& handle,
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
  * @param[in] handle raft::resources
- * @param[in] prms tSVD parameters (controls n_components, algorithm). n_rows must be set by caller.
+ * @param[in] prms tSVD parameters (controls algorithm, tolerance, iterations)
  * @param[inout] in covariance matrix [n_cols x n_cols] (col-major). Overwritten.
  * @param[out] components truncated eigenvectors [n_components x n_cols] (col-major)
  * @param[out] explained_var explained variances [n_components]
  * @param[out] explained_var_ratio explained variance ratios [n_components]
  * @param[out] noise_vars noise variance scalar
+ * @param[in] n_rows number of rows in the original data (needed for noise variance computation)
  */
 template <typename math_t, typename idx_t>
 void trunc_comp_exp_vars(raft::resources const& handle,
@@ -178,10 +179,11 @@ void trunc_comp_exp_vars(raft::resources const& handle,
                          raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
                          raft::device_vector_view<math_t, idx_t> explained_var,
                          raft::device_vector_view<math_t, idx_t> explained_var_ratio,
-                         raft::device_scalar_view<math_t, idx_t> noise_vars)
+                         raft::device_scalar_view<math_t, idx_t> noise_vars,
+                         std::size_t n_rows)
 {
   detail::trunc_comp_exp_vars(
-    handle, prms, in, components, explained_var, explained_var_ratio, noise_vars);
+    handle, prms, in, components, explained_var, explained_var_ratio, noise_vars, n_rows);
 }
 
 /** @} */  // end group pca
