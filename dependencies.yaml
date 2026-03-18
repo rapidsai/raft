@@ -335,23 +335,11 @@ dependencies:
           # We always want nvJitLink >= whatever minor version was available in the build environment
           # nvJitLink tends to follow the CTK's minor versions, but check at https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
           - matrix:
-              cuda: "13.0"
+              cuda: "13.*"
               use_cuda_wheels: "true"
             packages:
               - &cuda_toolkit_any_cu13 cuda-toolkit[cublas,curand,cusolver,cusparse]==13.*
               - nvidia-nvjitlink>=13.0,<14
-          - matrix:
-              cuda: "13.1"
-              use_cuda_wheels: "true"
-            packages:
-              - *cuda_toolkit_any_cu13
-              - &nvjitlink_cu13 nvidia-nvjitlink>=13.1,<14
-          - matrix:
-              cuda: "13.*"
-              use_cuda_wheels: "true"
-            packages:
-              - *cuda_toolkit_any_cu13
-              - *nvjitlink_cu13
           # if no matching matrix selectors passed, list the unsuffixed packages
           # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
