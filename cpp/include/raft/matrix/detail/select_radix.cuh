@@ -1316,7 +1316,8 @@ void select_k(raft::resources const& res,
                                                                              stream,
                                                                              mr);
     } else {
-      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, RowLayout>(dry_run.in,
+      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, RowLayout>(dry_run,
+                                                                   in,
                                                                    in_idx,
                                                                    batch_size,
                                                                    len,
