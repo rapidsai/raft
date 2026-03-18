@@ -36,7 +36,7 @@ void tsvd_fit(raft::resources const& handle,
               raft::device_vector_view<math_t, idx_t> singular_vals,
               bool flip_signs_based_on_U = false)
 {
-  detail::tsvdFit(handle, input, components, singular_vals, prms, flip_signs_based_on_U);
+  detail::tsvd_fit(handle, prms, input, components, singular_vals, flip_signs_based_on_U);
 }
 
 /**
@@ -68,15 +68,15 @@ void tsvd_fit_transform(raft::resources const& handle,
                         raft::device_vector_view<math_t, idx_t> singular_vals,
                         bool flip_signs_based_on_U = false)
 {
-  detail::tsvdFitTransform(handle,
-                           input,
-                           trans_input,
-                           components,
-                           explained_var,
-                           explained_var_ratio,
-                           singular_vals,
-                           prms,
-                           flip_signs_based_on_U);
+  detail::tsvd_fit_transform(handle,
+                             prms,
+                             input,
+                             trans_input,
+                             components,
+                             explained_var,
+                             explained_var_ratio,
+                             singular_vals,
+                             flip_signs_based_on_U);
 }
 
 /**
@@ -98,7 +98,7 @@ void tsvd_transform(raft::resources const& handle,
                     raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
                     raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input)
 {
-  detail::tsvdTransform(handle, input, components, trans_input, prms);
+  detail::tsvd_transform(handle, prms, input, components, trans_input);
 }
 
 /**
@@ -120,7 +120,7 @@ void tsvd_inverse_transform(raft::resources const& handle,
                             raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
                             raft::device_matrix_view<math_t, idx_t, raft::col_major> output)
 {
-  detail::tsvdInverseTransform(handle, trans_input, components, output, prms);
+  detail::tsvd_inverse_transform(handle, prms, trans_input, components, output);
 }
 
 /**
@@ -141,7 +141,7 @@ void cal_eig(raft::resources const& handle,
              raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
              raft::device_vector_view<math_t, idx_t> explained_var)
 {
-  detail::calEig(handle, in, components, explained_var, prms);
+  detail::cal_eig(handle, prms, in, components, explained_var);
 }
 
 /**
@@ -161,7 +161,7 @@ void sign_flip_components(raft::resources const& handle,
                           bool center,
                           bool flip_signs_based_on_U = false)
 {
-  detail::signFlipComponents(handle, input, components, center, flip_signs_based_on_U);
+  detail::sign_flip_components(handle, input, components, center, flip_signs_based_on_U);
 }
 
 /** @} */  // end group tsvd

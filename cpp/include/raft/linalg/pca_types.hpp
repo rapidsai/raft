@@ -24,7 +24,6 @@ enum class solver : int {
 struct paramsTSVD {
   std::size_t n_rows    = 0;
   std::size_t n_cols    = 0;
-  int gpu_id            = 0;
   float tol             = 0.0;
   uint64_t n_iterations = 15;
   uint64_t n_components = 1;

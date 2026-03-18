@@ -28,13 +28,13 @@
 namespace raft::linalg::detail {
 
 template <typename math_t, typename idx_t>
-void truncCompExpVars(raft::resources const& handle,
-                      raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
-                      raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                      raft::device_vector_view<math_t, idx_t> explained_var,
-                      raft::device_vector_view<math_t, idx_t> explained_var_ratio,
-                      raft::device_scalar_view<math_t, idx_t> noise_vars,
-                      const paramsTSVD& prms)
+void trunc_comp_exp_vars(raft::resources const& handle,
+                         const paramsTSVD& prms,
+                         raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
+                         raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                         raft::device_vector_view<math_t, idx_t> explained_var,
+                         raft::device_vector_view<math_t, idx_t> explained_var_ratio,
+                         raft::device_scalar_view<math_t, idx_t> noise_vars)
 {
   auto stream = resource::get_cuda_stream(handle);
 
@@ -46,13 +46,13 @@ void truncCompExpVars(raft::resources const& handle,
   rmm::device_uvector<math_t> explained_var_all(static_cast<std::size_t>(n_cols), stream);
   rmm::device_uvector<math_t> explained_var_ratio_all(static_cast<std::size_t>(n_cols), stream);
 
-  detail::calEig<math_t, idx_t>(
+  detail::cal_eig<math_t, idx_t>(
     handle,
+    prms,
     in,
     raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
       components_all.data(), n_cols, n_cols),
-    raft::make_device_vector_view<math_t, idx_t>(explained_var_all.data(), n_cols),
-    prms);
+    raft::make_device_vector_view<math_t, idx_t>(explained_var_all.data(), n_cols));
   raft::matrix::trunc_zero_origin(
     handle,
     raft::make_device_matrix_view<const math_t, idx_t, raft::col_major>(
@@ -94,9 +94,9 @@ void truncCompExpVars(raft::resources const& handle,
 }
 
 /**
- * @brief perform fit operation for the pca. Generates eigenvectors, explained vars, singular vals,
- * etc.
+ * @brief perform fit operation for PCA.
  * @param[in] handle: raft::resources
+ * @param[in] prms: PCA parameters (n_components, algorithm, whiten, etc.)
  * @param[inout] input: the data is fitted to PCA. Size n_rows x n_cols (col-major).
  * @param[out] components: the principal components. Size n_components x n_cols (col-major).
  * @param[out] explained_var: explained variances. Size n_components.
@@ -104,20 +104,19 @@ void truncCompExpVars(raft::resources const& handle,
  * @param[out] singular_vals: singular values. Size n_components.
  * @param[out] mu: mean of all features. Size n_cols.
  * @param[out] noise_vars: noise variance scalar.
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  */
 template <typename math_t, typename idx_t>
-void pcaFit(raft::resources const& handle,
-            raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-            raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-            raft::device_vector_view<math_t, idx_t> explained_var,
-            raft::device_vector_view<math_t, idx_t> explained_var_ratio,
-            raft::device_vector_view<math_t, idx_t> singular_vals,
-            raft::device_vector_view<math_t, idx_t> mu,
-            raft::device_scalar_view<math_t, idx_t> noise_vars,
-            const paramsPCA& prms,
-            bool flip_signs_based_on_U = false)
+void pca_fit(raft::resources const& handle,
+             const paramsPCA& prms,
+             raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+             raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+             raft::device_vector_view<math_t, idx_t> explained_var,
+             raft::device_vector_view<math_t, idx_t> explained_var_ratio,
+             raft::device_vector_view<math_t, idx_t> singular_vals,
+             raft::device_vector_view<math_t, idx_t> mu,
+             raft::device_scalar_view<math_t, idx_t> noise_vars,
+             bool flip_signs_based_on_U = false)
 {
   auto stream        = resource::get_cuda_stream(handle);
   auto cublas_handle = raft::resource::get_cublas_handle(handle);
@@ -145,14 +144,14 @@ void pcaFit(raft::resources const& handle,
   prms_with_rows.n_rows    = static_cast<std::size_t>(n_rows);
   prms_with_rows.n_cols    = static_cast<std::size_t>(n_cols);
 
-  detail::truncCompExpVars(
+  detail::trunc_comp_exp_vars(
     handle,
+    prms_with_rows,
     raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(cov.data(), n_cols, n_cols),
     components,
     explained_var,
     explained_var_ratio,
-    noise_vars,
-    prms_with_rows);
+    noise_vars);
 
   math_t scalar = (n_rows - 1);
   raft::matrix::weighted_sqrt(handle,
@@ -166,28 +165,27 @@ void pcaFit(raft::resources const& handle,
   raft::stats::meanAdd<false, true>(
     input.data_handle(), input.data_handle(), mu.data_handle(), n_cols, n_rows, stream);
 
-  detail::signFlipComponents(handle, input, components, true, flip_signs_based_on_U);
+  detail::sign_flip_components(handle, input, components, true, flip_signs_based_on_U);
 }
 
 /**
- * @brief performs transform operation for the pca. Transforms the data to eigenspace.
+ * @brief performs transform operation for PCA. Transforms the data to eigenspace.
  * @param[in] handle: raft::resources
- * @param[inout] input: the data to transform. Size n_rows x n_cols (col-major). Modified
- * temporarily (mean-centered then restored).
+ * @param[in] prms: PCA parameters (n_components, algorithm, whiten, etc.)
+ * @param[inout] input: the data to transform. Size n_rows x n_cols (col-major).
  * @param[in] components: principal components. Size n_components x n_cols (col-major).
- * @param[out] trans_input: the transformed data. Size n_rows x n_components (col-major).
  * @param[in] singular_vals: singular values. Size n_components.
  * @param[in] mu: mean of features. Size n_cols.
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
+ * @param[out] trans_input: the transformed data. Size n_rows x n_components (col-major).
  */
 template <typename math_t, typename idx_t>
-void pcaTransform(raft::resources const& handle,
-                  raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-                  raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                  raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
-                  raft::device_vector_view<math_t, idx_t> singular_vals,
-                  raft::device_vector_view<math_t, idx_t> mu,
-                  const paramsPCA& prms)
+void pca_transform(raft::resources const& handle,
+                   const paramsPCA& prms,
+                   raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                   raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                   raft::device_vector_view<math_t, idx_t> singular_vals,
+                   raft::device_vector_view<math_t, idx_t> mu,
+                   raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input)
 {
   auto stream = resource::get_cuda_stream(handle);
 
@@ -217,40 +215,39 @@ void pcaTransform(raft::resources const& handle,
 
   raft::stats::meanCenter<false, true>(
     input.data_handle(), input.data_handle(), mu.data_handle(), n_cols, n_rows, stream);
-  detail::tsvdTransform(handle,
-                        input,
-                        raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
-                          components_copy.data(), n_components, n_cols),
-                        trans_input,
-                        prms);
+  detail::tsvd_transform(handle,
+                         prms,
+                         input,
+                         raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+                           components_copy.data(), n_components, n_cols),
+                         trans_input);
   raft::stats::meanAdd<false, true>(
     input.data_handle(), input.data_handle(), mu.data_handle(), n_cols, n_rows, stream);
 }
 
 /**
- * @brief performs inverse transform operation for the pca. Transforms the transformed data back to
- * original data.
+ * @brief performs inverse transform operation for PCA.
  * @param[in] handle: raft::resources
+ * @param[in] prms: PCA parameters (n_components, algorithm, whiten, etc.)
  * @param[in] trans_input: the transformed data. Size n_rows x n_components (col-major).
  * @param[in] components: principal components. Size n_components x n_cols (col-major).
  * @param[in] singular_vals: singular values. Size n_components.
  * @param[in] mu: mean of features. Size n_cols.
- * @param[out] input: the reconstructed data. Size n_rows x n_cols (col-major).
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
+ * @param[out] output: the reconstructed data. Size n_rows x n_cols (col-major).
  */
 template <typename math_t, typename idx_t>
-void pcaInverseTransform(raft::resources const& handle,
-                         raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
-                         raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                         raft::device_vector_view<math_t, idx_t> singular_vals,
-                         raft::device_vector_view<math_t, idx_t> mu,
-                         raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-                         const paramsPCA& prms)
+void pca_inverse_transform(raft::resources const& handle,
+                           const paramsPCA& prms,
+                           raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
+                           raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                           raft::device_vector_view<math_t, idx_t> singular_vals,
+                           raft::device_vector_view<math_t, idx_t> mu,
+                           raft::device_matrix_view<math_t, idx_t, raft::col_major> output)
 {
   auto stream = resource::get_cuda_stream(handle);
 
-  auto n_rows       = input.extent(0);
-  auto n_cols       = input.extent(1);
+  auto n_rows       = output.extent(0);
+  auto n_cols       = output.extent(1);
   auto n_components = components.extent(0);
 
   ASSERT(n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
@@ -274,20 +271,20 @@ void pcaInverseTransform(raft::resources const& handle,
                                                          n_components));
   }
 
-  detail::tsvdInverseTransform(handle,
-                               trans_input,
-                               raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
-                                 components_copy.data(), n_components, n_cols),
-                               input,
-                               prms);
+  detail::tsvd_inverse_transform(handle,
+                                 prms,
+                                 trans_input,
+                                 raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+                                   components_copy.data(), n_components, n_cols),
+                                 output);
   raft::stats::meanAdd<false, true>(
-    input.data_handle(), input.data_handle(), mu.data_handle(), n_cols, n_rows, stream);
+    output.data_handle(), output.data_handle(), mu.data_handle(), n_cols, n_rows, stream);
 }
 
 /**
- * @brief perform fit and transform operations for the pca. Generates transformed data,
- * eigenvectors, explained vars, singular vals, etc.
+ * @brief perform fit and transform operations for PCA.
  * @param[in] handle: raft::resources
+ * @param[in] prms: PCA parameters (n_components, algorithm, whiten, etc.)
  * @param[inout] input: the data is fitted to PCA. Size n_rows x n_cols (col-major).
  * @param[out] trans_input: the transformed data. Size n_rows x n_components (col-major).
  * @param[out] components: the principal components. Size n_components x n_cols (col-major).
@@ -296,33 +293,32 @@ void pcaInverseTransform(raft::resources const& handle,
  * @param[out] singular_vals: singular values. Size n_components.
  * @param[out] mu: mean of all features. Size n_cols.
  * @param[out] noise_vars: noise variance scalar.
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  */
 template <typename math_t, typename idx_t>
-void pcaFitTransform(raft::resources const& handle,
-                     raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-                     raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
-                     raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                     raft::device_vector_view<math_t, idx_t> explained_var,
-                     raft::device_vector_view<math_t, idx_t> explained_var_ratio,
-                     raft::device_vector_view<math_t, idx_t> singular_vals,
-                     raft::device_vector_view<math_t, idx_t> mu,
-                     raft::device_scalar_view<math_t, idx_t> noise_vars,
-                     const paramsPCA& prms,
-                     bool flip_signs_based_on_U = false)
+void pca_fit_transform(raft::resources const& handle,
+                       const paramsPCA& prms,
+                       raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                       raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
+                       raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                       raft::device_vector_view<math_t, idx_t> explained_var,
+                       raft::device_vector_view<math_t, idx_t> explained_var_ratio,
+                       raft::device_vector_view<math_t, idx_t> singular_vals,
+                       raft::device_vector_view<math_t, idx_t> mu,
+                       raft::device_scalar_view<math_t, idx_t> noise_vars,
+                       bool flip_signs_based_on_U = false)
 {
-  detail::pcaFit(handle,
-                 input,
-                 components,
-                 explained_var,
-                 explained_var_ratio,
-                 singular_vals,
-                 mu,
-                 noise_vars,
-                 prms,
-                 flip_signs_based_on_U);
-  detail::pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms);
+  detail::pca_fit(handle,
+                  prms,
+                  input,
+                  components,
+                  explained_var,
+                  explained_var_ratio,
+                  singular_vals,
+                  mu,
+                  noise_vars,
+                  flip_signs_based_on_U);
+  detail::pca_transform(handle, prms, input, components, singular_vals, mu, trans_input);
 }
 
 };  // end namespace raft::linalg::detail

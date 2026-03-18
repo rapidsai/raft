@@ -47,16 +47,16 @@ void pca_fit(raft::resources const& handle,
              raft::device_scalar_view<math_t, idx_t> noise_vars,
              bool flip_signs_based_on_U = false)
 {
-  detail::pcaFit(handle,
-                 input,
-                 components,
-                 explained_var,
-                 explained_var_ratio,
-                 singular_vals,
-                 mu,
-                 noise_vars,
-                 prms,
-                 flip_signs_based_on_U);
+  detail::pca_fit(handle,
+                  prms,
+                  input,
+                  components,
+                  explained_var,
+                  explained_var_ratio,
+                  singular_vals,
+                  mu,
+                  noise_vars,
+                  flip_signs_based_on_U);
 }
 
 /**
@@ -93,17 +93,17 @@ void pca_fit_transform(raft::resources const& handle,
                        raft::device_scalar_view<math_t, idx_t> noise_vars,
                        bool flip_signs_based_on_U = false)
 {
-  detail::pcaFitTransform(handle,
-                          input,
-                          trans_input,
-                          components,
-                          explained_var,
-                          explained_var_ratio,
-                          singular_vals,
-                          mu,
-                          noise_vars,
-                          prms,
-                          flip_signs_based_on_U);
+  detail::pca_fit_transform(handle,
+                            prms,
+                            input,
+                            trans_input,
+                            components,
+                            explained_var,
+                            explained_var_ratio,
+                            singular_vals,
+                            mu,
+                            noise_vars,
+                            flip_signs_based_on_U);
 }
 
 /**
@@ -129,7 +129,7 @@ void pca_inverse_transform(raft::resources const& handle,
                            raft::device_vector_view<math_t, idx_t> mu,
                            raft::device_matrix_view<math_t, idx_t, raft::col_major> output)
 {
-  detail::pcaInverseTransform(handle, trans_input, components, singular_vals, mu, output, prms);
+  detail::pca_inverse_transform(handle, prms, trans_input, components, singular_vals, mu, output);
 }
 
 /**
@@ -155,7 +155,7 @@ void pca_transform(raft::resources const& handle,
                    raft::device_vector_view<math_t, idx_t> mu,
                    raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input)
 {
-  detail::pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms);
+  detail::pca_transform(handle, prms, input, components, singular_vals, mu, trans_input);
 }
 
 /**
@@ -180,8 +180,8 @@ void trunc_comp_exp_vars(raft::resources const& handle,
                          raft::device_vector_view<math_t, idx_t> explained_var_ratio,
                          raft::device_scalar_view<math_t, idx_t> noise_vars)
 {
-  detail::truncCompExpVars(
-    handle, in, components, explained_var, explained_var_ratio, noise_vars, prms);
+  detail::trunc_comp_exp_vars(
+    handle, prms, in, components, explained_var, explained_var_ratio, noise_vars);
 }
 
 /** @} */  // end group pca

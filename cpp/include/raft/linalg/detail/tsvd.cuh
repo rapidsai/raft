@@ -40,13 +40,13 @@
 namespace raft::linalg::detail {
 
 template <typename math_t, typename idx_t>
-void calCompExpVarsSvd(raft::resources const& handle,
-                       raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
-                       raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                       raft::device_vector_view<math_t, idx_t> singular_vals,
-                       raft::device_vector_view<math_t, idx_t> explained_vars,
-                       raft::device_vector_view<math_t, idx_t> explained_var_ratio,
-                       const paramsTSVD& prms)
+void cal_comp_exp_vars_svd(raft::resources const& handle,
+                           const paramsTSVD& prms,
+                           raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
+                           raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                           raft::device_vector_view<math_t, idx_t> singular_vals,
+                           raft::device_vector_view<math_t, idx_t> explained_vars,
+                           raft::device_vector_view<math_t, idx_t> explained_var_ratio)
 {
   auto stream          = resource::get_cuda_stream(handle);
   auto cusolver_handle = raft::resource::get_cusolver_dn_handle(handle);
@@ -103,11 +103,11 @@ void calCompExpVarsSvd(raft::resources const& handle,
 }
 
 template <typename math_t, typename idx_t>
-void calEig(raft::resources const& handle,
-            raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
-            raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-            raft::device_vector_view<math_t, idx_t> explained_var,
-            const paramsTSVD& prms)
+void cal_eig(raft::resources const& handle,
+             const paramsTSVD& prms,
+             raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
+             raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+             raft::device_vector_view<math_t, idx_t> explained_var)
 {
   auto stream          = resource::get_cuda_stream(handle);
   auto cusolver_handle = raft::resource::get_cusolver_dn_handle(handle);
@@ -147,21 +147,19 @@ void calEig(raft::resources const& handle,
 }
 
 /**
- * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
- * vectors
+ * @brief sign flip for PCA and tSVD. Stabilizes the sign of column major eigenvectors.
  * @param handle: raft::resources
  * @param input: input data [n_samples x n_features] (col-major)
  * @param components: components matrix [n_components x n_features] (col-major)
  * @param center whether to mean-center input before computing signs
  * @param flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
- * @{
  */
 template <typename math_t, typename idx_t>
-void signFlipComponents(raft::resources const& handle,
-                        raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-                        raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                        bool center,
-                        bool flip_signs_based_on_U = false)
+void sign_flip_components(raft::resources const& handle,
+                          raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                          raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                          bool center,
+                          bool flip_signs_based_on_U = false)
 {
   auto stream       = resource::get_cuda_stream(handle);
   auto n_samples    = input.extent(0);
@@ -240,17 +238,15 @@ void signFlipComponents(raft::resources const& handle,
 }
 
 /**
- * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
- * vectors
+ * @brief sign flip for PCA and tSVD. Stabilizes the sign of column major eigenvectors.
  * @param handle: raft::resources
  * @param input: input matrix [n_rows x n_cols] (col-major). Modified in place.
  * @param components: components matrix [n_rows x n_cols_comp] (col-major). Modified in place.
- * @{
  */
 template <typename math_t, typename idx_t>
-void signFlip(raft::resources const& handle,
-              raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-              raft::device_matrix_view<math_t, idx_t, raft::col_major> components)
+void sign_flip(raft::resources const& handle,
+               raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+               raft::device_matrix_view<math_t, idx_t, raft::col_major> components)
 {
   auto stream      = resource::get_cuda_stream(handle);
   auto n_rows      = input.extent(0);
@@ -292,22 +288,21 @@ void signFlip(raft::resources const& handle,
 }
 
 /**
- * @brief perform fit operation for the tsvd. Generates eigenvectors, explained vars, singular vals,
- * etc.
+ * @brief perform fit operation for the tsvd.
  * @param[in] handle: raft::resources
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] input: the data is fitted to tSVD. Size n_rows x n_cols (col-major).
  * @param[out] components: the principal components. Size n_components x n_cols (col-major).
  * @param[out] singular_vals: singular values of the data. Size n_components.
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  */
 template <typename math_t, typename idx_t>
-void tsvdFit(raft::resources const& handle,
-             raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-             raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-             raft::device_vector_view<math_t, idx_t> singular_vals,
-             const paramsTSVD& prms,
-             bool flip_signs_based_on_U = false)
+void tsvd_fit(raft::resources const& handle,
+              const paramsTSVD& prms,
+              raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+              raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+              raft::device_vector_view<math_t, idx_t> singular_vals,
+              bool flip_signs_based_on_U = false)
 {
   auto stream        = resource::get_cuda_stream(handle);
   auto cublas_handle = raft::resource::get_cublas_handle(handle);
@@ -345,13 +340,13 @@ void tsvdFit(raft::resources const& handle,
   rmm::device_uvector<math_t> components_all(len, stream);
   rmm::device_uvector<math_t> explained_var_all(static_cast<std::size_t>(n_cols), stream);
 
-  detail::calEig(handle,
-                 raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
-                   input_cross_mult.data(), n_cols, n_cols),
-                 raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
-                   components_all.data(), n_cols, n_cols),
-                 raft::make_device_vector_view<math_t, idx_t>(explained_var_all.data(), n_cols),
-                 prms);
+  detail::cal_eig(handle,
+                  prms,
+                  raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+                    input_cross_mult.data(), n_cols, n_cols),
+                  raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+                    components_all.data(), n_cols, n_cols),
+                  raft::make_device_vector_view<math_t, idx_t>(explained_var_all.data(), n_cols));
 
   raft::matrix::trunc_zero_origin(
     handle,
@@ -368,28 +363,28 @@ void tsvdFit(raft::resources const& handle,
                                 singular_vals.data_handle(), idx_t(1), n_components),
                               raft::make_host_scalar_view(&scalar));
 
-  detail::signFlipComponents(handle,
-                             input,
-                             raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
-                               components.data_handle(), n_components, n_cols),
-                             false,
-                             flip_signs_based_on_U);
+  detail::sign_flip_components(handle,
+                               input,
+                               raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+                                 components.data_handle(), n_components, n_cols),
+                               false,
+                               flip_signs_based_on_U);
 }
 
 /**
  * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
  * @param[in] handle raft::resources
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] input: the data to transform. Size n_rows x n_cols (col-major).
  * @param[in] components: principal components. Size n_components x n_cols (col-major).
  * @param[out] trans_input: transformed output. Size n_rows x n_components (col-major).
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  */
 template <typename math_t, typename idx_t>
-void tsvdTransform(raft::resources const& handle,
-                   raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-                   raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                   raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
-                   const paramsTSVD& prms)
+void tsvd_transform(raft::resources const& handle,
+                    const paramsTSVD& prms,
+                    raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                    raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                    raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input)
 {
   auto stream = resource::get_cuda_stream(handle);
 
@@ -419,25 +414,24 @@ void tsvdTransform(raft::resources const& handle,
 }
 
 /**
- * @brief performs inverse transform operation for the tsvd. Transforms the transformed data back to
- * original data.
+ * @brief performs inverse transform operation for the tsvd.
  * @param[in] handle raft::resources
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] trans_input: the transformed data. Size n_rows x n_components (col-major).
  * @param[in] components: principal components. Size n_components x n_cols (col-major).
- * @param[out] input: reconstructed output. Size n_rows x n_cols (col-major).
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
+ * @param[out] output: reconstructed output. Size n_rows x n_cols (col-major).
  */
 template <typename math_t, typename idx_t>
-void tsvdInverseTransform(raft::resources const& handle,
-                          raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
-                          raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                          raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-                          const paramsTSVD& prms)
+void tsvd_inverse_transform(raft::resources const& handle,
+                            const paramsTSVD& prms,
+                            raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
+                            raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                            raft::device_matrix_view<math_t, idx_t, raft::col_major> output)
 {
   auto stream = resource::get_cuda_stream(handle);
 
-  auto n_rows       = input.extent(0);
-  auto n_cols       = input.extent(1);
+  auto n_rows       = output.extent(0);
+  auto n_cols       = output.extent(1);
   auto n_components = components.extent(0);
 
   ASSERT(n_cols > 1, "Parameter n_cols: number of columns cannot be less than one");
@@ -452,7 +446,7 @@ void tsvdInverseTransform(raft::resources const& handle,
                      n_rows,
                      n_components,
                      components.data_handle(),
-                     input.data_handle(),
+                     output.data_handle(),
                      n_rows,
                      n_cols,
                      CUBLAS_OP_N,
@@ -463,28 +457,27 @@ void tsvdInverseTransform(raft::resources const& handle,
 }
 
 /**
- * @brief performs fit and transform operations for the tsvd. Generates transformed data,
- * eigenvectors, explained vars, singular vals, etc.
+ * @brief performs fit and transform operations for the tsvd.
  * @param[in] handle: raft::resources
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] input: the data is fitted to tSVD. Size n_rows x n_cols (col-major).
  * @param[out] trans_input: the transformed data. Size n_rows x n_components (col-major).
  * @param[out] components: the principal components. Size n_components x n_cols (col-major).
  * @param[out] explained_var: explained variances. Size n_components.
  * @param[out] explained_var_ratio: ratio of explained variance to total. Size n_components.
  * @param[out] singular_vals: singular values of the data. Size n_components.
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  */
 template <typename math_t, typename idx_t>
-void tsvdFitTransform(raft::resources const& handle,
-                      raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-                      raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
-                      raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                      raft::device_vector_view<math_t, idx_t> explained_var,
-                      raft::device_vector_view<math_t, idx_t> explained_var_ratio,
-                      raft::device_vector_view<math_t, idx_t> singular_vals,
-                      const paramsTSVD& prms,
-                      bool flip_signs_based_on_U = false)
+void tsvd_fit_transform(raft::resources const& handle,
+                        const paramsTSVD& prms,
+                        raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                        raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
+                        raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                        raft::device_vector_view<math_t, idx_t> explained_var,
+                        raft::device_vector_view<math_t, idx_t> explained_var_ratio,
+                        raft::device_vector_view<math_t, idx_t> singular_vals,
+                        bool flip_signs_based_on_U = false)
 {
   auto stream = resource::get_cuda_stream(handle);
 
@@ -492,8 +485,8 @@ void tsvdFitTransform(raft::resources const& handle,
   auto n_cols       = input.extent(1);
   auto n_components = components.extent(0);
 
-  detail::tsvdFit(handle, input, components, singular_vals, prms, flip_signs_based_on_U);
-  detail::tsvdTransform(handle, input, components, trans_input, prms);
+  detail::tsvd_fit(handle, prms, input, components, singular_vals, flip_signs_based_on_U);
+  detail::tsvd_transform(handle, prms, input, components, trans_input);
 
   rmm::device_uvector<math_t> mu_trans(static_cast<std::size_t>(n_components), stream);
   raft::stats::mean<false>(
