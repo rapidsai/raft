@@ -109,7 +109,7 @@ void tsvd_transform(raft::resources const& handle,
  * @param[in] handle raft::resources
  * @param[in] prms data structure that includes all the parameters from input size to algorithm.
  * @param[in] trans_input the transformed data. Size n_rows x n_components (col-major).
- * @param[in] components transpose of the principal components. Size n_components x n_cols
+ * @param[in] components the principal components. Size n_components x n_cols
  * (col-major).
  * @param[out] output the reconstructed data. Size n_rows x n_cols (col-major).
  */
