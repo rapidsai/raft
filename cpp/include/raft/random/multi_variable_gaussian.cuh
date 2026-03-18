@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -41,7 +41,7 @@ void multi_variable_gaussian(raft::resources const& handle,
                              const multi_variable_gaussian_decomposition_method method)
 {
   detail::compute_multi_variable_gaussian_impl(
-    handle, rmm::mr::get_current_device_resource(), x, P, X, method);
+    handle, rmm::mr::get_current_device_resource_ref(), x, P, X, method);
 }
 
 /** @} */
