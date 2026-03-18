@@ -5,8 +5,10 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/types.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eig.cuh>
@@ -37,43 +39,47 @@
 
 namespace raft::linalg::detail {
 
-template <typename math_t>
+template <typename math_t, typename idx_t>
 void calCompExpVarsSvd(raft::resources const& handle,
-                       math_t* in,
-                       math_t* components,
-                       math_t* singular_vals,
-                       math_t* explained_vars,
-                       math_t* explained_var_ratio,
-                       const paramsTSVD& prms,
-                       cudaStream_t stream)
+                       raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
+                       raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                       raft::device_vector_view<math_t, idx_t> singular_vals,
+                       raft::device_vector_view<math_t, idx_t> explained_vars,
+                       raft::device_vector_view<math_t, idx_t> explained_var_ratio,
+                       const paramsTSVD& prms)
 {
+  auto stream          = resource::get_cuda_stream(handle);
   auto cusolver_handle = raft::resource::get_cusolver_dn_handle(handle);
   auto cublas_handle   = raft::resource::get_cublas_handle(handle);
 
-  auto diff    = prms.n_cols - prms.n_components;
-  math_t ratio = math_t(diff) / math_t(prms.n_cols);
+  auto n_rows       = in.extent(0);
+  auto n_cols       = in.extent(1);
+  auto n_components = components.extent(0);
+
+  auto diff    = n_cols - n_components;
+  math_t ratio = math_t(diff) / math_t(n_cols);
   ASSERT(ratio >= math_t(0.2),
          "Number of components should be less than at least 80 percent of the "
          "number of features");
 
-  std::size_t p = static_cast<std::size_t>(math_t(0.1) * math_t(prms.n_cols));
-  // int p = int(math_t(prms.n_cols) / math_t(4));
+  std::size_t p = static_cast<std::size_t>(math_t(0.1) * math_t(n_cols));
   ASSERT(p >= 5, "RSVD should be used where the number of columns are at least 50");
 
-  auto total_random_vecs = prms.n_components + p;
-  ASSERT(total_random_vecs < prms.n_cols,
+  auto total_random_vecs = static_cast<std::size_t>(n_components) + p;
+  ASSERT(total_random_vecs < static_cast<std::size_t>(n_cols),
          "RSVD should be used where the number of columns are at least 50");
 
-  rmm::device_uvector<math_t> components_temp(prms.n_cols * prms.n_components, stream);
+  rmm::device_uvector<math_t> components_temp(static_cast<std::size_t>(n_cols * n_components),
+                                              stream);
   math_t* left_eigvec = nullptr;
   raft::linalg::rsvdFixedRank(handle,
-                              in,
-                              prms.n_rows,
-                              prms.n_cols,
-                              singular_vals,
+                              in.data_handle(),
+                              n_rows,
+                              n_cols,
+                              singular_vals.data_handle(),
                               left_eigvec,
                               components_temp.data(),
-                              prms.n_components,
+                              n_components,
                               p,
                               true,
                               false,
@@ -84,105 +90,103 @@ void calCompExpVarsSvd(raft::resources const& handle,
                               stream);
 
   raft::linalg::transpose(
-    handle, components_temp.data(), components, prms.n_cols, prms.n_components, stream);
+    handle, components_temp.data(), components.data_handle(), n_cols, n_components, stream);
 
-  raft::matrix::weighted_power(
-    handle,
-    raft::make_device_matrix_view<const math_t, std::size_t, raft::row_major>(
-      singular_vals, std::size_t(1), prms.n_components),
-    raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
-      explained_vars, std::size_t(1), prms.n_components),
-    math_t(1));
-  raft::matrix::ratio(handle, explained_vars, explained_var_ratio, prms.n_components, stream);
+  raft::matrix::weighted_power(handle,
+                               raft::make_device_matrix_view<const math_t, idx_t, raft::row_major>(
+                                 singular_vals.data_handle(), idx_t(1), n_components),
+                               raft::make_device_matrix_view<math_t, idx_t, raft::row_major>(
+                                 explained_vars.data_handle(), idx_t(1), n_components),
+                               math_t(1));
+  raft::matrix::ratio(
+    handle, explained_vars.data_handle(), explained_var_ratio.data_handle(), n_components, stream);
 }
 
-template <typename math_t>
+template <typename math_t, typename idx_t>
 void calEig(raft::resources const& handle,
-            math_t* in,
-            math_t* components,
-            math_t* explained_var,
-            const paramsTSVD& prms,
-            cudaStream_t stream)
+            raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
+            raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+            raft::device_vector_view<math_t, idx_t> explained_var,
+            const paramsTSVD& prms)
 {
+  auto stream          = resource::get_cuda_stream(handle);
   auto cusolver_handle = raft::resource::get_cusolver_dn_handle(handle);
+
+  auto n_cols = in.extent(0);
 
   if (prms.algorithm == solver::COV_EIG_JACOBI) {
     raft::linalg::eigJacobi(handle,
-                            in,
-                            prms.n_cols,
-                            prms.n_cols,
-                            components,
-                            explained_var,
+                            in.data_handle(),
+                            n_cols,
+                            n_cols,
+                            components.data_handle(),
+                            explained_var.data_handle(),
                             stream,
                             (math_t)prms.tol,
                             prms.n_iterations);
   } else {
-    raft::linalg::eigDC(handle, in, prms.n_cols, prms.n_cols, components, explained_var, stream);
+    raft::linalg::eigDC(handle,
+                        in.data_handle(),
+                        n_cols,
+                        n_cols,
+                        components.data_handle(),
+                        explained_var.data_handle(),
+                        stream);
   }
   raft::resources handle_stream_zero;
   raft::resource::set_cuda_stream(handle_stream_zero, stream);
 
   raft::matrix::col_reverse(handle_stream_zero,
-                            raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
-                              components, prms.n_cols, prms.n_cols));
-  raft::linalg::transpose(components, prms.n_cols, stream);
+                            raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+                              components.data_handle(), n_cols, n_cols));
+  raft::linalg::transpose(components.data_handle(), n_cols, stream);
 
   raft::matrix::row_reverse(handle_stream_zero,
-                            raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
-                              explained_var, prms.n_cols, std::size_t(1)));
+                            raft::make_device_matrix_view<math_t, idx_t, raft::row_major>(
+                              explained_var.data_handle(), n_cols, idx_t(1)));
 }
 
 /**
  * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
  * vectors
  * @param handle: raft::resources
- * @param components: components matrix, used to determine the sign of max absolute value
- * @param input: input data
- * @param n_rows: number of rows of components matrix
- * @param n_cols: number of columns of components matrix
- * @param n_samples: number of samples (number of rows of input)
- * @param stream: cuda stream
+ * @param input: input data [n_samples x n_features] (col-major)
+ * @param components: components matrix [n_components x n_features] (col-major)
+ * @param center whether to mean-center input before computing signs
  * @param flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  * @{
  */
-template <typename math_t>
+template <typename math_t, typename idx_t>
 void signFlipComponents(raft::resources const& handle,
-                        math_t* input,
-                        math_t* components,
-                        std::size_t n_samples,
-                        std::size_t n_features,
-                        std::size_t n_components,
-                        cudaStream_t stream,
+                        raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                        raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
                         bool center,
                         bool flip_signs_based_on_U = false)
 {
-  rmm::device_uvector<math_t> max_vals(n_components, stream);
-  auto components_view = raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
-    components, n_components, n_features);
-  auto max_vals_view =
-    raft::make_device_vector_view<math_t, std::size_t>(max_vals.data(), n_components);
+  auto stream       = resource::get_cuda_stream(handle);
+  auto n_samples    = input.extent(0);
+  auto n_features   = input.extent(1);
+  auto n_components = components.extent(0);
 
-  // Step 1: find U or V max absolute values
-  // X = U @ S @ V
-  // X: input matrix, n_samples * n_features
-  // U: n_samples * n_components
-  // S: diagonal matrix of eigen-values, n_components * n_components
-  // V: components, n_components * n_features
-  // U @ S = X @ V.T, where the signs of U @ S are solely determined by U
+  rmm::device_uvector<math_t> max_vals(static_cast<std::size_t>(n_components), stream);
+  auto components_view = raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+    components.data_handle(), n_components, n_features);
+  auto max_vals_view = raft::make_device_vector_view<math_t, idx_t>(max_vals.data(), n_components);
+
   if (flip_signs_based_on_U) {
     if (center) {
-      // If center, X -= X.mean(axis=0)
-      rmm::device_uvector<math_t> col_means(n_features, stream);
-      raft::stats::mean<false>(col_means.data(), input, n_features, n_samples, stream);
+      rmm::device_uvector<math_t> col_means(static_cast<std::size_t>(n_features), stream);
+      raft::stats::mean<false>(
+        col_means.data(), input.data_handle(), n_features, n_samples, stream);
       raft::stats::meanCenter<false, true>(
-        input, input, col_means.data(), n_features, n_samples, stream);
+        input.data_handle(), input.data_handle(), col_means.data(), n_features, n_samples, stream);
     }
-    rmm::device_uvector<math_t> US(n_samples * n_components, stream);
+    rmm::device_uvector<math_t> US(static_cast<std::size_t>(n_samples * n_components), stream);
     raft::linalg::gemm<math_t, math_t, math_t, math_t>(handle,
-                                                       input,
+                                                       input.data_handle(),
                                                        n_samples,
                                                        n_features,
-                                                       components,
+                                                       components.data_handle(),
                                                        US.data(),
                                                        n_samples,
                                                        n_components,
@@ -209,7 +213,7 @@ void signFlipComponents(raft::resources const& handle,
   } else {
     raft::linalg::reduce<false, true>(
       max_vals.data(),
-      components,
+      components.data_handle(),
       n_features,
       n_components,
       math_t(0),
@@ -224,13 +228,12 @@ void signFlipComponents(raft::resources const& handle,
       raft::identity_op());
   }
 
-  // Step 2: flip rows where needed
   raft::linalg::map_offset(
     handle,
     components_view,
     [components_view, max_vals_view, n_components, n_features] __device__(auto idx) {
-      std::size_t row    = idx % n_components;
-      std::size_t column = idx / n_components;
+      auto row    = idx % n_components;
+      auto column = idx / n_components;
       return (max_vals_view(row) < math_t(0)) ? (-components_view(row, column))
                                               : components_view(row, column);
     });
@@ -239,34 +242,35 @@ void signFlipComponents(raft::resources const& handle,
 /**
  * @defgroup sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
  * vectors
- * @param input: input matrix that will be used to determine the sign.
- * @param n_rows: number of rows of input matrix
- * @param n_cols: number of columns of input matrix
- * @param components: components matrix.
- * @param n_cols_comp: number of columns of components matrix
- * @param stream cuda stream
+ * @param handle: raft::resources
+ * @param input: input matrix [n_rows x n_cols] (col-major). Modified in place.
+ * @param components: components matrix [n_rows x n_cols_comp] (col-major). Modified in place.
  * @{
  */
-template <typename math_t>
-void signFlip(math_t* input,
-              std::size_t n_rows,
-              std::size_t n_cols,
-              math_t* components,
-              std::size_t n_cols_comp,
-              cudaStream_t stream)
+template <typename math_t, typename idx_t>
+void signFlip(raft::resources const& handle,
+              raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+              raft::device_matrix_view<math_t, idx_t, raft::col_major> components)
 {
-  auto counting = thrust::make_counting_iterator(0);
-  auto m        = n_rows;
+  auto stream      = resource::get_cuda_stream(handle);
+  auto n_rows      = input.extent(0);
+  auto n_cols      = input.extent(1);
+  auto n_cols_comp = components.extent(1);
+
+  auto* input_ptr      = input.data_handle();
+  auto* components_ptr = components.data_handle();
+  auto counting        = thrust::make_counting_iterator(0);
+  auto m               = n_rows;
 
   thrust::for_each(
-    rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(std::size_t idx) {
+    rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(idx_t idx) {
       auto d_i = idx * m;
       auto end = d_i + m;
 
-      math_t max            = 0.0;
-      std::size_t max_index = 0;
+      math_t max      = 0.0;
+      idx_t max_index = 0;
       for (auto i = d_i; i < end; i++) {
-        math_t val = input[i];
+        math_t val = input_ptr[i];
         if (val < 0.0) { val = -val; }
         if (val > max) {
           max       = val;
@@ -274,14 +278,14 @@ void signFlip(math_t* input,
         }
       }
 
-      if (input[max_index] < 0.0) {
+      if (input_ptr[max_index] < 0.0) {
         for (auto i = d_i; i < end; i++) {
-          input[i] = -input[i];
+          input_ptr[i] = -input_ptr[i];
         }
 
         auto len = n_cols * n_cols_comp;
         for (auto i = idx; i < len; i = i + n_cols) {
-          components[i] = -components[i];
+          components_ptr[i] = -components_ptr[i];
         }
       }
     });
@@ -291,45 +295,47 @@ void signFlip(math_t* input,
  * @brief perform fit operation for the tsvd. Generates eigenvectors, explained vars, singular vals,
  * etc.
  * @param[in] handle: raft::resources
- * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
- * indicated in prms.
- * @param[out] components: the principal components of the input data. Size n_cols * n_components.
- * @param[out] singular_vals: singular values of the data. Size n_components * 1
+ * @param[in] input: the data is fitted to tSVD. Size n_rows x n_cols (col-major).
+ * @param[out] components: the principal components. Size n_components x n_cols (col-major).
+ * @param[out] singular_vals: singular values of the data. Size n_components.
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] stream cuda stream
+ * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  */
-template <typename math_t>
+template <typename math_t, typename idx_t>
 void tsvdFit(raft::resources const& handle,
-             math_t* input,
-             math_t* components,
-             math_t* singular_vals,
+             raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+             raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+             raft::device_vector_view<math_t, idx_t> singular_vals,
              const paramsTSVD& prms,
-             cudaStream_t stream,
              bool flip_signs_based_on_U = false)
 {
+  auto stream        = resource::get_cuda_stream(handle);
   auto cublas_handle = raft::resource::get_cublas_handle(handle);
 
-  ASSERT(prms.n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
-  ASSERT(prms.n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
+  auto n_rows = input.extent(0);
+  auto n_cols = input.extent(1);
+
+  ASSERT(n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
+  ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  auto n_components = prms.n_components;
-  if (prms.n_components > prms.n_cols) n_components = prms.n_cols;
+  auto n_components = static_cast<idx_t>(prms.n_components);
+  if (n_components > n_cols) n_components = n_cols;
 
-  size_t len = prms.n_cols * prms.n_cols;
+  auto len = static_cast<std::size_t>(n_cols * n_cols);
   rmm::device_uvector<math_t> input_cross_mult(len, stream);
 
   math_t alpha = math_t(1);
   math_t beta  = math_t(0);
   raft::linalg::gemm(handle,
-                     input,
-                     prms.n_rows,
-                     prms.n_cols,
-                     input,
+                     input.data_handle(),
+                     n_rows,
+                     n_cols,
+                     input.data_handle(),
                      input_cross_mult.data(),
-                     prms.n_cols,
-                     prms.n_cols,
+                     n_cols,
+                     n_cols,
                      CUBLAS_OP_T,
                      CUBLAS_OP_N,
                      alpha,
@@ -337,70 +343,74 @@ void tsvdFit(raft::resources const& handle,
                      stream);
 
   rmm::device_uvector<math_t> components_all(len, stream);
-  rmm::device_uvector<math_t> explained_var_all(prms.n_cols, stream);
+  rmm::device_uvector<math_t> explained_var_all(static_cast<std::size_t>(n_cols), stream);
 
-  detail::calEig(
-    handle, input_cross_mult.data(), components_all.data(), explained_var_all.data(), prms, stream);
+  detail::calEig(handle,
+                 raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+                   input_cross_mult.data(), n_cols, n_cols),
+                 raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+                   components_all.data(), n_cols, n_cols),
+                 raft::make_device_vector_view<math_t, idx_t>(explained_var_all.data(), n_cols),
+                 prms);
 
   raft::matrix::trunc_zero_origin(
     handle,
-    raft::make_device_matrix_view<const math_t, std::size_t, raft::col_major>(
-      components_all.data(), prms.n_cols, prms.n_cols),
-    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
-      components, n_components, prms.n_cols));
+    raft::make_device_matrix_view<const math_t, idx_t, raft::col_major>(
+      components_all.data(), n_cols, n_cols),
+    raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+      components.data_handle(), n_components, n_cols));
 
   math_t scalar = math_t(1);
-  raft::matrix::weighted_sqrt(
-    handle,
-    raft::make_device_matrix_view<const math_t, std::size_t, raft::row_major>(
-      explained_var_all.data(), std::size_t(1), n_components),
-    raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
-      singular_vals, std::size_t(1), n_components),
-    raft::make_host_scalar_view(&scalar));
+  raft::matrix::weighted_sqrt(handle,
+                              raft::make_device_matrix_view<const math_t, idx_t, raft::row_major>(
+                                explained_var_all.data(), idx_t(1), n_components),
+                              raft::make_device_matrix_view<math_t, idx_t, raft::row_major>(
+                                singular_vals.data_handle(), idx_t(1), n_components),
+                              raft::make_host_scalar_view(&scalar));
 
-  signFlipComponents(handle,
-                     input,
-                     components,
-                     prms.n_rows,
-                     prms.n_cols,
-                     n_components,
-                     stream,
-                     false,
-                     flip_signs_based_on_U);
+  detail::signFlipComponents(handle,
+                             input,
+                             raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+                               components.data_handle(), n_components, n_cols),
+                             false,
+                             flip_signs_based_on_U);
 }
 
 /**
  * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
  * @param[in] handle raft::resources
- * @param[in] input: the data is transformed. Size n_rows x n_components.
- * @param[in] components: principal components of the input data. Size n_cols * n_components.
- * @param[out] trans_input: output that is transformed version of input
+ * @param[in] input: the data to transform. Size n_rows x n_cols (col-major).
+ * @param[in] components: principal components. Size n_components x n_cols (col-major).
+ * @param[out] trans_input: transformed output. Size n_rows x n_components (col-major).
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] stream cuda stream
  */
-template <typename math_t>
+template <typename math_t, typename idx_t>
 void tsvdTransform(raft::resources const& handle,
-                   math_t* input,
-                   math_t* components,
-                   math_t* trans_input,
-                   const paramsTSVD& prms,
-                   cudaStream_t stream)
+                   raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                   raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                   raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
+                   const paramsTSVD& prms)
 {
-  ASSERT(prms.n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
-  ASSERT(prms.n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
-  ASSERT(prms.n_components > 0,
-         "Parameter n_components: number of components cannot be less than one");
+  auto stream = resource::get_cuda_stream(handle);
+
+  auto n_rows       = input.extent(0);
+  auto n_cols       = input.extent(1);
+  auto n_components = components.extent(0);
+
+  ASSERT(n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
+  ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
+  ASSERT(n_components > 0, "Parameter n_components: number of components cannot be less than one");
 
   math_t alpha = math_t(1);
   math_t beta  = math_t(0);
   raft::linalg::gemm(handle,
-                     input,
-                     prms.n_rows,
-                     prms.n_cols,
-                     components,
-                     trans_input,
-                     prms.n_rows,
-                     prms.n_components,
+                     input.data_handle(),
+                     n_rows,
+                     n_cols,
+                     components.data_handle(),
+                     trans_input.data_handle(),
+                     n_rows,
+                     n_components,
                      CUBLAS_OP_N,
                      CUBLAS_OP_T,
                      alpha,
@@ -412,37 +422,39 @@ void tsvdTransform(raft::resources const& handle,
  * @brief performs inverse transform operation for the tsvd. Transforms the transformed data back to
  * original data.
  * @param[in] handle raft::resources
- * @param[in] trans_input: the data is fitted to PCA. Size n_rows x n_components.
- * @param[in] components: transpose of the principal components of the input data. Size n_components
- * * n_cols.
- * @param[out] input: the data is fitted to PCA. Size n_rows x n_cols.
+ * @param[in] trans_input: the transformed data. Size n_rows x n_components (col-major).
+ * @param[in] components: principal components. Size n_components x n_cols (col-major).
+ * @param[out] input: reconstructed output. Size n_rows x n_cols (col-major).
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] stream cuda stream
  */
-template <typename math_t>
+template <typename math_t, typename idx_t>
 void tsvdInverseTransform(raft::resources const& handle,
-                          math_t* trans_input,
-                          math_t* components,
-                          math_t* input,
-                          const paramsTSVD& prms,
-                          cudaStream_t stream)
+                          raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
+                          raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                          raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                          const paramsTSVD& prms)
 {
-  ASSERT(prms.n_cols > 1, "Parameter n_cols: number of columns cannot be less than one");
-  ASSERT(prms.n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
-  ASSERT(prms.n_components > 0,
-         "Parameter n_components: number of components cannot be less than one");
+  auto stream = resource::get_cuda_stream(handle);
+
+  auto n_rows       = input.extent(0);
+  auto n_cols       = input.extent(1);
+  auto n_components = components.extent(0);
+
+  ASSERT(n_cols > 1, "Parameter n_cols: number of columns cannot be less than one");
+  ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
+  ASSERT(n_components > 0, "Parameter n_components: number of components cannot be less than one");
 
   math_t alpha = math_t(1);
   math_t beta  = math_t(0);
 
   raft::linalg::gemm(handle,
-                     trans_input,
-                     prms.n_rows,
-                     prms.n_components,
-                     components,
-                     input,
-                     prms.n_rows,
-                     prms.n_cols,
+                     trans_input.data_handle(),
+                     n_rows,
+                     n_components,
+                     components.data_handle(),
+                     input.data_handle(),
+                     n_rows,
+                     n_cols,
                      CUBLAS_OP_N,
                      CUBLAS_OP_N,
                      alpha,
@@ -454,47 +466,56 @@ void tsvdInverseTransform(raft::resources const& handle,
  * @brief performs fit and transform operations for the tsvd. Generates transformed data,
  * eigenvectors, explained vars, singular vals, etc.
  * @param[in] handle: raft::resources
- * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is
- * indicated in prms.
- * @param[out] trans_input: the transformed data. Size n_rows * n_components.
- * @param[out] components: the principal components of the input data. Size n_cols * n_components.
- * @param[out] explained_var: explained variances (eigenvalues) of the principal components. Size
- * n_components * 1.
- * @param[out] explained_var_ratio: the ratio of the explained variance and total variance. Size
- * n_components * 1.
- * @param[out] singular_vals: singular values of the data. Size n_components * 1
+ * @param[in] input: the data is fitted to tSVD. Size n_rows x n_cols (col-major).
+ * @param[out] trans_input: the transformed data. Size n_rows x n_components (col-major).
+ * @param[out] components: the principal components. Size n_components x n_cols (col-major).
+ * @param[out] explained_var: explained variances. Size n_components.
+ * @param[out] explained_var_ratio: ratio of explained variance to total. Size n_components.
+ * @param[out] singular_vals: singular values of the data. Size n_components.
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] stream cuda stream
+ * @param[in] flip_signs_based_on_U whether to determine signs by U (true) or V.T (false)
  */
-template <typename math_t>
+template <typename math_t, typename idx_t>
 void tsvdFitTransform(raft::resources const& handle,
-                      math_t* input,
-                      math_t* trans_input,
-                      math_t* components,
-                      math_t* explained_var,
-                      math_t* explained_var_ratio,
-                      math_t* singular_vals,
+                      raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
+                      raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
+                      raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                      raft::device_vector_view<math_t, idx_t> explained_var,
+                      raft::device_vector_view<math_t, idx_t> explained_var_ratio,
+                      raft::device_vector_view<math_t, idx_t> singular_vals,
                       const paramsTSVD& prms,
-                      cudaStream_t stream,
                       bool flip_signs_based_on_U = false)
 {
-  detail::tsvdFit(handle, input, components, singular_vals, prms, stream, flip_signs_based_on_U);
-  detail::tsvdTransform(handle, input, components, trans_input, prms, stream);
+  auto stream = resource::get_cuda_stream(handle);
 
-  rmm::device_uvector<math_t> mu_trans(prms.n_components, stream);
+  auto n_rows       = input.extent(0);
+  auto n_cols       = input.extent(1);
+  auto n_components = components.extent(0);
+
+  detail::tsvdFit(handle, input, components, singular_vals, prms, flip_signs_based_on_U);
+  detail::tsvdTransform(handle, input, components, trans_input, prms);
+
+  rmm::device_uvector<math_t> mu_trans(static_cast<std::size_t>(n_components), stream);
   raft::stats::mean<false>(
-    mu_trans.data(), trans_input, prms.n_components, prms.n_rows, false, stream);
+    mu_trans.data(), trans_input.data_handle(), n_components, n_rows, false, stream);
+  raft::stats::vars<false>(explained_var.data_handle(),
+                           trans_input.data_handle(),
+                           mu_trans.data(),
+                           n_components,
+                           n_rows,
+                           false,
+                           stream);
+
+  rmm::device_uvector<math_t> mu(static_cast<std::size_t>(n_cols), stream);
+  rmm::device_uvector<math_t> vars(static_cast<std::size_t>(n_cols), stream);
+
+  raft::stats::mean<false>(mu.data(), input.data_handle(), n_cols, n_rows, false, stream);
   raft::stats::vars<false>(
-    explained_var, trans_input, mu_trans.data(), prms.n_components, prms.n_rows, false, stream);
-
-  rmm::device_uvector<math_t> mu(prms.n_cols, stream);
-  rmm::device_uvector<math_t> vars(prms.n_cols, stream);
-
-  raft::stats::mean<false>(mu.data(), input, prms.n_cols, prms.n_rows, false, stream);
-  raft::stats::vars<false>(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, false, stream);
+    vars.data(), input.data_handle(), mu.data(), n_cols, n_rows, false, stream);
 
   rmm::device_scalar<math_t> total_vars(stream);
-  raft::stats::sum<false>(total_vars.data(), vars.data(), std::size_t(1), prms.n_cols, stream);
+  raft::stats::sum<false>(
+    total_vars.data(), vars.data(), std::size_t(1), static_cast<std::size_t>(n_cols), stream);
 
   math_t total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), 1, stream);
@@ -502,7 +523,7 @@ void tsvdFitTransform(raft::resources const& handle,
   math_t scalar = math_t(1) / total_vars_h;
 
   raft::linalg::scalarMultiply(
-    explained_var_ratio, explained_var, scalar, prms.n_components, stream);
+    explained_var_ratio.data_handle(), explained_var.data_handle(), scalar, n_components, stream);
 }
 
 };  // end namespace raft::linalg::detail

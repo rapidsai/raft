@@ -8,7 +8,6 @@
 #include "detail/pca.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
 
 namespace raft::linalg {
 
@@ -48,22 +47,15 @@ void pca_fit(raft::resources const& handle,
              raft::device_scalar_view<math_t, idx_t> noise_vars,
              bool flip_signs_based_on_U = false)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsPCA prms_with_dims = prms;
-  prms_with_dims.n_rows    = static_cast<std::size_t>(input.extent(0));
-  prms_with_dims.n_cols    = static_cast<std::size_t>(input.extent(1));
-
   detail::pcaFit(handle,
-                 input.data_handle(),
-                 components.data_handle(),
-                 explained_var.data_handle(),
-                 explained_var_ratio.data_handle(),
-                 singular_vals.data_handle(),
-                 mu.data_handle(),
-                 noise_vars.data_handle(),
-                 prms_with_dims,
-                 stream,
+                 input,
+                 components,
+                 explained_var,
+                 explained_var_ratio,
+                 singular_vals,
+                 mu,
+                 noise_vars,
+                 prms,
                  flip_signs_based_on_U);
 }
 
@@ -101,23 +93,16 @@ void pca_fit_transform(raft::resources const& handle,
                        raft::device_scalar_view<math_t, idx_t> noise_vars,
                        bool flip_signs_based_on_U = false)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsPCA prms_with_dims = prms;
-  prms_with_dims.n_rows    = static_cast<std::size_t>(input.extent(0));
-  prms_with_dims.n_cols    = static_cast<std::size_t>(input.extent(1));
-
   detail::pcaFitTransform(handle,
-                          input.data_handle(),
-                          trans_input.data_handle(),
-                          components.data_handle(),
-                          explained_var.data_handle(),
-                          explained_var_ratio.data_handle(),
-                          singular_vals.data_handle(),
-                          mu.data_handle(),
-                          noise_vars.data_handle(),
-                          prms_with_dims,
-                          stream,
+                          input,
+                          trans_input,
+                          components,
+                          explained_var,
+                          explained_var_ratio,
+                          singular_vals,
+                          mu,
+                          noise_vars,
+                          prms,
                           flip_signs_based_on_U);
 }
 
@@ -144,20 +129,7 @@ void pca_inverse_transform(raft::resources const& handle,
                            raft::device_vector_view<math_t, idx_t> mu,
                            raft::device_matrix_view<math_t, idx_t, raft::col_major> output)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsPCA prms_with_dims = prms;
-  prms_with_dims.n_rows    = static_cast<std::size_t>(output.extent(0));
-  prms_with_dims.n_cols    = static_cast<std::size_t>(output.extent(1));
-
-  detail::pcaInverseTransform(handle,
-                              trans_input.data_handle(),
-                              components.data_handle(),
-                              singular_vals.data_handle(),
-                              mu.data_handle(),
-                              output.data_handle(),
-                              prms_with_dims,
-                              stream);
+  detail::pcaInverseTransform(handle, trans_input, components, singular_vals, mu, output, prms);
 }
 
 /**
@@ -183,20 +155,7 @@ void pca_transform(raft::resources const& handle,
                    raft::device_vector_view<math_t, idx_t> mu,
                    raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsPCA prms_with_dims = prms;
-  prms_with_dims.n_rows    = static_cast<std::size_t>(input.extent(0));
-  prms_with_dims.n_cols    = static_cast<std::size_t>(input.extent(1));
-
-  detail::pcaTransform(handle,
-                       input.data_handle(),
-                       components.data_handle(),
-                       trans_input.data_handle(),
-                       singular_vals.data_handle(),
-                       mu.data_handle(),
-                       prms_with_dims,
-                       stream);
+  detail::pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms);
 }
 
 /**
@@ -205,7 +164,7 @@ void pca_transform(raft::resources const& handle,
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
  * @param[in] handle raft::resources
- * @param[in] prms tSVD parameters (controls n_components, algorithm)
+ * @param[in] prms tSVD parameters (controls n_components, algorithm). n_rows must be set by caller.
  * @param[inout] in covariance matrix [n_cols x n_cols] (col-major). Overwritten.
  * @param[out] components truncated eigenvectors [n_components x n_cols] (col-major)
  * @param[out] explained_var explained variances [n_components]
@@ -221,20 +180,8 @@ void trunc_comp_exp_vars(raft::resources const& handle,
                          raft::device_vector_view<math_t, idx_t> explained_var_ratio,
                          raft::device_scalar_view<math_t, idx_t> noise_vars)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsTSVD prms_with_dims = prms;
-  prms_with_dims.n_rows     = static_cast<std::size_t>(in.extent(0));
-  prms_with_dims.n_cols     = static_cast<std::size_t>(in.extent(1));
-
-  detail::truncCompExpVars(handle,
-                           in.data_handle(),
-                           components.data_handle(),
-                           explained_var.data_handle(),
-                           explained_var_ratio.data_handle(),
-                           noise_vars.data_handle(),
-                           prms_with_dims,
-                           stream);
+  detail::truncCompExpVars(
+    handle, in, components, explained_var, explained_var_ratio, noise_vars, prms);
 }
 
 /** @} */  // end group pca

@@ -8,7 +8,6 @@
 #include "detail/tsvd.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
 
 namespace raft::linalg {
 
@@ -37,19 +36,7 @@ void tsvd_fit(raft::resources const& handle,
               raft::device_vector_view<math_t, idx_t> singular_vals,
               bool flip_signs_based_on_U = false)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsTSVD prms_with_dims = prms;
-  prms_with_dims.n_rows     = static_cast<std::size_t>(input.extent(0));
-  prms_with_dims.n_cols     = static_cast<std::size_t>(input.extent(1));
-
-  detail::tsvdFit(handle,
-                  input.data_handle(),
-                  components.data_handle(),
-                  singular_vals.data_handle(),
-                  prms_with_dims,
-                  stream,
-                  flip_signs_based_on_U);
+  detail::tsvdFit(handle, input, components, singular_vals, prms, flip_signs_based_on_U);
 }
 
 /**
@@ -81,21 +68,14 @@ void tsvd_fit_transform(raft::resources const& handle,
                         raft::device_vector_view<math_t, idx_t> singular_vals,
                         bool flip_signs_based_on_U = false)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsTSVD prms_with_dims = prms;
-  prms_with_dims.n_rows     = static_cast<std::size_t>(input.extent(0));
-  prms_with_dims.n_cols     = static_cast<std::size_t>(input.extent(1));
-
   detail::tsvdFitTransform(handle,
-                           input.data_handle(),
-                           trans_input.data_handle(),
-                           components.data_handle(),
-                           explained_var.data_handle(),
-                           explained_var_ratio.data_handle(),
-                           singular_vals.data_handle(),
-                           prms_with_dims,
-                           stream,
+                           input,
+                           trans_input,
+                           components,
+                           explained_var,
+                           explained_var_ratio,
+                           singular_vals,
+                           prms,
                            flip_signs_based_on_U);
 }
 
@@ -118,18 +98,7 @@ void tsvd_transform(raft::resources const& handle,
                     raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
                     raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsTSVD prms_with_dims = prms;
-  prms_with_dims.n_rows     = static_cast<std::size_t>(input.extent(0));
-  prms_with_dims.n_cols     = static_cast<std::size_t>(input.extent(1));
-
-  detail::tsvdTransform(handle,
-                        input.data_handle(),
-                        components.data_handle(),
-                        trans_input.data_handle(),
-                        prms_with_dims,
-                        stream);
+  detail::tsvdTransform(handle, input, components, trans_input, prms);
 }
 
 /**
@@ -151,18 +120,7 @@ void tsvd_inverse_transform(raft::resources const& handle,
                             raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
                             raft::device_matrix_view<math_t, idx_t, raft::col_major> output)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsTSVD prms_with_dims = prms;
-  prms_with_dims.n_rows     = static_cast<std::size_t>(output.extent(0));
-  prms_with_dims.n_cols     = static_cast<std::size_t>(output.extent(1));
-
-  detail::tsvdInverseTransform(handle,
-                               trans_input.data_handle(),
-                               components.data_handle(),
-                               output.data_handle(),
-                               prms_with_dims,
-                               stream);
+  detail::tsvdInverseTransform(handle, trans_input, components, output, prms);
 }
 
 /**
@@ -183,18 +141,7 @@ void cal_eig(raft::resources const& handle,
              raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
              raft::device_vector_view<math_t, idx_t> explained_var)
 {
-  auto stream = resource::get_cuda_stream(handle);
-
-  paramsTSVD prms_with_dims = prms;
-  prms_with_dims.n_rows     = static_cast<std::size_t>(in.extent(0));
-  prms_with_dims.n_cols     = static_cast<std::size_t>(in.extent(1));
-
-  detail::calEig(handle,
-                 in.data_handle(),
-                 components.data_handle(),
-                 explained_var.data_handle(),
-                 prms_with_dims,
-                 stream);
+  detail::calEig(handle, in, components, explained_var, prms);
 }
 
 /**
@@ -214,20 +161,7 @@ void sign_flip_components(raft::resources const& handle,
                           bool center,
                           bool flip_signs_based_on_U = false)
 {
-  auto stream       = resource::get_cuda_stream(handle);
-  auto n_samples    = static_cast<std::size_t>(input.extent(0));
-  auto n_features   = static_cast<std::size_t>(input.extent(1));
-  auto n_components = static_cast<std::size_t>(components.extent(0));
-
-  detail::signFlipComponents(handle,
-                             input.data_handle(),
-                             components.data_handle(),
-                             n_samples,
-                             n_features,
-                             n_components,
-                             stream,
-                             center,
-                             flip_signs_based_on_U);
+  detail::signFlipComponents(handle, input, components, center, flip_signs_based_on_U);
 }
 
 /** @} */  // end group tsvd
