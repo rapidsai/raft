@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -33,7 +33,7 @@ using device_compressed_structure_view =
 template <typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy>
+          template <typename T> typename ContainerPolicy = device_container_policy>
 using device_compressed_structure =
   compressed_structure<IndptrType, IndicesType, NZType, true, ContainerPolicy>;
 
@@ -47,7 +47,7 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy,
+          template <typename T> typename ContainerPolicy = device_container_policy,
           SparsityType sparsity_type                     = SparsityType::OWNING>
 using device_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy, sparsity_type>;
@@ -59,7 +59,7 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy>
+          template <typename T> typename ContainerPolicy = device_container_policy>
 using device_sparsity_owning_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy>;
 
@@ -70,7 +70,7 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy>
+          template <typename T> typename ContainerPolicy = device_container_policy>
 using device_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
                                                          IndptrType,
                                                          IndicesType,
