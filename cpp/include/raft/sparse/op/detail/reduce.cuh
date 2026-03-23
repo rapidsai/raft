@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
@@ -128,6 +129,12 @@ void max_duplicates(raft::resources const& handle,
 
   // compute diffs & take exclusive scan
   rmm::device_uvector<value_idx> diff(nnz + 1, stream);
+
+  if (resource::get_dry_run_flag(handle)) {
+    // Upper bound: at most nnz unique entries (no duplicates removed).
+    out.allocate(nnz, m, n, false, stream);
+    return;
+  }
 
   compute_duplicates_mask(diff.data(), rows, cols, nnz, stream);
 

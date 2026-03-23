@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/detail/utils.h>
@@ -212,6 +213,8 @@ void coo_remove_scalar(raft::resources const& handle,
 
   rmm::device_uvector<nnz_t> row_count_nz(in_n_rows, stream);
   rmm::device_uvector<nnz_t> row_count(in_n_rows, stream);
+
+  if (resource::get_dry_run_flag(handle)) { return; }
 
   RAFT_CUDA_TRY(
     cudaMemsetAsync(row_count_nz.data(), 0, static_cast<nnz_t>(in_n_rows) * sizeof(nnz_t), stream));

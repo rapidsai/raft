@@ -7,6 +7,7 @@
 
 #include <raft/core/detail/mdspan_util.cuh>  // detail::popc
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/convert/detail/adj_to_csr.cuh>
@@ -298,6 +299,8 @@ void bitmap_to_csr(raft::resources const& handle,
 
   rmm::device_async_resource_ref device_memory = resource::get_workspace_resource(handle);
   rmm::device_uvector<nnz_t> sub_nnz(sub_nnz_size + 1, stream, device_memory);
+
+  if (resource::get_dry_run_flag(handle)) { return; }
 
   calc_nnz_by_rows(handle,
                    bitmap.data(),

@@ -609,7 +609,8 @@ void coalescedReduction(bool dry_run,
     coalescedReductionThinDispatcher(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else if (N < numSMs && D >= IdxType(1 << 17)) {
-    if (dry_run) { return; }
+    // Must call through to coalescedReductionThick even in dry-run so workspace
+    // allocations are recorded (coalescedReductionThick allocates before guarding).
     coalescedReductionThickDispatcher(
       dry_run, dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else {
