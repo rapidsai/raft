@@ -19,8 +19,6 @@
 #include <rmm/mr/pool_memory_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
-#include <cub/cub.cuh>
-
 namespace raft::bench::random {
 
 struct sample_inputs {

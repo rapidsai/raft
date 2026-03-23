@@ -16,8 +16,5 @@ c_stdlib_version:
 cmake_version:
   - ">=3.30.4"
 
-ucxx_version:
-  - "0.49.*"
-
 nccl_version:
   - ">=2.19"

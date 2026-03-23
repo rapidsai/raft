@@ -64,3 +64,27 @@ namespace *raft::linalg*
     :project: RAFT
     :members:
     :content-only:
+
+PCA
+---
+
+``#include <raft/linalg/pca.cuh>``
+
+namespace *raft::linalg*
+
+.. doxygengroup:: pca
+    :project: RAFT
+    :members:
+    :content-only:
+
+Truncated SVD
+-------------
+
+``#include <raft/linalg/tsvd.cuh>``
+
+namespace *raft::linalg*
+
+.. doxygengroup:: tsvd
+    :project: RAFT
+    :members:
+    :content-only:

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -64,16 +64,8 @@ master_doc = "index"
 
 # General information about the project.
 project = "raft"
-copyright = "2023, NVIDIA Corporation"
+copyright = "2023-2026, NVIDIA Corporation"
 author = "NVIDIA Corporation"
-
-rst_prolog = """
-
-.. attention::
-
-  The vector search and clustering algorithms in RAFT are being migrated to a new library dedicated to vector search called `cuVS <https://github.com/rapidsai/cuvs>`_. We will continue to support the vector search algorithms in RAFT during this move, but will no longer update them after the RAPIDS 24.06 (June) release. We plan to complete the migration by RAPIDS 24.10 (October) release and they will be removed from RAFT altogether in the 24.12 (December) release.
-
-"""
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -112,6 +104,7 @@ todo_include_todos = False
 #
 
 html_theme = "pydata_sphinx_theme"
+html_logo = "../../img/rapids_logo.png"
 
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -119,6 +112,9 @@ html_theme = "pydata_sphinx_theme"
 # documentation.
 #
 html_theme_options = {
+    "logo": {
+        "text": "RAFT",
+    },
     "external_links": [],
     # https://github.com/pydata/pydata-sphinx-theme/issues/1220
     "icon_links": [],

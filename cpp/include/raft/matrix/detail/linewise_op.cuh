@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,7 +11,7 @@
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
-#include <thrust/tuple.h>
+#include <cuda/std/tuple>
 
 #include <algorithm>
 
@@ -32,7 +32,7 @@ template <typename MatT, typename Lambda, class Tuple, size_t... Is>
 __device__ __forceinline__ MatT
 RunMatVecOp(Lambda op, MatT mat, Tuple&& args, std::index_sequence<Is...>)
 {
-  return op(mat, (thrust::get<Is>(args))...);
+  return op(mat, (cuda::std::get<Is>(args))...);
 }
 
 template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize>
@@ -89,9 +89,7 @@ struct Linewise {
   {
     constexpr IdxType warpPad = (AlignWarp::Value - 1) * VecElems;
     constexpr auto index      = std::index_sequence_for<Vecs...>();
-    // todo(lsugy): switch to cuda::std::tuple from libcudacxx if we add it as a required
-    // dependency. Note that thrust::tuple is limited to 10 elements.
-    thrust::tuple<Vecs...> args;
+    cuda::std::tuple<Vecs...> args;
     Vec v, w;
     bool update = true;
     for (; in < in_end; in += AlignWarp::Value, out += AlignWarp::Value, rowMod += warpPad) {
@@ -102,7 +100,7 @@ struct Linewise {
         update = true;
       }
       if (update) {
-        args   = thrust::make_tuple((vecs[rowDiv])...);
+        args   = cuda::std::make_tuple((vecs[rowDiv])...);
         update = false;
       }
 #pragma unroll VecElems
@@ -110,7 +108,7 @@ struct Linewise {
         if (rowMod == rowLen) {
           rowMod = 0;
           rowDiv++;
-          args = thrust::make_tuple((vecs[rowDiv])...);
+          args = cuda::std::make_tuple((vecs[rowDiv])...);
         }
         w.val.data[k] = RunMatVecOp(op, v.val.data[k], args, index);
       }

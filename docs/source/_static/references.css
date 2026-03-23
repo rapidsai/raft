@@ -21,3 +21,8 @@ dl.citation > dt.label > span::before {
 dl.citation > dt.label > span::after {
   content: "]";
 }
+
+/* Make navbar logo smaller */
+.logo__image {
+  height: 32px !important;
+}

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "test_span.hpp"
@@ -8,12 +8,12 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/iterator>
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/host_vector.h>
-#include <thrust/iterator/counting_iterator.h>
 #include <thrust/memory.h>
 
 #include <gtest/gtest.h>
@@ -93,15 +93,14 @@ TEST(GPUSpan, FromOther)
 TEST(GPUSpan, Assignment)
 {
   TestStatus status;
-  thrust::for_each_n(
-    thrust::make_counting_iterator(0ul), 16, test_assignment_t<true>{status.Data()});
+  thrust::for_each_n(cuda::make_counting_iterator(0ul), 16, test_assignment_t<true>{status.Data()});
   ASSERT_EQ(status.Get(), 1);
 }
 
 TEST(GPUSpan, TestStatus)
 {
   TestStatus status;
-  thrust::for_each_n(thrust::make_counting_iterator(0ul), 16, test_test_status_t{status.Data()});
+  thrust::for_each_n(cuda::make_counting_iterator(0ul), 16, test_test_status_t{status.Data()});
   ASSERT_EQ(status.Get(), -1);
 }
 
@@ -147,7 +146,7 @@ TEST(GPUSpan, WithTrust)
     device_span<float> s(d_vec1.data().get(), d_vec.size());
 
     thrust::for_each_n(
-      thrust::make_counting_iterator(0ul),
+      cuda::make_counting_iterator(0ul),
       16,
       TestEqual<float>{thrust::raw_pointer_cast(d_vec1.data()), s.data(), status.Data()});
     ASSERT_EQ(status.Get(), 1);
@@ -157,15 +156,14 @@ TEST(GPUSpan, WithTrust)
 TEST(GPUSpan, BeginEnd)
 {
   TestStatus status;
-  thrust::for_each_n(thrust::make_counting_iterator(0ul), 16, test_beginend_t<true>{status.Data()});
+  thrust::for_each_n(cuda::make_counting_iterator(0ul), 16, test_beginend_t<true>{status.Data()});
   ASSERT_EQ(status.Get(), 1);
 }
 
 TEST(GPUSpan, RBeginREnd)
 {
   TestStatus status;
-  thrust::for_each_n(
-    thrust::make_counting_iterator(0ul), 16, test_rbeginrend_t<true>{status.Data()});
+  thrust::for_each_n(cuda::make_counting_iterator(0ul), 16, test_rbeginrend_t<true>{status.Data()});
   ASSERT_EQ(status.Get(), 1);
 }
 
@@ -197,15 +195,14 @@ TEST(GPUSpan, Modify)
 TEST(GPUSpan, Observers)
 {
   TestStatus status;
-  thrust::for_each_n(
-    thrust::make_counting_iterator(0ul), 16, test_observers_t<true>{status.Data()});
+  thrust::for_each_n(cuda::make_counting_iterator(0ul), 16, test_observers_t<true>{status.Data()});
   ASSERT_EQ(status.Get(), 1);
 }
 
 TEST(GPUSpan, Compare)
 {
   TestStatus status;
-  thrust::for_each_n(thrust::make_counting_iterator(0), 1, test_compare_t<false>{status.Data()});
+  thrust::for_each_n(cuda::make_counting_iterator(0), 1, test_compare_t<false>{status.Data()});
   ASSERT_EQ(status.Get(), 1);
 }
 }  // namespace raft

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -124,6 +124,20 @@ void matrix_vector_op_launch(const raft::resources& handle,
         binary_sub<Apply::ALONG_COLUMNS>(handle, in_col_major, vec1_view);
       }
     }
+  } else if (operation_type == 5) {
+    if (row_major) {
+      if (apply == Apply::ALONG_ROWS) {
+        binary_mult<Apply::ALONG_ROWS>(handle, in_row_major, vec1_view);
+      } else {
+        binary_mult<Apply::ALONG_COLUMNS>(handle, in_row_major, vec1_view);
+      }
+    } else {
+      if (apply == Apply::ALONG_ROWS) {
+        binary_mult<Apply::ALONG_ROWS>(handle, in_col_major, vec1_view);
+      } else {
+        binary_mult<Apply::ALONG_COLUMNS>(handle, in_col_major, vec1_view);
+      }
+    }
   } else {
     THROW("Unknown operation type '%d'!", (int)operation_type);
   }
@@ -166,6 +180,8 @@ void naive_matrix_vector_op_launch(const raft::resources& handle,
     naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::add_op{}, stream);
   } else if (operation_type == 4) {
     naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::sub_op{}, stream);
+  } else if (operation_type == 5) {
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::mul_op{}, stream);
   } else {
     THROW("Unknown operation type '%d'!", (int)operation_type);
   }
@@ -223,23 +239,18 @@ class MatrixVectorTest : public ::testing::TestWithParam<MatrixVectorInputs<T, I
 };
 
 const std::vector<MatrixVectorInputs<float, int>> inputsf_i32 = {
-  {0.00001f, 1024, 32, 0, true, true, 1234ULL},
-  {0.00001f, 1024, 64, 1, true, true, 1234ULL},
-  {0.00001f, 1024, 32, 2, true, false, 1234ULL},
-  {0.00001f, 1024, 64, 3, true, false, 1234ULL},
-  {0.00001f, 1024, 32, 4, false, true, 1234ULL},
-  {0.00001f, 1024, 64, 0, false, true, 1234ULL},
-  {0.00001f, 1024, 32, 1, false, false, 1234ULL},
-  {0.00001f, 1024, 64, 2, false, false, 1234ULL},
+  {0.00001f, 1024, 32, 0, true, true, 1234ULL},   {0.00001f, 1024, 64, 1, true, true, 1234ULL},
+  {0.00001f, 1024, 32, 2, true, false, 1234ULL},  {0.00001f, 1024, 64, 3, true, false, 1234ULL},
+  {0.00001f, 1024, 32, 4, false, true, 1234ULL},  {0.00001f, 1024, 64, 0, false, true, 1234ULL},
+  {0.00001f, 1024, 32, 1, false, false, 1234ULL}, {0.00001f, 1024, 64, 2, false, false, 1234ULL},
 
-  {0.00001f, 1024, 32, 3, true, true, 1234ULL},
-  {0.00001f, 1024, 64, 4, true, true, 1234ULL},
-  {0.00001f, 1024, 32, 0, true, false, 1234ULL},
-  {0.00001f, 1024, 64, 1, true, false, 1234ULL},
-  {0.00001f, 1024, 32, 2, false, true, 1234ULL},
-  {0.00001f, 1024, 64, 3, false, true, 1234ULL},
-  {0.00001f, 1024, 32, 4, false, false, 1234ULL},
-  {0.00001f, 1024, 64, 0, false, false, 1234ULL}};
+  {0.00001f, 1024, 32, 3, true, true, 1234ULL},   {0.00001f, 1024, 64, 4, true, true, 1234ULL},
+  {0.00001f, 1024, 32, 0, true, false, 1234ULL},  {0.00001f, 1024, 64, 1, true, false, 1234ULL},
+  {0.00001f, 1024, 32, 2, false, true, 1234ULL},  {0.00001f, 1024, 64, 3, false, true, 1234ULL},
+  {0.00001f, 1024, 32, 4, false, false, 1234ULL}, {0.00001f, 1024, 64, 0, false, false, 1234ULL},
+
+  {0.00001f, 1024, 32, 5, true, true, 1234ULL},   {0.00001f, 1024, 64, 5, true, false, 1234ULL},
+  {0.00001f, 1024, 32, 5, false, true, 1234ULL},  {0.00001f, 1024, 64, 5, false, false, 1234ULL}};
 typedef MatrixVectorTest<float, int> MatrixVectorTestF_i32;
 TEST_P(MatrixVectorTestF_i32, Result)
 {
@@ -251,7 +262,9 @@ INSTANTIATE_TEST_SUITE_P(MatrixVectorTests,
                          ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<MatrixVectorInputs<float, size_t>> inputsf_i64 = {
-  {0.00001f, 2500, 250, 0, false, false, 1234ULL}, {0.00001f, 2500, 250, 1, false, false, 1234ULL}};
+  {0.00001f, 2500, 250, 0, false, false, 1234ULL},
+  {0.00001f, 2500, 250, 1, false, false, 1234ULL},
+  {0.00001f, 2500, 250, 5, false, false, 1234ULL}};
 typedef MatrixVectorTest<float, size_t> MatrixVectorTestF_i64;
 TEST_P(MatrixVectorTestF_i64, Result)
 {
@@ -263,23 +276,18 @@ INSTANTIATE_TEST_SUITE_P(MatrixVectorTests,
                          ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<MatrixVectorInputs<double, int>> inputsd_i32 = {
-  {0.0000001, 1024, 32, 0, true, true, 1234ULL},
-  {0.0000001, 1024, 64, 1, true, true, 1234ULL},
-  {0.0000001, 1024, 32, 2, true, false, 1234ULL},
-  {0.0000001, 1024, 64, 3, true, false, 1234ULL},
-  {0.0000001, 1024, 32, 4, false, true, 1234ULL},
-  {0.0000001, 1024, 64, 0, false, true, 1234ULL},
-  {0.0000001, 1024, 32, 1, false, false, 1234ULL},
-  {0.0000001, 1024, 64, 2, false, false, 1234ULL},
+  {0.0000001, 1024, 32, 0, true, true, 1234ULL},   {0.0000001, 1024, 64, 1, true, true, 1234ULL},
+  {0.0000001, 1024, 32, 2, true, false, 1234ULL},  {0.0000001, 1024, 64, 3, true, false, 1234ULL},
+  {0.0000001, 1024, 32, 4, false, true, 1234ULL},  {0.0000001, 1024, 64, 0, false, true, 1234ULL},
+  {0.0000001, 1024, 32, 1, false, false, 1234ULL}, {0.0000001, 1024, 64, 2, false, false, 1234ULL},
 
-  {0.0000001, 1024, 32, 3, true, true, 1234ULL},
-  {0.0000001, 1024, 64, 4, true, true, 1234ULL},
-  {0.0000001, 1024, 32, 0, true, false, 1234ULL},
-  {0.0000001, 1024, 64, 1, true, false, 1234ULL},
-  {0.0000001, 1024, 32, 2, false, true, 1234ULL},
-  {0.0000001, 1024, 64, 3, false, true, 1234ULL},
-  {0.0000001, 1024, 32, 4, false, false, 1234ULL},
-  {0.0000001, 1024, 64, 0, false, false, 1234ULL}};
+  {0.0000001, 1024, 32, 3, true, true, 1234ULL},   {0.0000001, 1024, 64, 4, true, true, 1234ULL},
+  {0.0000001, 1024, 32, 0, true, false, 1234ULL},  {0.0000001, 1024, 64, 1, true, false, 1234ULL},
+  {0.0000001, 1024, 32, 2, false, true, 1234ULL},  {0.0000001, 1024, 64, 3, false, true, 1234ULL},
+  {0.0000001, 1024, 32, 4, false, false, 1234ULL}, {0.0000001, 1024, 64, 0, false, false, 1234ULL},
+
+  {0.0000001, 1024, 32, 5, true, true, 1234ULL},   {0.0000001, 1024, 64, 5, true, false, 1234ULL},
+  {0.0000001, 1024, 32, 5, false, true, 1234ULL},  {0.0000001, 1024, 64, 5, false, false, 1234ULL}};
 typedef MatrixVectorTest<double, int> MatrixVectorTestD_i32;
 TEST_P(MatrixVectorTestD_i32, Result)
 {
@@ -294,7 +302,8 @@ INSTANTIATE_TEST_SUITE_P(MatrixVectorTests,
 
 const std::vector<MatrixVectorInputs<double, size_t>> inputsd_i64 = {
   {0.0000001, 2500, 250, 0, false, false, 1234ULL},
-  {0.0000001, 2500, 250, 1, false, false, 1234ULL}};
+  {0.0000001, 2500, 250, 1, false, false, 1234ULL},
+  {0.0000001, 2500, 250, 5, false, false, 1234ULL}};
 typedef MatrixVectorTest<double, size_t> MatrixVectorTestD_i64;
 TEST_P(MatrixVectorTestD_i64, Result)
 {

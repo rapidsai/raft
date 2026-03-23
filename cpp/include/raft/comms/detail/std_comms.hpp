@@ -1,13 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/ucp_helper.hpp>
 #include <raft/comms/detail/util.hpp>
+#include <raft/core/comms.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
