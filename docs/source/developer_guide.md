@@ -301,7 +301,7 @@ In dry run mode:
 - no expensive CPU algorithms are allowed to run
 - no real allocations happen in any of:
   - `rmm` default device resource (device mdarrays and `rmm::device_uvector`)
-  - `std::pmr` default (host) resource (host mdarrays)
+  - `cuda::mr` (host/managed/pinned) resources (all mdarray types)
   - workspace memory resources managed by `raft::resources`.
 All attempted allocations in the above resources are tracked and reported, thus enabling planning of the memory usage with a relatively small overhead of simulated execution.
 

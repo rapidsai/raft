@@ -19,7 +19,7 @@ You can also construct `raft::dry_run_resources` directly for finer control (e.g
 
 ## Three Rules
 
-1. **Allocations must not be guarded.** Every `rmm::device_uvector`, `rmm::device_scalar`, `rmm::device_buffer`, `raft::make_device_*`, and `raft::make_host_*` allocation must execute in both modes so the tracker sees it.
+1. **Allocations must not be guarded.** Every `rmm::device_uvector`, `rmm::device_scalar`, `rmm::device_buffer`, `raft::make_(device|host|pinned|managed)_(mdarray|matrix|vector|scalar)` allocation must execute in both modes so the tracker sees it.
 
 2. **CUDA work must be guarded.** Kernel launches, Thrust algorithms, cuBLAS/cuSOLVER/cuSPARSE compute calls, `cudaMemcpyAsync`, `cudaMemsetAsync`, and `raft::interruptible::synchronize` must not run in dry-run mode.
 
