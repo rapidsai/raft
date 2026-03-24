@@ -12,6 +12,7 @@
 #include <raft/mr/dry_run_resource.hpp>
 #include <raft/mr/host_device_resource.hpp>
 #include <raft/mr/host_memory_resource.hpp>
+#include <raft/util/memory_stats_resources.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device_memory_resource.hpp>
@@ -22,27 +23,16 @@
 #include <cuda/stream_ref>
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <utility>
 
-namespace raft::util {
+namespace raft {
 
 /**
  * @defgroup dry_run_memory Dry-run memory resources
  * @{
  */
-
-/**
- * @brief Statistics collected during a dry-run execution.
- */
-struct dry_run_stats {
-  std::size_t device_workspace_peak;        ///< Peak device workspace bytes
-  std::size_t device_large_workspace_peak;  ///< Peak device large workspace bytes
-  std::size_t device_global_peak;           ///< Peak device global allocation bytes
-  std::size_t device_managed_peak;          ///< Peak device managed allocation bytes
-  std::size_t host_peak;                    ///< Peak host allocation bytes
-  std::size_t host_pinned_peak;             ///< Peak host pinned allocation bytes
-};
 
 /**
  * @brief Resources handle that wraps all reachable memory resources with
@@ -61,10 +51,10 @@ struct dry_run_stats {
  * On destruction the handle resets the flag and restores global resources.
  * Composable with memory_tracking_resources in either order.
  */
-class dry_run_resources : public raft::resources {
+class dry_run_resources : public resources {
  public:
-  explicit dry_run_resources(const raft::resources& existing)
-    : raft::resources(existing),
+  explicit dry_run_resources(const resources& existing)
+    : resources(existing),
       active_(!resource::get_dry_run_flag(existing)),
       old_host_ref_(raft::mr::get_default_host_resource()),
       old_device_mr_(rmm::mr::get_current_device_resource()),
@@ -77,7 +67,7 @@ class dry_run_resources : public raft::resources {
   {
     if (!active_) return;
     resource::set_dry_run_flag(*this, false);
-    raft::mr::set_default_host_resource(old_host_ref_);
+    mr::set_default_host_resource(old_host_ref_);
     rmm::mr::set_current_device_resource(old_device_mr_);
     rmm::mr::set_current_device_resource_ref(old_device_ref_);
 
@@ -92,16 +82,29 @@ class dry_run_resources : public raft::resources {
   dry_run_resources(dry_run_resources&&)                 = delete;
   dry_run_resources& operator=(dry_run_resources&&)      = delete;
 
-  [[nodiscard]] auto get_stats() const -> dry_run_stats
+  [[nodiscard]] auto get_bytes_peak() const -> memory_stats
   {
     if (!active_) return {};
     return {
-      .device_workspace_peak       = ws_alloc_->get_peak_bytes(),
-      .device_large_workspace_peak = lws_alloc_->get_peak_bytes(),
-      .device_global_peak          = device_alloc_->get_peak_bytes(),
-      .device_managed_peak         = managed_alloc_->get_peak_bytes(),
-      .host_peak                   = host_alloc_->get_peak_bytes(),
-      .host_pinned_peak            = pinned_alloc_->get_peak_bytes(),
+      .device_workspace       = ws_stats_->get_peak_bytes(),
+      .device_large_workspace = lws_stats_->get_peak_bytes(),
+      .device_global          = device_stats_->get_peak_bytes(),
+      .device_managed         = managed_stats_->get_peak_bytes(),
+      .host                   = host_stats_->get_peak_bytes(),
+      .host_pinned            = pinned_stats_->get_peak_bytes(),
+    };
+  }
+
+  [[nodiscard]] auto get_bytes_current() const -> memory_stats
+  {
+    if (!active_) return {};
+    return {
+      .device_workspace       = ws_stats_->get_allocated_bytes(),
+      .device_large_workspace = lws_stats_->get_allocated_bytes(),
+      .device_global          = device_stats_->get_allocated_bytes(),
+      .device_managed         = managed_stats_->get_allocated_bytes(),
+      .host                   = host_stats_->get_allocated_bytes(),
+      .host_pinned            = pinned_stats_->get_allocated_bytes(),
     };
   }
 
@@ -138,7 +141,7 @@ class dry_run_resources : public raft::resources {
     }
 
    public:
-    explicit device_bridge(raft::mr::dry_run_resource<rmm::device_async_resource_ref> adaptor)
+    explicit device_bridge(mr::dry_run_resource<rmm::device_async_resource_ref> adaptor)
       : adaptor_(std::move(adaptor))
     {
     }
@@ -151,22 +154,23 @@ class dry_run_resources : public raft::resources {
 
   std::unique_ptr<device_bridge> device_bridge_;
 
-  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> host_alloc_;
-  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> pinned_alloc_;
-  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> managed_alloc_;
-  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> ws_alloc_;
-  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> lws_alloc_;
-  std::shared_ptr<raft::mr::detail::dry_run_memory_counter> device_alloc_;
+  using counter_t = raft::mr::detail::dry_run_memory_counter;
+  std::shared_ptr<counter_t> host_stats_;
+  std::shared_ptr<counter_t> pinned_stats_;
+  std::shared_ptr<counter_t> managed_stats_;
+  std::shared_ptr<counter_t> ws_stats_;
+  std::shared_ptr<counter_t> lws_stats_;
+  std::shared_ptr<counter_t> device_stats_;
 
   void init()
   {
     // Force-initialize all affected resources (lazy creation).
-    auto* ws         = raft::resource::get_workspace_resource(*this);
-    auto ws_limit    = ws->get_allocation_limit();
+    auto* ws         = resource::get_workspace_resource(*this);
+    auto ws_free     = resource::get_workspace_free_bytes(*this);
     auto ws_upstream = ws->get_upstream_resource();
-    auto lws_ref     = raft::resource::get_large_workspace_resource_ref(*this);
-    auto pinned_ref  = raft::resource::get_pinned_memory_resource_ref(*this);
-    auto managed_ref = raft::resource::get_managed_memory_resource_ref(*this);
+    auto lws_ref     = resource::get_large_workspace_resource_ref(*this);
+    auto pinned_ref  = resource::get_pinned_memory_resource_ref(*this);
+    auto managed_ref = resource::get_managed_memory_resource_ref(*this);
 
     // Snapshot keeps original resource objects alive while dry-run
     // adaptors hold non-owning refs into them.
@@ -175,29 +179,29 @@ class dry_run_resources : public raft::resources {
     // --- Host (global) ---
     {
       host_adaptor_ = std::make_unique<host_dry_run_t>(old_host_ref_);
-      host_alloc_   = host_adaptor_->get_counter();
-      raft::mr::set_default_host_resource(raft::mr::host_resource_ref{*host_adaptor_});
+      host_stats_   = host_adaptor_->get_counter();
+      mr::set_default_host_resource(mr::host_resource_ref{*host_adaptor_});
     }
 
     // --- Pinned ---
     {
-      raft::mr::dry_run_resource<raft::mr::host_device_resource_ref> dr{pinned_ref};
-      pinned_alloc_ = dr.get_counter();
-      raft::resource::set_pinned_memory_resource(*this, std::move(dr));
+      mr::dry_run_resource<mr::host_device_resource_ref> dr{pinned_ref};
+      pinned_stats_ = dr.get_counter();
+      resource::set_pinned_memory_resource(*this, std::move(dr));
     }
 
     // --- Managed ---
     {
-      raft::mr::dry_run_resource<raft::mr::host_device_resource_ref> dr{managed_ref};
-      managed_alloc_ = dr.get_counter();
-      raft::resource::set_managed_memory_resource(*this, std::move(dr));
+      mr::dry_run_resource<mr::host_device_resource_ref> dr{managed_ref};
+      managed_stats_ = dr.get_counter();
+      resource::set_managed_memory_resource(*this, std::move(dr));
     }
 
     // --- Device (global) ---
     {
       rmm::device_async_resource_ref dev_ref{*old_device_mr_};
-      raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{dev_ref};
-      device_alloc_  = dr.get_counter();
+      mr::dry_run_resource<rmm::device_async_resource_ref> dr{dev_ref};
+      device_stats_  = dr.get_counter();
       device_bridge_ = std::make_unique<device_bridge>(std::move(dr));
       rmm::mr::set_current_device_resource(device_bridge_.get());
       rmm::mr::set_current_device_resource_ref(device_bridge_->adaptor_ref());
@@ -205,24 +209,30 @@ class dry_run_resources : public raft::resources {
 
     // --- Workspace ---
     {
-      raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{ws_upstream};
-      ws_alloc_ = dr.get_counter();
-      raft::resource::set_workspace_resource(*this, std::move(dr), ws_limit);
+      mr::dry_run_resource<rmm::device_async_resource_ref> dr{ws_upstream};
+      ws_stats_ = dr.get_counter();
+      resource::set_workspace_resource(*this, std::move(dr), ws_free);
     }
 
     // --- Large workspace ---
     {
-      raft::mr::dry_run_resource<rmm::device_async_resource_ref> dr{lws_ref};
-      lws_alloc_ = dr.get_counter();
-      raft::resource::set_large_workspace_resource(*this, std::move(dr));
+      mr::dry_run_resource<rmm::device_async_resource_ref> dr{lws_ref};
+      lws_stats_ = dr.get_counter();
+      resource::set_large_workspace_resource(*this, std::move(dr));
     }
 
     resource::set_dry_run_flag(*this, true);
   }
 };
 
+/** @} */
+
+}  // namespace raft
+
+namespace raft::util {
+
 /**
- * @brief Execute an action in dry-run mode and return memory usage statistics.
+ * @brief Execute an action in dry-run mode and return peak memory usage.
  *
  * Creates an independent copy of the resources handle with all memory resources
  * replaced by dry-run versions, executes the action, and returns peak usage stats.
@@ -236,25 +246,24 @@ class dry_run_resources : public raft::resources {
  * @param res The raft resources handle.
  * @param action The action to execute in dry-run mode.
  * @param args Additional arguments to forward to the action.
- * @return dry_run_stats with peak memory usage from the dry run.
+ * @return memory_stats with peak memory usage from the dry run.
  *
  * @code{.cpp}
  * raft::resources res;
  * auto stats = raft::util::dry_run_execute(res, [](const raft::resources& r) {
  *   my_algorithm(r);
  * });
- * std::cout << "Peak workspace: " << stats.device_workspace_peak << " bytes\n";
+ * std::cout << "Peak workspace: " << stats.device_workspace << " bytes\n";
  * @endcode
  */
 template <typename Action, typename... Args>
-auto dry_run_execute(const raft::resources& res, Action&& action, Args&&... args) -> dry_run_stats
+auto dry_run_execute(const raft::resources& res, Action&& action, Args&&... args)
+  -> raft::memory_stats
 {
-  dry_run_resources dry_res(res);
+  raft::dry_run_resources dry_res(res);
   std::forward<Action>(action)(static_cast<const raft::resources&>(dry_res),
                                std::forward<Args>(args)...);
-  return dry_res.get_stats();
+  return dry_res.get_bytes_peak();
 }
-
-/** @} */
 
 }  // namespace raft::util

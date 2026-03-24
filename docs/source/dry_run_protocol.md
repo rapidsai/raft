@@ -10,10 +10,12 @@ The dry run protocol lets callers estimate an algorithm's memory footprint witho
 raft::resources res;
 // auto my_function(const raft::resources& res, my_args...);
 auto stats = raft::util::dry_run_execute(res, my_function, my_args...);
-// stats.device_global_peak  – peak device memory (bytes)
+// stats.device_global  – peak device memory (bytes)
 ```
 
-`dry_run_execute` swaps the memory resources, sets the flag, runs the callable, restores everything, and returns allocation statistics.
+`dry_run_execute` swaps the memory resources, sets the flag, runs the callable, restores everything, and returns a `raft::memory_stats` snapshot of peak allocation usage.
+
+You can also construct `raft::dry_run_resources` directly for finer control (e.g. reading `get_bytes_current()` in addition to `get_bytes_peak()`).
 
 ## Three Rules
 

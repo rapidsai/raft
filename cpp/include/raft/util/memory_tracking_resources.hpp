@@ -148,7 +148,6 @@ class memory_tracking_resources : public resources {
   raft::mr::host_resource_ref old_host_ref_;
   rmm::mr::device_memory_resource* old_device_mr_;
   rmm::device_async_resource_ref old_device_ref_;
-  std::size_t saved_ws_limit_{};
 
   using host_stats_t  = raft::mr::statistics_adaptor<raft::mr::host_resource_ref>;
   using host_notify_t = raft::mr::notifying_adaptor<host_stats_t>;
@@ -192,7 +191,7 @@ class memory_tracking_resources : public resources {
   void init()
   {
     auto* ws          = raft::resource::get_workspace_resource(*this);
-    saved_ws_limit_   = ws->get_allocation_limit();
+    auto ws_free      = raft::resource::get_workspace_free_bytes(*this);
     auto upstream_ref = ws->get_upstream_resource();
     auto lws_ref      = raft::resource::get_large_workspace_resource_ref(*this);
     auto pinned_ref   = raft::resource::get_pinned_memory_resource_ref(*this);
@@ -249,7 +248,7 @@ class memory_tracking_resources : public resources {
       ws_stats_t sa{upstream_ref};
       report_.register_source("workspace", sa.get_stats());
       raft::resource::set_workspace_resource(
-        *this, ws_notify_t{std::move(sa), report_.get_notifier()}, saved_ws_limit_);
+        *this, ws_notify_t{std::move(sa), report_.get_notifier()}, ws_free);
     }
 
     // --- Large workspace ---
