@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -63,14 +63,21 @@ class SparseReduceTest : public ::testing::TestWithParam<SparseReduceInputs<valu
     raft::update_device(out_vals.data(), params.out_vals.data(), params.out_vals.size(), stream);
 
     raft::sparse::COO<value_t, value_idx, value_idx> out(stream);
-    raft::sparse::op::max_duplicates(handle,
-                                     out,
-                                     in_rows.data(),
-                                     in_cols.data(),
-                                     in_vals.data(),
-                                     (value_idx)params.in_rows.size(),
-                                     (value_idx)params.m,
-                                     (value_idx)params.n);
+    auto min_alloc = (2 * sizeof(value_idx) + sizeof(value_t)) * params.out_vals.size();
+    raft::execute_with_dry_run_check(
+      handle,
+      [&](raft::resources const& h) {
+        raft::sparse::op::max_duplicates(h,
+                                         out,
+                                         in_rows.data(),
+                                         in_cols.data(),
+                                         in_vals.data(),
+                                         (value_idx)params.in_rows.size(),
+                                         (value_idx)params.m,
+                                         (value_idx)params.n);
+      },
+      raft::alloc_behavior::DATA_DRIVEN,
+      min_alloc);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     ASSERT_TRUE(raft::devArrMatch<value_idx>(
       out_rows.data(), out.rows(), out.nnz, raft::Compare<value_idx>()));

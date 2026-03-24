@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -189,8 +189,13 @@ class SpmmTest : public ::testing::TestWithParam<SpmmInputs<T>> {
                                               ldz,
                                               params.row_major);
 
-    spmm(
-      handle, params.trans_x, params.trans_y, &alpha, X_csr, y_stride_view, &beta, z_stride_view);
+    raft::execute_with_dry_run_check(
+      handle,
+      [&](raft::resources const& h) {
+        spmm(h, params.trans_x, params.trans_y, &alpha, X_csr, y_stride_view, &beta, z_stride_view);
+      },
+      raft::alloc_behavior::ARGUMENT_DRIVEN,
+      z_size * sizeof(T));
 
     resource::sync_stream(handle, stream);
 
