@@ -100,7 +100,7 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
         subtract(h, const_in1_view, const_in2_view, in1_view);
         subtract_scalar(h, const_in1_view, in1_view, scalar_view);
       },
-      false);
+      raft::alloc_behavior::NO_ALLOCATIONS);
   }
 
  protected:

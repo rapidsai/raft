@@ -164,7 +164,7 @@ TEST(SampleRowsDryRun, VoidOverload)
   });
 
   EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
-  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device allocation";
+  EXPECT_GT(stats.device_global, 0) << "Expected non-zero peak device allocation";
 }
 
 TEST(SampleRowsDryRun, ReturningOverload)
@@ -180,7 +180,7 @@ TEST(SampleRowsDryRun, ReturningOverload)
   });
 
   EXPECT_FALSE(raft::resource::get_dry_run_flag(res));
-  EXPECT_GT(stats.device_global_peak, 0) << "Expected non-zero peak device allocation";
+  EXPECT_GT(stats.device_global, 0) << "Expected non-zero peak device allocation";
 }
 
 }  // namespace matrix

@@ -42,7 +42,7 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
     raft::execute_with_dry_run_check(
       handle,
       [&](raft::resources const& h) { multiply_scalar(h, in_view, out_view, scalar_view); },
-      false);
+      raft::alloc_behavior::NO_ALLOCATIONS);
   }
 
  protected:

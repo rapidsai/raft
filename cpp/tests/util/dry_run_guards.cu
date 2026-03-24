@@ -115,7 +115,7 @@ TEST(DryRunAllocTracking, DeviceUvectorTracked)
   });
 
   // The allocation should be tracked (note: rmm may align the size)
-  EXPECT_GE(stats.device_global_peak, kAllocSize);
+  EXPECT_GE(stats.device_global, kAllocSize);
 }
 
 TEST(DryRunAllocTracking, MakeDeviceArrayTracked)
@@ -130,7 +130,7 @@ TEST(DryRunAllocTracking, MakeDeviceArrayTracked)
     auto mat = raft::make_device_matrix<float>(r, rows, cols);
   });
 
-  EXPECT_GE(stats.device_global_peak, expected);
+  EXPECT_GE(stats.device_global, expected);
 }
 
 TEST(DryRunAllocTracking, MultipleAllocationsSum)
@@ -147,7 +147,7 @@ TEST(DryRunAllocTracking, MultipleAllocationsSum)
     // Both alive at same time -> peak should be sum
   });
 
-  EXPECT_GE(stats.device_global_peak, kSize1 + kSize2);
+  EXPECT_GE(stats.device_global, kSize1 + kSize2);
 }
 
 TEST(DryRunAllocTracking, DeallocReducesCurrent)
@@ -168,7 +168,7 @@ TEST(DryRunAllocTracking, DeallocReducesCurrent)
   });
 
   // Peak should be at least kSize2 (the larger single allocation)
-  EXPECT_GE(stats.device_global_peak, kSize2);
+  EXPECT_GE(stats.device_global, kSize2);
   // But could be less than kSize1 + kSize2 (since buf1 is freed before buf2)
   // This depends on timing/implementation, so we just check the peak is reasonable
 }
@@ -210,7 +210,7 @@ TEST(DryRunE2E, StatsComposite)
   // Verify dry-run flag is restored
   EXPECT_FALSE(resource::get_dry_run_flag(res));
   // Stats should be non-negative
-  EXPECT_GE(stats.device_global_peak, 0);
+  EXPECT_GE(stats.device_global, 0);
 }
 
 TEST(DryRunE2E, DryRunExecuteWithArgs)
@@ -228,7 +228,7 @@ TEST(DryRunE2E, DryRunExecuteWithArgs)
     },
     512);
 
-  EXPECT_GE(stats.device_global_peak, 1024 * sizeof(float));
+  EXPECT_GE(stats.device_global, 1024 * sizeof(float));
   EXPECT_FALSE(resource::get_dry_run_flag(res));
 }
 
@@ -247,7 +247,7 @@ TEST(DryRunE2E, NestedDryRunIsNoop)
   });
 
   EXPECT_FALSE(resource::get_dry_run_flag(res));
-  EXPECT_GE(stats.device_global_peak, 256 * sizeof(float));
+  EXPECT_GE(stats.device_global, 256 * sizeof(float));
 }
 
 TEST(DryRunE2E, ExceptionRestoresResources)

@@ -139,7 +139,7 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
                make_device_vector_view<T>(y_device_alpha.data(), params.len));
         }
       },
-      false);
+      raft::alloc_behavior::NO_ALLOCATIONS);
 
     resource::sync_stream(handle);
   }

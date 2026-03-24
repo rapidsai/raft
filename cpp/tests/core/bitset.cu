@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <numeric>
+#include <optional>
 
 namespace raft::core {
 
@@ -183,9 +184,17 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     update_host(mask_cpu.data(), mask_device.data_handle(), mask_device.extent(0), stream);
     resource::sync_stream(res, stream);
 
-    // calculate the results
-    auto my_bitset = raft::core::bitset<bitset_t, index_t>(
-      res, raft::make_const_mdspan(mask_device.view()), index_t(spec.bitset_len));
+    // calculate the results (verify dry-run compliance of bitset construction)
+    std::optional<raft::core::bitset<bitset_t, index_t>> my_bitset_opt;
+    raft::execute_with_dry_run_check(
+      res,
+      [&](raft::resources const& h) {
+        my_bitset_opt.emplace(
+          h, raft::make_const_mdspan(mask_device.view()), index_t(spec.bitset_len));
+      },
+      raft::alloc_behavior::ARGUMENT_DRIVEN,
+      raft::ceildiv(spec.bitset_len, uint64_t(bitset_element_size)) * sizeof(bitset_t));
+    auto& my_bitset = *my_bitset_opt;
     update_host(bitset_result.data(), my_bitset.data(), bitset_result.size(), stream);
 
     // calculate the reference

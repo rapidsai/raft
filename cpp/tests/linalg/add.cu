@@ -44,7 +44,9 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     auto in2_view = raft::make_device_vector_view<const InT>(in2.data(), in2.size());
 
     raft::execute_with_dry_run_check(
-      handle, [&](raft::resources const& h) { add(h, in1_view, in2_view, out_view); }, false);
+      handle,
+      [&](raft::resources const& h) { add(h, in1_view, in2_view, out_view); },
+      raft::alloc_behavior::NO_ALLOCATIONS);
   }
 
   void compare()

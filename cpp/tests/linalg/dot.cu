@@ -101,7 +101,7 @@ class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
           dot(h, x_view, y_view, host_out_view);
         }
       },
-      false);
+      raft::alloc_behavior::NO_ALLOCATIONS);
     raft::update_host(&device_output, out.data(), 1, stream);
     resource::sync_stream(handle);
   }

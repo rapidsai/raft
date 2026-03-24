@@ -69,7 +69,7 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
         ternary_op(h, in1_view, in2_view, in3_view, out_add_view, add);
         ternary_op(h, in1_view, in2_view, in3_view, out_mul_view, mul);
       },
-      false);
+      raft::alloc_behavior::NO_ALLOCATIONS);
   }
 
  protected:

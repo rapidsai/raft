@@ -102,7 +102,8 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
       [&](raft::resources const& h) {
         eig_dc(h, cov_matrix_view, eig_vectors_view, eig_vals_view);
       },
-      true);
+      raft::alloc_behavior::ARGUMENT_DRIVEN,
+      sizeof(int));
 
     T tol      = 1.e-7;
     int sweeps = 15;
@@ -111,7 +112,8 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
       [&](raft::resources const& h) {
         eig_jacobi(h, cov_matrix_view, eig_vectors_jacobi_view, eig_vals_jacobi_view, tol, sweeps);
       },
-      true);
+      raft::alloc_behavior::ARGUMENT_DRIVEN,
+      sizeof(int));
 
     // test code for comparing two methods
     len = params.n * params.n;
@@ -174,7 +176,8 @@ TEST(Raft, EigStream)
                            eig_vectors_stream.view(),
                            eig_vals_stream.view());
     },
-    true);
+    raft::alloc_behavior::ARGUMENT_DRIVEN,
+    sizeof(int));
   raft::resource::sync_stream(handle, raft::resource::get_cuda_stream(handle));
 }
 

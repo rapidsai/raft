@@ -53,7 +53,7 @@ TEST(DryRunResource, DeviceAsyncPeakTracking)
   EXPECT_EQ(counter->get_peak_bytes(), kSize1 + kSize2);
 
   dr.deallocate(cuda::stream_ref{cudaStreamLegacy}, p2, kSize2);
-  EXPECT_EQ(counter->get_allocated_bytes(), 0);
+  EXPECT_EQ(counter->get_allocated_bytes(), 0UL);
 }
 
 TEST(DryRunResource, DeviceAsyncLargeAllocation)
@@ -68,7 +68,7 @@ TEST(DryRunResource, DeviceAsyncLargeAllocation)
   EXPECT_EQ(counter->get_allocated_bytes(), kOneGiB);
 
   dr.deallocate(cuda::stream_ref{cudaStreamLegacy}, ptr, kOneGiB);
-  EXPECT_EQ(counter->get_allocated_bytes(), 0);
+  EXPECT_EQ(counter->get_allocated_bytes(), 0UL);
   EXPECT_EQ(counter->get_peak_bytes(), kOneGiB);
 }
 
@@ -90,7 +90,7 @@ TEST(DryRunResource, HostSyncPeakTracking)
 
   dr.deallocate_sync(p1, kSize1);
   dr.deallocate_sync(p2, kSize2);
-  EXPECT_EQ(counter->get_allocated_bytes(), 0);
+  EXPECT_EQ(counter->get_allocated_bytes(), 0UL);
   EXPECT_EQ(counter->get_peak_bytes(), kSize1 + kSize2);
 }
 
@@ -161,8 +161,8 @@ TEST(DryRunResources, StatsAccuracy)
   void* ptr = mr->allocate(rmm::cuda_stream_view{}, kAllocSize);
   mr->deallocate(rmm::cuda_stream_view{}, ptr, kAllocSize);
 
-  auto stats = dry_res.get_stats();
-  EXPECT_EQ(stats.device_global_peak, kAllocSize);
+  auto stats = dry_res.get_bytes_peak();
+  EXPECT_EQ(stats.device_global, kAllocSize);
 }
 
 TEST(DryRunResources, PinnedStatsAccuracy)
@@ -176,8 +176,8 @@ TEST(DryRunResources, PinnedStatsAccuracy)
   void* ptr = ref.allocate_sync(kAllocSize);
   ref.deallocate_sync(ptr, kAllocSize);
 
-  auto stats = dry_res.get_stats();
-  EXPECT_EQ(stats.host_pinned_peak, kAllocSize);
+  auto stats = dry_res.get_bytes_peak();
+  EXPECT_EQ(stats.host_pinned, kAllocSize);
 }
 
 TEST(DryRunResources, ManagedStatsAccuracy)
@@ -191,8 +191,8 @@ TEST(DryRunResources, ManagedStatsAccuracy)
   void* ptr = ref.allocate_sync(kAllocSize);
   ref.deallocate_sync(ptr, kAllocSize);
 
-  auto stats = dry_res.get_stats();
-  EXPECT_EQ(stats.device_managed_peak, kAllocSize);
+  auto stats = dry_res.get_bytes_peak();
+  EXPECT_EQ(stats.device_managed, kAllocSize);
 }
 
 // ===== dry_run_execute tests =====
@@ -214,7 +214,7 @@ TEST(DryRunExecute, BasicExecution)
 
   EXPECT_TRUE(action_ran);
   EXPECT_FALSE(resource::get_dry_run_flag(res));
-  EXPECT_EQ(stats.device_global_peak, 32UL * 1024UL * 1024UL);
+  EXPECT_EQ(stats.device_global, 32UL * 1024UL * 1024UL);
 }
 
 TEST(DryRunExecute, ExceptionSafety)

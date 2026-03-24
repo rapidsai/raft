@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include <raft/core/bitmap.cuh>
 #include <raft/core/bitset.cuh>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -145,13 +146,18 @@ class CSRAdjGraphTest : public ::testing::TestWithParam<CSRAdjGraphInputs<index_
 
   void Run()
   {
-    convert::adj_to_csr<index_t>(handle,
-                                 adj.data(),
-                                 row_ind.data(),
-                                 params.n_rows,
-                                 params.n_cols,
-                                 row_counters.data(),
-                                 col_ind.data());
+    raft::execute_with_dry_run_check(
+      handle,
+      [&](raft::resources const& h) {
+        convert::adj_to_csr<index_t>(h,
+                                     adj.data(),
+                                     row_ind.data(),
+                                     params.n_rows,
+                                     params.n_cols,
+                                     row_counters.data(),
+                                     col_ind.data());
+      },
+      raft::alloc_behavior::NO_ALLOCATIONS);
 
     std::vector<index_t> col_ind_host(col_ind.size());
     raft::update_host(col_ind_host.data(), col_ind.data(), col_ind.size(), stream);
@@ -355,23 +361,31 @@ class BitmapToCSRTest : public ::testing::TestWithParam<BitmapToCSRInputs<index_
     auto bitmap =
       raft::core::bitmap_view<bitmap_t, index_t>(bitmap_d.data(), params.n_rows, params.n_cols);
 
-    if (params.owning) {
-      auto csr =
-        raft::make_device_csr_matrix<value_t, index_t>(handle, params.n_rows, params.n_cols, nnz);
-      auto csr_view = csr.structure_view();
-
-      bitmap.to_csr(handle, csr);
-      raft::copy(indptr_d.data(), csr_view.get_indptr().data(), indptr_d.size(), stream);
-      raft::copy(indices_d.data(), csr_view.get_indices().data(), indices_d.size(), stream);
-      raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
-    } else {
-      auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
-        indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
-      auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
-
-      bitmap.to_csr(handle, csr);
-      raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
-    }
+    raft::execute_with_dry_run_check(
+      handle,
+      [&](raft::resources const& h) {
+        if (params.owning) {
+          auto csr =
+            raft::make_device_csr_matrix<value_t, index_t>(h, params.n_rows, params.n_cols, nnz);
+          bitmap.to_csr(h, csr);
+          if (!resource::get_dry_run_flag(h)) {
+            auto csr_view = csr.structure_view();
+            raft::copy(indptr_d.data(), csr_view.get_indptr().data(), indptr_d.size(), stream);
+            raft::copy(indices_d.data(), csr_view.get_indices().data(), indices_d.size(), stream);
+            raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
+          }
+        } else {
+          auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
+            indptr_d.data(), indices_d.data(), params.n_rows, params.n_cols, nnz);
+          auto csr = raft::make_device_csr_matrix<value_t, index_t>(h, csr_view);
+          bitmap.to_csr(h, csr);
+          if (!resource::get_dry_run_flag(h)) {
+            raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
+          }
+        }
+      },
+      raft::alloc_behavior::DATA_DRIVEN,
+      sizeof(float) * nnz);
     resource::sync_stream(handle);
 
     std::vector<index_t> indices_h(indices_expected_d.size(), 0);
@@ -645,23 +659,31 @@ class BitsetToCSRTest : public ::testing::TestWithParam<BitsetToCSRInputs<index_
   {
     auto bitset = raft::core::bitset_view<bitset_t, index_t>(bitset_d.data(), params.n_cols);
 
-    if (params.owning) {
-      auto csr =
-        raft::make_device_csr_matrix<value_t, index_t>(handle, params.n_repeat, params.n_cols, nnz);
-      auto csr_view = csr.structure_view();
-
-      bitset.to_csr(handle, csr);
-      raft::copy(indptr_d.data(), csr_view.get_indptr().data(), indptr_d.size(), stream);
-      raft::copy(indices_d.data(), csr_view.get_indices().data(), indices_d.size(), stream);
-      raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
-    } else {
-      auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
-        indptr_d.data(), indices_d.data(), params.n_repeat, params.n_cols, nnz);
-      auto csr = raft::make_device_csr_matrix<value_t, index_t>(handle, csr_view);
-
-      bitset.to_csr(handle, csr);
-      raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
-    }
+    raft::execute_with_dry_run_check(
+      handle,
+      [&](raft::resources const& h) {
+        if (params.owning) {
+          auto csr =
+            raft::make_device_csr_matrix<value_t, index_t>(h, params.n_repeat, params.n_cols, nnz);
+          bitset.to_csr(h, csr);
+          if (!resource::get_dry_run_flag(h)) {
+            auto csr_view = csr.structure_view();
+            raft::copy(indptr_d.data(), csr_view.get_indptr().data(), indptr_d.size(), stream);
+            raft::copy(indices_d.data(), csr_view.get_indices().data(), indices_d.size(), stream);
+            raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
+          }
+        } else {
+          auto csr_view = raft::make_device_compressed_structure_view<index_t, index_t, index_t>(
+            indptr_d.data(), indices_d.data(), params.n_repeat, params.n_cols, nnz);
+          auto csr = raft::make_device_csr_matrix<value_t, index_t>(h, csr_view);
+          bitset.to_csr(h, csr);
+          if (!resource::get_dry_run_flag(h)) {
+            raft::copy(values_d.data(), csr.get_elements().data(), nnz, stream);
+          }
+        }
+      },
+      raft::alloc_behavior::DATA_DRIVEN,
+      sizeof(float) * nnz);
     resource::sync_stream(handle);
 
     std::vector<index_t> indices_h(indices_expected_d.size(), 0);

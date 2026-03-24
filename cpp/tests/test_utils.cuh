@@ -13,9 +13,11 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/dry_run_memory_resource.hpp>
+#include <raft/util/memory_stats_resources.hpp>
 
 #include <rmm/exec_policy.hpp>
-#include <rmm/mr/statistics_resource_adaptor.hpp>
+#include <rmm/mr/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda/iterator>
 #include <thrust/for_each.h>
@@ -331,40 +333,96 @@ inline std::vector<float> read_csv(std::string filename, bool skip_first_n_colum
   return result;
 }
 
+enum class alloc_behavior {
+  NO_ALLOCATIONS,
+  ARGUMENT_DRIVEN,
+  DATA_DRIVEN,
+};
+
 /**
  * @brief Execute an action and check dry-run protocol compliance.
  *
  * Runs @p action once in dry-run mode (via dry_run_execute) to record predicted
- * allocations, then runs it for real behind an rmm::mr::statistics_resource_adaptor
- * to record actual allocations.  Asserts the two peak values match and that
- * the allocation is (or isn't) zero as indicated by @p expect_alloc.
+ * allocations, then runs it for real with all six memory resources wrapped in
+ * statistics adaptors to record actual peak usage. Compares the predicted and
+ * actual peaks according to the specified @p behavior.
  *
  * @tparam Action callable with signature void(raft::resources const&)
  */
 template <typename Action>
-void execute_with_dry_run_check(raft::resources const& res, Action&& action, bool expect_alloc)
+void execute_with_dry_run_check(raft::resources const& res,
+                                Action&& action,
+                                alloc_behavior behavior,
+                                std::size_t min_alloc = 0)
 {
-  // I) Dry run – record predicted peak
-  auto dry_stats = raft::util::dry_run_execute(res, action);
+  auto dry = raft::util::dry_run_execute(res, action);
 
-  // II) Real run – record actual peak via counting adaptor
-  auto* orig_mr = rmm::mr::get_current_device_resource();
-  rmm::mr::statistics_resource_adaptor<rmm::mr::device_memory_resource> stat_mr(orig_mr);
-  rmm::mr::set_current_device_resource(&stat_mr);
-  action(res);
-  resource::sync_stream(res);
-  rmm::mr::set_current_device_resource(orig_mr);
+  raft::memory_stats_resources stat_res(res);
+  std::forward<Action>(action)(static_cast<const raft::resources&>(stat_res));
+  resource::sync_stream(stat_res);
+  auto actual = stat_res.get_bytes_peak();
 
-  auto actual_peak = static_cast<std::size_t>(stat_mr.get_bytes_counter().peak);
+  auto total_dry = dry.device_global + dry.device_managed + dry.host + dry.host_pinned;
+  auto total_actual =
+    actual.device_global + actual.device_managed + actual.host + actual.host_pinned;
 
-  // III) Predicted peak must equal actual peak
-  EXPECT_EQ(dry_stats.device_global_peak, actual_peak);
+  if (dry.device_workspace != actual.device_workspace ||
+      dry.device_large_workspace != actual.device_large_workspace ||
+      dry.device_global != actual.device_global || dry.device_managed != actual.device_managed ||
+      dry.host != actual.host || dry.host_pinned != actual.host_pinned) {
+    printf(
+      "  dry-run: ws=%zu large_ws=%zu global=%zu managed=%zu host=%zu pinned=%zu (total=%zu)\n"
+      "  actual:  ws=%zu large_ws=%zu global=%zu managed=%zu host=%zu pinned=%zu (total=%zu)\n",
+      dry.device_workspace,
+      dry.device_large_workspace,
+      dry.device_global,
+      dry.device_managed,
+      dry.host,
+      dry.host_pinned,
+      total_dry,
+      actual.device_workspace,
+      actual.device_large_workspace,
+      actual.device_global,
+      actual.device_managed,
+      actual.host,
+      actual.host_pinned,
+      total_actual);
+  }
 
-  // IV) Check expected allocation direction
-  if (expect_alloc) {
-    EXPECT_GT(dry_stats.device_global_peak, std::size_t{0});
-  } else {
-    EXPECT_EQ(dry_stats.device_global_peak, std::size_t{0});
+  EXPECT_GE(total_actual, min_alloc);
+  EXPECT_GE(total_dry, min_alloc);
+
+  switch (behavior) {
+    case alloc_behavior::NO_ALLOCATIONS:
+      EXPECT_EQ(dry.device_workspace, std::size_t{0});
+      EXPECT_EQ(dry.device_large_workspace, std::size_t{0});
+      EXPECT_EQ(dry.device_global, std::size_t{0});
+      EXPECT_EQ(dry.device_managed, std::size_t{0});
+      EXPECT_EQ(dry.host, std::size_t{0});
+      EXPECT_EQ(dry.host_pinned, std::size_t{0});
+      EXPECT_EQ(actual.device_workspace, std::size_t{0});
+      EXPECT_EQ(actual.device_large_workspace, std::size_t{0});
+      EXPECT_EQ(actual.device_global, std::size_t{0});
+      EXPECT_EQ(actual.device_managed, std::size_t{0});
+      EXPECT_EQ(actual.host, std::size_t{0});
+      EXPECT_EQ(actual.host_pinned, std::size_t{0});
+      break;
+    case alloc_behavior::ARGUMENT_DRIVEN:
+      EXPECT_EQ(dry.device_workspace, actual.device_workspace);
+      EXPECT_EQ(dry.device_large_workspace, actual.device_large_workspace);
+      EXPECT_EQ(dry.device_global, actual.device_global);
+      EXPECT_EQ(dry.device_managed, actual.device_managed);
+      EXPECT_EQ(dry.host, actual.host);
+      EXPECT_EQ(dry.host_pinned, actual.host_pinned);
+      break;
+    case alloc_behavior::DATA_DRIVEN:
+      EXPECT_GE(dry.device_workspace, actual.device_workspace);
+      EXPECT_GE(dry.device_large_workspace, actual.device_large_workspace);
+      EXPECT_GE(dry.device_global, actual.device_global);
+      EXPECT_GE(dry.device_managed, actual.device_managed);
+      EXPECT_GE(dry.host, actual.host);
+      EXPECT_GE(dry.host_pinned, actual.host_pinned);
+      break;
   }
 }
 
