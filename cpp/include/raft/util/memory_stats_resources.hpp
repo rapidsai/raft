@@ -224,6 +224,12 @@ class memory_stats_resources : public resources {
     }
 
     // --- Device (global) ---
+    // set_current_device_resource_ref replaced the any_resource content in the global ref map,
+    // invalidating the resource_ref captured by any previously-cached thrust policy.
+    factories_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
+      resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource_factory>());
+    resources_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
+      resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource>());
     {
       rmm::device_async_resource_ref dev_ref{*old_device_mr_};
       mr::statistics_adaptor<rmm::device_async_resource_ref> sa{dev_ref};
@@ -232,7 +238,6 @@ class memory_stats_resources : public resources {
       rmm::mr::set_current_device_resource(device_bridge_.get());
       rmm::mr::set_current_device_resource_ref(device_bridge_->adaptor_ref());
     }
-
     // --- Workspace ---
     {
       mr::statistics_adaptor<rmm::device_async_resource_ref> sa{ws_upstream};

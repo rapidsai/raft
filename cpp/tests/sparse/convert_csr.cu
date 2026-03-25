@@ -80,6 +80,69 @@ TEST_P(SortedCOOToCSR, Result)
 
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR, ::testing::ValuesIn(inputsf));
 
+/**************************** COO to CSR ****************************/
+
+typedef SparseConvertCSRTest<float> COOToCSRTest;
+TEST_P(COOToCSRTest, Result)
+{
+  raft::resources handle;
+  auto stream = resource::get_cuda_stream(handle);
+
+  int nnz = 8;
+  int m   = 4;
+
+  int rows_h[]      = {3, 0, 1, 0, 2, 1, 3, 2};
+  int cols_h[]      = {1, 0, 1, 1, 0, 0, 0, 1};
+  float vals_h[]    = {8.0f, 1.0f, 4.0f, 2.0f, 5.0f, 3.0f, 7.0f, 6.0f};
+  int exp_offsets[] = {0, 2, 4, 6, 8};
+  int exp_cols[]    = {0, 1, 0, 1, 0, 1, 0, 1};
+  float exp_vals[]  = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f};
+
+  rmm::device_uvector<int> rows_d(nnz, stream);
+  rmm::device_uvector<int> cols_d(nnz, stream);
+  rmm::device_uvector<float> vals_d(nnz, stream);
+  rmm::device_uvector<int> dst_offsets_d(m + 1, stream);
+  rmm::device_uvector<int> dst_cols_d(nnz, stream);
+  rmm::device_uvector<float> dst_vals_d(nnz, stream);
+
+  raft::update_device(rows_d.data(), rows_h, nnz, stream);
+  raft::update_device(cols_d.data(), cols_h, nnz, stream);
+  raft::update_device(vals_d.data(), vals_h, nnz, stream);
+
+  raft::execute_with_dry_run_check(
+    handle,
+    [&](raft::resources const& h) {
+      convert::coo_to_csr(h,
+                          rows_d.data(),
+                          cols_d.data(),
+                          vals_d.data(),
+                          nnz,
+                          m,
+                          dst_offsets_d.data(),
+                          dst_cols_d.data(),
+                          dst_vals_d.data());
+    },
+    raft::alloc_behavior::ARGUMENT_DRIVEN,
+    2 * nnz * sizeof(int));
+
+  rmm::device_uvector<int> exp_offsets_d(m + 1, stream);
+  rmm::device_uvector<int> exp_cols_d(nnz, stream);
+  rmm::device_uvector<float> exp_vals_d(nnz, stream);
+
+  raft::update_device(exp_offsets_d.data(), exp_offsets, m + 1, stream);
+  raft::update_device(exp_cols_d.data(), exp_cols, nnz, stream);
+  raft::update_device(exp_vals_d.data(), exp_vals, nnz, stream);
+
+  ASSERT_TRUE(raft::devArrMatch<int>(
+    dst_offsets_d.data(), exp_offsets_d.data(), m + 1, raft::Compare<int>(), stream));
+  ASSERT_TRUE(raft::devArrMatch<int>(
+    dst_cols_d.data(), exp_cols_d.data(), nnz, raft::Compare<int>(), stream));
+  ASSERT_TRUE(raft::devArrMatch<float>(
+    dst_vals_d.data(), exp_vals_d.data(), nnz, raft::Compare<float>(), stream));
+}
+
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, COOToCSRTest, ::testing::ValuesIn(inputsf));
+
 /******************************** adj graph ********************************/
 
 template <typename index_t>

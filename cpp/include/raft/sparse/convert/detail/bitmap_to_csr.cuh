@@ -105,6 +105,8 @@ void calc_nnz_by_rows(raft::resources const& handle,
     sub_nnz_size     = num_rows * ((num_cols + bits_per_sub_col - 1) / bits_per_sub_col);
     return;
   }
+  if (resource::get_dry_run_flag(handle)) { return; }
+
   auto stream        = resource::get_cuda_stream(handle);
   const size_t total = num_rows * num_cols;
   const size_t bitmap_num =
@@ -244,6 +246,7 @@ void fill_indices_by_rows(raft::resources const& handle,
                           index_t bits_per_sub_col,
                           size_t sub_nnz_size)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   auto stream  = resource::get_cuda_stream(handle);
   auto block_x = num_rows;
   auto block_y = sub_nnz_size / num_rows;
@@ -283,7 +286,10 @@ void bitmap_to_csr(raft::resources const& handle,
   index_t* indptr  = csr_view.get_indptr().data();
   index_t* indices = csr_view.get_indices().data();
 
-  RAFT_CUDA_TRY(cudaMemsetAsync(indptr, 0, (csr_view.get_n_rows() + 1) * sizeof(index_t), stream));
+  if (!resource::get_dry_run_flag(handle)) {
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(indptr, 0, (csr_view.get_n_rows() + 1) * sizeof(index_t), stream));
+  }
 
   size_t sub_nnz_size      = 0;
   index_t bits_per_sub_col = 0;
@@ -300,7 +306,13 @@ void bitmap_to_csr(raft::resources const& handle,
   rmm::device_async_resource_ref device_memory = resource::get_workspace_resource(handle);
   rmm::device_uvector<nnz_t> sub_nnz(sub_nnz_size + 1, stream, device_memory);
 
-  if (resource::get_dry_run_flag(handle)) { return; }
+  if (resource::get_dry_run_flag(handle)) {
+    if constexpr (is_device_csr_sparsity_owning_v<csr_matrix_t>) {
+      csr.initialize_sparsity(static_cast<nnz_t>(csr_view.get_n_rows()) *
+                              static_cast<nnz_t>(csr_view.get_n_cols()));
+    }
+    return;
+  }
 
   calc_nnz_by_rows(handle,
                    bitmap.data(),

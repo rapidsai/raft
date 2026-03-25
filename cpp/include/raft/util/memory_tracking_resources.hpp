@@ -229,6 +229,12 @@ class memory_tracking_resources : public resources {
     }
 
     // --- Device (global) ---
+    // set_current_device_resource_ref replaced the any_resource content in the global ref map,
+    // invalidating the resource_ref captured by any previously-cached thrust policy.
+    factories_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
+      resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource_factory>());
+    resources_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
+      resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource>());
     // Use set_current_device_resource(ptr) to update both the pointer map and the ref map,
     // then overwrite the ref map to point directly at the adaptor (skipping the bridge).
     {

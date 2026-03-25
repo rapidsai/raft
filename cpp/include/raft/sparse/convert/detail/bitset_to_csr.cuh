@@ -63,6 +63,7 @@ void gpu_repeat_csr(raft::resources const& handle,
                     index_t* d_repeated_indices)
 {
   if (nnz == 0) return;
+  if (resource::get_dry_run_flag(handle)) { return; }
 
   auto stream            = resource::get_cuda_stream(handle);
   index_t repeat_csr_tpb = 256;
@@ -96,7 +97,10 @@ void bitset_to_csr(raft::resources const& handle,
   index_t* indptr  = csr_view.get_indptr().data();
   index_t* indices = csr_view.get_indices().data();
 
-  RAFT_CUDA_TRY(cudaMemsetAsync(indptr, 0, (csr_view.get_n_rows() + 1) * sizeof(index_t), stream));
+  if (!resource::get_dry_run_flag(handle)) {
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(indptr, 0, (csr_view.get_n_rows() + 1) * sizeof(index_t), stream));
+  }
 
   size_t sub_nnz_size      = 0;
   index_t bits_per_sub_col = 0;
@@ -113,7 +117,13 @@ void bitset_to_csr(raft::resources const& handle,
   rmm::device_async_resource_ref device_memory = resource::get_workspace_resource(handle);
   rmm::device_uvector<nnz_t> sub_nnz(sub_nnz_size + 1, stream, device_memory);
 
-  if (resource::get_dry_run_flag(handle)) { return; }
+  if (resource::get_dry_run_flag(handle)) {
+    if constexpr (is_device_csr_sparsity_owning_v<csr_matrix_t>) {
+      csr.initialize_sparsity(static_cast<nnz_t>(csr_view.get_n_rows()) *
+                              static_cast<nnz_t>(csr_view.get_n_cols()));
+    }
+    return;
+  }
 
   calc_nnz_by_rows(handle,
                    bitset.data(),
