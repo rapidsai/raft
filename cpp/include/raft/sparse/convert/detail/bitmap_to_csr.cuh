@@ -16,10 +16,12 @@
 #include <rmm/device_uvector.hpp>
 
 #include <cub/block/block_reduce.cuh>
+#include <cub/device/device_scan.cuh>
 #include <cuda/std/cassert>
 #include <cuda/std/functional>
 #include <thrust/fill.h>
-#include <thrust/scan.h>
+
+#include <limits>
 
 namespace raft {
 namespace sparse {
@@ -306,10 +308,17 @@ void bitmap_to_csr(raft::resources const& handle,
   rmm::device_async_resource_ref device_memory = resource::get_workspace_resource(handle);
   rmm::device_uvector<nnz_t> sub_nnz(sub_nnz_size + 1, stream, device_memory);
 
+  size_t scan_ws_bytes = 0;
+  cub::DeviceScan::ExclusiveSum(
+    nullptr, scan_ws_bytes, sub_nnz.data(), sub_nnz.data(), sub_nnz_size + 1, stream);
+  rmm::device_uvector<char> scan_ws(scan_ws_bytes, stream);
+
   if (resource::get_dry_run_flag(handle)) {
     if constexpr (is_device_csr_sparsity_owning_v<csr_matrix_t>) {
-      csr.initialize_sparsity(static_cast<nnz_t>(csr_view.get_n_rows()) *
-                              static_cast<nnz_t>(csr_view.get_n_cols()));
+      auto safe_nnz = std::min(
+        static_cast<uint64_t>(csr_view.get_n_rows()) * static_cast<uint64_t>(csr_view.get_n_cols()),
+        static_cast<uint64_t>(std::numeric_limits<nnz_t>::max()));
+      csr.initialize_sparsity(static_cast<nnz_t>(safe_nnz));
     }
     return;
   }
@@ -322,8 +331,8 @@ void bitmap_to_csr(raft::resources const& handle,
                    sub_nnz_size,
                    bits_per_sub_col);
 
-  thrust::exclusive_scan(
-    thrust_policy, sub_nnz.data(), sub_nnz.data() + sub_nnz_size + 1, sub_nnz.data());
+  cub::DeviceScan::ExclusiveSum(
+    scan_ws.data(), scan_ws_bytes, sub_nnz.data(), sub_nnz.data(), sub_nnz_size + 1, stream);
 
   if constexpr (is_device_csr_sparsity_owning_v<csr_matrix_t>) {
     nnz_t nnz = 0;

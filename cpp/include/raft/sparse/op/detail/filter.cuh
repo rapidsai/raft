@@ -214,7 +214,14 @@ void coo_remove_scalar(raft::resources const& handle,
   rmm::device_uvector<nnz_t> row_count_nz(in_n_rows, stream);
   rmm::device_uvector<nnz_t> row_count(in_n_rows, stream);
 
-  if (resource::get_dry_run_flag(handle)) { return; }
+  if (resource::get_dry_run_flag(handle)) {
+    // Upper bound on non-dry-run compliant and data-dependent code below (thrust calls, unknown
+    // out_nnz <= in_nnz)
+    out.initialize_sparsity(in_nnz);
+    rmm::device_uvector<nnz_t> ex_scan(in_n_rows, stream);
+    rmm::device_uvector<nnz_t> cur_ex_scan(in_n_rows, stream);
+    return;
+  }
 
   RAFT_CUDA_TRY(
     cudaMemsetAsync(row_count_nz.data(), 0, static_cast<nnz_t>(in_n_rows) * sizeof(nnz_t), stream));

@@ -86,7 +86,7 @@ void spmm(raft::resources const& handle,
                                                   &bufferSize,
                                                   resource::get_cuda_stream(handle)));
 
-  raft::interruptible::synchronize(resource::get_cuda_stream(handle));
+  resource::sync_stream(handle);
 
   rmm::device_uvector<ValueType> tmp(bufferSize, resource::get_cuda_stream(handle));
 

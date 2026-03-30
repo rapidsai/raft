@@ -293,8 +293,7 @@ class SelectKCsrTest : public ::testing::TestWithParam<SelectKCsrInputs<index_t>
         raft::sparse::matrix::select_k(
           h, in_val, in_idx, out_val, out_idx, params.select_min, true);
       },
-      raft::alloc_behavior::ARGUMENT_DRIVEN,
-      1);
+      raft::alloc_behavior::ARGUMENT_DRIVEN);
 
     ASSERT_TRUE(raft::devArrMatch<index_t>(dst_indices_expected_d.data(),
                                            out_idx.data_handle(),

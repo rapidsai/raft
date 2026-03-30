@@ -116,11 +116,9 @@ void fit_bm25(raft::resources const& handle,
               raft::device_vector_view<IndexType, int64_t> rowFeatCnts)
 {
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  bool is_dry_run     = resource::get_dry_run_flag(handle);
 
   rmm::device_uvector<IndexType> temp_unique_rows(0, stream);
-  int uniq_cnt =
-    is_dry_run ? num_rows : raft::label::getUniquelabels(temp_unique_rows, rows, nnz, stream);
+  int uniq_cnt   = raft::label::getUniquelabels(handle, temp_unique_rows, rows, nnz);
   auto row_keys  = raft::make_device_vector<IndexType>(handle, uniq_cnt);
   auto row_cnts  = raft::make_device_vector<ValueType>(handle, uniq_cnt);
   auto dummy_vec = raft::make_device_vector<IndexType>(handle, uniq_cnt);
