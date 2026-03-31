@@ -46,7 +46,7 @@ DI T logicalWarpReduce(T val, ReduceLambda reduce_op)
  *       function together
  */
 template <typename T, typename ReduceLambda>
-DI T warpReduce(T val, ReduceLambda reduce_op)
+DI T warp_reduce(T val, ReduceLambda reduce_op)
 {
   return logicalWarpReduce<WarpSize>(val, reduce_op);
 }
@@ -61,9 +61,9 @@ DI T warpReduce(T val, ReduceLambda reduce_op)
  *       function together
  */
 template <typename T>
-DI T warpReduce(T val)
+DI T warp_reduce(T val)
 {
-  return warpReduce(val, raft::add_op{});
+  return warp_reduce(val, raft::add_op{});
 }
 
 /**
@@ -84,11 +84,11 @@ DI T blockReduce(T val, char* smem, ReduceLambda reduce_op = raft::add_op{})
   int nWarps  = (blockDim.x + WarpSize - 1) / WarpSize;
   int lid     = laneId();
   int wid     = threadIdx.x / WarpSize;
-  val         = warpReduce(val, reduce_op);
+  val         = warp_reduce(val, reduce_op);
   if (lid == 0) sTemp[wid] = val;
   __syncthreads();
   val = lid < nWarps ? sTemp[lid] : T();
-  return warpReduce(val, reduce_op);
+  return warp_reduce(val, reduce_op);
 }
 
 /**
@@ -178,7 +178,7 @@ DI i_t binaryBlockReduce(i_t val, i_t* shmem)
   val = (threadIdx.x < BLOCK_SIZE / WarpSize) ? shmem[threadIdx.x] : 0;
 
   if (threadIdx.x < WarpSize) {
-    return warpReduce(val);
+    return warp_reduce(val);
   }
   // Only first warp gets the results
   else {
