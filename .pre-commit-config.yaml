@@ -3,10 +3,11 @@
 
 repos:
       - repo: https://github.com/pre-commit/pre-commit-hooks
-        rev: v5.0.0
+        rev: v6.0.0
         hooks:
               - id: trailing-whitespace
               - id: end-of-file-fixer
+              - id: check-json
       - repo: https://github.com/astral-sh/ruff-pre-commit
         rev: v0.14.1
         hooks:
@@ -75,7 +76,7 @@ repos:
                 language: python
                 additional_dependencies: [gitpython]
       - repo: https://github.com/codespell-project/codespell
-        rev: v2.2.2
+        rev: v2.4.1
         hooks:
               - id: codespell
                 additional_dependencies: [tomli]
@@ -83,10 +84,6 @@ repos:
                 exclude: |
                   (?x)
                     ^CHANGELOG[.]md$|
-      - repo: https://github.com/pre-commit/pre-commit-hooks
-        rev: v5.0.0
-        hooks:
-              - id: check-json
       - repo: https://github.com/rapidsai/pre-commit-hooks
         rev: v1.4.2
         hooks:
@@ -182,7 +179,7 @@ repos:
               (?x)
                 ^pyproject[.]toml$
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.20.0
+        rev: v1.20.2
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean", "--warn-all", "--strict"]
