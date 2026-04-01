@@ -224,7 +224,7 @@ auto make_host_scalar(raft::resources const& res, ElementType const& v)
   using policy_t = typename host_scalar<ElementType, IndexType>::container_policy_type;
   policy_t policy;
   auto scalar = host_scalar<ElementType, IndexType>{res, extents, policy};
-  if (resource::get_dry_run_flag(res)) { scalar(0) = v; }
+  if (!resource::get_dry_run_flag(res)) { scalar(0) = v; }
   return scalar;
 }
 

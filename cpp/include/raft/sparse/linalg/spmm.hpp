@@ -10,7 +10,6 @@
 #include <raft/core/copy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
-#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/sparse/linalg/detail/cusparse_utils.hpp>
 #include <raft/sparse/linalg/detail/spmm.hpp>
 
@@ -58,7 +57,10 @@ void spmm(raft::resources const& handle,
   // until that version is supported.
   auto size  = is_row_major ? (z.extent(0) - 1) * z.stride(0) + z.extent(1)
                             : (z.extent(1) - 1) * z.stride(1) + z.extent(0);
-  auto z_tmp = raft::make_device_vector<ValueType, IndexType>(handle, size);
+  auto z_tmp = raft::make_device_mdarray<ValueType, IndexType>(
+    handle,
+    raft::resource::get_workspace_resource_ref(handle),
+    raft::make_extents<IndexType>(size));
 
   raft::copy(handle,
              z_tmp.view(),
