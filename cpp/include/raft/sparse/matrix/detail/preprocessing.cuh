@@ -4,13 +4,17 @@
  */
 #pragma once
 
+#include <raft/core/copy.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/map_reduce.cuh>
 #include <raft/stats/histogram.cuh>
+
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/reduce.h>
 
@@ -35,7 +39,12 @@ void get_uniques_counts(raft::resources const& handle,
                         raft::device_vector_view<IndexType, int64_t> keys_out,
                         raft::device_vector_view<ValueType, int64_t> counts_out)
 {
-  if (resource::get_dry_run_flag(handle)) { return; }
+  if (resource::get_dry_run_flag(handle)) {
+    // Upper bound for thrust::reduce_by_key internal workspace
+    rmm::device_uvector<char> reduce_ws(static_cast<size_t>(nnz) * sizeof(IndexType) + 4096,
+                                        resource::get_cuda_stream(handle));
+    return;
+  }
   thrust::reduce_by_key(raft::resource::get_thrust_policy(handle),
                         rows,
                         rows + nnz,
@@ -65,25 +74,26 @@ void fit_tfidf(raft::resources const& handle,
                raft::device_vector_view<IndexType, int64_t> idFeatCount,
                int& fullFeatCount)
 {
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-
-  auto batchIdLen = raft::make_host_scalar<ValueType>(0);
+  auto batchIdLen = raft::make_host_scalar<ValueType>(handle, 0);
   auto values_mat = raft::make_device_scalar<ValueType>(handle, 0);
 
+  raft::stats::histogram(
+    handle,
+    raft::stats::HistTypeAuto,
+    raft::make_device_matrix_view<const IndexType, IndexType, raft::col_major>(columns, nnz, 1),
+    raft::make_device_matrix_view<int, IndexType, raft::col_major>(
+      idFeatCount.data_handle(), num_cols, 1),
+    raft::stats::IdentityBinner<IndexType, IndexType>());
+
+  raft::linalg::map_reduce(handle,
+                           raft::make_device_vector_view<const ValueType, IndexType>(values, nnz),
+                           values_mat.view(),
+                           ValueType{0},
+                           raft::identity_op(),
+                           raft::add_op());
+
+  raft::copy(handle, batchIdLen.view(), raft::make_const_mdspan(values_mat.view()));
   if (resource::get_dry_run_flag(handle)) { return; }
-
-  raft::stats::histogram(raft::stats::HistTypeAuto,
-                         idFeatCount.data_handle(),
-                         num_cols,
-                         columns,
-                         nnz,
-                         1,
-                         stream,
-                         raft::stats::IdentityBinner<IndexType, IndexType>());
-
-  raft::linalg::mapReduce<ValueType>(
-    values_mat.data_handle(), nnz, 0.0f, raft::identity_op(), raft::add_op(), stream, values);
-  raft::copy(batchIdLen.data_handle(), values_mat.data_handle(), values_mat.size(), stream);
   fullFeatCount += (int)batchIdLen(0);
 }
 

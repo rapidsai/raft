@@ -132,7 +132,7 @@ void neighborhood_recall(
  * // run brute-force KNN for reference
  *
  * auto scalar = 0.0f;
- * auto recall_score = raft::make_host_scalar(scalar);
+ * auto recall_score = raft::make_host_scalar(res, scalar);
  *
  * raft::stats::neighborhood_recall(res,
                                     raft::make_const_mdspan(indices.view()),
