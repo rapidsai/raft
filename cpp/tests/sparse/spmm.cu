@@ -189,13 +189,16 @@ class SpmmTest : public ::testing::TestWithParam<SpmmInputs<T>> {
                                               ldz,
                                               params.row_major);
 
+    // min_alloc: the actual contiguous span of the strided z matrix (what spmm allocates for z_tmp)
+    auto z_span = params.row_major ? (size_t(params.M) - 1) * ldz + params.N
+                                   : (size_t(params.N) - 1) * ldz + params.M;
     raft::execute_with_dry_run_check(
       handle,
       [&](raft::resources const& h) {
         spmm(h, params.trans_x, params.trans_y, &alpha, X_csr, y_stride_view, &beta, z_stride_view);
       },
       raft::alloc_behavior::ARGUMENT_DRIVEN,
-      z_size * sizeof(T));
+      z_span * sizeof(T));
 
     resource::sync_stream(handle, stream);
 

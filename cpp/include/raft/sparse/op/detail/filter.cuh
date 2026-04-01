@@ -220,6 +220,9 @@ void coo_remove_scalar(raft::resources const& handle,
     out.initialize_sparsity(in_nnz);
     rmm::device_uvector<nnz_t> ex_scan(in_n_rows, stream);
     rmm::device_uvector<nnz_t> cur_ex_scan(in_n_rows, stream);
+    // Upper bound for thrust workspace (reduce + 2x exclusive_scan)
+    rmm::device_uvector<char> thrust_ws(3 * (static_cast<size_t>(in_n_rows) * sizeof(nnz_t) + 4096),
+                                        stream);
     return;
   }
 
