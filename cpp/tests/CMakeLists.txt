@@ -102,6 +102,7 @@ if(BUILD_TESTS)
     core/interruptible.cu
     core/nvtx.cpp
     core/mdarray.cu
+    core/shared_mdarray.cu
     core/mdbuffer.cu
     core/mdspan_copy.cpp
     core/mdspan_copy.cu

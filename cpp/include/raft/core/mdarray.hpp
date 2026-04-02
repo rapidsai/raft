@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
  */
 /*
@@ -168,6 +168,25 @@ class mdarray
     default;
   constexpr mdarray(mdarray&&) noexcept(std::is_nothrow_move_constructible<container_type>::value) =
     default;
+
+  /**
+   * @brief Converting constructor: move-construct from an mdarray with a different but
+   * compatible container policy. Enabled only when this mdarray's container_type is
+   * constructible from the source's container_type via move.
+   *
+   * This is used by shared_mdarray to take ownership of a regular mdarray's container.
+   */
+  template <
+    typename OtherContainerPolicy,
+    std::enable_if_t<!std::is_same_v<OtherContainerPolicy, ContainerPolicy> &&
+                     std::is_constructible_v<
+                       container_type,
+                       typename mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>::
+                         container_type&&>>* = nullptr>
+  constexpr mdarray(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>&& other)
+    : cp_{}, map_(other.map_), c_(std::move(other.c_))
+  {
+  }
 
   constexpr auto operator=(mdarray const&) noexcept(
     std::is_nothrow_copy_assignable<container_type>::value) -> mdarray& = default;
