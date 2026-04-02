@@ -409,16 +409,15 @@ void symmetrize(raft::resources const& handle,
 
     raft::copy_async(symm_vals.data(), vals, nnz, stream);
     raft::copy_async(symm_vals.data() + nnz, vals, nnz, stream);
-
-    // sort COO
-    raft::sparse::op::coo_sort((value_idx)m,
-                               (value_idx)n,
-                               static_cast<nnz_t>(nnz) * 2,
-                               symm_rows.data(),
-                               symm_cols.data(),
-                               symm_vals.data(),
-                               stream);
   }
+
+  raft::sparse::op::coo_sort(handle,
+                             (value_idx)m,
+                             (value_idx)n,
+                             static_cast<nnz_t>(nnz) * 2,
+                             symm_rows.data(),
+                             symm_cols.data(),
+                             symm_vals.data());
 
   raft::sparse::op::max_duplicates(
     handle, out, symm_rows.data(), symm_cols.data(), symm_vals.data(), nnz * 2, m, n);
