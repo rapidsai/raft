@@ -12,7 +12,7 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/dry_run_memory_resource.hpp>
+#include <raft/util/dry_run_resources.hpp>
 
 #include <gtest/gtest.h>
 

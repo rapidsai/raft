@@ -12,7 +12,7 @@
 #include <raft/mr/host_device_resource.hpp>
 #include <raft/mr/host_memory_resource.hpp>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/dry_run_memory_resource.hpp>
+#include <raft/util/dry_run_resources.hpp>
 
 #include <rmm/mr/device_memory_resource.hpp>
 #include <rmm/mr/per_device_resource.hpp>

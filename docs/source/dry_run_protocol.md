@@ -5,7 +5,7 @@ The dry run protocol lets callers estimate an algorithm's memory footprint witho
 ## Using Dry Run Mode
 
 ```cpp
-#include <raft/util/dry_run_memory_resource.hpp>
+#include <raft/util/dry_run_resources.hpp>
 
 raft::resources res;
 // auto my_function(const raft::resources& res, my_args...);

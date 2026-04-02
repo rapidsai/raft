@@ -14,7 +14,7 @@
 #include <raft/matrix/sample_rows.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/dry_run_memory_resource.hpp>
+#include <raft/util/dry_run_resources.hpp>
 #include <raft/util/itertools.hpp>
 
 #include <gtest/gtest.h>

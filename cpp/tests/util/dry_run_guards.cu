@@ -18,7 +18,7 @@
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/dry_run_memory_resource.hpp>
+#include <raft/util/dry_run_resources.hpp>
 
 #include <rmm/device_uvector.hpp>
 
