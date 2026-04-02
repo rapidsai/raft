@@ -63,7 +63,9 @@ class SparseReduceTest : public ::testing::TestWithParam<SparseReduceInputs<valu
     raft::update_device(out_vals.data(), params.out_vals.data(), params.out_vals.size(), stream);
 
     raft::sparse::COO<value_t, value_idx, value_idx> out(stream);
-    auto min_alloc = (2 * sizeof(value_idx) + sizeof(value_t)) * params.out_vals.size();
+    // min_alloc: internal workspace of max_duplicates (diff array + CUB scan workspace).
+    // The COO output itself is not tracked because `out` was created outside the wrapper.
+    auto min_alloc = (params.in_rows.size() + 1) * sizeof(value_idx);
     raft::execute_with_dry_run_check(
       handle,
       [&](raft::resources const& h) {
