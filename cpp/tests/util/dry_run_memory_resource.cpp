@@ -232,4 +232,159 @@ TEST(DryRunExecute, ExceptionSafety)
   EXPECT_FALSE(resource::get_dry_run_flag(res));
 }
 
+// ===== Independent-counting tests for dry_run_resources =====
+
+TEST(DryRunResources, IndependentCounting_DefaultWorkspace)
+{
+  raft::resources res;
+
+  dry_run_resources dry_res(res);
+
+  constexpr std::size_t kWsSize     = 1024;
+  constexpr std::size_t kGlobalSize = 2048;
+
+  auto* ws_mr  = resource::get_workspace_resource(dry_res);
+  void* ws_ptr = ws_mr->allocate(rmm::cuda_stream_view{}, kWsSize);
+
+  auto* dev_mr  = rmm::mr::get_current_device_resource();
+  void* dev_ptr = dev_mr->allocate(rmm::cuda_stream_view{}, kGlobalSize);
+
+  auto peak = dry_res.get_bytes_peak();
+  EXPECT_EQ(peak.device_workspace, kWsSize);
+  EXPECT_EQ(peak.device_global, kGlobalSize);
+  EXPECT_EQ(peak.total(), kWsSize + kGlobalSize);
+
+  ws_mr->deallocate(rmm::cuda_stream_view{}, ws_ptr, kWsSize);
+  dev_mr->deallocate(rmm::cuda_stream_view{}, dev_ptr, kGlobalSize);
+}
+
+TEST(DryRunResources, IndependentCounting_WorkspaceSetToGlobal)
+{
+  raft::resources res;
+  resource::set_workspace_to_global_resource(res);
+
+  dry_run_resources dry_res(res);
+
+  constexpr std::size_t kWsSize     = 1024;
+  constexpr std::size_t kGlobalSize = 2048;
+
+  auto* ws_mr  = resource::get_workspace_resource(dry_res);
+  void* ws_ptr = ws_mr->allocate(rmm::cuda_stream_view{}, kWsSize);
+
+  auto* dev_mr  = rmm::mr::get_current_device_resource();
+  void* dev_ptr = dev_mr->allocate(rmm::cuda_stream_view{}, kGlobalSize);
+
+  auto peak = dry_res.get_bytes_peak();
+  EXPECT_EQ(peak.device_workspace, kWsSize);
+  EXPECT_EQ(peak.device_global, kGlobalSize);
+  EXPECT_EQ(peak.total(), kWsSize + kGlobalSize);
+
+  ws_mr->deallocate(rmm::cuda_stream_view{}, ws_ptr, kWsSize);
+  dev_mr->deallocate(rmm::cuda_stream_view{}, dev_ptr, kGlobalSize);
+}
+
+// ===== Independent-counting tests for memory_stats_resources =====
+
+TEST(MemoryStatsResources, IndependentCounting_DefaultWorkspace)
+{
+  raft::resources res;
+
+  memory_stats_resources stat_res(res);
+
+  constexpr std::size_t kWsSize     = 1024;
+  constexpr std::size_t kGlobalSize = 2048;
+
+  auto* ws_mr  = resource::get_workspace_resource(stat_res);
+  void* ws_ptr = ws_mr->allocate(rmm::cuda_stream_view{}, kWsSize);
+
+  auto* dev_mr  = rmm::mr::get_current_device_resource();
+  void* dev_ptr = dev_mr->allocate(rmm::cuda_stream_view{}, kGlobalSize);
+
+  auto peak = stat_res.get_bytes_peak();
+  EXPECT_EQ(peak.device_workspace, kWsSize);
+  EXPECT_EQ(peak.device_global, kGlobalSize);
+  EXPECT_EQ(peak.total(), kWsSize + kGlobalSize);
+
+  ws_mr->deallocate(rmm::cuda_stream_view{}, ws_ptr, kWsSize);
+  dev_mr->deallocate(rmm::cuda_stream_view{}, dev_ptr, kGlobalSize);
+}
+
+TEST(MemoryStatsResources, IndependentCounting_WorkspaceSetToGlobal)
+{
+  raft::resources res;
+  resource::set_workspace_to_global_resource(res);
+
+  memory_stats_resources stat_res(res);
+
+  constexpr std::size_t kWsSize     = 1024;
+  constexpr std::size_t kGlobalSize = 2048;
+
+  auto* ws_mr  = resource::get_workspace_resource(stat_res);
+  void* ws_ptr = ws_mr->allocate(rmm::cuda_stream_view{}, kWsSize);
+
+  auto* dev_mr  = rmm::mr::get_current_device_resource();
+  void* dev_ptr = dev_mr->allocate(rmm::cuda_stream_view{}, kGlobalSize);
+
+  auto peak = stat_res.get_bytes_peak();
+  EXPECT_EQ(peak.device_workspace, kWsSize);
+  EXPECT_EQ(peak.device_global, kGlobalSize);
+  EXPECT_EQ(peak.total(), kWsSize + kGlobalSize);
+
+  ws_mr->deallocate(rmm::cuda_stream_view{}, ws_ptr, kWsSize);
+  dev_mr->deallocate(rmm::cuda_stream_view{}, dev_ptr, kGlobalSize);
+}
+
+TEST(MemoryStatsResources, IndependentCounting_PoolWorkspace)
+{
+  raft::resources res;
+  constexpr std::size_t kPoolLimit = 64UL * 1024UL * 1024UL;
+  resource::set_workspace_to_pool_resource(res, kPoolLimit);
+
+  memory_stats_resources stat_res(res);
+
+  constexpr std::size_t kWsSize     = 1024;
+  constexpr std::size_t kGlobalSize = 2048;
+
+  auto* ws_mr  = resource::get_workspace_resource(stat_res);
+  void* ws_ptr = ws_mr->allocate(rmm::cuda_stream_view{}, kWsSize);
+
+  auto* dev_mr  = rmm::mr::get_current_device_resource();
+  void* dev_ptr = dev_mr->allocate(rmm::cuda_stream_view{}, kGlobalSize);
+
+  auto peak = stat_res.get_bytes_peak();
+  EXPECT_EQ(peak.device_workspace, kWsSize);
+  EXPECT_EQ(peak.device_global, kGlobalSize);
+  EXPECT_EQ(peak.total(), kWsSize + kGlobalSize);
+
+  ws_mr->deallocate(rmm::cuda_stream_view{}, ws_ptr, kWsSize);
+  dev_mr->deallocate(rmm::cuda_stream_view{}, dev_ptr, kGlobalSize);
+}
+
+// ===== Nested wrappers test =====
+
+TEST(IndependentCounting, NestedDryRunInStats)
+{
+  raft::resources res;
+
+  memory_stats_resources stat_res(res);
+  dry_run_resources dry_res(stat_res);
+
+  constexpr std::size_t kWsSize     = 1024;
+  constexpr std::size_t kGlobalSize = 2048;
+
+  auto* ws_mr  = resource::get_workspace_resource(dry_res);
+  void* ws_ptr = ws_mr->allocate(rmm::cuda_stream_view{}, kWsSize);
+
+  auto* dev_mr  = rmm::mr::get_current_device_resource();
+  void* dev_ptr = dev_mr->allocate(rmm::cuda_stream_view{}, kGlobalSize);
+
+  auto peak = dry_res.get_bytes_peak();
+  EXPECT_EQ(peak.device_workspace, kWsSize);
+  EXPECT_EQ(peak.device_global, kGlobalSize);
+  EXPECT_EQ(peak.total(), kWsSize + kGlobalSize);
+
+  ws_mr->deallocate(rmm::cuda_stream_view{}, ws_ptr, kWsSize);
+  dev_mr->deallocate(rmm::cuda_stream_view{}, dev_ptr, kGlobalSize);
+}
+
 }  // namespace raft::util

@@ -43,11 +43,15 @@ struct memory_stats {
   std::size_t host_pinned{0};
 
   /**
-   * @brief Plain sum of all memory stats.
+   * @brief Sum of all memory stats across the six tracked categories.
    *
-   * Note, this does not take into account the resource hierarchy.
-   * For example, it's common that workspace resources are allocated from the device global
-   * resource, so they are effectively counted twice in this function.
+   * The three resource wrapper classes (dry_run_resources, memory_stats_resources,
+   * memory_tracking_resources) guarantee that every category is tracked by its own
+   * independent adaptor: each wrapper force-initializes all resources, captures their
+   * upstream refs *before* replacing the global device resource, and wraps those
+   * originals.  Workspace and large-workspace allocations therefore bypass the
+   * device-global tracking adaptor and are counted exactly once, making this sum
+   * an accurate total when used with stats produced by any of the three wrappers.
    */
   [[nodiscard]] inline constexpr auto total() const -> std::size_t
   {
@@ -193,6 +197,20 @@ class memory_stats_resources : public resources {
 
   void init()
   {
+    // Independent-counting invariant
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 1. Force-initialize all lazily-created resources (workspace, large workspace,
+    //    pinned, managed) so that their factories resolve against the *original*
+    //    global device MR, not a tracking wrapper we install later.
+    // 2. Capture every upstream ref while it still points to the original resource.
+    // 3. Snapshot the resource map to keep the originals alive.
+    // 4. Only *then* replace the global device resource with the tracking bridge.
+    // 5. Wrap each captured upstream with a separate statistics_adaptor.
+    //
+    // Because step 2 happens before step 4, workspace/lws allocations flow through
+    // their own adaptor directly to old_device_mr_, bypassing the device bridge.
+    // Each allocation is therefore counted in exactly one category, and
+    // memory_stats::total() returns an accurate, non-overlapping sum.
     auto* ws         = resource::get_workspace_resource(*this);
     auto ws_free     = resource::get_workspace_free_bytes(*this);
     auto ws_upstream = ws->get_upstream_resource();

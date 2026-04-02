@@ -362,9 +362,8 @@ void execute_with_dry_run_check(raft::resources const& res,
   resource::sync_stream(stat_res);
   auto actual = stat_res.get_bytes_peak();
 
-  auto total_dry = dry.device_global + dry.device_managed + dry.host + dry.host_pinned;
-  auto total_actual =
-    actual.device_global + actual.device_managed + actual.host + actual.host_pinned;
+  auto total_dry    = dry.total();
+  auto total_actual = actual.total();
 
   if (dry.device_workspace != actual.device_workspace ||
       dry.device_large_workspace != actual.device_large_workspace ||

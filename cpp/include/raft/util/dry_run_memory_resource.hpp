@@ -164,7 +164,20 @@ class dry_run_resources : public resources {
 
   void init()
   {
-    // Force-initialize all affected resources (lazy creation).
+    // Independent-counting invariant
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 1. Force-initialize all lazily-created resources (workspace, large workspace,
+    //    pinned, managed) so that their factories resolve against the *original*
+    //    global device MR, not a tracking wrapper we install later.
+    // 2. Capture every upstream ref while it still points to the original resource.
+    // 3. Snapshot the resource map to keep the originals alive.
+    // 4. Only *then* replace the global device resource with the tracking bridge.
+    // 5. Wrap each captured upstream with a separate dry_run_resource adaptor.
+    //
+    // Because step 2 happens before step 4, workspace/lws allocations flow through
+    // their own adaptor directly to old_device_mr_, bypassing the device bridge.
+    // Each allocation is therefore counted in exactly one category, and
+    // memory_stats::total() returns an accurate, non-overlapping sum.
     auto* ws         = resource::get_workspace_resource(*this);
     auto ws_free     = resource::get_workspace_free_bytes(*this);
     auto ws_upstream = ws->get_upstream_resource();
