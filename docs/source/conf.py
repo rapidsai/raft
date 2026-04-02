@@ -103,8 +103,9 @@ todo_include_todos = False
 # a list of builtin themes.
 #
 
-html_theme = "pydata_sphinx_theme"
-html_logo = "../../img/rapids_logo.png"
+html_theme = "nvidia_sphinx_theme"
+html_logo = "../../img/logo-purple-bg-white-text.svg"
+html_favicon = "../../img/icon-512x512.png"
 
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -112,9 +113,6 @@ html_logo = "../../img/rapids_logo.png"
 # documentation.
 #
 html_theme_options = {
-    "logo": {
-        "text": "RAFT",
-    },
     "external_links": [],
     # https://github.com/pydata/pydata-sphinx-theme/issues/1220
     "icon_links": [],
@@ -206,6 +204,7 @@ def setup(app):
     app.add_js_file(
         "https://docs.rapids.ai/assets/js/custom.js", loading_method="defer"
     )
+    app.add_js_file("collapse_overloads.js")
 
 
 # The following is used by sphinx.ext.linkcode to provide links to github
