@@ -186,7 +186,11 @@ auto make_shared_mdarray(mdarray<ElementType, Extents, LayoutPolicy, ContainerPo
   using shared_cp_type      = host_device_accessor<shared_policy_type, ContainerPolicy::mem_type>;
   using shared_mdarray_type = mdarray<ElementType, Extents, LayoutPolicy, shared_cp_type>;
 
-  return shared_mdarray_type(std::move(src));
+  using shared_container_t = typename shared_mdarray_type::container_type;
+
+  auto mapping = src.mapping();
+  shared_container_t sc{std::move(src).release_container()};
+  return shared_mdarray_type(mapping, std::move(sc), shared_cp_type{});
 }
 
 /**

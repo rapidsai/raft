@@ -169,25 +169,6 @@ class mdarray
   constexpr mdarray(mdarray&&) noexcept(std::is_nothrow_move_constructible<container_type>::value) =
     default;
 
-  /**
-   * @brief Converting constructor: move-construct from an mdarray with a different but
-   * compatible container policy. Enabled only when this mdarray's container_type is
-   * constructible from the source's container_type via move.
-   *
-   * This is used by shared_mdarray to take ownership of a regular mdarray's container.
-   */
-  template <
-    typename OtherContainerPolicy,
-    std::enable_if_t<!std::is_same_v<OtherContainerPolicy, ContainerPolicy> &&
-                     std::is_constructible_v<
-                       container_type,
-                       typename mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>::
-                         container_type&&>>* = nullptr>
-  constexpr mdarray(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>&& other)
-    : cp_{}, map_(other.map_), c_(std::move(other.c_))
-  {
-  }
-
   constexpr auto operator=(mdarray const&) noexcept(
     std::is_nothrow_copy_assignable<container_type>::value) -> mdarray& = default;
   constexpr auto operator=(mdarray&&) noexcept(
@@ -213,6 +194,17 @@ class mdarray
   }
 
   /**
+   * @brief Construct from a pre-built container, bypassing cp_.create().
+   *
+   * Use this when the container has already been constructed externally
+   * (e.g. by compressed_mdarray or shared_mdarray factories).
+   */
+  constexpr mdarray(mapping_type const& m, container_type&& c, container_policy_type const& cp)
+    : cp_(cp), map_(m), c_(std::move(c))
+  {
+  }
+
+  /**
    * @brief Get an mdspan
    */
   auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
@@ -228,6 +220,11 @@ class mdarray
 
   [[nodiscard]] auto data_handle() noexcept -> pointer { return c_.data(); }
   [[nodiscard]] constexpr auto data_handle() const noexcept -> const_pointer { return c_.data(); }
+
+  /**
+   * @brief Extract the underlying container (only callable on rvalues).
+   */
+  [[nodiscard]] constexpr auto release_container() && -> container_type { return std::move(c_); }
 
   /**
    * @brief Indexing operator, use it sparingly since it triggers a device<->host copy.
