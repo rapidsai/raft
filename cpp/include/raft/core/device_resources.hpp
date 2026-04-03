@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -26,7 +26,7 @@
 
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
-#include <rmm/mr/device_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda_runtime.h>
 
@@ -51,15 +51,6 @@ namespace raft {
  */
 class device_resources : public resources {
  public:
-  device_resources(const device_resources& handle,
-                   std::shared_ptr<rmm::mr::device_memory_resource> workspace_resource,
-                   std::optional<std::size_t> allocation_limit = std::nullopt)
-    : resources{handle}
-  {
-    // replace the resource factory for the workspace_resources
-    resource::set_workspace_resource(*this, workspace_resource, allocation_limit);
-  }
-
   device_resources(const device_resources& handle) : resources{handle} {}
   device_resources(device_resources&&)            = delete;
   device_resources& operator=(device_resources&&) = delete;
@@ -70,15 +61,9 @@ class device_resources : public resources {
    * @param[in] stream_view the default stream (which has the default per-thread stream if
    * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
-   * @param[in] workspace_resource an optional resource used by some functions for allocating
-   *            temporary workspaces.
-   * @param[in] allocation_limit the total amount of memory in bytes available to the temporary
-   *            workspace resources.
    */
   device_resources(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
-                   std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr},
-                   std::shared_ptr<rmm::mr::device_memory_resource> workspace_resource = {nullptr},
-                   std::optional<std::size_t> allocation_limit = std::nullopt)
+                   std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
     : resources{}
   {
     resources::add_resource_factory(std::make_shared<resource::device_id_resource_factory>());
@@ -86,9 +71,6 @@ class device_resources : public resources {
       std::make_shared<resource::cuda_stream_resource_factory>(stream_view));
     resources::add_resource_factory(
       std::make_shared<resource::cuda_stream_pool_resource_factory>(stream_pool));
-    if (workspace_resource) {
-      resource::set_workspace_resource(*this, workspace_resource, allocation_limit);
-    }
   }
 
   /** Destroys all held-up resources */
@@ -214,7 +196,7 @@ class device_resources : public resources {
     return resource::get_subcomm(*this, key);
   }
 
-  rmm::mr::device_memory_resource* get_workspace_resource() const
+  rmm::mr::limiting_resource_adaptor* get_workspace_resource() const
   {
     return resource::get_workspace_resource(*this);
   }

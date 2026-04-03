@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -12,6 +12,7 @@
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/mr/cuda_memory_resource.hpp>
 #include <rmm/mr/per_device_resource.hpp>
+#include <rmm/mr/pool_memory_resource.hpp>
 
 #include <algorithm>
 #include <memory>
@@ -114,12 +115,6 @@ struct device_resources_manager {
     std::optional<std::size_t> max_mem_pool_size{std::size_t{}};
     // Limit on workspace memory for the returned device_resources object
     std::optional<std::size_t> workspace_allocation_limit{std::nullopt};
-    // Optional specification of separate workspace memory resources for each
-    // device. The integer in each pair indicates the device for this memory
-    // resource.
-    std::vector<std::pair<std::shared_ptr<rmm::mr::device_memory_resource>, int>> workspace_mrs{};
-
-    auto get_workspace_memory_resource(int device_id) {}
   } params_;
 
   // This struct stores the underlying resources to be shared among
@@ -152,34 +147,17 @@ struct device_resources_manager {
         }()},
         pool_mr_{[&params, this]() {
           auto scoped_device = device_setter{device_id_};
-          auto result =
-            std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>{nullptr};
+          auto result        = std::optional<rmm::mr::pool_memory_resource>{};
           // If max_mem_pool_size is nullopt or non-zero, create a pool memory
           // resource
           if (params.max_mem_pool_size.value_or(1) != 0) {
-            auto* upstream =
-              dynamic_cast<rmm::mr::cuda_memory_resource*>(rmm::mr::get_current_device_resource());
-            if (upstream != nullptr) {
-              result =
-                std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>(
-                  upstream,
-                  params.init_mem_pool_size.value_or(rmm::percent_of_free_device_memory(50)),
-                  params.max_mem_pool_size);
-              rmm::mr::set_current_device_resource(result.get());
-            } else {
-              RAFT_LOG_WARN(
-                "Pool allocation requested, but other memory resource has already been set and "
-                "will not be overwritten");
-            }
+            auto upstream = rmm::mr::get_current_device_resource_ref();
+            result.emplace(
+              upstream,
+              params.init_mem_pool_size.value_or(rmm::percent_of_free_device_memory(50)),
+              params.max_mem_pool_size);
+            rmm::mr::set_current_device_resource_ref(*result);
           }
-          return result;
-        }()},
-        workspace_mr_{[&params, this]() {
-          auto result = std::shared_ptr<rmm::mr::device_memory_resource>{nullptr};
-          auto iter   = std::find_if(std::begin(params.workspace_mrs),
-                                   std::end(params.workspace_mrs),
-                                   [this](auto&& pair) { return pair.second == device_id_; });
-          if (iter != std::end(params.workspace_mrs)) { result = iter->first; }
           return result;
         }()}
     {
@@ -216,27 +194,14 @@ struct device_resources_manager {
       if (pool_count() != 0) { result = pools_[get_thread_id() % pool_count()]; }
       return result;
     }
-    // Return a (possibly null) shared_ptr to the pool memory resource
-    // created for this device by the manager
-    [[nodiscard]] auto get_pool_memory_resource() const { return pool_mr_; }
-    // Return the RAFT workspace allocation limit that will be used by
-    // `device_resources` returned from this manager
-    [[nodiscard]] auto get_workspace_allocation_limit() const
-    {
-      return workspace_allocation_limit_;
-    }
-    // Return a (possibly null) shared_ptr to the memory resource that will
-    // be used for workspace allocations by `device_resources` returned from
-    // this manager
-    [[nodiscard]] auto get_workspace_memory_resource() { return workspace_mr_; }
+    // Return the pool memory resource created for this device by the manager (if any)
+    [[nodiscard]] auto& get_pool_memory_resource() { return pool_mr_; }
 
    private:
     int device_id_;
     std::unique_ptr<rmm::cuda_stream_pool> streams_;
     std::vector<std::shared_ptr<rmm::cuda_stream_pool>> pools_;
-    std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>> pool_mr_;
-    std::shared_ptr<rmm::mr::device_memory_resource> workspace_mr_;
-    std::optional<std::size_t> workspace_allocation_limit_{std::nullopt};
+    std::optional<rmm::mr::pool_memory_resource> pool_mr_;
   };
 
   // Mutex used to lock access to shared data until after the first
@@ -290,10 +255,7 @@ struct device_resources_manager {
       auto scoped_device = device_setter(device_id);
       // Build the device_resources object for this thread out of shared
       // components
-      thread_resources[device_id].emplace(component_iter->get_stream(),
-                                          component_iter->get_pool(),
-                                          component_iter->get_workspace_memory_resource(),
-                                          component_iter->get_workspace_allocation_limit());
+      thread_resources[device_id].emplace(component_iter->get_stream(), component_iter->get_pool());
     }
 
     return thread_resources[device_id].value();
@@ -369,27 +331,6 @@ struct device_resources_manager {
         params_.init_mem_pool_size.emplace(*init_memory);
       } else {
         params_.init_mem_pool_size = std::nullopt;
-      }
-    }
-  }
-
-  // Thread-safe setter for workspace memory resources
-  void set_workspace_memory_resource_(std::shared_ptr<rmm::mr::device_memory_resource> mr,
-                                      int device_id)
-  {
-    auto lock = get_lock();
-    if (params_finalized_) {
-      RAFT_LOG_WARN(
-        "Attempted to set device_resources_manager properties after resources have already been "
-        "retrieved");
-    } else {
-      auto iter = std::find_if(std::begin(params_.workspace_mrs),
-                               std::end(params_.workspace_mrs),
-                               [device_id](auto&& pair) { return pair.second == device_id; });
-      if (iter != std::end(params_.workspace_mrs)) {
-        iter->first = mr;
-      } else {
-        params_.workspace_mrs.emplace_back(mr, device_id);
       }
     }
   }
@@ -542,25 +483,6 @@ struct device_resources_manager {
   {
     set_init_mem_pool_size(init_mem);
     set_max_mem_pool_size(max_mem);
-  }
-
-  /**
-   * @brief Set the workspace memory resource to be used on a specific device
-   *
-   * RAFT device_resources objects can be built with a separate memory
-   * resource for allocating temporary workspaces. If a (non-nullptr) memory
-   * resource is provided by this setter, it will be used as the
-   * workspace memory resource for all `device_resources` returned for the
-   * indicated device.
-   *
-   * If called after the first call to
-   * `raft::device_resources_manager::get_device_resources`, no change will be made,
-   * and a warning will be emitted.
-   */
-  static void set_workspace_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr,
-                                            int device_id = device_setter::get_current_device())
-  {
-    get_manager().set_workspace_memory_resource_(mr, device_id);
   }
 };
 }  // namespace raft

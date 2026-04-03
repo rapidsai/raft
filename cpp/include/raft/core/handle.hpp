@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -21,12 +21,6 @@ namespace raft {
  */
 class handle_t : public raft::device_resources {
  public:
-  handle_t(const handle_t& handle,
-           std::shared_ptr<rmm::mr::device_memory_resource> workspace_resource)
-    : device_resources(handle, workspace_resource)
-  {
-  }
-
   handle_t(const handle_t& handle) : device_resources{handle} {}
 
   handle_t(handle_t&&)            = delete;
@@ -38,13 +32,10 @@ class handle_t : public raft::device_resources {
    * @param[in] stream_view the default stream (which has the default per-thread stream if
    * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
-   * @param[in] workspace_resource an optional resource used by some functions for allocating
-   *            temporary workspaces.
    */
   handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
-           std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr},
-           std::shared_ptr<rmm::mr::device_memory_resource> workspace_resource = {nullptr})
-    : device_resources{stream_view, stream_pool, workspace_resource}
+           std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
+    : device_resources{stream_view, stream_pool}
   {
   }
 

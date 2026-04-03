@@ -1267,7 +1267,7 @@ void select_k(raft::resources const& res,
                "CSR layout requires a non-null indptr array (len_i)!");
 
   auto stream = resource::get_cuda_stream(res);
-  auto mr     = resource::get_workspace_resource(res);
+  auto mr     = resource::get_workspace_resource_ref(res);
   if (k == len && RowLayout::is_uniform) {
     RAFT_CUDA_TRY(
       cudaMemcpyAsync(out, in, sizeof(T) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
