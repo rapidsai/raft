@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const toc = document.querySelector(".bd-toc-nav");
+    const toc = document.querySelector("#pst-page-toc-nav") ||
+                document.querySelector(".bd-toc-nav");
     if (!toc) return;
 
     // Get all TOC links

@@ -63,7 +63,7 @@ source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
 
 # General information about the project.
-project = "raft"
+project = "RAFT"
 copyright = "2023-2026, NVIDIA Corporation"
 author = "NVIDIA Corporation"
 
