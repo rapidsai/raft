@@ -1,3 +1,56 @@
+# raft 26.04.00 (8 Apr 2026)
+
+### 🚨 Breaking Changes
+* Rename lanczos by @aamijar in https://github.com/rapidsai/raft/pull/2936
+* Remove deprecated headers by @aamijar in https://github.com/rapidsai/raft/pull/2939
+### 🐛 Bug Fixes
+* Disable lanczos SM tests by @aamijar in https://github.com/rapidsai/raft/pull/2941
+* Add `binary_mult` and `const` fixes for `ratio` and `sqrt` apis by @aamijar in https://github.com/rapidsai/raft/pull/2940
+* Temporarily increase `max_days_without_success` by @aamijar in https://github.com/rapidsai/raft/pull/2950
+* Remove "requires" keyword from raft::linalg::map by @tarang-jain in https://github.com/rapidsai/raft/pull/2949
+* Add nvjitlink to cuda-toolkit pip extras for cusparse compatibility by @bdice in https://github.com/rapidsai/raft/pull/2948
+* Fix cub missing header by @aamijar in https://github.com/rapidsai/raft/pull/2957
+* Fix cub header by @aamijar in https://github.com/rapidsai/raft/pull/2959
+* [REVIEW] Fix l_offset overflow in select_k kernels for 32-bit IdxT by @yan-zaretskiy in https://github.com/rapidsai/raft/pull/2974
+* Use the new reference-based RMM API to set RMM pools in `device_resources_snmg` by @viclafargue in https://github.com/rapidsai/raft/pull/2972
+### 📖 Documentation
+* Raft docs cleanup by @aamijar in https://github.com/rapidsai/raft/pull/2935
+### 🚀 New Features
+* [FEA] Support raft::KeyValuePair Inputs in linalg::map by @tarang-jain in https://github.com/rapidsai/raft/pull/2913
+* Backport memory resources PRs by @achirkin in https://github.com/rapidsai/raft/pull/2983
+* Move PCA and TSVD from cuml to raft by @aamijar in https://github.com/rapidsai/raft/pull/2952
+### 🛠️ Improvements
+* Replace `thrust::tuple` with `cuda::std::tuple` by @miscco in https://github.com/rapidsai/raft/pull/2928
+* Use verify-hardcoded-version pre-commit hook by @KyleFromNVIDIA in https://github.com/rapidsai/raft/pull/2931
+* expand CI-skipping logic, other small build changes by @jameslamb in https://github.com/rapidsai/raft/pull/2933
+* remove pip.conf migration code in CI scripts, update CI-skipping rules by @jameslamb in https://github.com/rapidsai/raft/pull/2938
+* Drop Python 3.10 support by @gforsyth in https://github.com/rapidsai/raft/pull/2932
+* Don't hard-code branch names and UCXX version by @KyleFromNVIDIA in https://github.com/rapidsai/raft/pull/2934
+* refactor: build wheels and conda packages using Python limited API by @gforsyth in https://github.com/rapidsai/raft/pull/2943
+* remove gitutils by @jameslamb in https://github.com/rapidsai/raft/pull/2946
+* Use GHA id-token for `sccache-dist` auth token by @trxcllnt in https://github.com/rapidsai/raft/pull/2947
+* Use Specific CCCL Includes by @divyegala in https://github.com/rapidsai/raft/pull/2953
+* Drop uses of `thrust/functional.h` by @miscco in https://github.com/rapidsai/raft/pull/2954
+* check-nightly-ci: update to new version by @jameslamb in https://github.com/rapidsai/raft/pull/2956
+* Drop `thrust::constant_iterator` in favor of `cuda::constant_iterator` by @miscco in https://github.com/rapidsai/raft/pull/2955
+* Drop `thrust::counting_iterator` in favor of `cuda::counting_iterator` by @miscco in https://github.com/rapidsai/raft/pull/2958
+* check-nightly-ci: remove testing config by @jameslamb in https://github.com/rapidsai/raft/pull/2960
+* Revert `max_days_without_success` by @aamijar in https://github.com/rapidsai/raft/pull/2962
+* refactor(limited api): add explicit `wheel.py-api` to `pyproject.toml`
+ by @gforsyth in https://github.com/rapidsai/raft/pull/2967
+* Add support for Python 3.14 by @gforsyth in https://github.com/rapidsai/raft/pull/2966
+* Drop uses of `thrust::discard_iterator` in favor of `cuda::discard_iterator` by @miscco in https://github.com/rapidsai/raft/pull/2963
+* Update Cython lower bound pin to 3.2.2 by @vyasr in https://github.com/rapidsai/raft/pull/2969
+* Remove pytest upper bound pin by @vyasr in https://github.com/rapidsai/raft/pull/2970
+* add no_libucx matrix option in dependencies.yaml by @trxcllnt in https://github.com/rapidsai/raft/pull/2975
+* fix verify-hardcoded-versions issues by @jameslamb in https://github.com/rapidsai/raft/pull/2980
+* build wheels with CUDA 13.0.x, test wheels against mix of CTK versions by @jameslamb in https://github.com/rapidsai/raft/pull/2971
+
+## New Contributors
+* @yan-zaretskiy made their first contribution in https://github.com/rapidsai/raft/pull/2974
+
+**Full Changelog**: https://github.com/rapidsai/raft/compare/v26.04.00a...release/26.04
+
 # raft 26.02.00 (4 Feb 2026)
 
 ### 🚨 Breaking Changes
