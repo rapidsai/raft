@@ -180,6 +180,99 @@ class RandomizedSvdsTest : public ::testing::Test {
 using RandomizedSvdsTestF = RandomizedSvdsTest<int, float>;
 TEST_F(RandomizedSvdsTestF, GoldenData) { Run(); }
 
+using RandomizedSvdsTestD = RandomizedSvdsTest<int, double>;
+TEST_F(RandomizedSvdsTestD, GoldenData) { Run(); }
+
+// ============================================================================
+// Test: reconstruction error ||A - U diag(S) Vt||_F
+// ============================================================================
+
+struct ReconstructionErrorTest : public ::testing::Test {
+  raft::resources handle;
+  cudaStream_t stream;
+  ReconstructionErrorTest() : stream(resource::get_cuda_stream(handle)) {}
+
+  void Run()
+  {
+    using ValueType = float;
+    int m = 20, n = 15, k = 3, nnz = 120;
+
+    auto h_indptr  = golden_indptr<int>();
+    auto h_indices = golden_indices<int>();
+    auto h_values  = golden_values<ValueType>();
+
+    auto d_indptr  = raft::make_device_vector<int, uint32_t>(handle, m + 1);
+    auto d_indices = raft::make_device_vector<int, uint32_t>(handle, nnz);
+    auto d_values  = raft::make_device_vector<ValueType, uint32_t>(handle, nnz);
+    raft::update_device(d_indptr.data_handle(), h_indptr.data(), m + 1, stream);
+    raft::update_device(d_indices.data_handle(), h_indices.data(), nnz, stream);
+    raft::update_device(d_values.data_handle(), h_values.data(), nnz, stream);
+
+    auto csr_structure =
+      raft::make_device_compressed_structure_view<int, int, int>(
+        d_indptr.data_handle(), d_indices.data_handle(), m, n, nnz);
+    auto csr_matrix = raft::make_device_csr_matrix_view<ValueType, int, int, int>(
+      d_values.data_handle(), csr_structure);
+
+    sparse_svd_config<ValueType> config;
+    config.n_components = k; config.n_oversamples = 10;
+    config.n_power_iters = 4; config.seed = 42;
+
+    auto S  = raft::make_device_vector<ValueType, uint32_t>(handle, k);
+    auto U  = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, k);
+    auto Vt = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, n);
+    sparse_randomized_svd(handle, config, csr_matrix, S.view(), U.view(), Vt.view());
+
+    // Reconstruct: recon = U @ diag(S) @ Vt
+    // First: US = U * S (scale columns of U by S)
+    auto US = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, k);
+    raft::copy(US.data_handle(), U.data_handle(), m * k, stream);
+    std::vector<ValueType> h_S(k);
+    raft::update_host(h_S.data(), S.data_handle(), k, stream);
+    resource::sync_stream(handle);
+    for (int j = 0; j < k; j++) {
+      auto cublas_h = raft::resource::get_cublas_handle(handle);
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasscal(
+        cublas_h, m, &h_S[j], US.data_handle() + j * m, 1, stream));
+    }
+
+    // recon = US @ Vt
+    auto recon = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, n);
+    ValueType one = 1, zero = 0;
+    raft::linalg::gemm(handle, US.data_handle(), m, k, Vt.data_handle(),
+                        recon.data_handle(), m, n, CUBLAS_OP_N, CUBLAS_OP_N, one, zero, stream);
+
+    // Build dense A on host
+    std::vector<ValueType> h_dense(m * n, 0);
+    int vi = 0;
+    for (int i = 0; i < m; i++)
+      for (int jj = h_indptr[i]; jj < h_indptr[i + 1]; jj++)
+        h_dense[h_indices[jj] * m + i] = h_values[vi++];
+
+    auto dense_A = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, n);
+    raft::update_device(dense_A.data_handle(), h_dense.data(), m * n, stream);
+
+    // error = A - recon
+    // Compute ||A - recon||_F / ||A||_F on host
+    std::vector<ValueType> h_recon(m * n);
+    raft::update_host(h_recon.data(), recon.data_handle(), m * n, stream);
+    resource::sync_stream(handle);
+
+    double err_sq = 0, norm_sq = 0;
+    for (int i = 0; i < m * n; i++) {
+      double diff = h_dense[i] - h_recon[i];
+      err_sq += diff * diff;
+      norm_sq += (double)h_dense[i] * h_dense[i];
+    }
+    double rel_err = std::sqrt(err_sq / norm_sq);
+
+    // With k=3 out of min(20,15)=15 components, relative error should be < 1.0
+    ASSERT_LT(rel_err, 1.0) << "Reconstruction relative error too large: " << rel_err;
+  }
+};
+
+TEST_F(ReconstructionErrorTest, RelativeError) { Run(); }
+
 // ============================================================================
 // Test: mean-centered linear operator
 // Ground truth: dense SVD of explicitly centered matrix
