@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -276,7 +276,7 @@ struct cartesian_registrar<Class> {
   static void run(const std::string case_name, const Fixed&... fixed)
   {
     auto* b = ::benchmark::internal::RegisterBenchmarkInternal(
-      new Fixture<Class, Fixed...>(case_name, fixed...));
+      std::unique_ptr<::benchmark::Fixture>(new Fixture<Class, Fixed...>(case_name, fixed...)));
     b->UseManualTime();
     b->Unit(benchmark::kMillisecond);
   }
