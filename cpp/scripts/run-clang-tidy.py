@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -17,7 +17,7 @@ import shutil
 import subprocess
 
 
-EXPECTED_VERSIONS = ("20.1.4",)
+EXPECTED_VERSIONS = ("20.1.8",)
 VERSION_REGEX = re.compile(r"clang version ([0-9.]+)")
 CMAKE_COMPILER_REGEX = re.compile(
     r"^\s*CMAKE_CXX_COMPILER:FILEPATH=(.+)\s*$", re.MULTILINE
