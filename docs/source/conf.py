@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
+import datetime
 import os
 import sys
 from packaging.version import Version
@@ -64,7 +65,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "RAFT"
-copyright = "2023-2026, NVIDIA Corporation"
+copyright = f"2023-{datetime.datetime.today().year}, NVIDIA Corporation"
 author = "NVIDIA Corporation"
 
 # The version info for the project you're documenting, acts as replacement for
