@@ -443,6 +443,43 @@ class std_comms : public comms_iface {
     RAFT_NCCL_TRY(ncclGroupEnd());
   }
 
+  void scatter(const void* sendbuff,
+               void* recvbuff,
+               size_t recvcount,
+               datatype_t datatype,
+               int root,
+               cudaStream_t stream) const
+  {
+    RAFT_NCCL_TRY(ncclScatter(
+      sendbuff, recvbuff, recvcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
+  }
+
+  void scatterv(const void* sendbuf,
+                void* recvbuf,
+                const size_t* sendcounts,
+                size_t recvcount,
+                const size_t* displs,
+                datatype_t datatype,
+                int root,
+                cudaStream_t stream) const
+  {
+    size_t dtype_size = get_datatype_size(datatype);
+    RAFT_NCCL_TRY(ncclGroupStart());
+    RAFT_NCCL_TRY(
+      ncclRecv(recvbuf, recvcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
+    if (get_rank() == root) {
+      for (int r = 0; r < get_size(); ++r) {
+        RAFT_NCCL_TRY(ncclSend(static_cast<char*>(sendbuf) + displs[r] * dtype_size,
+                               sendcounts[r],
+                               get_nccl_datatype(datatype),
+                               r,
+                               nccl_comm_,
+                               stream));
+      }
+    }
+    RAFT_NCCL_TRY(ncclGroupEnd());
+  }
+
   void gather(const void* sendbuff,
               void* recvbuff,
               size_t sendcount,
@@ -450,21 +487,8 @@ class std_comms : public comms_iface {
               int root,
               cudaStream_t stream) const
   {
-    size_t dtype_size = get_datatype_size(datatype);
-    RAFT_NCCL_TRY(ncclGroupStart());
-    if (get_rank() == root) {
-      for (int r = 0; r < get_size(); ++r) {
-        RAFT_NCCL_TRY(ncclRecv(static_cast<char*>(recvbuff) + sendcount * r * dtype_size,
-                               sendcount,
-                               get_nccl_datatype(datatype),
-                               r,
-                               nccl_comm_,
-                               stream));
-      }
-    }
-    RAFT_NCCL_TRY(
-      ncclSend(sendbuff, sendcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
-    RAFT_NCCL_TRY(ncclGroupEnd());
+    RAFT_NCCL_TRY(ncclGather(
+      sendbuff, recvbuff, sendcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
   }
 
   void gatherv(const void* sendbuff,
