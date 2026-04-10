@@ -226,8 +226,8 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - clang==20.1.4
-          - clang-tools=20.1.4
+          - clang==20.1.8
+          - clang-tools=20.1.8
   # 'cuda_version' intentionally does not contain fallback entries... we want
   # a loud error if an unsupported 'cuda' value is passed
   cuda_version:
