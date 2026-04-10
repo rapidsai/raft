@@ -362,6 +362,16 @@ class std_comms : public comms_iface {
     }
   }
 
+  void alltoall(const void* sendbuff,
+                void* recvbuff,
+                size_t count,
+                datatype_t datatype,
+                cudaStream_t stream) const
+  {
+    RAFT_NCCL_TRY(
+      ncclAllToAll(sendbuff, recvbuff, count, get_nccl_datatype(datatype), nccl_comm_, stream));
+  }
+
   void allreduce(const void* sendbuff,
                  void* recvbuff,
                  size_t count,

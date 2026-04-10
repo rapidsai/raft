@@ -131,6 +131,12 @@ class comms_iface {
 
   virtual void waitall(int count, request_t array_of_requests[]) const = 0;
 
+  virtual void alltoall(const void* sendbuff,
+                        void* recvbuff,
+                        size_t count,
+                        datatype_t datatype,
+                        cudaStream_t stream) const = 0;
+
   virtual void allreduce(const void* sendbuff,
                          void* recvbuff,
                          size_t count,
@@ -336,6 +342,24 @@ class comms_t {
   void waitall(int count, request_t array_of_requests[]) const
   {
     impl_->waitall(count, array_of_requests);
+  }
+
+  /**
+   * Perform an alltoall collective
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuff buffer containing data to send (size = # ranks * count)
+   * @param recvbuff buffer containing data to receive (size = # ranks * count)
+   * @param count number of elements to send to/receive from each rank
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void alltoall(const value_t* sendbuff, value_t* recvbuff, size_t count, cudaStream_t stream) const
+  {
+    impl_->alltoall(static_cast<const void*>(sendbuff),
+                    static_cast<void*>(recvbuff),
+                    count,
+                    get_type<value_t>(),
+                    stream);
   }
 
   /**
