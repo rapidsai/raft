@@ -8,7 +8,7 @@
 #define FUNC_DEF(ValueType, Suffix)                                                              \
   void sparse_randomized_svd_##Suffix(                                                           \
     const raft::resources& handle,                                                               \
-    raft::sparse::solver::sparse_svd_config<ValueType> config,                                   \
+    const raft::sparse::solver::sparse_svd_config<ValueType>& config,                            \
     raft::device_vector_view<int, uint32_t, raft::row_major> indptr,                             \
     raft::device_vector_view<int, uint32_t, raft::row_major> indices,                            \
     raft::device_vector_view<ValueType, uint32_t, raft::row_major> data,                         \

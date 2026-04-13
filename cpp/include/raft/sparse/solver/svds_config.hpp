@@ -17,8 +17,8 @@ namespace raft::sparse::solver {
  */
 template <typename ValueTypeT>
 struct sparse_svd_config {
-  /** @brief Number of singular values/vectors to compute */
-  int n_components;
+  /** @brief Number of singular values/vectors to compute. Must be set by the user. */
+  int n_components = 0;
 
   /** @brief Number of extra random vectors for better approximation.
    *  Total subspace dimension is n_components + n_oversamples. */

@@ -20,7 +20,7 @@ namespace raft::runtime::solver {
 
 void sparse_randomized_svd_float(
   const raft::resources& handle,
-  raft::sparse::solver::sparse_svd_config<float> config,
+  const raft::sparse::solver::sparse_svd_config<float>& config,
   raft::device_vector_view<int, uint32_t, raft::row_major> indptr,
   raft::device_vector_view<int, uint32_t, raft::row_major> indices,
   raft::device_vector_view<float, uint32_t, raft::row_major> data,
@@ -33,7 +33,7 @@ void sparse_randomized_svd_float(
 
 void sparse_randomized_svd_double(
   const raft::resources& handle,
-  raft::sparse::solver::sparse_svd_config<double> config,
+  const raft::sparse::solver::sparse_svd_config<double>& config,
   raft::device_vector_view<int, uint32_t, raft::row_major> indptr,
   raft::device_vector_view<int, uint32_t, raft::row_major> indices,
   raft::device_vector_view<double, uint32_t, raft::row_major> data,

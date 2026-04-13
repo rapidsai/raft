@@ -14,8 +14,8 @@
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/svd.cuh>
+#include <raft/sparse/solver/detail/csr_linear_operator.cuh>
 #include <raft/sparse/solver/randomized_svds.cuh>
-#include <raft/sparse/solver/svds_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -280,14 +280,14 @@ TEST_F(ReconstructionErrorTest, RelativeError) { Run(); }
 
 template <typename ValueType, typename NNZType>
 struct mean_centered_operator {
-  csr_linear_operator<ValueType, NNZType> base_op_;
+  detail::csr_linear_operator<ValueType, NNZType> base_op_;
   ValueType* col_means_;
   int m_, n_;
 
   mean_centered_operator(
     raft::device_csr_matrix_view<ValueType, int, int, NNZType> A,
     ValueType* col_means, int m, int n)
-    : base_op_(A, m, n), col_means_(col_means), m_(m), n_(n) {}
+    : base_op_(A), col_means_(col_means), m_(m), n_(n) {}
 
   int rows() const { return m_; }
   int cols() const { return n_; }

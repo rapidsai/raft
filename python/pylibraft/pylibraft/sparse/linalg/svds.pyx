@@ -7,7 +7,10 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import warnings
+
 import cupy as cp
+import cupyx.scipy.sparse as cupy_sparse
 import numpy as np
 
 from cython.operator cimport dereference as deref
@@ -37,16 +40,13 @@ cdef extern from "raft/sparse/solver/svds_config.hpp" \
         int n_power_iters
         optional[uint64_t] seed
 
-cdef sparse_svd_config[float] config_float
-cdef sparse_svd_config[double] config_double
-
 
 cdef extern from "raft_runtime/solver/randomized_svds.hpp" \
         namespace "raft::runtime::solver" nogil:
 
     cdef void sparse_randomized_svd_float(
         const device_resources &handle,
-        sparse_svd_config[float] config,
+        const sparse_svd_config[float] &config,
         device_vector_view[int, uint32_t] indptr,
         device_vector_view[int, uint32_t] indices,
         device_vector_view[float, uint32_t] data,
@@ -57,7 +57,7 @@ cdef extern from "raft_runtime/solver/randomized_svds.hpp" \
 
     cdef void sparse_randomized_svd_double(
         const device_resources &handle,
-        sparse_svd_config[double] config,
+        const sparse_svd_config[double] &config,
         device_vector_view[int, uint32_t] indptr,
         device_vector_view[int, uint32_t] indices,
         device_vector_view[double, uint32_t] data,
@@ -89,7 +89,7 @@ def svds(A, k=6, n_oversamples=10, n_power_iters=2,
             iterations improve accuracy for matrices with slowly decaying
             singular values. Default 2.
         seed (int or None): Random seed for reproducibility. If ``None``,
-            seed 0 is used.
+            a non-deterministic seed is used.
         handle: RAFT resource handle. If ``None``, a default is created.
 
     Returns:
@@ -109,7 +109,18 @@ def svds(A, k=6, n_oversamples=10, n_power_iters=2,
     """
 
     if A is None:
-        raise Exception("'A' cannot be None!")
+        raise ValueError("'A' cannot be None!")
+
+    if not cupy_sparse.issparse(A):
+        raise TypeError(
+            "Expected a cupyx.scipy.sparse matrix, got %s" % type(A).__name__
+        )
+
+    if not isinstance(A, cupy_sparse.csr_matrix):
+        raise TypeError(
+            "Expected a cupyx.scipy.sparse.csr_matrix, got %s. "
+            "Use A.tocsr() to convert." % type(A).__name__
+        )
 
     m, n = A.shape
 
@@ -125,11 +136,17 @@ def svds(A, k=6, n_oversamples=10, n_power_iters=2,
 
     IndexType = indptr.dtype
     if IndexType == np.int64:
+        warnings.warn(
+            "Input matrix has int64 indices which will be converted to "
+            "int32. This may cause issues if index values exceed 2^31 - 1.",
+            UserWarning,
+            stacklevel=2,
+        )
         indptr = indptr.astype(np.int32)
         indices = indices.astype(np.int32)
     elif IndexType != np.int32:
-        raise ValueError("dtype IndexType=%s not supported, "
-                         "expected int32 or int64" % IndexType)
+        raise TypeError("dtype IndexType=%s not supported, "
+                        "expected int32 or int64" % IndexType)
 
     indptr = cai_wrapper(indptr)
     indices = cai_wrapper(indices)
@@ -162,14 +179,17 @@ def svds(A, k=6, n_oversamples=10, n_power_iters=2,
     handle = handle if handle is not None else Handle()
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
+    cdef sparse_svd_config[float] cfg_float
+    cdef sparse_svd_config[double] cfg_double
+
     if ValueType == np.float32:
-        config_float.n_components = k
-        config_float.n_oversamples = n_oversamples
-        config_float.n_power_iters = n_power_iters
-        config_float.seed = seed_opt
+        cfg_float.n_components = k
+        cfg_float.n_oversamples = n_oversamples
+        cfg_float.n_power_iters = n_power_iters
+        cfg_float.seed = seed_opt
         sparse_randomized_svd_float(
             deref(h),
-            <sparse_svd_config[float]> config_float,
+            cfg_float,
             make_device_vector_view(<int *>indptr_ptr, <uint32_t>(m + 1)),
             make_device_vector_view(<int *>indices_ptr, <uint32_t>nnz),
             make_device_vector_view(<float *>data_ptr, <uint32_t>nnz),
@@ -181,13 +201,13 @@ def svds(A, k=6, n_oversamples=10, n_power_iters=2,
                 <float *>Vt_ptr, <uint32_t>k, <uint32_t>n),
         )
     elif ValueType == np.float64:
-        config_double.n_components = k
-        config_double.n_oversamples = n_oversamples
-        config_double.n_power_iters = n_power_iters
-        config_double.seed = seed_opt
+        cfg_double.n_components = k
+        cfg_double.n_oversamples = n_oversamples
+        cfg_double.n_power_iters = n_power_iters
+        cfg_double.seed = seed_opt
         sparse_randomized_svd_double(
             deref(h),
-            <sparse_svd_config[double]> config_double,
+            cfg_double,
             make_device_vector_view(<int *>indptr_ptr, <uint32_t>(m + 1)),
             make_device_vector_view(<int *>indices_ptr, <uint32_t>nnz),
             make_device_vector_view(<double *>data_ptr, <uint32_t>nnz),
@@ -199,7 +219,7 @@ def svds(A, k=6, n_oversamples=10, n_power_iters=2,
                 <double *>Vt_ptr, <uint32_t>k, <uint32_t>n),
         )
     else:
-        raise ValueError("dtype ValueType=%s not supported, "
-                         "expected float32 or float64" % ValueType)
+        raise TypeError("dtype ValueType=%s not supported, "
+                        "expected float32 or float64" % ValueType)
 
     return (cp.asarray(U_out), cp.asarray(S_out), cp.asarray(Vt_out))

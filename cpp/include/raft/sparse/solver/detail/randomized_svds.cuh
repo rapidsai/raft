@@ -7,6 +7,7 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -17,13 +18,14 @@
 #include <raft/random/rng_state.hpp>
 #include <raft/sparse/solver/detail/cholesky_qr.cuh>
 #include <raft/sparse/solver/detail/svds_sign_correction.cuh>
-#include <raft/sparse/solver/svds_types.hpp>
+#include <raft/sparse/solver/svds_config.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 
 #include <algorithm>
+#include <random>
 
 namespace raft::sparse::solver::detail {
 
@@ -39,12 +41,12 @@ namespace raft::sparse::solver::detail {
  * @tparam ValueTypeT Data type (float or double)
  * @tparam OperatorT Linear operator type providing apply() and apply_transpose()
  *
- * @param handle raft resources handle
- * @param config SVD configuration (n_components, n_oversamples, n_power_iters, seed)
- * @param op linear operator representing the matrix to decompose
- * @param singular_values output singular values of shape (k,) in descending order
- * @param U output left singular vectors of shape (m, k), col-major
- * @param Vt output right singular vectors of shape (k, n), col-major
+ * @param[in] handle raft resources handle
+ * @param[in] config SVD configuration (n_components, n_oversamples, n_power_iters, seed)
+ * @param[in] op linear operator representing the matrix to decompose
+ * @param[out] singular_values output singular values of shape (k,) in descending order
+ * @param[out] U output left singular vectors of shape (m, k), col-major
+ * @param[out] Vt output right singular vectors of shape (k, n), col-major
  */
 template <typename ValueTypeT, typename OperatorT>
 void sparse_randomized_svd(
@@ -80,11 +82,22 @@ void sparse_randomized_svd(
 
   auto stream = raft::resource::get_cuda_stream(handle);
 
-  int block_size = std::min(k + p, std::min(m, n));
+  int min_dim = std::min(m, n);
+  if (k + p > min_dim) {
+    RAFT_LOG_WARN(
+      "n_components (%d) + n_oversamples (%d) = %d exceeds min(n_rows, n_cols) = %d. "
+      "Clamping to %d. This may affect approximation quality.",
+      k,
+      p,
+      k + p,
+      min_dim,
+      min_dim);
+  }
+  int block_size = std::min(k + p, min_dim);
   RAFT_EXPECTS(block_size >= k, "block_size (n_components + n_oversamples) must be >= n_components");
 
   // Initialize RNG
-  uint64_t seed = config.seed.value_or(0);
+  uint64_t seed = config.seed.value_or(std::random_device{}());
   raft::random::RngState rng_state(seed);
 
   // Step 1-3: Y = A @ Omega, orthogonalize
@@ -104,7 +117,9 @@ void sparse_randomized_svd(
                Omega.data_handle(), n, block_size),
              Y.view());
   }  // Omega freed here
-  cholesky_qr2(handle, Y.view());
+  if (!cholesky_qr2(handle, Y.view())) {
+    RAFT_LOG_WARN("CholeskyQR2 fell back to standard QR during initial orthogonalization");
+  }
 
   // Step 4: Power iterations
   auto Z = raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
@@ -117,14 +132,20 @@ void sparse_randomized_svd(
       raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::col_major>(
         Y.data_handle(), m, block_size),
       Z.view());
-    cholesky_qr2(handle, Z.view());
+    if (!cholesky_qr2(handle, Z.view())) {
+      RAFT_LOG_WARN(
+        "CholeskyQR2 fell back to standard QR during power iteration %d (transpose step)", iter);
+    }
 
     // Y = A @ Z  -> (m, block_size)
     op.apply(handle,
              raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::col_major>(
                Z.data_handle(), n, block_size),
              Y.view());
-    cholesky_qr2(handle, Y.view());
+    if (!cholesky_qr2(handle, Y.view())) {
+      RAFT_LOG_WARN(
+        "CholeskyQR2 fell back to standard QR during power iteration %d (forward step)", iter);
+    }
   }
 
   // Q = Y after power iterations (already orthogonal)

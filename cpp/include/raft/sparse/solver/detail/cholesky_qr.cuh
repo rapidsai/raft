@@ -134,10 +134,8 @@ bool cholesky_qr2(raft::resources const& handle,
                         potrf_workspace.data(),
                         potrf_workspace_size,
                         dev_info.data())) {
-    // Fallback to standard QR
-    rmm::device_uvector<ValueTypeT> Q_copy(m * k, stream);
-    raft::copy(Q_copy.data(), Q.data_handle(), m * k, stream);
-    raft::linalg::qrGetQ(handle, Q_copy.data(), Q.data_handle(), m, k, stream);
+    // Fallback to standard QR (qrGetQ handles src==dst via internal copy)
+    raft::linalg::qrGetQ(handle, Q.data_handle(), Q.data_handle(), m, k, stream);
     return false;
   }
 
@@ -150,10 +148,8 @@ bool cholesky_qr2(raft::resources const& handle,
                         potrf_workspace.data(),
                         potrf_workspace_size,
                         dev_info.data())) {
-    // Fallback to standard QR
-    rmm::device_uvector<ValueTypeT> Q_copy(m * k, stream);
-    raft::copy(Q_copy.data(), Q.data_handle(), m * k, stream);
-    raft::linalg::qrGetQ(handle, Q_copy.data(), Q.data_handle(), m, k, stream);
+    // Fallback to standard QR (qrGetQ handles src==dst via internal copy)
+    raft::linalg::qrGetQ(handle, Q.data_handle(), Q.data_handle(), m, k, stream);
     return false;
   }
 
