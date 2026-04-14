@@ -234,7 +234,7 @@ class mpi_comms : public comms_iface {
                 cudaStream_t stream) const
   {
     RAFT_NCCL_TRY(
-      ncclAllToAll(sendbuff, recvbuff, count, get_nccl_datatype(datatype), nccl_comm_, stream));
+      ncclAlltoAll(sendbuff, recvbuff, count, get_nccl_datatype(datatype), nccl_comm_, stream));
   }
 
   void allreduce(const void* sendbuff,
@@ -344,7 +344,7 @@ class mpi_comms : public comms_iface {
       ncclRecv(recvbuf, recvcount, get_nccl_datatype(datatype), root, nccl_comm_, stream));
     if (get_rank() == root) {
       for (int r = 0; r < get_size(); ++r) {
-        RAFT_NCCL_TRY(ncclSend(static_cast<char*>(sendbuf) + displs[r] * dtype_size,
+        RAFT_NCCL_TRY(ncclSend(static_cast<const char*>(sendbuf) + displs[r] * dtype_size,
                                sendcounts[r],
                                get_nccl_datatype(datatype),
                                r,
