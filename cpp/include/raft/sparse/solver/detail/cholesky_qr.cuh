@@ -46,21 +46,21 @@ bool cholesky_qr_pass(raft::resources const& handle,
 
   // W = Q^T @ Q  (k x k)
   // Q is col-major (m x k), so: W = Q^T * Q via gemm(TRANS, NOTRANS, k, k, m)
-  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_h,
-                                                    CUBLAS_OP_T,
-                                                    CUBLAS_OP_N,
-                                                    k,
-                                                    k,
-                                                    m,
-                                                    &one,
-                                                    Q,
-                                                    m,
-                                                    Q,
-                                                    m,
-                                                    &zero,
-                                                    W,
-                                                    k,
-                                                    stream));
+  raft::linalg::gemm(handle,
+                     true,   // trans_a
+                     false,  // trans_b
+                     k,
+                     k,
+                     m,
+                     &one,
+                     Q,
+                     m,
+                     Q,
+                     m,
+                     &zero,
+                     W,
+                     k,
+                     stream);
 
   // L = cholesky(W, LOWER)  — W is overwritten with L in lower triangle
   RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf(
