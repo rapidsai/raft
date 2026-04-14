@@ -268,8 +268,8 @@ bool test_collective_scatterv(raft::resources const& handle, int root)
     communicator.get_rank() == root ? temp_d.data() : nullptr,
     recv_d.data(),
     communicator.get_rank() == root ? sendcounts.data() : static_cast<size_t*>(nullptr),
-    recv_d.size(),
     communicator.get_rank() == root ? displacements.data() : static_cast<size_t*>(nullptr),
+    recv_d.size(),
     root,
     stream);
   communicator.sync_stream(stream);

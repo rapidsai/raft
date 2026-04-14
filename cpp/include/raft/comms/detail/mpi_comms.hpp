@@ -332,8 +332,8 @@ class mpi_comms : public comms_iface {
   void scatterv(const void* sendbuf,
                 void* recvbuf,
                 const size_t* sendcounts,
-                size_t recvcount,
                 const size_t* displs,
+                size_t recvcount,
                 datatype_t datatype,
                 int root,
                 cudaStream_t stream) const

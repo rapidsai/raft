@@ -185,8 +185,8 @@ class comms_iface {
   virtual void scatterv(const void* sendbuf,
                         void* recvbuf,
                         const size_t* sendcounts,
-                        size_t recvcount,
                         const size_t* displs,
+                        size_t recvcount,
                         datatype_t datatype,
                         int root,
                         cudaStream_t stream) const = 0;
@@ -534,16 +534,16 @@ class comms_t {
   void scatterv(const value_t* sendbuf,
                 value_t* recvbuf,
                 const size_t* sendcounts,
-                size_t recvcount,
                 const size_t* displs,
+                size_t recvcount,
                 int root,
                 cudaStream_t stream) const
   {
     impl_->scatterv(static_cast<const void*>(sendbuf),
                     static_cast<void*>(recvbuf),
                     sendcounts,
-                    recvcount,
                     displs,
+                    recvcount,
                     get_type<value_t>(),
                     root,
                     stream);
