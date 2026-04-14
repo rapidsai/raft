@@ -52,6 +52,14 @@ class mock_comms : public comms_iface {
 
   void waitall(int count, request_t array_of_requests[]) const {}
 
+  void alltoall(const void* sendbuff,
+                void* recvbuff,
+                size_t count,
+                datatype_t datatype,
+                cudaStream_t stream) const
+  {
+  }
+
   void allreduce(const void* sendbuff,
                  void* recvbuff,
                  size_t count,
@@ -96,6 +104,26 @@ class mock_comms : public comms_iface {
                   const size_t* displs,
                   datatype_t datatype,
                   cudaStream_t stream) const
+  {
+  }
+
+  void scatter(const void* sendbuff,
+               void* recvbuff,
+               size_t recvcount,
+               datatype_t datatype,
+               int root,
+               cudaStream_t stream) const
+  {
+  }
+
+  void scatterv(const void* sendbuf,
+                void* recvbuf,
+                const size_t* sendcounts,
+                size_t recvcount,
+                const size_t* displs,
+                datatype_t datatype,
+                int root,
+                cudaStream_t stream) const
   {
   }
 
