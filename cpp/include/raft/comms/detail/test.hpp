@@ -25,8 +25,9 @@ namespace detail {
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
+ * @param[in] root the root rank id
  */
-bool test_collective_alltoall(raft::resources const& handle)
+bool test_collective_alltoall(raft::resources const& handle, int root)
 {
   comms_t const& communicator = resource::get_comms(handle);
 
@@ -64,7 +65,7 @@ bool test_collective_alltoall(raft::resources const& handle)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_allreduce(raft::resources const& handle, int root)
 {
@@ -95,7 +96,7 @@ bool test_collective_allreduce(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_broadcast(raft::resources const& handle, int root)
 {
@@ -130,7 +131,7 @@ bool test_collective_broadcast(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_reduce(raft::resources const& handle, int root)
 {
@@ -166,7 +167,7 @@ bool test_collective_reduce(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_allgather(raft::resources const& handle, int root)
 {
@@ -203,7 +204,7 @@ bool test_collective_allgather(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_scatter(raft::resources const& handle, int root)
 {
@@ -239,7 +240,7 @@ bool test_collective_scatter(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_scatterv(raft::resources const& handle, int root)
 {
@@ -273,7 +274,7 @@ bool test_collective_scatterv(raft::resources const& handle, int root)
     stream);
   communicator.sync_stream(stream);
 
-  std::vector<int> temp_h(displacements.back(), 0);
+  std::vector<int> temp_h(recv_d.size(), 0);
   RAFT_CUDA_TRY(cudaMemcpyAsync(
     temp_h.data(), recv_d.data(), sizeof(int) * recv_d.size(), cudaMemcpyDeviceToHost, stream));
   resource::sync_stream(handle, stream);
@@ -289,7 +290,7 @@ bool test_collective_scatterv(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_gather(raft::resources const& handle, int root)
 {
@@ -326,7 +327,7 @@ bool test_collective_gather(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_gatherv(raft::resources const& handle, int root)
 {
@@ -385,7 +386,7 @@ bool test_collective_gatherv(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_reducescatter(raft::resources const& handle, int root)
 {
