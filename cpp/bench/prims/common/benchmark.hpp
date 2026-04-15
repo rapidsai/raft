@@ -33,19 +33,18 @@ namespace raft::bench {
  */
 struct using_pool_memory_res {
  private:
-  rmm::mr::cuda_memory_resource cuda_res_{};
   rmm::mr::pool_memory_resource pool_res_;
   cuda::mr::any_resource<cuda::mr::device_accessible> prev_res_;
 
  public:
   using_pool_memory_res(size_t initial_size, size_t max_size)
-    : pool_res_(cuda_res_, initial_size, max_size),
+    : pool_res_(rmm::mr::cuda_memory_resource{}, initial_size, max_size),
       prev_res_(rmm::mr::set_current_device_resource_ref(pool_res_))
   {
   }
 
   using_pool_memory_res()
-    : pool_res_(cuda_res_, rmm::percent_of_free_device_memory(50)),
+    : pool_res_(rmm::mr::cuda_memory_resource{}, rmm::percent_of_free_device_memory(50)),
       prev_res_(rmm::mr::set_current_device_resource_ref(pool_res_))
   {
   }
