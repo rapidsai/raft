@@ -97,10 +97,9 @@ RAFT_KERNEL svd_sign_correction_kernel(ValueTypeT* U, ValueTypeT* Vt, int m, int
  * @param Vt right singular vectors of shape (k, n), col-major, modified in-place
  */
 template <typename ValueTypeT>
-void svd_sign_correction(
-  raft::resources const& handle,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
+void svd_sign_correction(raft::resources const& handle,
+                         raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
+                         raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
 {
   int m = U.extent(0);
   int k = U.extent(1);

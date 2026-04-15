@@ -37,8 +37,8 @@ bool cholesky_qr_pass(raft::resources const& handle,
                       int workspace_size,
                       int* dev_info)
 {
-  auto stream    = raft::resource::get_cuda_stream(handle);
-  auto cublas_h  = raft::resource::get_cublas_handle(handle);
+  auto stream     = raft::resource::get_cuda_stream(handle);
+  auto cublas_h   = raft::resource::get_cublas_handle(handle);
   auto cusolver_h = raft::resource::get_cusolver_dn_handle(handle);
 
   const ValueTypeT one  = 1;
@@ -75,18 +75,18 @@ bool cholesky_qr_pass(raft::resources const& handle,
   // Q = Q @ L^{-T}
   // This is equivalent to solving X * L^T = Q for X, i.e. trsm with RIGHT, LOWER, TRANS
   RAFT_CUBLAS_TRY(raft::linalg::detail::cublastrsm(cublas_h,
-                                                    CUBLAS_SIDE_RIGHT,
-                                                    CUBLAS_FILL_MODE_LOWER,
-                                                    CUBLAS_OP_T,
-                                                    CUBLAS_DIAG_NON_UNIT,
-                                                    m,
-                                                    k,
-                                                    &one,
-                                                    W,
-                                                    k,
-                                                    Q,
-                                                    m,
-                                                    stream));
+                                                   CUBLAS_SIDE_RIGHT,
+                                                   CUBLAS_FILL_MODE_LOWER,
+                                                   CUBLAS_OP_T,
+                                                   CUBLAS_DIAG_NON_UNIT,
+                                                   m,
+                                                   k,
+                                                   &one,
+                                                   W,
+                                                   k,
+                                                   Q,
+                                                   m,
+                                                   stream));
 
   return true;
 }

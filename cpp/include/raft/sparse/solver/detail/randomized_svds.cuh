@@ -49,13 +49,12 @@ namespace raft::sparse::solver::detail {
  * @param[out] Vt output right singular vectors of shape (k, n), col-major
  */
 template <typename ValueTypeT, typename OperatorT>
-void sparse_randomized_svd(
-  raft::resources const& handle,
-  sparse_svd_config<ValueTypeT> const& config,
-  OperatorT const& op,
-  raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
+void sparse_randomized_svd(raft::resources const& handle,
+                           sparse_svd_config<ValueTypeT> const& config,
+                           OperatorT const& op,
+                           raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
+                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
+                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "raft::sparse::solver::sparse_randomized_svd(%d, %d, %d)",
@@ -76,9 +75,8 @@ void sparse_randomized_svd(
                "singular_values must have size n_components");
   RAFT_EXPECTS(U.extent(0) == static_cast<uint32_t>(m) && U.extent(1) == static_cast<uint32_t>(k),
                "U must have shape (m, n_components)");
-  RAFT_EXPECTS(
-    Vt.extent(0) == static_cast<uint32_t>(k) && Vt.extent(1) == static_cast<uint32_t>(n),
-    "Vt must have shape (n_components, n)");
+  RAFT_EXPECTS(Vt.extent(0) == static_cast<uint32_t>(k) && Vt.extent(1) == static_cast<uint32_t>(n),
+               "Vt must have shape (n_components, n)");
 
   auto stream = raft::resource::get_cuda_stream(handle);
 
@@ -94,7 +92,8 @@ void sparse_randomized_svd(
       min_dim);
   }
   int block_size = std::min(k + p, min_dim);
-  RAFT_EXPECTS(block_size >= k, "block_size (n_components + n_oversamples) must be >= n_components");
+  RAFT_EXPECTS(block_size >= k,
+               "block_size (n_components + n_oversamples) must be >= n_components");
 
   // Initialize RNG
   uint64_t seed = config.seed.value_or(std::random_device{}());
@@ -127,11 +126,10 @@ void sparse_randomized_svd(
 
   for (int iter = 0; iter < config.n_power_iters; ++iter) {
     // Z = A^T @ Q  -> (n, block_size)
-    op.apply_transpose(
-      handle,
-      raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::col_major>(
-        Y.data_handle(), m, block_size),
-      Z.view());
+    op.apply_transpose(handle,
+                       raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::col_major>(
+                         Y.data_handle(), m, block_size),
+                       Z.view());
     if (!cholesky_qr2(handle, Z.view())) {
       RAFT_LOG_WARN(
         "CholeskyQR2 fell back to standard QR during power iteration %d (transpose step)", iter);
@@ -143,8 +141,8 @@ void sparse_randomized_svd(
                Z.data_handle(), n, block_size),
              Y.view());
     if (!cholesky_qr2(handle, Y.view())) {
-      RAFT_LOG_WARN(
-        "CholeskyQR2 fell back to standard QR during power iteration %d (forward step)", iter);
+      RAFT_LOG_WARN("CholeskyQR2 fell back to standard QR during power iteration %d (forward step)",
+                    iter);
     }
   }
 
@@ -152,11 +150,10 @@ void sparse_randomized_svd(
   // Q is (m, block_size)
 
   // Step 5: Bt = A^T @ Q  -> (n, block_size)
-  op.apply_transpose(
-    handle,
-    raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::col_major>(
-      Y.data_handle(), m, block_size),
-    Z.view());
+  op.apply_transpose(handle,
+                     raft::make_device_matrix_view<const ValueTypeT, uint32_t, raft::col_major>(
+                       Y.data_handle(), m, block_size),
+                     Z.view());
 
   // Step 6-7: SVD of B = Bt^T where Bt = Z (n x block_size, tall matrix)
   // We compute SVD(Bt) directly to avoid cuSOLVER gesvd issues with wide matrices.
@@ -167,23 +164,23 @@ void sparse_randomized_svd(
   // Z is (n, block_size) = A^T @ Q = B^T. We can reuse Z directly!
   // SVD(Bt) with Bt being (n x block_size): jobu='S' gives U_bt (n x block_size),
   // jobvt='A' gives Vt_bt (block_size x block_size)
-  auto U_bt  = raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
+  auto U_bt = raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
     handle, static_cast<uint32_t>(n), static_cast<uint32_t>(block_size));
   auto Vt_bt = raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
     handle, static_cast<uint32_t>(block_size), static_cast<uint32_t>(block_size));
 
   // Z is consumed by svdQR (modifies input in-place) — this is fine since Z is not used after
   raft::linalg::svdQR(handle,
-                       Z.data_handle(),
-                       n,
-                       block_size,
-                       S_full.data_handle(),
-                       U_bt.data_handle(),
-                       Vt_bt.data_handle(),
-                       true,   // transpose right vectors: Vt_bt -> V_bt (block_size x block_size)
-                       true,   // generate left vectors
-                       true,   // generate right vectors
-                       stream);
+                      Z.data_handle(),
+                      n,
+                      block_size,
+                      S_full.data_handle(),
+                      U_bt.data_handle(),
+                      Vt_bt.data_handle(),
+                      true,  // transpose right vectors: Vt_bt -> V_bt (block_size x block_size)
+                      true,  // generate left vectors
+                      true,  // generate right vectors
+                      stream);
   // After svdQR with trans_right=true:
   //   U_bt is (n, block_size) — left singular vectors of Bt
   //   Vt_bt is now V_bt (block_size x block_size) — right singular vectors of Bt (transposed)
@@ -198,18 +195,18 @@ void sparse_randomized_svd(
   const ValueTypeT one  = 1;
   const ValueTypeT zero = 0;
   raft::linalg::gemm(handle,
-                      Y.data_handle(),
-                      m,
-                      block_size,
-                      Vt_bt.data_handle(),  // This is V_bt after trans_right=true
-                      U.data_handle(),
-                      m,
-                      k,
-                      CUBLAS_OP_N,
-                      CUBLAS_OP_N,
-                      one,
-                      zero,
-                      stream);
+                     Y.data_handle(),
+                     m,
+                     block_size,
+                     Vt_bt.data_handle(),  // This is V_bt after trans_right=true
+                     U.data_handle(),
+                     m,
+                     k,
+                     CUBLAS_OP_N,
+                     CUBLAS_OP_N,
+                     one,
+                     zero,
+                     stream);
 
   // Step 9: Truncate S and Vt
   raft::copy(singular_values.data_handle(), S_full.data_handle(), k, stream);

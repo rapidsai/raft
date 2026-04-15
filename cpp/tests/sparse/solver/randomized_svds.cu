@@ -52,24 +52,21 @@ std::vector<IndexType> golden_indices()
 template <typename ValueType>
 std::vector<ValueType> golden_values()
 {
-  return {0.1887315, 0.1368716, 0.1613618, 0.4839568, 0.4151455, 0.9012728, 0.7806592,
-          0.6713938, 0.4281978, 0.5782541, 0.4538292, 0.0404218, 0.1264595, 0.3271811,
-          0.0725956, 0.0031886, 0.6529871, 0.7025284, 0.1509823, 0.2051058, 0.6743041,
-          0.7965932, 0.5618279, 0.3343601, 0.8330396, 0.6796557, 0.5684967, 0.2353606,
-          0.8159586, 0.3035201, 0.7145222, 0.7080131, 0.4448774, 0.8879446, 0.2896976,
-          0.5502138, 0.3758983, 0.6988429, 0.6113330, 0.3722922, 0.4468638, 0.8808504,
-          0.0408660, 0.6595733, 0.5429990, 0.7350115, 0.3736090, 0.9308268, 0.8861471,
-          0.3089533, 0.3642297, 0.4673888, 0.8658971, 0.8499948, 0.6036414, 0.0184879,
-          0.6970348, 0.1920955, 0.0650081, 0.7614104, 0.1568318, 0.3703384, 0.5869733,
-          0.1282817, 0.2451350, 0.9711478, 0.5114062, 0.5030190, 0.5759066, 0.8097631,
-          0.3580396, 0.4049093, 0.1618905, 0.2125666, 0.1163929, 0.4818056, 0.7425613,
-          0.7851025, 0.7386931, 0.7113866, 0.5566008, 0.5112362, 0.5538779, 0.0846058,
-          0.3478690, 0.2713018, 0.5058042, 0.4784714, 0.6136972, 0.5514663, 0.6401569,
-          0.1399612, 0.3880760, 0.6163719, 0.5653080, 0.4741685, 0.3447469, 0.8718122,
-          0.8952977, 0.7043414, 0.7425023, 0.4490941, 0.3434426, 0.4157445, 0.2318376,
-          0.6219735, 0.0641180, 0.8132253, 0.7734252, 0.0820893, 0.1556361, 0.1998085,
-          0.2101485, 0.0405817, 0.2176879, 0.9811354, 0.2048657, 0.4163201, 0.3513670,
-          0.2649395};
+  return {0.1887315, 0.1368716, 0.1613618, 0.4839568, 0.4151455, 0.9012728, 0.7806592, 0.6713938,
+          0.4281978, 0.5782541, 0.4538292, 0.0404218, 0.1264595, 0.3271811, 0.0725956, 0.0031886,
+          0.6529871, 0.7025284, 0.1509823, 0.2051058, 0.6743041, 0.7965932, 0.5618279, 0.3343601,
+          0.8330396, 0.6796557, 0.5684967, 0.2353606, 0.8159586, 0.3035201, 0.7145222, 0.7080131,
+          0.4448774, 0.8879446, 0.2896976, 0.5502138, 0.3758983, 0.6988429, 0.6113330, 0.3722922,
+          0.4468638, 0.8808504, 0.0408660, 0.6595733, 0.5429990, 0.7350115, 0.3736090, 0.9308268,
+          0.8861471, 0.3089533, 0.3642297, 0.4673888, 0.8658971, 0.8499948, 0.6036414, 0.0184879,
+          0.6970348, 0.1920955, 0.0650081, 0.7614104, 0.1568318, 0.3703384, 0.5869733, 0.1282817,
+          0.2451350, 0.9711478, 0.5114062, 0.5030190, 0.5759066, 0.8097631, 0.3580396, 0.4049093,
+          0.1618905, 0.2125666, 0.1163929, 0.4818056, 0.7425613, 0.7851025, 0.7386931, 0.7113866,
+          0.5566008, 0.5112362, 0.5538779, 0.0846058, 0.3478690, 0.2713018, 0.5058042, 0.4784714,
+          0.6136972, 0.5514663, 0.6401569, 0.1399612, 0.3880760, 0.6163719, 0.5653080, 0.4741685,
+          0.3447469, 0.8718122, 0.8952977, 0.7043414, 0.7425023, 0.4490941, 0.3434426, 0.4157445,
+          0.2318376, 0.6219735, 0.0641180, 0.8132253, 0.7734252, 0.0820893, 0.1556361, 0.1998085,
+          0.2101485, 0.0405817, 0.2176879, 0.9811354, 0.2048657, 0.4163201, 0.3513670, 0.2649395};
 }
 
 template <typename ValueType>
@@ -133,20 +130,29 @@ class RandomizedSvdsTest : public ::testing::Test {
     sparse_randomized_svd(handle, config, csr_matrix, S.view(), U.view(), Vt.view());
 
     // Singular values must match golden ground truth
-    ASSERT_TRUE(raft::devArrMatch<ValueType>(S.data_handle(),
-                                             expected_S.data_handle(),
-                                             k,
-                                             raft::CompareApprox<ValueType>(0.05),
-                                             stream));
+    ASSERT_TRUE(raft::devArrMatch<ValueType>(
+      S.data_handle(), expected_S.data_handle(), k, raft::CompareApprox<ValueType>(0.05), stream));
 
     // U must be orthogonal: U^T U ~ I_k
-    auto UtU = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, k);
+    auto UtU      = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, k);
     ValueType one = 1, zero = 0;
-    raft::linalg::gemm(handle, U.data_handle(), m, k, U.data_handle(),
-                        UtU.data_handle(), k, k, CUBLAS_OP_T, CUBLAS_OP_N, one, zero, stream);
+    raft::linalg::gemm(handle,
+                       U.data_handle(),
+                       m,
+                       k,
+                       U.data_handle(),
+                       UtU.data_handle(),
+                       k,
+                       k,
+                       CUBLAS_OP_T,
+                       CUBLAS_OP_N,
+                       one,
+                       zero,
+                       stream);
 
     std::vector<ValueType> I_k(k * k, 0);
-    for (int i = 0; i < k; i++) I_k[i * k + i] = 1;
+    for (int i = 0; i < k; i++)
+      I_k[i * k + i] = 1;
     auto I_k_dev = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, k);
     raft::update_device(I_k_dev.data_handle(), I_k.data(), k * k, stream);
 
@@ -158,8 +164,19 @@ class RandomizedSvdsTest : public ::testing::Test {
 
     // Vt must have orthonormal rows: Vt Vt^T ~ I_k
     auto VVt = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, k);
-    raft::linalg::gemm(handle, Vt.data_handle(), k, n, Vt.data_handle(),
-                        VVt.data_handle(), k, k, CUBLAS_OP_N, CUBLAS_OP_T, one, zero, stream);
+    raft::linalg::gemm(handle,
+                       Vt.data_handle(),
+                       k,
+                       n,
+                       Vt.data_handle(),
+                       VVt.data_handle(),
+                       k,
+                       k,
+                       CUBLAS_OP_N,
+                       CUBLAS_OP_T,
+                       one,
+                       zero,
+                       stream);
 
     ASSERT_TRUE(raft::devArrMatch<ValueType>(VVt.data_handle(),
                                              I_k_dev.data_handle(),
@@ -208,15 +225,16 @@ struct ReconstructionErrorTest : public ::testing::Test {
     raft::update_device(d_indices.data_handle(), h_indices.data(), nnz, stream);
     raft::update_device(d_values.data_handle(), h_values.data(), nnz, stream);
 
-    auto csr_structure =
-      raft::make_device_compressed_structure_view<int, int, int>(
-        d_indptr.data_handle(), d_indices.data_handle(), m, n, nnz);
+    auto csr_structure = raft::make_device_compressed_structure_view<int, int, int>(
+      d_indptr.data_handle(), d_indices.data_handle(), m, n, nnz);
     auto csr_matrix = raft::make_device_csr_matrix_view<ValueType, int, int, int>(
       d_values.data_handle(), csr_structure);
 
     sparse_svd_config<ValueType> config;
-    config.n_components = k; config.n_oversamples = 10;
-    config.n_power_iters = 4; config.seed = 42;
+    config.n_components  = k;
+    config.n_oversamples = 10;
+    config.n_power_iters = 4;
+    config.seed          = 42;
 
     auto S  = raft::make_device_vector<ValueType, uint32_t>(handle, k);
     auto U  = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, k);
@@ -237,10 +255,21 @@ struct ReconstructionErrorTest : public ::testing::Test {
     }
 
     // recon = US @ Vt
-    auto recon = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, n);
+    auto recon    = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, n);
     ValueType one = 1, zero = 0;
-    raft::linalg::gemm(handle, US.data_handle(), m, k, Vt.data_handle(),
-                        recon.data_handle(), m, n, CUBLAS_OP_N, CUBLAS_OP_N, one, zero, stream);
+    raft::linalg::gemm(handle,
+                       US.data_handle(),
+                       m,
+                       k,
+                       Vt.data_handle(),
+                       recon.data_handle(),
+                       m,
+                       n,
+                       CUBLAS_OP_N,
+                       CUBLAS_OP_N,
+                       one,
+                       zero,
+                       stream);
 
     // Build dense A on host
     std::vector<ValueType> h_dense(m * n, 0);
@@ -284,10 +313,13 @@ struct mean_centered_operator {
   ValueType* col_means_;
   int m_, n_;
 
-  mean_centered_operator(
-    raft::device_csr_matrix_view<ValueType, int, int, NNZType> A,
-    ValueType* col_means, int m, int n)
-    : base_op_(A), col_means_(col_means), m_(m), n_(n) {}
+  mean_centered_operator(raft::device_csr_matrix_view<ValueType, int, int, NNZType> A,
+                         ValueType* col_means,
+                         int m,
+                         int n)
+    : base_op_(A), col_means_(col_means), m_(m), n_(n)
+  {
+  }
 
   int rows() const { return m_; }
   int cols() const { return n_; }
@@ -307,12 +339,34 @@ struct mean_centered_operator {
     std::vector<ValueType> h(m_, 1);
     raft::update_device(ones.data(), h.data(), m_, stream);
     ValueType a1 = 1, a0 = 0, am1 = -1;
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(
-      cublas, CUBLAS_OP_T, n_, bk, &a1, X.data_handle(), n_,
-      col_means_, 1, &a0, corr.data(), 1, stream));
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(
-      cublas, CUBLAS_OP_N, CUBLAS_OP_N, m_, bk, 1,
-      &am1, ones.data(), m_, corr.data(), 1, &a1, Y.data_handle(), m_, stream));
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(cublas,
+                                                     CUBLAS_OP_T,
+                                                     n_,
+                                                     bk,
+                                                     &a1,
+                                                     X.data_handle(),
+                                                     n_,
+                                                     col_means_,
+                                                     1,
+                                                     &a0,
+                                                     corr.data(),
+                                                     1,
+                                                     stream));
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas,
+                                                     CUBLAS_OP_N,
+                                                     CUBLAS_OP_N,
+                                                     m_,
+                                                     bk,
+                                                     1,
+                                                     &am1,
+                                                     ones.data(),
+                                                     m_,
+                                                     corr.data(),
+                                                     1,
+                                                     &a1,
+                                                     Y.data_handle(),
+                                                     m_,
+                                                     stream));
   }
 
   // Z = (A - 1*mean^T)^T @ X = A^T@X - mean * (1^T @ X)
@@ -329,12 +383,34 @@ struct mean_centered_operator {
     std::vector<ValueType> h(m_, 1);
     raft::update_device(ones.data(), h.data(), m_, stream);
     ValueType a1 = 1, a0 = 0, am1 = -1;
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(
-      cublas, CUBLAS_OP_T, m_, bk, &a1, X.data_handle(), m_,
-      ones.data(), 1, &a0, sums.data(), 1, stream));
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(
-      cublas, CUBLAS_OP_N, CUBLAS_OP_N, n_, bk, 1,
-      &am1, col_means_, n_, sums.data(), 1, &a1, Z.data_handle(), n_, stream));
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(cublas,
+                                                     CUBLAS_OP_T,
+                                                     m_,
+                                                     bk,
+                                                     &a1,
+                                                     X.data_handle(),
+                                                     m_,
+                                                     ones.data(),
+                                                     1,
+                                                     &a0,
+                                                     sums.data(),
+                                                     1,
+                                                     stream));
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas,
+                                                     CUBLAS_OP_N,
+                                                     CUBLAS_OP_N,
+                                                     n_,
+                                                     bk,
+                                                     1,
+                                                     &am1,
+                                                     col_means_,
+                                                     n_,
+                                                     sums.data(),
+                                                     1,
+                                                     &a1,
+                                                     Z.data_handle(),
+                                                     n_,
+                                                     stream));
   }
 };
 
@@ -378,7 +454,8 @@ class MeanCenteredOperatorTest : public ::testing::Test {
 
     std::vector<ValueType> h_means(n, 0);
     for (int j = 0; j < n; j++) {
-      for (int i = 0; i < m; i++) h_means[j] += dense[j * m + i];
+      for (int i = 0; i < m; i++)
+        h_means[j] += dense[j * m + i];
       h_means[j] /= m;
     }
     auto d_means = raft::make_device_vector<ValueType, uint32_t>(handle, n);
@@ -390,14 +467,23 @@ class MeanCenteredOperatorTest : public ::testing::Test {
       for (int i = 0; i < m; i++)
         centered[j * m + i] = dense[j * m + i] - h_means[j];
 
-    auto centered_dev = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, n);
+    auto centered_dev =
+      raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, n);
     raft::update_device(centered_dev.data_handle(), centered.data(), m * n, stream);
     auto ref_S  = raft::make_device_vector<ValueType, uint32_t>(handle, n);
     auto ref_U  = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, n);
     auto ref_Vt = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, n, n);
-    raft::linalg::svdQR(handle, centered_dev.data_handle(), m, n,
-                         ref_S.data_handle(), ref_U.data_handle(), ref_Vt.data_handle(),
-                         false, true, true, stream);
+    raft::linalg::svdQR(handle,
+                        centered_dev.data_handle(),
+                        m,
+                        n,
+                        ref_S.data_handle(),
+                        ref_U.data_handle(),
+                        ref_Vt.data_handle(),
+                        false,
+                        true,
+                        true,
+                        stream);
 
     // Operator-based SVD
     mean_centered_operator<ValueType, IndexType> op(csr_matrix, d_means.data_handle(), m, n);
@@ -414,11 +500,8 @@ class MeanCenteredOperatorTest : public ::testing::Test {
     sparse_randomized_svd(handle, config, op, S.view(), U.view(), Vt.view());
 
     // Singular values must match dense centered ground truth
-    ASSERT_TRUE(raft::devArrMatch<ValueType>(S.data_handle(),
-                                             ref_S.data_handle(),
-                                             k,
-                                             raft::CompareApprox<ValueType>(0.1),
-                                             stream));
+    ASSERT_TRUE(raft::devArrMatch<ValueType>(
+      S.data_handle(), ref_S.data_handle(), k, raft::CompareApprox<ValueType>(0.1), stream));
   }
 
   raft::resources handle;

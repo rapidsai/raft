@@ -213,7 +213,7 @@ class TestSvds:
 
         # Relative error should be reasonable (not reconstructing full matrix)
         assert err / norm_A < 1.0, (
-            f"Reconstruction error too large: {float(err/norm_A):.4f}"
+            f"Reconstruction error too large: {float(err / norm_A):.4f}"
         )
 
     def test_shapes(self):
@@ -233,7 +233,11 @@ class TestSvds:
 
         # Convert to int64 indices
         A_i64 = sparse.csr_matrix(
-            (A.data, A.indices.astype(cupy.int64), A.indptr.astype(cupy.int64)),
+            (
+                A.data,
+                A.indices.astype(cupy.int64),
+                A.indptr.astype(cupy.int64),
+            ),
             shape=A.shape,
         )
         U, S, Vt = svds(A_i64, k=k, seed=42)
@@ -241,7 +245,7 @@ class TestSvds:
         assert all(cupy.asnumpy(S) > 0)
 
     def test_invalid_k(self):
-        """k out of range must raise ValueError."""
+        """K out of range must raise ValueError."""
         A = sparse.random(20, 15, density=0.3, format="csr")
         with pytest.raises(ValueError):
             svds(A, k=0)
@@ -259,4 +263,6 @@ class TestSvds:
         _, S2, _ = svds(A, k=k, seed=123)
 
         tol = 1e-5 if dtype == numpy.float32 else 1e-10
-        assert cupy.allclose(S1, S2, atol=tol), "Not reproducible with same seed"
+        assert cupy.allclose(S1, S2, atol=tol), (
+            "Not reproducible with same seed"
+        )

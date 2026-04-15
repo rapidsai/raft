@@ -49,13 +49,12 @@ namespace raft::sparse::solver {
  *       on Graphics Processors" https://arxiv.org/abs/2403.06218
  */
 template <typename ValueTypeT, typename OperatorT>
-void sparse_randomized_svd(
-  raft::resources const& handle,
-  sparse_svd_config<ValueTypeT> const& config,
-  OperatorT const& op,
-  raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
+void sparse_randomized_svd(raft::resources const& handle,
+                           sparse_svd_config<ValueTypeT> const& config,
+                           OperatorT const& op,
+                           raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
+                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
+                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
 {
   detail::sparse_randomized_svd(handle, config, op, singular_values, U, Vt);
 }
@@ -76,13 +75,12 @@ void sparse_randomized_svd(
  * @param[out] Vt output right singular vectors of shape (n_components, n), col-major
  */
 template <typename ValueTypeT, typename NNZTypeT>
-void sparse_randomized_svd(
-  raft::resources const& handle,
-  sparse_svd_config<ValueTypeT> const& config,
-  raft::device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT> A,
-  raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
+void sparse_randomized_svd(raft::resources const& handle,
+                           sparse_svd_config<ValueTypeT> const& config,
+                           raft::device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT> A,
+                           raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
+                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
+                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
 {
   detail::csr_linear_operator<ValueTypeT, NNZTypeT> op(A);
   detail::sparse_randomized_svd(handle, config, op, singular_values, U, Vt);
@@ -94,13 +92,12 @@ void sparse_randomized_svd(
  * Overload accepting a mutable CSR matrix view (implicitly converted to const).
  */
 template <typename ValueTypeT, typename NNZTypeT>
-void sparse_randomized_svd(
-  raft::resources const& handle,
-  sparse_svd_config<ValueTypeT> const& config,
-  raft::device_csr_matrix_view<ValueTypeT, int, int, NNZTypeT> A,
-  raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
-  raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
+void sparse_randomized_svd(raft::resources const& handle,
+                           sparse_svd_config<ValueTypeT> const& config,
+                           raft::device_csr_matrix_view<ValueTypeT, int, int, NNZTypeT> A,
+                           raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
+                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
+                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
 {
   detail::csr_linear_operator<ValueTypeT, NNZTypeT> op(A);
   detail::sparse_randomized_svd(handle, config, op, singular_values, U, Vt);

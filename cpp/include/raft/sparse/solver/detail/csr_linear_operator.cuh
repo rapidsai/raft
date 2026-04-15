@@ -28,19 +28,15 @@ struct csr_linear_operator {
   /**
    * @brief Construct from a const CSR matrix view
    */
-  explicit csr_linear_operator(
-    raft::device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT> A)
-    : A_(A),
-      m_(A.structure_view().get_n_rows()),
-      n_(A.structure_view().get_n_cols())
+  explicit csr_linear_operator(raft::device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT> A)
+    : A_(A), m_(A.structure_view().get_n_rows()), n_(A.structure_view().get_n_cols())
   {
   }
 
   /**
    * @brief Construct from a mutable CSR matrix view (converts to const)
    */
-  explicit csr_linear_operator(
-    raft::device_csr_matrix_view<ValueTypeT, int, int, NNZTypeT> A)
+  explicit csr_linear_operator(raft::device_csr_matrix_view<ValueTypeT, int, int, NNZTypeT> A)
     : A_(raft::make_device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT>(
         A.get_elements().data(), A.structure_view())),
       m_(A.structure_view().get_n_rows()),
@@ -52,10 +48,7 @@ struct csr_linear_operator {
   int cols() const { return n_; }
 
   /** @brief Access the underlying const CSR matrix view (for SpMV operations) */
-  raft::device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT> csr_view() const
-  {
-    return A_;
-  }
+  raft::device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT> csr_view() const { return A_; }
 
   /**
    * @brief Compute Y = A @ X
