@@ -274,7 +274,7 @@ struct cartesian_registrar<Class> {
   static void run(const std::string case_name, const Fixed&... fixed)
   {
     auto* b = ::benchmark::internal::RegisterBenchmarkInternal(
-      new Fixture<Class, Fixed...>(case_name, fixed...));
+      std::unique_ptr<::benchmark::Fixture>(new Fixture<Class, Fixed...>(case_name, fixed...)));
     b->UseManualTime();
     b->Unit(benchmark::kMillisecond);
   }
