@@ -51,14 +51,14 @@ struct sample : public fixture {
   sample(const sample_inputs& p)
     : params(p),
       pool_mr(rmm::mr::get_current_device_resource_ref(), 2 * GiB),
-      prev_mr(rmm::mr::set_current_device_resource_ref(pool_mr)),
+      prev_mr(rmm::mr::set_current_device_resource(pool_mr)),
       in(make_device_vector<T, int64_t>(res, p.n_samples)),
       out(make_device_vector<T, int64_t>(res, p.n_train))
   {
     raft::random::RngState r(123456ULL);
   }
 
-  ~sample() { rmm::mr::set_current_device_resource_ref(prev_mr); }
+  ~sample() { rmm::mr::set_current_device_resource(prev_mr); }
   void run_benchmark(::benchmark::State& state) override
   {
     std::ostringstream label_stream;

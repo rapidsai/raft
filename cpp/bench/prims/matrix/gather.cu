@@ -36,7 +36,7 @@ struct Gather : public fixture {
   Gather(const GatherParams<IdxT>& p)
     : params(p),
       pool_mr(rmm::mr::get_current_device_resource_ref(), 2 * (1ULL << 30)),
-      prev_res_(rmm::mr::set_current_device_resource_ref(pool_mr)),
+      prev_res_(rmm::mr::set_current_device_resource(pool_mr)),
       matrix(this->handle),
       map(this->handle),
       out(this->handle),
@@ -45,7 +45,7 @@ struct Gather : public fixture {
   {
   }
 
-  ~Gather() { rmm::mr::set_current_device_resource_ref(prev_res_); }
+  ~Gather() { rmm::mr::set_current_device_resource(prev_res_); }
 
   void allocate_data(const ::benchmark::State& state) override
   {

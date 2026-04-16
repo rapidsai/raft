@@ -156,7 +156,7 @@ struct device_resources_manager {
               upstream,
               params.init_mem_pool_size.value_or(rmm::percent_of_free_device_memory(50)),
               params.max_mem_pool_size);
-            rmm::mr::set_current_device_resource_ref(*result);
+            rmm::mr::set_current_device_resource(*result);
           }
           return result;
         }()}

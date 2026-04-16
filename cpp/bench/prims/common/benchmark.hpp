@@ -39,17 +39,17 @@ struct using_pool_memory_res {
  public:
   using_pool_memory_res(size_t initial_size, size_t max_size)
     : pool_res_(rmm::mr::cuda_memory_resource{}, initial_size, max_size),
-      prev_res_(rmm::mr::set_current_device_resource_ref(pool_res_))
+      prev_res_(rmm::mr::set_current_device_resource(pool_res_))
   {
   }
 
   using_pool_memory_res()
     : pool_res_(rmm::mr::cuda_memory_resource{}, rmm::percent_of_free_device_memory(50)),
-      prev_res_(rmm::mr::set_current_device_resource_ref(pool_res_))
+      prev_res_(rmm::mr::set_current_device_resource(pool_res_))
   {
   }
 
-  ~using_pool_memory_res() { rmm::mr::set_current_device_resource_ref(prev_res_); }
+  ~using_pool_memory_res() { rmm::mr::set_current_device_resource(prev_res_); }
 };
 
 /**

@@ -107,7 +107,7 @@ class memory_tracking_resources : public resources {
   {
     report_.stop();
     raft::mr::set_default_host_resource(old_host_ref_);
-    rmm::mr::set_current_device_resource_ref(old_device_ref_);
+    rmm::mr::set_current_device_resource(old_device_ref_);
   }
 
   memory_tracking_resources(memory_tracking_resources const&)            = delete;
@@ -198,7 +198,7 @@ class memory_tracking_resources : public resources {
       device_stats_t sa{old_device_ref_};
       report_.register_source("device", sa.get_stats());
       device_adaptor_ = std::make_unique<device_notify_t>(std::move(sa), report_.get_notifier());
-      rmm::mr::set_current_device_resource_ref(*device_adaptor_);
+      rmm::mr::set_current_device_resource(*device_adaptor_);
     }
 
     // --- Workspace (track upstream to preserve limiting_resource_adaptor) ---
