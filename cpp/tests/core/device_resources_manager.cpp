@@ -7,6 +7,7 @@
 #include <raft/core/logger.hpp>
 
 #include <rmm/mr/per_device_resource.hpp>
+#include <rmm/mr/pool_memory_resource.hpp>
 
 #include <cuda_runtime_api.h>
 
@@ -35,6 +36,7 @@ TEST(DeviceResourcesManager, ObeysSetters)
   auto pools_per_device   = 3;
   auto streams_per_pool   = 7;
   auto workspace_limit    = 2048;
+  auto workspace_init     = 1024;
   device_resources_manager::set_streams_per_device(streams_per_device);
   device_resources_manager::set_stream_pools_per_device(pools_per_device, streams_per_pool);
   device_resources_manager::set_mem_pool();
@@ -45,6 +47,15 @@ TEST(DeviceResourcesManager, ObeysSetters)
 
   // Provide lock for counting unique objects
   auto mtx = std::mutex{};
+
+  for (auto i = std::size_t{}; i < devices.size(); ++i) {
+    auto scoped_device = device_setter{devices[i]};
+    auto upstream      = rmm::mr::get_current_device_resource_ref();
+    device_resources_manager::set_workspace_memory_resource(
+      raft::mr::device_resource{
+        rmm::mr::pool_memory_resource(upstream, workspace_init, workspace_limit)},
+      devices[i]);
+  }
 
   // Suppress the many warnings from testing use of setters after initial
   // get_device_resources call
@@ -83,6 +94,9 @@ TEST(DeviceResourcesManager, ObeysSetters)
     device_resources_manager::set_stream_pools_per_device(pools_per_device - 1);
     device_resources_manager::set_mem_pool();
     device_resources_manager::set_workspace_allocation_limit(1024);
+    device_resources_manager::set_workspace_memory_resource(
+      raft::mr::device_resource{rmm::mr::get_current_device_resource_ref()},
+      devices[i % devices.size()]);
   }
 
   EXPECT_EQ(streams_per_device, unique_streams[devices[0]].size());
