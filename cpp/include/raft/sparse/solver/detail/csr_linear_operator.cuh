@@ -13,11 +13,14 @@
 namespace raft::sparse::solver::detail {
 
 /**
- * @brief Linear operator wrapping a CSR sparse matrix for use with sparse SVD solvers.
+ * @brief CSR matrix wrapper providing apply() / apply_transpose() for the sparse SVD solver.
  *
- * Provides apply() (Y = A @ X) and apply_transpose() (Z = A^T @ X) using cuSPARSE SpMM.
+ * This is NOT a general-purpose LinearOperator (in the sense of scipy's
+ * `scipy.sparse.linalg.LinearOperator`): it only exposes the two products the
+ * randomized SVD inner loop needs (Y = A @ X and Z = A^T @ X) via cuSPARSE SpMM.
+ * It intentionally lives in `detail/` and is not part of the public API.
  *
- * @note The cuSPARSE spmm wrapper requires int for indptr/indices types, so this operator
+ * @note The cuSPARSE spmm wrapper requires `int` for indptr/indices types, so this wrapper
  *       is currently limited to int-indexed CSR matrices.
  *
  * @tparam ValueTypeT Data type of matrix values
@@ -33,21 +36,10 @@ struct csr_linear_operator {
   {
   }
 
-  /**
-   * @brief Construct from a mutable CSR matrix view (converts to const)
-   */
-  explicit csr_linear_operator(raft::device_csr_matrix_view<ValueTypeT, int, int, NNZTypeT> A)
-    : A_(raft::make_device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT>(
-        A.get_elements().data(), A.structure_view())),
-      m_(A.structure_view().get_n_rows()),
-      n_(A.structure_view().get_n_cols())
-  {
-  }
-
   int rows() const { return m_; }
   int cols() const { return n_; }
 
-  /** @brief Access the underlying const CSR matrix view (for SpMV operations) */
+  /** @brief Access the underlying const CSR matrix view */
   raft::device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT> csr_view() const { return A_; }
 
   /**

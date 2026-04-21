@@ -44,9 +44,10 @@ cdef extern from "raft/sparse/solver/svds_config.hpp" \
 cdef extern from "raft_runtime/solver/randomized_svds.hpp" \
         namespace "raft::runtime::solver" nogil:
 
-    cdef void sparse_randomized_svd_float(
+    cdef void sparse_randomized_svd_f \
+            "raft::runtime::solver::sparse_randomized_svd"(
         const device_resources &handle,
-        const sparse_svd_config[float] &config,
+        sparse_svd_config[float] config,
         device_vector_view[int, uint32_t] indptr,
         device_vector_view[int, uint32_t] indices,
         device_vector_view[float, uint32_t] data,
@@ -55,9 +56,10 @@ cdef extern from "raft_runtime/solver/randomized_svds.hpp" \
         device_matrix_view[float, uint32_t, col_major] U,
         device_matrix_view[float, uint32_t, col_major] Vt) except +
 
-    cdef void sparse_randomized_svd_double(
+    cdef void sparse_randomized_svd_d \
+            "raft::runtime::solver::sparse_randomized_svd"(
         const device_resources &handle,
-        const sparse_svd_config[double] &config,
+        sparse_svd_config[double] config,
         device_vector_view[int, uint32_t] indptr,
         device_vector_view[int, uint32_t] indices,
         device_vector_view[double, uint32_t] data,
@@ -187,7 +189,7 @@ def svds(A, k=6, n_oversamples=10, n_power_iters=2,
         cfg_float.n_oversamples = n_oversamples
         cfg_float.n_power_iters = n_power_iters
         cfg_float.seed = seed_opt
-        sparse_randomized_svd_float(
+        sparse_randomized_svd_f(
             deref(h),
             cfg_float,
             make_device_vector_view(<int *>indptr_ptr, <uint32_t>(m + 1)),
@@ -205,7 +207,7 @@ def svds(A, k=6, n_oversamples=10, n_power_iters=2,
         cfg_double.n_oversamples = n_oversamples
         cfg_double.n_power_iters = n_power_iters
         cfg_double.seed = seed_opt
-        sparse_randomized_svd_double(
+        sparse_randomized_svd_d(
             deref(h),
             cfg_double,
             make_device_vector_view(<int *>indptr_ptr, <uint32_t>(m + 1)),

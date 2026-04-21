@@ -10,7 +10,6 @@
 #include <raft/core/resources.hpp>
 #include <raft/sparse/solver/detail/csr_linear_operator.cuh>
 #include <raft/sparse/solver/detail/randomized_svds.cuh>
-#include <raft/sparse/solver/svds_types.hpp>
 
 namespace raft::sparse::solver {
 
@@ -26,14 +25,11 @@ namespace raft::sparse::solver {
  * (Tomás et al. 2024) for efficient GPU execution on sparse matrices.
  *
  * The operator interface allows implicit linear operators (e.g. mean-centered sparse
- * matrices for PCA) without materializing the dense matrix.
+ * matrices for PCA) without materializing the dense matrix. See
+ * @ref SparseLinearOperator for the required interface.
  *
  * @tparam ValueTypeT Data type (float or double)
- * @tparam OperatorT Linear operator type providing:
- *   - int rows() const
- *   - int cols() const
- *   - void apply(handle, in, out) const       — computes Y = A @ X
- *   - void apply_transpose(handle, in, out) const — computes Z = A^T @ X
+ * @tparam OperatorT Linear operator type (see @ref SparseLinearOperator)
  *
  * @param[in] handle raft resources handle
  * @param[in] config SVD configuration parameters
@@ -78,23 +74,6 @@ template <typename ValueTypeT, typename NNZTypeT>
 void sparse_randomized_svd(raft::resources const& handle,
                            sparse_svd_config<ValueTypeT> const& config,
                            raft::device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT> A,
-                           raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
-                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
-                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
-{
-  detail::csr_linear_operator<ValueTypeT, NNZTypeT> op(A);
-  detail::sparse_randomized_svd(handle, config, op, singular_values, U, Vt);
-}
-
-/**
- * @brief Compute truncated SVD of a sparse CSR matrix using randomized algorithm.
- *
- * Overload accepting a mutable CSR matrix view (implicitly converted to const).
- */
-template <typename ValueTypeT, typename NNZTypeT>
-void sparse_randomized_svd(raft::resources const& handle,
-                           sparse_svd_config<ValueTypeT> const& config,
-                           raft::device_csr_matrix_view<ValueTypeT, int, int, NNZTypeT> A,
                            raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
                            raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
                            raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)

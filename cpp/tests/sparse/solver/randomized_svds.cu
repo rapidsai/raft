@@ -114,8 +114,9 @@ class RandomizedSvdsTest : public ::testing::Test {
     auto csr_structure =
       raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
         d_indptr.data_handle(), d_indices.data_handle(), m, n, nnz);
-    auto csr_matrix = raft::make_device_csr_matrix_view<ValueType, IndexType, IndexType, IndexType>(
-      d_values.data_handle(), csr_structure);
+    auto csr_matrix =
+      raft::make_device_csr_matrix_view<const ValueType, IndexType, IndexType, IndexType>(
+        d_values.data_handle(), csr_structure);
 
     sparse_svd_config<ValueType> config;
     config.n_components  = k;
@@ -227,7 +228,7 @@ struct ReconstructionErrorTest : public ::testing::Test {
 
     auto csr_structure = raft::make_device_compressed_structure_view<int, int, int>(
       d_indptr.data_handle(), d_indices.data_handle(), m, n, nnz);
-    auto csr_matrix = raft::make_device_csr_matrix_view<ValueType, int, int, int>(
+    auto csr_matrix = raft::make_device_csr_matrix_view<const ValueType, int, int, int>(
       d_values.data_handle(), csr_structure);
 
     sparse_svd_config<ValueType> config;
@@ -313,7 +314,7 @@ struct mean_centered_operator {
   ValueType* col_means_;
   int m_, n_;
 
-  mean_centered_operator(raft::device_csr_matrix_view<ValueType, int, int, NNZType> A,
+  mean_centered_operator(raft::device_csr_matrix_view<const ValueType, int, int, NNZType> A,
                          ValueType* col_means,
                          int m,
                          int n)
@@ -440,8 +441,9 @@ class MeanCenteredOperatorTest : public ::testing::Test {
     auto csr_structure =
       raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
         d_indptr.data_handle(), d_indices.data_handle(), m, n, nnz);
-    auto csr_matrix = raft::make_device_csr_matrix_view<ValueType, IndexType, IndexType, IndexType>(
-      d_values.data_handle(), csr_structure);
+    auto csr_matrix =
+      raft::make_device_csr_matrix_view<const ValueType, IndexType, IndexType, IndexType>(
+        d_values.data_handle(), csr_structure);
 
     // Reconstruct dense matrix on host to compute column means
     std::vector<ValueType> dense(m * n, 0);

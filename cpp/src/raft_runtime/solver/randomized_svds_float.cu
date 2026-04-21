@@ -7,6 +7,6 @@
 
 namespace raft::runtime::solver {
 
-FUNC_DEF(float, float);
+FUNC_DEF(float);
 
 }  // namespace raft::runtime::solver

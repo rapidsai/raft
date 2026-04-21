@@ -18,29 +18,23 @@ namespace raft::runtime::solver {
  * @{
  */
 
-void sparse_randomized_svd_float(const raft::resources& handle,
-                                 const raft::sparse::solver::sparse_svd_config<float>& config,
-                                 raft::device_vector_view<int, uint32_t, raft::row_major> indptr,
-                                 raft::device_vector_view<int, uint32_t, raft::row_major> indices,
-                                 raft::device_vector_view<float, uint32_t, raft::row_major> data,
-                                 int n_rows,
-                                 int n_cols,
-                                 int nnz,
-                                 raft::device_vector_view<float, uint32_t> singular_values,
-                                 raft::device_matrix_view<float, uint32_t, raft::col_major> U,
-                                 raft::device_matrix_view<float, uint32_t, raft::col_major> Vt);
+#define FUNC_DECL(ValueType)                                                                      \
+  void sparse_randomized_svd(const raft::resources& handle,                                       \
+                             raft::sparse::solver::sparse_svd_config<ValueType> config,           \
+                             raft::device_vector_view<int, uint32_t, raft::row_major> indptr,     \
+                             raft::device_vector_view<int, uint32_t, raft::row_major> indices,    \
+                             raft::device_vector_view<ValueType, uint32_t, raft::row_major> data, \
+                             int n_rows,                                                          \
+                             int n_cols,                                                          \
+                             int nnz,                                                             \
+                             raft::device_vector_view<ValueType, uint32_t> singular_values,       \
+                             raft::device_matrix_view<ValueType, uint32_t, raft::col_major> U,    \
+                             raft::device_matrix_view<ValueType, uint32_t, raft::col_major> Vt)
 
-void sparse_randomized_svd_double(const raft::resources& handle,
-                                  const raft::sparse::solver::sparse_svd_config<double>& config,
-                                  raft::device_vector_view<int, uint32_t, raft::row_major> indptr,
-                                  raft::device_vector_view<int, uint32_t, raft::row_major> indices,
-                                  raft::device_vector_view<double, uint32_t, raft::row_major> data,
-                                  int n_rows,
-                                  int n_cols,
-                                  int nnz,
-                                  raft::device_vector_view<double, uint32_t> singular_values,
-                                  raft::device_matrix_view<double, uint32_t, raft::col_major> U,
-                                  raft::device_matrix_view<double, uint32_t, raft::col_major> Vt);
+FUNC_DECL(float);
+FUNC_DECL(double);
+
+#undef FUNC_DECL
 
 /** @} */
 
