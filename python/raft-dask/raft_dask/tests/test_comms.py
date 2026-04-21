@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -16,6 +16,7 @@ try:
         perform_test_comm_split,
         perform_test_comms_allgather,
         perform_test_comms_allreduce,
+        perform_test_comms_alltoall,
         perform_test_comms_bcast,
         perform_test_comms_device_multicast_sendrecv,
         perform_test_comms_device_send_or_recv,
@@ -24,6 +25,8 @@ try:
         perform_test_comms_gatherv,
         perform_test_comms_reduce,
         perform_test_comms_reducescatter,
+        perform_test_comms_scatter,
+        perform_test_comms_scatterv,
         perform_test_comms_send_recv,
     )
 
@@ -161,11 +164,14 @@ if pytestmark.markname != "skip":
     functions = [
         perform_test_comms_allgather,
         perform_test_comms_allreduce,
+        perform_test_comms_alltoall,
         perform_test_comms_bcast,
         perform_test_comms_gather,
         perform_test_comms_gatherv,
         perform_test_comms_reduce,
         perform_test_comms_reducescatter,
+        perform_test_comms_scatter,
+        perform_test_comms_scatterv,
     ]
 else:
     functions = [None]

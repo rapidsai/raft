@@ -21,11 +21,51 @@ namespace comms {
 namespace detail {
 
 /**
+ * @brief A simple sanity check that NCCL is able to perform a collective all-to-all
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+ * @param[in] root the root rank id
+ */
+bool test_collective_alltoall(raft::resources const& handle, int root)
+{
+  comms_t const& communicator = resource::get_comms(handle);
+
+  std::vector<int> sends(communicator.get_size(), communicator.get_rank());
+
+  cudaStream_t stream = resource::get_cuda_stream(handle);
+
+  rmm::device_uvector<int> temp_d(communicator.get_size(), stream);
+  rmm::device_uvector<int> recv_d(communicator.get_size(), stream);
+
+  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(),
+                                sends.data(),
+                                sizeof(int) * communicator.get_size(),
+                                cudaMemcpyHostToDevice,
+                                stream));
+
+  communicator.alltoall(temp_d.data(), recv_d.data(), 1, stream);
+  communicator.sync_stream(stream);
+  std::vector<int> temp_h(communicator.get_size());
+  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_h.data(),
+                                recv_d.data(),
+                                sizeof(int) * communicator.get_size(),
+                                cudaMemcpyDeviceToHost,
+                                stream));
+  resource::sync_stream(handle, stream);
+
+  for (int i = 0; i < communicator.get_size(); i++) {
+    if (temp_h[i] != i) return false;
+  }
+  return true;
+}
+
+/**
  * @brief A simple sanity check that NCCL is able to perform a collective operation
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_allreduce(raft::resources const& handle, int root)
 {
@@ -56,7 +96,7 @@ bool test_collective_allreduce(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_broadcast(raft::resources const& handle, int root)
 {
@@ -91,7 +131,7 @@ bool test_collective_broadcast(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_reduce(raft::resources const& handle, int root)
 {
@@ -127,7 +167,7 @@ bool test_collective_reduce(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_allgather(raft::resources const& handle, int root)
 {
@@ -160,11 +200,97 @@ bool test_collective_allgather(raft::resources const& handle, int root)
 }
 
 /**
+ * @brief A simple sanity check that NCCL is able to perform a collective scatter
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+ * @param[in] root the root rank id
+ */
+bool test_collective_scatter(raft::resources const& handle, int root)
+{
+  comms_t const& communicator = resource::get_comms(handle);
+
+  cudaStream_t stream = resource::get_cuda_stream(handle);
+
+  rmm::device_uvector<int> temp_d(communicator.get_rank() == root ? communicator.get_size() : 0,
+                                  stream);
+  rmm::device_scalar<int> recv_d(stream);
+
+  if (communicator.get_rank() == root) {
+    std::vector<int> sends(communicator.get_size(), communicator.get_rank());
+    std::fill(sends.begin(), sends.end(), root);
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
+      temp_d.data(), sends.data(), sizeof(int) * sends.size(), cudaMemcpyHostToDevice, stream));
+  }
+
+  communicator.scatter(
+    communicator.get_rank() == root ? temp_d.data() : nullptr, recv_d.data(), 1, root, stream);
+  communicator.sync_stream(stream);
+
+  int temp_h = -1;  // Verify more than one byte is being sent
+  RAFT_CUDA_TRY(
+    cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
+  resource::sync_stream(handle, stream);
+
+  return temp_h == root;
+}
+
+/**
+ * @brief A simple sanity check that NCCL is able to perform a collective scatterv
+ *
+ * @param[in] handle the raft handle to use. This is expected to already have an
+ *        initialized comms instance.
+ * @param[in] root the root rank id
+ */
+bool test_collective_scatterv(raft::resources const& handle, int root)
+{
+  comms_t const& communicator = resource::get_comms(handle);
+
+  std::vector<size_t> sendcounts(communicator.get_size());
+  std::iota(sendcounts.begin(), sendcounts.end(), size_t{1});
+  std::vector<size_t> displacements(communicator.get_size() + 1, 0);
+  std::partial_sum(sendcounts.begin(), sendcounts.end(), displacements.begin() + 1);
+
+  cudaStream_t stream = resource::get_cuda_stream(handle);
+
+  rmm::device_uvector<int> temp_d(communicator.get_rank() == root ? displacements.back() : 0,
+                                  stream);
+  rmm::device_uvector<int> recv_d(
+    displacements[communicator.get_rank() + 1] - displacements[communicator.get_rank()], stream);
+
+  if (communicator.get_rank() == root) {
+    std::vector<int> sends(displacements.back(), root);
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
+      temp_d.data(), sends.data(), sends.size() * sizeof(int), cudaMemcpyHostToDevice, stream));
+  }
+
+  communicator.scatterv(
+    communicator.get_rank() == root ? temp_d.data() : nullptr,
+    recv_d.data(),
+    communicator.get_rank() == root ? sendcounts.data() : static_cast<size_t*>(nullptr),
+    communicator.get_rank() == root ? displacements.data() : static_cast<size_t*>(nullptr),
+    recv_d.size(),
+    root,
+    stream);
+  communicator.sync_stream(stream);
+
+  std::vector<int> temp_h(recv_d.size(), 0);
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    temp_h.data(), recv_d.data(), sizeof(int) * recv_d.size(), cudaMemcpyDeviceToHost, stream));
+  resource::sync_stream(handle, stream);
+
+  if (std::count_if(temp_h.begin(), temp_h.end(), [root](auto val) { return val != root; }) != 0) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * @brief A simple sanity check that NCCL is able to perform a collective gather
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_gather(raft::resources const& handle, int root)
 {
@@ -201,7 +327,7 @@ bool test_collective_gather(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_gatherv(raft::resources const& handle, int root)
 {
@@ -260,7 +386,7 @@ bool test_collective_gatherv(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- *  @param[in] root the root rank id
+ * @param[in] root the root rank id
  */
 bool test_collective_reducescatter(raft::resources const& handle, int root)
 {
