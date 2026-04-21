@@ -1,16 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <raft/core/device_resources_manager.hpp>
 #include <raft/core/device_setter.hpp>
 #include <raft/core/logger.hpp>
 
-#include <rmm/mr/cuda_memory_resource.hpp>
-#include <rmm/mr/limiting_resource_adaptor.hpp>
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/mr/pool_memory_resource.hpp>
-#include <rmm/resource_ref.hpp>
 
 #include <cuda_runtime_api.h>
 
@@ -50,31 +47,15 @@ TEST(DeviceResourcesManager, ObeysSetters)
 
   // Provide lock for counting unique objects
   auto mtx = std::mutex{};
-  auto workspace_mrs =
-    std::array<std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>, 2>{
-      nullptr, nullptr};
-  auto alternate_workspace_mrs = std::array<std::shared_ptr<rmm::mr::cuda_memory_resource>, 2>{};
-  auto upstream_mrs            = std::array<rmm::mr::cuda_memory_resource*, 2>{
-    dynamic_cast<rmm::mr::cuda_memory_resource*>(
-      rmm::mr::get_per_device_resource(rmm::cuda_device_id{devices[0]})),
-    dynamic_cast<rmm::mr::cuda_memory_resource*>(
-      rmm::mr::get_per_device_resource(rmm::cuda_device_id{devices[1]}))};
 
   for (auto i = std::size_t{}; i < devices.size(); ++i) {
     auto scoped_device = device_setter{devices[i]};
-    if (upstream_mrs[i] == nullptr) {
-      RAFT_LOG_WARN(
-        "RMM memory resource already set. Tests for device_resources_manger will be incomplete.");
-    } else {
-      workspace_mrs[i] =
-        std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>(
-          upstream_mrs[i], workspace_init, workspace_limit);
-      alternate_workspace_mrs[i] = std::make_shared<rmm::mr::cuda_memory_resource>();
-    }
+    auto upstream      = rmm::mr::get_current_device_resource_ref();
+    device_resources_manager::set_workspace_memory_resource(
+      raft::mr::device_resource{
+        rmm::mr::pool_memory_resource(upstream, workspace_init, workspace_limit)},
+      devices[i]);
   }
-
-  device_resources_manager::set_workspace_memory_resource(workspace_mrs[0], devices[0]);
-  device_resources_manager::set_workspace_memory_resource(workspace_mrs[1], devices[1]);
 
   // Suppress the many warnings from testing use of setters after initial
   // get_device_resources call
@@ -103,14 +84,6 @@ TEST(DeviceResourcesManager, ObeysSetters)
     auto const& pool = res.get_stream_pool();
     EXPECT_EQ(streams_per_pool, pool.get_pool_size());
 
-    auto* mr = dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(
-      rmm::mr::get_current_device_resource());
-
-    if (upstream_mrs[i % devices.size()] != nullptr) {
-      // Expect that the current memory resource is a pool memory resource as requested
-      EXPECT_NE(mr, nullptr);
-    }
-
     {
       auto lock = std::unique_lock{mtx};
       unique_streams[device].insert(primary_stream);
@@ -122,7 +95,8 @@ TEST(DeviceResourcesManager, ObeysSetters)
     device_resources_manager::set_mem_pool();
     device_resources_manager::set_workspace_allocation_limit(1024);
     device_resources_manager::set_workspace_memory_resource(
-      alternate_workspace_mrs[i % devices.size()], devices[i % devices.size()]);
+      raft::mr::device_resource{rmm::mr::get_current_device_resource_ref()},
+      devices[i % devices.size()]);
   }
 
   EXPECT_EQ(streams_per_device, unique_streams[devices[0]].size());

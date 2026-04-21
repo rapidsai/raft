@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -21,9 +21,8 @@ namespace raft {
  */
 class handle_t : public raft::device_resources {
  public:
-  handle_t(const handle_t& handle,
-           std::shared_ptr<rmm::mr::device_memory_resource> workspace_resource)
-    : device_resources(handle, workspace_resource)
+  handle_t(const handle_t& handle, raft::mr::device_resource workspace_resource)
+    : device_resources(handle, std::move(workspace_resource))
   {
   }
 
@@ -43,8 +42,8 @@ class handle_t : public raft::device_resources {
    */
   handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
            std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr},
-           std::shared_ptr<rmm::mr::device_memory_resource> workspace_resource = {nullptr})
-    : device_resources{stream_view, stream_pool, workspace_resource}
+           std::optional<raft::mr::device_resource> workspace_resource = std::nullopt)
+    : device_resources{stream_view, stream_pool, std::move(workspace_resource)}
   {
   }
 
