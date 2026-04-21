@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -12,7 +12,7 @@
 
 #include <rmm/cuda_device.hpp>
 #include <rmm/device_buffer.hpp>
-#include <rmm/mr/device_memory_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 #include <rmm/mr/pool_memory_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
@@ -275,38 +275,32 @@ TEST(Raft, WorkspaceResource)
     resource::get_workspace_resource(handle)->get_upstream_resource()};
 
   // Let's create a pooled resource
-  auto pool_mr = std::shared_ptr<rmm::mr::device_memory_resource>{new rmm::mr::pool_memory_resource(
-    rmm::mr::get_current_device_resource(), rmm::percent_of_free_device_memory(50))};
+  raft::mr::device_resource pool_mr{rmm::mr::pool_memory_resource(
+    rmm::mr::get_current_device_resource_ref(), rmm::percent_of_free_device_memory(50))};
 
   // A tiny workspace of 1MB
   size_t max_size = 1024 * 1024;
 
   // Replace the resource
   resource::set_workspace_resource(handle, pool_mr, max_size);
-  auto new_mr = resource::get_workspace_resource(handle);
-
-  // By this point, the orig_mr likely points to a non-existent resource; don't dereference!
-  ASSERT_NE(orig_mr, rmm::device_async_resource_ref{new_mr});
-  ASSERT_EQ(rmm::device_async_resource_ref{pool_mr.get()}, new_mr->get_upstream_resource());
-  // We can safely reset pool_mr, because the shared_ptr to the pool memory stays in the resource
-  pool_mr.reset();
+  auto* new_mr = resource::get_workspace_resource(handle);
 
   auto stream = resource::get_cuda_stream(handle);
-  rmm::device_buffer buf(max_size / 2, stream, new_mr);
+  rmm::device_buffer buf(max_size / 2, stream, *new_mr);
 
   // Note, the underlying pool allocator likely uses more space than reported here
   ASSERT_EQ(max_size, resource::get_workspace_total_bytes(handle));
   ASSERT_EQ(buf.size(), resource::get_workspace_used_bytes(handle));
   ASSERT_EQ(max_size - buf.size(), resource::get_workspace_free_bytes(handle));
 
-  // this should throw, becaise we partially used the space.
-  ASSERT_THROW((rmm::device_buffer{max_size, stream, new_mr}), rmm::bad_alloc);
+  // this should throw, because we partially used the space.
+  ASSERT_THROW((rmm::device_buffer{max_size, stream, *new_mr}), rmm::bad_alloc);
 }
 
 TEST(Raft, WorkspaceResourceCopy)
 {
   raft::handle_t res;
-  auto orig_mr   = resource::get_workspace_resource(res);
+  auto* orig_mr  = resource::get_workspace_resource(res);
   auto orig_size = resource::get_workspace_total_bytes(res);
 
   {
@@ -314,8 +308,8 @@ TEST(Raft, WorkspaceResourceCopy)
     raft::resources tmp_res(res);
     resource::set_workspace_resource(
       tmp_res,
-      std::shared_ptr<rmm::mr::device_memory_resource>{new rmm::mr::pool_memory_resource(
-        rmm::mr::get_current_device_resource(), rmm::percent_of_free_device_memory(50))},
+      raft::mr::device_resource{rmm::mr::pool_memory_resource(
+        rmm::mr::get_current_device_resource_ref(), rmm::percent_of_free_device_memory(50))},
       orig_size * 2);
 
     ASSERT_EQ(orig_mr, resource::get_workspace_resource(res));

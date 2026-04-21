@@ -15,7 +15,6 @@
 #include <raft/mr/statistics_adaptor.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device_memory_resource.hpp>
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
@@ -108,10 +107,7 @@ class memory_tracking_resources : public resources {
   {
     report_.stop();
     raft::mr::set_default_host_resource(old_host_ref_);
-    // Restore pointer map first (also overwrites ref map), then restore the
-    // original ref map separately, since the two may have been set independently.
-    rmm::mr::set_current_device_resource(old_device_mr_);
-    rmm::mr::set_current_device_resource_ref(old_device_ref_);
+    rmm::mr::set_current_device_resource(old_device_ref_);
   }
 
   memory_tracking_resources(memory_tracking_resources const&)            = delete;
@@ -131,7 +127,6 @@ class memory_tracking_resources : public resources {
       owned_stream_(std::move(owned_stream)),
       report_(out_override ? *out_override : *owned_stream_, sample_interval),
       old_host_ref_(raft::mr::get_default_host_resource()),
-      old_device_mr_(rmm::mr::get_current_device_resource()),
       old_device_ref_(rmm::mr::get_current_device_resource_ref())
   {
     init();
@@ -146,7 +141,6 @@ class memory_tracking_resources : public resources {
   raft::mr::resource_monitor report_;
 
   raft::mr::host_resource_ref old_host_ref_;
-  rmm::mr::device_memory_resource* old_device_mr_;
   rmm::device_async_resource_ref old_device_ref_;
   std::size_t saved_ws_limit_{};
 
@@ -157,37 +151,7 @@ class memory_tracking_resources : public resources {
   using device_stats_t  = raft::mr::statistics_adaptor<rmm::device_async_resource_ref>;
   using device_notify_t = raft::mr::notifying_adaptor<device_stats_t>;
 
-  // Bridge: exposes device_notify_t as an rmm::mr::device_memory_resource so
-  // that set_current_device_resource(ptr) updates both the pointer-based and
-  // the ref-based global device resource maps in RMM.
-  class device_tracking_bridge : public rmm::mr::device_memory_resource {
-    device_notify_t adaptor_;
-
-   protected:
-    void* do_allocate(std::size_t bytes, rmm::cuda_stream_view stream) override
-    {
-      return adaptor_.allocate(cuda::stream_ref{stream.value()}, bytes);
-    }
-    void do_deallocate(void* ptr, std::size_t bytes, rmm::cuda_stream_view stream) noexcept override
-    {
-      adaptor_.deallocate(cuda::stream_ref{stream.value()}, ptr, bytes);
-    }
-    [[nodiscard]] bool do_is_equal(
-      rmm::mr::device_memory_resource const& other) const noexcept override
-    {
-      return this == &other;
-    }
-
-   public:
-    explicit device_tracking_bridge(device_notify_t adaptor) : adaptor_(std::move(adaptor)) {}
-
-    [[nodiscard]] auto adaptor_ref() noexcept -> cuda::mr::resource_ref<cuda::mr::device_accessible>
-    {
-      return adaptor_;
-    }
-  };
-
-  std::unique_ptr<device_tracking_bridge> device_bridge_;
+  std::unique_ptr<device_notify_t> device_adaptor_;
 
   void init()
   {
@@ -230,16 +194,11 @@ class memory_tracking_resources : public resources {
     }
 
     // --- Device (global) ---
-    // Use set_current_device_resource(ptr) to update both the pointer map and the ref map,
-    // then overwrite the ref map to point directly at the adaptor (skipping the bridge).
     {
-      rmm::device_async_resource_ref dev_ref{*old_device_mr_};
-      device_stats_t sa{dev_ref};
+      device_stats_t sa{old_device_ref_};
       report_.register_source("device", sa.get_stats());
-      device_bridge_ = std::make_unique<device_tracking_bridge>(
-        device_notify_t{std::move(sa), report_.get_notifier()});
-      rmm::mr::set_current_device_resource(device_bridge_.get());
-      rmm::mr::set_current_device_resource_ref(device_bridge_->adaptor_ref());
+      device_adaptor_ = std::make_unique<device_notify_t>(std::move(sa), report_.get_notifier());
+      rmm::mr::set_current_device_resource(*device_adaptor_);
     }
 
     // --- Workspace (track upstream to preserve limiting_resource_adaptor) ---

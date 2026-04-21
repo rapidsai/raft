@@ -1133,7 +1133,7 @@ void select_k_impl(raft::resources const& res,
                                                out_idx,
                                                select_min,
                                                resource::get_cuda_stream(res),
-                                               resource::get_workspace_resource(res));
+                                               resource::get_workspace_resource_ref(res));
 }
 
 /**
@@ -1210,7 +1210,7 @@ void select_k(raft::resources const& res,
                                                        out_idx,
                                                        select_min,
                                                        resource::get_cuda_stream(res),
-                                                       resource::get_workspace_resource(res));
+                                                       resource::get_workspace_resource_ref(res));
   } else {
     calc_launch_parameter<warp_sort_filtered, T, IdxT>(
       res, batch_size, len, k, &num_of_block, &num_of_warp);
@@ -1226,7 +1226,7 @@ void select_k(raft::resources const& res,
                                                       out_idx,
                                                       select_min,
                                                       resource::get_cuda_stream(res),
-                                                      resource::get_workspace_resource(res));
+                                                      resource::get_workspace_resource_ref(res));
   }
 }
 
