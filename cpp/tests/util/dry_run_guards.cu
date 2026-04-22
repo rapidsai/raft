@@ -253,14 +253,14 @@ TEST(DryRunE2E, NestedDryRunIsNoop)
 TEST(DryRunE2E, ExceptionRestoresResources)
 {
   raft::resources res;
-  auto* original_mr  = rmm::mr::get_current_device_resource();
+  auto original_mr   = rmm::mr::get_current_device_resource_ref();
   auto original_host = raft::mr::get_default_host_resource();
 
   EXPECT_THROW(dry_run_execute(
                  res, [](raft::resources const&) { throw std::runtime_error("test exception"); }),
                std::runtime_error);
 
-  EXPECT_EQ(rmm::mr::get_current_device_resource(), original_mr);
+  EXPECT_EQ(rmm::mr::get_current_device_resource_ref(), original_mr);
   EXPECT_EQ(raft::mr::get_default_host_resource(), original_host);
   EXPECT_FALSE(resource::get_dry_run_flag(res));
 }
