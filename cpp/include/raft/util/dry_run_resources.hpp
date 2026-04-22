@@ -15,11 +15,9 @@
 #include <raft/util/memory_stats_resources.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device_memory_resource.hpp>
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
-#include <cuda/memory_resource>
 #include <cuda/stream_ref>
 
 #include <cstddef>
@@ -57,7 +55,6 @@ class dry_run_resources : public resources {
     : resources(existing),
       active_(!resource::get_dry_run_flag(existing)),
       old_host_ref_(raft::mr::get_default_host_resource()),
-      old_device_mr_(rmm::mr::get_current_device_resource()),
       old_device_ref_(rmm::mr::get_current_device_resource_ref())
   {
     if (active_) init();
@@ -68,8 +65,7 @@ class dry_run_resources : public resources {
     if (!active_) return;
     resource::set_dry_run_flag(*this, false);
     mr::set_default_host_resource(old_host_ref_);
-    rmm::mr::set_current_device_resource(old_device_mr_);
-    rmm::mr::set_current_device_resource_ref(old_device_ref_);
+    rmm::mr::set_current_device_resource(old_device_ref_);
 
     // Drop all base-class entries so that probe container RAII cleanup runs
     // during derived-member destruction, while snapshot_ is still alive.
@@ -116,43 +112,12 @@ class dry_run_resources : public resources {
 
   bool active_;
   raft::mr::host_resource_ref old_host_ref_;
-  rmm::mr::device_memory_resource* old_device_mr_;
   rmm::device_async_resource_ref old_device_ref_;
 
-  using host_dry_run_t = raft::mr::dry_run_resource<raft::mr::host_resource_ref>;
+  using host_dry_run_t   = raft::mr::dry_run_resource<raft::mr::host_resource_ref>;
+  using device_dry_run_t = raft::mr::dry_run_resource<rmm::device_async_resource_ref>;
   std::unique_ptr<host_dry_run_t> host_adaptor_;
-
-  class device_bridge : public rmm::mr::device_memory_resource {
-    raft::mr::dry_run_resource<rmm::device_async_resource_ref> adaptor_;
-
-   protected:
-    void* do_allocate(std::size_t bytes, rmm::cuda_stream_view stream) override
-    {
-      return adaptor_.allocate(cuda::stream_ref{stream.value()}, bytes);
-    }
-    void do_deallocate(void* ptr, std::size_t bytes, rmm::cuda_stream_view stream) noexcept override
-    {
-      adaptor_.deallocate(cuda::stream_ref{stream.value()}, ptr, bytes);
-    }
-    [[nodiscard]] bool do_is_equal(
-      rmm::mr::device_memory_resource const& other) const noexcept override
-    {
-      return this == &other;
-    }
-
-   public:
-    explicit device_bridge(mr::dry_run_resource<rmm::device_async_resource_ref> adaptor)
-      : adaptor_(std::move(adaptor))
-    {
-    }
-
-    [[nodiscard]] auto adaptor_ref() noexcept -> cuda::mr::resource_ref<cuda::mr::device_accessible>
-    {
-      return adaptor_;
-    }
-  };
-
-  std::unique_ptr<device_bridge> device_bridge_;
+  std::unique_ptr<device_dry_run_t> device_adaptor_;
 
   using counter_t = raft::mr::detail::dry_run_memory_counter;
   std::shared_ptr<counter_t> host_stats_;
@@ -175,7 +140,7 @@ class dry_run_resources : public resources {
     // 5. Wrap each captured upstream with a separate dry_run_resource adaptor.
     //
     // Because step 2 happens before step 4, workspace/lws allocations flow through
-    // their own adaptor directly to old_device_mr_, bypassing the device bridge.
+    // their own adaptor directly to the original device MR, bypassing the device adaptor.
     // Each allocation is therefore counted in exactly one category, and
     // memory_stats::total() returns an accurate, non-overlapping sum.
     auto* ws         = resource::get_workspace_resource(*this);
@@ -211,13 +176,17 @@ class dry_run_resources : public resources {
     }
 
     // --- Device (global) ---
+    // set_current_device_resource_ref replaced the any_resource content in the global ref map,
+    // invalidating the resource_ref captured by any previously-cached thrust policy.
+    factories_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
+      resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource_factory>());
+    resources_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
+      resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource>());
     {
-      rmm::device_async_resource_ref dev_ref{*old_device_mr_};
-      mr::dry_run_resource<rmm::device_async_resource_ref> dr{dev_ref};
-      device_stats_  = dr.get_counter();
-      device_bridge_ = std::make_unique<device_bridge>(std::move(dr));
-      rmm::mr::set_current_device_resource(device_bridge_.get());
-      rmm::mr::set_current_device_resource_ref(device_bridge_->adaptor_ref());
+      device_dry_run_t dr{old_device_ref_};
+      device_stats_   = dr.get_counter();
+      device_adaptor_ = std::make_unique<device_dry_run_t>(std::move(dr));
+      rmm::mr::set_current_device_resource(*device_adaptor_);
     }
 
     // --- Workspace ---

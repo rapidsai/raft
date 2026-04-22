@@ -85,7 +85,7 @@ void segmented_sort_by_key(raft::resources const& handle,
                            bool asc)
 {
   auto stream = resource::get_cuda_stream(handle);
-  auto mr     = resource::get_workspace_resource(handle);
+  auto mr     = resource::get_workspace_resource_ref(handle);
   auto out_inds =
     raft::make_device_mdarray<ValT, ValT>(handle, mr, raft::make_extents<ValT>(n_elements));
   auto out_dists =
@@ -278,7 +278,7 @@ void select_k(raft::resources const& handle,
       }
       if (sorted) {
         auto offsets = make_device_mdarray<IdxT, IdxT>(
-          handle, resource::get_workspace_resource(handle), make_extents<IdxT>(batch_size + 1));
+          handle, resource::get_workspace_resource_ref(handle), make_extents<IdxT>(batch_size + 1));
         raft::linalg::map_offset(handle, offsets.view(), mul_const_op<IdxT>(k));
 
         auto keys = raft::make_device_vector_view<T, IdxT>(out_val, (IdxT)(batch_size * k));

@@ -13,11 +13,9 @@
 #include <raft/mr/statistics_adaptor.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device_memory_resource.hpp>
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
-#include <cuda/memory_resource>
 #include <cuda/stream_ref>
 
 #include <cstddef>
@@ -79,7 +77,6 @@ class memory_stats_resources : public resources {
   explicit memory_stats_resources(const resources& existing)
     : resources(existing),
       old_host_ref_(mr::get_default_host_resource()),
-      old_device_mr_(rmm::mr::get_current_device_resource()),
       old_device_ref_(rmm::mr::get_current_device_resource_ref())
   {
     init();
@@ -88,8 +85,7 @@ class memory_stats_resources : public resources {
   ~memory_stats_resources() override
   {
     mr::set_default_host_resource(old_host_ref_);
-    rmm::mr::set_current_device_resource(old_device_mr_);
-    rmm::mr::set_current_device_resource_ref(old_device_ref_);
+    rmm::mr::set_current_device_resource(old_device_ref_);
     resources_.clear();
     factories_.clear();
   }
@@ -150,43 +146,13 @@ class memory_stats_resources : public resources {
   std::vector<pair_resource> snapshot_;
 
   mr::host_resource_ref old_host_ref_;
-  rmm::mr::device_memory_resource* old_device_mr_;
   rmm::device_async_resource_ref old_device_ref_;
 
   using host_stats_adaptor_t = mr::statistics_adaptor<mr::host_resource_ref>;
   std::unique_ptr<host_stats_adaptor_t> host_adaptor_;
 
-  class device_stats_bridge : public rmm::mr::device_memory_resource {
-    mr::statistics_adaptor<rmm::device_async_resource_ref> adaptor_;
-
-   protected:
-    void* do_allocate(std::size_t bytes, rmm::cuda_stream_view stream) override
-    {
-      return adaptor_.allocate(cuda::stream_ref{stream.value()}, bytes);
-    }
-    void do_deallocate(void* ptr, std::size_t bytes, rmm::cuda_stream_view stream) noexcept override
-    {
-      adaptor_.deallocate(cuda::stream_ref{stream.value()}, ptr, bytes);
-    }
-    [[nodiscard]] bool do_is_equal(
-      rmm::mr::device_memory_resource const& other) const noexcept override
-    {
-      return this == &other;
-    }
-
-   public:
-    explicit device_stats_bridge(mr::statistics_adaptor<rmm::device_async_resource_ref> adaptor)
-      : adaptor_(std::move(adaptor))
-    {
-    }
-
-    [[nodiscard]] auto adaptor_ref() noexcept -> cuda::mr::resource_ref<cuda::mr::device_accessible>
-    {
-      return adaptor_;
-    }
-  };
-
-  std::unique_ptr<device_stats_bridge> device_bridge_;
+  using device_stats_adaptor_t = mr::statistics_adaptor<rmm::device_async_resource_ref>;
+  std::unique_ptr<device_stats_adaptor_t> device_adaptor_;
 
   std::shared_ptr<mr::resource_stats> host_stats_;
   std::shared_ptr<mr::resource_stats> pinned_stats_;
@@ -208,7 +174,7 @@ class memory_stats_resources : public resources {
     // 5. Wrap each captured upstream with a separate statistics_adaptor.
     //
     // Because step 2 happens before step 4, workspace/lws allocations flow through
-    // their own adaptor directly to old_device_mr_, bypassing the device bridge.
+    // their own adaptor directly to the original device MR, bypassing the device adaptor.
     // Each allocation is therefore counted in exactly one category, and
     // memory_stats::total() returns an accurate, non-overlapping sum.
     auto* ws         = resource::get_workspace_resource(*this);
@@ -249,12 +215,10 @@ class memory_stats_resources : public resources {
     resources_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
       resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource>());
     {
-      rmm::device_async_resource_ref dev_ref{*old_device_mr_};
-      mr::statistics_adaptor<rmm::device_async_resource_ref> sa{dev_ref};
-      device_stats_  = sa.get_stats();
-      device_bridge_ = std::make_unique<device_stats_bridge>(std::move(sa));
-      rmm::mr::set_current_device_resource(device_bridge_.get());
-      rmm::mr::set_current_device_resource_ref(device_bridge_->adaptor_ref());
+      device_stats_adaptor_t sa{old_device_ref_};
+      device_stats_   = sa.get_stats();
+      device_adaptor_ = std::make_unique<device_stats_adaptor_t>(std::move(sa));
+      rmm::mr::set_current_device_resource(*device_adaptor_);
     }
     // --- Workspace ---
     {

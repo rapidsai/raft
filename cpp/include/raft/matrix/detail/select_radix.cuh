@@ -1275,7 +1275,7 @@ void select_k(raft::resources const& res,
 
   bool dry_run = resource::get_dry_run_flag(res);
   auto stream  = resource::get_cuda_stream(res);
-  auto mr      = resource::get_workspace_resource(res);
+  auto mr      = resource::get_workspace_resource_ref(res);
   if (k == len && RowLayout::is_uniform) {
     if (dry_run) { return; }
     RAFT_CUDA_TRY(
