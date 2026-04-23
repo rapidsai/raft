@@ -91,7 +91,7 @@ class probe_container {
   {
     if (ptr_ == nullptr) return;
     if constexpr (cuda::mr::resource<MR>) {
-      mr_.deallocate(cuda::stream_ref{cudaStreamPerThread}, ptr_, size_);
+      mr_.deallocate(cuda::stream_ref{cudaStreamPerThread}, ptr_, size_, alignment_);
     } else {
       mr_.deallocate_sync(ptr_, size_, alignment_);
     }

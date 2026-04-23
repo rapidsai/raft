@@ -107,7 +107,8 @@ class memory_tracking_resources : public resources {
   {
     report_.stop();
     raft::mr::set_default_host_resource(old_host_ref_);
-    rmm::mr::set_current_device_resource(old_device_ref_);
+    device_adaptor_.reset();
+    rmm::mr::set_current_device_resource(std::move(old_device_));
   }
 
   memory_tracking_resources(memory_tracking_resources const&)            = delete;
@@ -127,7 +128,7 @@ class memory_tracking_resources : public resources {
       owned_stream_(std::move(owned_stream)),
       report_(out_override ? *out_override : *owned_stream_, sample_interval),
       old_host_ref_(raft::mr::get_default_host_resource()),
-      old_device_ref_(rmm::mr::get_current_device_resource_ref())
+      old_device_(rmm::mr::get_current_device_resource_ref())
   {
     init();
   }
@@ -141,7 +142,7 @@ class memory_tracking_resources : public resources {
   raft::mr::resource_monitor report_;
 
   raft::mr::host_resource_ref old_host_ref_;
-  rmm::device_async_resource_ref old_device_ref_;
+  raft::mr::device_resource old_device_;
 
   using host_stats_t  = raft::mr::statistics_adaptor<raft::mr::host_resource_ref>;
   using host_notify_t = raft::mr::notifying_adaptor<host_stats_t>;
@@ -207,16 +208,14 @@ class memory_tracking_resources : public resources {
     }
 
     // --- Device (global) ---
-    // set_current_device_resource_ref replaced the any_resource content in the global ref map,
-    // invalidating the resource_ref captured by any previously-cached thrust policy.
+    // Invalidate the cached thrust policy (the resource_ref it captured
+    // will be stale once we replace the global device resource).
     factories_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
       resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource_factory>());
     resources_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
       resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource>());
-    // Use set_current_device_resource(ptr) to update both the pointer map and the ref map,
-    // then overwrite the ref map to point directly at the adaptor (skipping the bridge).
     {
-      device_stats_t sa{old_device_ref_};
+      device_stats_t sa{rmm::device_async_resource_ref{old_device_}};
       report_.register_source("device", sa.get_stats());
       device_adaptor_ = std::make_unique<device_notify_t>(std::move(sa), report_.get_notifier());
       rmm::mr::set_current_device_resource(*device_adaptor_);

@@ -55,7 +55,7 @@ class dry_run_resources : public resources {
     : resources(existing),
       active_(!resource::get_dry_run_flag(existing)),
       old_host_ref_(raft::mr::get_default_host_resource()),
-      old_device_ref_(rmm::mr::get_current_device_resource_ref())
+      old_device_(rmm::mr::get_current_device_resource_ref())
   {
     if (active_) init();
   }
@@ -65,12 +65,16 @@ class dry_run_resources : public resources {
     if (!active_) return;
     resource::set_dry_run_flag(*this, false);
     mr::set_default_host_resource(old_host_ref_);
-    rmm::mr::set_current_device_resource(old_device_ref_);
 
     // Drop all base-class entries so that probe container RAII cleanup runs
-    // during derived-member destruction, while snapshot_ is still alive.
+    // while old_device_ is still alive (probes in workspace/lws entries
+    // deallocate through snapshot_ upstreams, not old_device_).
     resources_.clear();
     factories_.clear();
+
+    // Explicitly destroy device adaptor: its probe deallocates from old_device_.
+    device_adaptor_.reset();
+    rmm::mr::set_current_device_resource(std::move(old_device_));
   }
 
   dry_run_resources(dry_run_resources const&)            = delete;
@@ -108,11 +112,13 @@ class dry_run_resources : public resources {
   // Declaration order determines destruction order.
   // snapshot_ is destroyed last (keeps original resource shared_ptrs alive
   // while dry-run adaptors hold non-owning refs into them).
+  // old_device_ is destroyed after device_adaptor_ so the probe can
+  // deallocate through it during device_adaptor_ destruction.
   std::vector<pair_resource> snapshot_;
 
   bool active_;
   raft::mr::host_resource_ref old_host_ref_;
-  rmm::device_async_resource_ref old_device_ref_;
+  raft::mr::device_resource old_device_;
 
   using host_dry_run_t   = raft::mr::dry_run_resource<raft::mr::host_resource_ref>;
   using device_dry_run_t = raft::mr::dry_run_resource<rmm::device_async_resource_ref>;
@@ -176,14 +182,14 @@ class dry_run_resources : public resources {
     }
 
     // --- Device (global) ---
-    // set_current_device_resource_ref replaced the any_resource content in the global ref map,
-    // invalidating the resource_ref captured by any previously-cached thrust policy.
+    // Invalidate the cached thrust policy (the resource_ref it captured
+    // will be stale once we replace the global device resource).
     factories_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
       resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource_factory>());
     resources_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
       resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource>());
     {
-      device_dry_run_t dr{old_device_ref_};
+      device_dry_run_t dr{rmm::device_async_resource_ref{old_device_}};
       device_stats_   = dr.get_counter();
       device_adaptor_ = std::make_unique<device_dry_run_t>(std::move(dr));
       rmm::mr::set_current_device_resource(*device_adaptor_);

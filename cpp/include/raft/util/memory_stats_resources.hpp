@@ -77,7 +77,7 @@ class memory_stats_resources : public resources {
   explicit memory_stats_resources(const resources& existing)
     : resources(existing),
       old_host_ref_(mr::get_default_host_resource()),
-      old_device_ref_(rmm::mr::get_current_device_resource_ref())
+      old_device_(rmm::mr::get_current_device_resource_ref())
   {
     init();
   }
@@ -85,9 +85,10 @@ class memory_stats_resources : public resources {
   ~memory_stats_resources() override
   {
     mr::set_default_host_resource(old_host_ref_);
-    rmm::mr::set_current_device_resource(old_device_ref_);
     resources_.clear();
     factories_.clear();
+    device_adaptor_.reset();
+    rmm::mr::set_current_device_resource(std::move(old_device_));
   }
 
   memory_stats_resources(memory_stats_resources const&)            = delete;
@@ -146,7 +147,7 @@ class memory_stats_resources : public resources {
   std::vector<pair_resource> snapshot_;
 
   mr::host_resource_ref old_host_ref_;
-  rmm::device_async_resource_ref old_device_ref_;
+  mr::device_resource old_device_;
 
   using host_stats_adaptor_t = mr::statistics_adaptor<mr::host_resource_ref>;
   std::unique_ptr<host_stats_adaptor_t> host_adaptor_;
@@ -208,14 +209,14 @@ class memory_stats_resources : public resources {
     }
 
     // --- Device (global) ---
-    // set_current_device_resource_ref replaced the any_resource content in the global ref map,
-    // invalidating the resource_ref captured by any previously-cached thrust policy.
+    // Invalidate the cached thrust policy (the resource_ref it captured
+    // will be stale once we replace the global device resource).
     factories_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
       resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource_factory>());
     resources_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
       resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource>());
     {
-      device_stats_adaptor_t sa{old_device_ref_};
+      device_stats_adaptor_t sa{rmm::device_async_resource_ref{old_device_}};
       device_stats_   = sa.get_stats();
       device_adaptor_ = std::make_unique<device_stats_adaptor_t>(std::move(sa));
       rmm::mr::set_current_device_resource(*device_adaptor_);
