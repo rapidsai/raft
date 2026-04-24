@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <optional>
 
 namespace raft::core {
 
@@ -102,8 +103,16 @@ class BitmapTest : public testing::TestWithParam<test_spec_bitmap<index_t>> {
 
     create_cpu_bitmap(bitmap_ref, mask_cpu, spec.rows, spec.cols);
 
-    auto bitset_d = raft::core::bitset<bitmap_t, index_t>(
-      res, raft::make_const_mdspan(mask_device.view()), index_t(spec.rows * spec.cols));
+    std::optional<raft::core::bitset<bitmap_t, index_t>> bitset_opt;
+    raft::execute_with_dry_run_check(
+      res,
+      [&](raft::resources const& h) {
+        bitset_opt.emplace(
+          h, raft::make_const_mdspan(mask_device.view()), index_t(spec.rows * spec.cols));
+      },
+      raft::alloc_behavior::ARGUMENT_DRIVEN,
+      raft::ceildiv(index_t(spec.rows * spec.cols), bitmap_element_size) * sizeof(bitmap_t));
+    auto& bitset_d = *bitset_opt;
 
     auto bitmap_view_d =
       raft::core::bitmap_view<bitmap_t, index_t>(bitset_d.data(), spec.rows, spec.cols);

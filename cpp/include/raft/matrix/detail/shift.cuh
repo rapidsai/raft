@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,6 +7,7 @@
 
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/shift_types.hpp>
 
@@ -134,6 +135,7 @@ void shift_dispatch(raft::resources const& handle,
                     ShiftDirection shift_direction = ShiftDirection::TOWARDS_END,
                     ShiftType shift_type           = ShiftType::COL)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   size_t n_rows = in_out.extent(0);
   size_t n_cols = in_out.extent(1);
   size_t TPB    = 256;
@@ -169,6 +171,7 @@ void shift(raft::resources const& handle,
            ShiftDirection shift_direction = ShiftDirection::TOWARDS_END,
            ShiftType shift_type           = ShiftType::COL)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   if (val.has_value()) {
     shift_dispatch<ValueT, IdxT, ValueT, CONSTANT>(
       handle, in_out, val.value(), k, shift_direction, shift_type);
@@ -186,6 +189,7 @@ void shift(raft::resources const& handle,
            ShiftDirection shift_direction = ShiftDirection::TOWARDS_END,
            ShiftType shift_type           = ShiftType::COL)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   size_t k = shift_type == ShiftType::COL ? values.extent(1) : values.extent(0);
   shift_dispatch<ValueT, IdxT, const ValueT*, MATRIX>(
     handle, in_out, values.data_handle(), k, shift_direction, shift_type);
