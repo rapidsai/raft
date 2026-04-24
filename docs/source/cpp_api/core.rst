@@ -21,5 +21,6 @@ expose in public APIs.
    core_interruptible.rst
    core_operators.rst
    core_math.rst
+   core_numpy_serializer.rst
    core_bitset.rst
    core_bitmap.rst
