@@ -318,6 +318,7 @@ if(BUILD_TESTS)
     util/device_atomics.cu
     util/integer_utils.cpp
     util/integer_utils.cu
+    util/memory_stats_resources.cpp
     util/memory_type_dispatcher.cu
     util/popc.cu
     util/pow2_utils.cu
