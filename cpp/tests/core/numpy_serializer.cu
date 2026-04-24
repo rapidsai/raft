@@ -111,6 +111,7 @@ TEST(NumPySerializerMDSpan, PublicHeaderRoundTrip)
   auto header2 = numpy_serializer::read_header(iss);
 
   EXPECT_EQ(header, header2);
+  EXPECT_EQ(numpy_serializer::parse_descr(header2.dtype.to_string()), header2.dtype);
   EXPECT_EQ(header2.dtype.to_string(),
             numpy_serializer::get_numpy_dtype<std::uint32_t>().to_string());
 }

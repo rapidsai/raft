@@ -42,6 +42,17 @@ inline dtype_t get_numpy_dtype()
 }
 
 /**
+ * @brief Parse a NumPy dtype descriptor string.
+ *
+ * @param typestr NumPy dtype descriptor string.
+ * @return Parsed NumPy dtype descriptor.
+ */
+inline dtype_t parse_descr(std::string typestr)
+{
+  return detail::numpy_serializer::parse_descr(typestr);
+}
+
+/**
  * @brief Write a NumPy `.npy` header to an output stream.
  *
  * @param os Output stream.
