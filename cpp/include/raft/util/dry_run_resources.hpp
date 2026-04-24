@@ -54,7 +54,7 @@ class dry_run_resources : public resources {
   explicit dry_run_resources(const resources& existing)
     : resources(existing),
       active_(!resource::get_dry_run_flag(existing)),
-      old_host_ref_(raft::mr::get_default_host_resource()),
+      old_host_(raft::mr::get_default_host_resource()),
       old_device_(rmm::mr::get_current_device_resource_ref())
   {
     if (active_) init();
@@ -64,17 +64,13 @@ class dry_run_resources : public resources {
   {
     if (!active_) return;
     resource::set_dry_run_flag(*this, false);
-    mr::set_default_host_resource(old_host_ref_);
+    raft::mr::set_default_host_resource(old_host_);
+    rmm::mr::set_current_device_resource(old_device_);
 
     // Drop all base-class entries so that probe container RAII cleanup runs
-    // while old_device_ is still alive (probes in workspace/lws entries
-    // deallocate through snapshot_ upstreams, not old_device_).
+    // while old_device_ and snapshot_ are still alive
     resources_.clear();
     factories_.clear();
-
-    // Explicitly destroy device adaptor: its probe deallocates from old_device_.
-    device_adaptor_.reset();
-    rmm::mr::set_current_device_resource(std::move(old_device_));
   }
 
   dry_run_resources(dry_run_resources const&)            = delete;
@@ -117,7 +113,7 @@ class dry_run_resources : public resources {
   std::vector<pair_resource> snapshot_;
 
   bool active_;
-  raft::mr::host_resource_ref old_host_ref_;
+  raft::mr::host_resource old_host_;
   raft::mr::device_resource old_device_;
 
   using host_dry_run_t   = raft::mr::dry_run_resource<raft::mr::host_resource_ref>;
@@ -162,7 +158,7 @@ class dry_run_resources : public resources {
 
     // --- Host (global) ---
     {
-      host_adaptor_ = std::make_unique<host_dry_run_t>(old_host_ref_);
+      host_adaptor_ = std::make_unique<host_dry_run_t>(raft::mr::host_resource_ref{old_host_});
       host_stats_   = host_adaptor_->get_counter();
       mr::set_default_host_resource(mr::host_resource_ref{*host_adaptor_});
     }

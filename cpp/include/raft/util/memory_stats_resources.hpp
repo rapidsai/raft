@@ -76,7 +76,7 @@ class memory_stats_resources : public resources {
  public:
   explicit memory_stats_resources(const resources& existing)
     : resources(existing),
-      old_host_ref_(mr::get_default_host_resource()),
+      old_host_(mr::get_default_host_resource()),
       old_device_(rmm::mr::get_current_device_resource_ref())
   {
     init();
@@ -84,10 +84,7 @@ class memory_stats_resources : public resources {
 
   ~memory_stats_resources() override
   {
-    mr::set_default_host_resource(old_host_ref_);
-    resources_.clear();
-    factories_.clear();
-    device_adaptor_.reset();
+    mr::set_default_host_resource(old_host_);
     rmm::mr::set_current_device_resource(std::move(old_device_));
   }
 
@@ -146,8 +143,8 @@ class memory_stats_resources : public resources {
 
   std::vector<pair_resource> snapshot_;
 
-  mr::host_resource_ref old_host_ref_;
-  mr::device_resource old_device_;
+  raft::mr::host_resource old_host_;
+  raft::mr::device_resource old_device_;
 
   using host_stats_adaptor_t = mr::statistics_adaptor<mr::host_resource_ref>;
   std::unique_ptr<host_stats_adaptor_t> host_adaptor_;
@@ -189,7 +186,7 @@ class memory_stats_resources : public resources {
 
     // --- Host (global) ---
     {
-      host_adaptor_ = std::make_unique<host_stats_adaptor_t>(old_host_ref_);
+      host_adaptor_ = std::make_unique<host_stats_adaptor_t>(mr::host_resource_ref{old_host_});
       host_stats_   = host_adaptor_->get_stats();
       mr::set_default_host_resource(mr::host_resource_ref{*host_adaptor_});
     }

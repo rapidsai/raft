@@ -106,9 +106,8 @@ class memory_tracking_resources : public resources {
   ~memory_tracking_resources() override
   {
     report_.stop();
-    raft::mr::set_default_host_resource(old_host_ref_);
-    device_adaptor_.reset();
-    rmm::mr::set_current_device_resource(std::move(old_device_));
+    raft::mr::set_default_host_resource(old_host_);
+    rmm::mr::set_current_device_resource(old_device_);
   }
 
   memory_tracking_resources(memory_tracking_resources const&)            = delete;
@@ -127,7 +126,7 @@ class memory_tracking_resources : public resources {
     : resources(existing ? *existing : resources{}),
       owned_stream_(std::move(owned_stream)),
       report_(out_override ? *out_override : *owned_stream_, sample_interval),
-      old_host_ref_(raft::mr::get_default_host_resource()),
+      old_host_(raft::mr::get_default_host_resource()),
       old_device_(rmm::mr::get_current_device_resource_ref())
   {
     init();
@@ -141,7 +140,7 @@ class memory_tracking_resources : public resources {
   std::unique_ptr<std::ofstream> owned_stream_;
   raft::mr::resource_monitor report_;
 
-  raft::mr::host_resource_ref old_host_ref_;
+  raft::mr::host_resource old_host_;
   raft::mr::device_resource old_device_;
 
   using host_stats_t  = raft::mr::statistics_adaptor<raft::mr::host_resource_ref>;
@@ -181,7 +180,7 @@ class memory_tracking_resources : public resources {
 
     // --- Host (global) ---
     {
-      host_stats_t sa{old_host_ref_};
+      host_stats_t sa{raft::mr::host_resource_ref{old_host_}};
       report_.register_source("host", sa.get_stats());
       host_adaptor_ = std::make_unique<host_notify_t>(std::move(sa), report_.get_notifier());
       raft::mr::set_default_host_resource(*host_adaptor_);
