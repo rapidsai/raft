@@ -226,21 +226,19 @@ class TestSvds:
         assert Vt.shape == (k, n)
 
     def test_int64_indices(self):
-        """int64 indices should be auto-converted and work."""
+        """int64 indices should be auto-converted and work, with a warning."""
         m, n, k = 50, 30, 3
         cupy.random.seed(42)
         A = sparse.random(m, n, density=0.3, format="csr", dtype=numpy.float32)
 
-        # Convert to int64 indices
-        A_i64 = sparse.csr_matrix(
-            (
-                A.data,
-                A.indices.astype(cupy.int64),
-                A.indptr.astype(cupy.int64),
-            ),
-            shape=A.shape,
-        )
-        U, S, Vt = svds(A_i64, k=k, seed=42)
+        # cupyx CSR's constructor normalizes index dtype back to int32, so
+        # bypass it via field reassignment to actually hold int64 indices.
+        A.indptr = A.indptr.astype(cupy.int64)
+        A.indices = A.indices.astype(cupy.int64)
+        assert A.indptr.dtype == numpy.int64
+
+        with pytest.warns(UserWarning, match="int64"):
+            U, S, Vt = svds(A, k=k, seed=42)
         assert S.shape == (k,)
         assert all(cupy.asnumpy(S) > 0)
 
@@ -251,6 +249,30 @@ class TestSvds:
             svds(A, k=0)
         with pytest.raises(ValueError):
             svds(A, k=15)
+
+    def test_invalid_input_matrix(self):
+        """Non-CSR / non-sparse / None inputs must be rejected with a clear error."""
+        # None
+        with pytest.raises(ValueError, match="'A' cannot be None"):
+            svds(None, k=3)
+
+        # Dense array (not sparse at all)
+        dense = cupy.random.rand(20, 15).astype(numpy.float32)
+        with pytest.raises(TypeError, match="cupyx.scipy.sparse"):
+            svds(dense, k=3)
+
+        # Sparse but wrong layout (COO / CSC)
+        A_coo = sparse.random(
+            20, 15, density=0.3, format="coo", dtype=numpy.float32
+        )
+        with pytest.raises(TypeError, match="csr_matrix"):
+            svds(A_coo, k=3)
+
+        A_csc = sparse.random(
+            20, 15, density=0.3, format="csc", dtype=numpy.float32
+        )
+        with pytest.raises(TypeError, match="csr_matrix"):
+            svds(A_csc, k=3)
 
     @pytest.mark.parametrize("dtype", [numpy.float32, numpy.float64])
     def test_reproducibility(self, dtype):
@@ -266,3 +288,66 @@ class TestSvds:
         assert cupy.allclose(S1, S2, atol=tol), (
             "Not reproducible with same seed"
         )
+
+    @pytest.mark.parametrize("dtype", [numpy.float32, numpy.float64])
+    def test_return_singular_vectors_modes(self, dtype):
+        """All four scipy-style return_singular_vectors modes."""
+        m, n, k = 60, 40, 4
+        cupy.random.seed(42)
+        A = sparse.random(m, n, density=0.3, format="csr", dtype=dtype)
+
+        # Reference: full output
+        U_ref, S_ref, Vt_ref = svds(A, k=k, seed=42)
+        assert U_ref.shape == (m, k)
+        assert Vt_ref.shape == (k, n)
+
+        # False: singular values only
+        U_f, S_f, Vt_f = svds(A, k=k, seed=42, return_singular_vectors=False)
+        assert U_f is None
+        assert Vt_f is None
+        assert cupy.allclose(S_f, S_ref)
+
+        # "u": U + S
+        U_u, S_u, Vt_u = svds(A, k=k, seed=42, return_singular_vectors="u")
+        assert U_u.shape == (m, k)
+        assert Vt_u is None
+        assert cupy.allclose(S_u, S_ref)
+        # U-based sign correction matches the full-output reference exactly
+        tol = 1e-4 if dtype == numpy.float32 else 1e-10
+        assert cupy.allclose(U_u, U_ref, atol=tol)
+
+        # "vh": Vt + S
+        U_v, S_v, Vt_v = svds(A, k=k, seed=42, return_singular_vectors="vh")
+        assert U_v is None
+        assert Vt_v.shape == (k, n)
+        assert cupy.allclose(S_v, S_ref)
+        # Vt rows should remain orthonormal even though signs may differ
+        I_k = cupy.eye(k, dtype=dtype)
+        assert cupy.allclose(Vt_v @ Vt_v.T, I_k, atol=tol)
+
+    def test_return_singular_vectors_invalid(self):
+        """Invalid return_singular_vectors must raise ValueError."""
+        A = sparse.random(20, 15, density=0.3, format="csr")
+        with pytest.raises(ValueError):
+            svds(A, k=3, return_singular_vectors="bogus")
+        with pytest.raises(ValueError):
+            svds(A, k=3, return_singular_vectors=1)
+
+    @pytest.mark.parametrize("dtype", [numpy.float32, numpy.float64])
+    def test_return_singular_vectors_deterministic(self, dtype):
+        """Each mode must be deterministic across runs with the same seed."""
+        m, n, k = 50, 30, 3
+        cupy.random.seed(42)
+        A = sparse.random(m, n, density=0.3, format="csr", dtype=dtype)
+
+        # cuSOLVER gesvd inside the algorithm is not bit-deterministic across
+        # runs even with a fixed RNG seed, so allow a small numerical tolerance.
+        atol = 1e-4 if dtype == numpy.float32 else 1e-10
+        for mode in (False, "u", "vh"):
+            res_a = svds(A, k=k, seed=7, return_singular_vectors=mode)
+            res_b = svds(A, k=k, seed=7, return_singular_vectors=mode)
+            assert cupy.allclose(res_a[1], res_b[1], atol=atol)
+            if mode in (True, "u"):
+                assert cupy.allclose(res_a[0], res_b[0], atol=atol)
+            if mode in (True, "vh"):
+                assert cupy.allclose(res_a[2], res_b[2], atol=atol)

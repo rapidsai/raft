@@ -202,6 +202,170 @@ using RandomizedSvdsTestD = RandomizedSvdsTest<int, double>;
 TEST_F(RandomizedSvdsTestD, GoldenData) { Run(); }
 
 // ============================================================================
+// Test: optional U / Vt outputs (skip flag)
+//
+// Verifies that passing std::nullopt for U or Vt (or both) skips that output:
+//   - singular values match the all-outputs reference exactly
+//   - when U is requested, it equals the reference U (sign-fixing uses U)
+//   - when Vt is requested without U, signs are derived from Vt — values are
+//     deterministic but may differ from the U+Vt reference; we check the
+//     row-norms (each Vt row should remain unit-norm)
+// ============================================================================
+
+template <typename IndexType, typename ValueType>
+class OptionalUVtTest : public ::testing::Test {
+ public:
+  OptionalUVtTest()
+    : stream(resource::get_cuda_stream(handle)),
+      m(20),
+      n(15),
+      k(3),
+      nnz(120),
+      d_indptr(raft::make_device_vector<IndexType, uint32_t>(handle, m + 1)),
+      d_indices(raft::make_device_vector<IndexType, uint32_t>(handle, nnz)),
+      d_values(raft::make_device_vector<ValueType, uint32_t>(handle, nnz))
+  {
+    auto h_indptr  = golden_indptr<IndexType>();
+    auto h_indices = golden_indices<IndexType>();
+    auto h_values  = golden_values<ValueType>();
+    raft::update_device(d_indptr.data_handle(), h_indptr.data(), m + 1, stream);
+    raft::update_device(d_indices.data_handle(), h_indices.data(), nnz, stream);
+    raft::update_device(d_values.data_handle(), h_values.data(), nnz, stream);
+  }
+
+  template <typename UViewT, typename VtViewT>
+  void run_one(UViewT U_opt, VtViewT Vt_opt, ValueType* S_out)
+  {
+    auto csr_structure =
+      raft::make_device_compressed_structure_view<IndexType, IndexType, IndexType>(
+        d_indptr.data_handle(), d_indices.data_handle(), m, n, nnz);
+    auto csr_matrix =
+      raft::make_device_csr_matrix_view<const ValueType, IndexType, IndexType, IndexType>(
+        d_values.data_handle(), csr_structure);
+
+    sparse_svd_config<ValueType> config;
+    config.n_components  = k;
+    config.n_oversamples = 10;
+    config.n_power_iters = 4;
+    config.seed          = 42;
+
+    auto S = raft::make_device_vector<ValueType, uint32_t>(handle, k);
+    sparse_randomized_svd(handle, config, csr_matrix, S.view(), U_opt, Vt_opt);
+    raft::update_host(S_out, S.data_handle(), k, stream);
+    resource::sync_stream(handle);
+  }
+
+  void Run()
+  {
+    using mat_view = raft::device_matrix_view<ValueType, uint32_t, raft::col_major>;
+
+    // Reference: ask for everything
+    auto U_ref  = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, k);
+    auto Vt_ref = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, n);
+    std::vector<ValueType> S_ref(k);
+    run_one<std::optional<mat_view>, std::optional<mat_view>>(
+      U_ref.view(), Vt_ref.view(), S_ref.data());
+
+    // Mode: S only — both nullopt
+    {
+      std::vector<ValueType> S_only(k);
+      run_one<std::optional<mat_view>, std::optional<mat_view>>(
+        std::nullopt, std::nullopt, S_only.data());
+      for (int i = 0; i < k; i++) {
+        ASSERT_NEAR(S_only[i], S_ref[i], 1e-4) << "S mismatch at i=" << i << " (S-only)";
+      }
+    }
+
+    // Mode: U + S
+    {
+      auto U_only = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, m, k);
+      std::vector<ValueType> S_u(k);
+      run_one<std::optional<mat_view>, std::optional<mat_view>>(
+        U_only.view(), std::nullopt, S_u.data());
+      for (int i = 0; i < k; i++) {
+        ASSERT_NEAR(S_u[i], S_ref[i], 1e-4) << "S mismatch at i=" << i << " (U-only)";
+      }
+      // U is sign-corrected from U → must match reference U exactly
+      ASSERT_TRUE(raft::devArrMatch<ValueType>(U_only.data_handle(),
+                                               U_ref.data_handle(),
+                                               m * k,
+                                               raft::CompareApprox<ValueType>(1e-5),
+                                               stream))
+        << "U should match reference (same sign convention)";
+    }
+
+    // Mode: Vt + S
+    {
+      auto Vt_only = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, n);
+      std::vector<ValueType> S_v(k);
+      run_one<std::optional<mat_view>, std::optional<mat_view>>(
+        std::nullopt, Vt_only.view(), S_v.data());
+      for (int i = 0; i < k; i++) {
+        ASSERT_NEAR(S_v[i], S_ref[i], 1e-4) << "S mismatch at i=" << i << " (Vt-only)";
+      }
+      // In Vt-only mode, signs come from Vt instead of U; rows may flip relative to
+      // reference Vt. Verify row-orthonormality is preserved.
+      auto VVt      = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, k);
+      ValueType one = 1, zero = 0;
+      raft::linalg::gemm(handle,
+                         Vt_only.data_handle(),
+                         k,
+                         n,
+                         Vt_only.data_handle(),
+                         VVt.data_handle(),
+                         k,
+                         k,
+                         CUBLAS_OP_N,
+                         CUBLAS_OP_T,
+                         one,
+                         zero,
+                         stream);
+      std::vector<ValueType> I_k(k * k, 0);
+      for (int i = 0; i < k; i++)
+        I_k[i * k + i] = 1;
+      auto I_k_dev = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, k);
+      raft::update_device(I_k_dev.data_handle(), I_k.data(), k * k, stream);
+      ASSERT_TRUE(raft::devArrMatch<ValueType>(VVt.data_handle(),
+                                               I_k_dev.data_handle(),
+                                               k * k,
+                                               raft::CompareApprox<ValueType>(1e-4),
+                                               stream))
+        << "Vt rows must remain orthonormal in Vt-only mode";
+    }
+
+    // Determinism: same mode + same seed → identical output across runs
+    {
+      auto Vt_a = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, n);
+      auto Vt_b = raft::make_device_matrix<ValueType, uint32_t, raft::col_major>(handle, k, n);
+      std::vector<ValueType> S_a(k), S_b(k);
+      run_one<std::optional<mat_view>, std::optional<mat_view>>(
+        std::nullopt, Vt_a.view(), S_a.data());
+      run_one<std::optional<mat_view>, std::optional<mat_view>>(
+        std::nullopt, Vt_b.view(), S_b.data());
+      ASSERT_TRUE(raft::devArrMatch<ValueType>(Vt_a.data_handle(),
+                                               Vt_b.data_handle(),
+                                               k * n,
+                                               raft::CompareApprox<ValueType>(1e-5),
+                                               stream))
+        << "Vt-only mode must be deterministic";
+    }
+  }
+
+  raft::resources handle;
+  cudaStream_t stream;
+  int m, n, k, nnz;
+  raft::device_vector<IndexType, uint32_t> d_indptr;
+  raft::device_vector<IndexType, uint32_t> d_indices;
+  raft::device_vector<ValueType, uint32_t> d_values;
+};
+
+using OptionalUVtTestF = OptionalUVtTest<int, float>;
+TEST_F(OptionalUVtTestF, AllModes) { Run(); }
+
+using OptionalUVtTestD = OptionalUVtTest<int, double>;
+TEST_F(OptionalUVtTestD, AllModes) { Run(); }
+
+// ============================================================================
 // Test: reconstruction error ||A - U diag(S) Vt||_F
 // ============================================================================
 

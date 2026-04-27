@@ -30,6 +30,10 @@ template <typename ValueTypeT, typename NNZTypeT = int>
 struct csr_linear_operator {
   /**
    * @brief Construct from a const CSR matrix view
+   *
+   * @note `m_`/`n_` are cached at construction because
+   *       `raft::device_csr_matrix_view::structure_view()` is not const-qualified
+   *       and cannot be invoked from a const member function.
    */
   explicit csr_linear_operator(raft::device_csr_matrix_view<const ValueTypeT, int, int, NNZTypeT> A)
     : A_(A), m_(A.structure_view().get_n_rows()), n_(A.structure_view().get_n_cols())

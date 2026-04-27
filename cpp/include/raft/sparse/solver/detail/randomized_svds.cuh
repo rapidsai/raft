@@ -25,6 +25,7 @@
 #include <rmm/device_uvector.hpp>
 
 #include <algorithm>
+#include <optional>
 #include <random>
 
 namespace raft::sparse::solver::detail {
@@ -45,16 +46,17 @@ namespace raft::sparse::solver::detail {
  * @param[in] config SVD configuration (n_components, n_oversamples, n_power_iters, seed)
  * @param[in] op linear operator representing the matrix to decompose
  * @param[out] singular_values output singular values of shape (k,) in descending order
- * @param[out] U output left singular vectors of shape (m, k), col-major
- * @param[out] Vt output right singular vectors of shape (k, n), col-major
+ * @param[out] U optional output left singular vectors of shape (m, k), col-major
+ * @param[out] Vt optional output right singular vectors of shape (k, n), col-major
  */
 template <typename ValueTypeT, typename OperatorT>
-void sparse_randomized_svd(raft::resources const& handle,
-                           sparse_svd_config<ValueTypeT> const& config,
-                           OperatorT const& op,
-                           raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
-                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> U,
-                           raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major> Vt)
+void sparse_randomized_svd(
+  raft::resources const& handle,
+  sparse_svd_config<ValueTypeT> const& config,
+  OperatorT const& op,
+  raft::device_vector_view<ValueTypeT, uint32_t> singular_values,
+  std::optional<raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major>> U,
+  std::optional<raft::device_matrix_view<ValueTypeT, uint32_t, raft::col_major>> Vt)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "raft::sparse::solver::sparse_randomized_svd(%d, %d, %d)",
@@ -73,10 +75,16 @@ void sparse_randomized_svd(raft::resources const& handle,
   RAFT_EXPECTS(config.n_power_iters >= 0, "n_power_iters must be non-negative");
   RAFT_EXPECTS(singular_values.extent(0) == static_cast<uint32_t>(k),
                "singular_values must have size n_components");
-  RAFT_EXPECTS(U.extent(0) == static_cast<uint32_t>(m) && U.extent(1) == static_cast<uint32_t>(k),
-               "U must have shape (m, n_components)");
-  RAFT_EXPECTS(Vt.extent(0) == static_cast<uint32_t>(k) && Vt.extent(1) == static_cast<uint32_t>(n),
-               "Vt must have shape (n_components, n)");
+  if (U) {
+    RAFT_EXPECTS(
+      U->extent(0) == static_cast<uint32_t>(m) && U->extent(1) == static_cast<uint32_t>(k),
+      "U must have shape (m, n_components)");
+  }
+  if (Vt) {
+    RAFT_EXPECTS(
+      Vt->extent(0) == static_cast<uint32_t>(k) && Vt->extent(1) == static_cast<uint32_t>(n),
+      "Vt must have shape (n_components, n)");
+  }
 
   auto stream = raft::resource::get_cuda_stream(handle);
 
@@ -163,20 +171,44 @@ void sparse_randomized_svd(raft::resources const& handle,
   // Bt = B^T is (n x block_size), we already have Bt = Z from step 5
   // Z is (n, block_size) = A^T @ Q = B^T. We can reuse Z directly!
   // SVD(Bt) with Bt being (n x block_size): jobu='S' gives U_bt (n x block_size),
-  // jobvt='A' gives Vt_bt (block_size x block_size)
-  auto U_bt = raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
-    handle, static_cast<uint32_t>(n), static_cast<uint32_t>(block_size));
-  auto Vt_bt = raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
-    handle, static_cast<uint32_t>(block_size), static_cast<uint32_t>(block_size));
+  // jobvt='A' gives Vt_bt (block_size x block_size). Both are needed when either
+  // U or Vt is requested by the caller; we only allocate the ones we will read.
+  std::optional<raft::device_matrix<ValueTypeT, uint32_t, raft::col_major>> U_bt;
+  std::optional<raft::device_matrix<ValueTypeT, uint32_t, raft::col_major>> Vt_bt;
+  if (Vt) {
+    U_bt.emplace(raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
+      handle, static_cast<uint32_t>(n), static_cast<uint32_t>(block_size)));
+  }
+  if (U) {
+    Vt_bt.emplace(raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
+      handle, static_cast<uint32_t>(block_size), static_cast<uint32_t>(block_size)));
+  }
 
-  // Z is consumed by svdQR (modifies input in-place) — this is fine since Z is not used after
+  // Z is consumed by svdQR (modifies input in-place) — this is fine since Z is not used after.
+  // svdQR requires non-null pointers for left/right vectors when gen_*_vec is true; pass
+  // a scratch matrix when the caller didn't request that side.
+  std::optional<raft::device_matrix<ValueTypeT, uint32_t, raft::col_major>> U_bt_scratch;
+  std::optional<raft::device_matrix<ValueTypeT, uint32_t, raft::col_major>> Vt_bt_scratch;
+  ValueTypeT* U_bt_ptr  = U_bt ? U_bt->data_handle() : nullptr;
+  ValueTypeT* Vt_bt_ptr = Vt_bt ? Vt_bt->data_handle() : nullptr;
+  if (U_bt_ptr == nullptr) {
+    U_bt_scratch.emplace(raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
+      handle, static_cast<uint32_t>(n), static_cast<uint32_t>(block_size)));
+    U_bt_ptr = U_bt_scratch->data_handle();
+  }
+  if (Vt_bt_ptr == nullptr) {
+    Vt_bt_scratch.emplace(raft::make_device_matrix<ValueTypeT, uint32_t, raft::col_major>(
+      handle, static_cast<uint32_t>(block_size), static_cast<uint32_t>(block_size)));
+    Vt_bt_ptr = Vt_bt_scratch->data_handle();
+  }
+
   raft::linalg::svdQR(handle,
                       Z.data_handle(),
                       n,
                       block_size,
                       S_full.data_handle(),
-                      U_bt.data_handle(),
-                      Vt_bt.data_handle(),
+                      U_bt_ptr,
+                      Vt_bt_ptr,
                       true,  // transpose right vectors: Vt_bt -> V_bt (block_size x block_size)
                       true,  // generate left vectors
                       true,  // generate right vectors
@@ -192,36 +224,33 @@ void sparse_randomized_svd(raft::resources const& handle,
   // Step 8: U = Q @ U_b[:, :k] = Q @ V_bt[:, :k]
   // Q is Y (m, block_size), V_bt is (block_size, block_size)
   // U = Y @ V_bt[:, :k] → (m, block_size) * (block_size, k) → (m, k)
-  const ValueTypeT one  = 1;
-  const ValueTypeT zero = 0;
-  raft::linalg::gemm(handle,
-                     Y.data_handle(),
-                     m,
-                     block_size,
-                     Vt_bt.data_handle(),  // This is V_bt after trans_right=true
-                     U.data_handle(),
-                     m,
-                     k,
-                     CUBLAS_OP_N,
-                     CUBLAS_OP_N,
-                     one,
-                     zero,
-                     stream);
+  if (U) {
+    const ValueTypeT one  = 1;
+    const ValueTypeT zero = 0;
+    raft::linalg::gemm(handle,
+                       Y.data_handle(),
+                       m,
+                       block_size,
+                       Vt_bt->data_handle(),  // This is V_bt after trans_right=true
+                       U->data_handle(),
+                       m,
+                       k,
+                       CUBLAS_OP_N,
+                       CUBLAS_OP_N,
+                       one,
+                       zero,
+                       stream);
+  }
 
-  // Step 9: Truncate S and Vt
+  // Step 9: Truncate S, optionally compute Vt
   raft::copy(singular_values.data_handle(), S_full.data_handle(), k, stream);
 
   // Vt[:k, :] = U_bt[:, :k]^T
-  // U_bt is col-major (n, block_size), we need the first k columns transposed to (k, n)
-  // Vt(i,j) = U_bt(j,i) for i < k
-  // This is: Vt = (U_bt[:, :k])^T
-  // Use GEMM with identity: Vt = I_k @ U_bt[:, :k]^T doesn't help
-  // Just use transpose: transpose the first k columns of U_bt
-  // U_bt[:, :k] is (n, k) col-major → transpose to (k, n) col-major = Vt
-  raft::linalg::transpose(handle, U_bt.data_handle(), Vt.data_handle(), n, k, stream);
+  // U_bt is col-major (n, block_size); transpose its first k columns to (k, n) col-major.
+  if (Vt) { raft::linalg::transpose(handle, U_bt->data_handle(), Vt->data_handle(), n, k, stream); }
 
-  // Step 10: Sign correction
-  svd_sign_correction(handle, U, Vt);
+  // Step 10: Sign correction (no-op when neither U nor Vt is requested)
+  svd_sign_correction<ValueTypeT>(handle, U, Vt);
 }
 
 }  // namespace raft::sparse::solver::detail
