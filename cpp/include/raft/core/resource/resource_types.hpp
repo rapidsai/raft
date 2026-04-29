@@ -5,6 +5,9 @@
 
 #pragma once
 
+#include <atomic>
+#include <memory>
+
 namespace raft::resource {
 
 /**
@@ -56,15 +59,6 @@ class resource {
   virtual ~resource() {}
 };
 
-class empty_resource : public resource {
- public:
-  empty_resource() : resource() {}
-
-  void* get_resource() override { return nullptr; }
-
-  ~empty_resource() override {}
-};
-
 /**
  * @brief A resource factory knows how to construct an instance of
  * a specific raft::resource::resource.
@@ -87,26 +81,16 @@ class resource_factory {
 };
 
 /**
- * @brief A resource factory knows how to construct an instance of
- * a specific raft::resource::resource.
+ * @brief Shared cell holding a factory and a lazily-created resource.
+ *
+ * Multiple raft::resources handles can share a cell via shared_ptr.
+ * Lazy initialization stores the concrete resource atomically, so all
+ * handles sharing the cell see the update.  Explicit set replaces the
+ * shared_ptr<resource_cell> in the local handle, isolating the change.
  */
-class empty_resource_factory : public resource_factory {
- public:
-  empty_resource_factory() : resource_factory() {}
-  /**
-   * @brief Return the resource_type associated with the current factory
-   * @return resource_type corresponding to the current factory
-   */
-  resource_type get_resource_type() override { return resource_type::LAST_KEY; }
-
-  /**
-   * @brief Construct an instance of the factory's underlying resource.
-   * @return resource instance
-   */
-  resource* make_resource() override { return &res; }
-
- private:
-  empty_resource res;
+struct resource_cell {
+  std::atomic<std::shared_ptr<resource_factory>> factory{};
+  std::atomic<std::shared_ptr<resource>> res{};
 };
 
 /**

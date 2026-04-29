@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -38,9 +38,7 @@ class sub_comms_resource_factory : public resource_factory {
 
 inline const comms::comms_t& get_subcomm(const resources& res, std::string key)
 {
-  if (!res.has_resource_factory(resource_type::SUB_COMMUNICATOR)) {
-    res.add_resource_factory(std::make_shared<sub_comms_resource_factory>());
-  }
+  res.ensure_default_factory(std::make_shared<sub_comms_resource_factory>());
 
   auto sub_comms =
     res.get_resource<std::unordered_map<std::string, std::shared_ptr<comms::comms_t>>>(
@@ -51,13 +49,16 @@ inline const comms::comms_t& get_subcomm(const resources& res, std::string key)
   return *sub_comm;
 }
 
+// In-place mutation: sub-communicators are typically set once during initialization
+// and should be visible to all copies of the resources handle (Goal 1 / lazy-init
+// propagation semantics).
+// Note: we don't replace the _resource_ here (sub_comms_resource), so `res` is passed
+//       by const reference.
 inline void set_subcomm(resources const& res,
                         std::string key,
                         std::shared_ptr<comms::comms_t> subcomm)
 {
-  if (!res.has_resource_factory(resource_type::SUB_COMMUNICATOR)) {
-    res.add_resource_factory(std::make_shared<sub_comms_resource_factory>());
-  }
+  res.ensure_default_factory(std::make_shared<sub_comms_resource_factory>());
   auto sub_comms =
     res.get_resource<std::unordered_map<std::string, std::shared_ptr<comms::comms_t>>>(
       resource_type::SUB_COMMUNICATOR);
