@@ -5,6 +5,8 @@
 
 #include <raft/sparse/solver/lanczos.cuh>
 
+#include <raft_runtime/solver/lanczos.hpp>
+
 #define FUNC_DEF(IndexType, ValueType)                                                \
   void lanczos_solver(                                                                \
     const raft::resources& handle,                                                    \

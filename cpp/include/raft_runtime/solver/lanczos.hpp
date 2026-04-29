@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/solver/lanczos_types.hpp>
@@ -19,7 +20,7 @@ namespace raft::runtime::solver {
  */
 
 #define FUNC_DECL(IndexType, ValueType)                                               \
-  void lanczos_solver(                                                                \
+  RAFT_EXPORT void lanczos_solver(                                                    \
     const raft::resources& handle,                                                    \
     raft::sparse::solver::lanczos_solver_config<ValueType> config,                    \
     raft::device_vector_view<IndexType, uint32_t, raft::row_major> rows,              \
