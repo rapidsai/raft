@@ -6,7 +6,9 @@
 #include "../test_utils.cuh"
 
 #include <raft/core/bitmap.cuh>
+#include <raft/core/copy.cuh>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/random/rng.cuh>
@@ -122,8 +124,9 @@ class BitmapTest : public testing::TestWithParam<test_spec_bitmap<index_t>> {
 
         raft::random::uniformInt(
           h, rng, query_device.view(), index_t(0), index_t(spec.rows * spec.cols));
-        raft::update_host(
-          query_cpu.data(), query_device.data_handle(), query_device.extent(0), stream);
+        raft::copy(h,
+                   raft::make_host_vector_view(query_cpu.data(), query_device.extent(0)),
+                   raft::make_const_mdspan(query_device.view()));
 
         auto queries_device_view =
           raft::make_device_vector_view<const index_t>(query_device.data_handle(), spec.query_len);
@@ -138,20 +141,21 @@ class BitmapTest : public testing::TestWithParam<test_spec_bitmap<index_t>> {
           },
           queries_device_view);
 
-        raft::update_host(
-          result_cpu.data(), result_device.data_handle(), query_device.size(), stream);
+        raft::copy(h,
+                   raft::make_host_vector_view(result_cpu.data(), result_device.extent(0)),
+                   raft::make_const_mdspan(result_device.view()));
         resource::sync_stream(h, stream);
 
         test_cpu_bitmap(bitmap_ref, query_cpu, result_ref, spec.rows, spec.cols);
 
         if (resource::get_dry_run_flag(h)) { return; }
-
         ASSERT_TRUE(hostVecMatch(result_cpu, result_ref, Compare<uint8_t>()));
 
         raft::random::uniformInt(
           h, rng, mask_device.view(), index_t(0), index_t(spec.rows * spec.cols));
-        raft::update_host(
-          mask_cpu.data(), mask_device.data_handle(), mask_device.extent(0), stream);
+        raft::copy(h,
+                   raft::make_host_vector_view(mask_cpu.data(), mask_device.extent(0)),
+                   raft::make_const_mdspan(mask_device.view()));
         resource::sync_stream(h, stream);
 
         thrust::for_each_n(raft::resource::get_thrust_policy(h),
@@ -163,7 +167,10 @@ class BitmapTest : public testing::TestWithParam<test_spec_bitmap<index_t>> {
                              bitmap_view_d.set(row, col, false);
                            });
 
-        raft::update_host(bitmap_result.data(), bitmap_view_d.data(), bitmap_result.size(), stream);
+        raft::copy(h,
+                   raft::make_host_vector_view(bitmap_result.data(), bitmap_result.size()),
+                   raft::make_device_vector_view<const bitmap_t>(bitmap_view_d.data(),
+                                                                 bitmap_result.size()));
 
         for (size_t i = 0; i < mask_cpu.size(); i++) {
           auto row = mask_cpu[i] / spec.cols;
