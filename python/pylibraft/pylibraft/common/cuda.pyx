@@ -25,9 +25,9 @@ from libc.stdint cimport uintptr_t
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
         cdef cudaError_t e = cudaGetLastError()
-        cdef bytes errMsg = cudaGetErrorString(e)
-        cdef bytes errName = cudaGetErrorName(e)
-        msg = "Error! %s reason='%s'" % (errName.decode(), errMsg.decode())
+        cdef str errMsg = cudaGetErrorString(e).decode()
+        cdef str errName = cudaGetErrorName(e).decode()
+        msg = "Error! %s reason='%s'" % (errName, errMsg)
         if extraMsg is not None:
             msg += " extraMsg='%s'" % extraMsg
         super(CudaRuntimeError, self).__init__(msg)
