@@ -12,7 +12,7 @@
 #include <optional>
 
 namespace raft::runtime::matrix {
-RAFT_EXPORT_FUNCTION void select_k(
+RAFT_EXPORT void select_k(
   const resources& handle,
   raft::device_matrix_view<const float, int64_t, row_major> in_val,
   std::optional<raft::device_matrix_view<const int64_t, int64_t, row_major>> in_idx,
