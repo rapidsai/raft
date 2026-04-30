@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright 2020 KETAN DATE & RAKESH NAGI
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 /*
@@ -38,7 +38,8 @@
 #include <thrust/for_each.h>
 
 #include <cstddef>
-namespace raft::solver::detail {
+namespace RAFT_EXPORT raft {
+namespace solver::detail {
 const int DORMANT{0};
 const int ACTIVE{1};
 const int VISITED{2};
@@ -557,4 +558,5 @@ RAFT_KERNEL kernel_calcObjValPrimal(weight_t* d_obj_val_primal,
   }
 }
 
-}  // namespace raft::solver::detail
+}  // namespace solver::detail
+}  // namespace RAFT_EXPORT raft

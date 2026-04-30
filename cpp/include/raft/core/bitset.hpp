@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -13,7 +14,8 @@
 
 #include <cmath>
 
-namespace raft::core {
+namespace RAFT_EXPORT raft {
+namespace core {
 /**
  * @defgroup bitset Bitset
  * @{
@@ -433,4 +435,5 @@ struct bitset {
 };
 
 /** @} */
-}  // end namespace raft::core
+}  // namespace core
+}  // namespace RAFT_EXPORT raft

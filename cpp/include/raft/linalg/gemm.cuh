@@ -10,6 +10,7 @@
 #include "detail/cublaslt_wrappers.hpp"
 #include "detail/gemm.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -18,7 +19,8 @@
 #include <raft/core/resources.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace raft::linalg {
+namespace RAFT_EXPORT raft {
+namespace linalg {
 
 /**
  * @brief the wrapper of cublas gemm function
@@ -283,6 +285,7 @@ void gemm(raft::resources const& res,
 
 /** @} */  // end of gemm
 
-}  // namespace raft::linalg
+}  // namespace linalg
+}  // namespace RAFT_EXPORT raft
 
 #endif

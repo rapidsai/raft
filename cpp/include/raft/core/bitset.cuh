@@ -6,6 +6,7 @@
 #pragma once
 
 #include <raft/core/bitset.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/operators.hpp>
@@ -19,7 +20,8 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-namespace raft::core {
+namespace RAFT_EXPORT raft {
+namespace core {
 
 template <typename index_t>
 _RAFT_HOST_DEVICE void inline compute_original_nbits_position(const index_t original_nbits,
@@ -306,4 +308,5 @@ void bitset<bitset_t, index_t>::count(const raft::resources& res,
   raft::popc(res, values, max_len, count_gpu_scalar);
 }
 
-}  // end namespace raft::core
+}  // namespace core
+}  // namespace RAFT_EXPORT raft

@@ -5,9 +5,12 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <cstdint>
 
-namespace raft::linalg {
+namespace RAFT_EXPORT raft {
+namespace linalg {
 
 /**
  * @brief Solver algorithm for PCA/TSVD eigen decomposition.
@@ -33,4 +36,5 @@ struct paramsPCA : paramsTSVD {
   bool whiten = false;
 };
 
-};  // end namespace raft::linalg
+};  // end namespace linalg
+};  // end namespace RAFT_EXPORT raft

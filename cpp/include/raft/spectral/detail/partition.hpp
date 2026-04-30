@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
@@ -21,7 +22,7 @@
 
 #include <tuple>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace spectral {
 namespace detail {
 
@@ -93,4 +94,4 @@ void analyzePartition(raft::resources const& handle,
 
 }  // namespace detail
 }  // namespace spectral
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

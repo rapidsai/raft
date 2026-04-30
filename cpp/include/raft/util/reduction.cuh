@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -12,7 +13,7 @@
 
 #include <stdint.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief Logical-warp-level reduction
@@ -286,4 +287,4 @@ DI void logicalWarpReduceVector(T* acc, int lane_id, ReduceLambda reduce_op)
   }
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

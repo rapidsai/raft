@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __SPARSE_REDUCE_H
@@ -7,11 +7,12 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/detail/reduce.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace op {
 /**
@@ -71,6 +72,6 @@ void max_duplicates(raft::resources const& handle,
 }
 };  // END namespace op
 };  // END namespace sparse
-};  // END namespace raft
+};  // END namespace RAFT_EXPORT raft
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include "detail/rng_impl.cuh"
 #include "rng_state.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -17,7 +18,8 @@
 #include <type_traits>
 #include <variant>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 
 namespace sample_without_replacement_impl {
 template <typename T>
@@ -155,4 +157,5 @@ void sample_without_replacement(Args... args)
 
 /** @} */
 
-}  // end namespace raft::random
+}  // namespace random
+}  // namespace RAFT_EXPORT raft

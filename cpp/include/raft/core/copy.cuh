@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 #include <raft/core/detail/copy.hpp>
-namespace raft {
+#include <raft/core/detail/macros.hpp>
+namespace RAFT_EXPORT raft {
 /**
  * @brief Copy data from one mdspan to another with the same extents
  *
@@ -60,4 +61,4 @@ detail::mdspan_copyable_not_with_kernel_t<DstType, SrcType> copy(resources const
   detail::copy(res, std::forward<DstType>(dst), std::forward<SrcType>(src));
 }
 #endif
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

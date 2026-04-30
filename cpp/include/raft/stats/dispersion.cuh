@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,13 +8,14 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/dispersion.cuh>
 
 #include <optional>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 
 /**
@@ -118,6 +119,5 @@ value_t cluster_dispersion(
   return cluster_dispersion(handle, centroids, cluster_sizes, opt_centroid, n_points);
 }
 }  // end namespace stats
-}  // end namespace raft
-
+}  // namespace RAFT_EXPORT raft
 #endif

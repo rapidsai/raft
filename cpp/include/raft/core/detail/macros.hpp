@@ -85,11 +85,15 @@
 // symbol across multiple `.so`. This allows multiple libraries to embed raft
 // without issue.
 #if (defined(__GNUC__) && !defined(__MINGW32__) && !defined(__MINGW64__))
-#define RAFT_EXPORT __attribute__((visibility("default")))
-#define RAFT_HIDDEN __attribute__((visibility("hidden")))
+#define RAFT_EXPORT          __attribute__((visibility("default")))
+#define RAFT_HIDDEN          __attribute__((visibility("hidden")))
+#define RAFT_EXPORT_FUNCTION __attribute__((visibility("default")))
+#define RAFT_HIDDEN_FUNCTION __attribute__((visibility("hidden")))
 #else
 #define RAFT_EXPORT
 #define RAFT_HIDDEN
+#define RAFT_EXPORT_FUNCTION
+#define RAFT_HIDDEN_FUNCTION
 #endif
 
 // The RAFT_KERNEL specificies that a kernel has hidden visibility

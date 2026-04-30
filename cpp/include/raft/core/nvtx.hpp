@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/nvtx.hpp>
 
 #include <optional>
@@ -54,7 +55,8 @@
  * }
  * \endcode
  */
-namespace raft::common::nvtx {
+namespace RAFT_EXPORT raft {
+namespace common::nvtx {
 
 namespace domain {
 
@@ -142,4 +144,5 @@ class range {
   static auto operator new[](std::size_t) -> void* = delete;
 };
 
-}  // namespace raft::common::nvtx
+}  // namespace common::nvtx
+}  // namespace RAFT_EXPORT raft

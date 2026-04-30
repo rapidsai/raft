@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,6 +14,7 @@
 
 #include "detail/make_regression.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -21,7 +22,8 @@
 #include <algorithm>
 #include <optional>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 
 /**
  * @brief GPU-equivalent of sklearn.datasets.make_regression as documented at:
@@ -176,6 +178,7 @@ void make_regression(raft::resources const& handle,
 
 /** @} */  // end group make_regression
 
-}  // namespace raft::random
+}  // namespace random
+}  // namespace RAFT_EXPORT raft
 
 #endif

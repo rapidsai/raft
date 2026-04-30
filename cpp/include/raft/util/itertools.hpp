@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/detail/itertools.hpp>
 
 /**
@@ -12,7 +13,8 @@
  *
  */
 
-namespace raft::util::itertools {
+namespace RAFT_EXPORT raft {
+namespace util::itertools {
 
 /**
  * @brief Cartesian product of the given initializer lists.
@@ -33,4 +35,5 @@ std::vector<S> product(std::initializer_list<Args>... lists)
   return detail::product<S>(std::index_sequence_for<Args...>(), (std::vector<Args>(lists))...);
 }
 
-}  // namespace raft::util::itertools
+}  // namespace util::itertools
+}  // namespace RAFT_EXPORT raft

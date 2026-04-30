@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -10,7 +10,8 @@
 #include <tuple>
 #include <utility>
 
-namespace raft::detail {
+namespace RAFT_EXPORT raft {
+namespace detail {
 
 template <class T, std::size_t N, std::size_t... Idx>
 RAFT_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N], std::index_sequence<Idx...>)
@@ -56,4 +57,5 @@ RAFT_INLINE_FUNCTION auto popc(uint64_t v) -> int32_t
 #endif  // compiler
 }
 
-}  // end namespace raft::detail
+}  // namespace detail
+}  // namespace RAFT_EXPORT raft

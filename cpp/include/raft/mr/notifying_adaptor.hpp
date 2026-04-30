@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <cuda/memory_resource>
 #include <cuda/std/atomic>
 #include <cuda/stream_ref>
@@ -13,7 +15,8 @@
 #include <type_traits>
 #include <utility>
 
-namespace raft::mr {
+namespace RAFT_EXPORT raft {
+namespace mr {
 
 /**
  * @brief A simple notifier that can be used to signal that one or more allocations/deallocations
@@ -141,4 +144,5 @@ class notifying_adaptor : public cuda::forward_property<notifying_adaptor<Upstre
   [[nodiscard]] auto upstream_resource() const noexcept -> Upstream const& { return upstream_; }
 };
 
-}  // namespace raft::mr
+}  // namespace mr
+}  // namespace RAFT_EXPORT raft

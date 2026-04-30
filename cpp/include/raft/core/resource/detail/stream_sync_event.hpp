@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_event.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
@@ -11,7 +12,8 @@
 
 #include <cuda_runtime.h>
 
-namespace raft::resource::detail {
+namespace RAFT_EXPORT raft {
+namespace resource::detail {
 
 /**
  * Factory that knows how to construct a specific raft::resource to populate
@@ -37,4 +39,5 @@ inline cudaEvent_t& get_cuda_stream_sync_event(resources const& res)
   return *res.get_resource<cudaEvent_t>(resource_type::CUDA_STREAM_SYNC_EVENT);
 };
 
-}  // namespace raft::resource::detail
+}  // namespace resource::detail
+}  // namespace RAFT_EXPORT raft

@@ -5,12 +5,13 @@
 #pragma once
 
 #include <raft/core/coo_matrix.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_span.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/sparse_types.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * \defgroup device_coo_matrix Device COO Matrix
@@ -383,4 +384,4 @@ auto make_device_coordinate_structure_view(raft::device_span<RowType> rows,
 
 /** @} */
 
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

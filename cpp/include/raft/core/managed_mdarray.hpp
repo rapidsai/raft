@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/managed_container_policy.hpp>
 #include <raft/core/managed_mdspan.hpp>
 #include <raft/core/mdarray.hpp>
@@ -12,7 +13,7 @@
 
 #include <cstdint>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief mdarray with managed container policy
@@ -139,4 +140,4 @@ auto make_managed_vector(raft::resources const& handle, IndexType n)
                                                                     make_extents<IndexType>(n));
 }
 
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

@@ -14,6 +14,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/contingency_matrix.cuh>
@@ -27,7 +28,7 @@
 
 #include <math.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace detail {
 
@@ -162,4 +163,4 @@ double mutual_info_score(const T* firstClusterArray,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

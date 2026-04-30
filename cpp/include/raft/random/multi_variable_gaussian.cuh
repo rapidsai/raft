@@ -10,12 +10,14 @@
 
 #include "detail/multi_variable_gaussian.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/random_types.hpp>
 
 #include <rmm/resource_ref.hpp>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 
 /**
  * \defgroup multi_variable_gaussian Compute multi-variable Gaussian
@@ -46,6 +48,6 @@ void multi_variable_gaussian(raft::resources const& handle,
 
 /** @} */
 
-};  // end of namespace raft::random
-
+};  // namespace random
+}  // namespace RAFT_EXPORT raft
 #endif

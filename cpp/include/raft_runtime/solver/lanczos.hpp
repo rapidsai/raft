@@ -20,7 +20,7 @@ namespace raft::runtime::solver {
  */
 
 #define FUNC_DECL(IndexType, ValueType)                                               \
-  RAFT_EXPORT void lanczos_solver(                                                    \
+  RAFT_EXPORT_FUNCTION void lanczos_solver(                                           \
     const raft::resources& handle,                                                    \
     raft::sparse::solver::lanczos_solver_config<ValueType> config,                    \
     raft::device_vector_view<IndexType, uint32_t, raft::row_major> rows,              \

@@ -1,16 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/stream_view.hpp>
 #ifndef RAFT_DISABLE_CUDA
 #include <raft/core/resource/cuda_stream.hpp>
 #endif
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 struct stream_view_resource : public resource {
   stream_view_resource(raft::stream_view view = raft::stream_view_per_thread) : stream(view) {}
   void* get_resource() override { return &stream; }
@@ -87,4 +89,5 @@ inline void sync_stream_view(const resources& res) { sync_stream_view(res, get_s
  * @}
  */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

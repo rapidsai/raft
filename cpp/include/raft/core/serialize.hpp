@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_numpy_serializer.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -19,7 +20,7 @@
  * Collection of serialization functions for RAFT data types
  */
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void serialize_mdspan(
@@ -155,4 +156,4 @@ inline T deserialize_scalar(const raft::resources&, std::istream& is)
   return detail::numpy_serializer::deserialize_scalar<T>(is);
 }
 
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

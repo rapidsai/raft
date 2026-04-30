@@ -1,17 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/memory_type.hpp>
 
 #include <cstdint>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 template <typename AccessorPolicy>
 using host_accessor = host_device_accessor<AccessorPolicy, memory_type::host>;
@@ -221,4 +222,4 @@ auto constexpr make_host_vector_view(ElementType* ptr, IndexType n)
 {
   return host_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, n};
 }
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

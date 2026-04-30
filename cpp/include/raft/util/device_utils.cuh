@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <utility>  // pair
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 // TODO move to raft https://github.com/rapidsai/raft/issues/90
 /** helper method to get the compute capability version numbers */
@@ -95,4 +96,4 @@ DI T batchedBlockReduce(T val, char* smem)
   return val;
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

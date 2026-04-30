@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/nvtx_range_stack.hpp>
 #include <raft/mr/notifying_adaptor.hpp>
 #include <raft/mr/statistics_adaptor.hpp>
@@ -17,7 +18,8 @@
 #include <utility>
 #include <vector>
 
-namespace raft::mr {
+namespace RAFT_EXPORT raft {
+namespace mr {
 
 /**
  * @brief Collects allocation statistics from multiple resource_stats sources
@@ -154,4 +156,5 @@ class resource_monitor {
   }
 };
 
-}  // namespace raft::mr
+}  // namespace mr
+}  // namespace RAFT_EXPORT raft

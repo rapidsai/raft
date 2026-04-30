@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <cuda/memory_resource>
 #include <cuda/stream_ref>
 
@@ -14,7 +16,8 @@
 #include <type_traits>
 #include <utility>
 
-namespace raft::mr {
+namespace RAFT_EXPORT raft {
+namespace mr {
 
 /**
  * @brief Atomic allocation counters readable from any thread without locking.
@@ -129,4 +132,5 @@ class statistics_adaptor : public cuda::forward_property<statistics_adaptor<Upst
 template <typename Upstream>
 statistics_adaptor(Upstream) -> statistics_adaptor<Upstream>;
 
-}  // namespace raft::mr
+}  // namespace mr
+}  // namespace RAFT_EXPORT raft

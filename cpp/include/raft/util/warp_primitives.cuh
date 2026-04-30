@@ -5,13 +5,14 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <stdint.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /** True CUDA alignment of a type (adapted from CUB) */
 template <typename T>
@@ -218,4 +219,4 @@ DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_xor(T val,
   return output;
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

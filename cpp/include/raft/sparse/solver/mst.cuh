@@ -1,13 +1,15 @@
 
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/sparse/solver/mst_solver.cuh>
 
-namespace raft::sparse::solver {
+namespace RAFT_EXPORT raft {
+namespace sparse::solver {
 
 /**
  * Compute the minimum spanning tree (MST) or minimum spanning forest (MSF) depending on
@@ -59,4 +61,5 @@ Graph_COO<vertex_t, edge_t, weight_t> mst(raft::resources const& handle,
   return mst_solver.solve();
 }
 
-}  // end namespace raft::sparse::solver
+}  // end namespace sparse::solver
+}  // end namespace RAFT_EXPORT raft

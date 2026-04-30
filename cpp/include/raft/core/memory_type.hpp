@@ -1,8 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <raft/core/detail/macros.hpp>
+
 #include <cstdint>
 #include <optional>
 #ifndef RAFT_DISABLE_CUDA
@@ -15,7 +17,7 @@
 #include <raft/core/logger.hpp>
 #endif
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 enum class memory_type : std::uint8_t {
   host    = std::uint8_t{0},
   pinned  = std::uint8_t{1},
@@ -90,4 +92,4 @@ auto memory_type_from_pointer(T* ptr)
 #endif
   return result;
 }
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

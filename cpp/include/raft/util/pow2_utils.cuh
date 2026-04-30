@@ -1,13 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * Checks whether an integer is a power of 2.
@@ -168,4 +169,4 @@ struct Pow2 {
 #undef Pow2_WHEN_INTEGRAL
 };
 
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

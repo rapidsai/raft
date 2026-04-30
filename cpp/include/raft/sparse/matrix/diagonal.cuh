@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -13,7 +14,8 @@
 #include <raft/sparse/matrix/detail/diagonal.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace raft::sparse::matrix {
+namespace RAFT_EXPORT raft {
+namespace sparse::matrix {
 
 /**
  * @brief Get the diagonal vector from a CSR matrix
@@ -156,4 +158,5 @@ void set_diagonal(raft::resources const& res,
   detail::set_diagonal(res, coo_matrix_view, scalar);
 }
 
-}  // namespace raft::sparse::matrix
+}  // namespace sparse::matrix
+}  // namespace RAFT_EXPORT raft

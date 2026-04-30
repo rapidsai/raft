@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <raft/core/cusparse_macros.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>
 #include <raft/linalg/transpose.cuh>
 
@@ -13,7 +14,7 @@
 
 #include <cusparse.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace detail {
 
@@ -1470,4 +1471,4 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
 
 }  // namespace detail
 }  // namespace sparse
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

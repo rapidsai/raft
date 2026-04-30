@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -15,7 +16,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/stats/detail/contingencyMatrix.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 
 /**
@@ -201,6 +202,5 @@ void contingency_matrix(Args... args)
   contingency_matrix(std::forward<Args>(args)..., std::nullopt, std::nullopt);
 }
 };  // namespace stats
-};  // namespace raft
-
+};  // namespace RAFT_EXPORT raft
 #endif

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -18,7 +19,7 @@
 
 #include <algorithm>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace label {
 namespace detail {
 
@@ -191,4 +192,4 @@ void make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, bool zer
 
 };  // namespace detail
 };  // namespace label
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft
