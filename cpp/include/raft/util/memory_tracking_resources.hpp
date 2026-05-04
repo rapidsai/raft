@@ -136,7 +136,7 @@ class memory_tracking_resources : public resources {
   // snapshot_ is destroyed last  (keeps original resource shared_ptrs alive).
   // owned_stream_ outlives report_ (report_ writes to it).
   // report_ is destroyed first of the three (stops background thread).
-  std::vector<pair_resource> snapshot_;
+  std::vector<std::shared_ptr<resource::resource_cell>> snapshot_;
   std::unique_ptr<std::ofstream> owned_stream_;
   raft::mr::resource_monitor report_;
 
@@ -163,7 +163,7 @@ class memory_tracking_resources : public resources {
     auto managed_ref  = raft::resource::get_managed_memory_resource_ref(*this);
 
     // Keeps original resource objects alive while tracking refs point into them.
-    snapshot_ = resources_;
+    snapshot_ = cells_;
 
     // --- Host (global) ---
     {

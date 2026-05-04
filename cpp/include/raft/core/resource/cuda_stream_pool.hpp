@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -67,9 +67,7 @@ inline bool is_stream_pool_initialized(const resources& res)
  */
 inline const rmm::cuda_stream_pool& get_cuda_stream_pool(const resources& res)
 {
-  if (!res.has_resource_factory(resource_type::CUDA_STREAM_POOL)) {
-    res.add_resource_factory(std::make_shared<cuda_stream_pool_resource_factory>());
-  }
+  res.ensure_default_factory(std::make_shared<cuda_stream_pool_resource_factory>());
   return *(
     *res.get_resource<std::shared_ptr<rmm::cuda_stream_pool>>(resource_type::CUDA_STREAM_POOL));
 };
@@ -80,8 +78,7 @@ inline const rmm::cuda_stream_pool& get_cuda_stream_pool(const resources& res)
  * @param res
  * @param stream_pool
  */
-inline void set_cuda_stream_pool(const resources& res,
-                                 std::shared_ptr<rmm::cuda_stream_pool> stream_pool)
+inline void set_cuda_stream_pool(resources& res, std::shared_ptr<rmm::cuda_stream_pool> stream_pool)
 {
   res.add_resource_factory(std::make_shared<cuda_stream_pool_resource_factory>(stream_pool));
 };
@@ -163,9 +160,7 @@ inline void sync_stream_pool(const resources& res, const std::vector<std::size_t
  */
 inline void wait_stream_pool_on_stream(const resources& res)
 {
-  if (!res.has_resource_factory(resource_type::CUDA_STREAM_POOL)) {
-    res.add_resource_factory(std::make_shared<cuda_stream_pool_resource_factory>());
-  }
+  res.ensure_default_factory(std::make_shared<cuda_stream_pool_resource_factory>());
 
   cudaEvent_t event = detail::get_cuda_stream_sync_event(res);
   RAFT_CUDA_TRY(cudaEventRecord(event, get_cuda_stream(res)));
