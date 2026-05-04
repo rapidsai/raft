@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 # cython: profile=False
@@ -43,6 +43,7 @@ cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
 
 cdef extern from "raft/comms/comms_test.hpp" namespace "raft::comms":
 
+    bool test_collective_alltoall(const device_resources &h, int root) except +
     bool test_collective_allreduce(const device_resources &h, int root) \
         except +
     bool test_collective_broadcast(const device_resources &h, int root) \
@@ -50,6 +51,8 @@ cdef extern from "raft/comms/comms_test.hpp" namespace "raft::comms":
     bool test_collective_reduce(const device_resources &h, int root) except +
     bool test_collective_allgather(const device_resources &h, int root) \
         except +
+    bool test_collective_scatter(const device_resources &h, int root) except +
+    bool test_collective_scatterv(const device_resources &h, int root) except +
     bool test_collective_gather(const device_resources &h, int root) except +
     bool test_collective_gatherv(const device_resources &h, int root) except +
     bool test_collective_reducescatter(const device_resources &h, int root) \
@@ -63,6 +66,20 @@ cdef extern from "raft/comms/comms_test.hpp" namespace "raft::comms":
     bool test_pointToPoint_device_multicast_sendrecv(const device_resources &h,
                                                      int numTrials) except +
     bool test_commsplit(const device_resources &h, int n_colors) except +
+
+
+def perform_test_comms_alltoall(handle, root):
+    """
+    Performs an alltoall on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    """
+    cdef const device_resources* h = \
+        <device_resources*><size_t>handle.getHandle()
+    return test_collective_alltoall(deref(h), root)
 
 
 def perform_test_comms_allreduce(handle, root):
@@ -133,6 +150,38 @@ def perform_test_comms_allgather(handle, root):
     cdef const device_resources* h = \
         <device_resources*><size_t>handle.getHandle()
     return test_collective_allgather(deref(h), root)
+
+
+def perform_test_comms_scatter(handle, root):
+    """
+    Performs a scatter on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    root : int
+           Rank of the root worker
+    """
+    cdef const device_resources* h = \
+        <device_resources*><size_t>handle.getHandle()
+    return test_collective_scatter(deref(h), root)
+
+
+def perform_test_comms_scatterv(handle, root):
+    """
+    Performs a scatterv on the current worker
+
+    Parameters
+    ----------
+    handle : raft.common.Handle
+             handle containing comms_t to use
+    root : int
+           Rank of the root worker
+    """
+    cdef const device_resources* h = \
+        <device_resources*><size_t>handle.getHandle()
+    return test_collective_scatterv(deref(h), root)
 
 
 def perform_test_comms_gather(handle, root):

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -131,6 +131,12 @@ class comms_iface {
 
   virtual void waitall(int count, request_t array_of_requests[]) const = 0;
 
+  virtual void alltoall(const void* sendbuff,
+                        void* recvbuff,
+                        size_t count,
+                        datatype_t datatype,
+                        cudaStream_t stream) const = 0;
+
   virtual void allreduce(const void* sendbuff,
                          void* recvbuff,
                          size_t count,
@@ -168,6 +174,22 @@ class comms_iface {
                           const size_t* displs,
                           datatype_t datatype,
                           cudaStream_t stream) const = 0;
+
+  virtual void scatter(const void* sendbuff,
+                       void* recvbuff,
+                       size_t recvcount,
+                       datatype_t datatype,
+                       int root,
+                       cudaStream_t stream) const = 0;
+
+  virtual void scatterv(const void* sendbuf,
+                        void* recvbuf,
+                        const size_t* sendcounts,
+                        const size_t* displs,
+                        size_t recvcount,
+                        datatype_t datatype,
+                        int root,
+                        cudaStream_t stream) const = 0;
 
   virtual void gather(const void* sendbuff,
                       void* recvbuff,
@@ -323,6 +345,24 @@ class comms_t {
   }
 
   /**
+   * Perform an alltoall collective
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuff buffer containing data to send (size = # ranks * count)
+   * @param recvbuff buffer containing data to receive (size = # ranks * count)
+   * @param count number of elements to send to/receive from each rank
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void alltoall(const value_t* sendbuff, value_t* recvbuff, size_t count, cudaStream_t stream) const
+  {
+    impl_->alltoall(static_cast<const void*>(sendbuff),
+                    static_cast<void*>(recvbuff),
+                    count,
+                    get_type<value_t>(),
+                    stream);
+  }
+
+  /**
    * Perform an allreduce collective
    * @tparam value_t datatype of underlying buffers
    * @param sendbuff data to reduce
@@ -453,12 +493,69 @@ class comms_t {
   }
 
   /**
-   * Gathers data from each rank onto all ranks
+   * Scatters data from one rank to all ranks
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuff buffer containing data to scatter (only used in root)
+   * @param recvbuff buffer containing data received from the root rank
+   * @param recvcount number of elements in receive buffer
+   * @param root rank holding the data to scatter
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void scatter(const value_t* sendbuff,
+               value_t* recvbuff,
+               size_t recvcount,
+               int root,
+               cudaStream_t stream) const
+  {
+    impl_->scatter(static_cast<const void*>(sendbuff),
+                   static_cast<void*>(recvbuff),
+                   recvcount,
+                   get_type<value_t>(),
+                   root,
+                   stream);
+  }
+
+  /**
+   * Scatters data from one rank to all ranks (different ranks can receive different amounts of
+   * data)
+   * @tparam value_t datatype of underlying buffers
+   * @param sendbuf buffer containing data to scatter (only used in root)
+   * @param recvbuf buffer containing data received from the root rank
+   * @param sendcounts pointer to an array (of length num_ranks size) containing the number of
+   *                   elements that are to be sent to each rank
+   * @param recvcount number of elements in receive buffer
+   * @param displs pointer to an array (of length num_ranks size) to specify the displacement
+   *               (relative to sendbuf) at which to start the outgoing data to each rank
+   * @param root rank holding the data to scatter
+   * @param stream CUDA stream to synchronize operation
+   */
+  template <typename value_t>
+  void scatterv(const value_t* sendbuf,
+                value_t* recvbuf,
+                const size_t* sendcounts,
+                const size_t* displs,
+                size_t recvcount,
+                int root,
+                cudaStream_t stream) const
+  {
+    impl_->scatterv(static_cast<const void*>(sendbuf),
+                    static_cast<void*>(recvbuf),
+                    sendcounts,
+                    displs,
+                    recvcount,
+                    get_type<value_t>(),
+                    root,
+                    stream);
+  }
+
+  /**
+   * Gathers data from all ranks to one rank
    * @tparam value_t datatype of underlying buffers
    * @param sendbuff buffer containing data to gather
-   * @param recvbuff buffer containing gathered data from all ranks
+   * @param recvbuff buffer containing gathered data from all ranks (only used in root)
    * @param sendcount number of elements in send buffer
-   * @param root rank to store the results
+   * @param root rank to store the gathered data
    * @param stream CUDA stream to synchronize operation
    */
   template <typename value_t>
@@ -477,16 +574,16 @@ class comms_t {
   }
 
   /**
-   * Gathers data from all ranks and delivers to combined data to all ranks
+   * Gathers data from all ranks to one rank (different ranks can send different amounts of data)
    * @tparam value_t datatype of underlying buffers
    * @param sendbuf buffer containing data to send
-   * @param recvbuf buffer containing data to receive
+   * @param recvbuf buffer containing gathered data from all ranks (only used in root)
    * @param sendcount number of elements in send buffer
    * @param recvcounts pointer to an array (of length num_ranks size) containing the number of
    *                   elements that are to be received from each rank
    * @param displs pointer to an array (of length num_ranks size) to specify the displacement
    *               (relative to recvbuf) at which to place the incoming data from each rank
-   * @param root rank to store the results
+   * @param root rank to store the gathered data
    * @param stream CUDA stream to synchronize operation
    */
   template <typename value_t>
