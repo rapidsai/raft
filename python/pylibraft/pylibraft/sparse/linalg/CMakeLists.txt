@@ -1,12 +1,12 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
 
 # Set the list of Cython files to build
-set(cython_sources lanczos.pyx)
+set(cython_sources lanczos.pyx svds.pyx)
 
 # TODO: should finally be replaced with 'compiled' library to be more generic, when that is
 # available
