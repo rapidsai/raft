@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -14,7 +15,7 @@
 
 #include <type_traits>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -134,4 +135,4 @@ inline cusparseOperation_t convert_operation(const raft::linalg::Operation op)
 }  // end namespace detail
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace raft
+}  // end namespace RAFT_EXPORT raft

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __FILTER_H
@@ -7,13 +7,14 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/detail/filter.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace op {
 
@@ -100,6 +101,6 @@ void coo_remove_zeros(COO<T, idx_t, nnz_t>* in, COO<T, idx_t, nnz_t>* out, cudaS
 
 };  // namespace op
 };  // end NAMESPACE sparse
-};  // end NAMESPACE raft
+};  // namespace RAFT_EXPORT raft
 
 #endif

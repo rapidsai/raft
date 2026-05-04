@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-namespace raft {
+#include <raft/core/detail/macros.hpp>
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /** Enum to tell how to compute a norm */
@@ -22,4 +23,4 @@ enum NormType : unsigned short {
 };
 
 }  // namespace linalg
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

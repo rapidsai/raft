@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include "resource/resource_types.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>  // RAFT_EXPECTS
 #include <raft/core/logger.hpp>
 
@@ -14,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief Resource container which allows lazy-loading and registration
@@ -126,4 +127,4 @@ class resources {
   mutable std::vector<pair_res_factory> factories_;
   mutable std::vector<pair_resource> resources_;
 };
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

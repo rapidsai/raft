@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __RSVD_H
@@ -9,10 +9,11 @@
 
 #include "detail/rsvd.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -867,6 +868,6 @@ void randomized_svd(const raft::resources& handle,
 /** @} */  // end of group rsvd
 
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft
 
 #endif

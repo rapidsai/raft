@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-namespace raft {
+#include <raft/core/detail/macros.hpp>
+namespace RAFT_EXPORT raft {
 namespace sparse {
 
 /**
@@ -105,4 +106,4 @@ __device__ indT get_stop_idx(T row, T m, indT nnz, const indT* ind)
 }
 
 };  // namespace sparse
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

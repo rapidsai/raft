@@ -1,14 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-namespace raft::stats::detail {
+namespace RAFT_EXPORT raft {
+namespace stats::detail {
 
 template <typename T>
 class mean_var {
@@ -216,4 +218,5 @@ void meanvar(
   RAFT_CHECK_CUDA(stream);
 }
 
-};  // namespace raft::stats::detail
+};  // namespace stats::detail
+}  // namespace RAFT_EXPORT raft

@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/vectorized.cuh>
@@ -13,7 +14,8 @@
 
 #include <memory>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 namespace detail {
 
 template <typename Type, typename IntType, typename IdxType, int TPB, bool rowMajor>
@@ -150,4 +152,5 @@ void permute(IntType* perms,
 }
 
 };  // end namespace detail
-};  // end namespace raft::random
+};  // namespace random
+}  // namespace RAFT_EXPORT raft

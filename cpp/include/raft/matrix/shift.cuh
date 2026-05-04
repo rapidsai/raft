@@ -1,16 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/shift.cuh>
 #include <raft/matrix/shift_types.hpp>
 
-namespace raft::matrix {
+namespace RAFT_EXPORT raft {
+namespace matrix {
 
 /**
  * @brief In-place operation. Shifts rows or columns to shift_direction by k, and fills the empty
@@ -107,4 +109,5 @@ void shift(raft::resources const& handle,
 
   detail::shift(handle, in_out, values, shift_direction, shift_type);
 }
-}  // namespace raft::matrix
+}  // namespace matrix
+}  // namespace RAFT_EXPORT raft

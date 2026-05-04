@@ -1,17 +1,19 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/types.hpp>
 #include <raft/matrix/detail/linewise_op.cuh>
 
-namespace raft::matrix {
+namespace RAFT_EXPORT raft {
+namespace matrix {
 
 /**
  * @defgroup linewise_op Matrix Linewise Operations
@@ -113,4 +115,5 @@ void linewise_op(raft::resources const& handle,
 
 /** @} */  // end of group linewise_op
 
-}  // namespace raft::matrix
+}  // namespace matrix
+}  // namespace RAFT_EXPORT raft

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -17,7 +17,7 @@
 #include <algorithm>
 #include <cstdint>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 template <typename ElementType,
           typename Extents,
@@ -413,4 +413,4 @@ auto make_const_mdspan(mdspan<ElementType, Extents, Layout, Accessor> mds)
 
 /** @} */
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

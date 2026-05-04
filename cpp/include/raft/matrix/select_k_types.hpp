@@ -1,12 +1,15 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
+
 #include <type_traits>
 
-namespace raft::matrix {
+namespace RAFT_EXPORT raft {
+namespace matrix {
 
 /**
  * @defgroup select_k Batched-select k smallest or largest key/values
@@ -87,4 +90,5 @@ inline auto operator<<(std::ostream& os, const SelectAlgo& algo) -> std::ostream
 
 /** @} */  // end of group select_k
 
-}  // namespace raft::matrix
+}  // namespace matrix
+}  // namespace RAFT_EXPORT raft

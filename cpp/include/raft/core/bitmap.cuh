@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,6 +7,7 @@
 
 #include <raft/core/bitmap.hpp>
 #include <raft/core/bitset.cuh>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
@@ -15,7 +16,8 @@
 
 #include <type_traits>
 
-namespace raft::core {
+namespace RAFT_EXPORT raft {
+namespace core {
 
 template <typename bitmap_t, typename index_t>
 _RAFT_HOST_DEVICE inline bool bitmap_view<bitmap_t, index_t>::test(const index_t row,
@@ -39,4 +41,5 @@ void bitmap_view<bitmap_t, index_t>::to_csr(const raft::resources& res, csr_matr
   raft::sparse::convert::bitmap_to_csr(res, *this, csr);
 }
 
-}  // end namespace raft::core
+}  // namespace core
+}  // namespace RAFT_EXPORT raft

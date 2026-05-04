@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __REDUCE_ROWS_BY_KEY
@@ -9,11 +9,12 @@
 
 #include "detail/reduce_rows_by_key.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -182,6 +183,6 @@ void reduce_rows_by_key(
 /** @} */  // end of group reduce_rows_by_key
 
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft
 
 #endif

@@ -1,14 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <tuple>
 #include <vector>
 
-namespace raft::util::itertools::detail {
+namespace RAFT_EXPORT raft {
+namespace util::itertools::detail {
 
 template <class S, typename... Args, size_t... Is>
 inline std::vector<S> product(std::index_sequence<Is...> index, const std::vector<Args>&... vecs)
@@ -27,4 +30,5 @@ inline std::vector<S> product(std::index_sequence<Is...> index, const std::vecto
   return out;
 }
 
-}  // namespace raft::util::itertools::detail
+}  // namespace util::itertools::detail
+}  // namespace RAFT_EXPORT raft

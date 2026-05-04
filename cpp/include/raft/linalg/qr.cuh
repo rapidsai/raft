@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __QR_H
@@ -9,10 +9,11 @@
 
 #include "detail/qr.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -110,6 +111,6 @@ void qr_get_qr(raft::resources const& handle,
 /** @} */
 
 };  // namespace linalg
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft
 
 #endif

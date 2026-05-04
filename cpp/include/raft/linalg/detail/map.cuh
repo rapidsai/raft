@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -19,7 +20,8 @@
 
 #include <cuda/std/tuple>
 
-namespace raft::linalg::detail {
+namespace RAFT_EXPORT raft {
+namespace linalg::detail {
 
 template <bool PassOffset, typename OutT, typename IdxT, typename Func, typename... InTs>
 __device__ __forceinline__ auto map_apply(Func f, const IdxT& offset, const InTs&... ins) -> OutT
@@ -220,4 +222,5 @@ void map(const raft::resources& res, OutType out, Func f, InTypes... ins)
                                        ins.data_handle()...);
 }
 
-}  // namespace raft::linalg::detail
+}  // namespace linalg::detail
+}  // namespace RAFT_EXPORT raft

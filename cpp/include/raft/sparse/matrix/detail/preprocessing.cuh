@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -13,7 +14,8 @@
 
 #include <thrust/reduce.h>
 
-namespace raft::sparse::matrix::detail {
+namespace RAFT_EXPORT raft {
+namespace sparse::matrix::detail {
 
 /**
  * @brief Get unique counts
@@ -210,4 +212,5 @@ void transform_tfidf(raft::resources const& handle,
   });
 }
 
-}  // namespace raft::sparse::matrix::detail
+}  // namespace sparse::matrix::detail
+}  // namespace RAFT_EXPORT raft

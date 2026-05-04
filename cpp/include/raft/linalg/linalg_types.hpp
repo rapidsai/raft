@@ -1,11 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-namespace raft::linalg {
+#include <raft/core/detail/macros.hpp>
+namespace RAFT_EXPORT raft {
+namespace linalg {
 
 /**
  * @brief Enum for reduction/broadcast where an operation is to be performed along
@@ -21,4 +23,5 @@ enum class FillMode { UPPER, LOWER };
  */
 enum class Operation { NON_TRANSPOSE, TRANSPOSE };
 
-}  // end namespace raft::linalg
+}  // namespace linalg
+}  // namespace RAFT_EXPORT raft

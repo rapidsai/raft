@@ -1,14 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <cstdint>
 #include <optional>
 
-namespace raft::sparse::solver {
+namespace RAFT_EXPORT raft {
+namespace sparse::solver {
 
 /**
  * @enum LANCZOS_WHICH
@@ -64,4 +67,5 @@ struct lanczos_solver_config {
   std::optional<uint64_t> seed = std::nullopt;
 };
 
-}  // namespace raft::sparse::solver
+}  // namespace sparse::solver
+}  // namespace RAFT_EXPORT raft

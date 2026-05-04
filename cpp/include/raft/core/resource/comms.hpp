@@ -1,14 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 class comms_resource : public resource {
  public:
   comms_resource(std::shared_ptr<comms::comms_t> comnumicator) : communicator_(comnumicator) {}
@@ -64,4 +66,5 @@ inline void set_comms(resources const& res, std::shared_ptr<comms::comms_t> comm
 /**
  * @}
  */
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

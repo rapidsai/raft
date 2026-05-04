@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/mdbuffer.cuh>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/memory_type.hpp>
@@ -11,7 +12,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 namespace detail {
 
@@ -196,4 +197,4 @@ decltype(auto) memory_type_dispatcher(raft::resources const& res, lambda_t&& f, 
 
 /** @} */
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

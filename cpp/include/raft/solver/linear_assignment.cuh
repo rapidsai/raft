@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright 2020 KETAN DATE & RAKESH NAGI
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 /*
@@ -32,6 +32,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/solver/detail/lap_functions.cuh>
@@ -42,7 +43,8 @@
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 
-namespace raft::solver {
+namespace RAFT_EXPORT raft {
+namespace solver {
 
 /**
  * @brief CUDA Implementation of O(n^3) alternating tree Hungarian Algorithm
@@ -333,6 +335,7 @@ class LinearAssignmentProblem {
   }
 };
 
-}  // namespace raft::solver
+}  // namespace solver
+}  // namespace RAFT_EXPORT raft
 
 #endif

@@ -1,7 +1,7 @@
 /*
  * SPDX-FileCopyrightText: Copyright 2019 BlazingDB, Inc.
  * SPDX-FileCopyrightText: Copyright 2019 Eyal Rozenberg <eyalroz@blazingdb.com>
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 /*
@@ -36,7 +36,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 //! Utility functions
 /**
  * Finds the smallest integer not less than `number_to_round` and modulo `S` is
@@ -242,4 +242,4 @@ _RAFT_HOST_DEVICE inline void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uin
 #endif
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

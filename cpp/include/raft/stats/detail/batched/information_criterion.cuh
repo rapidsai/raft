@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/stats/stats_types.hpp>
 
 #include <cmath>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace batched {
 namespace detail {
@@ -60,4 +61,4 @@ void information_criterion(ScalarT* d_ic,
 }  // namespace detail
 }  // namespace batched
 }  // namespace stats
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

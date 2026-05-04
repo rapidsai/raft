@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __SPARSE_SORT_H
@@ -7,10 +7,11 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/op/detail/sort.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace op {
 
@@ -63,6 +64,6 @@ void coo_sort_by_weight(
 }
 };  // namespace op
 };  // end NAMESPACE sparse
-};  // end NAMESPACE raft
+};  // namespace RAFT_EXPORT raft
 
 #endif

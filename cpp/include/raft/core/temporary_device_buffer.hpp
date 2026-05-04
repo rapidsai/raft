@@ -8,12 +8,13 @@
 #include "device_mdarray.hpp"
 #include "device_mdspan.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <variant>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * \defgroup temporary_device_buffer `raft::temporary_device_buffer`
@@ -262,4 +263,4 @@ auto make_writeback_temporary_device_buffer(raft::resources const& handle,
 
 /**@}*/
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

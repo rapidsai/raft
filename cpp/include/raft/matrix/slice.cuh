@@ -1,16 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace raft::matrix {
+namespace RAFT_EXPORT raft {
+namespace matrix {
 
 /**
  * @defgroup matrix_slice Matrix slicing
@@ -69,4 +71,5 @@ void slice(raft::resources const& handle,
 
 /** @} */  // end group matrix_slice
 
-}  // namespace raft::matrix
+}  // namespace matrix
+}  // namespace RAFT_EXPORT raft

@@ -1,8 +1,9 @@
-/* SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION.
+/* SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 /**
  * @brief Prevents a function template from being implicitly instantiated
  *
@@ -61,7 +62,8 @@
     throw "raft_explicit_error";                                                               \
   }
 
-namespace raft::util::raft_explicit {
+namespace RAFT_EXPORT raft {
+namespace util::raft_explicit {
 /**
  * @brief Template that is always false
  *
@@ -74,4 +76,5 @@ template <typename T>
 struct implicit_instantiation {
   static constexpr bool value = false;
 };
-}  // namespace raft::util::raft_explicit
+}  // namespace util::raft_explicit
+}  // namespace RAFT_EXPORT raft

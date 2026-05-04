@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -12,7 +13,8 @@
 
 #include <stdint.h>
 
-namespace raft::random::device {
+namespace RAFT_EXPORT raft {
+namespace random::device {
 
 /**
  * @brief warp-level random sampling of an index.
@@ -92,4 +94,5 @@ DI i_t block_random_sample(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadId
   return idx;
 }
 
-}  // namespace raft::random::device
+}  // namespace random::device
+}  // namespace RAFT_EXPORT raft

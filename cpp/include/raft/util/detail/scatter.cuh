@@ -1,14 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
-namespace raft::detail {
+namespace RAFT_EXPORT raft {
+namespace detail {
 
 template <typename DataT, int VecLen, typename Lambda, typename IdxT>
 RAFT_KERNEL scatterKernel(DataT* out, const DataT* in, const IdxT* idx, IdxT len, Lambda op)
@@ -38,4 +40,5 @@ void scatterImpl(
   RAFT_CUDA_TRY(cudaGetLastError());
 }
 
-}  // namespace raft::detail
+}  // namespace detail
+}  // namespace RAFT_EXPORT raft

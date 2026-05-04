@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __MATRIX_VECTOR_OP_H
@@ -10,13 +10,14 @@
 #include "detail/matrix_vector_op.cuh"
 #include "linalg_types.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/types.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -234,6 +235,6 @@ void matrix_vector_op(raft::resources const& handle,
 /** @} */  // end of group matrix_vector_op
 
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft
 
 #endif

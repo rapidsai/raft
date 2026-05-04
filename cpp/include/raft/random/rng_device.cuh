@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,7 +11,9 @@
 #include "detail/rng_device.cuh"
 #include "rng_state.hpp"
 
-namespace raft {
+#include <raft/core/detail/macros.hpp>
+
+namespace RAFT_EXPORT raft {
 namespace random {
 
 using detail::DeviceState;
@@ -41,6 +43,5 @@ using detail::custom_next;
 using detail::box_muller_transform;
 
 };  // end namespace random
-};  // end namespace raft
-
+};  // namespace RAFT_EXPORT raft
 #endif

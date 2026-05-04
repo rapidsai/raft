@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/mdarray.hpp>
@@ -12,7 +13,7 @@
 
 #include <cstdint>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 /**
  * @brief mdarray with host container policy
  * @tparam ElementType the data type of the elements
@@ -290,4 +291,4 @@ auto make_host_vector(IndexType n)
   return make_host_mdarray<ElementType, IndexType, LayoutPolicy>(make_extents<IndexType>(n));
 }
 
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

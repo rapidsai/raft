@@ -18,7 +18,8 @@
 
 #include <type_traits>
 
-namespace raft::sparse::linalg::detail {
+namespace RAFT_EXPORT raft {
+namespace sparse::linalg::detail {
 
 struct zero_to_one_functor {
   template <typename T>
@@ -280,4 +281,5 @@ auto laplacian_normalized(raft::resources const& res,
   return laplacian;
 }
 
-}  // namespace raft::sparse::linalg::detail
+}  // namespace sparse::linalg::detail
+}  // namespace RAFT_EXPORT raft

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,6 +10,7 @@
 
 #include "detail/permute.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -17,7 +18,8 @@
 #include <optional>
 #include <type_traits>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 
 namespace permute_impl {
 
@@ -193,6 +195,6 @@ void permute(IntType* perms,
   detail::permute<Type, IntType, IdxType, TPB>(perms, out, in, D, N, rowMajor, stream);
 }
 
-};  // end namespace raft::random
-
+};  // namespace random
+}  // namespace RAFT_EXPORT raft
 #endif

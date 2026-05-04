@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/strided_reduction.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -49,4 +50,4 @@ void reduce(OutType* dots,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft

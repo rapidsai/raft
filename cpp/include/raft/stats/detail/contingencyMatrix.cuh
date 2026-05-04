@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -16,7 +17,7 @@
 
 #include <math.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace detail {
 
@@ -301,4 +302,4 @@ void contingencyMatrix(const T* groundTruth,
 
 };  // namespace detail
 };  // namespace stats
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

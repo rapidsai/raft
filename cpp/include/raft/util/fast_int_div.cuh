@@ -1,15 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <stdint.h>
 
-namespace raft::util {
+namespace RAFT_EXPORT raft {
+namespace util {
 
 /**
  * @brief Perform fast integer division and modulo using a known divisor
@@ -110,4 +112,5 @@ HDI int operator%(int n, const FastIntDiv& divisor)
   return remainder;
 }
 
-};  // namespace raft::util
+};  // namespace util
+}  // namespace RAFT_EXPORT raft

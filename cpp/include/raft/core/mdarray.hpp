@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
  */
 /*
@@ -21,7 +21,7 @@
 
 #include <stddef.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @defgroup mdarray_apis multi-dimensional memory-owning type
@@ -357,4 +357,4 @@ auto reshape(const array_interface_type& mda, extents<IndexType, Extents...> new
 
 /** @} */
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

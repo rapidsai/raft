@@ -1,13 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/span.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @defgroup device_span one-dimensional device span type
@@ -23,4 +24,4 @@ using device_span = span<T, true, extent>;
 /**
  * @}
  */
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

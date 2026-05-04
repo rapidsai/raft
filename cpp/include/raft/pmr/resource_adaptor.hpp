@@ -4,13 +4,16 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <cuda/memory_resource>
 
 #include <cstddef>
 #include <memory>
 #include <memory_resource>
 
-namespace raft::pmr {
+namespace RAFT_EXPORT raft {
+namespace pmr {
 
 /**
  * @brief Adapter wrapping std::pmr::memory_resource to satisfy
@@ -79,4 +82,5 @@ static_assert(cuda::mr::synchronous_resource_with<resource_adaptor, cuda::mr::ho
               "resource_adaptor must satisfy synchronous_resource_with<host_accessible> for "
               "raft::mr::host_resource_ref consumption");
 
-}  // namespace raft::pmr
+}  // namespace pmr
+}  // namespace RAFT_EXPORT raft

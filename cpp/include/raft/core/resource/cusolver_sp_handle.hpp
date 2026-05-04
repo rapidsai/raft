@@ -1,17 +1,19 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <raft/core/cusolver_macros.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
 #include <cusolverSp.h>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 
 /**
  *
@@ -71,4 +73,5 @@ inline cusolverSpHandle_t get_cusolver_sp_handle(resources const& res)
  * @}
  */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

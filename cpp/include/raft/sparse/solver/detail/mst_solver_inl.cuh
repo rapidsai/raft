@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/sparse/solver/detail/mst_kernels.cuh>
@@ -33,7 +34,8 @@
 
 #include <iostream>
 
-namespace raft::sparse::solver {
+namespace RAFT_EXPORT raft {
+namespace sparse::solver {
 
 // curand generator uniform
 inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
@@ -400,4 +402,5 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::append_src_dst_pair(
                   src_dst_zip_end,
                   new_edges_functor<vertex_t, weight_t>());
 }
-}  // namespace raft::sparse::solver
+}  // namespace sparse::solver
+}  // namespace RAFT_EXPORT raft

@@ -1,15 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/detail/scatter_inplace.cuh>
 
-namespace raft::matrix {
+namespace RAFT_EXPORT raft {
+namespace matrix {
 /**
  * @brief In-place scatter elements in a row-major matrix according to a
  * map. The map specifies the new order in which rows of the input matrix are
@@ -44,4 +46,5 @@ void scatter(raft::resources const& handle,
   detail::scatter(handle, inout, map, col_batch_size);
 }
 
-}  // namespace raft::matrix
+}  // namespace matrix
+}  // namespace RAFT_EXPORT raft

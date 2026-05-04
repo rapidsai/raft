@@ -5,11 +5,12 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace detail {
 
@@ -21,4 +22,4 @@ void sum(Type* output, const Type* input, IdxType D, IdxType N, cudaStream_t str
 
 }  // namespace detail
 }  // namespace stats
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

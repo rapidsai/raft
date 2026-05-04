@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <cstddef>
 #include <memory>
 #include <mutex>
@@ -11,7 +13,8 @@
 #include <string>
 #include <utility>
 
-namespace raft::common::nvtx {
+namespace RAFT_EXPORT raft {
+namespace common::nvtx {
 
 namespace detail {
 struct nvtx_range_name_stack;
@@ -87,4 +90,5 @@ inline auto thread_local_current_range() -> std::shared_ptr<const current_range>
   return detail::range_name_stack_instance.current();
 }
 
-}  // namespace raft::common::nvtx
+}  // namespace common::nvtx
+}  // namespace RAFT_EXPORT raft

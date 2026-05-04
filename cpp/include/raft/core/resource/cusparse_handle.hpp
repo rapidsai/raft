@@ -1,17 +1,19 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <raft/core/cusparse_macros.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
 #include <cusparse_v2.h>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 class cusparse_resource : public resource {
  public:
   cusparse_resource(rmm::cuda_stream_view stream)
@@ -66,4 +68,5 @@ inline cusparseHandle_t get_cusparse_handle(resources const& res)
  * @}
  */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

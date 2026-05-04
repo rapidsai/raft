@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/pow2_utils.cuh>
 
@@ -12,7 +13,7 @@
 
 #include <type_traits>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 // Third parameter enables SFINAE for conditional specializations (e.g., KeyValuePair by size)
 template <typename math_, int VecLen, typename Enable = void>
@@ -427,4 +428,4 @@ DI void copy_vectorized(T* out, const T* in, uint32_t n)
     }
   }
 }
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

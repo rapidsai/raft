@@ -5,11 +5,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/math.cuh>
 
-namespace raft::matrix {
+namespace RAFT_EXPORT raft {
+namespace matrix {
 
 /**
  * @defgroup matrix_ratio Matrix ratio operations
@@ -90,4 +92,5 @@ void ratio(raft::resources const& handle, raft::device_vector_view<math_t, idx_t
 
 /** @} */  // end group matrix_ratio
 
-}  // namespace raft::matrix
+}  // namespace matrix
+}  // namespace RAFT_EXPORT raft

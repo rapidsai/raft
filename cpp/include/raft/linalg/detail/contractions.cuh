@@ -1,13 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/device_loads_stores.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -309,4 +310,4 @@ struct Contractions_NT {
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

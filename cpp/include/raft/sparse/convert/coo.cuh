@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __COO_H
@@ -7,9 +7,10 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/sparse/convert/detail/coo.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace convert {
 
@@ -30,6 +31,6 @@ void csr_to_coo(
 
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
-};  // end NAMESPACE raft
+};  // namespace RAFT_EXPORT raft
 
 #endif
