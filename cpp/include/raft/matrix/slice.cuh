@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,6 +7,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/util/input_validation.hpp>
 
@@ -46,6 +47,7 @@ void slice(raft::resources const& handle,
            raft::device_matrix_view<m_t, idx_t, layout_t> out,
            slice_coordinates<idx_t> coords)
 {
+  if (resource::get_dry_run_flag(handle)) { return; }
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Matrix layout must be row- or column-major");
   RAFT_EXPECTS(coords.row2 > coords.row1, "row2 must be > row1");
   RAFT_EXPECTS(coords.col2 > coords.col1, "col2 must be > col1");

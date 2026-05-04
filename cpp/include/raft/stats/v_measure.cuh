@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,6 +9,7 @@
 #pragma once
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/stats/detail/v_measure.cuh>
 
@@ -35,8 +36,14 @@ double v_measure(const T* truthClusterArray,
                  cudaStream_t stream,
                  double beta = 1.0)
 {
-  return detail::v_measure(
-    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream, beta);
+  return detail::v_measure(false,
+                           truthClusterArray,
+                           predClusterArray,
+                           size,
+                           lowerLabelRange,
+                           upperLabelRange,
+                           stream,
+                           beta);
 }
 
 /**
@@ -70,7 +77,8 @@ double v_measure(raft::resources const& handle,
   RAFT_EXPECTS(truth_cluster_array.is_exhaustive(), "truth_cluster_array must be contiguous");
   RAFT_EXPECTS(pred_cluster_array.is_exhaustive(), "pred_cluster_array must be contiguous");
 
-  return detail::v_measure(truth_cluster_array.data_handle(),
+  return detail::v_measure(resource::get_dry_run_flag(handle),
+                           truth_cluster_array.data_handle(),
                            pred_cluster_array.data_handle(),
                            truth_cluster_array.extent(0),
                            lower_label_range,
