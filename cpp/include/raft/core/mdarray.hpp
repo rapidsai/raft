@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright (2019) Sandia Corporation
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
  */
 /*
@@ -194,6 +194,17 @@ class mdarray
   }
 
   /**
+   * @brief Construct from a pre-built container, bypassing cp_.create().
+   *
+   * Use this when the container has already been constructed externally
+   * (e.g. by compressed_mdarray or shared_mdarray factories).
+   */
+  constexpr mdarray(mapping_type const& m, container_type&& c, container_policy_type const& cp)
+    : cp_(cp), map_(m), c_(std::move(c))
+  {
+  }
+
+  /**
    * @brief Get an mdspan
    */
   auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
@@ -209,6 +220,11 @@ class mdarray
 
   [[nodiscard]] auto data_handle() noexcept -> pointer { return c_.data(); }
   [[nodiscard]] constexpr auto data_handle() const noexcept -> const_pointer { return c_.data(); }
+
+  /**
+   * @brief Extract the underlying container (only callable on rvalues).
+   */
+  [[nodiscard]] constexpr auto release_container() && -> container_type { return std::move(c_); }
 
   /**
    * @brief Indexing operator, use it sparingly since it triggers a device<->host copy.
