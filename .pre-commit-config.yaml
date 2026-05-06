@@ -187,6 +187,10 @@ repos:
         rev: v0.10.0.1
         hooks:
           - id: shellcheck
+      - repo: https://github.com/zizmorcore/zizmor-pre-commit
+        rev: v1.24.1
+        hooks:
+          - id: zizmor
 
 default_language_version:
       python: python3
