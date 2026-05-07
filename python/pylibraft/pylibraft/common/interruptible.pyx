@@ -16,8 +16,6 @@ from cython.operator cimport dereference
 
 from libc.stdint cimport uintptr_t
 
-from .cuda cimport Stream
-
 
 @contextlib.contextmanager
 def cuda_interruptible():
@@ -69,8 +67,6 @@ def synchronize(stream):
         c_stream_t = <cudaStream_t><uintptr_t>proto[1]
     elif isinstance(stream, int):
         c_stream_t = <cudaStream_t><uintptr_t>stream
-    elif isinstance(stream, Stream):
-        c_stream_t = (<Stream>stream).getStream()
     else:
         raise TypeError("stream must be a Stream, int, or __cuda_stream__ protocol object")
     with nogil:

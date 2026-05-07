@@ -17,10 +17,6 @@ from libc.stdint cimport uintptr_t
 cdef extern from "cuda_runtime_api.h" nogil:
     cdef cudaStream_t cudaStreamPerThread
 
-from .cuda cimport Stream
-
-from .cuda import CudaRuntimeError
-
 
 cdef class DeviceResources:
     """
