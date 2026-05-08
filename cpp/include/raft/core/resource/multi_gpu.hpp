@@ -1,16 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/device_id.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
 #include <memory>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 
 class multi_gpu_resource : public resource {
  public:
@@ -124,4 +126,5 @@ inline void set_root_rank(resources const& res, int root_rank)
   root_rank_      = root_rank;
 };
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

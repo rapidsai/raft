@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/managed_memory_resource.hpp>
 #include <raft/core/resource/pinned_memory_resource.hpp>
@@ -26,7 +27,7 @@
 #include <ostream>
 #include <string>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief A resources handle that wraps all reachable memory resources with
@@ -225,4 +226,4 @@ class memory_tracking_resources : public resources {
   }
 };
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

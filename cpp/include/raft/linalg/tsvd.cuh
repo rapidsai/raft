@@ -7,9 +7,11 @@
 
 #include "detail/tsvd.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 
-namespace raft::linalg {
+namespace RAFT_EXPORT raft {
+namespace linalg {
 
 /**
  * @defgroup tsvd Truncated SVD operations
@@ -166,4 +168,5 @@ void sign_flip_components(raft::resources const& handle,
 
 /** @} */  // end group tsvd
 
-};  // end namespace raft::linalg
+};  // end namespace linalg
+};  // end namespace RAFT_EXPORT raft

@@ -1,12 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/sparse/linalg/detail/masked_matmul.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace linalg {
 
@@ -103,4 +104,4 @@ void masked_matmul(raft::resources const& handle,
 
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace raft
+}  // end namespace RAFT_EXPORT raft

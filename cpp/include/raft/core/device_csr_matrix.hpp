@@ -5,6 +5,7 @@
 #pragma once
 
 #include <raft/core/csr_matrix.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_span.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -13,7 +14,7 @@
 
 #include <type_traits>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * \defgroup device_csr_matrix Device CSR Matrix Types
@@ -410,4 +411,4 @@ auto make_device_compressed_structure_view(raft::device_span<IndptrType> indptr,
 
 /** @} */
 
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

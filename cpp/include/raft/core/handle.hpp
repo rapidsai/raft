@@ -5,9 +5,10 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_resources.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * raft::handle_t is being kept around for backwards
@@ -51,4 +52,4 @@ class handle_t : public raft::device_resources {
   ~handle_t() override {}
 };
 
-}  // end NAMESPACE raft
+}  // namespace RAFT_EXPORT raft

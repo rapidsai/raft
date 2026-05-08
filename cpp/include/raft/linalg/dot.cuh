@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __DOT_H
@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
@@ -14,7 +15,8 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 
-namespace raft::linalg {
+namespace RAFT_EXPORT raft {
+namespace linalg {
 
 /**
  * @defgroup dot BLAS dot routine
@@ -83,5 +85,6 @@ void dot(raft::resources const& handle,
 
 /** @} */  // end of group dot
 
-}  // namespace raft::linalg
+}  // namespace linalg
+}  // namespace RAFT_EXPORT raft
 #endif

@@ -5,11 +5,12 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <cub/block/block_reduce.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -175,4 +176,4 @@ void coalesced_normalize(Type* out,
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

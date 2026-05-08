@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __ELTWISE_H
@@ -9,7 +9,9 @@
 
 #include "detail/eltwise.cuh"
 
-namespace raft {
+#include <raft/core/detail/macros.hpp>
+
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -84,6 +86,6 @@ void eltwiseDivideCheckZero(
 /** @} */
 
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft
 
 #endif

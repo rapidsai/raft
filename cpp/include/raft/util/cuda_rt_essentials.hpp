@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 // This file provides a few essential functions that wrap the CUDA runtime API.
 // The scope is necessarily limited to ensure that compilation times are
 // minimized. Please make sure not to include large / expensive files from here.
@@ -15,7 +16,7 @@
 
 #include <cstdio>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief Exception thrown when a CUDA error is encountered.
@@ -25,7 +26,7 @@ struct cuda_error : public raft::exception {
   explicit cuda_error(std::string const& message) : raft::exception(message) {}
 };
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 
 /**
  * @brief Error checking macro for CUDA runtime API functions.

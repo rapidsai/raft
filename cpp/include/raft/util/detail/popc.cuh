@@ -1,16 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 
-namespace raft::detail {
+namespace RAFT_EXPORT raft {
+namespace detail {
 
 /**
  * @brief Count the number of bits that are set to 1 in a vector.
@@ -62,4 +64,5 @@ void popc(const raft::resources& res,
     });
 }
 
-}  // end namespace raft::detail
+}  // namespace detail
+}  // namespace RAFT_EXPORT raft

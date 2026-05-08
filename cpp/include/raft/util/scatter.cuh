@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/detail/scatter.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief Performs scatter operation based on the input indexing array
@@ -55,4 +56,4 @@ void scatter(DataT* out,
   }
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

@@ -6,6 +6,7 @@
 #pragma once
 
 #include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -16,7 +17,7 @@
 #include <iostream>
 #include <numeric>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace comms {
 namespace detail {
 
@@ -530,4 +531,4 @@ bool test_commsplit(raft::resources const& h, int n_colors)
 
 }  // namespace detail
 }  // namespace comms
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,11 +7,12 @@
 #define __TRUSTWORTHINESS_SCORE_H
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/stats/detail/trustworthiness_score.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 
 /**
@@ -85,6 +86,6 @@ double trustworthiness_score(
 /** @} */  // end group stats_trustworthiness
 
 }  // namespace stats
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 
 #endif

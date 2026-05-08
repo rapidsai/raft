@@ -5,7 +5,9 @@
 
 #pragma once
 
-namespace raft::resource {
+#include <raft/core/detail/macros.hpp>
+namespace RAFT_EXPORT raft {
+namespace resource {
 
 /**
  * @defgroup resource_types Core resource vocabulary types
@@ -113,4 +115,5 @@ class empty_resource_factory : public resource_factory {
  * @}
  */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft
