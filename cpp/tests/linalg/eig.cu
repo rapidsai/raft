@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -148,6 +148,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
 TEST(Raft, EigStream)
 {
   // Separate test to check eig_dc stream workaround for CUDA 12+
+  raft::random::RngState r(1234ULL);
   raft::resources handle;
   auto n_rows = 5000;
   auto cov_matrix_stream =
@@ -155,6 +156,7 @@ TEST(Raft, EigStream)
   auto eig_vectors_stream =
     raft::make_device_matrix<float, std::uint32_t, raft::col_major>(handle, n_rows, n_rows);
   auto eig_vals_stream = raft::make_device_vector<float, std::uint32_t>(handle, n_rows);
+  uniform(handle, r, cov_matrix_stream.data_handle(), n_rows * n_rows, float(-1.0), float(1.0));
 
   raft::linalg::eig_dc(handle,
                        raft::make_const_mdspan(cov_matrix_stream.view()),
