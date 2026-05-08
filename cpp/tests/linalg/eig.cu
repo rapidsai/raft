@@ -156,7 +156,7 @@ TEST(Raft, EigStream)
   auto eig_vectors_stream =
     raft::make_device_matrix<float, std::uint32_t, raft::col_major>(handle, n_rows, n_rows);
   auto eig_vals_stream = raft::make_device_vector<float, std::uint32_t>(handle, n_rows);
-  uniform(handle, r, cov_matrix_stream.data(), n_rows * n_rows, float(-1.0), float(1.0));
+  uniform(handle, r, cov_matrix_stream.data_handle(), n_rows * n_rows, float(-1.0), float(1.0));
 
   raft::linalg::eig_dc(handle,
                        raft::make_const_mdspan(cov_matrix_stream.view()),

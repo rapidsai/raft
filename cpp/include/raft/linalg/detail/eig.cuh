@@ -81,15 +81,17 @@ void eigDC(raft::resources const& handle,
 {
   int cusolver_major = -1;
   int cusolver_minor = -1;
+  int cusolver_patch = -1;
   RAFT_CUSOLVER_TRY(cusolverGetProperty(MAJOR_VERSION, &cusolver_major));
   RAFT_CUSOLVER_TRY(cusolverGetProperty(MINOR_VERSION, &cusolver_minor));
-  int cusolver_version = cusolver_major * 1000 + cusolver_minor * 10;
+  RAFT_CUSOLVER_TRY(cusolverGetProperty(PATCH_LEVEL, &cusolver_patch));
+  int cusolver_version = cusolver_major * 10000 + cusolver_minor * 100 + cusolver_patch;
   cudaStream_t stream_new;
   cudaEvent_t sync_event = resource::detail::get_cuda_stream_sync_event(handle);
   rmm::cuda_stream stream_new_wrapper;
-  if (cusolver_version < 11070) {
+  if (cusolver_version < 110603) {
     // Use a new stream instead of `cudaStreamPerThread` to avoid cusolver bug # 4580093.
-    // Solved in cusolver 11.7.0 / CUDA 12.5.
+    // Solved in cusolver 11.6.2.40 / CUDA 12.5.
     stream_new = stream_new_wrapper.value();
     RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream));
     RAFT_CUDA_TRY(cudaStreamWaitEvent(stream_new, sync_event));
@@ -143,7 +145,7 @@ void eigDC(raft::resources const& handle,
          "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
 
-  if (cusolver_version < 11070) {
+  if (cusolver_version < 110603) {
     // Synchronize the created stream with the original stream before return
     RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream_new));
     RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_event));
