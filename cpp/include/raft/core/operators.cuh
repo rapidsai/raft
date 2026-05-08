@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/util/device_atomics.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @defgroup DeviceFunctors Commonly used device-only functors.
@@ -40,4 +40,4 @@ struct atomic_min_op {
 };
 /** @} */
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

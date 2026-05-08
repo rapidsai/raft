@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,12 +8,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/types.hpp>
 #include <raft/stats/detail/weighted_mean.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 
 /**
@@ -169,6 +170,5 @@ void col_weighted_mean(raft::resources const& handle,
 /** @} */  // end group stats_weighted_mean
 
 };  // end namespace stats
-};  // end namespace raft
-
+};  // namespace RAFT_EXPORT raft
 #endif

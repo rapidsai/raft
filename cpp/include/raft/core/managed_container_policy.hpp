@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #ifndef RAFT_DISABLE_CUDA
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/resource/managed_memory_resource.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 /**
  * @brief A container policy for managed mdarray.
  *
@@ -44,10 +45,10 @@ struct managed_container_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 };
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 #else
 #include <raft/core/detail/fail_container_policy.hpp>
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 // Provide placeholders that will allow CPU-GPU interoperable codebases to
 // compile in non-CUDA mode but which will throw exceptions at runtime on any
@@ -56,5 +57,5 @@ namespace raft {
 template <typename ElementType>
 using managed_container_policy = detail::fail_container_policy<ElementType>;
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 #endif

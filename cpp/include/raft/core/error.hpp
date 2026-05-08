@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #if defined(__GNUC__) && __has_include(<cxxabi.h>) && __has_include(<execinfo.h>)
 #define ENABLE_COLLECT_CALLSTACK
 #endif
@@ -26,7 +27,7 @@
 #include <sstream>
 #endif
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @defgroup error_handling Exceptions & Error Handling
@@ -152,7 +153,7 @@ struct non_cuda_build_error : public raft::exception {
  * @}
  */
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 
 // FIXME: Need to be replaced with RAFT_FAIL
 /** macro to throw a runtime error */

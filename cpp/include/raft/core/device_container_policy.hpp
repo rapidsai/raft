@@ -11,6 +11,7 @@
  */
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #ifndef RAFT_DISABLE_CUDA
 #include <raft/core/detail/span.hpp>  // dynamic_extent
 #include <raft/core/device_mdspan.hpp>
@@ -26,7 +27,7 @@
 
 #include <thrust/device_ptr.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 /**
  * @brief A simplified version of thrust::device_reference with support for CUDA stream.
  */
@@ -173,10 +174,10 @@ class device_container_policy {
   rmm::device_async_resource_ref mr_{rmm::mr::get_current_device_resource_ref()};
 };
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 #else
 #include <raft/core/detail/fail_container_policy.hpp>
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 // Provide placeholders that will allow CPU-GPU interoperable codebases to
 // compile in non-CUDA mode but which will throw exceptions at runtime on any
@@ -191,5 +192,5 @@ using device_uvector = detail::fail_container<T>;
 template <typename ElementType>
 using device_container_policy = detail::fail_container_policy<ElementType>;
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 #endif

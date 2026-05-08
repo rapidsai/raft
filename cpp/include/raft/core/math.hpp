@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@
 #include <cuda_fp16.h>
 #endif
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 // Clang is pretty aggressive when instantiating templates, so we need host
 // functions for `__half` and `nv_bfloat16`, which are instantiated, but never
@@ -702,4 +702,4 @@ RAFT_INLINE_FUNCTION auto sgn(T val) -> int
 
 #undef INSTANTIATED_BUT_NEVER_CALLED
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

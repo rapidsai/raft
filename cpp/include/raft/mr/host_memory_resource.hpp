@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/mr/host_device_resource.hpp>
 #include <raft/pmr/resource_adaptor.hpp>
 
@@ -11,7 +12,8 @@
 #include <mutex>
 #include <utility>
 
-namespace raft::mr {
+namespace RAFT_EXPORT raft {
+namespace mr {
 
 /**
  * @brief Get a reference to a stateless new/delete host memory resource.
@@ -74,4 +76,5 @@ inline auto set_default_host_resource(raft::mr::host_resource_ref ref)
   return detail::default_host_resource_holder_.set(ref);
 }
 
-}  // namespace raft::mr
+}  // namespace mr
+}  // namespace RAFT_EXPORT raft

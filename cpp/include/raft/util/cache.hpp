@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>
 
 #include <cstddef>
@@ -14,7 +15,8 @@
 #include <tuple>
 #include <utility>
 
-namespace raft::cache {
+namespace RAFT_EXPORT raft {
+namespace cache {
 
 /** Associative cache with least recently used replacement policy. */
 template <typename K,
@@ -94,4 +96,5 @@ class lru {
   }
 };
 
-};  // namespace raft::cache
+};  // namespace cache
+}  // namespace RAFT_EXPORT raft

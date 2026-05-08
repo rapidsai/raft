@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/triangular.cuh>
@@ -17,7 +18,7 @@
 
 #include <algorithm>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -150,4 +151,4 @@ void qrGetQR(raft::resources const& handle,
 
 };  // namespace detail
 };  // namespace linalg
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

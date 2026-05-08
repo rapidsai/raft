@@ -1,17 +1,19 @@
 
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/sparse/solver/detail/mst_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 
 #include <limits>
 
-namespace raft::sparse::solver::detail {
+namespace RAFT_EXPORT raft {
+namespace sparse::solver::detail {
 
 template <typename vertex_t, typename edge_t, typename alteration_t>
 RAFT_KERNEL kernel_min_edge_per_vertex(const edge_t* offsets,
@@ -318,4 +320,5 @@ RAFT_KERNEL kernel_count_new_mst_edges(const vertex_t* mst_src,
   if (threadIdx.x == 0 && block_count > 0) { atomicAdd(mst_edge_count, block_count); }
 }
 
-}  // namespace raft::sparse::solver::detail
+}  // namespace sparse::solver::detail
+}  // namespace RAFT_EXPORT raft

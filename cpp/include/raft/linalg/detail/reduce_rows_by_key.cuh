@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <cub/block/block_reduce.cuh>
@@ -13,7 +14,7 @@
 #include <limits>
 
 #define MAX_BLOCKS 65535u
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -399,4 +400,4 @@ void reduce_rows_by_key(const DataIteratorT d_A,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft
