@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
@@ -11,7 +12,8 @@
 #include <memory>
 #include <typeindex>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 
 class custom_resource : public resource {
  public:
@@ -77,4 +79,5 @@ auto get_custom_resource(resources const& res) -> ResourceT*
  * @}
  */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

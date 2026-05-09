@@ -4,13 +4,15 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/mr/host_device_resource.hpp>
 
 #include <cuda/memory_resource>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 
 /**
  * @defgroup pinned_memory_resource Pinned memory resource
@@ -73,4 +75,5 @@ inline void set_pinned_memory_resource(resources& res, raft::mr::host_device_res
 
 /** @} */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

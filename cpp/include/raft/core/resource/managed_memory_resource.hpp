@@ -4,13 +4,15 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/mr/host_device_resource.hpp>
 
 #include <cuda/memory_resource>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 
 /**
  * @defgroup managed_memory_resource Managed memory resource
@@ -75,4 +77,5 @@ inline void set_managed_memory_resource(resources& res, raft::mr::host_device_re
 
 /** @} */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

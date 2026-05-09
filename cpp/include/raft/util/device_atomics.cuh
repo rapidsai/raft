@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 /**
  * @brief overloads for CUDA atomic operations
  * @file device_atomics.cuh
@@ -20,7 +21,7 @@
 
 #include <type_traits>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 namespace device_atomics {
 namespace detail {
@@ -474,7 +475,7 @@ __forceinline__ __device__ bool genericAtomicOperation(bool* address,
   return T(fun(address, update_value, op));
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 
 /**
  * @brief Overloads for `atomicAdd`

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __NORM_H
@@ -10,6 +10,7 @@
 #include "detail/norm.cuh"
 #include "linalg_types.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/operators.hpp>
@@ -18,7 +19,7 @@
 #include <raft/linalg/norm_types.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -149,6 +150,6 @@ void norm(raft::resources const& handle,
 /** @} */
 
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft
 
 #endif

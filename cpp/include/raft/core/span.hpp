@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -16,7 +16,7 @@
 #include <cstddef>    // std::byte
 #include <type_traits>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @defgroup span one-dimensional span type
@@ -267,4 +267,4 @@ auto as_writable_bytes(span<T, is_device, E> s) noexcept
 
 /* @} */
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 /**
@@ -11,10 +11,11 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/stats/entropy.cuh>
 #include <raft/stats/mutual_info_score.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace detail {
 /**
@@ -57,4 +58,4 @@ double homogeneity_score(const T* truthClusterArray,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

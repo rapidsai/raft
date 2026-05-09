@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -19,7 +20,7 @@
 #include <thread>
 #include <unordered_map>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @defgroup interruptible definitions and classes related to the interruptible API
@@ -297,6 +298,6 @@ class interruptible {
  * @} // end doxygen group interruptible
  */
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 
 #endif

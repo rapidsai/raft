@@ -9,6 +9,7 @@
 
 #include "detail/gemv.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -16,7 +17,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -295,5 +296,5 @@ void gemv(raft::resources const& handle,
 /** @} */  // end of gemv
 
 };  // namespace linalg
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft
 #endif

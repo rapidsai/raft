@@ -5,10 +5,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <cstddef>
 #include <utility>
 
-namespace raft::matrix::detail::select {
+namespace RAFT_EXPORT raft {
+namespace matrix::detail::select {
 
 /**
  * Row-layout policy for dense matrices where every row has the same length.
@@ -42,4 +45,5 @@ struct csr_layout {
   }
 };
 
-}  // namespace raft::matrix::detail::select
+}  // namespace matrix::detail::select
+}  // namespace RAFT_EXPORT raft

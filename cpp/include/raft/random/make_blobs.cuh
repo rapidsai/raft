@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,13 +10,15 @@
 
 #include "detail/make_blobs.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
 #include <optional>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 
 /**
  * @brief GPU-equivalent of sklearn.datasets.make_blobs
@@ -174,6 +176,6 @@ void make_blobs(
 
 /** @} */  // end group make_blobs
 
-}  // end namespace raft::random
-
+}  // namespace random
+}  // namespace RAFT_EXPORT raft
 #endif

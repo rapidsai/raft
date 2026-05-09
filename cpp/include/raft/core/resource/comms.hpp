@@ -5,10 +5,12 @@
 #pragma once
 
 #include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 class comms_resource : public resource {
  public:
   comms_resource(std::shared_ptr<comms::comms_t> comnumicator) : communicator_(comnumicator) {}
@@ -64,4 +66,5 @@ inline void set_comms(resources& res, std::shared_ptr<comms::comms_t> communicat
 /**
  * @}
  */
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

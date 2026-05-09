@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/mdspan_types.hpp>
@@ -37,7 +38,8 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-namespace raft::linalg::detail {
+namespace RAFT_EXPORT raft {
+namespace linalg::detail {
 
 template <typename math_t, typename idx_t>
 void cal_comp_exp_vars_svd(raft::resources const& handle,
@@ -518,4 +520,5 @@ void tsvd_fit_transform(raft::resources const& handle,
     explained_var_ratio.data_handle(), explained_var.data_handle(), scalar, n_components, stream);
 }
 
-};  // end namespace raft::linalg::detail
+};  // end namespace linalg::detail
+};  // end namespace RAFT_EXPORT raft

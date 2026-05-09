@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/device_id.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
@@ -11,7 +12,8 @@
 
 #include <cuda_runtime.h>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 
 class device_properties_resource : public resource {
  public:
@@ -62,4 +64,5 @@ inline cudaDeviceProp& get_device_properties(resources const& res)
 /**
  * @}
  */
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

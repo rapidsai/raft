@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
@@ -14,7 +15,7 @@
 
 #include <stdio.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -111,4 +112,4 @@ void coo_degree_nz(const idx_t* rows, const T* vals, nnz_t nnz, idx_t* results, 
 };  // end NAMESPACE detail
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
-};  // end NAMESPACE raft
+};  // namespace RAFT_EXPORT raft

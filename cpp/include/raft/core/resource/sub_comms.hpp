@@ -5,10 +5,12 @@
 #pragma once
 
 #include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 class sub_comms_resource : public resource {
  public:
   sub_comms_resource() : communicators_() {}
@@ -69,4 +71,5 @@ inline void set_subcomm(resources const& res,
  * @}
  */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
@@ -13,7 +14,7 @@
 #include <raft/core/detail/fail_container_policy.hpp>
 #endif
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 #ifndef RAFT_DISABLE_CUDA
 /**
  * @brief A container policy for pinned mdarray.
@@ -51,4 +52,4 @@ struct pinned_container_policy {
 template <typename ElementType>
 using pinned_container_policy = detail::fail_container_policy<ElementType>;
 #endif
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

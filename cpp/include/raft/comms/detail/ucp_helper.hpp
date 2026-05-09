@@ -1,17 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <stdio.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace comms {
 namespace detail {
 
@@ -150,4 +151,4 @@ class comms_ucp_handler {
 };
 }  // end namespace detail
 }  // end namespace comms
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

@@ -5,10 +5,14 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <atomic>
 #include <memory>
 
-namespace raft::resource {
+
+namespace RAFT_EXPORT raft {
+namespace resource {
 
 /**
  * @defgroup resource_types Core resource vocabulary types
@@ -97,4 +101,5 @@ struct resource_cell {
  * @}
  */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

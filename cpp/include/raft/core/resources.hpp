@@ -6,13 +6,14 @@
 
 #include "resource/resource_types.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>  // RAFT_EXPECTS
 #include <raft/core/logger.hpp>
 
 #include <memory>
 #include <vector>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief Resource container which allows lazy-loading and registration
@@ -138,4 +139,4 @@ class resources {
  protected:
   std::vector<std::shared_ptr<resource::resource_cell>> cells_;
 };
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

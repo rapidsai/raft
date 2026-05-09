@@ -76,3 +76,10 @@ cdef class Stream:
         Return the uintptr_t pointer of the underlying cudaStream_t handle
         """
         return <uintptr_t>self.s
+
+    def __cuda_stream__(self):
+        """
+        Return a tuple (version, stream_pointer) per the __cuda_stream__ protocol.
+        This allows any library using the CUDA stream protocol to use pylibraft Streams.
+        """
+        return (0, <uintptr_t>self.s)

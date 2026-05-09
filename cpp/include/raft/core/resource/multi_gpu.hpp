@@ -4,13 +4,15 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/device_id.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
 #include <memory>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 
 class multi_gpu_resource : public resource {
  public:
@@ -123,4 +125,5 @@ inline void set_root_rank(resources& res, int root_rank)
   res.add_resource_factory(std::make_shared<root_rank_resource_factory>(root_rank));
 };
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft
