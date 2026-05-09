@@ -10,7 +10,6 @@
 #include <atomic>
 #include <memory>
 
-
 namespace RAFT_EXPORT raft {
 namespace resource {
 
