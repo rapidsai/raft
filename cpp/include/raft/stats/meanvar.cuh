@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __MEANVAR_H
@@ -7,11 +7,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/meanvar.cuh>
 
-namespace raft::stats {
+namespace RAFT_EXPORT raft {
+namespace stats {
 
 /**
  * @brief Compute mean and variance for each column of a given matrix.
@@ -96,6 +98,6 @@ void meanvar(raft::resources const& handle,
 
 /** @} */  // end group stats_mean_var
 
-};  // namespace raft::stats
-
+};  // namespace stats
+}  // namespace RAFT_EXPORT raft
 #endif

@@ -4,9 +4,12 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <cuda/memory_resource>
 
-namespace raft::mr {
+namespace RAFT_EXPORT raft {
+namespace mr {
 
 /**
  * @brief Type-erased owning synchronous resource accessible from both host and device.
@@ -48,4 +51,5 @@ using host_resource_ref = cuda::mr::synchronous_resource_ref<cuda::mr::host_acce
 using host_device_resource_ref =
   cuda::mr::synchronous_resource_ref<cuda::mr::host_accessible, cuda::mr::device_accessible>;
 
-}  // namespace raft::mr
+}  // namespace mr
+}  // namespace RAFT_EXPORT raft

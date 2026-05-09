@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright 2020 KETAN DATE & RAKESH NAGI
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 /*
@@ -28,7 +28,9 @@
  */
 #pragma once
 
-namespace raft::solver {
+#include <raft/core/detail/macros.hpp>
+namespace RAFT_EXPORT raft {
+namespace solver {
 template <typename vertex_t, typename weight_t>
 struct Vertices {
   vertex_t* row_assignments;
@@ -46,4 +48,5 @@ struct VertexData {
   vertex_t* children;
   int* is_visited;
 };
-}  // namespace raft::solver
+}  // namespace solver
+}  // namespace RAFT_EXPORT raft

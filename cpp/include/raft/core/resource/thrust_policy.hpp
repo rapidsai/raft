@@ -1,15 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
 #include <rmm/exec_policy.hpp>
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 class thrust_policy_resource : public resource {
  public:
   thrust_policy_resource(rmm::cuda_stream_view stream_view)
@@ -62,4 +64,5 @@ inline rmm::exec_policy_nosync& get_thrust_policy(resources const& res)
  * @}
  */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

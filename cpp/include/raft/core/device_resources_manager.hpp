@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/device_setter.hpp>
 
@@ -18,7 +19,7 @@
 #include <memory>
 #include <optional>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief A singleton used to easily generate a raft::device_resources object
@@ -553,4 +554,4 @@ struct device_resources_manager {
     get_manager().set_workspace_memory_resource_(std::move(mr), device_id);
   }
 };
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

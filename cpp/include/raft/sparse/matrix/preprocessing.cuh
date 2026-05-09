@@ -5,12 +5,14 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/matrix/detail/preprocessing.cuh>
 
-namespace raft::sparse::matrix {
+namespace RAFT_EXPORT raft {
+namespace sparse::matrix {
 /**
  * @brief This function calculate the tf-idf values for each entry in the COO sparse
  * matrix
@@ -205,4 +207,5 @@ void encode_bm25(raft::resources const& handle,
                                                results);
 }
 
-}  // namespace raft::sparse::matrix
+}  // namespace sparse::matrix
+}  // namespace RAFT_EXPORT raft

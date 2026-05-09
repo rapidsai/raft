@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-namespace raft {
+#include <raft/core/detail/macros.hpp>
+namespace RAFT_EXPORT raft {
 
 template <class ElementType, class Extents, class Layout, class Accessor>
 constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, Layout, Accessor> m)
@@ -118,4 +119,4 @@ constexpr bool is_scalar_view(mdspan<ElementType, Extents> m)
   return false;
 }
 
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

@@ -9,6 +9,7 @@
 #include "select_radix.cuh"
 #include "select_warpsort.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
@@ -19,7 +20,8 @@
 
 #include <cub/device/device_segmented_radix_sort.cuh>
 
-namespace raft::matrix::detail {
+namespace RAFT_EXPORT raft {
+namespace matrix::detail {
 
 /**
  * Predict the fastest select_k algorithm based on the number of rows/cols/k
@@ -308,4 +310,5 @@ void select_k(raft::resources const& handle,
     default: RAFT_FAIL("K-selection Algorithm not supported.");
   }
 }
-}  // namespace raft::matrix::detail
+}  // namespace matrix::detail
+}  // namespace RAFT_EXPORT raft

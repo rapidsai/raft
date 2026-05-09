@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -10,7 +10,7 @@
 #include <limits>  // numeric_limits
 #include <type_traits>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 template <class ElementType, bool is_device, std::size_t Extent>
 class span;
@@ -95,4 +95,4 @@ struct span_storage<T, dynamic_extent> {
   [[nodiscard]] constexpr auto data() const noexcept -> T* { return ptr_; }
 };
 }  // namespace detail
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

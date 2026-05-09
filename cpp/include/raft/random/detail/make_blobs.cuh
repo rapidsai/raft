@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,6 +7,7 @@
 
 #include "permute.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/random/rng.cuh>
@@ -18,7 +19,7 @@
 
 #include <vector>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace random {
 
 namespace detail {
@@ -247,4 +248,4 @@ void make_blobs_caller(DataT* out,
 
 }  // end namespace detail
 }  // end namespace random
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

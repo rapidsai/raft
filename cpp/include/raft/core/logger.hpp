@@ -1,17 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/logger_macros.hpp>
 
 #include <rapids_logger/logger.hpp>
 
 #include <sstream>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief Returns the default sink for the global logger.
@@ -52,7 +53,7 @@ inline rapids_logger::logger& default_logger()
   return logger_;
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 
 #if (RAFT_LOG_ACTIVE_LEVEL <= RAPIDS_LOGGER_LOG_LEVEL_TRACE)
 #define RAFT_LOG_TRACE_VEC(ptr, len)                                             \

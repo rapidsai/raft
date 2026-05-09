@@ -1,13 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/sparse/detail/coo.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 
 /** @brief A Container object for sparse coordinate. There are two motivations
@@ -32,4 +33,4 @@ template <typename value_t, typename value_idx = int, typename nnz_t = uint64_t>
 using COO = detail::COO<value_t, value_idx, nnz_t>;
 
 };  // namespace sparse
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

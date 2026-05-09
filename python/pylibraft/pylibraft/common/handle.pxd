@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -12,8 +12,9 @@
 from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.vector cimport vector
 
+from cuda.bindings.cyruntime cimport cudaStream_t
+
 from rmm.librmm.cuda_stream_pool cimport cuda_stream_pool
-from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
 
 # Keeping `handle_t` around for backwards compatibility at the
@@ -21,20 +22,20 @@ from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 cdef extern from "raft/core/handle.hpp" namespace "raft" nogil:
     cdef cppclass handle_t:
         handle_t() except +
-        handle_t(cuda_stream_view stream_view) except +
-        handle_t(cuda_stream_view stream_view,
+        handle_t(cudaStream_t stream_view) except +
+        handle_t(cudaStream_t stream_view,
                  shared_ptr[cuda_stream_pool] stream_pool) except +
-        cuda_stream_view get_stream() except +
+        cudaStream_t get_stream() except +
         void sync_stream() except +
 
 
 cdef extern from "raft/core/device_resources.hpp" namespace "raft" nogil:
     cdef cppclass device_resources:
         device_resources() except +
-        device_resources(cuda_stream_view stream_view) except +
-        device_resources(cuda_stream_view stream_view,
+        device_resources(cudaStream_t stream_view) except +
+        device_resources(cudaStream_t stream_view,
                          shared_ptr[cuda_stream_pool] stream_pool) except +
-        cuda_stream_view get_stream() except +
+        cudaStream_t get_stream() except +
         void sync_stream() except +
 
 cdef class DeviceResources:

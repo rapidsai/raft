@@ -1,11 +1,12 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2021 Leon Merten Lohse
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0 AND MIT
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
@@ -25,7 +26,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 namespace detail {
 
@@ -486,4 +487,4 @@ inline T deserialize_scalar(std::istream& is)
 
 }  // end namespace numpy_serializer
 }  // end namespace detail
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

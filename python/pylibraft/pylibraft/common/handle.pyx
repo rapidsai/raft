@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -13,14 +13,9 @@ import functools
 from cuda.bindings.cyruntime cimport cudaStream_t
 from libc.stdint cimport uintptr_t
 
-from rmm.librmm.cuda_stream_view cimport (
-    cuda_stream_per_thread,
-    cuda_stream_view,
-)
-
-from .cuda cimport Stream
-
-from .cuda import CudaRuntimeError
+# cudaStreamPerThread is not exported by cuda.bindings.cyruntime, declare it directly
+cdef extern from "cuda_runtime_api.h" nogil:
+    cdef cudaStream_t cudaStreamPerThread
 
 
 cdef class DeviceResources:
@@ -75,32 +70,32 @@ cdef class DeviceResources:
         if n_streams > 0:
             self.stream_pool.reset(new cuda_stream_pool(n_streams))
 
-        cdef uintptr_t s
-        cdef cuda_stream_view c_stream
+        cdef cudaStream_t c_stream_t
 
-        # We should either have a pylibraft.common.Stream or a uintptr_t
-        # of a cudaStream_t
         if stream is None:
-            # this constructor will construct a "main" handle on
-            # per-thread default stream, which is non-blocking
-            self.c_obj.reset(new handle_t(cuda_stream_per_thread,
-                                          self.stream_pool))
-        else:
-            # this constructor constructs a handle on user stream
-            if isinstance(stream, Stream):
-                # Stream is pylibraft Stream()
-                s = stream.get_ptr()
-                c_stream = cuda_stream_view(<cudaStream_t>s)
-            elif isinstance(stream, int):
-                # Stream is a pointer, cast to cudaStream_t
-                s = stream
-                c_stream = cuda_stream_view(<cudaStream_t>s)
+            # Use per-thread default stream, which is non-blocking
+            if n_streams > 0:
+                self.c_obj.reset(new handle_t(cudaStreamPerThread, self.stream_pool))
             else:
-                raise ValueError("stream should be common.Stream() or "
-                                 "uintptr_t to cudaStream_t")
-
-            self.c_obj.reset(new handle_t(c_stream,
-                             self.stream_pool))
+                self.c_obj.reset(new handle_t(cudaStreamPerThread))
+        elif hasattr(stream, '__cuda_stream__'):
+            # __cuda_stream__ protocol: returns (version, pointer)
+            proto = stream.__cuda_stream__()
+            c_stream_t = <cudaStream_t><uintptr_t>proto[1]
+            if n_streams > 0:
+                self.c_obj.reset(new handle_t(c_stream_t, self.stream_pool))
+            else:
+                self.c_obj.reset(new handle_t(c_stream_t))
+        elif isinstance(stream, int):
+            # Raw cudaStream_t pointer (e.g., from cupy)
+            c_stream_t = <cudaStream_t><uintptr_t>stream
+            if n_streams > 0:
+                self.c_obj.reset(new handle_t(c_stream_t, self.stream_pool))
+            else:
+                self.c_obj.reset(new handle_t(c_stream_t))
+        else:
+            raise TypeError("stream must be a Stream object, int cudaStream_t pointer, "
+                            "or an object implementing the __cuda_stream__ protocol")
 
     def sync(self):
         """
@@ -123,7 +118,7 @@ cdef class DeviceResources:
         if self.n_streams > 0:
             self.stream_pool.reset(new cuda_stream_pool(self.n_streams))
 
-        self.c_obj.reset(new device_resources(cuda_stream_per_thread,
+        self.c_obj.reset(new device_resources(cudaStreamPerThread,
                                               self.stream_pool))
 
 
@@ -184,7 +179,7 @@ cdef class Handle(DeviceResources):
         if self.n_streams > 0:
             self.stream_pool.reset(new cuda_stream_pool(self.n_streams))
 
-        self.c_obj.reset(new handle_t(cuda_stream_per_thread,
+        self.c_obj.reset(new handle_t(cudaStreamPerThread,
                                       self.stream_pool))
 
 
