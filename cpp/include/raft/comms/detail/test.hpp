@@ -38,20 +38,12 @@ bool test_collective_alltoall(raft::resources const& handle, int root)
   rmm::device_uvector<int> temp_d(communicator.get_size(), stream);
   rmm::device_uvector<int> recv_d(communicator.get_size(), stream);
 
-  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(),
-                                sends.data(),
-                                sizeof(int) * communicator.get_size(),
-                                cudaMemcpyHostToDevice,
-                                stream));
+  raft::update_device(temp_d.data(), sends.data(), sends.size(), stream);
 
   communicator.alltoall(temp_d.data(), recv_d.data(), 1, stream);
-  communicator.sync_stream(stream);
+
   std::vector<int> temp_h(communicator.get_size());
-  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_h.data(),
-                                recv_d.data(),
-                                sizeof(int) * communicator.get_size(),
-                                cudaMemcpyDeviceToHost,
-                                stream));
+  raft::update_host(temp_h.data(), recv_d.data(), recv_d.size(), stream);
   resource::sync_stream(handle, stream);
 
   for (int i = 0; i < communicator.get_size(); i++) {
@@ -76,14 +68,13 @@ bool test_collective_allreduce(raft::resources const& handle, int root)
   cudaStream_t stream = resource::get_cuda_stream(handle);
 
   rmm::device_scalar<int> temp_d(stream);
-  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(), &send, 1, cudaMemcpyHostToDevice, stream));
+  raft::update_device(temp_d.data(), &send, 1, stream);
 
   communicator.allreduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, stream);
 
   int temp_h = 0;
-  RAFT_CUDA_TRY(cudaMemcpyAsync(&temp_h, temp_d.data(), 1, cudaMemcpyDeviceToHost, stream));
+  raft::update_host(&temp_h, temp_d.data(), 1, stream);
   resource::sync_stream(handle, stream);
-  communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
@@ -108,17 +99,12 @@ bool test_collective_broadcast(raft::resources const& handle, int root)
 
   rmm::device_scalar<int> temp_d(stream);
 
-  if (communicator.get_rank() == root)
-    RAFT_CUDA_TRY(
-      cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
+  if (communicator.get_rank() == root) raft::update_device(temp_d.data(), &send, 1, stream);
 
   communicator.bcast(temp_d.data(), 1, root, stream);
-  communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  RAFT_CUDA_TRY(
-    cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
+  raft::update_host(&temp_h, temp_d.data(), 1, stream);
   resource::sync_stream(handle, stream);
-  communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
@@ -143,15 +129,12 @@ bool test_collective_reduce(raft::resources const& handle, int root)
 
   rmm::device_scalar<int> temp_d(stream);
 
-  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
+  raft::update_device(temp_d.data(), &send, 1, stream);
 
   communicator.reduce(temp_d.data(), temp_d.data(), 1, op_t::SUM, root, stream);
-  communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  RAFT_CUDA_TRY(
-    cudaMemcpyAsync(&temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
+  raft::update_host(&temp_h, temp_d.data(), 1, stream);
   resource::sync_stream(handle, stream);
-  communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
@@ -180,15 +163,12 @@ bool test_collective_allgather(raft::resources const& handle, int root)
   rmm::device_scalar<int> temp_d(stream);
   rmm::device_uvector<int> recv_d(communicator.get_size(), stream);
 
-  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
+  raft::update_device(temp_d.data(), &send, 1, stream);
 
   communicator.allgather(temp_d.data(), recv_d.data(), 1, stream);
-  communicator.sync_stream(stream);
   int temp_h[communicator.get_size()];  // Verify more than one byte is being sent
-  RAFT_CUDA_TRY(cudaMemcpyAsync(
-    &temp_h, recv_d.data(), sizeof(int) * communicator.get_size(), cudaMemcpyDeviceToHost, stream));
+  raft::update_host(temp_h, recv_d.data(), communicator.get_size(), stream);
   resource::sync_stream(handle, stream);
-  communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
@@ -219,17 +199,14 @@ bool test_collective_scatter(raft::resources const& handle, int root)
   if (communicator.get_rank() == root) {
     std::vector<int> sends(communicator.get_size(), communicator.get_rank());
     std::fill(sends.begin(), sends.end(), root);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(
-      temp_d.data(), sends.data(), sizeof(int) * sends.size(), cudaMemcpyHostToDevice, stream));
+    raft::update_device(temp_d.data(), sends.data(), sends.size(), stream);
   }
 
   communicator.scatter(
     communicator.get_rank() == root ? temp_d.data() : nullptr, recv_d.data(), 1, root, stream);
-  communicator.sync_stream(stream);
 
   int temp_h = -1;  // Verify more than one byte is being sent
-  RAFT_CUDA_TRY(
-    cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
+  raft::update_host(&temp_h, recv_d.data(), 1, stream);
   resource::sync_stream(handle, stream);
 
   return temp_h == root;
@@ -260,8 +237,7 @@ bool test_collective_scatterv(raft::resources const& handle, int root)
 
   if (communicator.get_rank() == root) {
     std::vector<int> sends(displacements.back(), root);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(
-      temp_d.data(), sends.data(), sends.size() * sizeof(int), cudaMemcpyHostToDevice, stream));
+    raft::update_device(temp_d.data(), sends.data(), sends.size(), stream);
   }
 
   communicator.scatterv(
@@ -272,11 +248,9 @@ bool test_collective_scatterv(raft::resources const& handle, int root)
     recv_d.size(),
     root,
     stream);
-  communicator.sync_stream(stream);
 
   std::vector<int> temp_h(recv_d.size(), 0);
-  RAFT_CUDA_TRY(cudaMemcpyAsync(
-    temp_h.data(), recv_d.data(), sizeof(int) * recv_d.size(), cudaMemcpyDeviceToHost, stream));
+  raft::update_host(temp_h.data(), recv_d.data(), recv_d.size(), stream);
   resource::sync_stream(handle, stream);
 
   if (std::count_if(temp_h.begin(), temp_h.end(), [root](auto val) { return val != root; }) != 0) {
@@ -304,15 +278,14 @@ bool test_collective_gather(raft::resources const& handle, int root)
   rmm::device_uvector<int> recv_d(communicator.get_rank() == root ? communicator.get_size() : 0,
                                   stream);
 
-  RAFT_CUDA_TRY(cudaMemcpyAsync(temp_d.data(), &send, sizeof(int), cudaMemcpyHostToDevice, stream));
+  raft::update_device(temp_d.data(), &send, 1, stream);
 
   communicator.gather(temp_d.data(), recv_d.data(), 1, root, stream);
   communicator.sync_stream(stream);
 
   if (communicator.get_rank() == root) {
     std::vector<int> temp_h(communicator.get_size(), 0);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(
-      temp_h.data(), recv_d.data(), sizeof(int) * temp_h.size(), cudaMemcpyDeviceToHost, stream));
+    raft::update_host(temp_h.data(), recv_d.data(), temp_h.size(), stream);
     resource::sync_stream(handle, stream);
 
     for (int i = 0; i < communicator.get_size(); i++) {
@@ -348,8 +321,7 @@ bool test_collective_gatherv(raft::resources const& handle, int root)
   rmm::device_uvector<int> recv_d(communicator.get_rank() == root ? displacements.back() : 0,
                                   stream);
 
-  RAFT_CUDA_TRY(cudaMemcpyAsync(
-    temp_d.data(), sends.data(), sends.size() * sizeof(int), cudaMemcpyHostToDevice, stream));
+  raft::update_device(temp_d.data(), sends.data(), sends.size(), stream);
 
   communicator.gatherv(
     temp_d.data(),
@@ -359,15 +331,10 @@ bool test_collective_gatherv(raft::resources const& handle, int root)
     communicator.get_rank() == root ? displacements.data() : static_cast<size_t*>(nullptr),
     root,
     stream);
-  communicator.sync_stream(stream);
 
   if (communicator.get_rank() == root) {
     std::vector<int> temp_h(displacements.back(), 0);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(temp_h.data(),
-                                  recv_d.data(),
-                                  sizeof(int) * displacements.back(),
-                                  cudaMemcpyDeviceToHost,
-                                  stream));
+    raft::update_host(temp_h.data(), recv_d.data(), displacements.back(), stream);
     resource::sync_stream(handle, stream);
 
     for (int i = 0; i < communicator.get_size(); i++) {
@@ -399,16 +366,12 @@ bool test_collective_reducescatter(raft::resources const& handle, int root)
   rmm::device_uvector<int> temp_d(sends.size(), stream);
   rmm::device_scalar<int> recv_d(stream);
 
-  RAFT_CUDA_TRY(cudaMemcpyAsync(
-    temp_d.data(), sends.data(), sends.size() * sizeof(int), cudaMemcpyHostToDevice, stream));
+  raft::update_device(temp_d.data(), sends.data(), sends.size(), stream);
 
   communicator.reducescatter(temp_d.data(), recv_d.data(), 1, op_t::SUM, stream);
-  communicator.sync_stream(stream);
   int temp_h = -1;  // Verify more than one byte is being sent
-  RAFT_CUDA_TRY(
-    cudaMemcpyAsync(&temp_h, recv_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
+  raft::update_host(&temp_h, recv_d.data(), 1, stream);
   resource::sync_stream(handle, stream);
-  communicator.barrier();
 
   std::cout << "Clique size: " << communicator.get_size() << std::endl;
   std::cout << "final_size: " << temp_h << std::endl;
@@ -612,8 +575,6 @@ bool test_pointToPoint_device_multicast_sendrecv(raft::resources const& h, int n
                                            recvoffsets,
                                            srcs,
                                            stream);
-
-    communicator.sync_stream(stream);
 
     std::vector<int> h_received_data(communicator.get_size());
     raft::update_host(h_received_data.data(), received_data.data(), received_data.size(), stream);
