@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>  // detail::popc
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -20,7 +21,7 @@
 #include <thrust/fill.h>
 #include <thrust/scan.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace convert {
 namespace detail {
@@ -296,7 +297,7 @@ void bitmap_to_csr(raft::resources const& handle,
                    sub_nnz_size,
                    bits_per_sub_col);
 
-  rmm::device_async_resource_ref device_memory = resource::get_workspace_resource(handle);
+  rmm::device_async_resource_ref device_memory = resource::get_workspace_resource_ref(handle);
   rmm::device_uvector<nnz_t> sub_nnz(sub_nnz_size + 1, stream, device_memory);
 
   calc_nnz_by_rows(handle,
@@ -340,4 +341,4 @@ void bitmap_to_csr(raft::resources const& handle,
 };  // end NAMESPACE detail
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
-};  // end NAMESPACE raft
+};  // namespace RAFT_EXPORT raft

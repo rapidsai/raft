@@ -5,12 +5,12 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/multi_gpu.hpp>
 #include <raft/core/resource/resource_types.hpp>
 
 #include <rmm/cuda_device.hpp>
-#include <rmm/mr/device_memory_resource.hpp>
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/mr/pool_memory_resource.hpp>
 
@@ -18,7 +18,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 const std::unordered_set<resource::resource_type> snmg_related_resources = {
   raft::resource::MULTI_GPU, raft::resource::NCCL_COMM, raft::resource::ROOT_RANK};
@@ -105,10 +105,9 @@ class device_resources_snmg : public device_resources {
       int device_id = raft::resource::get_device_id(dev_res);
       pool_device_ids_.push_back(device_id);
 
-      per_device_pools_.push_back(
-        std::make_unique<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>(
-          rmm::mr::get_current_device_resource_ref(),
-          rmm::percent_of_free_device_memory(percent_of_free_memory)));
+      per_device_pools_.push_back(std::make_unique<rmm::mr::pool_memory_resource>(
+        rmm::mr::get_current_device_resource_ref(),
+        rmm::percent_of_free_device_memory(percent_of_free_memory)));
       rmm::mr::set_per_device_resource_ref(rmm::cuda_device_id{device_id},
                                            *per_device_pools_.back());
     }
@@ -151,9 +150,8 @@ class device_resources_snmg : public device_resources {
     }
   }
   int main_gpu_id_;
-  std::vector<std::unique_ptr<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>>
-    per_device_pools_;
+  std::vector<std::unique_ptr<rmm::mr::pool_memory_resource>> per_device_pools_;
   std::vector<int> pool_device_ids_;
 };  // class device_resources_snmg
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

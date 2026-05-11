@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __CLASS_LABELS_H
@@ -7,9 +7,10 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/label/detail/classlabels.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace label {
 
 /**
@@ -105,6 +106,5 @@ void make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, bool zer
   detail::make_monotonic<Type>(out, in, N, stream, zero_based);
 }
 };  // namespace label
-};  // end namespace raft
-
+};  // namespace RAFT_EXPORT raft
 #endif

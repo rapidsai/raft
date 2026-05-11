@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
@@ -14,7 +15,7 @@
 #include <optional>
 #include <variant>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace random {
 namespace detail {
 
@@ -245,4 +246,4 @@ class rmat_rectangular_gen_output {
 
 }  // end namespace detail
 }  // end namespace random
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

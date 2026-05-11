@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/nvtx_range_stack.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -20,7 +21,8 @@
 #include <type_traits>
 #include <vector>
 
-namespace raft::common::nvtx::detail {
+namespace RAFT_EXPORT raft {
+namespace common::nvtx::detail {
 
 /**
  * @brief An internal struct to to initialize the color generator
@@ -175,11 +177,13 @@ inline void pop_range()
   nvtxDomainRangePop(domain_store<Domain>::value());
 }
 
-}  // namespace raft::common::nvtx::detail
+}  // namespace common::nvtx::detail
+}  // namespace RAFT_EXPORT raft
 
 #else   // NVTX_ENABLED
 
-namespace raft::common::nvtx::detail {
+namespace RAFT_EXPORT raft {
+namespace common::nvtx::detail {
 
 template <typename Domain, typename... Args>
 inline void push_range(const char* format, Args... args)
@@ -191,5 +195,6 @@ inline void pop_range()
 {
 }
 
-}  // namespace raft::common::nvtx::detail
+}  // namespace common::nvtx::detail
+}  // namespace RAFT_EXPORT raft
 #endif  // NVTX_ENABLED

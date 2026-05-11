@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __MAP_REDUCE_H
@@ -9,10 +9,12 @@
 
 #include "detail/map_then_reduce.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 
-namespace raft::linalg {
+namespace RAFT_EXPORT raft {
+namespace linalg {
 
 /**
  * @brief CUDA version of map and then generic reduction operation
@@ -102,6 +104,7 @@ void map_reduce(raft::resources const& handle,
 
 /** @} */  // end of map_reduce
 
-}  // end namespace raft::linalg
+}  // namespace linalg
+}  // namespace RAFT_EXPORT raft
 
 #endif

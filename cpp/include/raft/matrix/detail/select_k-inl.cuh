@@ -9,6 +9,7 @@
 #include "select_radix.cuh"
 #include "select_warpsort.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
@@ -19,7 +20,8 @@
 
 #include <cub/device/device_segmented_radix_sort.cuh>
 
-namespace raft::matrix::detail {
+namespace RAFT_EXPORT raft {
+namespace matrix::detail {
 
 /**
  * Predict the fastest select_k algorithm based on the number of rows/cols/k
@@ -84,7 +86,7 @@ void segmented_sort_by_key(raft::resources const& handle,
                            bool asc)
 {
   auto stream = resource::get_cuda_stream(handle);
-  auto mr     = resource::get_workspace_resource(handle);
+  auto mr     = resource::get_workspace_resource_ref(handle);
   auto out_inds =
     raft::make_device_mdarray<ValT, ValT>(handle, mr, raft::make_extents<ValT>(n_elements));
   auto out_dists =
@@ -275,7 +277,7 @@ void select_k(raft::resources const& handle,
       }
       if (sorted) {
         auto offsets = make_device_mdarray<IdxT, IdxT>(
-          handle, resource::get_workspace_resource(handle), make_extents<IdxT>(batch_size + 1));
+          handle, resource::get_workspace_resource_ref(handle), make_extents<IdxT>(batch_size + 1));
         raft::linalg::map_offset(handle, offsets.view(), mul_const_op<IdxT>(k));
 
         auto keys = raft::make_device_vector_view<T, IdxT>(out_val, (IdxT)(batch_size * k));
@@ -308,4 +310,5 @@ void select_k(raft::resources const& handle,
     default: RAFT_FAIL("K-selection Algorithm not supported.");
   }
 }
-}  // namespace raft::matrix::detail
+}  // namespace matrix::detail
+}  // namespace RAFT_EXPORT raft

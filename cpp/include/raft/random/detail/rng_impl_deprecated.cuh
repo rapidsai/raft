@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,6 +11,7 @@
 
 #include "rng_device.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -23,7 +24,7 @@
 
 #include <random>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace random {
 namespace detail {
 
@@ -296,4 +297,4 @@ class RngImpl {
 
 };  // end namespace detail
 };  // end namespace random
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

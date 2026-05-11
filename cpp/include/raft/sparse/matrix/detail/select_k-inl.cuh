@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -18,7 +19,8 @@
 
 #include <type_traits>
 
-namespace raft::sparse::matrix::detail {
+namespace RAFT_EXPORT raft {
+namespace sparse::matrix::detail {
 
 using namespace raft::matrix::detail;
 using raft::matrix::SelectAlgo;
@@ -131,7 +133,7 @@ void select_k(raft::resources const& handle,
 
       if (sorted) {
         auto offsets = make_device_mdarray<IdxT, IdxT>(
-          handle, resource::get_workspace_resource(handle), make_extents<IdxT>(batch_size + 1));
+          handle, resource::get_workspace_resource_ref(handle), make_extents<IdxT>(batch_size + 1));
         raft::linalg::map_offset(handle, offsets.view(), mul_const_op<IdxT>(k));
 
         auto keys =
@@ -215,4 +217,5 @@ void select_k(raft::resources const& handle,
   return;
 }
 
-}  // namespace raft::sparse::matrix::detail
+}  // namespace sparse::matrix::detail
+}  // namespace RAFT_EXPORT raft

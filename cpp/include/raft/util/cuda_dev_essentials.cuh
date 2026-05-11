@@ -1,9 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+
+#include <raft/core/detail/macros.hpp>
 
 #include <cuda_fp16.h>
 
@@ -11,7 +13,7 @@
 // scope is necessarily limited to ensure that compilation times are minimized.
 // Please make sure not to include large / expensive files from here.
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /** helper macro for device inlined functions */
 #define DI  inline __device__
@@ -120,4 +122,4 @@ HDI auto to_float(T& a)
   }
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

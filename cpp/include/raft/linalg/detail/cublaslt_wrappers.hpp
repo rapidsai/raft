@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <raft/core/cublas_macros.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cublaslt_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -19,7 +20,8 @@
 
 #include <type_traits>
 
-namespace raft::linalg::detail {
+namespace RAFT_EXPORT raft {
+namespace linalg::detail {
 
 /** Get the cublas compute type for the combination of input types. */
 template <typename S, typename A, typename B, typename C>
@@ -370,4 +372,5 @@ void matmul(raft::resources const& res,
                                           resource::get_cuda_stream(res));
 }
 
-}  // namespace raft::linalg::detail
+}  // namespace linalg::detail
+}  // namespace RAFT_EXPORT raft

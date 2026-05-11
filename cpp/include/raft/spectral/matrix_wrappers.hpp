@@ -1,16 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/spectral/detail/matrix_wrappers.hpp>
 
 // =========================================================
 // Useful macros
 // =========================================================
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace spectral {
 namespace matrix {
 
@@ -35,4 +36,4 @@ using detail::modularity_matrix_t;
 
 }  // namespace matrix
 }  // namespace spectral
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

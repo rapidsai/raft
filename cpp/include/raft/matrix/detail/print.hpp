@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/util/cache_util.cuh>
@@ -20,7 +21,8 @@
 #include <algorithm>
 #include <cstddef>
 
-namespace raft::matrix::detail {
+namespace RAFT_EXPORT raft {
+namespace matrix::detail {
 
 template <typename m_t, typename idx_t = int>
 void printHost(
@@ -33,4 +35,5 @@ void printHost(
   }
 }
 
-}  // end namespace raft::matrix::detail
+}  // namespace matrix::detail
+}  // namespace RAFT_EXPORT raft

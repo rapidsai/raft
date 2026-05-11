@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>
 
 #include <cuda_runtime.h>
@@ -12,7 +13,7 @@
 #include <memory>
 #include <vector>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace comms {
 
 /**
@@ -764,4 +765,4 @@ class comms_t {
  */
 
 }  // namespace comms
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

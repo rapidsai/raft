@@ -9,6 +9,7 @@
  */
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -21,7 +22,7 @@
 
 #include <math.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace detail {
 
@@ -143,4 +144,4 @@ double entropy(const T* clusterArray,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

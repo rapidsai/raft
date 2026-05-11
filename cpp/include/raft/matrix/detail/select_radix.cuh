@@ -29,7 +29,8 @@
 #include <cub/block/block_store.cuh>
 #include <cub/block/radix_rank_sort_operations.cuh>
 
-namespace raft::matrix::detail::select::radix {
+namespace RAFT_EXPORT raft {
+namespace matrix::detail::select::radix {
 namespace impl {
 
 constexpr int VECTORIZED_READ_SIZE = 16;
@@ -1267,7 +1268,7 @@ void select_k(raft::resources const& res,
                "CSR layout requires a non-null indptr array (len_i)!");
 
   auto stream = resource::get_cuda_stream(res);
-  auto mr     = resource::get_workspace_resource(res);
+  auto mr     = resource::get_workspace_resource_ref(res);
   if (k == len && RowLayout::is_uniform) {
     RAFT_CUDA_TRY(
       cudaMemcpyAsync(out, in, sizeof(T) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
@@ -1314,4 +1315,5 @@ void select_k(raft::resources const& res,
   }
 }
 
-}  // namespace raft::matrix::detail::select::radix
+}  // namespace matrix::detail::select::radix
+}  // namespace RAFT_EXPORT raft
