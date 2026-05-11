@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/resource_types.hpp>
@@ -14,7 +15,8 @@
 
 #include <cuda_runtime.h>
 
-namespace raft::resource {
+namespace RAFT_EXPORT raft {
+namespace resource {
 class cuda_stream_resource : public resource {
  public:
   cuda_stream_resource(rmm::cuda_stream_view stream_view = rmm::cuda_stream_per_thread)
@@ -100,4 +102,5 @@ inline void sync_stream(const resources& res)
  * @}
  */
 
-}  // namespace raft::resource
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft

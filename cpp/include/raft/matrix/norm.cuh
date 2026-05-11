@@ -5,12 +5,14 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 
-namespace raft::matrix {
+namespace RAFT_EXPORT raft {
+namespace matrix {
 
 /**
  * @defgroup matrix_norm Matrix Norm Operations
@@ -32,4 +34,5 @@ m_t l2_norm(raft::resources const& handle, raft::device_mdspan<const m_t, idx_t>
 
 /** @} */  // end of group matrix_norm
 
-}  // namespace raft::matrix
+}  // namespace matrix
+}  // namespace RAFT_EXPORT raft

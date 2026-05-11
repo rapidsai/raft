@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
@@ -14,7 +15,8 @@
 
 #include <cmath>
 
-namespace raft::core {
+namespace RAFT_EXPORT raft {
+namespace core {
 /**
  * @defgroup bitset Bitset
  * @{
@@ -438,4 +440,5 @@ struct bitset {
 };
 
 /** @} */
-}  // end namespace raft::core
+}  // namespace core
+}  // namespace RAFT_EXPORT raft

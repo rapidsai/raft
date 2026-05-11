@@ -8,12 +8,13 @@
 #pragma once
 
 #include <raft/core/copy.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/sparse/linalg/detail/cusparse_utils.hpp>
 #include <raft/sparse/linalg/detail/spmm.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace linalg {
 
@@ -91,6 +92,6 @@ void spmm(raft::resources const& handle,
 
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace raft
+}  // end namespace RAFT_EXPORT raft
 
 #endif

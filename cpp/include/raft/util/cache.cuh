@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/util/cache_util.cuh>
@@ -19,7 +20,8 @@
 
 #include <cstddef>
 
-namespace raft::cache {
+namespace RAFT_EXPORT raft {
+namespace cache {
 
 /**
  * @brief Associative cache with least recently used replacement policy.
@@ -394,4 +396,5 @@ class Cache {
     }
   }
 };
-};  // namespace raft::cache
+};  // namespace cache
+}  // namespace RAFT_EXPORT raft

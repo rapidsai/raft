@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/multi_gpu.hpp>
 #include <raft/core/resource/resource_types.hpp>
@@ -17,7 +18,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 const std::unordered_set<resource::resource_type> snmg_related_resources = {
   raft::resource::MULTI_GPU, raft::resource::NCCL_COMM, raft::resource::ROOT_RANK};
@@ -153,4 +154,4 @@ class device_resources_snmg : public device_resources {
   std::vector<int> pool_device_ids_;
 };  // class device_resources_snmg
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -14,7 +15,7 @@
 #include <raft/linalg/linalg_types.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -84,4 +85,4 @@ void sddmm(raft::resources const& handle,
 }  // end namespace detail
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace raft
+}  // end namespace RAFT_EXPORT raft

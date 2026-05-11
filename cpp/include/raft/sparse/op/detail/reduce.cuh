@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -30,7 +31,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace op {
 namespace detail {
@@ -163,4 +164,4 @@ void max_duplicates(raft::resources const& handle,
 };  // END namespace detail
 };  // END namespace op
 };  // END namespace sparse
-};  // END namespace raft
+};  // END namespace RAFT_EXPORT raft

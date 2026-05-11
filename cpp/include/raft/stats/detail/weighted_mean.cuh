@@ -5,12 +5,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace detail {
 
@@ -61,4 +62,4 @@ void weightedMean(bool dry_run,
 }
 };  // end namespace detail
 };  // end namespace stats
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

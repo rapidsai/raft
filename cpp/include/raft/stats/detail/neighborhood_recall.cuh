@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -21,7 +22,8 @@
 #include <cstddef>
 #include <optional>
 
-namespace raft::stats::detail {
+namespace RAFT_EXPORT raft {
+namespace stats::detail {
 
 template <typename IndicesValueType,
           typename DistanceValueType,
@@ -103,4 +105,5 @@ void neighborhood_recall(
     indices, ref_indices, distances, ref_distances, recall_score, eps);
 }
 
-}  // end namespace raft::stats::detail
+}  // namespace stats::detail
+}  // namespace RAFT_EXPORT raft

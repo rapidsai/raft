@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/math.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 
@@ -12,7 +13,7 @@
 #include <cuda_fp16.h>
 #include <cuda_pipeline.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -159,4 +160,4 @@ void faster_dot_on_csr(raft::resources const& handle,
 }  // namespace detail
 }  // namespace linalg
 }  // namespace sparse
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

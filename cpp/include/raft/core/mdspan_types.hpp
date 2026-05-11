@@ -1,13 +1,15 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <cuda/std/mdspan>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 using cuda::std::dynamic_extent;
 using cuda::std::extents;
@@ -60,4 +62,4 @@ using extent_5d = cuda::std::extents<IndexType,
                                      dynamic_extent,
                                      dynamic_extent>;
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

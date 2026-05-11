@@ -5,12 +5,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/stats/mean_center.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace detail {
 /**
@@ -63,4 +64,4 @@ void cov(raft::resources const& handle,
 }
 };  // end namespace detail
 };  // end namespace stats
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

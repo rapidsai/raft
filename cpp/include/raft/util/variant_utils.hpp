@@ -1,12 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
+
+#include <raft/core/detail/macros.hpp>
 
 #include <type_traits>
 #include <variant>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 template <typename variant1, typename variant2>
 struct concatenated_variant;
@@ -50,4 +52,4 @@ struct is_type_in_variant<T, std::variant<Vs...>> {
 template <typename T, typename VariantType>
 auto static constexpr is_type_in_variant_v = is_type_in_variant<T, VariantType>::value;
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

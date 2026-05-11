@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
@@ -15,7 +16,7 @@
 
 #include <optional>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 
 /**
@@ -120,6 +121,5 @@ value_t cluster_dispersion(
   return cluster_dispersion(handle, centroids, cluster_sizes, opt_centroid, n_points);
 }
 }  // end namespace stats
-}  // end namespace raft
-
+}  // namespace RAFT_EXPORT raft
 #endif

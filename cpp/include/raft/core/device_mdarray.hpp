@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/mdarray.hpp>
@@ -15,7 +16,7 @@
 
 #include <cstdint>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief mdarray with device container policy
@@ -186,4 +187,4 @@ auto make_device_vector(raft::resources const& handle, IndexType n)
                                                                    make_extents<IndexType>(n));
 }
 
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

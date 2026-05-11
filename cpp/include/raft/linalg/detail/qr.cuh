@@ -8,6 +8,7 @@
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
@@ -18,7 +19,7 @@
 
 #include <algorithm>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -168,4 +169,4 @@ void qrGetQR(raft::resources const& handle,
 
 };  // namespace detail
 };  // namespace linalg
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

@@ -1,17 +1,19 @@
 
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-namespace raft::sparse::solver {
+namespace RAFT_EXPORT raft {
+namespace sparse::solver {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
 struct Graph_COO {
@@ -87,6 +89,7 @@ class MST_solver {
   void append_src_dst_pair(vertex_t* mst_src, vertex_t* mst_dst, weight_t* mst_weights);
 };
 
-}  // namespace raft::sparse::solver
+}  // namespace sparse::solver
+}  // namespace RAFT_EXPORT raft
 
 #include <raft/sparse/solver/detail/mst_solver_inl.cuh>

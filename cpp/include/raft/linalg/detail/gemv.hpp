@@ -7,13 +7,14 @@
 
 #include "cublas_wrappers.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 
 #include <cublas_v2.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -136,4 +137,4 @@ void gemv(raft::resources const& handle,
 
 };  // namespace detail
 };  // namespace linalg
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

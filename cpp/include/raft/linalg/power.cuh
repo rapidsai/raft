@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -15,7 +16,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -133,6 +134,6 @@ void power_scalar(
 /** @} */  // end of group add
 
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft
 
 #endif

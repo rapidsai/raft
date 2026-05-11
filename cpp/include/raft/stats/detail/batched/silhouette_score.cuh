@@ -7,6 +7,7 @@
 
 #include "../silhouette_score.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cuda_stream_pool.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -20,7 +21,7 @@
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace batched {
 namespace detail {
@@ -270,4 +271,4 @@ value_t silhouette_score(
 }  // namespace detail
 }  // namespace batched
 }  // namespace stats
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

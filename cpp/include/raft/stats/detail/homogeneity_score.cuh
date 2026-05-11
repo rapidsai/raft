@@ -11,10 +11,11 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/stats/entropy.cuh>
 #include <raft/stats/mutual_info_score.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace detail {
 /**
@@ -59,4 +60,4 @@ double homogeneity_score(bool dry_run,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

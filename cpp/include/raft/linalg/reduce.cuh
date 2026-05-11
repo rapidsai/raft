@@ -10,6 +10,7 @@
 #include "detail/reduce.cuh"
 #include "linalg_types.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -17,7 +18,7 @@
 #include <raft/core/types.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -184,6 +185,6 @@ void reduce(raft::resources const& handle,
 /** @} */  // end of group reduction
 
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft
 
 #endif

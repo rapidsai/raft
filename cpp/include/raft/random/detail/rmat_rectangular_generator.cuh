@@ -7,6 +7,7 @@
 
 #include "rmat_rectangular_generator_types.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
@@ -15,7 +16,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace random {
 namespace detail {
 
@@ -295,4 +296,4 @@ void rmat_rectangular_gen_impl(raft::resources const& handle,
 
 }  // end namespace detail
 }  // end namespace random
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

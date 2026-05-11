@@ -5,11 +5,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 #include <cub/device/device_radix_sort.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief Convenience wrapper over cub's SortPairs method
@@ -40,4 +42,4 @@ void sortPairs(rmm::device_uvector<char>& workspace,
     workspace.data(), worksize, inKeys, outKeys, inVals, outVals, len, 0, sizeof(KeyT) * 8, stream);
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

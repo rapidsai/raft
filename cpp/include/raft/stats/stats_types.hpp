@@ -1,13 +1,15 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-namespace raft::stats {
+namespace RAFT_EXPORT raft {
+namespace stats {
 
 /**
  * @ingroup stats_histogram
@@ -62,4 +64,5 @@ enum IC_Type { AIC, AICc, BIC };
 
 /** @} */
 
-};  // end namespace raft::stats
+};  // namespace stats
+}  // namespace RAFT_EXPORT raft

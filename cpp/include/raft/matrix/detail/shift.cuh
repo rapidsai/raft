@@ -11,7 +11,8 @@
 #include <raft/core/resources.hpp>
 #include <raft/matrix/shift_types.hpp>
 
-namespace raft::matrix::detail {
+namespace RAFT_EXPORT raft {
+namespace matrix::detail {
 enum FillType { CONSTANT, MATRIX, SELF_ID };
 
 template <typename T, typename fill_value, FillType fill_type>
@@ -194,4 +195,5 @@ void shift(raft::resources const& handle,
   shift_dispatch<ValueT, IdxT, const ValueT*, MATRIX>(
     handle, in_out, values.data_handle(), k, shift_direction, shift_type);
 }
-}  // namespace raft::matrix::detail
+}  // namespace matrix::detail
+}  // namespace RAFT_EXPORT raft

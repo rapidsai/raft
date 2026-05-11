@@ -8,6 +8,7 @@
 #include "detail/rng_impl.cuh"
 #include "rng_state.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
@@ -18,7 +19,8 @@
 #include <type_traits>
 #include <variant>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 
 namespace sample_without_replacement_impl {
 template <typename T>
@@ -157,4 +159,5 @@ void sample_without_replacement(Args... args)
 
 /** @} */
 
-}  // end namespace raft::random
+}  // namespace random
+}  // namespace RAFT_EXPORT raft

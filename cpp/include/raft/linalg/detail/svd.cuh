@@ -8,6 +8,7 @@
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -28,7 +29,7 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -347,4 +348,4 @@ bool evaluateSVDByL2Norm(raft::resources const& handle,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft

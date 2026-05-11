@@ -3,12 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/sparse/linalg/detail/laplacian.cuh>
 #include <raft/sparse/matrix/diagonal.cuh>
 
-namespace raft::sparse::linalg {
+namespace RAFT_EXPORT raft {
+namespace sparse::linalg {
 
 /** Given a CSR adjacency matrix, return the graph Laplacian
  *
@@ -97,4 +99,5 @@ auto laplacian_normalized(raft::resources const& res,
                                       RowType>(res, input, diagonal_out);
 }
 
-}  // namespace raft::sparse::linalg
+}  // namespace sparse::linalg
+}  // namespace RAFT_EXPORT raft

@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -13,7 +14,7 @@
 #include <cuda/iterator>
 #include <thrust/for_each.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace matrix {
 namespace detail {
 
@@ -133,4 +134,4 @@ void gather(raft::resources const& handle,
 
 }  // namespace detail
 }  // namespace matrix
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

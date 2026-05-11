@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
@@ -25,7 +26,7 @@
 #include <raft/stats/detail/batched/information_criterion.cuh>
 #include <raft/stats/stats_types.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 
 /**
@@ -105,5 +106,5 @@ void information_criterion_batched(raft::resources const& handle,
 /** @} */  // end group stats_information_criterion
 
 }  // namespace stats
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 #endif

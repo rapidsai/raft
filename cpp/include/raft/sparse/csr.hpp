@@ -1,13 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/sparse/detail/csr.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 
 constexpr int TPB_X = 256;
@@ -168,4 +169,4 @@ void weak_cc(Index_* labels,
 }
 
 };  // namespace sparse
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -16,7 +17,7 @@
 
 #include <cstdint>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace matrix {
 namespace detail {
 
@@ -119,4 +120,4 @@ void scatter(raft::resources const& handle,
 
 }  // end namespace detail
 }  // end namespace matrix
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

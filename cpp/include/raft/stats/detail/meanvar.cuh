@@ -5,10 +5,12 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-namespace raft::stats::detail {
+namespace RAFT_EXPORT raft {
+namespace stats::detail {
 
 template <typename T>
 class mean_var {
@@ -228,4 +230,5 @@ void meanvar(bool dry_run,
   if (!dry_run) { RAFT_CHECK_CUDA(stream); }
 }
 
-};  // namespace raft::stats::detail
+};  // namespace stats::detail
+}  // namespace RAFT_EXPORT raft

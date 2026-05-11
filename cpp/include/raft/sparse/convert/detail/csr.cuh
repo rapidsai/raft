@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusparse_handle.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
@@ -29,7 +30,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace convert {
 namespace detail {
@@ -96,4 +97,4 @@ void sorted_coo_to_csr(const T* rows, nnz_t nnz, outT* row_ind, int m, cudaStrea
 };  // end NAMESPACE detail
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
-};  // end NAMESPACE raft
+};  // namespace RAFT_EXPORT raft

@@ -7,6 +7,7 @@
 
 #include "permute.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/random/rng.cuh>
@@ -18,7 +19,7 @@
 
 #include <vector>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace random {
 
 namespace detail {
@@ -250,4 +251,4 @@ void make_blobs_caller(bool dry_run,
 
 }  // end namespace detail
 }  // end namespace random
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

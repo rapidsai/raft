@@ -7,12 +7,14 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/meanvar.cuh>
 
-namespace raft::stats {
+namespace RAFT_EXPORT raft {
+namespace stats {
 
 /**
  * @brief Compute mean and variance for each column of a given matrix.
@@ -98,6 +100,6 @@ void meanvar(raft::resources const& handle,
 
 /** @} */  // end group stats_mean_var
 
-};  // namespace raft::stats
-
+};  // namespace stats
+}  // namespace RAFT_EXPORT raft
 #endif

@@ -30,7 +30,8 @@
 #include <cub/block/block_store.cuh>
 #include <cub/block/radix_rank_sort_operations.cuh>
 
-namespace raft::matrix::detail::select::radix {
+namespace RAFT_EXPORT raft {
+namespace matrix::detail::select::radix {
 namespace impl {
 
 constexpr int VECTORIZED_READ_SIZE = 16;
@@ -1335,4 +1336,5 @@ void select_k(raft::resources const& res,
   }
 }
 
-}  // namespace raft::matrix::detail::select::radix
+}  // namespace matrix::detail::select::radix
+}  // namespace RAFT_EXPORT raft

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
@@ -25,7 +26,8 @@
 
 #include <algorithm>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 namespace detail {
 
 /* Internal auxiliary function to help build the singular profile */
@@ -266,4 +268,5 @@ void make_regression_caller(raft::resources const& handle,
 }
 
 }  // namespace detail
-}  // namespace raft::random
+}  // namespace random
+}  // namespace RAFT_EXPORT raft

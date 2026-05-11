@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __LSTSQ_H
@@ -7,10 +7,11 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/detail/lstsq.cuh>
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /** Solves the linear ordinary least squares problem `Aw = b`
@@ -235,6 +236,6 @@ void lstsq_qr(raft::resources const& handle,
 /** @} */  // end of lstsq
 
 };  // namespace linalg
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft
 
 #endif

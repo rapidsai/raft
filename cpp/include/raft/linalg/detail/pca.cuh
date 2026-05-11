@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -25,7 +26,8 @@
 
 #include <rmm/device_uvector.hpp>
 
-namespace raft::linalg::detail {
+namespace RAFT_EXPORT raft {
+namespace linalg::detail {
 
 template <typename math_t, typename idx_t>
 void trunc_comp_exp_vars(raft::resources const& handle,
@@ -318,4 +320,5 @@ void pca_fit_transform(raft::resources const& handle,
   detail::pca_transform(handle, prms, input, components, singular_vals, mu, trans_input);
 }
 
-};  // end namespace raft::linalg::detail
+};  // end namespace linalg::detail
+};  // end namespace RAFT_EXPORT raft

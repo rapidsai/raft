@@ -28,6 +28,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
@@ -45,7 +46,8 @@
 
 #include <cstddef>
 
-namespace raft::solver::detail {
+namespace RAFT_EXPORT raft {
+namespace solver::detail {
 
 const int BLOCKDIMX{64};
 const int BLOCKDIMY{1};
@@ -592,4 +594,5 @@ inline void calcObjValPrimal(raft::resources const& handle,
   RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 }
 
-}  // namespace raft::solver::detail
+}  // namespace solver::detail
+}  // namespace RAFT_EXPORT raft

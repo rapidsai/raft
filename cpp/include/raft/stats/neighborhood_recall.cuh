@@ -7,6 +7,7 @@
 
 #include "detail/neighborhood_recall.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
@@ -19,7 +20,8 @@
 
 #include <optional>
 
-namespace raft::stats {
+namespace RAFT_EXPORT raft {
+namespace stats {
 
 /**
  * @defgroup stats_neighborhood_recall Neighborhood Recall Score
@@ -182,4 +184,5 @@ void neighborhood_recall(
 
 /** @} */  // end group stats_recall
 
-}  // end namespace raft::stats
+}  // namespace stats
+}  // namespace RAFT_EXPORT raft

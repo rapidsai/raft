@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -22,7 +23,7 @@
 
 #include <functional>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace matrix {
 namespace detail {
 
@@ -628,4 +629,4 @@ void gather(raft::resources const& res,
 
 }  // namespace detail
 }  // namespace matrix
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

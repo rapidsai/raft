@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -14,9 +14,7 @@ import signal
 from cuda.bindings.cyruntime cimport cudaStream_t
 from cython.operator cimport dereference
 
-from rmm.librmm.cuda_stream_view cimport cuda_stream_view
-
-from .cuda cimport Stream
+from libc.stdint cimport uintptr_t
 
 
 @contextlib.contextmanager
@@ -56,14 +54,23 @@ def cuda_interruptible():
             signal.signal(signal.SIGINT, oldhr)
 
 
-def synchronize(stream: Stream):
+def synchronize(stream):
     '''
     Same as cudaStreamSynchronize, but can be interrupted
     if called within a `with cuda_interruptible()` block.
+    Accepts a Stream, int cudaStream_t pointer, or any object
+    implementing the __cuda_stream__ protocol.
     '''
-    cdef cuda_stream_view c_stream = cuda_stream_view(stream.getStream())
+    cdef cudaStream_t c_stream_t
+    if hasattr(stream, '__cuda_stream__'):
+        proto = stream.__cuda_stream__()
+        c_stream_t = <cudaStream_t><uintptr_t>proto[1]
+    elif isinstance(stream, int):
+        c_stream_t = <cudaStream_t><uintptr_t>stream
+    else:
+        raise TypeError("stream must be a Stream, int, or __cuda_stream__ protocol object")
     with nogil:
-        inter_synchronize(c_stream)
+        inter_synchronize(c_stream_t)
 
 
 def cuda_yield():

@@ -1,11 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-namespace raft::random {
+#include <raft/core/detail/macros.hpp>
+namespace RAFT_EXPORT raft {
+namespace random {
 
 /**
  * \ingroup multi_variable_gaussian
@@ -32,4 +34,5 @@ enum class multi_variable_gaussian_decomposition_method { CHOLESKY, JACOBI, QR }
 
 /** @} */
 
-};  // end of namespace raft::random
+};  // namespace random
+}  // namespace RAFT_EXPORT raft

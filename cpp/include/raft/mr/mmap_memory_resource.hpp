@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/util/integer_utils.hpp>
@@ -21,7 +22,8 @@
 #include <type_traits>
 #include <utility>
 
-namespace raft::mr {
+namespace RAFT_EXPORT raft {
+namespace mr {
 
 namespace detail {
 
@@ -159,4 +161,5 @@ class mmap_memory_resource {
   }
 };
 
-}  // namespace raft::mr
+}  // namespace mr
+}  // namespace RAFT_EXPORT raft

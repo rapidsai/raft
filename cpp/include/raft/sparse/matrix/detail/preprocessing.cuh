@@ -5,6 +5,7 @@
 #pragma once
 
 #include <raft/core/copy.cuh>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -18,7 +19,8 @@
 
 #include <thrust/reduce.h>
 
-namespace raft::sparse::matrix::detail {
+namespace RAFT_EXPORT raft {
+namespace sparse::matrix::detail {
 
 /**
  * @brief Get unique counts
@@ -218,4 +220,5 @@ void transform_tfidf(raft::resources const& handle,
   });
 }
 
-}  // namespace raft::sparse::matrix::detail
+}  // namespace sparse::matrix::detail
+}  // namespace RAFT_EXPORT raft

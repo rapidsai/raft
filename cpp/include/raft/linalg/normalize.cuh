@@ -7,6 +7,7 @@
 
 #include "detail/normalize.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -14,7 +15,7 @@
 #include <raft/linalg/norm_types.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -108,4 +109,4 @@ void row_normalize(raft::resources const& handle,
 /** @} */
 
 }  // namespace linalg
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/detail/popc.cuh>
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief Count the number of bits that are set to 1 in a vector.
@@ -27,4 +28,4 @@ void popc(const raft::resources& res,
   detail::popc(res, values, max_len, counter);
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

@@ -9,6 +9,7 @@
 #include "detail/rng_impl_deprecated.cuh"  // necessary for now (to be removed)
 #include "rng_state.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
@@ -19,7 +20,8 @@
 #include <type_traits>
 #include <variant>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 
 /**
  * \defgroup univariate_random_sampling Univariate random sampling
@@ -1204,4 +1206,5 @@ class DEPR Rng : public detail::RngImpl {
 
 #undef DEPR
 
-};  // end namespace raft::random
+};  // namespace random
+}  // namespace RAFT_EXPORT raft

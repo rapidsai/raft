@@ -8,12 +8,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/scores.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 
 /**
@@ -64,6 +65,6 @@ float accuracy(raft::resources const& handle,
 /** @} */  // end group stats_accuracy
 
 }  // namespace stats
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 
 #endif

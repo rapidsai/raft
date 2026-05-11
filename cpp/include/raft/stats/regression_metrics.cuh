@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -14,7 +15,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/stats/detail/scores.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 
 /**
@@ -99,6 +100,6 @@ void regression_metrics(raft::resources const& handle,
 /** @} */  // end group stats_regression_metrics
 
 }  // namespace stats
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __CHOLESKY_R1_UPDATE_H
@@ -9,9 +9,10 @@
 
 #include "detail/cholesky_r1_update.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -126,6 +127,6 @@ void choleskyRank1Update(raft::resources const& handle,
 }
 
 };  // namespace linalg
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft
 
 #endif

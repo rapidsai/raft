@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <cub/block/block_load.cuh>
@@ -21,7 +22,7 @@
   devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT><<<rows, blockSize, 0, stream>>>( \
     keyIn, keyOut, valueInOut, rows, columns, std::numeric_limits<InType>::max())
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace matrix {
 namespace detail {
 
@@ -343,4 +344,4 @@ void sortColumnsPerRow(bool dry_run,
 }
 };  // end namespace detail
 };  // end namespace matrix
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft
