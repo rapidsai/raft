@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/pinned_container_policy.hpp>
 #include <raft/core/pinned_mdspan.hpp>
@@ -12,7 +13,7 @@
 
 #include <cstdint>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief mdarray with pinned container policy
@@ -139,4 +140,4 @@ auto make_pinned_vector(raft::resources const& handle, IndexType n)
                                                                    make_extents<IndexType>(n));
 }
 
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

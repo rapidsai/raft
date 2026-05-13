@@ -6,9 +6,11 @@
 
 #include "cublaslt_wrappers.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft::linalg::detail {
+namespace RAFT_EXPORT raft {
+namespace linalg::detail {
 
 template <typename A_T, typename B_T, typename C_T, typename S_T, bool DevicePointerMode = false>
 void legacy_gemm(raft::resources const& res,
@@ -135,4 +137,5 @@ void legacy_gemm(raft::resources const& res,
   }
 }
 
-}  // namespace raft::linalg::detail
+}  // namespace linalg::detail
+}  // namespace RAFT_EXPORT raft

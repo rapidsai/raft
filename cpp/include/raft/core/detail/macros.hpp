@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -75,14 +75,22 @@
 // as a weak symbol rather than a global."
 #define RAFT_WEAK_FUNCTION __attribute__((weak))
 
-// The RAFT_HIDDEN_FUNCTION specificies that the function will be hidden
-// and therefore not callable by consumers of raft when compiled as
-// a shared library.
+// Macros for controlling symbol visibility in shared libraries.
+// When CXX_VISIBILITY_PRESET is set to hidden (the default for raft_objs),
+// only symbols explicitly marked with RAFT_EXPORT will be visible in the
+// shared library. RAFT_HIDDEN can be used to explicitly mark symbols as
+// hidden (redundant with the default, but useful for clarity).
 //
 // Hidden visibility also ensures that the linker doesn't de-duplicate the
 // symbol across multiple `.so`. This allows multiple libraries to embed raft
-// without issue
-#define RAFT_HIDDEN_FUNCTION __attribute__((visibility("hidden")))
+// without issue.
+#if (defined(__GNUC__) && !defined(__MINGW32__) && !defined(__MINGW64__))
+#define RAFT_EXPORT __attribute__((visibility("default")))
+#define RAFT_HIDDEN __attribute__((visibility("hidden")))
+#else
+#define RAFT_EXPORT
+#define RAFT_HIDDEN
+#endif
 
 // The RAFT_KERNEL specificies that a kernel has hidden visibility
 //
@@ -100,7 +108,7 @@
 //
 // https://github.com/rapidsai/raft/issues/1722
 #if defined(__CUDACC_RDC__)
-#define RAFT_KERNEL RAFT_HIDDEN_FUNCTION __global__ void
+#define RAFT_KERNEL RAFT_HIDDEN __global__ void
 #elif defined(_RAFT_HAS_CUDA)
 #define RAFT_KERNEL static __global__ void
 #else

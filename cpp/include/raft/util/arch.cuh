@@ -1,12 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>  // RAFT_CUDA_TRY
 
-namespace raft::util::arch {
+namespace RAFT_EXPORT raft {
+namespace util::arch {
 
 /* raft::util::arch provides the following facilities:
  *
@@ -132,4 +134,5 @@ struct SM_range {
   }
 };
 
-}  // namespace raft::util::arch
+}  // namespace util::arch
+}  // namespace RAFT_EXPORT raft

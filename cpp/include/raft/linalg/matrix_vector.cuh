@@ -5,13 +5,15 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/types.hpp>
 #include <raft/matrix/detail/math.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace raft::linalg {
+namespace RAFT_EXPORT raft {
+namespace linalg {
 
 /**
  * @defgroup matrix_vector Matrix-Vector Operations
@@ -198,4 +200,5 @@ void binary_sub(raft::resources const& handle,
 
 /** @} */  // end of matrix_vector
 
-}  // namespace raft::linalg
+}  // namespace linalg
+}  // namespace RAFT_EXPORT raft

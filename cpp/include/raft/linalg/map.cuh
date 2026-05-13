@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __MAP_H
@@ -9,10 +9,12 @@
 
 #include "detail/map.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft::linalg {
+namespace RAFT_EXPORT raft {
+namespace linalg {
 
 /**
  * @brief CUDA version of map
@@ -300,6 +302,7 @@ void map_offset(
 
 /** @} */  // end of map
 
-}  // namespace raft::linalg
+}  // namespace linalg
+}  // namespace RAFT_EXPORT raft
 
 #endif

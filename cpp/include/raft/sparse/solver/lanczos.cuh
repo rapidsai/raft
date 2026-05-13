@@ -7,11 +7,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/sparse/solver/detail/lanczos.cuh>
 #include <raft/sparse/solver/lanczos_types.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
-namespace raft::sparse::solver {
+namespace RAFT_EXPORT raft {
+namespace sparse::solver {
 
 // =========================================================
 // Eigensolver
@@ -112,6 +114,7 @@ auto lanczos_compute_eigenpairs(
     handle, config, csr_matrix, v0, eigenvalues, eigenvectors);
 }
 
-}  // namespace raft::sparse::solver
+}  // namespace sparse::solver
+}  // namespace RAFT_EXPORT raft
 
 #endif

@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <raft/core/coo_matrix.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_span.hpp>
 #include <raft/core/sparse_types.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * \defgroup host_coo_matrix Host COO Matrix
@@ -381,4 +382,4 @@ auto make_host_coordinate_structure_view(raft::host_span<RowType> rows,
 
 /** @} */
 
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft
