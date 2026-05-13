@@ -392,7 +392,7 @@ jobs:
     runs-on: linux-amd64-cpu4
     needs: pr-builder
     permissions:
-      actions: read
+      actions: write
     if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
     continue-on-error: true
     steps:
