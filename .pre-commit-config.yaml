@@ -157,7 +157,7 @@ repos:
                 ^conda/environments/|
                 (^|/)UCXX_BRANCH$|
                 (^|/)RAPIDS_BRANCH$|
-                [.](md|rst)$
+                [.](md|rst|svg)$
           - id: verify-hardcoded-version
             name: verify-hardcoded-version-ucxx
             args: [--fix, --version-file=UCXX_VERSION]
