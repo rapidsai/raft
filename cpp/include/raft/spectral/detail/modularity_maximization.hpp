@@ -24,7 +24,7 @@
 
 #include <tuple>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace spectral {
 namespace detail {
 
@@ -85,4 +85,4 @@ void analyzeModularity(
 
 }  // namespace detail
 }  // namespace spectral
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

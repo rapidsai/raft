@@ -10,7 +10,7 @@
 #include <raft/core/operators.hpp>
 #include <raft/linalg/unary_op.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -22,4 +22,4 @@ void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

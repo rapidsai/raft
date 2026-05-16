@@ -21,7 +21,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 namespace device_atomics {
 namespace detail {
@@ -438,6 +438,10 @@ struct typesAtomicCASImpl<T, 8> {
 
 }  // namespace detail
 }  // namespace device_atomics
+
+}  // namespace raft
+
+namespace RAFT_EXPORT raft {
 
 /** -------------------------------------------------------------------------*
  * @brief compute atomic binary operation

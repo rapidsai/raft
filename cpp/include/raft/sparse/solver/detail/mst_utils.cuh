@@ -12,7 +12,7 @@
 
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::solver::detail {
 
 template <typename idx_t>
@@ -22,4 +22,4 @@ __device__ idx_t get_1D_idx()
 }
 
 }  // namespace sparse::solver::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -9,7 +9,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/linewise_op.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -91,4 +91,4 @@ void matrixVectorOp(MatT* out,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

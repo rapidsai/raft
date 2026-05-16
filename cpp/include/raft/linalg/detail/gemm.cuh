@@ -9,7 +9,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg::detail {
 
 template <typename A_T, typename B_T, typename C_T, typename S_T, bool DevicePointerMode = false>
@@ -138,4 +138,4 @@ void legacy_gemm(raft::resources const& res,
 }
 
 }  // namespace linalg::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

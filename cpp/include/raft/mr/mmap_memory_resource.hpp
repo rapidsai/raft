@@ -22,7 +22,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace mr {
 
 namespace detail {
@@ -70,6 +70,12 @@ struct tmpfile_descriptor {
 };
 
 }  // namespace detail
+
+}  // namespace mr
+}  // namespace raft
+
+namespace RAFT_EXPORT raft {
+namespace mr {
 
 /** Default flags for `mmap_memory_resource`. */
 constexpr int kMmapDefault = 0x0;

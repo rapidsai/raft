@@ -12,7 +12,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace detail {
 
@@ -239,4 +239,4 @@ class COO {
 
 };  // namespace detail
 };  // namespace sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

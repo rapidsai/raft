@@ -10,7 +10,7 @@
 #include <tuple>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace detail {
 
 template <class T, std::size_t N, std::size_t... Idx>
@@ -58,4 +58,4 @@ RAFT_INLINE_FUNCTION auto popc(uint64_t v) -> int32_t
 }
 
 }  // namespace detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -38,7 +38,7 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg::detail {
 
 template <typename math_t, typename idx_t>
@@ -521,4 +521,4 @@ void tsvd_fit_transform(raft::resources const& handle,
 }
 
 };  // end namespace linalg::detail
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

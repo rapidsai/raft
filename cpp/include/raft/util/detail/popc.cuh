@@ -11,7 +11,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace detail {
 
 /**
@@ -65,4 +65,4 @@ void popc(const raft::resources& res,
 }
 
 }  // namespace detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

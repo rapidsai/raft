@@ -10,7 +10,7 @@
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/strided_reduction.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -50,4 +50,4 @@ void reduce(OutType* dots,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

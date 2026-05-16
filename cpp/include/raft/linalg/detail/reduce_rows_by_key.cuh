@@ -14,7 +14,7 @@
 #include <limits>
 
 #define MAX_BLOCKS 65535u
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -400,4 +400,4 @@ void reduce_rows_by_key(const DataIteratorT d_A,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

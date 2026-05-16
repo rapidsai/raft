@@ -15,7 +15,7 @@
 
 #include <stdio.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -112,4 +112,4 @@ void coo_degree_nz(const idx_t* rows, const T* vals, nnz_t nnz, idx_t* results, 
 };  // end NAMESPACE detail
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

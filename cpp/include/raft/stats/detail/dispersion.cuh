@@ -17,7 +17,7 @@
 
 #include <memory>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -128,4 +128,4 @@ DataT dispersion(const DataT* centroids,
 
 }  // end namespace detail
 }  // end namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

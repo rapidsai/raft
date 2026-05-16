@@ -6,7 +6,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 
 /**
@@ -106,4 +106,4 @@ __device__ indT get_stop_idx(T row, T m, indT nnz, const indT* ind)
 }
 
 };  // namespace sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
