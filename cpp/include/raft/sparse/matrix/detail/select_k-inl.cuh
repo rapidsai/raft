@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -13,11 +14,13 @@
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/matrix/detail/select_k-inl.cuh>
+#include <raft/matrix/detail/select_k_layout.cuh>
 #include <raft/matrix/select_k_types.hpp>
 
 #include <type_traits>
 
-namespace raft::sparse::matrix::detail {
+namespace RAFT_EXPORT raft {
+namespace sparse::matrix::detail {
 
 using namespace raft::matrix::detail;
 using raft::matrix::SelectAlgo;
@@ -92,14 +95,15 @@ void select_k(raft::resources const& handle,
 
   if (algo == SelectAlgo::kAuto) { algo = choose_select_k_algorithm(batch_size, len, k); }
 
-  auto indptr = csr_view.get_indptr().data();
+  auto indptr      = csr_view.get_indptr().data();
+  using row_layout = select::csr_layout<IdxT>;
 
   switch (algo) {
     case SelectAlgo::kRadix8bits:
     case SelectAlgo::kRadix11bits:
     case SelectAlgo::kRadix11bitsExtraPass: {
       if (algo == SelectAlgo::kRadix8bits) {
-        select::radix::select_k<T, IdxT, 8, 512, false>(
+        select::radix::select_k<T, IdxT, 8, 512, row_layout>(
           handle,
           in_val.get_elements().data(),
           (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
@@ -113,7 +117,7 @@ void select_k(raft::resources const& handle,
           indptr);
       } else {
         bool fused_last_filter = algo == SelectAlgo::kRadix11bits;
-        select::radix::select_k<T, IdxT, 11, 512, false>(
+        select::radix::select_k<T, IdxT, 11, 512, row_layout>(
           handle,
           in_val.get_elements().data(),
           (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
@@ -129,7 +133,7 @@ void select_k(raft::resources const& handle,
 
       if (sorted) {
         auto offsets = make_device_mdarray<IdxT, IdxT>(
-          handle, resource::get_workspace_resource(handle), make_extents<IdxT>(batch_size + 1));
+          handle, resource::get_workspace_resource_ref(handle), make_extents<IdxT>(batch_size + 1));
         raft::linalg::map_offset(handle, offsets.view(), mul_const_op<IdxT>(k));
 
         auto keys =
@@ -144,31 +148,33 @@ void select_k(raft::resources const& handle,
       return;
     }
     case SelectAlgo::kWarpDistributed:
-      return select::warpsort::select_k_impl<T, IdxT, select::warpsort::warp_sort_distributed>(
-        handle,
-        in_val.get_elements().data(),
-        (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
-        batch_size,
-        len,
-        k,
-        out_val.data_handle(),
-        out_idx.data_handle(),
-        select_min,
-        indptr);
+      return select::warpsort::
+        select_k_impl<T, IdxT, select::warpsort::warp_sort_distributed, row_layout>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          indptr);
     case SelectAlgo::kWarpDistributedShm:
-      return select::warpsort::select_k_impl<T, IdxT, select::warpsort::warp_sort_distributed_ext>(
-        handle,
-        in_val.get_elements().data(),
-        (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
-        batch_size,
-        len,
-        k,
-        out_val.data_handle(),
-        out_idx.data_handle(),
-        select_min,
-        indptr);
+      return select::warpsort::
+        select_k_impl<T, IdxT, select::warpsort::warp_sort_distributed_ext, row_layout>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          indptr);
     case SelectAlgo::kWarpAuto:
-      return select::warpsort::select_k<T, IdxT>(
+      return select::warpsort::select_k<T, IdxT, row_layout>(
         handle,
         in_val.get_elements().data(),
         (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
@@ -180,33 +186,36 @@ void select_k(raft::resources const& handle,
         select_min,
         indptr);
     case SelectAlgo::kWarpImmediate:
-      return select::warpsort::select_k_impl<T, IdxT, select::warpsort::warp_sort_immediate>(
-        handle,
-        in_val.get_elements().data(),
-        (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
-        batch_size,
-        len,
-        k,
-        out_val.data_handle(),
-        out_idx.data_handle(),
-        select_min,
-        indptr);
+      return select::warpsort::
+        select_k_impl<T, IdxT, select::warpsort::warp_sort_immediate, row_layout>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          indptr);
     case SelectAlgo::kWarpFiltered:
-      return select::warpsort::select_k_impl<T, IdxT, select::warpsort::warp_sort_filtered>(
-        handle,
-        in_val.get_elements().data(),
-        (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
-        batch_size,
-        len,
-        k,
-        out_val.data_handle(),
-        out_idx.data_handle(),
-        select_min,
-        indptr);
+      return select::warpsort::
+        select_k_impl<T, IdxT, select::warpsort::warp_sort_filtered, row_layout>(
+          handle,
+          in_val.get_elements().data(),
+          (in_idx.has_value() ? in_idx->data_handle() : csr_view.get_indices().data()),
+          batch_size,
+          len,
+          k,
+          out_val.data_handle(),
+          out_idx.data_handle(),
+          select_min,
+          indptr);
     default: RAFT_FAIL("K-selection Algorithm not supported.");
   }
 
   return;
 }
 
-}  // namespace raft::sparse::matrix::detail
+}  // namespace sparse::matrix::detail
+}  // namespace RAFT_EXPORT raft

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __INIT_H
@@ -7,10 +7,12 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace raft::linalg {
+namespace RAFT_EXPORT raft {
+namespace linalg {
 
 /**
  * @brief Like Python range.
@@ -57,6 +59,7 @@ void zero(T* out, int n, cudaStream_t stream)
   RAFT_CUDA_TRY(cudaMemsetAsync(static_cast<void*>(out), 0, n * sizeof(T), stream));
 }
 
-}  // namespace raft::linalg
+}  // namespace linalg
+}  // namespace RAFT_EXPORT raft
 
 #endif

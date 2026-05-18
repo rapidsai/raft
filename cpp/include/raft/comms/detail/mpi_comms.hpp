@@ -1,12 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/util.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -59,7 +60,7 @@
 #ifndef MPI_TRY_NO_THROW
 #define MPI_TRY_NO_THROW(call) RAFT_MPI_TRY_NO_THROW(call)
 #endif
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace comms {
 namespace detail {
 
@@ -456,4 +457,4 @@ class mpi_comms : public comms_iface {
 
 }  // end namespace detail
 };  // end namespace comms
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

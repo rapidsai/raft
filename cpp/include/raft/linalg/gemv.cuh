@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __GEMV_H
@@ -9,6 +9,7 @@
 
 #include "detail/gemv.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -16,7 +17,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 
 /**
@@ -267,8 +268,8 @@ void gemv(raft::resources const& handle,
   auto alpha_device = raft::make_device_scalar(handle, alpha_value);
   auto beta_device  = raft::make_device_scalar(handle, beta_value);
 
-  auto alpha_host = raft::make_host_scalar(alpha_value);
-  auto beta_host  = raft::make_host_scalar(beta_value);
+  auto alpha_host = raft::make_host_scalar(handle, alpha_value);
+  auto beta_host  = raft::make_host_scalar(handle, beta_value);
 
   if constexpr (device_mode) {
     if (!alpha) { alpha = alpha_device.view(); }
@@ -295,5 +296,5 @@ void gemv(raft::resources const& handle,
 /** @} */  // end of gemv
 
 };  // namespace linalg
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft
 #endif

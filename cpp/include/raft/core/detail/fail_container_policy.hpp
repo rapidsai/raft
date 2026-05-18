@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/resources.hpp>
@@ -12,7 +13,7 @@
 
 #include <stddef.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace detail {
 
 template <typename T>
@@ -134,4 +135,4 @@ struct fail_container_policy {
 };
 
 }  // namespace detail
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

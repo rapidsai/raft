@@ -1,18 +1,20 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/util/warp_primitives.cuh>
 
 #include <stdint.h>
 
-namespace raft::random::device {
+namespace RAFT_EXPORT raft {
+namespace random::device {
 
 /**
  * @brief warp-level random sampling of an index.
@@ -92,4 +94,5 @@ DI i_t block_random_sample(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadId
   return idx;
 }
 
-}  // namespace raft::random::device
+}  // namespace random::device
+}  // namespace RAFT_EXPORT raft

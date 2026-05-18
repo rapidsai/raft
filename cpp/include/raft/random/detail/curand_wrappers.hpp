@@ -1,13 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
+
 #include <curand.h>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 namespace detail {
 
 // @todo: We probably want to scrape through and replace any consumers of
@@ -43,4 +46,5 @@ inline curandStatus_t curandGenerateNormal(
 /** @} */
 
 };  // end namespace detail
-};  // end namespace raft::random
+};  // namespace random
+}  // namespace RAFT_EXPORT raft

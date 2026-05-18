@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
-cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 include(../cmake/rapids_config.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
@@ -291,6 +291,12 @@ if(RAFT_COMPILE_LIBRARY)
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
   )
+  set_target_properties(
+    raft_objs
+    PROPERTIES CXX_VISIBILITY_PRESET hidden
+               CUDA_VISIBILITY_PRESET hidden
+               VISIBILITY_INLINES_HIDDEN ON
+  )
 
   target_compile_definitions(raft_objs PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
   target_compile_options(
@@ -448,13 +454,6 @@ install(
   DIRECTORY include/raft
   COMPONENT raft
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-# Temporary install of raft.hpp while the file is removed
-install(
-  FILES include/raft.hpp
-  COMPONENT raft
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft
 )
 
 install(

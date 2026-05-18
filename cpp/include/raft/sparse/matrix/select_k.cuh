@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
@@ -15,7 +16,8 @@
 
 #include <optional>
 
-namespace raft::sparse::matrix {
+namespace RAFT_EXPORT raft {
+namespace sparse::matrix {
 
 using SelectAlgo = raft::matrix::SelectAlgo;
 
@@ -73,4 +75,5 @@ void select_k(raft::resources const& handle,
 }
 /** @} */  // end of group select_k
 
-}  // namespace raft::sparse::matrix
+}  // namespace sparse::matrix
+}  // namespace RAFT_EXPORT raft

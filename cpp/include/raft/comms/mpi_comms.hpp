@@ -1,16 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/mpi_comms.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace comms {
 
 using mpi_comms = detail::mpi_comms;
@@ -58,4 +59,4 @@ inline void initialize_mpi_comms(resources* handle, MPI_Comm comm)
  */
 
 };  // namespace comms
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

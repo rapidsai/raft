@@ -5,9 +5,10 @@
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/ucp_helper.hpp>
 #include <raft/comms/detail/util.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -34,7 +35,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace comms {
 namespace detail {
 
@@ -595,4 +596,4 @@ class std_comms : public comms_iface {
 };
 }  // namespace detail
 }  // end namespace comms
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

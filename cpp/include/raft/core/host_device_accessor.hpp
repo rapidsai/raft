@@ -1,14 +1,15 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/memory_type.hpp>
 
 #include <type_traits>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief A mixin to distinguish host and device memory. This is the primary
@@ -44,4 +45,4 @@ struct host_device_accessor : public AccessorPolicy {
   }
 };
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

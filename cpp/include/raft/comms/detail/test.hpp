@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -16,7 +17,7 @@
 #include <iostream>
 #include <numeric>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace comms {
 namespace detail {
 
@@ -530,4 +531,4 @@ bool test_commsplit(raft::resources const& h, int n_colors)
 
 }  // namespace detail
 }  // namespace comms
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

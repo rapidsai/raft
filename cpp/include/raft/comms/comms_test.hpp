@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/test.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace comms {
 
 /**
@@ -156,4 +157,4 @@ bool test_commsplit(raft::resources const& h, int n_colors)
   return detail::test_commsplit(h, n_colors);
 }
 }  // namespace comms
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

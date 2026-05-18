@@ -28,7 +28,7 @@
 #include <raft/linalg/detail/gemv.hpp>
 #include <raft/linalg/dot.cuh>
 #include <raft/linalg/eig.cuh>
-#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map.cuh>
@@ -41,7 +41,6 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/gather.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/slice.cuh>
 #include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>
@@ -67,7 +66,8 @@
 #include <utility>
 #include <vector>
 
-namespace raft::sparse::solver::detail {
+namespace RAFT_EXPORT raft {
+namespace sparse::solver::detail {
 
 template <typename T>
 RAFT_KERNEL kernel_triangular_populate(T* M, const T* beta, int n)
@@ -795,4 +795,5 @@ auto lanczos_compute_eigenpairs(
   }
 }
 
-}  // namespace raft::sparse::solver::detail
+}  // namespace sparse::solver::detail
+}  // namespace RAFT_EXPORT raft

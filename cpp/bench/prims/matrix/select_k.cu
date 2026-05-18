@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -255,17 +255,18 @@ SELECTION_REGISTER(double, int64_t, kWarpDistributedShm);    // NOLINT
 // the input parameters per algorithm.
 // This makes the code to generate this dataset different from the code above to
 // register other benchmarks
-#define SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, A, input)                               \
-  {                                                                                       \
-    using SelectK = selection<KeyT, IdxT, SelectAlgo::A>;                                 \
-    std::stringstream name;                                                               \
-    name << "SelectKDataset/" << #KeyT "/" #IdxT "/" #A << "/" << input.batch_size << "/" \
-         << input.len << "/" << input.k << "/" << input.use_index_input << "/"            \
-         << input.use_memory_pool;                                                        \
-    auto* b = ::benchmark::internal::RegisterBenchmarkInternal(                           \
-      new raft::bench::internal::Fixture<SelectK, select::params>(name.str(), input));    \
-    b->UseManualTime();                                                                   \
-    b->Unit(benchmark::kMillisecond);                                                     \
+#define SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, A, input)                                   \
+  {                                                                                           \
+    using SelectK = selection<KeyT, IdxT, SelectAlgo::A>;                                     \
+    std::stringstream name;                                                                   \
+    name << "SelectKDataset/" << #KeyT "/" #IdxT "/" #A << "/" << input.batch_size << "/"     \
+         << input.len << "/" << input.k << "/" << input.use_index_input << "/"                \
+         << input.use_memory_pool;                                                            \
+    auto* b =                                                                                 \
+      ::benchmark::internal::RegisterBenchmarkInternal(std::unique_ptr<::benchmark::Fixture>( \
+        new raft::bench::internal::Fixture<SelectK, select::params>(name.str(), input)));     \
+    b->UseManualTime();                                                                       \
+    b->Unit(benchmark::kMillisecond);                                                         \
   }
 
 const static size_t MAX_MEMORY = 16 * 1024 * 1024 * 1024ULL;

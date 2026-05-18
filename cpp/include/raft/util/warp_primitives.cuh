@@ -1,17 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <stdint.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /** True CUDA alignment of a type (adapted from CUB) */
 template <typename T>
@@ -218,4 +219,4 @@ DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_xor(T val,
   return output;
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

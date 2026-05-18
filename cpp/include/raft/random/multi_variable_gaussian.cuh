@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,12 +10,14 @@
 
 #include "detail/multi_variable_gaussian.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/random_types.hpp>
 
 #include <rmm/resource_ref.hpp>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 
 /**
  * \defgroup multi_variable_gaussian Compute multi-variable Gaussian
@@ -41,11 +43,11 @@ void multi_variable_gaussian(raft::resources const& handle,
                              const multi_variable_gaussian_decomposition_method method)
 {
   detail::compute_multi_variable_gaussian_impl(
-    handle, rmm::mr::get_current_device_resource(), x, P, X, method);
+    handle, rmm::mr::get_current_device_resource_ref(), x, P, X, method);
 }
 
 /** @} */
 
-};  // end of namespace raft::random
-
+};  // namespace random
+}  // namespace RAFT_EXPORT raft
 #endif

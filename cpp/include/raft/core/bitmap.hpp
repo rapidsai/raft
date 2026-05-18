@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <raft/core/bitset.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
@@ -13,7 +14,8 @@
 
 #include <type_traits>
 
-namespace raft::core {
+namespace RAFT_EXPORT raft {
+namespace core {
 /**
  * @defgroup bitmap Bitmap
  * @{
@@ -148,4 +150,5 @@ struct bitmap_view : public bitset_view<bitmap_t, index_t> {
 };
 
 /** @} */
-}  // end namespace raft::core
+}  // namespace core
+}  // namespace RAFT_EXPORT raft

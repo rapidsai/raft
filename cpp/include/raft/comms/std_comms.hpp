@@ -1,12 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/std_comms.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
@@ -17,7 +18,7 @@
 
 #include <iostream>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace comms {
 
 using std_comms = detail::std_comms;
@@ -173,4 +174,4 @@ inline void get_nccl_unique_id(char* uid)
   memcpy(uid, id.internal, NCCL_UNIQUE_ID_BYTES);
 }
 };  // namespace comms
-};  // end namespace raft
+};  // namespace RAFT_EXPORT raft

@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/common/nvtx.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/pinned_mdarray.hpp>
 #include <raft/core/pinned_mdspan.hpp>
@@ -21,7 +22,7 @@
 
 #include <functional>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace matrix {
 namespace detail {
 
@@ -621,4 +622,4 @@ void gather(raft::resources const& res,
 
 }  // namespace detail
 }  // namespace matrix
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

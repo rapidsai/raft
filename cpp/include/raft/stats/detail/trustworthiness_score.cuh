@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/matrix/col_wise_sort.cuh>
@@ -13,7 +14,7 @@
 
 #define N_THREADS 512
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 namespace detail {
 
@@ -207,4 +208,4 @@ double trustworthiness_score(const raft::resources& h,
 
 }  // namespace detail
 }  // namespace stats
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

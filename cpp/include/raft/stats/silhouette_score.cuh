@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __SILHOUETTE_SCORE_H
@@ -7,12 +7,13 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/batched/silhouette_score.cuh>
 #include <raft/stats/detail/silhouette_score.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace stats {
 
 /**
@@ -210,6 +211,5 @@ value_t silhouette_score_batched(
     handle, X, labels, opt_scores, n_unique_labels, batch_size, metric);
 }
 };  // namespace stats
-};  // namespace raft
-
+};  // namespace RAFT_EXPORT raft
 #endif

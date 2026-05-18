@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
@@ -14,16 +15,17 @@
 #include <raft/linalg/svd.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/diagonal.cuh>
-#include <raft/matrix/math.cuh>
+#include <raft/matrix/reciprocal.cuh>
 #include <raft/matrix/reverse.cuh>
 #include <raft/matrix/slice.cuh>
+#include <raft/matrix/sqrt.cuh>
 #include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <algorithm>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -363,7 +365,8 @@ void rsvdFixedRank(raft::resources const& handle,
         handle, Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), stream, tol, max_sweeps);
     else
       raft::linalg::eigDC(handle, Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), stream);
-    raft::matrix::seqRoot(S_vec_tmp.data(), l, stream);
+    raft::matrix::sqrt(handle,
+                       make_device_matrix_view<math_t, int, col_major>(S_vec_tmp.data(), 1, l));
 
     auto S_vec_view = make_device_matrix_view<math_t, int, col_major>(S_vec, 1, k);
     raft::matrix::slice(
@@ -398,7 +401,11 @@ void rsvdFixedRank(raft::resources const& handle,
       RAFT_CUDA_TRY(cudaMemsetAsync(Sinv.data(), 0, sizeof(math_t) * k * k, stream));
       rmm::device_uvector<math_t> UhatSinv(l * k, stream);
       RAFT_CUDA_TRY(cudaMemsetAsync(UhatSinv.data(), 0, sizeof(math_t) * l * k, stream));
-      raft::matrix::reciprocal(S_vec_tmp.data(), l, stream);
+      math_t scalar = 1.0;
+      raft::matrix::reciprocal(
+        handle,
+        make_device_matrix_view<math_t, int, col_major>(S_vec_tmp.data(), l, 1),
+        make_host_scalar_view<math_t>(&scalar));
       raft::matrix::set_diagonal(handle,
                                  make_device_vector_view<const math_t>(S_vec_tmp.data() + p, k),
                                  make_device_matrix_view<math_t>(Sinv.data(), k, k));
@@ -496,4 +503,4 @@ void rsvdPerc(raft::resources const& handle,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace raft
+};  // end namespace RAFT_EXPORT raft

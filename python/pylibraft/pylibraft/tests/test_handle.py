@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -38,5 +38,39 @@ def test_handle_external_stream(stream):
     rmat(output_device, theta_device, 16, 16, 12345, handle=handle)
     handle.sync()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         handle = DeviceResources(stream=1.0)
+
+
+class CudaStreamProtocolObj:
+    """A minimal object implementing the __cuda_stream__ protocol."""
+
+    def __init__(self):
+        self._s = Stream()
+
+    def __cuda_stream__(self):
+        return (0, self._s.get_ptr())
+
+
+def test_stream_has_cuda_stream_protocol():
+    """Stream class implements __cuda_stream__ protocol."""
+    s = Stream()
+    result = s.__cuda_stream__()
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    assert result[0] == 0  # version must be 0
+    assert result[1] == s.get_ptr()  # pointer must match get_ptr()
+    assert result[1] != 0  # pointer must be non-null
+
+
+def test_handle_accepts_cuda_stream_protocol():
+    """Accepts objects implementing the __cuda_stream__ protocol."""
+    proto_stream = CudaStreamProtocolObj()
+    handle = DeviceResources(stream=proto_stream)
+    handle.sync()
+
+
+def test_handle_rejects_invalid_stream():
+    """Raises TypeError for invalid stream type."""
+    with pytest.raises(TypeError):
+        DeviceResources(stream=1.5)

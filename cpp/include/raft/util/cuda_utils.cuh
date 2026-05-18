@@ -1,11 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/math.hpp>
 #include <raft/core/operators.hpp>
 
@@ -21,7 +21,7 @@
 #include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/reduction.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /** Device function to have atomic add support for older archs */
 template <typename Type>
@@ -674,4 +674,4 @@ inline cudaStream_t select_stream(cudaStream_t user_stream,
   return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
 }
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft
