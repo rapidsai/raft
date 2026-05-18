@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/managed_mdspan.hpp>
+#include <raft/core/numpy_serializer.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/serialize.hpp>
 
@@ -96,6 +97,23 @@ TEST(NumPySerializerMDSpan, HeaderRoundTrip)
       }
     }
   }
+}
+
+TEST(NumPySerializerMDSpan, PublicHeaderRoundTrip)
+{
+  std::ostringstream oss;
+  numpy_serializer::header_t header{
+    numpy_serializer::get_numpy_dtype<std::uint32_t>(), false, {4, 8}};
+
+  numpy_serializer::write_header(oss, header);
+
+  std::istringstream iss(oss.str());
+  auto header2 = numpy_serializer::read_header(iss);
+
+  EXPECT_EQ(header, header2);
+  EXPECT_EQ(numpy_serializer::parse_descr(header2.dtype.to_string()), header2.dtype);
+  EXPECT_EQ(header2.dtype.to_string(),
+            numpy_serializer::get_numpy_dtype<std::uint32_t>().to_string());
 }
 
 TEST(NumPySerializerMDSpan, ManagedMDSpan)
