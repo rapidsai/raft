@@ -5,11 +5,12 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <cub/block/block_radix_sort.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace cache {
 
 /**
@@ -351,4 +352,4 @@ RAFT_KERNEL get_cache_idx(int* keys,
   }
 }
 };  // namespace cache
-};  // namespace raft
+};  // namespace RAFT_EXPORT raft

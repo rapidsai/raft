@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,6 +7,7 @@
 
 #include "cusolver_wrappers.hpp"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/core/resource/detail/stream_sync_event.hpp>
 #include <raft/core/resources.hpp>
@@ -19,7 +20,7 @@
 
 #include <cuda_runtime_api.h>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace linalg {
 namespace detail {
 
@@ -79,13 +80,19 @@ void eigDC(raft::resources const& handle,
            math_t* eig_vals,
            cudaStream_t stream)
 {
-  int cudart_version = 0;
-  RAFT_CUDA_TRY(cudaRuntimeGetVersion(&cudart_version));
+  int cusolver_major = -1;
+  int cusolver_minor = -1;
+  int cusolver_patch = -1;
+  RAFT_CUSOLVER_TRY(cusolverGetProperty(MAJOR_VERSION, &cusolver_major));
+  RAFT_CUSOLVER_TRY(cusolverGetProperty(MINOR_VERSION, &cusolver_minor));
+  RAFT_CUSOLVER_TRY(cusolverGetProperty(PATCH_LEVEL, &cusolver_patch));
+  int cusolver_version = cusolver_major * 10000 + cusolver_minor * 100 + cusolver_patch;
   cudaStream_t stream_new;
   cudaEvent_t sync_event = resource::detail::get_cuda_stream_sync_event(handle);
   rmm::cuda_stream stream_new_wrapper;
-  if (cudart_version < 12050) {
+  if (cusolver_version < 110603) {
     // Use a new stream instead of `cudaStreamPerThread` to avoid cusolver bug # 4580093.
+    // Solved in cusolver 11.6.2.40 / CUDA 12.5.
     stream_new = stream_new_wrapper.value();
     RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream));
     RAFT_CUDA_TRY(cudaStreamWaitEvent(stream_new, sync_event));
@@ -139,7 +146,7 @@ void eigDC(raft::resources const& handle,
          "eig.cuh: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
 
-  if (cudart_version < 12050) {
+  if (cusolver_version < 110603) {
     // Synchronize the created stream with the original stream before return
     RAFT_CUDA_TRY(cudaEventRecord(sync_event, stream_new));
     RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_event));
@@ -305,4 +312,4 @@ void eigJacobi(raft::resources const& handle,
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

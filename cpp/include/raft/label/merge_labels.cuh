@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,9 +8,10 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/label/detail/merge_labels.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace label {
 
 /**
@@ -55,6 +56,5 @@ void merge_labels(value_idx* labels_a,
 }
 
 };  // namespace label
-};  // namespace raft
-
+};  // namespace RAFT_EXPORT raft
 #endif

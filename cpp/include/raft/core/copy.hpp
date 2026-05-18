@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 #include <raft/core/detail/copy.hpp>
-namespace raft {
+#include <raft/core/detail/macros.hpp>
+namespace RAFT_EXPORT raft {
 
 #ifndef RAFT_NON_CUDA_COPY_IMPLEMENTED
 #define RAFT_NON_CUDA_COPY_IMPLEMENTED
@@ -55,4 +56,4 @@ detail::mdspan_copyable_not_with_kernel_t<DstType, SrcType> copy(resources const
 }
 #endif
 
-}  // namespace raft
+}  // namespace RAFT_EXPORT raft

@@ -1,9 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+
+#include <raft/core/detail/macros.hpp>
+#include <raft/core/detail/nvtx_range_stack.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 
@@ -18,7 +21,8 @@
 #include <type_traits>
 #include <vector>
 
-namespace raft::common::nvtx::detail {
+namespace RAFT_EXPORT raft {
+namespace common::nvtx::detail {
 
 /**
  * @brief An internal struct to to initialize the color generator
@@ -146,6 +150,7 @@ inline void push_range_name(const char* name)
   event_attrib.messageType           = NVTX_MESSAGE_TYPE_ASCII;
   event_attrib.message.ascii         = name;
   nvtxDomainRangePushEx(domain_store<Domain>::value(), &event_attrib);
+  detail::range_name_stack_instance.push(name);
 }
 
 template <typename Domain, typename... Args>
@@ -168,14 +173,17 @@ inline void push_range(const char* format, Args... args)
 template <typename Domain>
 inline void pop_range()
 {
+  detail::range_name_stack_instance.pop();
   nvtxDomainRangePop(domain_store<Domain>::value());
 }
 
-}  // namespace raft::common::nvtx::detail
+}  // namespace common::nvtx::detail
+}  // namespace RAFT_EXPORT raft
 
-#else  // NVTX_ENABLED
+#else   // NVTX_ENABLED
 
-namespace raft::common::nvtx::detail {
+namespace RAFT_EXPORT raft {
+namespace common::nvtx::detail {
 
 template <typename Domain, typename... Args>
 inline void push_range(const char* format, Args... args)
@@ -187,6 +195,6 @@ inline void pop_range()
 {
 }
 
-}  // namespace raft::common::nvtx::detail
-
+}  // namespace common::nvtx::detail
+}  // namespace RAFT_EXPORT raft
 #endif  // NVTX_ENABLED

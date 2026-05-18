@@ -10,7 +10,7 @@ context:
   date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
   py_abi_min: ${{ env.get("RAPIDS_PY_VERSION") }}
   py_buildstring: ${{ py_abi_min | version_to_buildstring }}
-  py_runtime_latest: "3.13"
+  py_runtime_latest: "3.14"
   head_rev: '${{ git.head_rev(".")[:8] }}'
 
 package:
@@ -72,7 +72,7 @@ requirements:
     - ${{ stdlib("c") }}
   host:
     - cuda-version =${{ cuda_version }}
-    - cython >=3.0.0,<3.2.0
+    - cython >=3.2.2
     - libraft =${{ version }}
     - libraft-headers =${{ version }}
     - pip

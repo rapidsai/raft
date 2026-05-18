@@ -9,6 +9,7 @@
 #include "select_radix.cuh"
 #include "select_warpsort.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
@@ -19,7 +20,8 @@
 
 #include <cub/device/device_segmented_radix_sort.cuh>
 
-namespace raft::matrix::detail {
+namespace RAFT_EXPORT raft {
+namespace matrix::detail {
 
 /**
  * Predict the fastest select_k algorithm based on the number of rows/cols/k
@@ -84,7 +86,7 @@ void segmented_sort_by_key(raft::resources const& handle,
                            bool asc)
 {
   auto stream = resource::get_cuda_stream(handle);
-  auto mr     = resource::get_workspace_resource(handle);
+  auto mr     = resource::get_workspace_resource_ref(handle);
   auto out_inds =
     raft::make_device_mdarray<ValT, ValT>(handle, mr, raft::make_extents<ValT>(n_elements));
   auto out_dists =
@@ -241,39 +243,41 @@ void select_k(raft::resources const& handle,
 
   if (algo == SelectAlgo::kAuto) { algo = choose_select_k_algorithm(batch_size, len, k); }
 
+  using row_layout = select::dense_layout<IdxT>;
+
   switch (algo) {
     case SelectAlgo::kRadix8bits:
     case SelectAlgo::kRadix11bits:
     case SelectAlgo::kRadix11bitsExtraPass: {
       if (algo == SelectAlgo::kRadix8bits) {
-        detail::select::radix::select_k<T, IdxT, 8, 512>(handle,
-                                                         in_val,
-                                                         in_idx,
-                                                         batch_size,
-                                                         len,
-                                                         k,
-                                                         out_val,
-                                                         out_idx,
-                                                         select_min,
-                                                         true,  // fused_last_filter
-                                                         len_i);
+        detail::select::radix::select_k<T, IdxT, 8, 512, row_layout>(handle,
+                                                                     in_val,
+                                                                     in_idx,
+                                                                     batch_size,
+                                                                     len,
+                                                                     k,
+                                                                     out_val,
+                                                                     out_idx,
+                                                                     select_min,
+                                                                     true,  // fused_last_filter
+                                                                     len_i);
       } else {
         bool fused_last_filter = algo == SelectAlgo::kRadix11bits;
-        detail::select::radix::select_k<T, IdxT, 11, 512>(handle,
-                                                          in_val,
-                                                          in_idx,
-                                                          batch_size,
-                                                          len,
-                                                          k,
-                                                          out_val,
-                                                          out_idx,
-                                                          select_min,
-                                                          fused_last_filter,
-                                                          len_i);
+        detail::select::radix::select_k<T, IdxT, 11, 512, row_layout>(handle,
+                                                                      in_val,
+                                                                      in_idx,
+                                                                      batch_size,
+                                                                      len,
+                                                                      k,
+                                                                      out_val,
+                                                                      out_idx,
+                                                                      select_min,
+                                                                      fused_last_filter,
+                                                                      len_i);
       }
       if (sorted) {
         auto offsets = make_device_mdarray<IdxT, IdxT>(
-          handle, resource::get_workspace_resource(handle), make_extents<IdxT>(batch_size + 1));
+          handle, resource::get_workspace_resource_ref(handle), make_extents<IdxT>(batch_size + 1));
         raft::linalg::map_offset(handle, offsets.view(), mul_const_op<IdxT>(k));
 
         auto keys = raft::make_device_vector_view<T, IdxT>(out_val, (IdxT)(batch_size * k));
@@ -286,24 +290,25 @@ void select_k(raft::resources const& handle,
     }
     case SelectAlgo::kWarpDistributed:
       return detail::select::warpsort::
-        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed>(
+        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed, row_layout>(
           handle, in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min);
     case SelectAlgo::kWarpDistributedShm:
       return detail::select::warpsort::
-        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(
+        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext, row_layout>(
           handle, in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min);
     case SelectAlgo::kWarpAuto:
-      return detail::select::warpsort::select_k<T, IdxT>(
+      return detail::select::warpsort::select_k<T, IdxT, row_layout>(
         handle, in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min);
     case SelectAlgo::kWarpImmediate:
       return detail::select::warpsort::
-        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_immediate>(
+        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_immediate, row_layout>(
           handle, in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min);
     case SelectAlgo::kWarpFiltered:
       return detail::select::warpsort::
-        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_filtered>(
+        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_filtered, row_layout>(
           handle, in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min);
     default: RAFT_FAIL("K-selection Algorithm not supported.");
   }
 }
-}  // namespace raft::matrix::detail
+}  // namespace matrix::detail
+}  // namespace RAFT_EXPORT raft

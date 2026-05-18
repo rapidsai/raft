@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/sparse/linalg/detail/cusparse_utils.hpp>
 #include <raft/sparse/linalg/detail/sddmm.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace linalg {
 
@@ -72,4 +73,4 @@ void sddmm(raft::resources const& handle,
 
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace raft
+}  // end namespace RAFT_EXPORT raft

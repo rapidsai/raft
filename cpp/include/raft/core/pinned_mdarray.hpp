@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/pinned_container_policy.hpp>
 #include <raft/core/pinned_mdspan.hpp>
@@ -12,7 +13,7 @@
 
 #include <cstdint>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 
 /**
  * @brief mdarray with pinned container policy
@@ -24,7 +25,7 @@ namespace raft {
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = pinned_vector_policy<ElementType>>
+          typename ContainerPolicy = pinned_container_policy<ElementType>>
 using pinned_mdarray =
   mdarray<ElementType, Extents, LayoutPolicy, pinned_accessor<ContainerPolicy>>;
 
@@ -139,4 +140,4 @@ auto make_pinned_vector(raft::resources const& handle, IndexType n)
                                                                    make_extents<IndexType>(n));
 }
 
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

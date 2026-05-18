@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/binary_op.cuh>
@@ -18,7 +19,7 @@
 
 #include <cub/block/block_reduce.cuh>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace matrix {
 namespace detail {
 
@@ -401,4 +402,4 @@ void signFlip(math_t* inout, int n_rows, int n_cols, cudaStream_t stream)
 
 }  // end namespace detail
 }  // end namespace matrix
-}  // end namespace raft
+}  // namespace RAFT_EXPORT raft

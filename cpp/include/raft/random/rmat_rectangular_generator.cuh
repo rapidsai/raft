@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,9 +7,11 @@
 
 #include "detail/rmat_rectangular_generator.cuh"
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 
-namespace raft::random {
+namespace RAFT_EXPORT raft {
+namespace random {
 
 /**
  * @defgroup rmat RMAT Rectangular Generator
@@ -293,4 +295,5 @@ void rmat_rectangular_gen(IdxT* out,
 
 /** @} */
 
-}  // end namespace raft::random
+}  // namespace random
+}  // namespace RAFT_EXPORT raft

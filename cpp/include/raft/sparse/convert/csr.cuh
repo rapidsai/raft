@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef __CSR_H
@@ -9,6 +9,7 @@
 
 #include <raft/core/bitmap.hpp>
 #include <raft/core/bitset.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/sparse/convert/detail/adj_to_csr.cuh>
 #include <raft/sparse/convert/detail/bitmap_to_csr.cuh>
@@ -16,7 +17,7 @@
 #include <raft/sparse/convert/detail/csr.cuh>
 #include <raft/sparse/csr.hpp>
 
-namespace raft {
+namespace RAFT_EXPORT raft {
 namespace sparse {
 namespace convert {
 
@@ -196,6 +197,6 @@ void bitset_to_csr(raft::resources const& handle,
 
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
-};  // end NAMESPACE raft
+};  // namespace RAFT_EXPORT raft
 
 #endif
