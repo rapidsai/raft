@@ -6,11 +6,11 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 enum ShiftDirection { TOWARDS_BEGINNING, TOWARDS_END };
 enum ShiftType { ROW, COL };
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

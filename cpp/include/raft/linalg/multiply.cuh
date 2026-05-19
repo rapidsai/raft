@@ -15,7 +15,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -82,6 +82,6 @@ void multiply_scalar(
 /** @} */  // end of group multiply
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

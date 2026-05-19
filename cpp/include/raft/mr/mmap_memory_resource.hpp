@@ -74,7 +74,7 @@ struct tmpfile_descriptor {
 }  // namespace mr
 }  // namespace raft
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace mr {
 
 /** Default flags for `mmap_memory_resource`. */
@@ -168,4 +168,4 @@ class mmap_memory_resource {
 };
 
 }  // namespace mr
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

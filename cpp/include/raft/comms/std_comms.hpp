@@ -18,7 +18,7 @@
 
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace comms {
 
 using std_comms = detail::std_comms;
@@ -174,4 +174,4 @@ inline void get_nccl_unique_id(char* uid)
   memcpy(uid, id.internal, NCCL_UNIQUE_ID_BYTES);
 }
 };  // namespace comms
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

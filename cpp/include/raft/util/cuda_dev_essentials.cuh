@@ -13,7 +13,7 @@
 // scope is necessarily limited to ensure that compilation times are minimized.
 // Please make sure not to include large / expensive files from here.
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /** helper macro for device inlined functions */
 #define DI  inline __device__
@@ -122,4 +122,4 @@ HDI auto to_float(T& a)
   }
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

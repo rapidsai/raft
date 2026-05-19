@@ -11,7 +11,7 @@
 
 #include <raft/core/detail/macros.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -238,6 +238,6 @@ struct Policy2x8<half, _veclen> {
 using detail::Contractions_NT;
 
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

@@ -36,7 +36,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 //! Utility functions
 /**
  * Finds the smallest integer not less than `number_to_round` and modulo `S` is
@@ -86,7 +86,7 @@ constexpr inline S div_rounding_up_unsafe(const S& dividend, const T& divisor) n
   return (dividend + divisor - 1) / divisor;
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 namespace raft {
 namespace detail {
@@ -113,7 +113,7 @@ constexpr inline I div_rounding_up_safe(std::integral_constant<bool, true>,
 }  // namespace detail
 }  // namespace raft
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 /**
  * Divides the left-hand-side by the right-hand-side, rounding up
  * to an integral multiple of the right-hand-side, e.g. (9,5) -> 2 , (10,5) -> 2, (11,5) -> 3.
@@ -247,4 +247,4 @@ _RAFT_HOST_DEVICE inline void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uin
 #endif
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

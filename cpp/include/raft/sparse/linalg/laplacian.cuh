@@ -9,7 +9,7 @@
 #include <raft/sparse/linalg/detail/laplacian.cuh>
 #include <raft/sparse/matrix/diagonal.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::linalg {
 
 /** Given a CSR adjacency matrix, return the graph Laplacian
@@ -100,4 +100,4 @@ auto laplacian_normalized(raft::resources const& res,
 }
 
 }  // namespace sparse::linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

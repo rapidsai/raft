@@ -11,7 +11,7 @@
 
 #include <raft/core/detail/macros.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -86,6 +86,6 @@ void eltwiseDivideCheckZero(
 /** @} */
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

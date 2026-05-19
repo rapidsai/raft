@@ -25,7 +25,7 @@ struct SM_generic {
 }  // namespace util
 }  // namespace raft
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace util {
 namespace arch {
 
@@ -145,4 +145,4 @@ struct SM_range {
 
 }  // namespace arch
 }  // namespace util
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

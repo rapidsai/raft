@@ -13,7 +13,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/unary_op.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -69,6 +69,6 @@ void sqrt(raft::resources const& handle, InType in, OutType out)
 /** @} */  // end of group add
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

@@ -13,7 +13,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -111,6 +111,6 @@ void qr_get_qr(raft::resources const& handle,
 /** @} */
 
 };  // namespace linalg
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

@@ -14,7 +14,7 @@
 #include <raft/stats/detail/sum.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -75,5 +75,5 @@ void sum(raft::resources const& handle,
 /** @} */  // end group stats_sum
 
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

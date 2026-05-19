@@ -8,7 +8,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/sparse/detail/csr.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 
 constexpr int TPB_X = 256;
@@ -169,4 +169,4 @@ void weak_cc(Index_* labels,
 }
 
 };  // namespace sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

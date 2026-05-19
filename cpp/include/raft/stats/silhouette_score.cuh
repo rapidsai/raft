@@ -13,7 +13,7 @@
 #include <raft/stats/detail/batched/silhouette_score.cuh>
 #include <raft/stats/detail/silhouette_score.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -211,5 +211,5 @@ value_t silhouette_score_batched(
     handle, X, labels, opt_scores, n_unique_labels, batch_size, metric);
 }
 };  // namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

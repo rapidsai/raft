@@ -15,7 +15,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -86,5 +86,5 @@ void dot(raft::resources const& handle,
 /** @} */  // end of group dot
 
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 #endif

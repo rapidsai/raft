@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -37,4 +37,4 @@ struct paramsPCA : paramsTSVD {
 };
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

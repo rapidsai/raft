@@ -19,7 +19,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -286,6 +286,6 @@ void gemm(raft::resources const& res,
 /** @} */  // end of gemm
 
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

@@ -12,7 +12,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -127,6 +127,6 @@ void choleskyRank1Update(raft::resources const& handle,
 }
 
 };  // namespace linalg
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

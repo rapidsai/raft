@@ -19,7 +19,7 @@
 
 ///@todo: add cub's histogram as another option
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -106,5 +106,5 @@ void histogram(raft::resources const& handle,
 /** @} */  // end group stats_histogram
 
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

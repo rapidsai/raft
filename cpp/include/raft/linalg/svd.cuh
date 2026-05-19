@@ -14,7 +14,7 @@
 
 #include <optional>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -408,6 +408,6 @@ void svd_reconstruction(raft::resources const& handle,
 /** @} */  // end of group svd
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

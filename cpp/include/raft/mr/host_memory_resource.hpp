@@ -12,7 +12,7 @@
 #include <mutex>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace mr {
 
 /**
@@ -27,7 +27,7 @@ inline auto new_delete_resource() -> raft::mr::host_resource_ref
 }
 
 }  // namespace mr
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 namespace raft {
 namespace mr {
@@ -59,7 +59,7 @@ inline default_host_resource_holder default_host_resource_holder_{};
 }  // namespace mr
 }  // namespace raft
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace mr {
 
 /**
@@ -89,4 +89,4 @@ inline auto set_default_host_resource(raft::mr::host_resource_ref ref)
 }
 
 }  // namespace mr
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

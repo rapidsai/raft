@@ -10,7 +10,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/sparse/op/detail/row_op.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace op {
 
@@ -33,6 +33,6 @@ void csr_row_op(const Index_* row_ind, Index_ n_rows, Index_ nnz, Lambda op, cud
 
 };  // namespace op
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

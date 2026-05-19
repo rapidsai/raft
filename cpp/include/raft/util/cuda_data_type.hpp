@@ -12,7 +12,7 @@
 
 #include <cstdint>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 template <typename T>
 constexpr auto get_cuda_data_type() -> cudaDataType_t;
@@ -72,4 +72,4 @@ inline constexpr auto get_cuda_data_type<double>() -> cudaDataType_t
 {
   return CUDA_R_64F;
 }
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

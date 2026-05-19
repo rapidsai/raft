@@ -13,7 +13,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/columnWiseSort.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -126,5 +126,5 @@ void sort_cols_per_row(Args... args)
 /** @} */  // end of group col_wise_sort
 
 };  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 #endif

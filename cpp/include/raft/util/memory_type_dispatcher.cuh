@@ -12,9 +12,9 @@
 #include <type_traits>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 namespace raft {
 namespace detail {
@@ -38,7 +38,7 @@ auto static constexpr is_callable_for_memory_type =
 }  // namespace detail
 }  // namespace raft
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 /**
  * @defgroup memory_type_dispatcher Dispatch functor based on memory type
  * @{
@@ -202,4 +202,4 @@ decltype(auto) memory_type_dispatcher(raft::resources const& res, lambda_t&& f, 
 
 /** @} */
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

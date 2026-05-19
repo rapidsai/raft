@@ -441,7 +441,7 @@ struct typesAtomicCASImpl<T, 8> {
 
 }  // namespace raft
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /** -------------------------------------------------------------------------*
  * @brief compute atomic binary operation
@@ -479,7 +479,7 @@ __forceinline__ __device__ bool genericAtomicOperation(bool* address,
   return T(fun(address, update_value, op));
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 /**
  * @brief Overloads for `atomicAdd`

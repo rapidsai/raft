@@ -10,7 +10,7 @@
 #include <raft/sparse/linalg/detail/sddmm.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 
@@ -73,4 +73,4 @@ void sddmm(raft::resources const& handle,
 
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace RAFT_EXPORT raft
+}  // end namespace raft
