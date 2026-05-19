@@ -317,9 +317,9 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
       int major = runtimeVersion / 1000;
       int minor = (runtimeVersion % 1000) / 10;
 
-      // Skip SM gtests for CUDA 13.1.x
+      // Skip SM gtests for CUDA 13.1+
       // See https://github.com/rapidsai/raft/issues/2705
-      if (major == 13 && minor == 1 && params.which == raft::sparse::solver::LANCZOS_WHICH::SM) {
+      if (major == 13 && minor >= 1 && params.which == raft::sparse::solver::LANCZOS_WHICH::SM) {
         GTEST_SKIP();
       }
     }
