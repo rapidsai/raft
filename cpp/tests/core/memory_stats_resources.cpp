@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <raft/core/memory_stats_resources.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/util/memory_stats_resources.hpp>
 
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
