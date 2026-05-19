@@ -33,7 +33,7 @@ class multi_gpu_resource_factory : public resource_factory {
 
 class root_rank_resource : public resource {
  public:
-  explicit root_rank_resource(int root_rank = 0) : root_rank_(root_rank) {}
+  root_rank_resource() : root_rank_(0) {}
   void* get_resource() override { return &root_rank_; }
 
   ~root_rank_resource() override {}
@@ -44,17 +44,15 @@ class root_rank_resource : public resource {
 
 class root_rank_resource_factory : public resource_factory {
  public:
-  explicit root_rank_resource_factory(int root_rank = 0) : root_rank_(root_rank) {}
   resource_type get_resource_type() override { return resource_type::ROOT_RANK; }
-  resource* make_resource() override { return new root_rank_resource(root_rank_); }
-
- private:
-  int root_rank_;
+  resource* make_resource() override { return new root_rank_resource(); }
 };
 
-inline int get_root_rank(resources const& res)
+inline int& get_root_rank(resources const& res)
 {
-  res.ensure_default_factory(std::make_shared<root_rank_resource_factory>());
+  if (!res.has_resource_factory(resource_type::ROOT_RANK)) {
+    res.add_resource_factory(std::make_shared<root_rank_resource_factory>());
+  }
   return *res.get_resource<int>(resource_type::ROOT_RANK);
 };
 
@@ -67,7 +65,9 @@ inline int get_root_rank(resources const& res)
  */
 inline std::vector<raft::resources>& get_multi_gpu_resource(resources const& res)
 {
-  res.ensure_default_factory(std::make_shared<multi_gpu_resource_factory>());
+  if (!res.has_resource_factory(resource_type::MULTI_GPU)) {
+    res.add_resource_factory(std::make_shared<multi_gpu_resource_factory>());
+  }
   return *res.get_resource<std::vector<raft::resources>>(resource_type::MULTI_GPU);
 };
 
@@ -120,9 +120,10 @@ inline const raft::resources& set_current_device_to_root_rank(resources const& r
 /**
  * @brief Set the root rank to given rank
  */
-inline void set_root_rank(resources& res, int root_rank)
+inline void set_root_rank(resources const& res, int root_rank)
 {
-  res.add_resource_factory(std::make_shared<root_rank_resource_factory>(root_rank));
+  int& root_rank_ = get_root_rank(res);
+  root_rank_      = root_rank;
 };
 
 }  // namespace resource

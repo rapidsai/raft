@@ -46,8 +46,11 @@ class cublaslt_resource_factory : public resource_factory {
  */
 inline auto get_cublaslt_handle(resources const& res) -> cublasLtHandle_t
 {
-  res.ensure_default_factory(std::make_shared<cublaslt_resource_factory>());
-  return *res.get_resource<cublasLtHandle_t>(resource_type::CUBLASLT_HANDLE);
+  if (!res.has_resource_factory(resource_type::CUBLASLT_HANDLE)) {
+    res.add_resource_factory(std::make_shared<cublaslt_resource_factory>());
+  }
+  auto ret = *res.get_resource<cublasLtHandle_t>(resource_type::CUBLASLT_HANDLE);
+  return ret;
 };
 
 /**
