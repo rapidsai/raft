@@ -81,7 +81,7 @@ class device_resources_snmg : public device_resources {
   ~device_resources_snmg()
   {
     for (int device_id : pool_device_ids_) {
-      rmm::mr::reset_per_device_resource_ref(rmm::cuda_device_id{device_id});
+      rmm::mr::reset_per_device_resource(rmm::cuda_device_id{device_id});
     }
   }
 
@@ -92,7 +92,7 @@ class device_resources_snmg : public device_resources {
   {
     if (!per_device_pools_.empty()) {
       for (int device_id : pool_device_ids_) {
-        rmm::mr::reset_per_device_resource_ref(rmm::cuda_device_id{device_id});
+        rmm::mr::reset_per_device_resource(rmm::cuda_device_id{device_id});
       }
       per_device_pools_.clear();
       pool_device_ids_.clear();
@@ -108,7 +108,7 @@ class device_resources_snmg : public device_resources {
       per_device_pools_.push_back(std::make_unique<rmm::mr::pool_memory_resource>(
         rmm::mr::get_current_device_resource_ref(),
         rmm::percent_of_free_device_memory(percent_of_free_memory)));
-      rmm::mr::set_per_device_resource_ref(rmm::cuda_device_id{device_id},
+      rmm::mr::set_per_device_resource(rmm::cuda_device_id{device_id},
                                            *per_device_pools_.back());
     }
     RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
