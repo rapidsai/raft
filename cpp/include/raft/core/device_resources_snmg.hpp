@@ -108,8 +108,7 @@ class device_resources_snmg : public device_resources {
       per_device_pools_.push_back(std::make_unique<rmm::mr::pool_memory_resource>(
         rmm::mr::get_current_device_resource_ref(),
         rmm::percent_of_free_device_memory(percent_of_free_memory)));
-      rmm::mr::set_per_device_resource(rmm::cuda_device_id{device_id},
-                                           *per_device_pools_.back());
+      rmm::mr::set_per_device_resource(rmm::cuda_device_id{device_id}, *per_device_pools_.back());
     }
     RAFT_CUDA_TRY(cudaSetDevice(main_gpu_id_));
   }
