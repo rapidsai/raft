@@ -9,6 +9,7 @@
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/mr/pool_memory_resource.hpp>
 
+#include <cuda/memory_resource>
 #include <cuda_runtime_api.h>
 
 #include <gtest/gtest.h>
@@ -46,11 +47,13 @@ TEST(DeviceResourcesManager, ObeysSetters)
   auto unique_pools   = std::array<std::set<rmm::cuda_stream_pool const*>, 2>{};
 
   // Provide lock for counting unique objects
-  auto mtx = std::mutex{};
+  auto mtx         = std::mutex{};
+  auto default_mrs = std::array<bool, 2>{};
 
   for (auto i = std::size_t{}; i < devices.size(); ++i) {
     auto scoped_device = device_setter{devices[i]};
     auto upstream      = rmm::mr::get_current_device_resource_ref();
+    default_mrs[i] = cuda::mr::resource_cast<rmm::mr::cuda_memory_resource>(&upstream) != nullptr;
     device_resources_manager::set_workspace_memory_resource(
       raft::mr::device_resource{
         rmm::mr::pool_memory_resource(upstream, workspace_init, workspace_limit)},
@@ -83,6 +86,10 @@ TEST(DeviceResourcesManager, ObeysSetters)
 
     auto const& pool = res.get_stream_pool();
     EXPECT_EQ(streams_per_pool, pool.get_pool_size());
+
+    auto current_mr = rmm::mr::get_current_device_resource_ref();
+    auto* mr        = cuda::mr::resource_cast<rmm::mr::pool_memory_resource>(&current_mr);
+    if (default_mrs[i % devices.size()]) { EXPECT_NE(mr, nullptr); }
 
     {
       auto lock = std::unique_lock{mtx};
