@@ -39,4 +39,48 @@ struct sparse_svd_config {
 
 /** @} */
 
+/**
+ * @addtogroup sparse_lanczos_svd
+ * @{
+ */
+
+/**
+ * @brief Configuration parameters for the sparse Lanczos SVD solver
+ *
+ * @tparam ValueTypeT Data type for values (float or double)
+ */
+template <typename ValueTypeT>
+struct sparse_lanczos_svd_config {
+  /** @brief Number of singular values/vectors to compute. Must be set by the user. */
+  int n_components = 0;
+
+  /**
+   * @brief Number of Lanczos vectors per restart.
+   *
+   * If zero, a matrix-shape dependent default is selected. Larger values can improve
+   * convergence margin and orthogonality for clustered spectra, but increase sparse
+   * matrix-vector work and memory use.
+   */
+  int ncv = 0;
+
+  /** @brief Convergence tolerance for Lanczos Ritz residual estimates. */
+  ValueTypeT tolerance = 1e-4;
+
+  /** @brief Maximum number of restart iterations before reporting non-convergence. */
+  int max_iterations = 100;
+
+  /** @brief Random seed for reproducibility. */
+  std::optional<uint64_t> seed = std::nullopt;
+
+  /**
+   * @brief Use launch-heavy MGS2 instead of the default GPU-efficient CGS2 reorthogonalization.
+   *
+   * MGS2 is kept as an alternate path for difficult spectra; CGS2 is the default used in
+   * normal GPU workloads.
+   */
+  bool use_mgs2_orthogonalization = false;
+};
+
+/** @} */
+
 }  // namespace raft::sparse::solver
