@@ -8,26 +8,7 @@
 #include <raft/util/cuda_rt_essentials.hpp>  // RAFT_CUDA_TRY
 
 namespace raft {
-namespace util {
-namespace arch {
-
-// detail::SM_generic is a template to create a generic compile-time SM
-// architecture constant.
-namespace detail {
-template <int n>
-struct SM_generic {
- public:
-  __host__ __device__ constexpr int value() const { return n; }
-};
-}  // namespace detail
-
-}  // namespace arch
-}  // namespace util
-}  // namespace raft
-
-namespace raft {
-namespace util {
-namespace arch {
+namespace util::arch {
 
 /* raft::util::arch provides the following facilities:
  *
@@ -49,6 +30,16 @@ namespace arch {
  *   of compute architectures. This can be used to check if the current
  *   compile-time architecture is in a specified compatibility range.
  */
+
+// detail::SM_generic is a template to create a generic compile-time SM
+// architecture constant.
+namespace detail {
+template <int n>
+struct SM_generic {
+ public:
+  __host__ __device__ constexpr int value() const { return n; }
+};
+}  // namespace detail
 
 // A list of architectures that RAPIDS explicitly builds for (SM60, ..., SM90)
 // and SM_MIN and SM_FUTURE, that allow specifying an open interval of
@@ -143,6 +134,5 @@ struct SM_range {
   }
 };
 
-}  // namespace arch
-}  // namespace util
+}  // namespace util::arch
 }  // namespace raft

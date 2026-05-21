@@ -71,12 +71,6 @@ struct tmpfile_descriptor {
 
 }  // namespace detail
 
-}  // namespace mr
-}  // namespace raft
-
-namespace raft {
-namespace mr {
-
 /** Default flags for `mmap_memory_resource`. */
 constexpr int kMmapDefault = 0x0;
 /** Request 2MB huge pages support through `madvise`. */

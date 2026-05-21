@@ -14,9 +14,6 @@
 
 namespace raft {
 
-}  // namespace raft
-
-namespace raft {
 namespace detail {
 
 template <typename lambda_t, typename arg_t, typename = void>
@@ -36,9 +33,7 @@ auto static constexpr is_callable_for_memory_type =
   is_callable<lambda_t, decltype(std::declval<mdbuffer_type>().template view<mem_type>())>::value;
 
 }  // namespace detail
-}  // namespace raft
 
-namespace raft {
 /**
  * @defgroup memory_type_dispatcher Dispatch functor based on memory type
  * @{

@@ -26,12 +26,6 @@ inline auto new_delete_resource() -> raft::mr::host_resource_ref
   return raft::mr::host_resource_ref{instance};
 }
 
-}  // namespace mr
-}  // namespace raft
-
-namespace raft {
-namespace mr {
-
 namespace detail {
 
 struct default_host_resource_holder {
@@ -55,12 +49,6 @@ struct default_host_resource_holder {
 inline default_host_resource_holder default_host_resource_holder_{};
 
 }  // namespace detail
-
-}  // namespace mr
-}  // namespace raft
-
-namespace raft {
-namespace mr {
 
 /**
  * @brief Get the current default host memory resource.

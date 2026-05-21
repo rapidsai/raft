@@ -439,10 +439,6 @@ struct typesAtomicCASImpl<T, 8> {
 }  // namespace detail
 }  // namespace device_atomics
 
-}  // namespace raft
-
-namespace raft {
-
 /** -------------------------------------------------------------------------*
  * @brief compute atomic binary operation
  * reads the `old` located at the `address` in global or shared memory,

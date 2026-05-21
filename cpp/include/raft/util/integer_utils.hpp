@@ -86,9 +86,6 @@ constexpr inline S div_rounding_up_unsafe(const S& dividend, const T& divisor) n
   return (dividend + divisor - 1) / divisor;
 }
 
-}  // namespace raft
-
-namespace raft {
 namespace detail {
 template <typename I>
 constexpr inline I div_rounding_up_safe(std::integral_constant<bool, false>,
@@ -111,9 +108,7 @@ constexpr inline I div_rounding_up_safe(std::integral_constant<bool, true>,
 }
 
 }  // namespace detail
-}  // namespace raft
 
-namespace raft {
 /**
  * Divides the left-hand-side by the right-hand-side, rounding up
  * to an integral multiple of the right-hand-side, e.g. (9,5) -> 2 , (10,5) -> 2, (11,5) -> 3.
