@@ -15,6 +15,8 @@
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/mr/pool_memory_resource.hpp>
 
+#include <cuda/memory_resource>
+
 #include <algorithm>
 #include <memory>
 #include <optional>
@@ -156,15 +158,18 @@ struct device_resources_manager {
           // If max_mem_pool_size is nullopt or non-zero, create a pool memory
           // resource
           if (params.max_mem_pool_size.value_or(1) != 0) {
-            // TODO: reinstate the dynamic_cast<cuda_memory_resource*> guard that
-            // skipped pool creation when a non-default resource was already set,
-            // once CCCL exposes resource_cast or an equivalent type-query.
             auto upstream = rmm::mr::get_current_device_resource_ref();
-            result.emplace(
-              upstream,
-              params.init_mem_pool_size.value_or(rmm::percent_of_free_device_memory(50)),
-              params.max_mem_pool_size);
-            rmm::mr::set_current_device_resource(*result);
+            if (cuda::mr::resource_cast<rmm::mr::cuda_memory_resource>(&upstream) != nullptr) {
+              result.emplace(
+                upstream,
+                params.init_mem_pool_size.value_or(rmm::percent_of_free_device_memory(50)),
+                params.max_mem_pool_size);
+              rmm::mr::set_current_device_resource(*result);
+            } else {
+              RAFT_LOG_WARN(
+                "Pool allocation requested, but other memory resource has already been set and "
+                "will not be overwritten");
+            }
           }
           return result;
         }()},
