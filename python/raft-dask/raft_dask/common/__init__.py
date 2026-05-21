@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -9,6 +9,7 @@ from .comms_utils import (
     perform_test_comm_split,
     perform_test_comms_allgather,
     perform_test_comms_allreduce,
+    perform_test_comms_alltoall,
     perform_test_comms_bcast,
     perform_test_comms_device_multicast_sendrecv,
     perform_test_comms_device_send_or_recv,
@@ -17,6 +18,8 @@ from .comms_utils import (
     perform_test_comms_gatherv,
     perform_test_comms_reduce,
     perform_test_comms_reducescatter,
+    perform_test_comms_scatter,
+    perform_test_comms_scatterv,
     perform_test_comms_send_recv,
 )
 from .ucx import UCX
