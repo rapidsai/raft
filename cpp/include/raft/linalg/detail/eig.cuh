@@ -20,7 +20,7 @@
 
 #include <cuda_runtime_api.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -312,4 +312,4 @@ void eigJacobi(raft::resources const& handle,
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

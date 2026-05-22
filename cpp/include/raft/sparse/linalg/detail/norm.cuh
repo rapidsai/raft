@@ -25,7 +25,7 @@
 #include <iostream>
 #include <limits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -222,4 +222,4 @@ void rowNormCsrCaller(const IdxType* ia,
 };  // end NAMESPACE detail
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

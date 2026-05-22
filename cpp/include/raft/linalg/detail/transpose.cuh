@@ -20,7 +20,7 @@
 
 #include <cmath>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -269,4 +269,4 @@ void transpose_col_major_impl(
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

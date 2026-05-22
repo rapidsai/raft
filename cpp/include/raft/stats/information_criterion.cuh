@@ -25,7 +25,7 @@
 #include <raft/stats/detail/batched/information_criterion.cuh>
 #include <raft/stats/stats_types.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -104,5 +104,5 @@ void information_criterion_batched(raft::resources const& handle,
 /** @} */  // end group stats_information_criterion
 
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 #endif

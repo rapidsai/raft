@@ -11,7 +11,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/detail/lstsq.cuh>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /** Solves the linear ordinary least squares problem `Aw = b`
@@ -236,6 +236,6 @@ void lstsq_qr(raft::resources const& handle,
 /** @} */  // end of lstsq
 
 };  // namespace linalg
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

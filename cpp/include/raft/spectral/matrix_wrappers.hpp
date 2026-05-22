@@ -11,7 +11,7 @@
 // Useful macros
 // =========================================================
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace spectral {
 namespace matrix {
 
@@ -36,4 +36,4 @@ using detail::modularity_matrix_t;
 
 }  // namespace matrix
 }  // namespace spectral
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

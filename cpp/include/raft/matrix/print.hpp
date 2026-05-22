@@ -10,7 +10,7 @@
 #include <raft/matrix/detail/print.hpp>
 #include <raft/matrix/matrix_types.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -25,4 +25,4 @@ void print(raft::host_matrix_view<const m_t, idx_t, col_major> in, print_separat
     in.data_handle(), in.extent(0), in.extent(1), separators.horizontal, separators.vertical);
 }
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

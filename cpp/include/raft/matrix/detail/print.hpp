@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <cstddef>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix::detail {
 
 template <typename m_t, typename idx_t = int>
@@ -36,4 +36,4 @@ void printHost(
 }
 
 }  // namespace matrix::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

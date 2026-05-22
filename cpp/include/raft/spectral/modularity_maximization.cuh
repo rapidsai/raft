@@ -12,7 +12,7 @@
 
 #include <tuple>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace spectral {
 
 //===================================================
@@ -39,6 +39,6 @@ void analyzeModularity(raft::resources const& handle,
 }
 
 }  // namespace spectral
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

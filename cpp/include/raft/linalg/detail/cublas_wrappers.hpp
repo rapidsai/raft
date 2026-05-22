@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -1024,4 +1024,4 @@ inline cublasStatus_t cublasscal(
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

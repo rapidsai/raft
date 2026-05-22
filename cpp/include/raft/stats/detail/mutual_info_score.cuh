@@ -28,7 +28,7 @@
 
 #include <math.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -163,4 +163,4 @@ double mutual_info_score(const T* firstClusterArray,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

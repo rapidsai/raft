@@ -26,7 +26,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 namespace detail {
 
@@ -487,4 +487,4 @@ inline T deserialize_scalar(std::istream& is)
 
 }  // end namespace numpy_serializer
 }  // end namespace detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -60,7 +60,7 @@
 #ifndef MPI_TRY_NO_THROW
 #define MPI_TRY_NO_THROW(call) RAFT_MPI_TRY_NO_THROW(call)
 #endif
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace comms {
 namespace detail {
 
@@ -491,4 +491,4 @@ class mpi_comms : public comms_iface {
 
 }  // end namespace detail
 };  // end namespace comms
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

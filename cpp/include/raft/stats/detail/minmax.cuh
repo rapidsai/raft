@@ -11,7 +11,7 @@
 
 #include <limits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -225,4 +225,4 @@ void minmax(const T* data,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

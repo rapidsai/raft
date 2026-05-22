@@ -12,7 +12,7 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::solver {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -90,6 +90,6 @@ class MST_solver {
 };
 
 }  // namespace sparse::solver
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #include <raft/sparse/solver/detail/mst_solver_inl.cuh>

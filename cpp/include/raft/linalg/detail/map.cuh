@@ -20,7 +20,7 @@
 
 #include <cuda/std/tuple>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg::detail {
 
 template <bool PassOffset, typename OutT, typename IdxT, typename Func, typename... InTs>
@@ -223,4 +223,4 @@ void map(const raft::resources& res, OutType out, Func f, InTypes... ins)
 }
 
 }  // namespace linalg::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

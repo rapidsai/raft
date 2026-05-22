@@ -10,7 +10,7 @@
 #include <tuple>
 #include <vector>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace util::itertools::detail {
 
 template <class S, typename... Args, size_t... Is>
@@ -31,4 +31,4 @@ inline std::vector<S> product(std::index_sequence<Is...> index, const std::vecto
 }
 
 }  // namespace util::itertools::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

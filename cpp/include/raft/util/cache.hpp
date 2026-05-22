@@ -15,7 +15,7 @@
 #include <tuple>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace cache {
 
 /** Associative cache with least recently used replacement policy. */
@@ -97,4 +97,4 @@ class lru {
 };
 
 };  // namespace cache
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

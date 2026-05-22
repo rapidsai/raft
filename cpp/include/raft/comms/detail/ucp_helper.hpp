@@ -12,7 +12,7 @@
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace comms {
 namespace detail {
 
@@ -151,4 +151,4 @@ class comms_ucp_handler {
 };
 }  // end namespace detail
 }  // end namespace comms
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

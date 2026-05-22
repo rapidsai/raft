@@ -14,7 +14,7 @@
 
 #include <cusparse.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace detail {
 
@@ -1471,4 +1471,4 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
 
 }  // namespace detail
 }  // namespace sparse
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

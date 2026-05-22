@@ -8,7 +8,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -91,4 +91,4 @@ inline auto operator<<(std::ostream& os, const SelectAlgo& algo) -> std::ostream
 /** @} */  // end of group select_k
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

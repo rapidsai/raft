@@ -10,7 +10,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/sparse/linalg/detail/transpose.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 
@@ -58,4 +58,4 @@ void csr_transpose(raft::resources const& handle,
 
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

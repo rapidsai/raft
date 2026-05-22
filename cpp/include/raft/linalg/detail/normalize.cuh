@@ -10,7 +10,7 @@
 
 #include <cub/block/block_reduce.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -176,4 +176,4 @@ void coalesced_normalize(Type* out,
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -12,7 +12,7 @@
 #include <memory>
 #include <memory_resource>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace pmr {
 
 /**
@@ -83,4 +83,4 @@ static_assert(cuda::mr::synchronous_resource_with<resource_adaptor, cuda::mr::ho
               "raft::mr::host_resource_ref consumption");
 
 }  // namespace pmr
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

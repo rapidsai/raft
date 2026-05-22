@@ -19,7 +19,7 @@
 
 #include <optional>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -183,4 +183,4 @@ void neighborhood_recall(
 /** @} */  // end group stats_recall
 
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

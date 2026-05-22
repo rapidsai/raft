@@ -36,7 +36,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace comms {
 namespace detail {
 
@@ -631,4 +631,4 @@ class std_comms : public comms_iface {
 };
 }  // namespace detail
 }  // end namespace comms
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

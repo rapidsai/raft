@@ -17,7 +17,7 @@
 #include <raft/core/types.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -182,6 +182,6 @@ void reduce(raft::resources const& handle,
 /** @} */  // end of group reduction
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

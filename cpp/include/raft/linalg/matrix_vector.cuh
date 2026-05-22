@@ -12,7 +12,7 @@
 #include <raft/matrix/detail/math.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -201,4 +201,4 @@ void binary_sub(raft::resources const& handle,
 /** @} */  // end of matrix_vector
 
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

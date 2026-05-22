@@ -8,7 +8,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /**
  * Checks whether an integer is a power of 2.
@@ -169,4 +169,4 @@ struct Pow2 {
 #undef Pow2_WHEN_INTEGRAL
 };
 
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

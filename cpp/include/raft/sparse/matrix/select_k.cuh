@@ -16,7 +16,7 @@
 
 #include <optional>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::matrix {
 
 using SelectAlgo = raft::matrix::SelectAlgo;
@@ -76,4 +76,4 @@ void select_k(raft::resources const& handle,
 /** @} */  // end of group select_k
 
 }  // namespace sparse::matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

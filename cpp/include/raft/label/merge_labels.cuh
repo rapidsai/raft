@@ -11,7 +11,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/label/detail/merge_labels.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace label {
 
 /**
@@ -56,5 +56,5 @@ void merge_labels(value_idx* labels_a,
 }
 
 };  // namespace label
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

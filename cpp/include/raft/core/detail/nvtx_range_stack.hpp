@@ -13,7 +13,7 @@
 #include <string>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace common::nvtx {
 
 namespace detail {
@@ -91,4 +91,4 @@ inline auto thread_local_current_range() -> std::shared_ptr<const current_range>
 }
 
 }  // namespace common::nvtx
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

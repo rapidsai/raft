@@ -10,7 +10,7 @@
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -22,4 +22,4 @@ void sum(Type* output, const Type* input, IdxType D, IdxType N, cudaStream_t str
 
 }  // namespace detail
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

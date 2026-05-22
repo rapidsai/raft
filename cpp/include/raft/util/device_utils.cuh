@@ -10,7 +10,7 @@
 
 #include <utility>  // pair
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 // TODO move to raft https://github.com/rapidsai/raft/issues/90
 /** helper method to get the compute capability version numbers */
@@ -96,4 +96,4 @@ DI T batchedBlockReduce(T val, char* smem)
   return val;
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

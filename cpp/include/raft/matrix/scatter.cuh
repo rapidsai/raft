@@ -10,7 +10,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/matrix/detail/scatter_inplace.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 /**
  * @brief In-place scatter elements in a row-major matrix according to a
@@ -47,4 +47,4 @@ void scatter(raft::resources const& handle,
 }
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

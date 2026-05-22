@@ -29,7 +29,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace convert {
 namespace detail {
@@ -92,4 +92,4 @@ void sorted_coo_to_csr(const T* rows, nnz_t nnz, outT* row_ind, int m, cudaStrea
 };  // end NAMESPACE detail
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

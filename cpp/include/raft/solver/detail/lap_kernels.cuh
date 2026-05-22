@@ -38,7 +38,7 @@
 #include <thrust/for_each.h>
 
 #include <cstddef>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace solver::detail {
 const int DORMANT{0};
 const int ACTIVE{1};
@@ -559,4 +559,4 @@ RAFT_KERNEL kernel_calcObjValPrimal(weight_t* d_obj_val_primal,
 }
 
 }  // namespace solver::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
