@@ -164,6 +164,11 @@ class workspace_resource_factory : public resource_factory {
   }
 };
 
+}  // namespace resource
+}  // namespace RAFT_EXPORT raft
+
+namespace raft {
+namespace resource {
 namespace detail {
 
 inline auto get_workspace_adaptor(resources const& res) -> rmm::mr::limiting_resource_adaptor*
@@ -175,7 +180,11 @@ inline auto get_workspace_adaptor(resources const& res) -> rmm::mr::limiting_res
 }
 
 }  // namespace detail
+}  // namespace resource
+}  // namespace raft
 
+namespace RAFT_EXPORT raft {
+namespace resource {
 /**
  * @brief Load a temp workspace resource from a resources instance (and populate it on the res if
  * needed).

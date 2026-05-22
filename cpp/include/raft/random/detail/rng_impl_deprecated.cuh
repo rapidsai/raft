@@ -24,7 +24,7 @@
 
 #include <random>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 namespace detail {
 
@@ -297,4 +297,4 @@ class RngImpl {
 
 };  // end namespace detail
 };  // end namespace random
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

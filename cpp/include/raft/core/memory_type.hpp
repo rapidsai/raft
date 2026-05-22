@@ -56,6 +56,9 @@ struct memory_type_constant {
   }();
 };
 
+}  // namespace RAFT_EXPORT raft
+
+namespace raft {
 namespace detail {
 
 template <bool is_host_accessible, bool is_device_accessible>
@@ -73,7 +76,9 @@ auto constexpr memory_type_from_access()
 }
 
 }  // end namespace detail
+}  // namespace raft
 
+namespace RAFT_EXPORT raft {
 template <typename T>
 auto memory_type_from_pointer(T* ptr)
 {

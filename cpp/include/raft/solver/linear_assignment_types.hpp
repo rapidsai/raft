@@ -29,7 +29,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace solver {
 template <typename vertex_t, typename weight_t>
 struct Vertices {
@@ -49,4 +49,4 @@ struct VertexData {
   int* is_visited;
 };
 }  // namespace solver
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

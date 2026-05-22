@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace mr {
 
 /**
@@ -157,4 +157,4 @@ class resource_monitor {
 };
 
 }  // namespace mr
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

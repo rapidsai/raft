@@ -18,7 +18,7 @@
 #include <optional>
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 namespace permute_impl {
@@ -196,5 +196,5 @@ void permute(IntType* perms,
 }
 
 };  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 #endif

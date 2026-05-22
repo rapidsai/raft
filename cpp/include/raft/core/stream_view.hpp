@@ -15,6 +15,9 @@
 
 namespace RAFT_EXPORT raft {
 
+}  // namespace RAFT_EXPORT raft
+
+namespace raft {
 namespace detail {
 struct fail_stream_view {
   constexpr fail_stream_view()                                           = default;
@@ -35,7 +38,9 @@ struct fail_stream_view {
   }
 };
 }  // namespace detail
+}  // namespace raft
 
+namespace RAFT_EXPORT raft {
 /** A lightweight wrapper around rmm::cuda_stream_view that can be used in
  * CUDA-free builds
  *

@@ -10,7 +10,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -60,4 +60,4 @@ void zero_small_values(raft::resources const& handle,
 /** @} */  // end group matrix_threshold
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

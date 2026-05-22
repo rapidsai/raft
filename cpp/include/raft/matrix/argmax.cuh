@@ -10,7 +10,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/math.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -41,4 +41,4 @@ void argmax(raft::resources const& handle,
 /** @} */  // end of group argmax
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

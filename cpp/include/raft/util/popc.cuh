@@ -6,7 +6,7 @@
 #pragma once
 #include <raft/core/detail/macros.hpp>
 #include <raft/util/detail/popc.cuh>
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /**
  * @brief Count the number of bits that are set to 1 in a vector.
@@ -28,4 +28,4 @@ void popc(const raft::resources& res,
   detail::popc(res, values, max_len, counter);
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -14,7 +14,7 @@
 
 #include <memory>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 namespace detail {
 
@@ -153,4 +153,4 @@ void permute(IntType* perms,
 
 };  // end namespace detail
 };  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -26,7 +26,7 @@
 
 #include <algorithm>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace spectral {
 
 template <typename vertex_t, typename edge_t, typename weight_t>
@@ -166,4 +166,4 @@ bool construct_indicator(
 }
 
 }  // namespace spectral
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

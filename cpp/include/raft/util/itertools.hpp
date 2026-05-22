@@ -13,7 +13,7 @@
  *
  */
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace util::itertools {
 
 /**
@@ -36,4 +36,4 @@ std::vector<S> product(std::initializer_list<Args>... lists)
 }
 
 }  // namespace util::itertools
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

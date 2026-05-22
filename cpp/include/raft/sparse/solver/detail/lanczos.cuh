@@ -66,7 +66,7 @@
 #include <utility>
 #include <vector>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::solver::detail {
 
 template <typename T>
@@ -796,4 +796,4 @@ auto lanczos_compute_eigenpairs(
 }
 
 }  // namespace sparse::solver::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

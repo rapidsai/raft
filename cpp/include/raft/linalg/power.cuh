@@ -15,7 +15,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -131,6 +131,6 @@ void power_scalar(
 /** @} */  // end of group add
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

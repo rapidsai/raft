@@ -12,7 +12,7 @@
 #include <raft/sparse/solver/lanczos_types.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::solver {
 
 // =========================================================
@@ -115,6 +115,6 @@ auto lanczos_compute_eigenpairs(
 }
 
 }  // namespace sparse::solver
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

@@ -22,7 +22,7 @@
 
 #include <functional>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 namespace detail {
 
@@ -622,4 +622,4 @@ void gather(raft::resources const& res,
 
 }  // namespace detail
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

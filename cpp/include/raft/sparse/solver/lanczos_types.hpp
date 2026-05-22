@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::solver {
 
 /**
@@ -68,4 +68,4 @@ struct lanczos_solver_config {
 };
 
 }  // namespace sparse::solver
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

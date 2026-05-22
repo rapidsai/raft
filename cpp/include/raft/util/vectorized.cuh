@@ -13,7 +13,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 // Third parameter enables SFINAE for conditional specializations (e.g., KeyValuePair by size)
 template <typename math_, int VecLen, typename Enable = void>
@@ -428,4 +428,4 @@ DI void copy_vectorized(T* out, const T* in, uint32_t n)
     }
   }
 }
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

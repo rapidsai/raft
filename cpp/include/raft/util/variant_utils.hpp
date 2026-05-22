@@ -8,7 +8,7 @@
 #include <type_traits>
 #include <variant>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 template <typename variant1, typename variant2>
 struct concatenated_variant;
@@ -52,4 +52,4 @@ struct is_type_in_variant<T, std::variant<Vs...>> {
 template <typename T, typename VariantType>
 auto static constexpr is_type_in_variant_v = is_type_in_variant<T, VariantType>::value;
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

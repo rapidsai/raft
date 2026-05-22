@@ -22,7 +22,7 @@
   devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT><<<rows, blockSize, 0, stream>>>( \
     keyIn, keyOut, valueInOut, rows, columns, std::numeric_limits<InType>::max())
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 namespace detail {
 
@@ -342,4 +342,4 @@ void sortColumnsPerRow(const InType* in,
 }
 };  // end namespace detail
 };  // end namespace matrix
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

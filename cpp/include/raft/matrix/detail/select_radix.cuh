@@ -29,7 +29,7 @@
 #include <cub/block/block_store.cuh>
 #include <cub/block/radix_rank_sort_operations.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix::detail::select::radix {
 namespace impl {
 
@@ -1316,4 +1316,4 @@ void select_k(raft::resources const& res,
 }
 
 }  // namespace matrix::detail::select::radix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -25,7 +25,7 @@
 
 #include <algorithm>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace op {
 namespace detail {
@@ -103,4 +103,4 @@ void coo_sort_by_weight(
 };  // namespace detail
 };  // namespace op
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

@@ -19,7 +19,7 @@
 
 #include <math.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -73,4 +73,4 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
 
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

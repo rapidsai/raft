@@ -8,7 +8,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/sparse/solver/mst_solver.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::solver {
 
 /**
@@ -62,4 +62,4 @@ Graph_COO<vertex_t, edge_t, weight_t> mst(raft::resources const& handle,
 }
 
 }  // end namespace sparse::solver
-}  // end namespace RAFT_EXPORT raft
+}  // end namespace raft

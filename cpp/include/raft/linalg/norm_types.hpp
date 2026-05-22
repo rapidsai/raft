@@ -6,7 +6,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /** Enum to tell how to compute a norm */
@@ -23,4 +23,4 @@ enum NormType : unsigned short {
 };
 
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

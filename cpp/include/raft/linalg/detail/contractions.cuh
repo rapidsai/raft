@@ -8,7 +8,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/util/device_loads_stores.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -310,4 +310,4 @@ struct Contractions_NT {
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

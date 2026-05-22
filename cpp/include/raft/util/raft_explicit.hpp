@@ -62,7 +62,7 @@
     throw "raft_explicit_error";                                                               \
   }
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace util::raft_explicit {
 /**
  * @brief Template that is always false
@@ -77,4 +77,4 @@ struct implicit_instantiation {
   static constexpr bool value = false;
 };
 }  // namespace util::raft_explicit
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
