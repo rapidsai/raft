@@ -29,7 +29,7 @@ dependencies:
 - libcusolver-dev
 - libcusparse-dev
 - libucxx==0.51.*,>=0.0.0a0
-- nccl>=2.19
+- nccl>=2.28
 - ninja
 - numpy>=1.23,<3.0
 - numpydoc

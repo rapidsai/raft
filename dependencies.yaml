@@ -642,7 +642,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &nccl_unsuffixed nccl>=2.19
+          - &nccl_unsuffixed nccl>=2.28
     specific:
       - output_types: [pyproject, requirements]
         matrices:
@@ -650,11 +650,11 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - nvidia-nccl-cu12>=2.19
+              - nvidia-nccl-cu12>=2.28
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - nvidia-nccl-cu13>=2.19
+              - nvidia-nccl-cu13>=2.28
           - matrix:
             packages:

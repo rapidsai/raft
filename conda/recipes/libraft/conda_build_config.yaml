@@ -17,4 +17,4 @@ cmake_version:
   - ">=4.0"
 
 nccl_version:
-  - ">=2.19"
+  - ">=2.28"
