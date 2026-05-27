@@ -234,6 +234,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@main
     with:
       build_type: pull-request
+      package_name: libraft
   conda-python-build:
     needs: conda-cpp-build
     permissions:
