@@ -748,15 +748,8 @@ RAFT_KERNEL radix_kernel(const T* in,
                                              pass,
                                              early_stop);
   __threadfence();
-  // Ensure every thread in this block has finished its writes (and the
-  // corresponding __threadfence) before any block signals completion via
-  // atomicInc. Otherwise warp 0's thread 0 can race ahead of lagging warps
-  // that are still issuing atomicAdds inside filter_and_histogram (e.g. the
-  // histogram merge loop, or writes to `out`/`out_buf` in the early_stop
-  // path), causing the block that becomes the "last block" to read an
-  // incomplete histogram / miss output writes. The resulting wrong
-  // kth_value_bits can yield either slightly wrong top-k values or fewer than
-  // k writes to `out` (leaving the caller's initialization sentinel in place).
+  // Ensure every thread in this block has finished its writes before finished_block_cnt is updated.
+  // Otherwise, the last block (isLastBlock) will read an incomplete histogram.
   __syncthreads();
 
   bool isLastBlock = false;
