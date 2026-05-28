@@ -748,6 +748,9 @@ RAFT_KERNEL radix_kernel(const T* in,
                                              pass,
                                              early_stop);
   __threadfence();
+  // Ensure every thread in this block has finished its writes before finished_block_cnt is updated.
+  // Otherwise, the last block (isLastBlock) will read an incomplete histogram.
+  __syncthreads();
 
   bool isLastBlock = false;
   if (threadIdx.x == 0) {
