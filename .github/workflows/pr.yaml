@@ -95,6 +95,7 @@ jobs:
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
+          - '!SECURITY.md'
           - '!ci/check_style.sh'
           - '!ci/release/update-version.sh'
           - '!ci/run_*.sh'
