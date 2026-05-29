@@ -14,23 +14,11 @@ namespace raft {
 namespace comms {
 
 /**
- * @brief A simple sanity check that NCCL is able to perform a collective all-to-all
+ * @brief A simple sanity check that NCCL is able to perform a collective operation
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param[in] root the root rank id
- */
-bool test_collective_alltoall(raft::resources const& handle, int root)
-{
-  return detail::test_collective_alltoall(handle, root);
-}
-
-/**
- * @brief A simple sanity check that NCCL is able to perform a collective allreduce
- *
- * @param[in] handle the raft handle to use. This is expected to already have an
- *        initialized comms instance.
- * @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
 bool test_collective_allreduce(raft::resources const& handle, int root)
 {
@@ -38,11 +26,11 @@ bool test_collective_allreduce(raft::resources const& handle, int root)
 }
 
 /**
- * @brief A simple sanity check that NCCL is able to perform a collective broadcast
+ * @brief A simple sanity check that NCCL is able to perform a collective operation
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
 bool test_collective_broadcast(raft::resources const& handle, int root)
 {
@@ -54,7 +42,7 @@ bool test_collective_broadcast(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
 bool test_collective_reduce(raft::resources const& handle, int root)
 {
@@ -66,7 +54,7 @@ bool test_collective_reduce(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
 bool test_collective_allgather(raft::resources const& handle, int root)
 {
@@ -74,35 +62,11 @@ bool test_collective_allgather(raft::resources const& handle, int root)
 }
 
 /**
- * @brief A simple sanity check that NCCL is able to perform a collective scatter
- *
- * @param[in] handle the raft handle to use. This is expected to already have an
- *        initialized comms instance.
- * @param[in] root the root rank id
- */
-bool test_collective_scatter(raft::resources const& handle, int root)
-{
-  return detail::test_collective_scatter(handle, root);
-}
-
-/**
- * @brief A simple sanity check that NCCL is able to perform a collective scatterv
- *
- * @param[in] handle the raft handle to use. This is expected to already have an
- *        initialized comms instance.
- * @param[in] root the root rank id
- */
-bool test_collective_scatterv(raft::resources const& handle, int root)
-{
-  return detail::test_collective_scatterv(handle, root);
-}
-
-/**
  * @brief A simple sanity check that NCCL is able to perform a collective gather
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
 bool test_collective_gather(raft::resources const& handle, int root)
 {
@@ -114,7 +78,7 @@ bool test_collective_gather(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
 bool test_collective_gatherv(raft::resources const& handle, int root)
 {
@@ -126,7 +90,7 @@ bool test_collective_gatherv(raft::resources const& handle, int root)
  *
  * @param[in] handle the raft handle to use. This is expected to already have an
  *        initialized comms instance.
- * @param[in] root the root rank id
+ *  @param[in] root the root rank id
  */
 bool test_collective_reducescatter(raft::resources const& handle, int root)
 {
