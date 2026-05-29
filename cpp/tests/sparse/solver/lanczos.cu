@@ -353,7 +353,7 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
       expected_eigenvalues.data_handle(),
       params.n_components,
       raft::CompareApprox<ValueType>(
-        params.which == raft::sparse::solver::LANCZOS_WHICH::SM ? 1e-4 : 1e-5),
+        params.which == raft::sparse::solver::LANCZOS_WHICH::SM ? 5e-5 : 1e-5),
       stream));
 
     // Reproducibility test - run again with same seed and verify exact match
@@ -408,7 +408,7 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
       expected_eigenvalues.data_handle(),
       params.n_components,
       raft::CompareApprox<ValueType>(
-        params.which == raft::sparse::solver::LANCZOS_WHICH::SM ? 1e-4 : 1e-5),
+        params.which == raft::sparse::solver::LANCZOS_WHICH::SM ? 5e-5 : 1e-5),
       stream));
   }
 
