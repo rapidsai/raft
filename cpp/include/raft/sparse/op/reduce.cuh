@@ -12,7 +12,7 @@
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/detail/reduce.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace op {
 /**
@@ -72,6 +72,6 @@ void max_duplicates(raft::resources const& handle,
 }
 };  // END namespace op
 };  // END namespace sparse
-};  // END namespace RAFT_EXPORT raft
+};  // END namespace raft
 
 #endif

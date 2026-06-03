@@ -69,6 +69,9 @@ using alternate_from_mem_type =
   std::variant_alternative_t<variant_index_from_memory_type(MemType) % std::variant_size_v<Variant>,
                              Variant>;
 
+}  // namespace RAFT_EXPORT raft
+
+namespace raft {
 namespace detail {
 template <typename T, raft::memory_type MemType>
 struct memory_type_to_default_policy {};
@@ -92,7 +95,9 @@ struct memory_type_to_default_policy<T, raft::memory_type::pinned> {
 template <typename T, raft::memory_type MemType>
 using memory_type_to_default_policy_t = typename memory_type_to_default_policy<T, MemType>::type;
 }  // namespace detail
+}  // namespace raft
 
+namespace RAFT_EXPORT raft {
 /**
  * @brief A variant of container policies for each memory type which can be
  * used to build the default container policy for a buffer.

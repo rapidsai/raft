@@ -13,7 +13,7 @@
 
 #include <cublas_v2.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg::detail {
 
 template <typename T, bool DevicePointerMode = false>
@@ -32,4 +32,4 @@ void axpy(raft::resources const& handle,
 }
 
 }  // namespace linalg::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

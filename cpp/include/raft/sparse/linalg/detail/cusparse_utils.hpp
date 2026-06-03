@@ -15,7 +15,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -135,4 +135,4 @@ inline cusparseOperation_t convert_operation(const raft::linalg::Operation op)
 }  // end namespace detail
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace RAFT_EXPORT raft
+}  // end namespace raft

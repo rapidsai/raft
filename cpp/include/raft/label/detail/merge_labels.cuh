@@ -14,7 +14,7 @@
 
 #include <limits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace label {
 namespace detail {
 
@@ -145,4 +145,4 @@ void merge_labels(value_idx* labels_a,
 
 }  // namespace detail
 };  // namespace label
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

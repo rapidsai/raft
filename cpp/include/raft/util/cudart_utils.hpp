@@ -25,7 +25,7 @@
 #include <mutex>
 #include <string>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /** Helper method to get to know warp size in device code */
 __host__ __device__ constexpr inline int warp_size() { return 32; }
@@ -470,4 +470,4 @@ constexpr inline auto upper_bound<__nv_bfloat16>() -> __nv_bfloat16
   return static_cast<__nv_bfloat16>(__bfloat16_constexpr{0x7f80u});
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

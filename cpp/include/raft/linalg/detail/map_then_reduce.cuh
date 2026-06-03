@@ -12,7 +12,7 @@
 
 #include <cub/block/block_reduce.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -86,4 +86,4 @@ void mapThenReduceImpl(OutType* out,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

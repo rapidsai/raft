@@ -10,7 +10,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 /**
  * Generic IOType specializations for ALL KeyValuePair<K, V> types based on sizeof.
  *
@@ -62,4 +62,4 @@ struct IOType<KeyValuePair<K, V>, 1, std::enable_if_t<sizeof(KeyValuePair<K, V>)
   static_assert(std::is_trivially_copyable_v<KeyValuePair<K, V>>);
   using Type = int4;
 };
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

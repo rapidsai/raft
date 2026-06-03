@@ -25,7 +25,7 @@
 
 #include <algorithm>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 namespace detail {
 
@@ -270,4 +270,4 @@ void make_regression_caller(raft::resources const& handle,
 
 }  // namespace detail
 }  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -11,7 +11,7 @@
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/detail/degree.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 
@@ -108,6 +108,6 @@ void coo_degree_nz(COO<T>* in, int* results, cudaStream_t stream)
 
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

@@ -12,7 +12,7 @@
 
 #include <cstdint>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 /** all different generator types used */
@@ -50,5 +50,5 @@ struct RngState {
 };
 
 };  // end namespace random
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

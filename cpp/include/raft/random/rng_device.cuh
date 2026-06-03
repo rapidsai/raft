@@ -13,7 +13,7 @@
 
 #include <raft/core/detail/macros.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 using detail::DeviceState;
@@ -43,5 +43,5 @@ using detail::custom_next;
 using detail::box_muller_transform;
 
 };  // end namespace random
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

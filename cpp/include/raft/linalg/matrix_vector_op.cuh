@@ -17,7 +17,7 @@
 #include <raft/core/types.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -235,6 +235,6 @@ void matrix_vector_op(raft::resources const& handle,
 /** @} */  // end of group matrix_vector_op
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

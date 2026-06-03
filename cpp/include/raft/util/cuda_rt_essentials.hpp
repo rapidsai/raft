@@ -16,7 +16,7 @@
 
 #include <cstdio>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /**
  * @brief Exception thrown when a CUDA error is encountered.
@@ -26,7 +26,7 @@ struct cuda_error : public raft::exception {
   explicit cuda_error(std::string const& message) : raft::exception(message) {}
 };
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 /**
  * @brief Error checking macro for CUDA runtime API functions.

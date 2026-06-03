@@ -20,7 +20,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg::detail {
 
 /** Get the cublas compute type for the combination of input types. */
@@ -373,4 +373,4 @@ void matmul(raft::resources const& res,
 }
 
 }  // namespace linalg::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -12,7 +12,7 @@
 #include <raft/matrix/init.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -103,4 +103,4 @@ void eye(const raft::resources& handle, raft::device_matrix_view<math_t, idx_t, 
 /** @} */  // end of group matrix_diagonal
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

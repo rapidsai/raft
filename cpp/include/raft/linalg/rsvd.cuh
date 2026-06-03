@@ -13,7 +13,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -868,6 +868,6 @@ void randomized_svd(const raft::resources& handle,
 /** @} */  // end of group rsvd
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

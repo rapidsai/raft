@@ -13,7 +13,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -105,6 +105,6 @@ void map_reduce(raft::resources const& handle,
 /** @} */  // end of map_reduce
 
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

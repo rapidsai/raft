@@ -23,7 +23,7 @@
 #include <rmm/cuda_device.hpp>
 #include <rmm/device_uvector.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -157,4 +157,4 @@ void masked_matmul(raft::resources const& handle,
 }  // namespace detail
 }  // namespace linalg
 }  // namespace sparse
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

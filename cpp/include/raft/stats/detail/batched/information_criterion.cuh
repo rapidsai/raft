@@ -10,7 +10,7 @@
 
 #include <cmath>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace batched {
 namespace detail {
@@ -61,4 +61,4 @@ void information_criterion(ScalarT* d_ic,
 }  // namespace detail
 }  // namespace batched
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

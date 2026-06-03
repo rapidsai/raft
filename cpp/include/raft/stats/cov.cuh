@@ -12,7 +12,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/cov.cuh>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 /**
  * @brief Compute covariance of the input matrix
@@ -104,5 +104,5 @@ void cov(raft::resources const& handle,
 /** @} */  // end group stats_cov
 
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

@@ -50,6 +50,9 @@ class array_interface {
   auto view() const noexcept { return static_cast<Base*>(this)->view(); }
 };
 
+}  // namespace RAFT_EXPORT raft
+
+namespace raft {
 namespace detail {
 template <typename T, typename = void>
 struct is_array_interface : std::false_type {};
@@ -68,7 +71,9 @@ using is_array_interface_t = is_array_interface<std::remove_const_t<T>>;
 template <typename T>
 inline constexpr bool is_array_interface_v = is_array_interface<std::remove_const_t<T>>::value;
 }  // namespace detail
+}  // namespace raft
 
+namespace RAFT_EXPORT raft {
 template <typename...>
 struct is_array_interface : std::true_type {};
 template <typename T1>

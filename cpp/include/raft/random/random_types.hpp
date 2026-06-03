@@ -6,7 +6,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 /**
@@ -35,4 +35,4 @@ enum class multi_variable_gaussian_decomposition_method { CHOLESKY, JACOBI, QR }
 /** @} */
 
 };  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

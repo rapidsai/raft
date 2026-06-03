@@ -8,7 +8,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -65,4 +65,4 @@ enum IC_Type { AIC, AICc, BIC };
 /** @} */
 
 };  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

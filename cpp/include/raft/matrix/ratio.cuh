@@ -10,7 +10,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/math.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -93,4 +93,4 @@ void ratio(raft::resources const& handle, raft::device_vector_view<math_t, idx_t
 /** @} */  // end group matrix_ratio
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

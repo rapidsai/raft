@@ -20,7 +20,7 @@
 
 #include <cstddef>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace cache {
 
 /**
@@ -397,4 +397,4 @@ class Cache {
   }
 };
 };  // namespace cache
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

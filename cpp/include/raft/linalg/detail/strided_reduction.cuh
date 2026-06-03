@@ -12,7 +12,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -179,4 +179,4 @@ void stridedReduction(OutType* dots,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

@@ -37,6 +37,9 @@ struct cublas_error : public raft::exception {
  * @}
  */
 
+}  // namespace RAFT_EXPORT raft
+
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -59,7 +62,7 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #undef _CUBLAS_ERR_TO_STR
 

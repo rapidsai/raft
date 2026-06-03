@@ -9,7 +9,7 @@
 
 #include <curand.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 namespace detail {
 
@@ -47,4 +47,4 @@ inline curandStatus_t curandGenerateNormal(
 
 };  // end namespace detail
 };  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

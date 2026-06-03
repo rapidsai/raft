@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix::detail::select {
 
 /**
@@ -46,4 +46,4 @@ struct csr_layout {
 };
 
 }  // namespace matrix::detail::select
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

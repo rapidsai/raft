@@ -42,6 +42,9 @@ struct cusparse_error : public raft::exception {
 /**
  * @}
  */
+}  // namespace RAFT_EXPORT raft
+
+namespace raft {
 namespace sparse {
 namespace detail {
 
@@ -52,7 +55,7 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
 
 }  // namespace detail
 }  // namespace sparse
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #undef _CUSPARSE_ERR_TO_STR
 

@@ -13,7 +13,7 @@
 #include <raft/matrix/detail/sample_rows.cuh>
 #include <raft/random/rng.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /** @brief Select rows randomly from input and copy to output.
@@ -69,4 +69,4 @@ raft::device_matrix<T, IdxT> sample_rows(
 }
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

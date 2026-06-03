@@ -14,7 +14,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/binary_op.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -121,4 +121,4 @@ void choleskyRank1Update(raft::resources const& handle,
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

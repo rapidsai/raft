@@ -15,7 +15,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix::detail {
 
 /** Select rows randomly from input and copy to output. */
@@ -66,4 +66,4 @@ void sample_rows(raft::resources const& res,
   sample_rows<T, IdxT>(res, random_state, input, n_dim, n_rows_input, output);
 }
 }  // namespace matrix::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

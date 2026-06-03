@@ -6,7 +6,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 template <class ElementType, class Extents, class Layout, class Accessor>
 constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, Layout, Accessor> m)
@@ -119,4 +119,4 @@ constexpr bool is_scalar_view(mdspan<ElementType, Extents> m)
   return false;
 }
 
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

@@ -6,7 +6,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 struct print_separators {
@@ -15,4 +15,4 @@ struct print_separators {
 };
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

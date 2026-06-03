@@ -17,7 +17,7 @@
 #include <iostream>
 #include <numeric>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace comms {
 namespace detail {
 
@@ -531,4 +531,4 @@ bool test_commsplit(raft::resources const& h, int n_colors)
 
 }  // namespace detail
 }  // namespace comms
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

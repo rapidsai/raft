@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /**
  * @brief Logical-warp-level reduction
@@ -287,4 +287,4 @@ DI void logicalWarpReduceVector(T* acc, int lane_id, ReduceLambda reduce_op)
   }
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

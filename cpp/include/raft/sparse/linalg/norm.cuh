@@ -12,7 +12,7 @@
 #include <raft/linalg/norm_types.hpp>
 #include <raft/sparse/linalg/detail/norm.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 
@@ -92,6 +92,6 @@ void rowNormCsr(raft::resources const& handle,
 
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

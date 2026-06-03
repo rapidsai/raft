@@ -19,7 +19,7 @@
 
 ///@todo: add cub's histogram as another option
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -484,4 +484,4 @@ void histogram(HistType type,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
