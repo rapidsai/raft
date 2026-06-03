@@ -20,7 +20,7 @@ namespace raft::runtime::solver {
  * @{
  */
 
-#define FUNC_DECL(ValueType)                                                         \
+#define LANCZOS_SVD_FUNC_DECL(ValueType)                                             \
   RAFT_EXPORT void sparse_lanczos_svd(                                               \
     const raft::resources& handle,                                                   \
     const raft::sparse::solver::sparse_lanczos_svd_config<ValueType>& config,        \
@@ -34,10 +34,10 @@ namespace raft::runtime::solver {
     std::optional<raft::device_matrix_view<ValueType, uint32_t, raft::col_major>> U, \
     std::optional<raft::device_matrix_view<ValueType, uint32_t, raft::col_major>> Vt)
 
-FUNC_DECL(float);
-FUNC_DECL(double);
+LANCZOS_SVD_FUNC_DECL(float);
+LANCZOS_SVD_FUNC_DECL(double);
 
-#undef FUNC_DECL
+#undef LANCZOS_SVD_FUNC_DECL
 
 /** @} */
 
