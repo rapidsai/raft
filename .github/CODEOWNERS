@@ -24,3 +24,6 @@ build.sh           @rapidsai/raft-cmake-codeowners
 dependencies.yaml        @rapidsai/packaging-codeowners
 /build.sh                @rapidsai/packaging-codeowners
 pyproject.toml           @rapidsai/packaging-codeowners
+
+# Ops code owners
+/SECURITY.md             @rapidsai/ops-codeowners
