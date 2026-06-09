@@ -12,7 +12,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 namespace detail {
 
@@ -197,4 +197,4 @@ decltype(auto) memory_type_dispatcher(raft::resources const& res, lambda_t&& f, 
 
 /** @} */
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

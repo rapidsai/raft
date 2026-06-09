@@ -11,7 +11,7 @@
 
 #include <cub/device/device_radix_sort.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /**
  * @brief Convenience wrapper over cub's SortPairs method
@@ -42,4 +42,4 @@ void sortPairs(rmm::device_uvector<char>& workspace,
     workspace.data(), worksize, inKeys, outKeys, inVals, outVals, len, 0, sizeof(KeyT) * 8, stream);
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

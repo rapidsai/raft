@@ -11,7 +11,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -50,4 +50,4 @@ void addDevScalar(
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -19,7 +19,7 @@
 
 #include <algorithm>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace label {
 namespace detail {
 
@@ -192,4 +192,4 @@ void make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, bool zer
 
 };  // namespace detail
 };  // namespace label
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

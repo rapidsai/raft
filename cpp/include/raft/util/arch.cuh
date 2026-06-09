@@ -7,7 +7,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>  // RAFT_CUDA_TRY
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace util::arch {
 
 /* raft::util::arch provides the following facilities:
@@ -135,4 +135,4 @@ struct SM_range {
 };
 
 }  // namespace util::arch
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

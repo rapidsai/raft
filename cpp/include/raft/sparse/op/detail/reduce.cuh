@@ -29,7 +29,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace op {
 namespace detail {
@@ -150,4 +150,4 @@ void max_duplicates(raft::resources const& handle,
 };  // END namespace detail
 };  // END namespace op
 };  // END namespace sparse
-};  // END namespace RAFT_EXPORT raft
+};  // END namespace raft

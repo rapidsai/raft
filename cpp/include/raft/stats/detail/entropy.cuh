@@ -22,7 +22,7 @@
 
 #include <math.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -144,4 +144,4 @@ double entropy(const T* clusterArray,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

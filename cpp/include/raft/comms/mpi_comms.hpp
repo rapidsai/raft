@@ -11,7 +11,7 @@
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace comms {
 
 using mpi_comms = detail::mpi_comms;
@@ -59,4 +59,4 @@ inline void initialize_mpi_comms(resources* handle, MPI_Comm comm)
  */
 
 };  // namespace comms
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

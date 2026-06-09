@@ -15,7 +15,7 @@
 #include <optional>
 #include <variant>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 namespace detail {
 
@@ -246,4 +246,4 @@ class rmat_rectangular_gen_output {
 
 }  // end namespace detail
 }  // end namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

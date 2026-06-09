@@ -35,7 +35,7 @@
 // Get index of matrix entry
 #define IDX(i, j, lda) ((size_t)(i) + (j) * (lda))
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace spectral {
 namespace matrix {
 namespace detail {
@@ -474,4 +474,4 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type, nnz_type
 }  // namespace detail
 }  // namespace matrix
 }  // namespace spectral
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

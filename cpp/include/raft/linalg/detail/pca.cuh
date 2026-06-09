@@ -26,7 +26,7 @@
 
 #include <rmm/device_uvector.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg::detail {
 
 template <typename math_t, typename idx_t>
@@ -321,4 +321,4 @@ void pca_fit_transform(raft::resources const& handle,
 }
 
 };  // end namespace linalg::detail
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace util {
 
 /**
@@ -113,4 +113,4 @@ HDI int operator%(int n, const FastIntDiv& divisor)
 }
 
 };  // namespace util
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

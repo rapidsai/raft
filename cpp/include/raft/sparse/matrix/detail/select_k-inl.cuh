@@ -19,7 +19,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::matrix::detail {
 
 using namespace raft::matrix::detail;
@@ -218,4 +218,4 @@ void select_k(raft::resources const& handle,
 }
 
 }  // namespace sparse::matrix::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

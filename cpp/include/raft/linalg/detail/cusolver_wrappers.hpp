@@ -14,7 +14,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -1520,4 +1520,4 @@ inline cusolverStatus_t cusolverDnxsyevd(  // NOLINT
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -11,7 +11,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -55,4 +55,4 @@ void subtractDevScalar(math_t* outDev,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

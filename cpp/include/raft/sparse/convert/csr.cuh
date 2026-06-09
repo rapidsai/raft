@@ -17,7 +17,7 @@
 #include <raft/sparse/convert/detail/csr.cuh>
 #include <raft/sparse/csr.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace convert {
 
@@ -197,6 +197,6 @@ void bitset_to_csr(raft::resources const& handle,
 
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

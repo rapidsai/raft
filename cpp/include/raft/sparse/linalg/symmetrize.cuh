@@ -11,7 +11,7 @@
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/detail/symmetrize.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 
@@ -172,6 +172,6 @@ void symmetrize(raft::resources const& handle,
 
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

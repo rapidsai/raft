@@ -17,7 +17,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -296,5 +296,5 @@ void gemv(raft::resources const& handle,
 /** @} */  // end of gemv
 
 };  // namespace linalg
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

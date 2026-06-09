@@ -9,7 +9,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/stats/homogeneity_score.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -51,4 +51,4 @@ double v_measure(const T* truthClusterArray,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

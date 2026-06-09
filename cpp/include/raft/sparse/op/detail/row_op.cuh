@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace op {
 namespace detail {
@@ -61,4 +61,4 @@ void csr_row_op(const Index_* row_ind, Index_ n_rows, Index_ nnz, Lambda op, cud
 };  // namespace detail
 };  // namespace op
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
