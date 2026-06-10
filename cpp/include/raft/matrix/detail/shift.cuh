@@ -10,7 +10,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/matrix/shift_types.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix::detail {
 enum FillType { CONSTANT, MATRIX, SELF_ID };
 
@@ -192,4 +192,4 @@ void shift(raft::resources const& handle,
     handle, in_out, values.data_handle(), k, shift_direction, shift_type);
 }
 }  // namespace matrix::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -12,7 +12,7 @@
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/matrix/matrix_types.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -43,4 +43,4 @@ void print(raft::resources const& handle,
 
 /** @} */  // end group matrix_print
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -8,7 +8,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/sparse/detail/coo.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 
 /** @brief A Container object for sparse coordinate. There are two motivations
@@ -33,4 +33,4 @@ template <typename value_t, typename value_idx = int, typename nnz_t = uint64_t>
 using COO = detail::COO<value_t, value_idx, nnz_t>;
 
 };  // namespace sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

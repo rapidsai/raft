@@ -13,7 +13,7 @@
 
 #include <cstdint>  // uintX_t
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /**
  * @defgroup SmemStores Shared memory store operations
@@ -771,4 +771,4 @@ DI void stg(const int64_t& reg, void* addr, bool guard)
 
 /** @} */
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

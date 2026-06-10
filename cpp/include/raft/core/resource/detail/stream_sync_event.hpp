@@ -12,7 +12,7 @@
 
 #include <cuda_runtime.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace resource::detail {
 
 /**
@@ -40,4 +40,4 @@ inline cudaEvent_t& get_cuda_stream_sync_event(resources const& res)
 };
 
 }  // namespace resource::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

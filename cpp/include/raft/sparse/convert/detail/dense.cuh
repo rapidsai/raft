@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace convert {
 namespace detail {
@@ -131,4 +131,4 @@ void csr_to_dense(cusparseHandle_t handle,
 };  // namespace detail
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

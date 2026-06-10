@@ -16,7 +16,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace mr {
 
 /**
@@ -159,4 +159,4 @@ template <typename Upstream>
 statistics_adaptor(Upstream) -> statistics_adaptor<Upstream>;
 
 }  // namespace mr
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

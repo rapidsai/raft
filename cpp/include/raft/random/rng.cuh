@@ -19,7 +19,7 @@
 #include <type_traits>
 #include <variant>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 /**
@@ -1170,4 +1170,4 @@ class DEPR Rng : public detail::RngImpl {
 #undef DEPR
 
 };  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -16,7 +16,7 @@
 
 #include <cstdint>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 namespace detail {
 
@@ -117,4 +117,4 @@ void scatter(raft::resources const& handle,
 
 }  // end namespace detail
 }  // end namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

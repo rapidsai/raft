@@ -12,7 +12,7 @@
 #include <cuda_fp16.h>
 #include <cuda_pipeline.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -158,4 +158,4 @@ void faster_dot_on_csr(raft::resources const& handle,
 }  // namespace detail
 }  // namespace linalg
 }  // namespace sparse
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

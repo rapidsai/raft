@@ -10,7 +10,7 @@
 #include <limits>  // numeric_limits
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 template <class ElementType, bool is_device, std::size_t Extent>
 class span;
@@ -95,4 +95,4 @@ struct span_storage<T, dynamic_extent> {
   [[nodiscard]] constexpr auto data() const noexcept -> T* { return ptr_; }
 };
 }  // namespace detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -13,7 +13,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 /**
  * @brief perform element-wise ternary operation on the input arrays
@@ -74,6 +74,6 @@ void ternary_op(
 /** @} */  // end of group ternary_op
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

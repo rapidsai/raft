@@ -6,7 +6,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -24,4 +24,4 @@ enum class FillMode { UPPER, LOWER };
 enum class Operation { NON_TRANSPOSE, TRANSPOSE };
 
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

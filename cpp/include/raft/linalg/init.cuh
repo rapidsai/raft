@@ -11,7 +11,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -60,6 +60,6 @@ void zero(T* out, int n, cudaStream_t stream)
 }
 
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

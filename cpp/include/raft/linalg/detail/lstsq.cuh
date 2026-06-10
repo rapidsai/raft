@@ -25,7 +25,7 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -443,4 +443,4 @@ void lstsqQR(raft::resources const& handle,
 }
 };  // namespace detail
 };  // namespace linalg
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

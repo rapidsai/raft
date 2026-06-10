@@ -27,7 +27,7 @@
 #include <ostream>
 #include <string>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /**
  * @brief A resources handle that wraps all reachable memory resources with
@@ -245,4 +245,4 @@ class memory_tracking_resources : public resources {
   }
 };
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -12,7 +12,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/stats/detail/trustworthiness_score.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -86,6 +86,6 @@ double trustworthiness_score(
 /** @} */  // end group stats_trustworthiness
 
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

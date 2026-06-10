@@ -12,7 +12,7 @@
 
 #include <stdint.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /** True CUDA alignment of a type (adapted from CUB) */
 template <typename T>
@@ -219,4 +219,4 @@ DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_xor(T val,
   return output;
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

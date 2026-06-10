@@ -10,7 +10,7 @@
 
 #include <cub/block/block_radix_sort.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace cache {
 
 /**
@@ -352,4 +352,4 @@ RAFT_KERNEL get_cache_idx(int* keys,
   }
 }
 };  // namespace cache
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

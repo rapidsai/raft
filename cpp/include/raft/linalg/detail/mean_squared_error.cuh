@@ -8,7 +8,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -25,4 +25,4 @@ void meanSquaredError(
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

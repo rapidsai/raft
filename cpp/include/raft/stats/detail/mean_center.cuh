@@ -10,7 +10,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -59,4 +59,4 @@ void meanAdd(Type* out, const Type* data, const Type* mu, IdxType D, IdxType N, 
 
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

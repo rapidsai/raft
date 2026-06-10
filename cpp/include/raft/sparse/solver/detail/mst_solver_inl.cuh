@@ -34,7 +34,7 @@
 
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::solver {
 
 // curand generator uniform
@@ -403,4 +403,4 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::append_src_dst_pair(
                   new_edges_functor<vertex_t, weight_t>());
 }
 }  // namespace sparse::solver
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

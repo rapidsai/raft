@@ -7,7 +7,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/sparse/linalg/detail/masked_matmul.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 
@@ -104,4 +104,4 @@ void masked_matmul(raft::resources const& handle,
 
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace RAFT_EXPORT raft
+}  // end namespace raft

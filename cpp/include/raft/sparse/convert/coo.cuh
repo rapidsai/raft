@@ -10,7 +10,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/sparse/convert/detail/coo.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace convert {
 
@@ -31,6 +31,6 @@ void csr_to_coo(
 
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

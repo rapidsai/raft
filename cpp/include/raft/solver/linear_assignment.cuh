@@ -43,7 +43,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace solver {
 
 /**
@@ -336,6 +336,6 @@ class LinearAssignmentProblem {
 };
 
 }  // namespace solver
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

@@ -22,7 +22,7 @@
 #include <algorithm>
 #include <optional>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 /**
@@ -179,6 +179,6 @@ void make_regression(raft::resources const& handle,
 /** @} */  // end group make_regression
 
 }  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

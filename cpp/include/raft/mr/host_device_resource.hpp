@@ -8,7 +8,7 @@
 
 #include <cuda/memory_resource>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace mr {
 
 /**
@@ -52,4 +52,4 @@ using host_device_resource_ref =
   cuda::mr::synchronous_resource_ref<cuda::mr::host_accessible, cuda::mr::device_accessible>;
 
 }  // namespace mr
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

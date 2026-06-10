@@ -12,7 +12,7 @@
 // Taken from:
 //  https://github.com/teju85/programming/blob/master/euler/include/seive.h
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace common {
 
 /**
@@ -113,4 +113,4 @@ class Seive {
   std::vector<unsigned> seive;
 };
 };  // namespace common
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

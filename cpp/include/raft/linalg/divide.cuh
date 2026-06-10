@@ -15,7 +15,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -80,6 +80,6 @@ void divide_scalar(raft::resources const& handle,
 /** @} */  // end of group add
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

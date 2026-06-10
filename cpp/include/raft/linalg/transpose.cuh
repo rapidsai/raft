@@ -14,7 +14,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/core/type_traits.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -97,6 +97,6 @@ auto transpose(raft::resources const& handle,
 /** @} */  // end of group transpose
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

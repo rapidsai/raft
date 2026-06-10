@@ -12,7 +12,7 @@
 
 #include <limits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::solver::detail {
 
 template <typename vertex_t, typename edge_t, typename alteration_t>
@@ -321,4 +321,4 @@ RAFT_KERNEL kernel_count_new_mst_edges(const vertex_t* mst_src,
 }
 
 }  // namespace sparse::solver::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
