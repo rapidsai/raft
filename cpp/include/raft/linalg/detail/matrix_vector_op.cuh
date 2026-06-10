@@ -10,7 +10,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/linewise_op.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -96,4 +96,4 @@ void matrixVectorOp(bool dry_run,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

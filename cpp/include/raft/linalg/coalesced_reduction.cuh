@@ -16,7 +16,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -154,6 +154,6 @@ void coalesced_reduction(raft::resources const& handle,
 /** @} */  // end of group coalesced_reduction
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

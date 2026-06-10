@@ -14,7 +14,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/mutual_info_score.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -79,5 +79,5 @@ double mutual_info_score(raft::resources const& handle,
 /** @} */  // end group stats_mutual_info
 
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

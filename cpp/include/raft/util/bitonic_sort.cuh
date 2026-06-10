@@ -8,7 +8,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace util {
 
 namespace {
@@ -237,4 +237,4 @@ class bitonic {
 };
 
 }  // namespace util
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -12,12 +12,11 @@
 #include <optional>
 
 namespace raft::runtime::matrix {
-RAFT_EXPORT void select_k(
-  const resources& handle,
-  raft::device_matrix_view<const float, int64_t, row_major> in_val,
-  std::optional<raft::device_matrix_view<const int64_t, int64_t, row_major>> in_idx,
-  raft::device_matrix_view<float, int64_t, row_major> out_val,
-  raft::device_matrix_view<int64_t, int64_t, row_major> out_idx,
-  bool select_min);
+void select_k(const resources& handle,
+              raft::device_matrix_view<const float, int64_t, row_major> in_val,
+              std::optional<raft::device_matrix_view<const int64_t, int64_t, row_major>> in_idx,
+              raft::device_matrix_view<float, int64_t, row_major> out_val,
+              raft::device_matrix_view<int64_t, int64_t, row_major> out_idx,
+              bool select_min);
 
 }  // namespace raft::runtime::matrix

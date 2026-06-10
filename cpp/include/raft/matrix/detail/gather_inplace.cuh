@@ -14,7 +14,7 @@
 #include <cuda/iterator>
 #include <thrust/for_each.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 namespace detail {
 
@@ -134,4 +134,4 @@ void gather(raft::resources const& handle,
 
 }  // namespace detail
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

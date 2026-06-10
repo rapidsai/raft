@@ -16,7 +16,7 @@
 
 #include <rmm/resource_ref.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 /**
@@ -49,5 +49,5 @@ void multi_variable_gaussian(raft::resources const& handle,
 /** @} */
 
 };  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 #endif

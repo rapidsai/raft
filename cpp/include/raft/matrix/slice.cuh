@@ -12,7 +12,7 @@
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -74,4 +74,4 @@ void slice(raft::resources const& handle,
 /** @} */  // end group matrix_slice
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

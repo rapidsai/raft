@@ -18,7 +18,7 @@
 
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::linalg::detail {
 
 struct zero_to_one_functor {
@@ -282,4 +282,4 @@ auto laplacian_normalized(raft::resources const& res,
 }
 
 }  // namespace sparse::linalg::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

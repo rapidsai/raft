@@ -16,7 +16,7 @@
 
 #include <algorithm>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 namespace detail {
 
@@ -807,4 +807,4 @@ struct MatrixLinewiseOp {
 
 }  // end namespace detail
 }  // end namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -20,7 +20,7 @@
 
 #include <cub/block/block_reduce.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 namespace detail {
 
@@ -406,4 +406,4 @@ void signFlip(math_t* inout, int n_rows, int n_cols, cudaStream_t stream)
 
 }  // end namespace detail
 }  // end namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

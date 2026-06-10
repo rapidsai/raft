@@ -11,7 +11,7 @@
 #include <raft/matrix/detail/shift.cuh>
 #include <raft/matrix/shift_types.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -110,4 +110,4 @@ void shift(raft::resources const& handle,
   detail::shift(handle, in_out, values, shift_direction, shift_type);
 }
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

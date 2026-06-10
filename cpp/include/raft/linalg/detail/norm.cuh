@@ -10,7 +10,7 @@
 #include <raft/linalg/norm_types.hpp>
 #include <raft/linalg/reduce.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -72,4 +72,4 @@ void colNormCaller(bool dry_run,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

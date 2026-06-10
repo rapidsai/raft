@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
-cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 include(../cmake/rapids_config.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
@@ -282,6 +282,8 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/solver/lanczos_solver_int64_float.cu
     src/raft_runtime/solver/lanczos_solver_int_double.cu
     src/raft_runtime/solver/lanczos_solver_int_float.cu
+    src/raft_runtime/solver/randomized_svds_float.cu
+    src/raft_runtime/solver/randomized_svds_double.cu
   )
   set_target_properties(
     raft_objs

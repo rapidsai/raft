@@ -14,7 +14,7 @@
 
 #include <cub/block/block_reduce.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -623,4 +623,4 @@ void coalescedReduction(bool dry_run,
 
 }  // namespace detail
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

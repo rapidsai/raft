@@ -21,7 +21,7 @@
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace batched {
 namespace detail {
@@ -271,4 +271,4 @@ value_t silhouette_score(
 }  // namespace detail
 }  // namespace batched
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

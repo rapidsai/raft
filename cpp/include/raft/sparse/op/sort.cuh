@@ -13,7 +13,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/sparse/op/detail/sort.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace op {
 
@@ -91,6 +91,6 @@ void coo_sort_by_weight(
 }
 };  // namespace op
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 
 #endif

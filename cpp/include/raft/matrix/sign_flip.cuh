@@ -11,7 +11,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -38,4 +38,4 @@ void sign_flip(raft::resources const& handle,
 
 /** @} */  // end group matrix_sign_flip
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

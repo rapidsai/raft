@@ -11,7 +11,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/stats/mean_center.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 /**
@@ -64,4 +64,4 @@ void cov(raft::resources const& handle,
 }
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

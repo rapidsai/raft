@@ -10,7 +10,7 @@
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -63,4 +63,4 @@ void eltwiseDivideCheckZero(
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

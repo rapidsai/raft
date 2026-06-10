@@ -19,7 +19,7 @@
 
 #include <algorithm>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -169,4 +169,4 @@ void qrGetQR(raft::resources const& handle,
 
 };  // namespace detail
 };  // namespace linalg
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

@@ -15,7 +15,7 @@
 #include <raft/linalg/linalg_types.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 namespace detail {
@@ -85,4 +85,4 @@ void sddmm(raft::resources const& handle,
 }  // end namespace detail
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace RAFT_EXPORT raft
+}  // end namespace raft

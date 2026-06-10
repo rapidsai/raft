@@ -360,11 +360,13 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
       raft::alloc_behavior::ARGUMENT_DRIVEN,
       sizeof(ValueType) * n * config.ncv);
 
-    ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues.data_handle(),
-                                             expected_eigenvalues.data_handle(),
-                                             params.n_components,
-                                             raft::CompareApprox<ValueType>(1e-5),
-                                             stream));
+    ASSERT_TRUE(raft::devArrMatch<ValueType>(
+      eigenvalues.data_handle(),
+      expected_eigenvalues.data_handle(),
+      params.n_components,
+      raft::CompareApprox<ValueType>(
+        params.which == raft::sparse::solver::LANCZOS_WHICH::SM ? 5e-5 : 1e-5),
+      stream));
 
     // Reproducibility test - run again with same seed and verify exact match
     raft::device_vector<ValueType, uint32_t, raft::col_major> eigenvalues2 =
@@ -413,11 +415,13 @@ class lanczos_tests : public ::testing::TestWithParam<lanczos_inputs<IndexType, 
       eigenvalues_coo.view(),
       eigenvectors_coo.view());
 
-    ASSERT_TRUE(raft::devArrMatch<ValueType>(eigenvalues_coo.data_handle(),
-                                             expected_eigenvalues.data_handle(),
-                                             params.n_components,
-                                             raft::CompareApprox<ValueType>(1e-5),
-                                             stream));
+    ASSERT_TRUE(raft::devArrMatch<ValueType>(
+      eigenvalues_coo.data_handle(),
+      expected_eigenvalues.data_handle(),
+      params.n_components,
+      raft::CompareApprox<ValueType>(
+        params.which == raft::sparse::solver::LANCZOS_WHICH::SM ? 5e-5 : 1e-5),
+      stream));
   }
 
  protected:

@@ -14,7 +14,7 @@
 #include <raft/sparse/linalg/detail/cusparse_utils.hpp>
 #include <raft/sparse/linalg/detail/spmm.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace linalg {
 
@@ -92,6 +92,6 @@ void spmm(raft::resources const& handle,
 
 }  // end namespace linalg
 }  // end namespace sparse
-}  // end namespace RAFT_EXPORT raft
+}  // end namespace raft
 
 #endif

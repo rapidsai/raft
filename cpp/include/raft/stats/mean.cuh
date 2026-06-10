@@ -14,7 +14,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/stats/detail/mean.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -138,5 +138,5 @@ template <typename value_t, typename idx_t, typename layout_t>
 /** @} */  // end group stats_mean
 
 };  // namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

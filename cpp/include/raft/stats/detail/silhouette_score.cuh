@@ -29,7 +29,7 @@
 #include <iostream>
 #include <numeric>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -313,4 +313,4 @@ DataT silhouette_score(
 
 };  // namespace detail
 };  // namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

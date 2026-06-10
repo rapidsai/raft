@@ -14,7 +14,7 @@
 #include <raft/matrix/detail/gather_inplace.cuh>
 #include <raft/util/itertools.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -472,4 +472,4 @@ void gather(raft::resources const& handle,
 /** @} */  // end of group matrix_gather
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

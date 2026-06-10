@@ -31,7 +31,7 @@
 #include <cstdio>
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace op {
 namespace detail {
@@ -286,4 +286,4 @@ void coo_remove_zeros(COO<T, idx_t, nnz_t>* in, COO<T, idx_t, nnz_t>* out, cudaS
 };  // namespace detail
 };  // namespace op
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

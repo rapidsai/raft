@@ -10,7 +10,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/detail/scatter.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 
 /**
  * @brief Performs scatter operation based on the input indexing array
@@ -56,4 +56,4 @@ void scatter(DataT* out,
   }
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

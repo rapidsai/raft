@@ -15,7 +15,7 @@
 #include <raft/core/types.hpp>
 #include <raft/stats/detail/weighted_mean.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -172,5 +172,5 @@ void col_weighted_mean(raft::resources const& handle,
 /** @} */  // end group stats_weighted_mean
 
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

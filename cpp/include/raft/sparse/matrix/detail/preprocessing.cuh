@@ -19,7 +19,7 @@
 
 #include <thrust/reduce.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::matrix::detail {
 
 /**
@@ -221,4 +221,4 @@ void transform_tfidf(raft::resources const& handle,
 }
 
 }  // namespace sparse::matrix::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -22,7 +22,7 @@
 #include <cstddef>
 #include <optional>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats::detail {
 
 template <typename IndicesValueType,
@@ -106,4 +106,4 @@ void neighborhood_recall(
 }
 
 }  // namespace stats::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

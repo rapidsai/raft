@@ -29,7 +29,7 @@
 
 #include <math.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -211,4 +211,4 @@ double compute_adjusted_rand_index(bool dry_run,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

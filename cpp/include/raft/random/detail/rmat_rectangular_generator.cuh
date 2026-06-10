@@ -16,7 +16,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 namespace detail {
 
@@ -296,4 +296,4 @@ void rmat_rectangular_gen_impl(raft::resources const& handle,
 
 }  // end namespace detail
 }  // end namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

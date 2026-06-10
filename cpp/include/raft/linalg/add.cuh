@@ -16,7 +16,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -197,6 +197,6 @@ void add_scalar(raft::resources const& handle,
 /** @} */  // end of group add
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

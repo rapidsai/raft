@@ -68,6 +68,8 @@ jobs:
         with:
           repo: ${{ github.repository }}
           target-branch: ${{ fromJSON(steps.get-pr-info.outputs.pr-info).base.ref }}
+          # Tracking Issue: https://github.com/rapidsai/raft/issues/3037
+          max-days-without-success: 30
   changed-files:
     needs: telemetry-setup
     permissions:
@@ -93,6 +95,7 @@ jobs:
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
+          - '!SECURITY.md'
           - '!ci/check_style.sh'
           - '!ci/release/update-version.sh'
           - '!ci/run_*.sh'
@@ -114,6 +117,7 @@ jobs:
           - '!.shellcheckrc'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_docs.sh'
           - '!ci/build_python.sh'
           - '!ci/build_wheel*.sh'
@@ -142,6 +146,7 @@ jobs:
           - '!.shellcheckrc'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_docs.sh'
           - '!ci/build_wheel*.sh'
           - '!ci/check_style.sh'
@@ -169,6 +174,7 @@ jobs:
           - '!.shellcheckrc'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_cpp.sh'
           - '!ci/build_docs.sh'
           - '!ci/build_python.sh'
@@ -234,6 +240,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@main
     with:
       build_type: pull-request
+      package_name: libraft
   conda-python-build:
     needs: conda-cpp-build
     permissions:

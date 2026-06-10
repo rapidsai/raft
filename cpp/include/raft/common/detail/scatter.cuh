@@ -9,7 +9,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace detail {
 
 template <typename DataT, int VecLen, typename Lambda, typename IdxT>
@@ -41,4 +41,4 @@ void scatterImpl(
 }
 
 }  // namespace detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

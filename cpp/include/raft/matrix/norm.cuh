@@ -11,7 +11,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -35,4 +35,4 @@ m_t l2_norm(raft::resources const& handle, raft::device_mdspan<const m_t, idx_t>
 /** @} */  // end of group matrix_norm
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

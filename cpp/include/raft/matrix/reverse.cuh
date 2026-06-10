@@ -12,7 +12,7 @@
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -64,4 +64,4 @@ void row_reverse(raft::resources const& handle,
 /** @} */  // end group matrix_reverse
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

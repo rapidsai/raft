@@ -18,7 +18,7 @@
 #include <limits>
 #include <optional>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -132,5 +132,5 @@ void minmax(raft::resources const& handle,
 /** @} */  // end group stats_minmax
 
 };  // namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

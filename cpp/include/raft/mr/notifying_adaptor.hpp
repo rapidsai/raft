@@ -15,7 +15,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace mr {
 
 /**
@@ -145,4 +145,4 @@ class notifying_adaptor : public cuda::forward_property<notifying_adaptor<Upstre
 };
 
 }  // namespace mr
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

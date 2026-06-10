@@ -17,7 +17,7 @@
 
 #include <memory>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -129,4 +129,4 @@ DataT dispersion(bool dry_run,
 
 }  // end namespace detail
 }  // end namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

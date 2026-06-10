@@ -17,7 +17,7 @@
 
 #include <math.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -316,4 +316,4 @@ void contingencyMatrix(const T* groundTruth,
 
 };  // namespace detail
 };  // namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

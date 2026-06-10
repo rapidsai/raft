@@ -36,7 +36,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 //! Utility functions
 /**
  * Finds the smallest integer not less than `number_to_round` and modulo `S` is
@@ -242,4 +242,4 @@ _RAFT_HOST_DEVICE inline void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uin
 #endif
 }
 
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

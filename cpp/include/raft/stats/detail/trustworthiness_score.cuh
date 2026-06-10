@@ -16,7 +16,7 @@
 
 #define N_THREADS 512
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -195,4 +195,4 @@ double trustworthiness_score(const raft::resources& h,
 
 }  // namespace detail
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -14,7 +14,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/scores.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -65,6 +65,6 @@ float accuracy(raft::resources const& handle,
 /** @} */  // end group stats_accuracy
 
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #endif

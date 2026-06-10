@@ -15,7 +15,7 @@
 #include <raft/stats/entropy.cuh>
 #include <raft/stats/mutual_info_score.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 /**
@@ -60,4 +60,4 @@ double homogeneity_score(bool dry_run,
 
 };  // end namespace detail
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

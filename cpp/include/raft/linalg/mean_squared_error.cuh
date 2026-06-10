@@ -14,7 +14,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -73,6 +73,6 @@ void mean_squared_error(raft::resources const& handle,
 /** @} */  // end of group mean_squared_error
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

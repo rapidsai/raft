@@ -21,7 +21,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace common::nvtx::detail {
 
 /**
@@ -178,11 +178,11 @@ inline void pop_range()
 }
 
 }  // namespace common::nvtx::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 
 #else   // NVTX_ENABLED
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace common::nvtx::detail {
 
 template <typename Domain, typename... Args>
@@ -196,5 +196,5 @@ inline void pop_range()
 }
 
 }  // namespace common::nvtx::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 #endif  // NVTX_ENABLED

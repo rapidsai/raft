@@ -25,7 +25,7 @@
 
 #define N_THREADS 512
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 /**
@@ -217,4 +217,4 @@ void regression_metrics(bool dry_run,
 }
 }  // namespace detail
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

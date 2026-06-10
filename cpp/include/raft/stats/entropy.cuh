@@ -13,7 +13,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/entropy.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -73,5 +73,5 @@ double entropy(raft::resources const& handle,
 /** @} */  // end group stats_entropy
 
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

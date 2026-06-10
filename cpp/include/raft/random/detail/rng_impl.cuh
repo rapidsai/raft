@@ -23,7 +23,7 @@
 #include <cub/device/device_select.cuh>
 #include <cuda_fp16.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 namespace detail {
 
@@ -492,4 +492,4 @@ auto excess_subsample(raft::resources const& res, RngState& state, IdxT N, IdxT 
 
 };  // end namespace detail
 };  // end namespace random
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

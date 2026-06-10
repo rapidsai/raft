@@ -33,7 +33,7 @@
 // mvg.cuh takes in matrices that are column major (as in fortran)
 #define IDX2C(i, j, ld) (j * ld + i)
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 namespace detail {
 
@@ -455,4 +455,4 @@ class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
 
 };  // end of namespace detail
 };  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

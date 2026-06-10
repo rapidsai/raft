@@ -10,7 +10,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace comms {
 
 /**
@@ -157,4 +157,4 @@ bool test_commsplit(raft::resources const& h, int n_colors)
   return detail::test_commsplit(h, n_colors);
 }
 }  // namespace comms
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

@@ -24,7 +24,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace detail {
 
@@ -159,4 +159,4 @@ void weak_cc_batched(Index_* labels,
 
 };  // namespace detail
 };  // namespace sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

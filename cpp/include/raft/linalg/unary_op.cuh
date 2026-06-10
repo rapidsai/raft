@@ -14,7 +14,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -118,6 +118,6 @@ void write_only_unary_op(const raft::resources& handle, OutType out, Lambda op)
 /** @} */  // end of group unary_op
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

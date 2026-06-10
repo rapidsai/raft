@@ -14,7 +14,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/stats/detail/stddev.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -172,5 +172,5 @@ void vars(raft::resources const& handle,
 /** @} */  // end group stats_variance
 
 };  // namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

@@ -19,7 +19,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/adjusted_rand_index.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -77,5 +77,5 @@ double adjusted_rand_index(raft::resources const& handle,
 /** @} */  // end group stats_adj_rand_index
 
 };  // end namespace stats
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

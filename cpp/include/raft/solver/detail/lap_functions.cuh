@@ -46,7 +46,7 @@
 
 #include <cstddef>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace solver::detail {
 
 const int BLOCKDIMX{64};
@@ -595,4 +595,4 @@ inline void calcObjValPrimal(raft::resources const& handle,
 }
 
 }  // namespace solver::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

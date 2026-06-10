@@ -12,7 +12,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -73,6 +73,6 @@ void binary_op(raft::resources const& handle, InType in1, InType in2, OutType ou
 /** @} */  // end of group binary_op
 
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft
 
 #endif

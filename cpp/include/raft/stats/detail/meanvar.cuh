@@ -9,7 +9,7 @@
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats::detail {
 
 template <typename T>
@@ -231,4 +231,4 @@ void meanvar(bool dry_run,
 }
 
 };  // namespace stats::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

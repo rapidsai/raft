@@ -12,7 +12,7 @@
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -121,4 +121,4 @@ void trunc_zero_origin(raft::resources const& handle,
 /** @} */  // end of group matrix_copy
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

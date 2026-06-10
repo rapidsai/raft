@@ -12,7 +12,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/detail/math.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -110,4 +110,4 @@ void weighted_sqrt(raft::resources const& handle,
 /** @} */  // end group matrix_sqrt
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

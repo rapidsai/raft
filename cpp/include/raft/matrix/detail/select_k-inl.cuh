@@ -21,7 +21,7 @@
 
 #include <cub/device/device_segmented_radix_sort.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix::detail {
 
 /**
@@ -314,4 +314,4 @@ void select_k(raft::resources const& handle,
   }
 }
 }  // namespace matrix::detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

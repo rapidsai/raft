@@ -13,7 +13,7 @@
 #include <raft/core/types.hpp>
 #include <raft/matrix/detail/linewise_op.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -119,4 +119,4 @@ void linewise_op(raft::resources const& handle,
 /** @} */  // end of group linewise_op
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

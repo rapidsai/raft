@@ -10,7 +10,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/resources.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 /**
@@ -296,4 +296,4 @@ void rmat_rectangular_gen(IdxT* out,
 /** @} */
 
 }  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

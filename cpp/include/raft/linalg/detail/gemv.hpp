@@ -14,7 +14,7 @@
 
 #include <cublas_v2.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -137,4 +137,4 @@ void gemv(raft::resources const& handle,
 
 };  // namespace detail
 };  // namespace linalg
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

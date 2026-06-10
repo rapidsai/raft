@@ -13,7 +13,7 @@
 
 #include <stddef.h>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace detail {
 
 template <typename T>
@@ -135,4 +135,4 @@ struct fail_container_policy {
 };
 
 }  // namespace detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

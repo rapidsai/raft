@@ -242,7 +242,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH linalg/eigen_solvers.cu lap/lap.cu sparse/mst.cu
-    sparse/solver/lanczos.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    sparse/solver/lanczos.cu sparse/solver/randomized_svds.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(

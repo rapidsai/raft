@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <cstddef>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 namespace detail {
 
@@ -311,4 +311,4 @@ m_t getL2Norm(raft::resources const& handle, const m_t* in, idx_t size, cudaStre
 
 }  // end namespace detail
 }  // end namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

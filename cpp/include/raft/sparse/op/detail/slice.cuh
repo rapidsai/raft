@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace op {
 namespace detail {
@@ -94,4 +94,4 @@ void csr_row_slice_populate(value_idx start_offset,
 };  // namespace detail
 };  // namespace op
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

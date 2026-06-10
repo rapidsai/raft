@@ -19,7 +19,7 @@
 
 #include <vector>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 namespace detail {
@@ -251,4 +251,4 @@ void make_blobs_caller(bool dry_run,
 
 }  // end namespace detail
 }  // end namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

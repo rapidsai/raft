@@ -13,7 +13,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/label/detail/classlabels.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace label {
 
 /**
@@ -132,5 +132,5 @@ void make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, bool zer
   detail::make_monotonic<Type>(out, in, N, stream, zero_based);
 }
 };  // namespace label
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft
 #endif

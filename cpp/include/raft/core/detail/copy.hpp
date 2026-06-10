@@ -28,7 +28,7 @@
 #endif
 #endif
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace detail {
 
 template <bool B,
@@ -548,4 +548,4 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
   }
 }
 }  // namespace detail
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

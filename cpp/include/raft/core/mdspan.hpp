@@ -25,6 +25,9 @@ template <typename ElementType,
           typename AccessorPolicy = cuda::std::default_accessor<ElementType>>
 using mdspan = cuda::std::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
+}  // namespace RAFT_EXPORT raft
+
+namespace raft {
 namespace detail {
 
 template <typename IntType>
@@ -53,7 +56,9 @@ struct alignment {
 };
 
 }  // namespace detail
+}  // namespace raft
 
+namespace RAFT_EXPORT raft {
 /**
  * @brief Padded layouts that take a padding value directly.
  */

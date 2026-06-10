@@ -24,7 +24,7 @@
 
 #include <limits>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse {
 namespace convert {
 namespace detail {
@@ -365,4 +365,4 @@ void bitmap_to_csr(raft::resources const& handle,
 };  // end NAMESPACE detail
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
-};  // namespace RAFT_EXPORT raft
+};  // namespace raft

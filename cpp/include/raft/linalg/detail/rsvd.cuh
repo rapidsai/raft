@@ -26,7 +26,7 @@
 
 #include <algorithm>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 namespace detail {
 
@@ -529,4 +529,4 @@ void rsvdPerc(raft::resources const& handle,
 
 };  // end namespace detail
 };  // end namespace linalg
-};  // end namespace RAFT_EXPORT raft
+};  // end namespace raft

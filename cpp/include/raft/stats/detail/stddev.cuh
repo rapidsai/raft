@@ -11,7 +11,7 @@
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 namespace detail {
 
@@ -112,4 +112,4 @@ void vars(bool dry_run,
 
 }  // namespace detail
 }  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

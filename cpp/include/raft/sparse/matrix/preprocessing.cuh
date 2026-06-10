@@ -12,7 +12,7 @@
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/matrix/detail/preprocessing.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::matrix {
 /**
  * @brief This function calculate the tf-idf values for each entry in the COO sparse
@@ -211,4 +211,4 @@ void encode_bm25(raft::resources const& handle,
 }
 
 }  // namespace sparse::matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

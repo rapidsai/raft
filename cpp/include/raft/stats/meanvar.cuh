@@ -13,7 +13,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/stats/detail/meanvar.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace stats {
 
 /**
@@ -101,5 +101,5 @@ void meanvar(raft::resources const& handle,
 /** @} */  // end group stats_mean_var
 
 };  // namespace stats
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 #endif

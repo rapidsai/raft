@@ -12,7 +12,7 @@
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/matrix/detail/math.cuh>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace matrix {
 
 /**
@@ -82,4 +82,4 @@ void reciprocal(raft::resources const& handle,
 /** @} */  // end group matrix_reciprocal
 
 }  // namespace matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

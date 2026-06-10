@@ -15,7 +15,7 @@
 #include <raft/linalg/norm_types.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace linalg {
 
 /**
@@ -109,4 +109,4 @@ void row_normalize(raft::resources const& handle,
 /** @} */
 
 }  // namespace linalg
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

@@ -19,7 +19,7 @@
 #include <type_traits>
 #include <variant>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 namespace sample_without_replacement_impl {
@@ -160,4 +160,4 @@ void sample_without_replacement(Args... args)
 /** @} */
 
 }  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

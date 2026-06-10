@@ -14,7 +14,7 @@
 #include <raft/sparse/matrix/detail/diagonal.cuh>
 #include <raft/util/input_validation.hpp>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace sparse::matrix {
 
 /**
@@ -159,4 +159,4 @@ void set_diagonal(raft::resources const& res,
 }
 
 }  // namespace sparse::matrix
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft

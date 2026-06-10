@@ -18,7 +18,7 @@
 
 #include <optional>
 
-namespace RAFT_EXPORT raft {
+namespace raft {
 namespace random {
 
 /**
@@ -180,5 +180,5 @@ void make_blobs(
 /** @} */  // end group make_blobs
 
 }  // namespace random
-}  // namespace RAFT_EXPORT raft
+}  // namespace raft
 #endif
