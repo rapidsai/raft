@@ -6,12 +6,12 @@
 #include "../test_utils.cuh"
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/dry_run_resources.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/dry_run_resources.hpp>
 
 #include <gtest/gtest.h>
 

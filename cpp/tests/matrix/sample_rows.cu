@@ -6,6 +6,7 @@
 #include "../test_utils.cuh"
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/dry_run_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -14,7 +15,6 @@
 #include <raft/matrix/sample_rows.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/dry_run_resources.hpp>
 #include <raft/util/itertools.hpp>
 
 #include <gtest/gtest.h>

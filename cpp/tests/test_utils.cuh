@@ -7,13 +7,13 @@
 
 #include "test_utils.h"
 
+#include <raft/core/dry_run_resources.hpp>
+#include <raft/core/memory_stats_resources.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/dry_run_resources.hpp>
-#include <raft/util/memory_stats_resources.hpp>
 
 #include <rmm/exec_policy.hpp>
 #include <rmm/mr/per_device_resource.hpp>

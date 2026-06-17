@@ -6,6 +6,7 @@
 #include <raft/core/copy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/dry_run_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -18,7 +19,6 @@
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/dry_run_resources.hpp>
 
 #include <rmm/device_uvector.hpp>
 

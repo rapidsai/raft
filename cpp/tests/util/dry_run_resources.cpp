@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <raft/core/dry_run_resources.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/managed_memory_resource.hpp>
@@ -12,7 +13,6 @@
 #include <raft/mr/host_device_resource.hpp>
 #include <raft/mr/host_memory_resource.hpp>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/dry_run_resources.hpp>
 
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
