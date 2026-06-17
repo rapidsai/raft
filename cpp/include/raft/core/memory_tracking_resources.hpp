@@ -209,11 +209,10 @@ class memory_tracking_resources : public resources {
 
     // --- Device (global) ---
     // Invalidate the cached thrust policy (the resource_ref it captured
-    // will be stale once we replace the global device resource).
-    factories_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
-      resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource_factory>());
-    resources_.at(resource::resource_type::THRUST_POLICY) = std::make_pair(
-      resource::resource_type::LAST_KEY, std::make_shared<resource::empty_resource>());
+    // will be stale once we replace the global device resource).  Swapping in a
+    // fresh cell drops the cached factory/resource locally while snapshot_ keeps
+    // the originals alive, so it gets lazily rebuilt against the new device MR.
+    cells_[resource::resource_type::THRUST_POLICY] = std::make_shared<resource::resource_cell>();
     {
       device_stats_t sa{rmm::device_async_resource_ref{old_device_}};
       report_.register_source("device", sa.get_stats());
