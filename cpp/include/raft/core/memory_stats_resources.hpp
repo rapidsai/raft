@@ -141,7 +141,7 @@ class memory_stats_resources : public resources {
     };
   }
 
-  std::vector<pair_resource> snapshot_;
+  std::vector<std::shared_ptr<resource::resource_cell>> snapshot_;
 
   raft::mr::host_resource old_host_;
   raft::mr::device_resource old_device_;
@@ -182,7 +182,7 @@ class memory_stats_resources : public resources {
     auto pinned_ref  = resource::get_pinned_memory_resource_ref(*this);
     auto managed_ref = resource::get_managed_memory_resource_ref(*this);
 
-    snapshot_ = resources_;
+    snapshot_ = cells_;
 
     // --- Host (global) ---
     {
