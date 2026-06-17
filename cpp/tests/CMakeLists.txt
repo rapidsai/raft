@@ -89,6 +89,7 @@ if(BUILD_TESTS)
     CORE_TEST
     PATH
     core/allocation_tracking.cpp
+    core/memory_stats_resources.cpp
     core/monitor_resources.cu
     core/bitmap.cu
     core/bitset.cu
