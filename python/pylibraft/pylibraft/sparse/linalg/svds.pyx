@@ -32,7 +32,7 @@ from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport device_resources
 
 
-cdef extern from "raft/sparse/solver/svds_config.hpp" \
+cdef extern from "raft/sparse/solver/solver_types.hpp" \
         namespace "raft::sparse::solver" nogil:
 
     cdef cppclass sparse_svd_config[ValueTypeT]:

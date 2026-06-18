@@ -19,7 +19,7 @@
 #include <raft/random/rng.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/sparse/solver/detail/svds_sign_correction.cuh>
-#include <raft/sparse/solver/svds_config.hpp>
+#include <raft/sparse/solver/solver_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <algorithm>

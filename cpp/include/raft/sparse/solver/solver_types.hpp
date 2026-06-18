@@ -51,7 +51,8 @@ struct sparse_svd_config {
  */
 template <typename ValueTypeT>
 struct sparse_lanczos_svd_config {
-  /** @brief Number of singular values/vectors to compute. Must be set by the user. */
+  /** @brief Number of singular values/vectors to compute. Must be set by the user.
+   *  @note Must satisfy 0 < n_components < min(m, n), where (m, n) is the matrix shape. */
   int n_components = 0;
 
   /**
@@ -60,11 +61,13 @@ struct sparse_lanczos_svd_config {
    * If zero, a matrix-shape dependent default is selected. Larger values can improve
    * convergence margin and orthogonality for clustered spectra, but increase sparse
    * matrix-vector work and memory use.
+   *
+   * @note When nonzero, the value is clamped to [n_components, min(m, n) - 1].
    */
   int ncv = 0;
 
   /** @brief Convergence tolerance for Lanczos Ritz residual estimates. */
-  ValueTypeT tolerance = 1e-4;
+  ValueTypeT tolerance = ValueTypeT(1e-4);
 
   /** @brief Maximum number of restart iterations before reporting non-convergence. */
   int max_iterations = 100;
