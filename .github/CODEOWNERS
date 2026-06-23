@@ -16,6 +16,7 @@ build.sh           @rapidsai/raft-cmake-codeowners
 /.github/                @rapidsai/ci-codeowners
 /ci/                     @rapidsai/ci-codeowners
 /.shellcheckrc           @rapidsai/ci-codeowners
+/.coderabbit.yaml        @rapidsai/ci-codeowners
 
 #packaging code owners
 /.pre-commit-config.yaml @rapidsai/packaging-codeowners
