@@ -48,7 +48,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    --cache-tool=<tool>         - pass the build cache tool (eg: ccache, sccache, distcc) that will be used
                                  to speedup the build process.
-   --logging-level=<level>     - set macro "RAFT_LOG_ACTIVE_LEVEL" to RAPIDS_LOGGER_LOG_LEVEL_{given_value}. 
+   --logging-level=<level>     - set macro \"RAFT_LOG_ACTIVE_LEVEL\" to RAPIDS_LOGGER_LOG_LEVEL_{given_value}.
                                  Valid values are (TRACE, DEBUG, INFO, WARN, ERROR, CRITICAL, OFF)
    --time                      - Enable nvcc compilation time logging into cpp/build/nvcc_compile_log.csv.
                                  Results can be interpreted with cpp/scripts/analyze_nvcc_log.py
@@ -200,9 +200,9 @@ function loggingLevel {
     if [[ -n $(echo "$ARGS" | { grep -E "\-\-logging\-level" || true; } ) ]]; then
         LIBRAFT_LOGGING_LEVEL=$(echo "$ARGS" | sed -e 's/.*--logging-level[= ]//' -e 's/ .*//')
         if [[ -n ${LIBRAFT_LOGGING_LEVEL} ]]; then
-            ARGS=$(echo "$ARGS" | sed -e "s/--logging-level[= ]${LIBRAFT_LOGGING_LEVEL}//")
+            ARGS="${ARGS//--logging-level[= ]${LIBRAFT_LOGGING_LEVEL}/}"
             VALID_LEVELS="TRACE DEBUG INFO WARN ERROR CRITICAL OFF"
-            if [[ ! " ${VALID_LEVELS} " =~ " ${LIBRAFT_LOGGING_LEVEL} " ]]; then
+            if [[ ! " ${VALID_LEVELS} " == *" ${LIBRAFT_LOGGING_LEVEL} "* ]]; then
                 echo "Invalid --logging-level value: '${LIBRAFT_LOGGING_LEVEL}'. Valid values are: ${VALID_LEVELS}"
                 exit 1
             fi
@@ -425,7 +425,7 @@ if (( NUMARGS == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
-          -DLIBRAFT_LOGGING_LEVEL=${LIBRAFT_LOGGING_LEVEL} \
+          -DLIBRAFT_LOGGING_LEVEL="${LIBRAFT_LOGGING_LEVEL}" \
           "${CACHE_ARGS[@]}" \
           "${EXTRA_CMAKE_ARGS[@]}"
 
