@@ -85,7 +85,7 @@ repos:
                   (?x)
                     ^CHANGELOG[.]md$|
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v1.4.2
+        rev: v1.6.0
         hooks:
           - id: verify-copyright
             name: verify-copyright-raft
@@ -144,9 +144,8 @@ repos:
                 cpp/include/raft/core/detail/mdspan_numpy_serializer[.]hpp$
               )
           - id: verify-alpha-spec
-          # TODO: Re-enable once verify-codeowners supports --org parameter
-          # - id: verify-codeowners
-          #   args: [--fix, --org=NVIDIA, --project-prefix=raft]
+          - id: verify-codeowners
+            args: [--fix, --org=NVIDIA, --project-prefix=raft]
           - id: verify-hardcoded-version
             exclude: |
               (?x)
