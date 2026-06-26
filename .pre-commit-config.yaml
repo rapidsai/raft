@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 repos:
@@ -171,7 +171,7 @@ repos:
                 ^conda/environments/|
                 (^|/)UCXX_BRANCH$|
                 (^|/)RAPIDS_BRANCH$|
-                [.](md|rst)$
+                [.](md|rst|svg)$
           - id: verify-pyproject-license
             # ignore the top-level pyproject.toml, which doesn't
             # have or need a [project] table
