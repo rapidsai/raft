@@ -145,7 +145,7 @@ repos:
               )
           - id: verify-alpha-spec
           - id: verify-codeowners
-            args: [--fix, --project-prefix=raft]
+            args: [--fix, --org=NVIDIA, --project-prefix=raft]
           - id: verify-hardcoded-version
             exclude: |
               (?x)
