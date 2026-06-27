@@ -158,10 +158,12 @@ void pca_fit(raft::resources const& handle,
   // The eigendecomposition of the (symmetric) covariance matrix naturally produces a
   // col-major components buffer. For row-major output we accumulate into a temporary
   // and physically transpose at the end.
-  auto components_col_storage = raft::make_device_matrix<math_t, idx_t, raft::col_major>(
-    handle, input_row_major ? n_components : idx_t(0), input_row_major ? n_cols : idx_t(0));
+  std::optional<raft::device_matrix<math_t, idx_t, raft::col_major>> components_col_storage;
+   if constexpr (input_row_major) {
+     components_col_storage = raft::make_device_matrix_view<...)(...);
+   }
   math_t* components_col_data =
-    input_row_major ? components_col_storage.data_handle() : components.data_handle();
+    input_row_major ? components_col_storage->data_handle() : components.data_handle();
   auto components_col_view = raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
     components_col_data, n_components, n_cols);
 
