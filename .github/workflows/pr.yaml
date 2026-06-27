@@ -68,6 +68,8 @@ jobs:
         with:
           repo: ${{ github.repository }}
           target-branch: ${{ fromJSON(steps.get-pr-info.outputs.pr-info).base.ref }}
+          # Tracking Issue: https://github.com/rapidsai/raft/issues/3037
+          max-days-without-success: 30
   changed-files:
     needs: telemetry-setup
     permissions:
@@ -82,6 +84,8 @@ jobs:
       files_yaml: |
         build_docs:
           - '**'
+          - '!**/*/REVIEW_GUIDELINES.md'
+          - '!.coderabbit.yaml'
           - '!.devcontainer/**'
           - '!.github/CODEOWNERS'
           - '!.github/ISSUE_TEMPLATE/**'
@@ -93,6 +97,7 @@ jobs:
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
+          - '!SECURITY.md'
           - '!ci/check_style.sh'
           - '!ci/release/update-version.sh'
           - '!ci/run_*.sh'
@@ -101,6 +106,8 @@ jobs:
           - '!thirdparty/LICENSES/**'
         test_cpp:
           - '**'
+          - '!**/*/REVIEW_GUIDELINES.md'
+          - '!.coderabbit.yaml'
           - '!.devcontainer/**'
           - '!.github/CODEOWNERS'
           - '!.github/ISSUE_TEMPLATE/**'
@@ -114,6 +121,7 @@ jobs:
           - '!.shellcheckrc'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_docs.sh'
           - '!ci/build_python.sh'
           - '!ci/build_wheel*.sh'
@@ -129,6 +137,8 @@ jobs:
           - '!thirdparty/LICENSES/**'
         test_python_conda:
           - '**'
+          - '!**/*/REVIEW_GUIDELINES.md'
+          - '!.coderabbit.yaml'
           - '!.devcontainer/**'
           - '!.github/CODEOWNERS'
           - '!.github/ISSUE_TEMPLATE/**'
@@ -142,6 +152,7 @@ jobs:
           - '!.shellcheckrc'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_docs.sh'
           - '!ci/build_wheel*.sh'
           - '!ci/check_style.sh'
@@ -156,6 +167,8 @@ jobs:
           - '!thirdparty/LICENSES/**'
         test_python_wheels:
           - '**'
+          - '!**/*/REVIEW_GUIDELINES.md'
+          - '!.coderabbit.yaml'
           - '!.devcontainer/**'
           - '!.github/CODEOWNERS'
           - '!.github/ISSUE_TEMPLATE/**'
@@ -169,6 +182,7 @@ jobs:
           - '!.shellcheckrc'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_cpp.sh'
           - '!ci/build_docs.sh'
           - '!ci/build_python.sh'
@@ -234,6 +248,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@main
     with:
       build_type: pull-request
+      package_name: libraft
   conda-python-build:
     needs: conda-cpp-build
     permissions:
@@ -262,6 +277,7 @@ jobs:
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
+      run_codecov: false
       script: ci/test_python.sh
   docs-build:
     needs: [conda-python-build, changed-files]
@@ -377,7 +393,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@main
     with:
       arch: '["amd64", "arm64"]'
-      cuda: '["13.2"]'
+      cuda: '["13.3"]'
       node_type: "cpu8"
       env: |
         SCCACHE_DIST_MAX_RETRIES=inf
