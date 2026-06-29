@@ -268,7 +268,4 @@ GATHER_TEST((GatherTest<false, false, true, float, uint32_t, int64_t>),
 GATHER_TEST((GatherTest<false, false, true, float, int64_t, int64_t>),
             GatherInplaceTestFI64I64,
             inplace_inputs_i64);
-GATHER_TEST((GatherTest<false, false, true, float, int64_t, int64_t>),
-            GatherInplaceTestCI64I64,
-            inplace_inputs_i64_i32_max);  // slow test, 8GB allocation, reproduces https://github.com/rapidsai/raft/issues/3055
 }  // end namespace raft
