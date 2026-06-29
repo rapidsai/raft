@@ -29,16 +29,22 @@
 namespace raft {
 namespace linalg::detail {
 
-template <typename math_t, typename idx_t>
+template <typename math_t, typename idx_t, typename LayoutPolicy>
 void trunc_comp_exp_vars(raft::resources const& handle,
                          const paramsTSVD& prms,
-                         raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
-                         raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
+                         raft::device_matrix_view<math_t, idx_t, LayoutPolicy> in,
+                         raft::device_matrix_view<math_t, idx_t, LayoutPolicy> components,
                          raft::device_vector_view<math_t, idx_t> explained_var,
                          raft::device_vector_view<math_t, idx_t> explained_var_ratio,
                          raft::device_scalar_view<math_t, idx_t> noise_vars,
                          std::size_t n_rows)
 {
+  static_assert(
+    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    "trunc_comp_exp_vars: layout must be raft::row_major or raft::col_major");
+
+  constexpr bool is_row_major = std::is_same_v<LayoutPolicy, raft::row_major>;
+
   auto stream = resource::get_cuda_stream(handle);
 
   auto n_cols       = in.extent(0);
@@ -49,19 +55,26 @@ void trunc_comp_exp_vars(raft::resources const& handle,
   rmm::device_uvector<math_t> explained_var_all(static_cast<std::size_t>(n_cols), stream);
   rmm::device_uvector<math_t> explained_var_ratio_all(static_cast<std::size_t>(n_cols), stream);
 
-  detail::cal_eig<math_t, idx_t>(
+  detail::cal_eig<math_t, idx_t, LayoutPolicy>(
     handle,
     prms,
     in,
-    raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+    raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
       components_all.data(), n_cols, n_cols),
     raft::make_device_vector_view<math_t, idx_t>(explained_var_all.data(), n_cols));
-  raft::matrix::trunc_zero_origin(
-    handle,
-    raft::make_device_matrix_view<const math_t, idx_t, raft::col_major>(
-      components_all.data(), n_cols, n_cols),
-    raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
-      components.data_handle(), n_components, n_cols));
+  if constexpr (is_row_major) {
+    raft::copy(components.data_handle(),
+               components_all.data(),
+               static_cast<std::size_t>(n_components) * static_cast<std::size_t>(n_cols),
+               stream);
+  } else {
+    raft::matrix::trunc_zero_origin(
+      handle,
+      raft::make_device_matrix_view<const math_t, idx_t, raft::col_major>(
+        components_all.data(), n_cols, n_cols),
+      raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+        components.data_handle(), n_components, n_cols));
+  }
   raft::matrix::ratio(handle,
                       raft::make_device_matrix_view<const math_t, idx_t, raft::col_major>(
                         explained_var_all.data(), n_cols, idx_t(1)),
@@ -155,23 +168,11 @@ void pca_fit(raft::resources const& handle,
   raft::stats::cov<input_row_major>(
     handle, cov.data(), input.data_handle(), mu.data_handle(), n_cols, n_rows, true, true, stream);
 
-  // The eigendecomposition of the (symmetric) covariance matrix naturally produces a
-  // col-major components buffer. For row-major output we accumulate into a temporary
-  // and physically transpose at the end.
-  std::optional<raft::device_matrix<math_t, idx_t, raft::col_major>> components_col_storage;
-   if constexpr (input_row_major) {
-     components_col_storage = raft::make_device_matrix_view<...)(...);
-   }
-  math_t* components_col_data =
-    input_row_major ? components_col_storage->data_handle() : components.data_handle();
-  auto components_col_view = raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
-    components_col_data, n_components, n_cols);
-
-  detail::trunc_comp_exp_vars(
+  detail::trunc_comp_exp_vars<math_t, idx_t, LayoutPolicy>(
     handle,
     prms,
-    raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(cov.data(), n_cols, n_cols),
-    components_col_view,
+    raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(cov.data(), n_cols, n_cols),
+    components,
     explained_var,
     explained_var_ratio,
     noise_vars,
@@ -189,16 +190,7 @@ void pca_fit(raft::resources const& handle,
   raft::stats::meanAdd<input_row_major, true>(
     input.data_handle(), input.data_handle(), mu.data_handle(), n_cols, n_rows, stream);
 
-  detail::sign_flip_components(handle, input, components_col_view, true, flip_signs_based_on_U);
-
-  if constexpr (input_row_major) {
-    // Transpose the internal col-major (n_components x n_cols) components into the user's
-    // row-major (n_components x n_cols) buffer. The same memory laid out as col-major
-    // (n_cols x n_components) is exactly the row-major (n_components x n_cols) we want.
-    auto components_as_col_view = raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
-      components.data_handle(), n_cols, n_components);
-    raft::linalg::transpose(handle, components_col_view, components_as_col_view);
-  }
+  detail::sign_flip_components(handle, input, components, true, flip_signs_based_on_U);
 }
 
 /**
