@@ -253,13 +253,13 @@ void pca_transform(raft::resources const& handle,
   raft::stats::meanCenter<input_row_major, true>(
     input.data_handle(), input.data_handle(), mu.data_handle(), n_cols, n_rows, stream);
 
-  // trans_input = input @ components_copy^T, in the user's layout.
-  // Reinterpreting the components_copy buffer with the opposite layout swaps the logical
-  // dimensions, giving us the (n_cols x n_components) transposed view we need for gemm.
-  using transposed_layout = std::conditional_t<input_row_major, raft::col_major, raft::row_major>;
-  auto components_copy_transposed = raft::make_device_matrix_view<math_t, idx_t, transposed_layout>(
-    components_copy.data(), n_cols, n_components);
-  raft::linalg::gemm(handle, input, components_copy_transposed, trans_input);
+  detail::tsvd_transform<math_t, idx_t, LayoutPolicy>(
+    handle,
+    prms,
+    input,
+    raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
+      components_copy.data(), n_components, n_cols),
+    trans_input);
 
   raft::stats::meanAdd<input_row_major, true>(
     input.data_handle(), input.data_handle(), mu.data_handle(), n_cols, n_rows, stream);
@@ -323,13 +323,13 @@ void pca_inverse_transform(raft::resources const& handle,
                                                          n_components));
   }
 
-  // output = trans_input @ components_copy. All three matrices share the user's layout,
-  // so the mdspan gemm picks the correct cuBLAS transposes automatically.
-  raft::linalg::gemm(handle,
-                     trans_input,
-                     raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
-                       components_copy.data(), n_components, n_cols),
-                     output);
+  detail::tsvd_inverse_transform<math_t, idx_t, LayoutPolicy>(
+    handle,
+    prms,
+    trans_input,
+    raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
+      components_copy.data(), n_components, n_cols),
+    output);
 
   raft::stats::meanAdd<input_row_major, true>(
     output.data_handle(), output.data_handle(), mu.data_handle(), n_cols, n_rows, stream);

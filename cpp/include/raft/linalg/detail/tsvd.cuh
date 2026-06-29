@@ -402,18 +402,21 @@ void tsvd_fit(raft::resources const& handle,
  * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
  * @param[in] handle raft::resources
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] input: the data to transform. Size n_rows x n_cols (col-major).
- * @param[in] components: principal components. Size n_components x n_cols (col-major).
- * @param[out] trans_input: transformed output. Size n_rows x n_components (col-major).
+ * @param[in] input: the data to transform. Size n_rows x n_cols.
+ * @param[in] components: principal components. Size n_components x n_cols.
+ * @param[out] trans_input: transformed output. Size n_rows x n_components.
  */
-template <typename math_t, typename idx_t>
+template <typename math_t, typename idx_t, typename LayoutPolicy = raft::col_major>
 void tsvd_transform(raft::resources const& handle,
                     const paramsTSVD& prms,
-                    raft::device_matrix_view<math_t, idx_t, raft::col_major> input,
-                    raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                    raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input)
+                    raft::device_matrix_view<math_t, idx_t, LayoutPolicy> input,
+                    raft::device_matrix_view<math_t, idx_t, LayoutPolicy> components,
+                    raft::device_matrix_view<math_t, idx_t, LayoutPolicy> trans_input)
 {
-  auto stream = resource::get_cuda_stream(handle);
+  static_assert(
+    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    "tsvd_transform: layout must be raft::row_major or raft::col_major");
+  constexpr bool is_row_major = std::is_same_v<LayoutPolicy, raft::row_major>;
 
   auto n_rows       = input.extent(0);
   auto n_cols       = input.extent(1);
@@ -423,39 +426,34 @@ void tsvd_transform(raft::resources const& handle,
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
   ASSERT(n_components > 0, "Parameter n_components: number of components cannot be less than one");
 
-  math_t alpha = math_t(1);
-  math_t beta  = math_t(0);
   raft::linalg::gemm(handle,
-                     input.data_handle(),
-                     n_rows,
-                     n_cols,
-                     components.data_handle(),
-                     trans_input.data_handle(),
-                     n_rows,
-                     n_components,
-                     CUBLAS_OP_N,
-                     CUBLAS_OP_T,
-                     alpha,
-                     beta,
-                     stream);
+                     input,
+                     raft::make_device_matrix_view<
+                       math_t,
+                       idx_t,
+                       std::conditional_t<is_row_major, raft::col_major, raft::row_major>>(
+                       components.data_handle(), n_cols, n_components),
+                     trans_input);
 }
 
 /**
  * @brief performs inverse transform operation for the tsvd.
  * @param[in] handle raft::resources
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
- * @param[in] trans_input: the transformed data. Size n_rows x n_components (col-major).
- * @param[in] components: principal components. Size n_components x n_cols (col-major).
- * @param[out] output: reconstructed output. Size n_rows x n_cols (col-major).
+ * @param[in] trans_input: the transformed data. Size n_rows x n_components.
+ * @param[in] components: principal components. Size n_components x n_cols.
+ * @param[out] output: reconstructed output. Size n_rows x n_cols.
  */
-template <typename math_t, typename idx_t>
+template <typename math_t, typename idx_t, typename LayoutPolicy = raft::col_major>
 void tsvd_inverse_transform(raft::resources const& handle,
                             const paramsTSVD& prms,
-                            raft::device_matrix_view<math_t, idx_t, raft::col_major> trans_input,
-                            raft::device_matrix_view<math_t, idx_t, raft::col_major> components,
-                            raft::device_matrix_view<math_t, idx_t, raft::col_major> output)
+                            raft::device_matrix_view<math_t, idx_t, LayoutPolicy> trans_input,
+                            raft::device_matrix_view<math_t, idx_t, LayoutPolicy> components,
+                            raft::device_matrix_view<math_t, idx_t, LayoutPolicy> output)
 {
-  auto stream = resource::get_cuda_stream(handle);
+  static_assert(
+    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    "tsvd_inverse_transform: layout must be raft::row_major or raft::col_major");
 
   auto n_rows       = output.extent(0);
   auto n_cols       = output.extent(1);
@@ -465,22 +463,7 @@ void tsvd_inverse_transform(raft::resources const& handle,
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
   ASSERT(n_components > 0, "Parameter n_components: number of components cannot be less than one");
 
-  math_t alpha = math_t(1);
-  math_t beta  = math_t(0);
-
-  raft::linalg::gemm(handle,
-                     trans_input.data_handle(),
-                     n_rows,
-                     n_components,
-                     components.data_handle(),
-                     output.data_handle(),
-                     n_rows,
-                     n_cols,
-                     CUBLAS_OP_N,
-                     CUBLAS_OP_N,
-                     alpha,
-                     beta,
-                     stream);
+  raft::linalg::gemm(handle, trans_input, components, output);
 }
 
 /**
