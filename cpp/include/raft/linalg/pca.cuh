@@ -20,10 +20,6 @@ namespace linalg {
 
 /**
  * @brief perform fit operation for PCA. Generates eigenvectors, explained vars, singular vals, etc.
- *
- * Supports both row-major and col-major layouts. The layout is deduced from the input view's
- * `LayoutPolicy` and must match between `input` and `components`.
- *
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
  * @tparam LayoutPolicy layout of the input/components matrices (raft::row_major or
@@ -69,9 +65,6 @@ void pca_fit(raft::resources const& handle,
 /**
  * @brief perform fit and transform operations for PCA. Generates transformed data,
  * eigenvectors, explained vars, singular vals, etc.
- *
- * Supports both row-major and col-major layouts. All matrix views must share the same layout.
- *
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
  * @tparam LayoutPolicy layout of the input/output matrices (raft::row_major or raft::col_major)
@@ -119,9 +112,6 @@ void pca_fit_transform(raft::resources const& handle,
 /**
  * @brief performs inverse transform operation for PCA. Transforms the transformed data back to
  * original data.
- *
- * Supports both row-major and col-major layouts. All matrix views must share the same layout.
- *
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
  * @tparam LayoutPolicy layout of the input/output matrices (raft::row_major or raft::col_major)
@@ -147,9 +137,6 @@ void pca_inverse_transform(raft::resources const& handle,
 
 /**
  * @brief performs transform operation for PCA. Transforms the data to eigenspace.
- *
- * Supports both row-major and col-major layouts. All matrix views must share the same layout.
- *
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
  * @tparam LayoutPolicy layout of the input/output matrices (raft::row_major or raft::col_major)

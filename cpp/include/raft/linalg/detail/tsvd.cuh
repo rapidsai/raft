@@ -160,10 +160,6 @@ void cal_eig(raft::resources const& handle,
 
 /**
  * @brief sign flip for PCA and tSVD. Stabilizes the sign of the eigenvectors.
- *
- * The input and components matrices share a single layout, deduced from the LayoutPolicy
- * template parameter (raft::row_major or raft::col_major).
- *
  * @tparam math_t element type
  * @tparam idx_t index type
  * @tparam LayoutPolicy layout of the input and components matrices

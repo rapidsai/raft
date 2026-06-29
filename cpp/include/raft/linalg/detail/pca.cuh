@@ -111,10 +111,6 @@ void trunc_comp_exp_vars(raft::resources const& handle,
 
 /**
  * @brief perform fit operation for PCA.
- *
- * Supports both row-major and col-major input layouts via the LayoutPolicy template
- * parameter. The output `components` matrix has the same layout as the input.
- *
  * @tparam math_t element type
  * @tparam idx_t index type
  * @tparam LayoutPolicy layout of the input matrix (raft::row_major or raft::col_major)
@@ -195,10 +191,6 @@ void pca_fit(raft::resources const& handle,
 
 /**
  * @brief performs transform operation for PCA. Transforms the data to eigenspace.
- *
- * Supports both row-major and col-major layouts via the LayoutPolicy template parameter.
- * `input`, `components`, and `trans_input` must all share the same layout.
- *
  * @tparam math_t element type
  * @tparam idx_t index type
  * @tparam LayoutPolicy layout (raft::row_major or raft::col_major)
@@ -267,10 +259,6 @@ void pca_transform(raft::resources const& handle,
 
 /**
  * @brief performs inverse transform operation for PCA.
- *
- * Supports both row-major and col-major layouts via the LayoutPolicy template parameter.
- * `trans_input`, `components`, and `output` must all share the same layout.
- *
  * @tparam math_t element type
  * @tparam idx_t index type
  * @tparam LayoutPolicy layout (raft::row_major or raft::col_major)
@@ -337,9 +325,6 @@ void pca_inverse_transform(raft::resources const& handle,
 
 /**
  * @brief perform fit and transform operations for PCA.
- *
- * Supports both row-major and col-major layouts via the LayoutPolicy template parameter.
- *
  * @tparam math_t element type
  * @tparam idx_t index type
  * @tparam LayoutPolicy layout (raft::row_major or raft::col_major)
