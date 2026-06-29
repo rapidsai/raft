@@ -238,19 +238,14 @@ void pca_transform(raft::resources const& handle,
   rmm::device_uvector<math_t> components_copy{components_len, stream};
   raft::copy(components_copy.data(), components.data_handle(), components_len, stream);
 
-  auto components_copy_view = raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
-    components_copy.data(), n_components, n_cols);
-
   if (prms.whiten) {
     math_t scalar = math_t(sqrt(n_rows - 1));
     raft::linalg::scalarMultiply(
       components_copy.data(), components_copy.data(), scalar, components_len, stream);
-    // Divide each row of (n_components x n_cols) components by the corresponding singular
-    // value. Apply::ALONG_COLUMNS broadcasts a vector of size n_rows-of-matrix
-    // (= n_components) over each column, which is the same operation in both layouts.
     raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_COLUMNS>(
       handle,
-      components_copy_view,
+      raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
+        components_copy.data(), n_components, n_cols),
       raft::make_device_vector_view<const math_t, idx_t>(singular_vals.data_handle(),
                                                          n_components));
   }
@@ -315,9 +310,6 @@ void pca_inverse_transform(raft::resources const& handle,
   rmm::device_uvector<math_t> components_copy{components_len, stream};
   raft::copy(components_copy.data(), components.data_handle(), components_len, stream);
 
-  auto components_copy_view = raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
-    components_copy.data(), n_components, n_cols);
-
   if (prms.whiten) {
     math_t sqrt_n_samples = sqrt(n_rows - 1);
     math_t scalar         = n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
@@ -325,14 +317,19 @@ void pca_inverse_transform(raft::resources const& handle,
       components_copy.data(), components_copy.data(), scalar, components_len, stream);
     raft::linalg::binary_mult_skip_zero<raft::Apply::ALONG_COLUMNS>(
       handle,
-      components_copy_view,
+      raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
+        components_copy.data(), n_components, n_cols),
       raft::make_device_vector_view<const math_t, idx_t>(singular_vals.data_handle(),
                                                          n_components));
   }
 
   // output = trans_input @ components_copy. All three matrices share the user's layout,
   // so the mdspan gemm picks the correct cuBLAS transposes automatically.
-  raft::linalg::gemm(handle, trans_input, components_copy_view, output);
+  raft::linalg::gemm(handle,
+                     trans_input,
+                     raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
+                       components_copy.data(), n_components, n_cols),
+                     output);
 
   raft::stats::meanAdd<input_row_major, true>(
     output.data_handle(), output.data_handle(), mu.data_handle(), n_cols, n_rows, stream);
