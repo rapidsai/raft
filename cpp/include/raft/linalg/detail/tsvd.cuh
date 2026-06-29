@@ -204,19 +204,16 @@ void sign_flip_components(raft::resources const& handle,
         input.data_handle(), input.data_handle(), col_means.data(), n_features, n_samples, stream);
     }
     rmm::device_uvector<math_t> US(static_cast<std::size_t>(n_samples * n_components), stream);
-    using components_transposed_layout =
-      std::conditional_t<is_row_major, raft::col_major, raft::row_major>;
-    auto components_transposed_view =
-      raft::make_device_matrix_view<math_t, idx_t, components_transposed_layout>(
-        components.data_handle(), n_features, n_components);
-    auto US_view = raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
-      US.data(), n_samples, n_components);
+    raft::linalg::gemm(handle,
+                       input,
+                       raft::make_device_matrix_view<
+                         math_t,
+                         idx_t,
+                         std::conditional_t<is_row_major, raft::col_major, raft::row_major>>(
+                         components.data_handle(), n_features, n_components),
+                       raft::make_device_matrix_view<math_t, idx_t, LayoutPolicy>(
+                         US.data(), n_samples, n_components));
 
-    raft::linalg::gemm(handle, input, components_transposed_view, US_view);
-
-    // Per-column reduction of US (n_samples x n_components) yields one max-abs value per
-    // component. With the (rowMajor, alongRows) convention, alongRows=false produces D
-    // outputs (one per column) regardless of layout; only the memory access pattern differs.
     raft::linalg::reduce<is_row_major, false>(
       max_vals.data(),
       US.data(),
@@ -233,9 +230,6 @@ void sign_flip_components(raft::resources const& handle,
       },
       raft::identity_op());
   } else {
-    // Reduce the components matrix (n_components x n_features) per component (per row) to
-    // get one max-abs value each. alongRows=true produces N outputs (one per row)
-    // regardless of layout; rowMajor only changes the memory access pattern.
     raft::linalg::reduce<is_row_major, true>(
       max_vals.data(),
       components.data_handle(),

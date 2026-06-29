@@ -51,12 +51,9 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
       trans_data(params.len, stream),
       trans_data_ref(params.len, stream),
       data(params.len, stream),
-      data_back(params.len, stream),
-      data2(params.len2, stream),
-      data2_back(params.len2, stream)
+      data_back(params.len, stream)
   {
     basicTest();
-    advancedTest();
   }
 
  protected:
@@ -135,6 +132,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
       handle, prms, trans_data_view, components_view, singular_vals_view, mu_view, data_back_view);
   }
 
+  template <typename LayoutPolicy>
   void advancedTest()
   {
     raft::random::Rng r(params.seed, raft::random::GenPC);
@@ -151,6 +149,8 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     else if (params.algo == 1)
       prms.algorithm = solver::COV_EIG_JACOBI;
 
+    rmm::device_uvector<T> data2(len, stream);
+    rmm::device_uvector<T> data2_back(len, stream);
     r.uniform(data2.data(), len, T(-1.0), T(1.0), stream);
     rmm::device_uvector<T> data2_trans(n_rows * n_components, stream);
 
@@ -163,10 +163,10 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     rmm::device_uvector<T> noise_vars2(1, stream);
 
     auto input_view =
-      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(data2.data(), n_rows, n_cols);
-    auto trans_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      raft::make_device_matrix_view<T, std::size_t, LayoutPolicy>(data2.data(), n_rows, n_cols);
+    auto trans_view = raft::make_device_matrix_view<T, std::size_t, LayoutPolicy>(
       data2_trans.data(), n_rows, n_components);
-    auto comp_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+    auto comp_view = raft::make_device_matrix_view<T, std::size_t, LayoutPolicy>(
       components2.data(), n_components, n_cols);
     auto ev_view =
       raft::make_device_vector_view<T, std::size_t>(explained_vars2.data(), n_components);
@@ -188,10 +188,13 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
                       mu_view,
                       noise_view);
 
-    auto data2_back_view = raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+    auto data2_back_view = raft::make_device_matrix_view<T, std::size_t, LayoutPolicy>(
       data2_back.data(), n_rows, n_cols);
 
     pca_inverse_transform(handle, prms, trans_view, comp_view, sv_view, mu_view, data2_back_view);
+
+    ASSERT_TRUE(devArrMatch(
+      data2.data(), data2_back.data(), len, raft::CompareApprox<T>(params.tolerance), stream));
   }
 
  protected:
@@ -201,7 +204,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
   PcaInputs<T> params;
 
   rmm::device_uvector<T> explained_vars, explained_vars_ref, components, components_ref, trans_data,
-    trans_data_ref, data, data_back, data2, data2_back;
+    trans_data_ref, data, data_back;
 };
 
 const std::vector<PcaInputs<float>> inputsf2 = {
@@ -295,21 +298,15 @@ TEST_P(PcaTestDataVecSmallD, Result)
 typedef PcaTest<float> PcaTestDataVecF;
 TEST_P(PcaTestDataVecF, Result)
 {
-  ASSERT_TRUE(devArrMatch(data2.data(),
-                          data2_back.data(),
-                          (params.n_col2 * params.n_col2),
-                          raft::CompareApprox<float>(params.tolerance),
-                          resource::get_cuda_stream(handle)));
+  this->template advancedTest<raft::row_major>();
+  this->template advancedTest<raft::col_major>();
 }
 
 typedef PcaTest<double> PcaTestDataVecD;
 TEST_P(PcaTestDataVecD, Result)
 {
-  ASSERT_TRUE(devArrMatch(data2.data(),
-                          data2_back.data(),
-                          (params.n_col2 * params.n_col2),
-                          raft::CompareApprox<double>(params.tolerance),
-                          resource::get_cuda_stream(handle)));
+  this->template advancedTest<raft::row_major>();
+  this->template advancedTest<raft::col_major>();
 }
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValF, ::testing::ValuesIn(inputsf2));
@@ -331,116 +328,5 @@ INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestTransDataD, ::testing::ValuesIn(inputsd
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestDataVecF, ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestDataVecD, ::testing::ValuesIn(inputsd2));
-
-/**
- * Row-major end-to-end tests. Verifies that the layout-templated
- * ``pca_fit_transform`` + ``pca_inverse_transform`` reconstruct row-major
- * inputs and produce explained variances numerically equivalent to those
- * from the col-major path on the same logical data.
- */
-template <typename T>
-class PcaRowMajorTest : public ::testing::TestWithParam<PcaInputs<T>> {
- public:
-  PcaRowMajorTest()
-    : params(::testing::TestWithParam<PcaInputs<T>>::GetParam()),
-      stream(resource::get_cuda_stream(handle))
-  {
-  }
-
- protected:
-  void to_row_major(const T* col_major_src, T* row_major_dst, int n_rows, int n_cols)
-  {
-    std::vector<T> host_col(n_rows * n_cols);
-    std::vector<T> host_row(n_rows * n_cols);
-    raft::update_host(host_col.data(), col_major_src, n_rows * n_cols, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    for (int i = 0; i < n_rows; ++i) {
-      for (int j = 0; j < n_cols; ++j) {
-        host_row[i * n_cols + j] = host_col[j * n_rows + i];
-      }
-    }
-    raft::update_device(row_major_dst, host_row.data(), n_rows * n_cols, stream);
-  }
-
-  void runRowMajor(int len, int n_rows, int n_cols, int n_components, T* input, T* recon)
-  {
-    paramsPCA prms;
-    prms.whiten = false;
-    if (params.algo == 0)
-      prms.algorithm = solver::COV_EIG_DQ;
-    else
-      prms.algorithm = solver::COV_EIG_JACOBI;
-
-    rmm::device_uvector<T> trans(static_cast<std::size_t>(n_rows) * n_components, stream);
-    rmm::device_uvector<T> components(static_cast<std::size_t>(n_components) * n_cols, stream);
-    rmm::device_uvector<T> ev(n_components, stream);
-    rmm::device_uvector<T> evr(n_components, stream);
-    rmm::device_uvector<T> sv(n_components, stream);
-    rmm::device_uvector<T> mu(n_cols, stream);
-    rmm::device_uvector<T> nv(1, stream);
-
-    auto input_view = raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
-      input, static_cast<std::size_t>(n_rows), static_cast<std::size_t>(n_cols));
-    auto trans_view = raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
-      trans.data(), static_cast<std::size_t>(n_rows), static_cast<std::size_t>(n_components));
-    auto comp_view = raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
-      components.data(), static_cast<std::size_t>(n_components), static_cast<std::size_t>(n_cols));
-    auto ev_view  = raft::make_device_vector_view<T, std::size_t>(ev.data(), n_components);
-    auto evr_view = raft::make_device_vector_view<T, std::size_t>(evr.data(), n_components);
-    auto sv_view  = raft::make_device_vector_view<T, std::size_t>(sv.data(), n_components);
-    auto mu_view  = raft::make_device_vector_view<T, std::size_t>(mu.data(), n_cols);
-    auto nv_view  = raft::make_device_scalar_view<T, std::size_t>(nv.data());
-
-    pca_fit_transform(handle,
-                      prms,
-                      input_view,
-                      trans_view,
-                      comp_view,
-                      ev_view,
-                      evr_view,
-                      sv_view,
-                      mu_view,
-                      nv_view);
-
-    auto recon_view = raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
-      recon, static_cast<std::size_t>(n_rows), static_cast<std::size_t>(n_cols));
-    pca_inverse_transform(handle, prms, trans_view, comp_view, sv_view, mu_view, recon_view);
-  }
-
-  void testRowMajorRoundtrip()
-  {
-    int n_rows       = params.n_row2;
-    int n_cols       = params.n_col2;
-    int len          = n_rows * n_cols;
-    int n_components = n_cols;
-
-    rmm::device_uvector<T> data_col(len, stream);
-    rmm::device_uvector<T> data_row(len, stream);
-    rmm::device_uvector<T> data_back(len, stream);
-
-    raft::random::Rng r(params.seed, raft::random::GenPC);
-    r.uniform(data_col.data(), len, T(-1.0), T(1.0), stream);
-    to_row_major(data_col.data(), data_row.data(), n_rows, n_cols);
-
-    runRowMajor(len, n_rows, n_cols, n_components, data_row.data(), data_back.data());
-
-    ASSERT_TRUE(devArrMatch(
-      data_row.data(), data_back.data(), len, raft::CompareApprox<T>(params.tolerance), stream));
-  }
-
- private:
-  raft::device_resources handle;
-  cudaStream_t stream;
-  PcaInputs<T> params;
-};
-
-typedef PcaRowMajorTest<float> PcaRowMajorTestF;
-TEST_P(PcaRowMajorTestF, Roundtrip) { this->testRowMajorRoundtrip(); }
-
-typedef PcaRowMajorTest<double> PcaRowMajorTestD;
-TEST_P(PcaRowMajorTestD, Roundtrip) { this->testRowMajorRoundtrip(); }
-
-INSTANTIATE_TEST_CASE_P(PcaTests, PcaRowMajorTestF, ::testing::ValuesIn(inputsf2));
-INSTANTIATE_TEST_CASE_P(PcaTests, PcaRowMajorTestD, ::testing::ValuesIn(inputsd2));
 
 }  // end namespace raft::linalg
