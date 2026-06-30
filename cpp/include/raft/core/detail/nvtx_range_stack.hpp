@@ -38,9 +38,8 @@ class current_range {
   }
 
   /**
-   * Read the full root->leaf range path with instance ids, formatted as
+   * Read the full nvtx range path with instance ids, formatted as
    * "name#id > name#id > ..." (empty when no range is active).
-   * This identifies the exact nvtx range stack responsible for an allocation.
    */
   auto get_path() const -> std::string
   {
