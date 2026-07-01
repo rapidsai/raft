@@ -39,7 +39,7 @@ namespace mr {
  *
  * start() and stop() are idempotent.
  */
-class resource_monitor {
+class sampling_monitor {
   std::ostream& out_;
   std::chrono::steady_clock::duration sample_interval_;
   std::shared_ptr<notifier> notifier_;
@@ -55,7 +55,7 @@ class resource_monitor {
    * @param out             Output stream for CSV rows.
    * @param sample_interval Minimum time between successive samples.
    */
-  explicit resource_monitor(std::ostream& out, std::chrono::steady_clock::duration sample_interval)
+  explicit sampling_monitor(std::ostream& out, std::chrono::steady_clock::duration sample_interval)
     : out_(out),
       sample_interval_(sample_interval),
       notifier_(std::make_shared<notifier>()),
@@ -63,10 +63,10 @@ class resource_monitor {
   {
   }
 
-  ~resource_monitor() { stop(); }
+  ~sampling_monitor() { stop(); }
 
-  resource_monitor(resource_monitor const&)            = delete;
-  resource_monitor& operator=(resource_monitor const&) = delete;
+  sampling_monitor(sampling_monitor const&)            = delete;
+  sampling_monitor& operator=(sampling_monitor const&) = delete;
 
   /**
    * @brief Shared notifier for notifying_adaptor instances.
