@@ -28,9 +28,7 @@ namespace nvtx = raft::common::nvtx;
 using namespace std::chrono_literals;
 constexpr std::size_t MiB = std::size_t{1024} * 1024;
 
-// TODO improve tests (coverage + multiple allocating threads)
-
-TEST(MemoryTrackingResources, Sampling)
+TEST(MemoryTrackingResources, SamplingSingleThread)
 {
   std::ostringstream oss;
   {
@@ -60,7 +58,7 @@ TEST(MemoryTrackingResources, Sampling)
                           << output;
 }
 
-TEST(MemoryTrackingResources, Recording)
+TEST(MemoryTrackingResources, RecordingSingleThread)
 {
   std::ostringstream oss;
   {
@@ -71,8 +69,6 @@ TEST(MemoryTrackingResources, Recording)
       auto matrix = raft::make_host_vector<uint8_t>(tracked, 10 * 1024);
     }
     {
-      // Deliberately large allocation to test that the memory tracking
-      // resources can handle a large allocation and labels it correctly
       nvtx::range r{"2. expect 100 MiB"};
       auto vector = raft::make_host_vector<uint8_t>(tracked, 100 * MiB);
     }
@@ -82,7 +78,15 @@ TEST(MemoryTrackingResources, Recording)
     }
   }  // tracked destroyed here: stops the sampler and flushes the file
 
-  auto output                         = oss.str();
+  auto output = oss.str();
+  EXPECT_NE(output.find("timestamp_us"), std::string::npos);
+  EXPECT_NE(output.find("host_current"), std::string::npos);
+  EXPECT_NE(output.find("device_current"), std::string::npos);
+  EXPECT_NE(output.find("workspace_current"), std::string::npos);
+  EXPECT_NE(output.find("event_source"), std::string::npos);
+  EXPECT_NE(output.find("event_bytes"), std::string::npos);
+  EXPECT_NE(output.find("alloc_range"), std::string::npos);
+
   auto num_lines                      = std::count(output.begin(), output.end(), '\n');
   constexpr size_t NUM_ALLOCS         = 3;
   constexpr size_t NUM_DEALLOCS       = NUM_ALLOCS;
@@ -93,6 +97,87 @@ TEST(MemoryTrackingResources, Recording)
     << " data records (allocation + deallocation + header); got " << num_lines << " lines"
     << std::endl
     << "content: " << std::endl
+    << output;
+}
+
+// ---------------------------------------------------------------------------
+// Parallel-thread stress tests
+// ---------------------------------------------------------------------------
+
+TEST(MemoryTrackingResources, RecordingParallelThreads)
+{
+  constexpr int kNumThreads        = 64;
+  constexpr int kNumIters          = 200;
+  constexpr std::size_t kAllocSize = 256 * 1024;  // 256 KiB
+
+  std::ostringstream oss;
+  {
+    raft::resources res;
+    raft::memory_tracking_resources tracked(res, oss);
+
+    // Lambda captures tracked directly — no base-class cast needed.
+    // Each thread tags its allocations with a distinct NVTX range so the
+    // CSV output carries per-thread attribution.
+    auto run = [&](int t) {
+      for (int i = 0; i < kNumIters; ++i) {
+        std::string label = std::string("thread-") + std::to_string(t);
+        nvtx::range r{label.c_str()};
+        auto vec = raft::make_host_vector<uint8_t>(tracked, kAllocSize);
+      }
+    };
+
+    std::vector<std::thread> workers;
+    for (int t = 0; t < kNumThreads; ++t) {
+      workers.emplace_back(run, t);
+    }
+    for (auto& w : workers) w.join();
+  }  // tracked destroyed: drains queue, flushes CSV
+
+  std::string output = oss.str();
+  auto num_lines = std::count(output.begin(), output.end(), '\n');
+
+  // Each iteration: one alloc row + one dealloc row; plus one header line.
+  const int expected_rows = kNumThreads * kNumIters * 2 + 1;
+  EXPECT_GE(num_lines, expected_rows)
+    << "Expected at least " << expected_rows << " lines; got " << num_lines
+    << "\noutput:\n"
+    << output;
+}
+
+TEST(MemoryTrackingResources, SamplingParallelThreads)
+{
+  constexpr int kNumThreads        = 64;
+  constexpr int kNumIters          = 200;
+  constexpr std::size_t kAllocSize = 256 * 1024;  // 256 KiB
+  
+  std::ostringstream oss;
+  {
+    raft::resources res;
+    raft::memory_tracking_resources tracked(res, oss, 1us);
+
+    auto run = [&](int t) {
+      for (int i = 0; i < kNumIters; ++i) {
+        std::string label = std::string("thread-") + std::to_string(t);
+        nvtx::range r{label.c_str()};
+        auto vec = raft::make_host_vector<uint8_t>(tracked, kAllocSize);
+      }
+    };
+
+    std::vector<std::thread> workers;
+    for (int t = 0; t < kNumThreads; ++t) {
+      workers.emplace_back(run, t);
+    }
+    for (auto& w : workers) w.join();
+  }
+
+  std::string output = oss.str();
+  auto num_lines = std::count(output.begin(), output.end(), '\n');
+
+  // Sampling approach drops many rows
+  const int max_num_rows = kNumThreads * kNumIters * 2 + 1;
+  EXPECT_TRUE(3 < num_lines && num_lines < max_num_rows)
+    << "Expected at least several rows. It is expected when many rows are dropped; got " << num_lines
+    << "\noutput:\n"
     << output;
 }
 
