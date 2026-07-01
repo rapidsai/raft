@@ -89,14 +89,14 @@ class allocation_event_queue {
  * @brief Consumes allocation_events from a queue and writes one CSV row per
  *        event from a background thread.
  */
-class allocation_event_monitor {
+class recording_monitor {
  public:
-  explicit allocation_event_monitor(std::ostream& out) : out_(out) {}
+  explicit recording_monitor(std::ostream& out) : out_(out) {}
 
-  ~allocation_event_monitor() { stop(); }
+  ~recording_monitor() { stop(); }
 
-  allocation_event_monitor(allocation_event_monitor const&)            = delete;
-  allocation_event_monitor& operator=(allocation_event_monitor const&) = delete;
+  recording_monitor(recording_monitor const&)            = delete;
+  recording_monitor& operator=(recording_monitor const&) = delete;
 
   [[nodiscard]] auto get_queue() const noexcept -> std::shared_ptr<allocation_event_queue>
   {

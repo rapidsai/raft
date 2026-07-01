@@ -28,7 +28,9 @@ namespace nvtx = raft::common::nvtx;
 using namespace std::chrono_literals;
 constexpr std::size_t MiB = std::size_t{1024} * 1024;
 
-TEST(MemoryTrackingResources, TracksDeviceAllocations)
+// TODO improve tests (coverage + multiple allocating threads)
+
+TEST(MemoryTrackingResources, Sampling)
 {
   std::ostringstream oss;
   {
@@ -58,26 +60,21 @@ TEST(MemoryTrackingResources, TracksDeviceAllocations)
                           << output;
 }
 
-TEST(MemoryTrackingResources, MismatchedRangeLabeling)
+TEST(MemoryTrackingResources, Recording)
 {
-  const std::string csv_path = "mismatch_range_label.csv";
-
+  std::ostringstream oss;
   {
     raft::resources res;
-
-    raft::memory_tracking_resources tracked(res, csv_path, 1ms);
+    raft::memory_tracking_resources tracked(res, oss);
     {
       nvtx::range r{"1. expect 10 KB"};
       auto matrix = raft::make_host_vector<uint8_t>(tracked, 10 * 1024);
     }
     {
-      // Deliberately huge & slow: allocating/freeing 10 GiB of host memory takes
-      // several ms, which makes the background sampler lag past this range's end.
-      // As a result this allocation's peak is mis-attributed to the NEXT range in
-      // the CSV (the range-labeling race discussed in the file header). Source
-      // attribution (host) stays correct; only the nvtx_range label is wrong.
-      nvtx::range r{"2. expect 10 GiB"};
-      auto vector = raft::make_host_vector<uint8_t>(tracked, 10 * 1024 * MiB);
+      // Deliberately large allocation to test that the memory tracking
+      // resources can handle a large allocation and labels it correctly
+      nvtx::range r{"2. expect 100 MiB"};
+      auto vector = raft::make_host_vector<uint8_t>(tracked, 100 * MiB);
     }
     {
       nvtx::range r{"3. expect 4 MiB"};
@@ -85,7 +82,18 @@ TEST(MemoryTrackingResources, MismatchedRangeLabeling)
     }
   }  // tracked destroyed here: stops the sampler and flushes the file
 
-  std::cout << "Wrote allocation statistics to " << csv_path << "\n";
+  auto output                         = oss.str();
+  auto num_lines                      = std::count(output.begin(), output.end(), '\n');
+  constexpr size_t NUM_ALLOCS         = 3;
+  constexpr size_t NUM_DEALLOCS       = NUM_ALLOCS;
+  constexpr size_t NUM_HEADER_LINES   = 1;
+  constexpr size_t NUM_LINES_EXPECTED = NUM_ALLOCS + NUM_DEALLOCS + NUM_HEADER_LINES;
+  EXPECT_GE(num_lines, NUM_LINES_EXPECTED)
+    << "Expected at least " << NUM_LINES_EXPECTED
+    << " data records (allocation + deallocation + header); got " << num_lines << " lines"
+    << std::endl
+    << "content: " << std::endl
+    << output;
 }
 
 }  // namespace

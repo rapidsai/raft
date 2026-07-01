@@ -67,7 +67,7 @@ class notifier {
  *        or deallocation.
  *
  * Forwards all calls to the upstream resource, then calls notifier::notify().
- * A separate consumer (e.g. resource_monitor) can call notifier::wait() to
+ * A separate consumer (e.g. sampling_monitor) can call notifier::wait() to
  * block until activity occurs.
  *
  * @tparam Upstream  Stored by value.  Use a concrete resource type for owning
