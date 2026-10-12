@@ -5,7 +5,7 @@ This guide is meant to provide a quick-start tutorial for interacting with RAFT'
 ## Memory Management
 
 RAFT uses memory resources for managing device memory. RAFT can use memory resources from
-[CCCL](https://github.com/NVIDIA/cccl) or [NVIDIA RMM](https://github.com/NVIDIA/rmm),
+[CCCL](https://github.com/NVIDIA/cccl) or [NVIDIA RMM](https://github.com/rapidsai/rmm),
 defined as either `cuda::mr::resource_ref<cuda::mr::device_accessible>` or `rmm::device_async_resource_ref`.
 
 ## Multi-dimensional Spans and Arrays
