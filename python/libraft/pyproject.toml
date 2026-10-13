@@ -30,8 +30,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rapidsai/raft"
-Documentation = "https://docs.rapids.ai/api/raft/stable/"
+Homepage = "https://github.com/NVIDIA/raft"
+Documentation = "https://docs.nvidia.com/raft/"
 
 [project.entry-points."cmake.prefix"]
 libraft = "libraft"
