@@ -205,6 +205,7 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
       run:
+        - libstdcxx >=${{ cxx_compiler_version }}
         - ${{ pin_subpackage("libraft-headers-only", exact=True) }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libcublas
@@ -305,6 +306,8 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
       run:
+        - rapids-logger =0.3
+        - libstdcxx >=${{ cxx_compiler_version }}
         - ${{ pin_subpackage("libraft", exact=True) }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libcublas
