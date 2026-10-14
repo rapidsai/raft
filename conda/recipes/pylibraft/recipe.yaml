@@ -87,6 +87,14 @@ requirements:
       then: cuda-bindings >=12.9.2,<13.0
       else: cuda-bindings >=13.0.1,<14.0
   run:
+    - libgcc >=${{ c_compiler_version }}
+    - libstdcxx >=${{ cxx_compiler_version }}
+    - librmm =${{ minor_version }}
+    - rapids-logger =0.3
+    - libcublas
+    - libcurand
+    - libcusolver
+    - libcusparse
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - libraft =${{ version }}
     - libraft-headers =${{ version }}
