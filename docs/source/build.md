@@ -58,7 +58,7 @@ mamba install -c rapidsai -c conda-forge libraft-headers cuda-version=12.9
 
 ## Installing Python through Pip
 
-`pylibraft` and `raft-dask` both have packages that can be [installed through pip](https://rapids.ai/pip.html#install).
+`pylibraft` and `raft-dask` both have packages that can be installed through pip.
 
 ```bash
 # CUDA 13
@@ -84,7 +84,7 @@ pip install raft-dask-cu12
 In addition to the libraries included with cudatoolkit 12.2+, there are some other dependencies below for building RAFT from source. Many of the dependencies are optional and depend only on the primitives being used. All of these can be installed with cmake or [rapids-cpm](https://github.com/rapidsai/rapids-cmake#cpm) and many of them can be installed with [conda](https://anaconda.org).
 
 #### Required
-- [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
+- [NVIDIA RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
 - [Thrust](https://github.com/NVIDIA/thrust) v1.17 / [CUB](https://github.com/NVIDIA/cub)
 
 #### Optional
