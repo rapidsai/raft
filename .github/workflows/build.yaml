@@ -24,7 +24,7 @@ on:
         required: true
         type: string
       build_type:
-        description: "build_type: one of [branch, nightly, pull-request]"
+        description: "build_type: one of [branch, nightly, pull-request, release-candidate]"
         type: string
         default: nightly
 
@@ -45,8 +45,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -63,8 +62,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -75,6 +73,7 @@ jobs:
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   upload-conda:
+    if: ${{ inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && github.head_ref != 'agent/release-catalog-canary' && github.head_ref != 'refs/heads/agent/release-catalog-canary' && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && !startsWith(github.ref, 'refs/heads/release-test-') && !startsWith(github.head_ref, 'release-test-') && !startsWith(github.head_ref, 'refs/heads/release-test-') && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: [cpp-build, python-build]
     permissions:
       actions: read
@@ -83,7 +82,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -97,7 +96,7 @@ jobs:
       build_type: ${{ inputs.build_type || 'branch' }}
       matrix_name: docs-build
   docs-build:
-    if: github.ref_type == 'branch'
+    if: ${{ github.ref_type == 'branch' && inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && github.head_ref != 'agent/release-catalog-canary' && github.head_ref != 'refs/heads/agent/release-catalog-canary' && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && !startsWith(github.ref, 'refs/heads/release-test-') && !startsWith(github.head_ref, 'release-test-') && !startsWith(github.head_ref, 'refs/heads/release-test-') && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: [docs-build-matrix, python-build]
     permissions:
       actions: read
@@ -105,8 +104,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.docs-build-matrix.outputs.matrix) }}
@@ -120,7 +118,7 @@ jobs:
       script: "ci/build_docs.sh"
       sha: ${{ inputs.sha }}
   publish-api-docs:
-    if: github.ref_type == 'branch'
+    if: ${{ github.ref_type == 'branch' && inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && github.head_ref != 'agent/release-catalog-canary' && github.head_ref != 'refs/heads/agent/release-catalog-canary' && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && !startsWith(github.ref, 'refs/heads/release-test-') && !startsWith(github.head_ref, 'release-test-') && !startsWith(github.head_ref, 'refs/heads/release-test-') && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: [docs-build]
     permissions:
       contents: read
@@ -136,7 +134,7 @@ jobs:
       target-aws-secret-access-key: ${{ secrets.NVIDIA_DOCS_AWS_SECRET_ACCESS_KEY }}
       target-archive-s3-bucket: ${{ secrets.NVIDIA_DOCS_ARCHIVE_S3_BUCKET }}
       target-s3-bucket: ${{ secrets.NVIDIA_DOCS_S3_BUCKET }}
-    uses: rapidsai/shared-workflows/.github/workflows/publish-api-docs.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/publish-api-docs.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       docs-projects: raft
       dry-run: false
@@ -148,8 +146,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -163,6 +160,7 @@ jobs:
       package-name: libraft
       package-type: cpp
   wheel-publish-libraft:
+    if: ${{ inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && github.head_ref != 'agent/release-catalog-canary' && github.head_ref != 'refs/heads/agent/release-catalog-canary' && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && !startsWith(github.ref, 'refs/heads/release-test-') && !startsWith(github.head_ref, 'release-test-') && !startsWith(github.head_ref, 'refs/heads/release-test-') && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: wheel-build-libraft
     permissions:
       actions: read
@@ -171,9 +169,10 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      publish_to_pypi: false # PyPI publication is handled by Kitmaker.
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
@@ -188,8 +187,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -203,6 +201,7 @@ jobs:
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-pylibraft:
+    if: ${{ inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && github.head_ref != 'agent/release-catalog-canary' && github.head_ref != 'refs/heads/agent/release-catalog-canary' && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && !startsWith(github.ref, 'refs/heads/release-test-') && !startsWith(github.head_ref, 'release-test-') && !startsWith(github.head_ref, 'refs/heads/release-test-') && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: wheel-build-pylibraft
     permissions:
       actions: read
@@ -211,9 +210,10 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      publish_to_pypi: false # PyPI publication is handled by Kitmaker.
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
@@ -228,8 +228,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -243,6 +242,7 @@ jobs:
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-raft-dask:
+    if: ${{ inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && github.head_ref != 'agent/release-catalog-canary' && github.head_ref != 'refs/heads/agent/release-catalog-canary' && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && !startsWith(github.ref, 'refs/heads/release-test-') && !startsWith(github.head_ref, 'release-test-') && !startsWith(github.head_ref, 'refs/heads/release-test-') && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: wheel-build-raft-dask
     permissions:
       actions: read
@@ -251,9 +251,10 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@10c48afab35c7a70c3c4b1fcccaab11356b7720f
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      publish_to_pypi: false # PyPI publication is handled by Kitmaker.
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
@@ -261,6 +262,7 @@ jobs:
       package-type: python
       publish-wheel-search-key: raft_wheel_python_raft_dask
   devcontainers:
+    if: ${{ inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && github.head_ref != 'agent/release-catalog-canary' && github.head_ref != 'refs/heads/agent/release-catalog-canary' && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && !startsWith(github.ref, 'refs/heads/release-test-') && !startsWith(github.head_ref, 'release-test-') && !startsWith(github.head_ref, 'refs/heads/release-test-') && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     name: Build devcontainers
     secrets: inherit  # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/build-devcontainers.yaml@main
