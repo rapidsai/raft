@@ -208,6 +208,7 @@ outputs:
         - librmm =${{ minor_version }}
         - rapids-logger =0.3
         - libstdcxx >=${{ cxx_compiler_version }}
+        - libgcc >=${{ c_compiler_version }}
         - ${{ pin_subpackage("libraft-headers-only", exact=True) }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libcublas
@@ -311,6 +312,7 @@ outputs:
         - librmm =${{ minor_version }}
         - rapids-logger =0.3
         - libstdcxx >=${{ cxx_compiler_version }}
+        - libgcc >=${{ c_compiler_version }}
         - ${{ pin_subpackage("libraft", exact=True) }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libcublas
