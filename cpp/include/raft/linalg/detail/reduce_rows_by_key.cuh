@@ -280,6 +280,33 @@ void sum_rows_by_key_large_nkeys_colmajor(const DataIteratorT d_A,
 }
 
 /**
+ * Large-nkeys reduction with one thread per element, used for rows narrower than a warp
+ * (ncols < WarpSize), where a warp per row would leave lanes idle.
+ */
+template <typename DataIteratorT,
+          typename KeysIteratorT,
+          typename WeightT,
+          typename SumsT,
+          typename IdxT>
+RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor_per_element(const DataIteratorT d_A,
+                                                                    IdxT lda,
+                                                                    const WeightT* d_weights,
+                                                                    KeysIteratorT d_keys,
+                                                                    IdxT nrows,
+                                                                    IdxT ncols,
+                                                                    SumsT* d_sums)
+{
+  IdxT gid = threadIdx.x + (blockDim.x * static_cast<IdxT>(blockIdx.x));
+  IdxT j   = gid % ncols;
+  IdxT i   = gid / ncols;
+  if (i >= nrows) return;
+  IdxT l    = static_cast<IdxT>(d_keys[i]);
+  SumsT val = d_A[j + lda * i];
+  if (d_weights != nullptr) val *= d_weights[i];
+  raft::myAtomicAdd(&d_sums[j + ncols * l], val);
+}
+
+/**
  * Large-nkeys reduction with one warp per row: the key and weight are loaded once per row and the
  * warp's lanes add consecutive columns of the row into d_sums[key].
  */
@@ -288,13 +315,13 @@ template <typename DataIteratorT,
           typename WeightT,
           typename SumsT,
           typename IdxT>
-RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT d_A,
-                                                        IdxT lda,
-                                                        const WeightT* d_weights,
-                                                        KeysIteratorT d_keys,
-                                                        IdxT nrows,
-                                                        IdxT ncols,
-                                                        SumsT* d_sums)
+RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor_per_warp(const DataIteratorT d_A,
+                                                                 IdxT lda,
+                                                                 const WeightT* d_weights,
+                                                                 KeysIteratorT d_keys,
+                                                                 IdxT nrows,
+                                                                 IdxT ncols,
+                                                                 SumsT* d_sums)
 {
   // Plain pointers are read through the read-only cache; other iterators (e.g. a transform
   // iterator converting the input type) are dereferenced as is.
@@ -331,15 +358,31 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A,
                                           SumsT* d_sums,
                                           cudaStream_t st)
 {
-  constexpr uint32_t block_dim       = 128;
+  constexpr uint32_t block_dim = 128;
+  if (ncols < WarpSize) {
+    // Rows narrower than a warp: one thread per element keeps every lane busy.
+    const auto grid_dim = static_cast<uint32_t>(ceildiv<IdxT>(nrows * ncols, IdxT{block_dim}));
+    raft::launch_kernel(st,
+                        grid_dim,
+                        block_dim,
+                        sum_rows_by_key_large_nkeys_kernel_rowmajor_per_element,
+                        d_A,
+                        lda,
+                        d_weights,
+                        d_keys,
+                        nrows,
+                        ncols,
+                        d_sums);
+    return;
+  }
   constexpr uint32_t warps_per_block = block_dim / WarpSize;
   // Keep gridDim.x within the launch limit; the kernel's grid-stride loop covers extra rows.
-  const auto grid_dim = static_cast<uint32_t>(
-    std::min<IdxT>(ceildiv<IdxT>(nrows, warps_per_block), IdxT{1} << 30));
+  const auto grid_dim =
+    static_cast<uint32_t>(std::min<IdxT>(ceildiv<IdxT>(nrows, warps_per_block), IdxT{1} << 30));
   raft::launch_kernel(st,
                       grid_dim,
                       block_dim,
-                      sum_rows_by_key_large_nkeys_kernel_rowmajor,
+                      sum_rows_by_key_large_nkeys_kernel_rowmajor_per_warp,
                       d_A,
                       lda,
                       d_weights,
