@@ -11,9 +11,13 @@
 
 from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.vector cimport vector
+from cuda.bindings.cyruntime cimport cudaStream_t
 
 from rmm.librmm.cuda_stream_pool cimport cuda_stream_pool
-from rmm.librmm.cuda_stream_ref cimport stream_ref
+
+cdef extern from "cuda/stream" namespace "cuda" nogil:
+    cdef cppclass stream_ref:
+        stream_ref(cudaStream_t)
 
 
 # Keeping `handle_t` around for backwards compatibility at the

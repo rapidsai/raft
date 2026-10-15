@@ -12,7 +12,6 @@ import functools
 
 from cuda.bindings.cyruntime cimport cudaStream_t
 from libc.stdint cimport uintptr_t
-from rmm.librmm.cuda_stream_ref cimport stream_ref
 
 # cudaStreamPerThread is not exported by cuda.bindings.cyruntime, declare it directly
 cdef extern from "cuda_runtime_api.h" nogil:
