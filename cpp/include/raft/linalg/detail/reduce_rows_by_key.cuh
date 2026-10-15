@@ -12,7 +12,10 @@
 #include <cub/block/block_reduce.cuh>
 #include <cub/util_ptx.cuh>
 
+#include <algorithm>
+#include <cstdint>
 #include <limits>
+#include <type_traits>
 
 #define MAX_BLOCKS 65535u
 namespace raft {
@@ -276,6 +279,10 @@ void sum_rows_by_key_large_nkeys_colmajor(const DataIteratorT d_A,
                       d_sums);
 }
 
+/**
+ * Large-nkeys reduction with one warp per row: the key and weight are loaded once per row and the
+ * warp's lanes add consecutive columns of the row into d_sums[key].
+ */
 template <typename DataIteratorT,
           typename KeysIteratorT,
           typename WeightT,
@@ -289,14 +296,25 @@ RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT d_A,
                                                         IdxT ncols,
                                                         SumsT* d_sums)
 {
-  IdxT gid = threadIdx.x + (blockDim.x * static_cast<IdxT>(blockIdx.x));
-  IdxT j   = gid % ncols;
-  IdxT i   = gid / ncols;
-  if (i >= nrows) return;
-  IdxT l    = static_cast<IdxT>(d_keys[i]);
-  SumsT val = d_A[j + lda * i];
-  if (d_weights != nullptr) val *= d_weights[i];
-  raft::myAtomicAdd(&d_sums[j + ncols * l], val);
+  // Plain pointers are read through the read-only cache; other iterators (e.g. a transform
+  // iterator converting the input type) are dereferenced as is.
+  constexpr bool kIsPlainPointer =
+    std::is_same_v<DataIteratorT, const SumsT*> || std::is_same_v<DataIteratorT, SumsT*>;
+  const IdxT warp_id = (static_cast<IdxT>(blockIdx.x) * blockDim.x + threadIdx.x) / WarpSize;
+  const IdxT n_warps = static_cast<IdxT>(gridDim.x) * blockDim.x / WarpSize;
+  for (IdxT i = warp_id; i < nrows; i += n_warps) {
+    const auto key = static_cast<IdxT>(d_keys[i]);
+    const SumsT w  = d_weights != nullptr ? static_cast<SumsT>(d_weights[i]) : SumsT(1);
+    for (IdxT j = laneId(); j < ncols; j += WarpSize) {
+      SumsT a;
+      if constexpr (kIsPlainPointer) {
+        a = __ldg(d_A + lda * i + j);
+      } else {
+        a = static_cast<SumsT>(d_A[lda * i + j]);
+      }
+      raft::myAtomicAdd(d_sums + ncols * key + j, a * w);
+    }
+  }
 }
 
 template <typename DataIteratorT,
@@ -313,8 +331,11 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A,
                                           SumsT* d_sums,
                                           cudaStream_t st)
 {
-  uint32_t block_dim = 128;
-  auto grid_dim      = static_cast<uint32_t>(ceildiv<IdxT>(nrows * ncols, (IdxT)block_dim));
+  constexpr uint32_t block_dim       = 128;
+  constexpr uint32_t warps_per_block = block_dim / WarpSize;
+  // Keep gridDim.x within the launch limit; the kernel's grid-stride loop covers extra rows.
+  const auto grid_dim = static_cast<uint32_t>(
+    std::min<IdxT>(ceildiv<IdxT>(nrows, warps_per_block), IdxT{1} << 30));
   raft::launch_kernel(st,
                       grid_dim,
                       block_dim,
