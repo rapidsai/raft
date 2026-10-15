@@ -23,7 +23,7 @@
 #include <rmm/resource_ref.hpp>
 
 #include <cub/util_type.cuh>  // cub::Traits
-#include <cuda/std/variant>    // cuda::std::monostate
+#include <cuda/std/variant>   // cuda::std::monostate
 #include <cuda/stream>
 
 #include <algorithm>
@@ -289,8 +289,8 @@ class warp_sort {
       T other = keys_in[PerThreadSizeIn - i];
       bool take;
       if constexpr (TieBreak) {
-        take = is_ordered<Ascending>(
-          other, key, ids_in[PerThreadSizeIn - i], idx_arr_[kMaxArrLen - i]);
+        take =
+          is_ordered<Ascending>(other, key, ids_in[PerThreadSizeIn - i], idx_arr_[kMaxArrLen - i]);
       } else {
         take = is_ordered<Ascending>(other, key);
       }

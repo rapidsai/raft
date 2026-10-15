@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -36,11 +36,7 @@ _RAFT_DEVICE _RAFT_FORCEINLINE P0 first_payload(P0 head, Rest...)
 
 /** Whether `a` must move after `b`, breaking an equal-key tie on the index. */
 template <typename KeyT, typename IdxT>
-_RAFT_DEVICE _RAFT_FORCEINLINE bool swap_needed(bool ascending,
-                                                KeyT a,
-                                                KeyT b,
-                                                IdxT ia,
-                                                IdxT ib)
+_RAFT_DEVICE _RAFT_FORCEINLINE bool swap_needed(bool ascending, KeyT a, KeyT b, IdxT ia, IdxT ib)
 {
   if (a != b) { return ascending ? (a > b) : (a < b); }
   // Must flip with `ascending`, or paired lanes disagree on a tie and duplicate an element.
@@ -273,8 +269,7 @@ class bitonic {
     } else {
       constexpr int kSize2 = Size / 2;
       bitonic<kSize2, TieBreak>::sort_impl(false, warp_width, keys, payloads...);
-      bitonic<kSize2, TieBreak>::sort_impl(
-        true, warp_width, keys + kSize2, (payloads + kSize2)...);
+      bitonic<kSize2, TieBreak>::sort_impl(true, warp_width, keys + kSize2, (payloads + kSize2)...);
     }
     bitonic<Size, TieBreak>::merge_impl(ascending, warp_width, keys, payloads...);
   }
