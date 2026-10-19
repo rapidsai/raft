@@ -367,9 +367,10 @@ RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor_per_warp(const DataItera
   // iterator converting the input type) are dereferenced as is.
   constexpr bool kIsPlainPointer =
     std::is_same_v<DataIteratorT, const SumsT*> || std::is_same_v<DataIteratorT, SumsT*>;
-  const IdxT warp_id = (static_cast<IdxT>(blockIdx.x) * blockDim.x + threadIdx.x) / WarpSize;
-  const IdxT n_warps = static_cast<IdxT>(gridDim.x) * blockDim.x / WarpSize;
-  for (IdxT i = warp_id; i < nrows; i += n_warps) {
+  const int64_t warp_id = (static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x) / WarpSize;
+  const int64_t n_warps = static_cast<int64_t>(gridDim.x) * blockDim.x / WarpSize;
+  for (int64_t r = warp_id; r < static_cast<int64_t>(nrows); r += n_warps) {
+    const auto i   = static_cast<IdxT>(r);
     const IdxT row = d_row_ids != nullptr ? static_cast<IdxT>(d_row_ids[i]) : i;
     const auto key = static_cast<IdxT>(d_keys[i]);
     const SumsT w  = d_weights != nullptr ? static_cast<SumsT>(d_weights[row]) : SumsT(1);
@@ -596,31 +597,33 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A,
       if constexpr (std::is_same_v<SumsT, float> && (std::is_same_v<DataIteratorT, const float*> ||
                                                      std::is_same_v<DataIteratorT, float*>)) {
         const IdxT nvecs = nrows * ncols / 4;
-        raft::launch_kernel(st,
-                            static_cast<uint32_t>(ceildiv<IdxT>(nvecs, IdxT{plan.block_dim})),
-                            plan.block_dim,
-                            sum_rows_by_key_large_nkeys_kernel_rowmajor_per_float4,
-                            static_cast<const float*>(d_A),
-                            lda,
-                            d_weights,
-                            d_keys,
-                            nvecs,
-                            ncols,
-                            d_sums);
+        raft::launch_kernel(
+          st,
+          static_cast<uint32_t>(ceildiv<IdxT>(nvecs, static_cast<IdxT>(plan.block_dim))),
+          plan.block_dim,
+          sum_rows_by_key_large_nkeys_kernel_rowmajor_per_float4,
+          static_cast<const float*>(d_A),
+          lda,
+          d_weights,
+          d_keys,
+          nvecs,
+          ncols,
+          d_sums);
       }
       break;
     case sum_rows_by_key_kernel::per_element:
-      raft::launch_kernel(st,
-                          static_cast<uint32_t>(ceildiv<IdxT>(nrows * ncols, IdxT{plan.block_dim})),
-                          plan.block_dim,
-                          sum_rows_by_key_large_nkeys_kernel_rowmajor_per_element,
-                          d_A,
-                          lda,
-                          d_weights,
-                          d_keys,
-                          nrows,
-                          ncols,
-                          d_sums);
+      raft::launch_kernel(
+        st,
+        static_cast<uint32_t>(ceildiv<IdxT>(nrows * ncols, static_cast<IdxT>(plan.block_dim))),
+        plan.block_dim,
+        sum_rows_by_key_large_nkeys_kernel_rowmajor_per_element,
+        d_A,
+        lda,
+        d_weights,
+        d_keys,
+        nrows,
+        ncols,
+        d_sums);
       break;
     case sum_rows_by_key_kernel::sorted:
       sum_rows_by_key_large_nkeys_rowmajor_sorted(
