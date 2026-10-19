@@ -285,8 +285,7 @@ void sum_rows_by_key_large_nkeys_colmajor(const DataIteratorT d_A,
 }
 
 /**
- * Large-nkeys reduction with one thread per element, used for where a warp per row would leave
- * lanes idle.
+ * One thread does one element, one key and one weight load. Then, one atomic write.
  */
 template <typename DataIteratorT,
           typename KeysIteratorT,
@@ -314,8 +313,6 @@ RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor_per_element(const DataIt
 /**
  * One thread does one vectorized float4 load, one key and weight load and one float4 atomic
  * (sm_90+) write.
- * Vectorized load requirements:
- *    - ncols % 4 == 0, lda % 4 == 0 and 16-byte aligned d_A and d_sums.
  */
 template <typename KeysIteratorT, typename WeightT, typename IdxT>
 RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor_per_float4(const float* d_A,
@@ -350,9 +347,7 @@ RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor_per_float4(const float* 
 }
 
 /**
- * Large-nkeys reduction with one warp per row: the key and weight are loaded once per row and the
- * warp's lanes add consecutive columns of the row into d_sums[key].
- * If d_row_ids is not null, the i-th visited row is d_row_ids[i] and its key is d_keys[i].
+ * One warp processes one row. Key and weight are loaded once per row.
  */
 template <typename DataIteratorT,
           typename KeysIteratorT,
@@ -423,6 +418,9 @@ void sum_rows_by_key_large_nkeys_rowmajor_per_warp(const DataIteratorT d_A,
                       d_sums);
 }
 
+/**
+ * Prepare inputs for radix-sort
+ */
 template <typename KeysIteratorT, typename IdxT>
 RAFT_KERNEL sum_rows_by_key_sort_input_kernel(KeysIteratorT d_keys,
                                               IdxT nrows,
@@ -437,8 +435,7 @@ RAFT_KERNEL sum_rows_by_key_sort_input_kernel(KeysIteratorT d_keys,
 }
 
 /**
- * Large-nkeys reduction over the rows in key order: the row ids are radix-sorted by key, so the
- * sums rows being updated at any moment stay in L2 even when all sums do not fit there.
+ * Radix-sort the row ids by key and then call per-warp kernel.
  * Requires nrows and nkeys to fit in uint32_t; uses 16 bytes per row of temporary memory.
  */
 template <typename DataIteratorT,
@@ -505,13 +502,6 @@ void sum_rows_by_key_large_nkeys_rowmajor_sorted(const DataIteratorT d_A,
                                                 st);
 }
 
-/**
- * Whether to visit the rows in key order. Sorting pays off when the sums do not fit in L2, so the
- * atomics of unsorted rows would go to DRAM, when the input is large enough to amortize the sort
- * and its temporary allocations (16 bytes per row), and when rows are long enough (>= 2 KB) that
- * the per-row sort cost and the contention of consecutive rows on the same key stay small. The
- * size thresholds scale with the L2 size; all were measured on A100, H100 and B100.
- */
 template <typename SumsT, typename IdxT>
 bool sum_rows_by_key_use_sorted(IdxT nrows, IdxT ncols, IdxT nkeys, int l2_bytes, int cc_major)
 {
@@ -523,9 +513,66 @@ bool sum_rows_by_key_use_sorted(IdxT nrows, IdxT ncols, IdxT nkeys, int l2_bytes
   const double row_bytes   = static_cast<double>(ncols) * sizeof(SumsT);
   const double input_bytes = row_bytes * nrows;
   const double sums_bytes  = row_bytes * nkeys;
-  // On Ampere, unsorted atomics still mostly hit L2 until the sums exceed the whole L2.
-  const double sums_limit = cc_major >= 9 ? 0.5 * l2_bytes : 1.0 * l2_bytes;
-  return row_bytes >= 2048 && input_bytes >= 40.0 * l2_bytes && sums_bytes > sums_limit;
+  // On Ampere, unsorted atomics still mostly hit L2 until the sums exceed the whole L2. On RTX
+  // Blackwell (cc 12, GDDR7) sorting already wins for small inputs and sums of a quarter of L2.
+  const double sums_limit  = cc_major == 12  ? 0.25 * l2_bytes
+                             : cc_major >= 9 ? 0.5 * l2_bytes
+                                             : 1.0 * l2_bytes;
+  const double input_limit = cc_major == 12 ? 6.0 * l2_bytes : 40.0 * l2_bytes;
+  return row_bytes >= 2048 && input_bytes >= input_limit && sums_bytes > sums_limit;
+}
+
+enum class sum_rows_by_key_kernel { per_element, per_float4, per_warp, sorted };
+
+struct sum_rows_by_key_plan {
+  sum_rows_by_key_kernel kernel;
+  uint32_t block_dim;
+};
+
+/**
+ * Kernel selection decision point: (Heuristically tuned on A100, H100, B100 and RTX PRO 6000)
+ *  - per_float4: float rows of whole 16-byte vectors narrower than max_cols_float4 and 16-byte
+ * alignment holds;
+ *  - per_element: other narrow rows (ncols < min_cols_per_warp), where a warp per row idles lanes
+ * or 16-byte alignment doesn't hold.
+ *  - sorted: long rows whose sums do not fit in L2 (sum_rows_by_key_use_sorted);
+ *  - per_warp: everything else.
+ */
+template <typename DataIteratorT, typename SumsT, typename IdxT>
+sum_rows_by_key_plan sum_rows_by_key_select_kernel(
+  const DataIteratorT d_A, IdxT lda, IdxT nrows, IdxT ncols, IdxT nkeys, const SumsT* d_sums)
+{
+  int dev_id, cc_major, l2_bytes;
+  RAFT_CUDA_TRY(cudaGetDevice(&dev_id));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&cc_major, cudaDevAttrComputeCapabilityMajor, dev_id));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&l2_bytes, cudaDevAttrL2CacheSize, dev_id));
+
+  // Fewest columns for which the per-warp kernel beats the per-element one
+  const IdxT min_cols_per_warp = sizeof(SumsT) > 4                   ? 64
+                                 : cc_major == 10                    ? 42
+                                 : (cc_major >= 9 && cc_major != 12) ? 32
+                                                                     : 48;
+
+  const IdxT max_cols_float4 = cc_major == 10   ? 256
+                               : cc_major == 12 ? 64
+                               : cc_major >= 9  ? min_cols_per_warp
+                                                : 0;
+
+  if constexpr (std::is_same_v<SumsT, float> && (std::is_same_v<DataIteratorT, const float*> ||
+                                                 std::is_same_v<DataIteratorT, float*>)) {
+    if (ncols < max_cols_float4 && ncols % 4 == 0 && lda % 4 == 0 && raft::is_aligned(d_A, 16) &&
+        raft::is_aligned(d_sums, 16)) {
+      return {sum_rows_by_key_kernel::per_float4, 128};
+    }
+  }
+  if (ncols < min_cols_per_warp) {
+    // Larger blocks help on cc 10 and 12, where short-lived 128-thread blocks are launch-bound.
+    return {sum_rows_by_key_kernel::per_element, (cc_major == 10 || cc_major == 12) ? 256u : 128u};
+  }
+  if (sum_rows_by_key_use_sorted<SumsT>(nrows, ncols, nkeys, l2_bytes, cc_major)) {
+    return {sum_rows_by_key_kernel::sorted, 0};
+  }
+  return {sum_rows_by_key_kernel::per_warp, 0};
 }
 
 template <typename DataIteratorT,
@@ -543,24 +590,15 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A,
                                           SumsT* d_sums,
                                           cudaStream_t st)
 {
-  // Kernel selection is heuristically tunned on A100, H100 and B100.
-  int dev_id, cc_major, l2_bytes;
-  RAFT_CUDA_TRY(cudaGetDevice(&dev_id));
-  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&cc_major, cudaDevAttrComputeCapabilityMajor, dev_id));
-  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&l2_bytes, cudaDevAttrL2CacheSize, dev_id));
-
-  const IdxT min_cols_per_warp = sizeof(SumsT) > 4 ? 64 : cc_major >= 9 ? 32 : 48;
-  if (ncols < min_cols_per_warp) {
-    // per-element kernel for narrow rows (small ncols), avoiding idle lanes
-    constexpr uint32_t block_dim = 128;
-    if constexpr (std::is_same_v<SumsT, float> && (std::is_same_v<DataIteratorT, const float*> ||
-                                                   std::is_same_v<DataIteratorT, float*>)) {
-      if (ncols % 4 == 0 && lda % 4 == 0 && raft::is_aligned(d_A, 16) &&
-          raft::is_aligned(d_sums, 16)) {
+  const auto plan = sum_rows_by_key_select_kernel(d_A, lda, nrows, ncols, nkeys, d_sums);
+  switch (plan.kernel) {
+    case sum_rows_by_key_kernel::per_float4:
+      if constexpr (std::is_same_v<SumsT, float> && (std::is_same_v<DataIteratorT, const float*> ||
+                                                     std::is_same_v<DataIteratorT, float*>)) {
         const IdxT nvecs = nrows * ncols / 4;
         raft::launch_kernel(st,
-                            static_cast<uint32_t>(ceildiv<IdxT>(nvecs, IdxT{block_dim})),
-                            block_dim,
+                            static_cast<uint32_t>(ceildiv<IdxT>(nvecs, IdxT{plan.block_dim})),
+                            plan.block_dim,
                             sum_rows_by_key_large_nkeys_kernel_rowmajor_per_float4,
                             static_cast<const float*>(d_A),
                             lda,
@@ -569,32 +607,36 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A,
                             nvecs,
                             ncols,
                             d_sums);
-        return;
       }
-    }
-    const auto grid_dim = static_cast<uint32_t>(ceildiv<IdxT>(nrows * ncols, IdxT{block_dim}));
-    raft::launch_kernel(st,
-                        grid_dim,
-                        block_dim,
-                        sum_rows_by_key_large_nkeys_kernel_rowmajor_per_element,
-                        d_A,
-                        lda,
-                        d_weights,
-                        d_keys,
-                        nrows,
-                        ncols,
-                        d_sums);
-    return;
-  }
-
-  if (sum_rows_by_key_use_sorted<SumsT>(nrows, ncols, nkeys, l2_bytes, cc_major)) {
-    // sorted kernel for highest ncols and nrows by remediating the L2 bottleneck
-    sum_rows_by_key_large_nkeys_rowmajor_sorted(
-      d_A, lda, d_keys, d_weights, nrows, ncols, nkeys, d_sums, st);
-  } else {
-    // per-warp kernel for wider rows until L2 bottleneck hits
-    sum_rows_by_key_large_nkeys_rowmajor_per_warp(
-      d_A, lda, d_keys, static_cast<const uint32_t*>(nullptr), d_weights, nrows, ncols, d_sums, st);
+      break;
+    case sum_rows_by_key_kernel::per_element:
+      raft::launch_kernel(st,
+                          static_cast<uint32_t>(ceildiv<IdxT>(nrows * ncols, IdxT{plan.block_dim})),
+                          plan.block_dim,
+                          sum_rows_by_key_large_nkeys_kernel_rowmajor_per_element,
+                          d_A,
+                          lda,
+                          d_weights,
+                          d_keys,
+                          nrows,
+                          ncols,
+                          d_sums);
+      break;
+    case sum_rows_by_key_kernel::sorted:
+      sum_rows_by_key_large_nkeys_rowmajor_sorted(
+        d_A, lda, d_keys, d_weights, nrows, ncols, nkeys, d_sums, st);
+      break;
+    case sum_rows_by_key_kernel::per_warp:
+      sum_rows_by_key_large_nkeys_rowmajor_per_warp(d_A,
+                                                    lda,
+                                                    d_keys,
+                                                    static_cast<const uint32_t*>(nullptr),
+                                                    d_weights,
+                                                    nrows,
+                                                    ncols,
+                                                    d_sums,
+                                                    st);
+      break;
   }
 }
 
