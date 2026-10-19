@@ -7,6 +7,7 @@
 
 #include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/util/kernel_launch.hpp>
 
 #include <rmm/device_buffer.hpp>
@@ -311,6 +312,44 @@ RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor_per_element(const DataIt
 }
 
 /**
+ * One thread does one vectorized float4 load, one key and weight load and one float4 atomic
+ * (sm_90+) write.
+ * Vectorized load requirements:
+ *    - ncols % 4 == 0, lda % 4 == 0 and 16-byte aligned d_A and d_sums.
+ */
+template <typename KeysIteratorT, typename WeightT, typename IdxT>
+RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor_per_float4(const float* d_A,
+                                                                   IdxT lda,
+                                                                   const WeightT* d_weights,
+                                                                   KeysIteratorT d_keys,
+                                                                   IdxT nvecs,
+                                                                   IdxT ncols,
+                                                                   float* d_sums)
+{
+  const IdxT q = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
+  if (q >= nvecs) return;
+  const IdxT vecs_per_row = ncols / 4;
+  const IdxT i            = q / vecs_per_row;
+  const IdxT j            = (q - i * vecs_per_row) * 4;
+  float4 a                = __ldg(reinterpret_cast<const float4*>(d_A + lda * i + j));
+  const float w           = d_weights != nullptr ? static_cast<float>(d_weights[i]) : 1.0f;
+  a.x *= w;
+  a.y *= w;
+  a.z *= w;
+  a.w *= w;
+  float* dst = d_sums + ncols * static_cast<IdxT>(d_keys[i]) + j;
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
+  // vectorized atomic add only available since Hopper
+  atomicAdd(reinterpret_cast<float4*>(dst), a);
+#else
+  raft::myAtomicAdd(dst, a.x);
+  raft::myAtomicAdd(dst + 1, a.y);
+  raft::myAtomicAdd(dst + 2, a.z);
+  raft::myAtomicAdd(dst + 3, a.w);
+#endif
+}
+
+/**
  * Large-nkeys reduction with one warp per row: the key and weight are loaded once per row and the
  * warp's lanes add consecutive columns of the row into d_sums[key].
  * If d_row_ids is not null, the i-th visited row is d_row_ids[i] and its key is d_keys[i].
@@ -514,6 +553,25 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A,
   if (ncols < min_cols_per_warp) {
     // per-element kernel for narrow rows (small ncols), avoiding idle lanes
     constexpr uint32_t block_dim = 128;
+    if constexpr (std::is_same_v<SumsT, float> && (std::is_same_v<DataIteratorT, const float*> ||
+                                                   std::is_same_v<DataIteratorT, float*>)) {
+      if (ncols % 4 == 0 && lda % 4 == 0 && raft::is_aligned(d_A, 16) &&
+          raft::is_aligned(d_sums, 16)) {
+        const IdxT nvecs = nrows * ncols / 4;
+        raft::launch_kernel(st,
+                            static_cast<uint32_t>(ceildiv<IdxT>(nvecs, IdxT{block_dim})),
+                            block_dim,
+                            sum_rows_by_key_large_nkeys_kernel_rowmajor_per_float4,
+                            static_cast<const float*>(d_A),
+                            lda,
+                            d_weights,
+                            d_keys,
+                            nvecs,
+                            ncols,
+                            d_sums);
+        return;
+      }
+    }
     const auto grid_dim = static_cast<uint32_t>(ceildiv<IdxT>(nrows * ncols, IdxT{block_dim}));
     raft::launch_kernel(st,
                         grid_dim,
