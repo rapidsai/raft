@@ -76,7 +76,6 @@ pip install raft-dask-cu12
 - cmake 4.0+
 - GCC 13.3+
 - CUDA Toolkit 12.9+
-- NVIDIA driver 450.80.02+
 - For CUDA Toolkit 12:
   * Volta architecture or better ([Compute Capability](https://docs.nvidia.com/deploy/cuda-compatibility/latest/) >=7.0)
 - For CUDA Toolkit 13 or newer:
