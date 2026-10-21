@@ -64,7 +64,7 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
-option(RAFT_COMPACT_DIAGNOSTICS "Capture diagnostic file and line without function signatures" OFF)
+option(RAFT_COMPACT_DIAGNOSTICS "Capture diagnostic file and line without function signatures" ON)
 
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
 if(BUILD_TESTS OR BUILD_PRIMS_BENCH)

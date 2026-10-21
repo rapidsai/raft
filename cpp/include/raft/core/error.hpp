@@ -229,9 +229,10 @@ struct non_cuda_build_error : public raft::exception {
  *   }
  * @endcode
  *
- * By default the enclosing function is reported next to the file and the line, since it names the
- * template instantiation that the file and the line alone cannot. With RAFT_COMPACT_DIAGNOSTICS
- * enabled, function names are omitted and the message retains the file, line and reason.
+ * With full diagnostics the enclosing function is reported next to the file and the line, since it
+ * names the template instantiation that the file and the line alone cannot. With
+ * RAFT_COMPACT_DIAGNOSTICS enabled (the CMake default), function names are omitted and the message
+ * retains the file, line and reason.
  *
  * @param[in] location the call site to blame
  * @param[in] location_prefix text placed in front of the location, e.g. "RAFT failure at "

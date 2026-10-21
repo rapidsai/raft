@@ -250,9 +250,9 @@ RAFT's CMake has the following configurable flags available:
 | RAFT_ENABLE_CUSPARSE_DEPENDENCY | ON, OFF              | ON  | Link against cusparse library in `raft::raft`                                |
 | RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF              | ON  | Link against curand library in `raft::raft`                                  |
 | RAFT_NVTX                       | ON, OFF              | OFF | Enable NVTX Markers                                                          |
-| RAFT_COMPACT_DIAGNOSTICS         | ON, OFF              | OFF | Capture diagnostic file and line without function signatures                  |
+| RAFT_COMPACT_DIAGNOSTICS         | ON, OFF              | ON  | Capture diagnostic file and line without function signatures                  |
 
-Set `-DRAFT_COMPACT_DIAGNOSTICS=ON` when building RAFT to reduce diagnostic metadata in
+CMake builds enable `RAFT_COMPACT_DIAGNOSTICS` by default to reduce diagnostic metadata in
 applications that instantiate many templates. Errors retain the original file, line, exception type,
 and reason; the diagnostic location's `function_name()` is empty and `column()` is zero. Explicit
 `std::source_location` arguments remain accepted, but their callers may still retain function names.
@@ -260,9 +260,9 @@ and reason; the diagnostic location's `function_name()` is empty and `column()` 
 The `raft::raft` target propagates the mode to linked consumers, including through installed CMake
 packages. Downstream projects such as cuVS need no additional option. An installed package retains
 the mode selected when RAFT was built. All translation units and libraries using RAFT together must
-use the same mode; enabling it changes RAFT diagnostic helper signatures. Rebuild RAFT and its
-consumers together when changing the setting. The default `OFF` aliases `std::source_location` and
-preserves existing diagnostic behavior.
+use the same mode; the modes have different RAFT diagnostic helper signatures. Rebuild RAFT and its
+consumers together when changing the setting. Set `-DRAFT_COMPACT_DIAGNOSTICS=OFF` to alias
+`std::source_location` and restore full function names in diagnostics.
 
 ### Build documentation
 
