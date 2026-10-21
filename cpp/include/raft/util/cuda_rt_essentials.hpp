@@ -10,12 +10,12 @@
 // The scope is necessarily limited to ensure that compilation times are
 // minimized. Please make sure not to include large / expensive files from here.
 
+#include <raft/core/diagnostic_location.hpp>
 #include <raft/core/error.hpp>
 
 #include <cuda_runtime.h>
 
 #include <cstdio>
-#include <source_location>
 
 namespace raft {
 
@@ -40,9 +40,10 @@ struct cuda_error : public raft::exception {
  *
  * @throw raft::cuda_error if @p status is not cudaSuccess
  */
-inline void check_cuda_error(cudaError_t status,
-                             char const* call,
-                             std::source_location location = std::source_location::current())
+inline void check_cuda_error(
+  cudaError_t status,
+  char const* call,
+  raft::diagnostic_location location = raft::diagnostic_location::current())
 {
   if (status == cudaSuccess) { return; }
   cudaGetLastError();  // clear the error, so that it does not affect the subsequent calls
