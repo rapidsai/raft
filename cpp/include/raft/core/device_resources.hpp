@@ -10,7 +10,6 @@
 
 #include <raft/core/comms.hpp>
 #include <raft/core/detail/macros.hpp>
-#include <raft/core/diagnostic_location.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_event.hpp>
@@ -25,6 +24,7 @@
 #include <raft/core/resource/sub_comms.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/core/source_location.hpp>
 
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
@@ -120,7 +120,7 @@ class device_resources : public resources {
    * @param[in] location the call site to blame for the errors; leave at its default
    */
   void sync_stream(cuda::stream_ref stream,
-                   raft::diagnostic_location location = raft::diagnostic_location::current()) const
+                   raft::source_location location = raft::source_location::current()) const
   {
     resource::sync_stream(*this, stream, location);
   }
@@ -130,7 +130,7 @@ class device_resources : public resources {
    *
    * @param[in] location the call site to blame for the errors; leave at its default
    */
-  void sync_stream(raft::diagnostic_location location = raft::diagnostic_location::current()) const
+  void sync_stream(raft::source_location location = raft::source_location::current()) const
   {
     resource::sync_stream(*this, location);
   }

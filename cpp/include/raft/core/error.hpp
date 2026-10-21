@@ -9,7 +9,7 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-#include <raft/core/diagnostic_location.hpp>
+#include <raft/core/source_location.hpp>
 #if defined(__GNUC__) && __has_include(<cxxabi.h>) && __has_include(<execinfo.h>)
 #define ENABLE_COLLECT_CALLSTACK
 #endif
@@ -47,7 +47,7 @@ namespace detail {
  * @return whether the message could be formatted
  */
 [[nodiscard]] inline auto try_vformat_error_message(std::string& out,
-                                                    raft::diagnostic_location location,
+                                                    raft::source_location location,
                                                     char const* location_prefix,
                                                     char const* fmt,
                                                     std::va_list args) -> bool
@@ -214,12 +214,11 @@ struct non_cuda_build_error : public raft::exception {
 /**
  * @brief Format an error message that blames the call site given by @p location.
  *
- * A function that reports errors on behalf of its caller takes a `raft::diagnostic_location`
- * defaulted to `raft::diagnostic_location::current()` and forwards it here, so that the message
- * points at the caller rather than at the implementation:
+ * A function that reports errors on behalf of its caller takes a `raft::source_location` defaulted
+ * to `raft::source_location::current()` and forwards it here, so that the message points at the
+ * caller rather than at the implementation:
  * @code
- *   using location = raft::diagnostic_location;
- *   void sync(cudaStream_t stream, location loc = location::current())
+ *   void sync(cudaStream_t stream, raft::source_location loc = raft::source_location::current())
  *   {
  *     auto status = cudaStreamSynchronize(stream);
  *     if (status != cudaSuccess) {
@@ -241,8 +240,7 @@ struct non_cuda_build_error : public raft::exception {
  * @return the message, of the form "<prefix>file=<file> line=<line> function=<function>: <reason>"
  */
 [[nodiscard]] RAFT_FORMAT_PRINTF(3, 4) inline auto format_error_message(
-  raft::diagnostic_location location, char const* location_prefix, char const* fmt, ...)
-  -> std::string
+  raft::source_location location, char const* location_prefix, char const* fmt, ...) -> std::string
 {
   std::string msg{};
   std::va_list args;
@@ -269,11 +267,12 @@ namespace detail {
 #ifndef RAFT_HIDE_DEPRECATION_WARNINGS
 [[deprecated(
   "SET_ERROR_MSG is deprecated, use raft::format_error_message("
-  "raft::diagnostic_location::current(), location_prefix, fmt, ...) instead")]]
+  "raft::source_location::current(), location_prefix, fmt, ...) instead")]]
 #endif
-RAFT_FORMAT_PRINTF(3, 4) inline auto format_error_message_deprecated(
-  raft::diagnostic_location location, char const* location_prefix, char const* fmt, ...)
-  -> std::string
+RAFT_FORMAT_PRINTF(3, 4) inline auto format_error_message_deprecated(raft::source_location location,
+                                                                     char const* location_prefix,
+                                                                     char const* fmt,
+                                                                     ...) -> std::string
 {
   std::string msg{};
   std::va_list args;
@@ -323,10 +322,10 @@ RAFT_FORMAT_PRINTF(3, 4) inline auto format_error_message_deprecated(
  * @deprecated use raft::format_error_message instead, which does not need a macro to know the call
  * site and can be forwarded a location captured elsewhere.
  */
-#define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                             \
-  do {                                                                            \
-    msg += raft::detail::format_error_message_deprecated(                         \
-      raft::diagnostic_location::current(), location_prefix, fmt, ##__VA_ARGS__); \
+#define SET_ERROR_MSG(msg, location_prefix, fmt, ...)                         \
+  do {                                                                        \
+    msg += raft::detail::format_error_message_deprecated(                     \
+      raft::source_location::current(), location_prefix, fmt, ##__VA_ARGS__); \
   } while (0)
 
 /**
@@ -342,12 +341,12 @@ RAFT_FORMAT_PRINTF(3, 4) inline auto format_error_message_deprecated(
  * optional format tagas
  * @throw raft::logic_error if the condition evaluates to false.
  */
-#define RAFT_EXPECTS(cond, fmt, ...)                                                    \
-  do {                                                                                  \
-    if (!(cond)) {                                                                      \
-      throw raft::logic_error(raft::format_error_message(                               \
-        raft::diagnostic_location::current(), "RAFT failure at ", fmt, ##__VA_ARGS__)); \
-    }                                                                                   \
+#define RAFT_EXPECTS(cond, fmt, ...)                                                \
+  do {                                                                              \
+    if (!(cond)) {                                                                  \
+      throw raft::logic_error(raft::format_error_message(                           \
+        raft::source_location::current(), "RAFT failure at ", fmt, ##__VA_ARGS__)); \
+    }                                                                               \
   } while (0)
 
 /**
@@ -357,10 +356,10 @@ RAFT_FORMAT_PRINTF(3, 4) inline auto format_error_message_deprecated(
  * optional format tagas
  * @throw always throws raft::logic_error
  */
-#define RAFT_FAIL(fmt, ...)                                                           \
-  do {                                                                                \
-    throw raft::logic_error(raft::format_error_message(                               \
-      raft::diagnostic_location::current(), "RAFT failure at ", fmt, ##__VA_ARGS__)); \
+#define RAFT_FAIL(fmt, ...)                                                       \
+  do {                                                                            \
+    throw raft::logic_error(raft::format_error_message(                           \
+      raft::source_location::current(), "RAFT failure at ", fmt, ##__VA_ARGS__)); \
   } while (0)
 
 /**

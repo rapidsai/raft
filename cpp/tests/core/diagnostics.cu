@@ -19,7 +19,7 @@
 #include <type_traits>
 
 namespace {
-using location = raft::diagnostic_location;
+using location = raft::source_location;
 #if defined(RAFT_COMPACT_DIAGNOSTICS) && RAFT_COMPACT_DIAGNOSTICS
 static_assert(!std::is_same_v<location, std::source_location>);
 static_assert(location{}.function_name()[0] == '\0');

@@ -127,9 +127,8 @@ class capturing_stream {
 };
 
 /** A utility synchronizing on behalf of its caller. */
-void sync_on_behalf_of_caller(
-  raft::resources const& res,
-  raft::diagnostic_location location = raft::diagnostic_location::current())
+void sync_on_behalf_of_caller(raft::resources const& res,
+                              raft::source_location location = raft::source_location::current())
 {
   resource::sync_stream(res, location);
 }

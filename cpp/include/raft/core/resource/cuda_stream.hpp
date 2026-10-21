@@ -5,11 +5,11 @@
 #pragma once
 
 #include <raft/core/detail/macros.hpp>
-#include <raft/core/diagnostic_location.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/core/source_location.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <cuda/stream>
@@ -86,7 +86,7 @@ inline void set_cuda_stream(resources& res, cuda::stream_ref stream_view)
  */
 inline void sync_stream(const resources& res,
                         cuda::stream_ref stream,
-                        raft::diagnostic_location location = raft::diagnostic_location::current())
+                        raft::source_location location = raft::source_location::current())
 {
   if (raft::resource::get_dry_run_flag(res)) { return; }
   interruptible::synchronize(stream, location);
@@ -100,7 +100,7 @@ inline void sync_stream(const resources& res,
  * synchronizing on behalf of a caller, in which case forward the caller's location.
  */
 inline void sync_stream(const resources& res,
-                        raft::diagnostic_location location = raft::diagnostic_location::current())
+                        raft::source_location location = raft::source_location::current())
 {
   if (raft::resource::get_dry_run_flag(res)) { return; }
   sync_stream(res, get_cuda_stream(res), location);

@@ -58,8 +58,8 @@ auto line_of(std::source_location location) -> std::string
 constexpr char const* k_any_line = R"(\d+)";
 
 /** A utility reporting an error on behalf of its caller. */
-auto report_on_behalf_of_caller(
-  raft::diagnostic_location location = raft::diagnostic_location::current()) -> std::string
+auto report_on_behalf_of_caller(raft::source_location location = raft::source_location::current())
+  -> std::string
 {
   return format_error_message(location, "RAFT failure at ", "%s", "reported by a utility");
 }

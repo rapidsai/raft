@@ -20,18 +20,18 @@ namespace RAFT_EXPORT raft {
  * Explicit std::source_location arguments remain accepted, but the caller may retain its signature.
  * Use the same mode for every translation unit and consumer of these headers.
  */
-class diagnostic_location {
+class source_location {
  public:
-  constexpr diagnostic_location() noexcept = default;
-  constexpr diagnostic_location(std::source_location location) noexcept
+  constexpr source_location() noexcept = default;
+  constexpr source_location(std::source_location location) noexcept
     : file_(location.file_name()), line_(location.line())
   {
   }
 
-  static constexpr diagnostic_location current(char const* file         = __builtin_FILE(),
-                                               std::uint_least32_t line = __builtin_LINE()) noexcept
+  static constexpr source_location current(char const* file         = __builtin_FILE(),
+                                           std::uint_least32_t line = __builtin_LINE()) noexcept
   {
-    return diagnostic_location(file, line);
+    return source_location(file, line);
   }
 
   constexpr char const* file_name() const noexcept { return file_; }
@@ -40,7 +40,7 @@ class diagnostic_location {
   constexpr std::uint_least32_t column() const noexcept { return 0; }
 
  private:
-  constexpr diagnostic_location(char const* file, std::uint_least32_t line) noexcept
+  constexpr source_location(char const* file, std::uint_least32_t line) noexcept
     : file_(file), line_(line)
   {
   }
@@ -49,7 +49,7 @@ class diagnostic_location {
   std::uint_least32_t line_ = 0;
 };
 #else
-using diagnostic_location = std::source_location;
+using source_location = std::source_location;
 #endif
 
 }  // namespace RAFT_EXPORT raft

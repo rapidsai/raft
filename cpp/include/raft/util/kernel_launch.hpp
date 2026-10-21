@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include <raft/core/diagnostic_location.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/dry_run_flag.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/core/source_location.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 
 #include <cuda/stream>
@@ -52,7 +52,7 @@ template <typename... Params>
 void dispatch(cudaLaunchConfig_t const& config,
               void* kernel,
               launch_flags flags,
-              raft::diagnostic_location location,
+              raft::source_location location,
               Params... params)
 {
   if ((flags & kSkipExecution).any()) { return; }
@@ -138,7 +138,7 @@ struct launch_on {
     resources const& res,
     std::size_t smem                                 = 0,
     std::initializer_list<cudaLaunchAttribute> attrs = {},
-    raft::diagnostic_location loc                    = raft::diagnostic_location::current())
+    raft::source_location loc                        = raft::source_location::current())
     : launch_on{resource::get_cuda_stream(res).get(),
                 smem,
                 resource::get_dry_run_flag(res) ? detail::kSkipExecution : detail::launch_flags{},
@@ -165,7 +165,7 @@ struct launch_on {
     std::size_t smem                                 = 0,
     bool kSkipExecution                              = false,
     std::initializer_list<cudaLaunchAttribute> attrs = {},
-    raft::diagnostic_location loc                    = raft::diagnostic_location::current())
+    raft::source_location loc                        = raft::source_location::current())
     : launch_on{stream.get(), smem, kSkipExecution, attrs, loc}
   {
   }
@@ -188,7 +188,7 @@ struct launch_on {
     std::size_t smem                                 = 0,
     bool kSkipExecution                              = false,
     std::initializer_list<cudaLaunchAttribute> attrs = {},
-    raft::diagnostic_location loc                    = raft::diagnostic_location::current())
+    raft::source_location loc                        = raft::source_location::current())
     : launch_on{
         stream, smem, kSkipExecution ? detail::kSkipExecution : detail::launch_flags{}, attrs, loc}
   {
@@ -201,7 +201,7 @@ struct launch_on {
   ~launch_on()                           = default;
 
   /** Call site to blame for launch errors. */
-  raft::diagnostic_location location;
+  raft::source_location location;
   /** Launch configuration; the grid and block dimensions are filled in by the launch. */
   cudaLaunchConfig_t config{};
   /** How to launch; derived from the resources rather than given at the call site. */
@@ -218,7 +218,7 @@ struct launch_on {
             std::size_t smem,
             detail::launch_flags launch_with,
             std::initializer_list<cudaLaunchAttribute> attrs,
-            raft::diagnostic_location loc)
+            raft::source_location loc)
     : location{loc}, flags{launch_with}
   {
     config.stream           = stream;

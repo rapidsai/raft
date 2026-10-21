@@ -11,7 +11,7 @@
 #include <raft/core/interruptible.hpp>
 #endif
 
-#include <raft/core/diagnostic_location.hpp>
+#include <raft/core/source_location.hpp>
 
 #include <cuda/stream>
 
@@ -124,8 +124,8 @@ struct stream_view {
    * @param[in] location the call site to blame for the errors; leave at its default unless
    * synchronizing on behalf of a caller, in which case forward the caller's location.
    */
-  void interruptible_synchronize([[maybe_unused]] raft::diagnostic_location location =
-                                   raft::diagnostic_location::current()) const
+  void interruptible_synchronize(
+    [[maybe_unused]] raft::source_location location = raft::source_location::current()) const
   {
 #ifndef RAFT_DISABLE_CUDA
     interruptible::synchronize(base_view_, location);
