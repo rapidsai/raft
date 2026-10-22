@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -88,9 +88,24 @@ auto memory_type_from_pointer(T* ptr)
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attrs, ptr));
   switch (attrs.type) {
     case cudaMemoryTypeDevice: result = memory_type::device; break;
-    case cudaMemoryTypeHost: result = memory_type::host; break;
+    case cudaMemoryTypeHost:
+      // Page-locked (cudaMallocHost / cudaHostRegister) memory is only device accessible when
+      // it has a device mapping
+      result = attrs.devicePointer != nullptr ? memory_type::pinned : memory_type::host;
+      break;
     case cudaMemoryTypeManaged: result = memory_type::managed; break;
-    default: result = memory_type::host;
+    default: {
+      // Pageable (unregistered) memory. `attrs.devicePointer` must not be used to decide
+      // accessibility: with HMM it can be non-null for ordinary pageable memory, yet device
+      // accesses are then serviced through GPU page faults. Only when the device reads
+      // pageable memory through the host page tables (ATS) is it directly device accessible.
+      auto device                = 0;
+      auto uses_host_page_tables = 0;
+      RAFT_CUDA_TRY(cudaGetDevice(&device));
+      RAFT_CUDA_TRY(cudaDeviceGetAttribute(
+        &uses_host_page_tables, cudaDevAttrPageableMemoryAccessUsesHostPageTables, device));
+      result = uses_host_page_tables != 0 ? memory_type::managed : memory_type::host;
+    }
   }
 #else
   RAFT_LOG_DEBUG("RAFT compiled without CUDA support, assuming pointer is host pointer");
