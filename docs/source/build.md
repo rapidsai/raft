@@ -250,12 +250,16 @@ RAFT's CMake has the following configurable flags available:
 | RAFT_ENABLE_CUSPARSE_DEPENDENCY | ON, OFF              | ON  | Link against cusparse library in `raft::raft`                                |
 | RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF              | ON  | Link against curand library in `raft::raft`                                  |
 | RAFT_NVTX                       | ON, OFF              | OFF | Enable NVTX Markers                                                          |
-| RAFT_COMPACT_DIAGNOSTICS         | ON, OFF              | OFF for Debug/RelWithDebInfo; otherwise ON | Capture diagnostic file and line without function signatures                  |
+| RAFT_COMPACT_DIAGNOSTICS         | ON, OFF              | Build-dependent; see below | Capture diagnostic file and line without function signatures                  |
 
-`RAFT_COMPACT_DIAGNOSTICS` initially defaults to `OFF` for `Debug` and `RelWithDebInfo` builds
-and `ON` otherwise, reducing diagnostic metadata in applications that instantiate many templates.
-Set `-DRAFT_COMPACT_DIAGNOSTICS=ON` or `OFF` to override the default for any build type.
-Existing cached values are preserved when the build type changes.
+With single-config generators, `RAFT_COMPACT_DIAGNOSTICS` initially defaults to `OFF` when
+`CMAKE_BUILD_TYPE` is `Debug` or `RelWithDebInfo`, and `ON` otherwise. Multi-config generators
+normally leave `CMAKE_BUILD_TYPE` unset, so the option defaults to `ON` for all configurations,
+including `Debug` and `RelWithDebInfo`.
+
+Set `-DRAFT_COMPACT_DIAGNOSTICS=ON` or `OFF` to override the default. This setting applies to all
+configurations in a multi-config build. Existing cached values are preserved when the build type
+changes.
 
 With compact diagnostics enabled, errors retain the original file, line, exception type,
 and reason; the diagnostic location's `function_name()` is empty and `column()` is zero. Explicit
