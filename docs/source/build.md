@@ -250,10 +250,14 @@ RAFT's CMake has the following configurable flags available:
 | RAFT_ENABLE_CUSPARSE_DEPENDENCY | ON, OFF              | ON  | Link against cusparse library in `raft::raft`                                |
 | RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF              | ON  | Link against curand library in `raft::raft`                                  |
 | RAFT_NVTX                       | ON, OFF              | OFF | Enable NVTX Markers                                                          |
-| RAFT_COMPACT_DIAGNOSTICS         | ON, OFF              | ON  | Capture diagnostic file and line without function signatures                  |
+| RAFT_COMPACT_DIAGNOSTICS         | ON, OFF              | OFF for Debug/RelWithDebInfo; otherwise ON | Capture diagnostic file and line without function signatures                  |
 
-CMake builds enable `RAFT_COMPACT_DIAGNOSTICS` by default to reduce diagnostic metadata in
-applications that instantiate many templates. Errors retain the original file, line, exception type,
+`RAFT_COMPACT_DIAGNOSTICS` initially defaults to `OFF` for `Debug` and `RelWithDebInfo` builds
+and `ON` otherwise, reducing diagnostic metadata in applications that instantiate many templates.
+Set `-DRAFT_COMPACT_DIAGNOSTICS=ON` or `OFF` to override the default for any build type.
+Existing cached values are preserved when the build type changes.
+
+With compact diagnostics enabled, errors retain the original file, line, exception type,
 and reason; the diagnostic location's `function_name()` is empty and `column()` is zero. Explicit
 `std::source_location` arguments remain accepted, but their callers may still retain function names.
 

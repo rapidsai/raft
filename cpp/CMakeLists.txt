@@ -64,7 +64,14 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
-option(RAFT_COMPACT_DIAGNOSTICS "Capture diagnostic file and line without function signatures" ON)
+set(RAFT_COMPACT_DIAGNOSTICS_DEFAULT ON)
+string(TOUPPER "${CMAKE_BUILD_TYPE}" _raft_build_type)
+if(_raft_build_type MATCHES "^(DEBUG|RELWITHDEBINFO)$")
+  set(RAFT_COMPACT_DIAGNOSTICS_DEFAULT OFF)
+endif()
+option(RAFT_COMPACT_DIAGNOSTICS "Capture diagnostic file and line without function signatures"
+       ${RAFT_COMPACT_DIAGNOSTICS_DEFAULT}
+)
 
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
 if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
