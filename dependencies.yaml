@@ -371,7 +371,7 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cublas,curand,cusolver,cusparse]==12.*
-              - nvidia-nvjitlink-cu12>=12.9,<13
+              - &nvjitlink_cu12 nvidia-nvjitlink-cu12>=12.9,<13
           # We always want nvJitLink >= whatever minor version was available in the build environment
           # nvJitLink tends to follow the CTK's minor versions, but check at https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
           - matrix:
@@ -403,7 +403,7 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.*
-              - nvidia-nvjitlink-cu12>=12.9,<13
+              - *nvjitlink_cu12
           # We always want nvJitLink >= whatever minor version was available in the build environment
           # nvJitLink tends to follow the CTK's minor versions, but check at https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
           - matrix:
@@ -411,14 +411,14 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - &cuda_toolkit_constraint_cu13 cuda-toolkit==13.*
-              - nvidia-nvjitlink>=13.3,<14
+              - *nvjitlink_cu13
           # if no matching matrix selectors passed, list the CUDA 13 requirement
           # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
               use_cuda_wheels: "true"
             packages:
               - *cuda_toolkit_constraint_cu13
-              - nvidia-nvjitlink>=13.3,<14
+              - *nvjitlink_cu13
   depends_on_cupy:
     common:
       - output_types: conda
@@ -518,6 +518,9 @@ dependencies:
         packages:
           - &dask_cuda_unsuffixed dask-cuda==26.12.*,>=0.0.0a0
           - &pylibraft_unsuffixed pylibraft==26.12.*,>=0.0.0a0
+      - output_types: constraints
+        packages:
+          - *dask_cuda_unsuffixed
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -526,13 +529,13 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - dask-cuda[cu12]==26.12.*,>=0.0.0a0
-              - pylibraft-cu12==26.12.*,>=0.0.0a0
+              - &pylibraft_cu12 pylibraft-cu12==26.12.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
               - dask-cuda[cu13]==26.12.*,>=0.0.0a0
-              - pylibraft-cu13==26.12.*,>=0.0.0a0
+              - &pylibraft_cu13 pylibraft-cu13==26.12.*,>=0.0.0a0
           - matrix:
               cuda_suffixed: "false"
             packages:
@@ -544,18 +547,15 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - dask-cuda==26.12.*,>=0.0.0a0
-              - pylibraft-cu12==26.12.*,>=0.0.0a0
+              - *pylibraft_cu12
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - dask-cuda==26.12.*,>=0.0.0a0
-              - pylibraft-cu13==26.12.*,>=0.0.0a0
+              - *pylibraft_cu13
           - matrix:
               cuda_suffixed: "false"
             packages:
-              - *dask_cuda_unsuffixed
               - *pylibraft_unsuffixed
   test_python_common:
     common:
